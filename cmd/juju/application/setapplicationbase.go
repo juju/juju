@@ -24,7 +24,7 @@ func NewSetSeriesCommand() cmd.Command {
 }
 
 // setSeriesAPI defines a subset of the application facade, as required
-// by the set-series command.
+// by the set-application-base command.
 type setSeriesAPI interface {
 	Close() error
 	UpdateApplicationSeries(string, string, bool) error
@@ -48,7 +48,7 @@ the application will also have their series set to the provided value.
 This will not change the series of any existing units, rather new units will use
 the new series when deployed.
 
-It is recommended to only do this after upgrade-series has been run for machine containing
+It is recommended to only do this after upgrade-machine has been run for machine containing
 all existing units of the application.
 
 To ensure correct binaries, run 'juju refresh' before running 'juju add-unit'.
@@ -57,19 +57,19 @@ Examples:
 
 Set the series for the ubuntu application to focal
 
-	juju set-series ubuntu focal
+	juju set-application-base ubuntu focal
 
 See also:
     status
     refresh
-    upgrade-series
+    upgrade-machine
 `
 
 func (c *setSeriesCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "set-series",
+		Name:    "set-application-base",
 		Args:    "<application> <series>",
-		Purpose: "Set an application's series.",
+		Purpose: "Set an application's base.",
 		Doc:     setSeriesDoc,
 	})
 }
@@ -126,7 +126,7 @@ func (c *setSeriesCommand) Run(ctx *cmd.Context) error {
 		if err == nil {
 			// TODO hmlanigan 2022-01-18
 			// Remove warning once improvements to develop are made, where by
-			// upgrade-series downloads the new charm. Or this command is removed.
+			// set-application-series downloads the new charm. Or this command is removed.
 			// subordinate
 			ctx.Warningf("To ensure the correct charm binaries are installed when add-unit is next called, please first run `juju refresh` for this application and any related subordinates.")
 		}

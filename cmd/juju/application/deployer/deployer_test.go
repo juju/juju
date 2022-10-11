@@ -215,8 +215,8 @@ func (s *deployerSuite) TestCharmStoreSeriesOverride(c *gc.C) {
 	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy charm: %s", ch.String()))
 
 	charmStoreDeployer := deployer.(*repositoryCharm)
-	c.Assert(charmStoreDeployer.id.Origin.OS, gc.Equals, "ubuntu")
-	c.Assert(charmStoreDeployer.id.Origin.Channel, gc.Equals, "18.04")
+	c.Assert(charmStoreDeployer.id.Origin.Base.OS, gc.Equals, "ubuntu")
+	c.Assert(charmStoreDeployer.id.Origin.Base.Channel.String(), gc.Equals, "18.04/stable")
 }
 
 func (s *deployerSuite) TestGetDeployerLocalBundle(c *gc.C) {

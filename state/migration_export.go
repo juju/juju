@@ -16,7 +16,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/v2/series"
 
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
@@ -82,15 +81,15 @@ type ExportConfig struct {
 // ExportPartial the current model for the State optionally skipping
 // aspects as defined by the ExportConfig.
 func (st *State) ExportPartial(cfg ExportConfig) (description.Model, error) {
-	return st.exportImpl(cfg)
+	return st.exportImpl(cfg, map[string]string{})
 }
 
 // Export the current model for the State.
-func (st *State) Export() (description.Model, error) {
-	return st.exportImpl(ExportConfig{})
+func (st *State) Export(leaders map[string]string) (description.Model, error) {
+	return st.exportImpl(ExportConfig{}, leaders)
 }
 
-func (st *State) exportImpl(cfg ExportConfig) (description.Model, error) {
+func (st *State) exportImpl(cfg ExportConfig, leaders map[string]string) (description.Model, error) {
 	dbModel, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -175,7 +174,7 @@ func (st *State) exportImpl(cfg ExportConfig) (description.Model, error) {
 	if err := export.machines(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := export.applications(); err != nil {
+	if err := export.applications(leaders); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if err := export.remoteApplications(); err != nil {
@@ -655,7 +654,7 @@ func (e *exporter) newCloudInstanceArgs(data instanceData) description.CloudInst
 	return inst
 }
 
-func (e *exporter) applications() error {
+func (e *exporter) applications(leaders map[string]string) error {
 	applications, err := e.st.AllApplications()
 	if err != nil {
 		return errors.Trace(err)
@@ -673,11 +672,6 @@ func (e *exporter) applications() error {
 	}
 
 	bindings, err := e.readAllEndpointBindings()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	leaders, err := e.st.ApplicationLeaders()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -709,7 +703,6 @@ func (e *exporter) applications() error {
 
 	for _, application := range applications {
 		applicationUnits := e.units[application.Name()]
-		leader := leaders[application.Name()]
 		resources, err := resourcesSt.ListResources(application.Name())
 		if err != nil {
 			return errors.Trace(err)
@@ -721,10 +714,10 @@ func (e *exporter) applications() error {
 			podSpecs:         podSpecs,
 			cloudServices:    cloudServices,
 			cloudContainers:  cloudContainers,
-			leader:           leader,
 			payloads:         payloads,
 			resources:        resources,
 			endpoingBindings: bindings,
+			leader:           leaders[application.Name()],
 		}
 
 		if appOfferMap != nil {
@@ -842,7 +835,6 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 	args := description.ApplicationArgs{
 		Tag:                  application.ApplicationTag(),
 		Type:                 e.model.Type(),
-		Series:               application.doc.Series,
 		Subordinate:          application.doc.Subordinate,
 		CharmURL:             *application.doc.CharmURL,
 		Channel:              application.doc.Channel,
@@ -1633,7 +1625,6 @@ func (e *exporter) cloudimagemetadata() error {
 			Stream:          metadata.Stream,
 			Region:          metadata.Region,
 			Version:         metadata.Version,
-			Series:          metadata.Series,
 			Arch:            metadata.Arch,
 			VirtType:        metadata.VirtType,
 			RootStorageType: metadata.RootStorageType,
@@ -2036,9 +2027,6 @@ func (e *exporter) getAnnotations(key string) map[string]string {
 func (e *exporter) getCharmOrigin(doc applicationDoc, defaultArch string) (description.CharmOriginArgs, error) {
 	// Everything should be migrated, but in the case that it's not, handle
 	// that case.
-	if doc.CharmOrigin == nil {
-		return deduceOrigin(doc.CharmURL)
-	}
 	origin := doc.CharmOrigin
 
 	// If the channel is empty, then we fall back to the Revision.
@@ -2051,32 +2039,19 @@ func (e *exporter) getCharmOrigin(doc applicationDoc, defaultArch string) (descr
 	if origin.Channel != nil {
 		channel = charm.MakePermissiveChannel(origin.Channel.Track, origin.Channel.Risk, origin.Channel.Branch)
 	}
-	var platform corecharm.Platform
-	if origin.Platform != nil {
-		// Platform is now mandatory moving forward, so we need to ensure that
-		// the architecture is set in the platform if it's not set. This
-		// shouldn't happen that often, but handles clients sending bad requests
-		// when deploying.
-		pArch := origin.Platform.Architecture
-		if pArch == "" {
-			e.logger.Debugf("using default architecture (%q) for doc[%q]", defaultArch, doc.DocID)
-			pArch = defaultArch
-		}
-		var os string
-		if origin.Platform.Series != "" {
-			sys, err := series.GetOSFromSeries(origin.Platform.Series)
-			if err != nil {
-				return description.CharmOriginArgs{}, errors.Trace(err)
-			}
-			os = strings.ToLower(sys.String())
-		}
-		// TODO(wallyworld) - we need to update description to support channel
-		// For now, the serialised string is the same regardless.
-		platform = corecharm.Platform{
-			Architecture: pArch,
-			OS:           os,
-			Channel:      origin.Platform.Series,
-		}
+	// Platform is now mandatory moving forward, so we need to ensure that
+	// the architecture is set in the platform if it's not set. This
+	// shouldn't happen that often, but handles clients sending bad requests
+	// when deploying.
+	pArch := origin.Platform.Architecture
+	if pArch == "" {
+		e.logger.Debugf("using default architecture (%q) for doc[%q]", defaultArch, doc.DocID)
+		pArch = defaultArch
+	}
+	platform := corecharm.Platform{
+		Architecture: pArch,
+		OS:           origin.Platform.OS,
+		Channel:      origin.Platform.Channel,
 	}
 
 	return description.CharmOriginArgs{
@@ -2087,28 +2062,6 @@ func (e *exporter) getCharmOrigin(doc applicationDoc, defaultArch string) (descr
 		Channel:  channel.String(),
 		Platform: platform.String(),
 	}, nil
-}
-
-func deduceOrigin(cURL *string) (description.CharmOriginArgs, error) {
-	url, err := charm.ParseURL(*cURL)
-	if err != nil {
-		return description.CharmOriginArgs{}, errors.NewNotValid(err, "charm url")
-	}
-
-	switch url.Schema {
-	case "cs":
-		return description.CharmOriginArgs{
-			Source: corecharm.CharmStore.String(),
-		}, nil
-	case "local":
-		return description.CharmOriginArgs{
-			Source: corecharm.Local.String(),
-		}, nil
-	default:
-		return description.CharmOriginArgs{
-			Source: corecharm.CharmHub.String(),
-		}, nil
-	}
 }
 
 func (e *exporter) readAllSettings() error {

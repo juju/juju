@@ -111,6 +111,10 @@ func (s *ApplicationSuite) TestSetCharmCharmOrigin(c *gc.C) {
 	origin := &state.CharmOrigin{
 		Source:   "charm-store",
 		Revision: &rev,
+		Platform: &state.Platform{
+			OS:      "ubuntu",
+			Channel: "22.04/stable",
+		},
 	}
 	cfg := state.SetCharmConfig{
 		Charm:       sch,
@@ -122,22 +126,6 @@ func (s *ApplicationSuite) TestSetCharmCharmOrigin(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	obtainedOrigin := s.mysql.CharmOrigin()
 	c.Assert(obtainedOrigin, gc.DeepEquals, origin)
-}
-
-func (s *ApplicationSuite) TestSetCharmSeries(c *gc.C) {
-	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)
-
-	cfg := state.SetCharmConfig{
-		Charm:  sch,
-		Series: "new-series",
-	}
-	err := s.mysql.SetCharm(cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.mysql.Series(), gc.DeepEquals, "new-series")
-
-	err = s.mysql.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.mysql.Series(), gc.DeepEquals, "new-series")
 }
 
 func (s *ApplicationSuite) TestSetCharmCharmOriginNoChange(c *gc.C) {
@@ -152,6 +140,7 @@ func (s *ApplicationSuite) TestSetCharmCharmOriginNoChange(c *gc.C) {
 		Charm:       sch,
 		CharmOrigin: origin,
 	}
+	origOrigin := s.mysql.CharmOrigin()
 	err := s.mysql.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	cfg = state.SetCharmConfig{
@@ -163,6 +152,7 @@ func (s *ApplicationSuite) TestSetCharmCharmOriginNoChange(c *gc.C) {
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	obtainedOrigin := s.mysql.CharmOrigin()
+	origin.Platform = origOrigin.Platform
 	c.Assert(obtainedOrigin, gc.DeepEquals, origin)
 }
 
@@ -723,6 +713,10 @@ func (s *ApplicationSuite) TestSetCharmUpdatesBindings(c *gc.C) {
 	application, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:  "yoursql",
 		Charm: oldCharm,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			OS:      "ubuntu",
+			Channel: "12.10/stable",
+		}},
 		EndpointBindings: map[string]string{
 			"":       dbSpace.Id(),
 			"server": dbSpace.Id(),
@@ -1725,7 +1719,8 @@ func (s *ApplicationSuite) setupCharmForTestUpdateApplicationSeries(c *gc.C, nam
 		Source:   "charm-store",
 		Revision: &rev,
 		Platform: &state.Platform{
-			Series: "focal",
+			OS:      "ubuntu",
+			Channel: "20.04/stable",
 		},
 	}
 	cfg := state.SetCharmConfig{
@@ -1767,8 +1762,8 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesSamesSeriesAfterStart(c *g
 				ops := []txn.Op{{
 					C:  state.ApplicationsC,
 					Id: state.DocID(s.State, "multi-series"),
-					Update: bson.D{{"$set", bson.D{{"series", "jammy"},
-						{"charm-origin.platform.series", "jammy"}}}},
+					Update: bson.D{{"$set", bson.D{{
+						"charm-origin.platform.channel", "22.04/stable"}}}},
 				}}
 				state.RunTransaction(c, s.State, ops)
 			},
@@ -1858,8 +1853,11 @@ func (s *ApplicationSuite) setupMultiSeriesUnitSubordinateGivenUnit(c *gc.C, app
 func assertApplicationSeriesUpdate(c *gc.C, a *state.Application, series string) {
 	err := a.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(a.Series(), gc.Equals, series)
-	c.Assert(a.CharmOrigin().Platform.Series, gc.Equals, series)
+	base, err := coreseries.GetBaseFromSeries(series)
+	c.Assert(err, jc.ErrorIsNil)
+	appBase, err := a.Base()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(base, jc.DeepEquals, appBase)
 }
 
 func (s *ApplicationSuite) TestUpdateApplicationSeriesWithSubordinate(c *gc.C) {
@@ -2887,7 +2885,7 @@ func (s *ApplicationSuite) TestAgentTools(c *gc.C) {
 	agentTools := version.Binary{
 		Number:  jujuversion.Current,
 		Arch:    arch.HostArch(),
-		Release: coreseries.DefaultOSTypeNameFromSeries(app.Series()),
+		Release: "ubuntu",
 	}
 
 	tools, err := app.AgentTools()
@@ -5093,7 +5091,7 @@ func (s *CAASApplicationSuite) TestDestroyStaleZeroUnitCount(c *gc.C) {
 
 func (s *CAASApplicationSuite) TestDestroyWithRemovableRelation(c *gc.C) {
 	ch := state.AddTestingCharmForSeries(c, s.caasSt, "kubernetes", "mysql")
-	mysql := state.AddTestingApplication(c, s.caasSt, "mysql", ch)
+	mysql := state.AddTestingApplicationForSeries(c, s.caasSt, "kubernetes", "mysql", ch)
 	eps, err := s.caasSt.InferEndpoints("gitlab", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.caasSt.AddRelation(eps...)
@@ -5122,14 +5120,14 @@ func (s *CAASApplicationSuite) TestDestroyWithReferencedRelationStaleCount(c *gc
 
 func (s *CAASApplicationSuite) assertDestroyWithReferencedRelation(c *gc.C, refresh bool) {
 	ch := state.AddTestingCharmForSeries(c, s.caasSt, "kubernetes", "mysql")
-	mysql := state.AddTestingApplication(c, s.caasSt, "mysql", ch)
+	mysql := state.AddTestingApplicationForSeries(c, s.caasSt, "kubernetes", "mysql", ch)
 	eps, err := s.caasSt.InferEndpoints("gitlab", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rel0, err := s.caasSt.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ch = state.AddTestingCharmForSeries(c, s.caasSt, "kubernetes", "proxy")
-	state.AddTestingApplication(c, s.caasSt, "proxy", ch)
+	state.AddTestingApplicationForSeries(c, s.caasSt, "kubernetes", "proxy", ch)
 	eps, err = s.caasSt.InferEndpoints("proxy", "gitlab")
 	c.Assert(err, jc.ErrorIsNil)
 	rel1, err := s.caasSt.AddRelation(eps...)
@@ -5341,23 +5339,9 @@ func (s *ApplicationSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {
 	wc := statetesting.NewStringsWatcherC(c, w)
 	wc.AssertChange() // consume initial change set.
 
-	// Add a pending charm without an origin and associate it with the
-	// application. As it is lacking an origin, it should not trigger a
-	// change.
-	dummy1 := s.dummyCharm(c, "ch:dummy-1")
-	dummy1.SHA256 = ""      // indicates that we don't have the data in the blobstore yet.
-	dummy1.StoragePath = "" // indicates that we don't have the data in the blobstore yet.
-	ch1, err := s.State.AddCharmMetadata(dummy1)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysql.SetCharm(state.SetCharmConfig{
-		Charm: ch1,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertNoChange()
-
 	// Add a pending charm with an origin and associate it with the
 	// application. This should trigger a change.
-	dummy2 := s.dummyCharm(c, "ch:dummy-2")
+	dummy2 := s.dummyCharm(c, "ch:dummy-1")
 	dummy2.SHA256 = ""      // indicates that we don't have the data in the blobstore yet.
 	dummy2.StoragePath = "" // indicates that we don't have the data in the blobstore yet.
 	ch2, err := s.State.AddCharmMetadata(dummy2)
@@ -5372,7 +5356,7 @@ func (s *ApplicationSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {
 	wc.AssertChange(s.mysql.Name())
 
 	// "Upload" a charm and check that we don't get a notification for it.
-	dummy3 := s.dummyCharm(c, "ch:dummy-3")
+	dummy3 := s.dummyCharm(c, "ch:dummy-2")
 	ch3, err := s.State.AddCharm(dummy3)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.SetCharm(state.SetCharmConfig{

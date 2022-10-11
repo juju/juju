@@ -93,7 +93,7 @@ func (s *getSuite) TestClientApplicationGetIAASModelSmokeTest(c *gc.C) {
 				"value":       false,
 			}},
 		Constraints: constraints.MustParse("arch=amd64"),
-		Base:        params.Base{Name: "ubuntu", Channel: "12.10"},
+		Base:        params.Base{Name: "ubuntu", Channel: "12.10/stable"},
 		EndpointBindings: map[string]string{
 			"":                network.AlphaSpaceName,
 			"admin-api":       network.AlphaSpaceName,
@@ -114,7 +114,10 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 	defer st.Close()
 	f := factory.NewFactory(st, s.StatePool)
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "dashboard4miner", Series: "kubernetes"})
-	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "dashboard4miner", Charm: ch})
+	app := f.MakeApplication(c, &factory.ApplicationParams{
+		Name: "dashboard4miner", Charm: ch,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"}},
+	})
 
 	schemaFields, err := caas.ConfigSchema(provider.ConfigSchema())
 	c.Assert(err, jc.ErrorIsNil)
@@ -197,7 +200,7 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 		},
 		ApplicationConfig: expectedAppConfig,
 		Constraints:       constraints.MustParse("arch=amd64"),
-		Base:              params.Base{Name: "kubernetes", Channel: "kubernetes"},
+		Base:              params.Base{Name: "ubuntu", Channel: "22.04/stable"},
 		EndpointBindings: map[string]string{
 			"":      network.AlphaSpaceName,
 			"miner": network.AlphaSpaceName,
@@ -229,6 +232,10 @@ var getTests = []struct {
 		// Use default (but there's no charm default)
 		"skill-level": nil,
 		// Outlook is left unset.
+	},
+	origin: &state.CharmOrigin{
+		Source:   "charm-hub",
+		Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"},
 	},
 	expect: params.ApplicationGetResults{
 		CharmConfig: map[string]interface{}{
@@ -266,7 +273,7 @@ var getTests = []struct {
 				"type":        "bool",
 			},
 		},
-		Base: params.Base{Name: "ubuntu", Channel: "12.10"},
+		Base: params.Base{Name: "ubuntu", Channel: "22.04/stable"},
 		EndpointBindings: map[string]string{
 			"": network.AlphaSpaceName,
 		},
@@ -284,6 +291,10 @@ var getTests = []struct {
 		"skill-level": 0,
 		// String value.
 		"outlook": "phlegmatic",
+	},
+	origin: &state.CharmOrigin{
+		Source:   "charm-hub",
+		Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"},
 	},
 	expect: params.ApplicationGetResults{
 		CharmConfig: map[string]interface{}{
@@ -328,7 +339,7 @@ var getTests = []struct {
 				"type":        "bool",
 			},
 		},
-		Base: params.Base{Name: "ubuntu", Channel: "12.10"},
+		Base: params.Base{Name: "ubuntu", Channel: "22.04/stable"},
 		EndpointBindings: map[string]string{
 			"": network.AlphaSpaceName,
 		},
@@ -336,9 +347,13 @@ var getTests = []struct {
 }, {
 	about: "subordinate application",
 	charm: "logging",
+	origin: &state.CharmOrigin{
+		Source:   "charm-hub",
+		Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"},
+	},
 	expect: params.ApplicationGetResults{
 		CharmConfig: map[string]interface{}{},
-		Base:        params.Base{Name: "ubuntu", Channel: "12.10"},
+		Base:        params.Base{Name: "ubuntu", Channel: "22.04/stable"},
 		ApplicationConfig: map[string]interface{}{
 			"trust": map[string]interface{}{
 				"value":       false,
@@ -364,10 +379,11 @@ var getTests = []struct {
 			Risk:   "stable",
 			Branch: "foo",
 		},
+		Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"},
 	},
 	expect: params.ApplicationGetResults{
 		CharmConfig: map[string]interface{}{},
-		Base:        params.Base{Name: "ubuntu", Channel: "12.10"},
+		Base:        params.Base{Name: "ubuntu", Channel: "22.04/stable"},
 		ApplicationConfig: map[string]interface{}{
 			"trust": map[string]interface{}{
 				"value":       false,

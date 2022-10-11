@@ -796,21 +796,10 @@ func waitDeviceActive(ctx context.ProviderCallContext, c *packngo.Client, id str
 
 // Helper function to get supported OS version
 func isDistroSupported(os packngo.OS, ic *instances.InstanceConstraint) bool {
-	switch os.Distro {
-	case "ubuntu":
-		series, err := series.VersionSeries(os.Version)
-		if err != nil || ic.Series != series {
-			return false
-		}
-	case "centos":
-		series, err := series.CentOSVersionSeries(os.Version)
-		if err != nil || ic.Series != series {
-			return false
-		}
-	default:
+	series, err := series.GetSeriesFromChannel(os.Distro, os.Version)
+	if err != nil || ic.Series != series {
 		return false
 	}
-
 	return true
 }
 

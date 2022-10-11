@@ -57,7 +57,7 @@ func (api *API) List(filter params.ImageMetadataFilter) (params.ListCloudImageMe
 	if len(filter.Versions) > 0 {
 		filterSeries = make([]string, len(filter.Versions))
 		for i, vers := range filter.Versions {
-			s, err := series.VersionSeries(vers)
+			s, err := series.GetSeriesFromChannel("ubuntu", vers)
 			if err != nil {
 				return params.ListCloudImageMetadataResult{}, errors.Trace(err)
 			}

@@ -68,7 +68,7 @@ func providerForModel(model Model) (provider.SecretStoreProvider, error) {
 	storeType := cfg.SecretStore()
 	if storeType == "" {
 		storeType = juju.Store
-		if model.Type() == state.ModelTypeCAAS && featureflag.Enabled(feature.SecretStores) {
+		if featureflag.Enabled(feature.DeveloperMode) && model.Type() == state.ModelTypeCAAS {
 			storeType = kubernetes.Store
 		}
 	}

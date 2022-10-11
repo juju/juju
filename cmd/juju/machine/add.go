@@ -325,8 +325,8 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 			return errors.NotValidf("machine series %q", c.Series)
 		}
 		base = &params.Base{
-			Name:    info.Name,
-			Channel: info.Channel,
+			Name:    info.OS,
+			Channel: info.Channel.String(),
 		}
 	}
 	machineParams := params.AddMachineParams{

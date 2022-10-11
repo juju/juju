@@ -50,11 +50,11 @@ func (s *NewMachineManagerSuite) SetUpTest(c *gc.C) {
 func (s *NewMachineManagerSuite) TestUpgradeSeriesValidate(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	args := params.UpdateSeriesArgs{
-		Args: []params.UpdateSeriesArg{
+	args := params.UpdateChannelArgs{
+		Args: []params.UpdateChannelArg{
 			{
-				Entity: params.Entity{Tag: names.NewMachineTag(s.tag.String()).String()},
-				Series: "xenial",
+				Entity:  params.Entity{Tag: names.NewMachineTag(s.tag.String()).String()},
+				Channel: "16.04/stable",
 			},
 		},
 	}
@@ -72,10 +72,10 @@ func (s *NewMachineManagerSuite) TestUpgradeSeriesValidate(c *gc.C) {
 func (s *NewMachineManagerSuite) TestUpgradeSeriesPrepareAlreadyInProgress(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	arg := params.UpdateSeriesArg{
-		Entity: params.Entity{Tag: s.tag.String()},
-		Series: "xenial",
-		Force:  true,
+	arg := params.UpdateChannelArg{
+		Entity:  params.Entity{Tag: s.tag.String()},
+		Channel: "16.04/stable",
+		Force:   true,
 	}
 	resultSource := params.ErrorResult{
 		Error: &params.Error{

@@ -184,7 +184,8 @@ func UnitChange(c *gc.C, modelUUID string, unit *state.Unit) cache.UnitChange {
 
 	principal, _ := unit.PrincipalName()
 
-	base, _ := series.GetBaseFromSeries(unit.Series())
+	base, err := series.ParseBase(unit.Base().OS, unit.Base().Channel)
+	c.Assert(err, jc.ErrorIsNil)
 	return cache.UnitChange{
 		ModelUUID:                modelUUID,
 		Name:                     unit.Name(),

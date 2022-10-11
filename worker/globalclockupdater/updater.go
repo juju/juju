@@ -53,29 +53,26 @@ type Timer interface {
 // updater implements globalClock.Updater by applying a clock advance operation
 // to its raft member.
 type updater struct {
-	raft               RaftApplier
-	clock              raftlease.ReadOnlyClock
-	logger             Logger
-	sleeper            Sleeper
-	timer              Timer
-	expiryNotifyTarget raftlease.NotifyTarget
+	raft    RaftApplier
+	clock   raftlease.ReadOnlyClock
+	logger  Logger
+	sleeper Sleeper
+	timer   Timer
 }
 
 func newUpdater(
 	r RaftApplier,
-	notifyTarget raftlease.NotifyTarget,
 	clock raftlease.ReadOnlyClock,
 	sleeper Sleeper,
 	timer Timer,
 	logger Logger,
 ) *updater {
 	return &updater{
-		raft:               r,
-		expiryNotifyTarget: notifyTarget,
-		clock:              clock,
-		sleeper:            sleeper,
-		timer:              timer,
-		logger:             logger,
+		raft:    r,
+		clock:   clock,
+		sleeper: sleeper,
+		timer:   timer,
+		logger:  logger,
 	}
 }
 
@@ -103,7 +100,6 @@ func (u *updater) Advance(duration time.Duration, stop <-chan struct{}) error {
 				// If the notify fails here, just ignore it and log out the
 				// error, so that the operator can at least see the issues when
 				// inspecting the controller logs.
-				u.notify(response)
 				break
 			}
 		}
@@ -149,10 +145,4 @@ func (u *updater) createCommand(oldTime, newTime time.Time) ([]byte, error) {
 	}).Marshal()
 
 	return cmd, errors.Trace(err)
-}
-
-func (u *updater) notify(response raftlease.FSMResponse) {
-	if err := response.Notify(u.expiryNotifyTarget); err != nil {
-		u.logger.Errorf("failed to notify: %v", err)
-	}
 }

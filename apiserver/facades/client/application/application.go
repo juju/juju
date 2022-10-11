@@ -9,7 +9,6 @@ import (
 	"net"
 	"reflect"
 	"strings"
-	"time"
 
 	"github.com/juju/charm/v9"
 	csparams "github.com/juju/charmrepo/v7/csclient/params"
@@ -571,10 +570,14 @@ func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL, charmStoreC
 	)
 	if origin != nil {
 		originType = origin.Type
+		base, err := series.ParseBase(origin.Base.Name, origin.Base.Channel)
+		if err != nil {
+			return corecharm.Origin{}, errors.Trace(err)
+		}
 		platform = corecharm.Platform{
 			Architecture: origin.Architecture,
-			OS:           origin.OS,
-			Channel:      origin.Channel,
+			OS:           base.OS,
+			Channel:      base.Channel.Track,
 		}
 	}
 
@@ -869,7 +872,7 @@ func (api *APIBase) setConfig(app Application, generation, settingsYAML string, 
 
 // UpdateApplicationSeries updates the application series. Series for
 // subordinates updated too.
-func (api *APIBase) UpdateApplicationSeries(args params.UpdateSeriesArgs) (params.ErrorResults, error) {
+func (api *APIBase) UpdateApplicationSeries(args params.UpdateChannelArgs) (params.ErrorResults, error) {
 	if err := api.checkCanWrite(); err != nil {
 		return params.ErrorResults{}, err
 	}
@@ -886,8 +889,24 @@ func (api *APIBase) UpdateApplicationSeries(args params.UpdateSeriesArgs) (param
 	return results, nil
 }
 
-func (api *APIBase) updateOneApplicationSeries(arg params.UpdateSeriesArg) error {
-	return api.updateSeries.UpdateSeries(arg.Entity.Tag, arg.Series, arg.Force)
+func (api *APIBase) updateOneApplicationSeries(arg params.UpdateChannelArg) error {
+	var argSeries string
+	if arg.Channel != "" {
+		appTag, err := names.ParseTag(arg.Entity.Tag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		app, err := api.backend.Application(appTag.Id())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		origin := app.CharmOrigin()
+		argSeries, err = series.GetSeriesFromChannel(origin.Platform.OS, arg.Channel)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return api.updateSeries.UpdateSeries(arg.Entity.Tag, argSeries, arg.Force)
 }
 
 // SetCharm sets the charm for a given for the application.
@@ -969,11 +988,10 @@ func (api *APIBase) setCharmWithAgentValidation(
 	if err != nil {
 		logger.Debugf("Unable to locate current charm: %v", err)
 	}
-	charmOrigin, err := convertCharmOrigin(params.CharmOrigin, curl, string(params.Channel))
+	newOrigin, err := convertCharmOrigin(params.CharmOrigin, curl, string(params.Channel))
 	if err != nil {
 		return errors.Trace(err)
 	}
-	newOrigin := StateCharmOrigin(charmOrigin)
 	if api.modelType == state.ModelTypeCAAS {
 		// We need to disallow updates that k8s does not yet support,
 		// eg changing the filesystem or device directives, or deployment info.
@@ -989,7 +1007,11 @@ func (api *APIBase) setCharmWithAgentValidation(
 		if unsupportedReason != "" {
 			return errors.NotSupportedf(unsupportedReason)
 		}
-		return api.applicationSetCharm(params, newCharm, newOrigin)
+		origin, err := StateCharmOrigin(newOrigin)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return api.applicationSetCharm(params, newCharm, origin)
 	}
 
 	// Check if the controller agent tools version is greater than the
@@ -1016,7 +1038,11 @@ func (api *APIBase) setCharmWithAgentValidation(
 		}
 	}
 
-	return api.applicationSetCharm(params, newCharm, newOrigin)
+	origin, err := StateCharmOrigin(newOrigin)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return api.applicationSetCharm(params, newCharm, origin)
 }
 
 // applicationSetCharm sets the charm for the given for the application.
@@ -1087,80 +1113,7 @@ func (api *APIBase) applicationSetCharm(
 		return errors.New("cannot downgrade from v2 charm format to v1")
 	}
 
-	// If upgrading from a pod-spec (v1) charm to sidecar (v2), override the
-	// application's series to what it would be for a fresh sidecar deploy.
-	oldSeries := params.Application.Series()
-	if oldSeries == series.Kubernetes.String() && charm.MetaFormat(newCharm) >= charm.FormatV2 && corecharm.IsKubernetes(newCharm) {
-		// Disallow upgrading from a v1 DaemonSet or Deployment type charm
-		// (only StatefulSet is supported in v2 right now).
-		deployment := oldCharm.Meta().Deployment
-		if deployment != nil && deployment.DeploymentType != charm.DeploymentStateful {
-			return errors.Errorf("cannot upgrade from v1 %s deployment to v2", deployment.DeploymentType)
-		}
-
-		modelConfig, err := api.model.ModelConfig()
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		var supported []string
-		for _, base := range newCharm.Manifest().Bases {
-			series, err := series.VersionSeries(base.Channel.Track)
-			if err != nil {
-				continue
-			}
-			supported = append(supported, series)
-		}
-
-		newSeries, err := sidecarUpgradeSeries(modelConfig, supported)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		logger.Debugf("upgrading pod-spec to sidecar charm, setting series to %q", newSeries)
-		cfg.Series = newSeries
-	}
-
 	return params.Application.SetCharm(cfg)
-}
-
-// sidecarUpgradeSeries is a cut-down version of seriesSelector.charmSeries
-// for a refresh from a pod-spec to a sidecar charm. It looks at the model's
-// default and falls back to the charm's series (no support for "--series",
-// series in charm URL, or default LTS).
-func sidecarUpgradeSeries(modelConfig *environsconfig.Config, supported []string) (string, error) {
-	supportedJuju, err := series.WorkloadSeries(time.Now(), "", modelConfig.ImageStream())
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
-	// Use model default series, if explicitly set and supported by the charm.
-	if selected, explicit := modelConfig.DefaultSeries(); explicit {
-		if _, err := corecharm.SeriesForCharm(selected, supported); err == nil {
-			// validate the series we get from the charm
-			if !supportedJuju.Contains(selected) {
-				return "", errors.NotSupportedf("series: %q", selected)
-			}
-			return selected, nil
-		}
-	}
-
-	// Fall back to the charm's list of series, filtered to what's supported
-	// by Juju. Preserve the order of the supported series from the charm
-	// metadata, as the order could be out of order compared to Ubuntu series
-	// order (precise, xenial, bionic, trusty, etc).
-	var filtered []string
-	for _, charmSeries := range supported {
-		if supportedJuju.Contains(charmSeries) {
-			filtered = append(filtered, charmSeries)
-		}
-	}
-	selected, err := corecharm.SeriesForCharm("", filtered)
-	if err == nil {
-		return selected, nil
-	}
-
-	// Otherwise it's an error
-	return "", err
 }
 
 // charmConfigFromYamlConfigValues will parse a yaml produced by juju get and
@@ -1246,13 +1199,7 @@ func makeParamsCharmOrigin(origin *state.CharmOrigin) (params.CharmOrigin, error
 	}
 	if origin.Platform != nil {
 		retOrigin.Architecture = origin.Platform.Architecture
-		retOrigin.OS = origin.Platform.OS
-		// TODO(juju3) - use channel not series in state
-		base, err := series.GetBaseFromSeries(origin.Platform.Series)
-		if err != nil {
-			return params.CharmOrigin{}, errors.Trace(err)
-		}
-		retOrigin.Channel = base.Channel
+		retOrigin.Base = params.Base{Name: origin.Platform.OS, Channel: origin.Platform.Channel}
 	}
 	return retOrigin, nil
 }

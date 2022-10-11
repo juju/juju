@@ -19,6 +19,7 @@ import (
 	jujutxn "github.com/juju/txn/v3"
 
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/storage"
@@ -1041,7 +1042,11 @@ func (sb *storageBackend) AttachStorage(storage names.StorageTag, unit names.Uni
 		if err != nil {
 			return nil, errors.Annotate(err, "getting charm")
 		}
-		ops, err := sb.attachStorageOps(si, u.UnitTag(), u.Series(), ch, u)
+		uSeries, err := series.GetSeriesFromChannel(u.Base().OS, u.Base().Channel)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops, err := sb.attachStorageOps(si, u.UnitTag(), uSeries, ch, u)
 		if errors.IsAlreadyExists(err) {
 			return nil, jujutxn.ErrNoOperations
 		}
@@ -2198,12 +2203,16 @@ func (sb *storageBackend) addUnitStorageOps(
 	}
 
 	// Create storage db operations
+	sSeries, err := series.GetSeriesFromChannel(u.Base().OS, u.Base().Channel)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
 	storageOps, storageTags, _, err := createStorageOps(
 		sb,
 		u.Tag(),
 		charmMeta,
 		map[string]StorageConstraints{storageName: cons},
-		u.Series(),
+		sSeries,
 		u,
 	)
 	if err != nil {

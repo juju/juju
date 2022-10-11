@@ -733,10 +733,10 @@ func (a *appWorker) alive(app caas.Application) error {
 
 	ch := charmInfo.Charm()
 	charmBaseImage, err := podcfg.ImageForBase(provisionInfo.ImageDetails.Repository, charm.Base{
-		Name: provisionInfo.Base.Name,
+		Name: provisionInfo.Base.OS,
 		Channel: charm.Channel{
-			Track: provisionInfo.Base.Channel,
-			Risk:  charm.Stable,
+			Track: provisionInfo.Base.Channel.Track,
+			Risk:  charm.Risk(provisionInfo.Base.Channel.Risk),
 		},
 	})
 	if err != nil {

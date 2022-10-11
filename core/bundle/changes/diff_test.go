@@ -314,7 +314,7 @@ func (s *diffSuite) TestApplicationSeries(c *gc.C) {
 			"prometheus": {
 				Name:  "prometheus",
 				Charm: "cs:prometheus-7",
-				Base:  series.Base{Name: "ubuntu", Channel: "16.04"},
+				Base:  series.MakeDefaultBase("ubuntu", "16.04"),
 				Units: []bundlechanges.Unit{
 					{Name: "prometheus/0", Machine: "0"},
 					{Name: "prometheus/1", Machine: "1"},
@@ -358,7 +358,7 @@ func (s *diffSuite) TestApplicationChannel(c *gc.C) {
 				Name:    "prometheus",
 				Charm:   "cs:prometheus-7",
 				Channel: "2.0/edge",
-				Base:    series.Base{Name: "ubuntu", Channel: "18.04"},
+				Base:    series.MakeDefaultBase("ubuntu", "18.04"),
 				Units: []bundlechanges.Unit{
 					{Name: "prometheus/0", Machine: "0"},
 					{Name: "prometheus/1", Machine: "1"},
@@ -563,7 +563,7 @@ func (s *diffSuite) TestBundleSeries(c *gc.C) {
 			"prometheus": {
 				Name:        "prometheus",
 				Charm:       "cs:focal/prometheus-7",
-				Base:        series.Base{Name: "ubuntu", Channel: "20.04"},
+				Base:        series.MakeDefaultBase("ubuntu", "20.04"),
 				Constraints: "something",
 				Units: []bundlechanges.Unit{
 					{Name: "prometheus/0", Machine: "0"},
@@ -573,7 +573,7 @@ func (s *diffSuite) TestBundleSeries(c *gc.C) {
 		Machines: map[string]*bundlechanges.Machine{
 			"0": {
 				ID:   "0",
-				Base: series.Base{Name: "ubuntu", Channel: "20.04"},
+				Base: series.MakeDefaultBase("ubuntu", "20.04"),
 			},
 		},
 	}
@@ -597,7 +597,7 @@ func (s *diffSuite) TestNoBundleSeries(c *gc.C) {
 			"prometheus": {
 				Name:        "prometheus",
 				Charm:       "cs:focal/prometheus-7",
-				Base:        series.Base{Name: "ubuntu", Channel: "20.04"},
+				Base:        series.MakeDefaultBase("ubuntu", "20.04"),
 				Constraints: "something",
 				Units: []bundlechanges.Unit{
 					{Name: "prometheus/0", Machine: "0"},
@@ -607,7 +607,7 @@ func (s *diffSuite) TestNoBundleSeries(c *gc.C) {
 		Machines: map[string]*bundlechanges.Machine{
 			"0": {
 				ID:   "0",
-				Base: series.Base{Name: "ubuntu", Channel: "20.04"},
+				Base: series.MakeDefaultBase("ubuntu", "20.04"),
 			},
 		},
 	}
@@ -999,7 +999,7 @@ func (s *diffSuite) TestMachineSeries(c *gc.C) {
 		Machines: map[string]*bundlechanges.Machine{
 			"0": {
 				ID:   "0",
-				Base: series.Base{Name: "ubuntu", Channel: "16.04"},
+				Base: series.MakeDefaultBase("ubuntu", "16.04"),
 			},
 		},
 	}

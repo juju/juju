@@ -4,10 +4,12 @@
 package charms
 
 import (
+	"github.com/juju/charm/v9"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -27,14 +29,10 @@ func (s *clientNormalizeOriginSuite) TestNormalizeCharmOriginNoAll(c *gc.C) {
 		Track:        &track,
 		Branch:       &branch,
 		Architecture: "all",
-		OS:           "all",
-		Channel:      "all",
 	}
 	obtained, err := normalizeCharmOrigin(origin, "amd64")
 	c.Assert(err, jc.ErrorIsNil)
 	origin.Architecture = "amd64"
-	origin.OS = ""
-	origin.Channel = ""
 	c.Assert(obtained, gc.DeepEquals, origin)
 }
 
@@ -46,31 +44,12 @@ func (s *clientNormalizeOriginSuite) TestNormalizeCharmOriginWithEmpty(c *gc.C) 
 		Risk:         "edge",
 		Track:        &track,
 		Architecture: "",
-		OS:           "all",
-		Channel:      "all",
+		Base:         params.Base{Channel: "all"},
 	}
 	obtained, err := normalizeCharmOrigin(origin, "amd64")
 	c.Assert(err, jc.ErrorIsNil)
 	origin.Architecture = "amd64"
-	origin.OS = ""
-	origin.Channel = ""
-	c.Assert(obtained, gc.DeepEquals, origin)
-}
-
-func (s *clientNormalizeOriginSuite) TestNormalizeCharmOriginLowerCase(c *gc.C) {
-	track := "1.0"
-	origin := params.CharmOrigin{
-		Source:       "charm-hub",
-		Type:         "charm",
-		Risk:         "edge",
-		Track:        &track,
-		Architecture: "s390",
-		OS:           "Ubuntu",
-		Channel:      "20.04",
-	}
-	obtained, err := normalizeCharmOrigin(origin, "amd64")
-	c.Assert(err, jc.ErrorIsNil)
-	origin.OS = "ubuntu"
+	origin.Base.Channel = ""
 	c.Assert(obtained, gc.DeepEquals, origin)
 }
 
@@ -81,56 +60,50 @@ type clientValidateOriginSuite struct {
 var _ = gc.Suite(&clientValidateOriginSuite{})
 
 func (s *clientValidateOriginSuite) TestValidateOrigin(c *gc.C) {
-	origin := params.CharmOrigin{
-		Source:       "charm-hub",
-		Architecture: "all",
+	origin := corecharm.Origin{
+		Source:   "charm-hub",
+		Platform: corecharm.Platform{Architecture: "all"},
 	}
-	schema := "ch"
 
-	err := validateOrigin(origin, schema, false)
+	err := validateOrigin(origin, charm.MustParseURL("ch:ubuntu"), false)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *clientValidateOriginSuite) TestValidateOriginWithEmptyArch(c *gc.C) {
-	origin := params.CharmOrigin{
-		Source:       "charm-hub",
-		Architecture: "",
+	origin := corecharm.Origin{
+		Source: "charm-hub",
 	}
-	schema := "ch"
 
-	err := validateOrigin(origin, schema, false)
+	err := validateOrigin(origin, charm.MustParseURL("ch:ubuntu"), false)
 	c.Assert(err, gc.ErrorMatches, "empty architecture not valid")
 }
 
 func (s *clientValidateOriginSuite) TestValidateOriginWithInvalidCharmStoreSource(c *gc.C) {
-	origin := params.CharmOrigin{
-		Source:       "charm-store",
-		Architecture: "all",
+	origin := corecharm.Origin{
+		Source:   "charm-store",
+		Platform: corecharm.Platform{Architecture: "all"},
 	}
-	schema := "ch"
 
-	err := validateOrigin(origin, schema, false)
+	err := validateOrigin(origin, charm.MustParseURL("ch:ubuntu"), false)
 	c.Assert(err, gc.ErrorMatches, `origin source "charm-store" with schema not valid`)
 }
 
 func (s *clientValidateOriginSuite) TestValidateOriginWithInvalidCharmHubSource(c *gc.C) {
-	origin := params.CharmOrigin{
-		Source:       "charm-hub",
-		Architecture: "all",
+	origin := corecharm.Origin{
+		Source:   "charm-hub",
+		Platform: corecharm.Platform{Architecture: "all"},
 	}
-	schema := "cs"
 
-	err := validateOrigin(origin, schema, false)
+	err := validateOrigin(origin, charm.MustParseURL("cs:ubuntu"), false)
 	c.Assert(err, gc.ErrorMatches, `origin source "charm-hub" with schema not valid`)
 }
 
 func (s *clientValidateOriginSuite) TestValidateOriginWhenSwitchingCharmsFromDifferentStores(c *gc.C) {
-	origin := params.CharmOrigin{
-		Source:       "charm-store",
-		Architecture: "all",
+	origin := corecharm.Origin{
+		Source:   "charm-store",
+		Platform: corecharm.Platform{Architecture: "all"},
 	}
-	schema := "ch"
 
-	err := validateOrigin(origin, schema, true)
+	err := validateOrigin(origin, charm.MustParseURL("ch:ubuntu"), true)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("expected validateOrigin to succeed when switching from charmstore to charmhub"))
 }

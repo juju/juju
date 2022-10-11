@@ -166,7 +166,7 @@ func (s *UpgradeSeriesSuite) TestUpgradeCommandShouldNotAcceptInvalidPrepCommand
 	invalidPrepCommand := "actuate"
 	err := s.runUpgradeSeriesCommand(c, machineArg, invalidPrepCommand, seriesArg)
 	c.Assert(err, gc.ErrorMatches,
-		".* \"actuate\" is an invalid upgrade-series command; valid commands are: prepare, complete.")
+		".* \"actuate\" is an invalid upgrade-machine command; valid commands are: prepare, complete.")
 }
 
 func (s *UpgradeSeriesSuite) TestUpgradeCommandShouldNotAcceptInvalidMachineArgs(c *gc.C) {
@@ -234,7 +234,7 @@ func (s *UpgradeSeriesSuite) TestPrepareCommandShouldAcceptYesFlagAndNotPrompt(c
 	displayedMessage := strings.Join([]string{confirmationMessage, finishedMessage}, "") + "\n"
 	out := ctx.Stderr.(*bytes.Buffer).String()
 	c.Assert(out, gc.Equals, displayedMessage)
-	c.Assert(out, jc.Contains, fmt.Sprintf("juju upgrade-series %s complete", machineArg))
+	c.Assert(out, jc.Contains, fmt.Sprintf("juju upgrade-machine %s complete", machineArg))
 }
 
 type statusExpectation struct {

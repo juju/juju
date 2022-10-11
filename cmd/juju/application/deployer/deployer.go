@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/storage"
 )
@@ -274,11 +275,17 @@ func (d *factory) maybeReadLocalBundle() (Deployer, error) {
 		return nil, errors.Trace(err)
 	}
 	db := d.newDeployBundle(d.defaultCharmSchema, ds)
+	var base series.Base
+	if platform.Channel != "" {
+		base, err = series.ParseBase(platform.OS, platform.Channel)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
 	db.origin = commoncharm.Origin{
 		Source:       commoncharm.OriginLocal,
 		Architecture: platform.Architecture,
-		OS:           platform.OS,
-		Channel:      platform.Channel,
+		Base:         base,
 	}
 	return &localBundle{deployBundle: db}, nil
 }

@@ -9,6 +9,7 @@ import (
 
 	commoncharm "github.com/juju/juju/api/common/charm"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/series"
 )
 
 type originSuite struct{}
@@ -52,9 +53,8 @@ func (originSuite) TestConvertToCoreCharmOrigin(c *gc.C) {
 		Track:        &track,
 		Risk:         "stable",
 		Branch:       nil,
-		Channel:      "20.04",
 		Architecture: "amd64",
-		OS:           "ubuntu",
+		Base:         series.MakeDefaultBase("ubuntu", "20.04"),
 	}
 
 	c.Assert(origin.CoreCharmOrigin(), gc.DeepEquals, corecharm.Origin{

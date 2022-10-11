@@ -33,22 +33,24 @@ func DeduceOrigin(url *charm.URL, channel charm.Channel, platform corecharm.Plat
 		architecture = arch.DefaultArchitecture
 	}
 
+	var origin commoncharm.Origin
+	// Legacy k8s charms - assume ubuntu focal.
+	if platform.OS == "kubernetes" || platform.Channel == "kubernetes" {
+		platform.OS = "ubuntu"
+		platform.Channel = "20.04"
+	}
 	switch url.Schema {
 	case "cs":
-		return commoncharm.Origin{
+		origin = commoncharm.Origin{
 			Source:       commoncharm.OriginCharmStore,
 			Risk:         string(channel.Risk),
 			Architecture: architecture,
-			OS:           platform.OS,
-			Channel:      platform.Channel,
-		}, nil
+		}
 	case "local":
-		return commoncharm.Origin{
+		origin = commoncharm.Origin{
 			Source:       commoncharm.OriginLocal,
 			Architecture: architecture,
-			OS:           platform.OS,
-			Channel:      platform.Channel,
-		}, nil
+		}
 	default:
 		var track *string
 		if channel.Track != "" {
@@ -62,17 +64,23 @@ func DeduceOrigin(url *charm.URL, channel charm.Channel, platform corecharm.Plat
 		if url.Revision != -1 {
 			revision = &url.Revision
 		}
-		return commoncharm.Origin{
+		origin = commoncharm.Origin{
 			Source:       commoncharm.OriginCharmHub,
 			Revision:     revision,
 			Risk:         string(channel.Risk),
 			Track:        track,
 			Branch:       branch,
 			Architecture: architecture,
-			OS:           platform.OS,
-			Channel:      platform.Channel,
-		}, nil
+		}
 	}
+	if platform.OS != "" && platform.Channel != "" {
+		base, err := coreseries.ParseBase(platform.OS, platform.Channel)
+		if err != nil {
+			return commoncharm.Origin{}, err
+		}
+		origin.Base = base
+	}
+	return origin, nil
 }
 
 // DeducePlatform attempts to create a Platform (architecture, os and series)
@@ -84,8 +92,8 @@ func DeducePlatform(cons constraints.Value, series string, modelCons constraints
 		if err != nil {
 			return corecharm.Platform{}, errors.Trace(err)
 		}
-		os = base.Name
-		channel = base.Channel
+		os = base.OS
+		channel = base.Channel.Track
 	}
 
 	return corecharm.Platform{

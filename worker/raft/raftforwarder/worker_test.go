@@ -29,7 +29,6 @@ type workerFixture struct {
 	testing.IsolationSuite
 	raft     *mockRaft
 	response *mockResponse
-	target   *fakeTarget
 	hub      *pubsub.StructuredHub
 	config   raftforwarder.Config
 }
@@ -43,7 +42,6 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 	s.raft = &mockRaft{af: &mockApplyFuture{
 		response: s.response,
 	}}
-	s.target = &fakeTarget{}
 	s.hub = centralhub.New(names.NewMachineTag("17"), centralhub.PubsubNoOpMetrics{})
 	s.config = raftforwarder.Config{
 		Hub:                  s.hub,
@@ -51,7 +49,6 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		Logger:               loggo.GetLogger("raftforwarder_test"),
 		PrometheusRegisterer: &noopRegisterer{},
 		Topic:                "raftforwarder_test",
-		Target:               s.target,
 	}
 }
 
@@ -81,9 +78,6 @@ func (s *workerValidationSuite) TestValidateErrors(c *gc.C) {
 	}, {
 		func(cfg *raftforwarder.Config) { cfg.Topic = "" },
 		"empty Topic not valid",
-	}, {
-		func(cfg *raftforwarder.Config) { cfg.Target = nil },
-		"nil Target not valid",
 	}}
 	for i, test := range tests {
 		c.Logf("test #%d (%s)", i, test.expect)
@@ -156,7 +150,6 @@ func (s *workerSuite) TestSuccess(c *gc.C) {
 	}
 
 	s.raft.CheckCall(c, 0, "Apply", []byte("myanmar"), 5*time.Second)
-	s.response.CheckCall(c, 0, "Notify", s.target)
 }
 
 func (s *workerSuite) TestApplyError(c *gc.C) {
@@ -331,13 +324,4 @@ type mockResponse struct {
 
 func (r *mockResponse) Error() error {
 	return r.NextErr()
-}
-
-func (r *mockResponse) Notify(target raftlease.NotifyTarget) error {
-	r.AddCall("Notify", target)
-	return nil
-}
-
-type fakeTarget struct {
-	raftlease.NotifyTarget
 }

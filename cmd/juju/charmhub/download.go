@@ -178,27 +178,28 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 	var base coreseries.Base
 	if c.base == "all" || c.base == "" {
 		base, _ = coreseries.GetBaseFromSeries(version.DefaultSupportedLTS())
+		base.Channel.Risk = ""
 	} else {
-		// TODO(benhoyt): update to ParseBase when develop merged
-		name, channel, ok := strings.Cut(c.base, ":")
+		osStr, channelStr, ok := strings.Cut(c.base, ":")
 		if !ok {
-			return errors.New("base must be in 'os:name' format")
+			return errors.New("base must be in 'os:track[/risk]' format")
 		}
-		base = coreseries.Base{Name: name, Channel: channel}
+		channel, err := coreseries.ParseChannel(channelStr)
+		if err != nil {
+			return errors.New("base must be in 'os:track[/risk]' format")
+		}
+		base = coreseries.Base{OS: osStr, Channel: channel}
 	}
-	platform := fmt.Sprintf("%s/%s/%s", pArch, base.Name, base.Channel)
+	platform := fmt.Sprintf("%s/%s/%s", pArch, base.OS, base.Channel.Track)
 	normBase, err := corecharm.ParsePlatformNormalize(platform)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	// Ensure we compute the base channel correctly.
-	computedNormBase := corecharm.ComputeBaseChannel(normBase)
-
 	refreshConfig, err := charmhub.InstallOneFromChannel(c.charmOrBundle, normChannel.String(), charmhub.RefreshBase{
-		Architecture: computedNormBase.Architecture,
-		Name:         computedNormBase.OS,
-		Channel:      computedNormBase.Channel,
+		Architecture: normBase.Architecture,
+		Name:         normBase.OS,
+		Channel:      normBase.Channel,
 	})
 	if err != nil {
 		return errors.Trace(err)
@@ -294,9 +295,13 @@ func (c *downloadCommand) suggested(requestedBase coreseries.Base, channel strin
 	bases := set.NewStrings()
 	for _, rel := range releases {
 		if rel.Channel == channel {
+			parsedChannel, err := coreseries.ParseChannel(rel.Base.Channel)
+			if err != nil {
+				continue
+			}
 			base := coreseries.Base{
-				Name:    rel.Base.Name,
-				Channel: rel.Base.Channel,
+				OS:      rel.Base.Name,
+				Channel: parsedChannel,
 			}
 			bases.Add(base.String())
 		}

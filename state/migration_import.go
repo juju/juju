@@ -22,7 +22,6 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/container"
@@ -1294,7 +1293,7 @@ func (i *importer) importUnitPayloads(unit *Unit, payloadInfo []description.Payl
 func (i *importer) makeApplicationDoc(a description.Application) (*applicationDoc, error) {
 	units := a.Units()
 
-	origin, err := i.makeCharmOrigin(a, units)
+	origin, err := i.makeCharmOrigin(a)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1317,12 +1316,11 @@ func (i *importer) makeApplicationDoc(a description.Application) (*applicationDo
 	cURL := a.CharmURL()
 	return &applicationDoc{
 		Name:                 a.Name(),
-		Series:               a.Series(),
 		Subordinate:          a.Subordinate(),
 		CharmURL:             &cURL,
 		Channel:              a.Channel(),
 		CharmModifiedVersion: a.CharmModifiedVersion(),
-		CharmOrigin:          origin,
+		CharmOrigin:          *origin,
 		ForceCharm:           a.ForceCharm(),
 		PasswordHash:         a.PasswordHash(),
 		Life:                 Alive,
@@ -1374,16 +1372,13 @@ func (i *importer) loadInstanceHardwareFromUnits(units []description.Unit) ([]in
 	return hwChars, nil
 }
 
-func (i *importer) makeCharmOrigin(a description.Application, units []description.Unit) (*CharmOrigin, error) {
+func (i *importer) makeCharmOrigin(a description.Application) (*CharmOrigin, error) {
 	curl, err := charm.ParseURL(a.CharmURL())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	co := a.CharmOrigin()
-	if co == nil {
-		return i.deduceCharmOrigin(a, curl, units)
-	}
 	rev := co.Revision()
 
 	var channel *Channel
@@ -1406,33 +1401,14 @@ func (i *importer) makeCharmOrigin(a description.Application, units []descriptio
 		_, channel = getApplicationSourceChannel(a, curl)
 	}
 
-	var platform *Platform
-	if serialized := co.Platform(); serialized != "" {
-		p, err := corecharm.ParsePlatformNormalize(serialized)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		// Fix the case where `juju set-series` was called before the change to
-		// set the series in the origin's platform as well.
-		// Assumes that UpdateApplicationSeries will not change operating systems.
-		// TODO(wallyworld) - we need to update description to support channel
-		// For now, handle both channel and series here.
-		series, err := coreseries.GetSeriesFromBase(coreseries.Base{Name: p.OS, Channel: p.Channel})
-		if err != nil {
-			series = p.Channel
-		}
-		if series != a.Series() {
-			series = a.Series()
-		}
-		platform = &Platform{
-			Architecture: p.Architecture,
-			OS:           p.OS,
-			Series:       series,
-		}
-	} else {
-		// Attempt to fallback to the application charm URL and then the
-		// application constraints.
-		platform = i.getApplicationPlatform(a, curl, units)
+	p, err := corecharm.ParsePlatformNormalize(co.Platform())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	platform := &Platform{
+		Architecture: p.Architecture,
+		OS:           p.OS,
+		Channel:      p.Channel,
 	}
 
 	// We can hardcode type to charm as we never store bundles in state.
@@ -1444,29 +1420,6 @@ func (i *importer) makeCharmOrigin(a description.Application, units []descriptio
 		Revision: &rev,
 		Channel:  channel,
 		Platform: platform,
-	}, nil
-}
-
-func (i *importer) deduceCharmOrigin(a description.Application, url *charm.URL, units []description.Unit) (*CharmOrigin, error) {
-	if url == nil {
-		return &CharmOrigin{}, errors.NotValidf("charm url")
-	}
-
-	var t string
-	switch url.Series {
-	case "bundle":
-		t = "bundle"
-	default:
-		t = "charm"
-	}
-
-	source, channel := getApplicationSourceChannel(a, url)
-	return &CharmOrigin{
-		Type:     t,
-		Source:   source.String(),
-		Revision: &url.Revision,
-		Channel:  channel,
-		Platform: i.getApplicationPlatform(a, url, units),
 	}, nil
 }
 
@@ -1505,64 +1458,6 @@ func getApplicationSourceChannel(a description.Application, url *charm.URL) (cor
 		Risk:   string(norm.Risk),
 		Branch: norm.Branch,
 	}
-}
-
-// Attempt to locate the architecture, if it's found in the URL then use
-// that, otherwise fallback to the arch constraint.
-func (i *importer) getApplicationPlatform(a description.Application, url *charm.URL, units []description.Unit) *Platform {
-	var platform *Platform
-	if url != nil && url.Architecture != "" {
-		platform = &Platform{
-			Architecture: url.Architecture,
-			Series:       url.Series,
-		}
-	} else if arc := getApplicationArchConstraint(a); arc != "" {
-		platform = &Platform{
-			Architecture: arc,
-			Series:       a.Series(),
-		}
-	}
-
-	if platform == nil || platform.Architecture == "" {
-		// If we can't find an instance hardware based on the units, then just
-		// return the platform.
-		hardwareCharacteristics, err := i.loadInstanceHardwareFromUnits(units)
-		if err != nil {
-			return platform
-		}
-
-		// Attempting to find the right architecture is quite difficult,
-		// especially if we're in a heterogenous deployment. In that case we'll
-		// most likely guess wrong, so we now use the fact that just select
-		// the first available as that's what they most probably started with.
-		var arch string
-		for _, hw := range hardwareCharacteristics {
-			if hw.Arch == nil {
-				continue
-			}
-			arch = *hw.Arch
-			continue
-		}
-
-		if platform == nil {
-			platform = &Platform{}
-		}
-		platform.Architecture = arch
-		platform.Series = a.Series()
-	}
-
-	return platform
-}
-
-func getApplicationArchConstraint(a description.Application) string {
-	cons := a.Constraints()
-	if cons == nil {
-		return ""
-	}
-	if arch := cons.Architecture(); arch != "" {
-		return arch
-	}
-	return arch.DefaultArchitecture
 }
 
 func (i *importer) relationCount(application string) int {
@@ -1624,10 +1519,14 @@ func (i *importer) makeUnitDoc(s description.Application, u description.Unit) (*
 		return nil, errors.Trace(err)
 	}
 
+	p, err := corecharm.ParsePlatformNormalize(s.CharmOrigin().Platform())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return &unitDoc{
 		Name:                   u.Name(),
 		Application:            s.Name(),
-		Series:                 s.Series(),
+		Base:                   Base{OS: p.OS, Channel: p.Channel},
 		CharmURL:               &charmURL,
 		Principal:              u.Principal().Id(),
 		Subordinates:           subordinates,
@@ -2162,13 +2061,15 @@ func (i *importer) cloudimagemetadata() error {
 		if rootStorageSize, ok := image.RootStorageSize(); ok {
 			rootStoragePtr = &rootStorageSize
 		}
+		// We only cache ubuntu image metdata in state.
+		mSeries, _ := coreseries.GetSeriesFromChannel("ubuntu", image.Version())
 		metadatas = append(metadatas, cloudimagemetadata.Metadata{
 			MetadataAttributes: cloudimagemetadata.MetadataAttributes{
 				Source:          image.Source(),
 				Stream:          image.Stream(),
 				Region:          image.Region(),
 				Version:         image.Version(),
-				Series:          image.Series(),
+				Series:          mSeries,
 				Arch:            image.Arch(),
 				RootStorageType: image.RootStorageType(),
 				RootStorageSize: rootStoragePtr,

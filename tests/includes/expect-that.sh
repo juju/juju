@@ -16,8 +16,8 @@ expect_that() {
 	timeout=${3:-10} # default timeout: 10s
 
 	cat >"${TEST_DIR}/${filename}.exp" <<EOF
-#!/usr/bin/expect
-proc abort { } { send_user \"\rTimeout Error!\" ; exit 2 }
+#!/usr/bin/expect -f
+proc abort { } { puts "Fail" }
 expect_before timeout abort
 
 set timeout ${timeout}
@@ -25,8 +25,9 @@ spawn ${command}
 match_max 100000
 
 ${expect_script}
-
-expect eof
 EOF
-	expect "${TEST_DIR}/${filename}.exp" | check "spawn ${command}"
+
+	chmod 777 "${TEST_DIR}/${filename}.exp"
+	expect "${TEST_DIR}/${filename}.exp"
+
 }

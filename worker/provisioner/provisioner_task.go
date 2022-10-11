@@ -771,7 +771,7 @@ func (task *provisionerTask) constructInstanceConfig(
 	}
 
 	nonce := fmt.Sprintf("%s:%s", task.hostTag, uuid)
-	mSeries, err := series.GetSeriesFromBase(series.Base{Name: pInfo.Base.Name, Channel: pInfo.Base.Channel})
+	mSeries, err := series.GetSeriesFromChannel(pInfo.Base.Name, pInfo.Base.Channel)
 	if err != nil {
 		return nil, errors.Annotatef(err, "converting machine base %q to series", pInfo.Base)
 	}
@@ -1485,7 +1485,7 @@ func (task *provisionerTask) setupToStartMachine(machine apiprovisioner.MachineP
 		agentArch = *pInfo.Constraints.Arch
 	}
 
-	mSeries, err := series.GetSeriesFromBase(series.Base{Name: pInfo.Base.Name, Channel: pInfo.Base.Channel})
+	mSeries, err := series.GetSeriesFromChannel(pInfo.Base.Name, pInfo.Base.Channel)
 	if err != nil {
 		return environs.StartInstanceParams{}, errors.Annotatef(err, "converting machine base %q to series", pInfo.Base)
 	}

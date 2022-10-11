@@ -5,6 +5,7 @@ package charm
 
 import (
 	"github.com/juju/charm/v9"
+	"github.com/juju/errors"
 
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/series"
@@ -47,10 +48,8 @@ type Origin struct {
 	Branch *string
 	// Architecture describes the architecture intended to be used by the charm.
 	Architecture string
-	// OS describes the OS intended to be used by the charm.
-	OS string
-	// Channel describes the channel (version) of the OS intended to be used by the charm.
-	Channel string
+	// Base describes the OS base intended to be used by the charm.
+	Base series.Base
 
 	// InstanceKey is a unique string associated with the application. To
 	// assist with keeping KPI data in charmhub, it must be the same for every
@@ -63,12 +62,8 @@ type Origin struct {
 // TODO(juju3) - remove, replace with os/channel
 func (o Origin) WithSeries(aseries string) Origin {
 	other := o
-	other.Channel = ""
-	other.OS = ""
 	if aseries != "" {
-		base, _ := series.GetBaseFromSeries(aseries)
-		other.OS = base.Name
-		other.Channel = base.Channel
+		other.Base, _ = series.GetBaseFromSeries(aseries)
 	}
 	return other
 }
@@ -103,8 +98,7 @@ func (o Origin) ParamsCharmOrigin() params.CharmOrigin {
 		Track:        o.Track,
 		Branch:       o.Branch,
 		Architecture: o.Architecture,
-		OS:           o.OS,
-		Channel:      o.Channel,
+		Base:         params.Base{Name: o.Base.OS, Channel: o.Base.Channel.String()},
 		InstanceKey:  o.InstanceKey,
 	}
 }
@@ -136,8 +130,8 @@ func (o Origin) CoreCharmOrigin() corecharm.Origin {
 		Channel:  channel,
 		Platform: corecharm.Platform{
 			Architecture: o.Architecture,
-			OS:           o.OS,
-			Channel:      o.Channel,
+			OS:           o.Base.OS,
+			Channel:      o.Base.Channel.Track,
 		},
 		InstanceKey: o.InstanceKey,
 	}
@@ -145,7 +139,11 @@ func (o Origin) CoreCharmOrigin() corecharm.Origin {
 
 // APICharmOrigin is a helper function to convert params.CharmOrigin
 // to an Origin.
-func APICharmOrigin(origin params.CharmOrigin) Origin {
+func APICharmOrigin(origin params.CharmOrigin) (Origin, error) {
+	base, err := series.ParseBase(origin.Base.Name, origin.Base.Channel)
+	if err != nil {
+		return Origin{}, errors.Trace(err)
+	}
 	return Origin{
 		Source:       OriginSource(origin.Source),
 		Type:         origin.Type,
@@ -156,15 +154,14 @@ func APICharmOrigin(origin params.CharmOrigin) Origin {
 		Track:        origin.Track,
 		Branch:       origin.Branch,
 		Architecture: origin.Architecture,
-		OS:           origin.OS,
-		Channel:      origin.Channel,
+		Base:         base,
 		InstanceKey:  origin.InstanceKey,
-	}
+	}, nil
 }
 
 // CoreCharmOrigin is a helper function to convert params.CharmOrigin
 // to an Origin.
-func CoreCharmOrigin(origin corecharm.Origin) Origin {
+func CoreCharmOrigin(origin corecharm.Origin) (Origin, error) {
 	var ch charm.Channel
 	if origin.Channel != nil {
 		ch = *origin.Channel
@@ -177,6 +174,10 @@ func CoreCharmOrigin(origin corecharm.Origin) Origin {
 	if ch.Branch != "" {
 		branch = &ch.Branch
 	}
+	chBase, err := series.ParseBase(origin.Platform.OS, origin.Platform.Channel)
+	if err != nil {
+		return Origin{}, errors.Trace(err)
+	}
 	return Origin{
 		Source:       OriginSource(origin.Source),
 		Type:         origin.Type,
@@ -187,8 +188,7 @@ func CoreCharmOrigin(origin corecharm.Origin) Origin {
 		Track:        track,
 		Branch:       branch,
 		Architecture: origin.Platform.Architecture,
-		OS:           origin.Platform.OS,
-		Channel:      origin.Platform.Channel,
+		Base:         chBase,
 		InstanceKey:  origin.InstanceKey,
-	}
+	}, nil
 }

@@ -96,9 +96,14 @@ func (c *BootstrapCommand) deployControllerCharm(st *state.State, cons constrain
 			return errors.Annotate(err, "deploying charmhub controller charm")
 		}
 	}
+	// Always for the controller charm to use the same base as the controller.
+	// This avoids the situation where we cannot deploy a slightly stale
+	// controller charm onto a newer machine at bootstrap.
+	origin.Platform.OS = base.OS
+	origin.Platform.Channel = base.Channel.String()
 
 	// Once the charm is added, set up the controller application.
-	if controllerUnit, err = addControllerApplication(st, curl, *origin, controllerAddress, series); err != nil {
+	if controllerUnit, err = addControllerApplication(st, curl, *origin, controllerAddress); err != nil {
 		return errors.Annotate(err, "cannot add controller application")
 	}
 
@@ -165,8 +170,8 @@ func populateStoreControllerCharm(st *state.State, charmPath, charmRisk, arch st
 		Channel: &channel,
 		Platform: corecharm.Platform{
 			Architecture: arch,
-			OS:           base.Name,
-			Channel:      base.Channel,
+			OS:           base.OS,
+			Channel:      base.Channel.Track,
 		},
 	}
 
@@ -240,8 +245,8 @@ func populateLocalControllerCharm(st *state.State, dataDir, arch string, base co
 		Type:   "charm",
 		Platform: corecharm.Platform{
 			Architecture: arch,
-			OS:           base.Name,
-			Channel:      base.Channel,
+			OS:           base.OS,
+			Channel:      base.Channel.String(),
 		},
 	}
 	return curl, &origin, nil
@@ -285,7 +290,7 @@ func addLocalControllerCharm(st *state.State, base coreseries.Base, charmFileNam
 }
 
 // addControllerApplication deploys and configures the controller application.
-func addControllerApplication(st *state.State, curl *charm.URL, origin corecharm.Origin, address, series string) (*state.Unit, error) {
+func addControllerApplication(st *state.State, curl *charm.URL, origin corecharm.Origin, address string) (*state.Unit, error) {
 	ch, err := st.Charm(curl)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -318,11 +323,15 @@ func addControllerApplication(st *state.State, curl *charm.URL, origin corecharm
 		return nil, errors.Trace(err)
 	}
 
+	stateOrigin, err := application.StateCharmOrigin(origin)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	logger.Criticalf("ADD APP WITH PLATFORM: %+v", *stateOrigin.Platform)
 	app, err := st.AddApplication(state.AddApplicationArgs{
 		Name:              bootstrap.ControllerApplicationName,
-		Series:            series,
 		Charm:             ch,
-		CharmOrigin:       application.StateCharmOrigin(origin),
+		CharmOrigin:       stateOrigin,
 		CharmConfig:       cfg,
 		ApplicationConfig: appCfg,
 		NumUnits:          1,

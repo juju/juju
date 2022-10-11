@@ -111,7 +111,7 @@ func (s *ImageMetadataSuite) getTestMachinesTags(c *gc.C) params.Entities {
 func (s *ImageMetadataSuite) convertCloudImageMetadata(c *gc.C, all []params.CloudImageMetadata) []cloudimagemetadata.Metadata {
 	expected := make([]cloudimagemetadata.Metadata, len(all))
 	for i, one := range all {
-		mSeries, err := series.VersionSeries(one.Version)
+		mSeries, err := series.GetSeriesFromChannel("ubuntu", one.Version)
 		c.Assert(err, jc.ErrorIsNil)
 		expected[i] = cloudimagemetadata.Metadata{
 			cloudimagemetadata.MetadataAttributes{

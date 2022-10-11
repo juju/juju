@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/state"
@@ -100,27 +99,14 @@ func DeployApplication(st ApplicationDeployer, model Model, args DeployApplicati
 	// TODO(fwereade): transactional State.AddApplication including settings, constraints
 	// (minimumUnitCount, initialMachineIds?).
 
-	// TODO(juju3) - remove
-	// We still store series in state for now.
-	// Legacy k8s charms from kubernetes bundles need special handling.
-	var series string
-	if args.CharmOrigin.Platform.Channel != "kubernetes" {
-		series, err = coreseries.GetSeriesFromBase(coreseries.Base{
-			Name:    args.CharmOrigin.Platform.OS,
-			Channel: args.CharmOrigin.Platform.Channel,
-		})
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	} else {
-		series = "kubernetes"
+	origin, err := StateCharmOrigin(args.CharmOrigin)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-
 	asa := state.AddApplicationArgs{
 		Name:              args.ApplicationName,
-		Series:            series,
 		Charm:             args.Charm,
-		CharmOrigin:       StateCharmOrigin(args.CharmOrigin),
+		CharmOrigin:       origin,
 		Channel:           args.Channel,
 		Storage:           stateStorageConstraints(args.Storage),
 		Devices:           stateDeviceConstraints(args.Devices),
@@ -204,7 +190,7 @@ func stateDeviceConstraints(cons map[string]devices.Constraints) map[string]stat
 }
 
 // StateCharmOrigin returns a state layer CharmOrigin given a core Origin.
-func StateCharmOrigin(origin corecharm.Origin) *state.CharmOrigin {
+func StateCharmOrigin(origin corecharm.Origin) (*state.CharmOrigin, error) {
 	var ch *state.Channel
 	if c := origin.Channel; c != nil {
 		normalizedC := c.Normalize()
@@ -214,11 +200,7 @@ func StateCharmOrigin(origin corecharm.Origin) *state.CharmOrigin {
 			Branch: normalizedC.Branch,
 		}
 	}
-	series, _ := coreseries.GetSeriesFromBase(coreseries.Base{
-		Name:    origin.Platform.OS,
-		Channel: origin.Platform.Channel,
-	})
-	stateOrigin := &state.CharmOrigin{
+	return &state.CharmOrigin{
 		Type:     origin.Type,
 		Source:   string(origin.Source),
 		ID:       origin.ID,
@@ -228,10 +210,9 @@ func StateCharmOrigin(origin corecharm.Origin) *state.CharmOrigin {
 		Platform: &state.Platform{
 			Architecture: origin.Platform.Architecture,
 			OS:           origin.Platform.OS,
-			Series:       series,
+			Channel:      origin.Platform.Channel,
 		},
-	}
-	return stateOrigin
+	}, nil
 }
 
 func assertCharmAssumptions(assumesExprTree *assumes.ExpressionTree, model Model, ctrlCfgGetter func() (controller.Config, error)) error {

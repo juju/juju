@@ -112,11 +112,11 @@ func (c *CharmHubRepository) ResolveWithPreferredChannel(charmURL *charm.URL, ar
 	case requestedOrigin.Revision != nil && *requestedOrigin.Revision != -1:
 		if len(res.Entity.Bases) > 0 {
 			for _, v := range res.Entity.Bases {
-				resolvableBases = append(resolvableBases, corecharm.NormalisePlatformSeries(corecharm.Platform{
+				resolvableBases = append(resolvableBases, corecharm.Platform{
 					Architecture: v.Architecture,
 					OS:           v.Name,
 					Channel:      v.Channel,
-				}))
+				})
 			}
 		}
 		// Entities installed by revision do not have an effective channel in the data.
@@ -147,7 +147,7 @@ func (c *CharmHubRepository) ResolveWithPreferredChannel(charmURL *charm.URL, ar
 		WithRevision(revision)
 	// TODO(wallyworld) - does charm url still need a series?
 	if chSuggestedOrigin.Platform.Channel != "" {
-		series, err := coreseries.VersionSeries(chSuggestedOrigin.Platform.Channel)
+		series, err := coreseries.GetSeriesFromChannel(chSuggestedOrigin.Platform.OS, chSuggestedOrigin.Platform.Channel)
 		if err != nil {
 			return nil, corecharm.Origin{}, nil, errors.Trace(err)
 		}
@@ -190,7 +190,7 @@ func (c *CharmHubRepository) ResolveWithPreferredChannel(charmURL *charm.URL, ar
 	// TODO(juju3) - we should use supported channels not series
 	var series string
 	if outputOrigin.Platform.Channel != "" {
-		series, err = coreseries.VersionSeries(outputOrigin.Platform.Channel)
+		series, err = coreseries.GetSeriesFromChannel(outputOrigin.Platform.OS, outputOrigin.Platform.Channel)
 		if err != nil {
 			return nil, corecharm.Origin{}, nil, errors.Trace(err)
 		}
@@ -201,7 +201,7 @@ func (c *CharmHubRepository) ResolveWithPreferredChannel(charmURL *charm.URL, ar
 	if len(resolvableBases) > 0 {
 		supportedSeries = make([]string, len(resolvableBases))
 		for k, base := range resolvableBases {
-			series, err = coreseries.VersionSeries(base.Channel)
+			series, err = coreseries.GetSeriesFromChannel(base.OS, base.Channel)
 			if err != nil {
 				return nil, corecharm.Origin{}, nil, errors.Trace(err)
 			}
@@ -273,11 +273,8 @@ func (c *CharmHubRepository) retryResolveWithPreferredChannel(charmURL *charm.UR
 	}
 	base := bases[0]
 
-	p := origin.Platform
-	p.OS = base.OS
-	p.Channel = base.Channel
-
-	origin.Platform = corecharm.NormalisePlatformSeries(p)
+	origin.Platform.OS = base.OS
+	origin.Platform.Channel = base.Channel
 
 	if origin.Platform.Channel == "" {
 		return nil, errors.NotValidf("channel for %s", charmURL.Name)
@@ -556,11 +553,11 @@ func (c *CharmHubRepository) selectNextBases(bases []transport.Base, origin core
 		if err != nil {
 			return nil, errors.Annotate(err, "base")
 		}
-		platform := corecharm.NormalisePlatformSeries(corecharm.Platform{
+		platform := corecharm.Platform{
 			Architecture: base.Architecture,
 			OS:           base.Name,
 			Channel:      track,
-		})
+		}
 		results[k] = platform
 	}
 
@@ -679,7 +676,7 @@ func refreshConfig(charmURL *charm.URL, origin corecharm.Origin) (charmhub.Refre
 		base = charmhub.RefreshBase{
 			Architecture: origin.Platform.Architecture,
 			Name:         origin.Platform.OS,
-			Channel:      corecharm.ComputeBaseChannel(origin.Platform).Channel,
+			Channel:      origin.Platform.Channel,
 		}
 	)
 	switch method {
@@ -705,11 +702,11 @@ func refreshConfig(charmURL *charm.URL, origin corecharm.Origin) (charmhub.Refre
 func (c *CharmHubRepository) composeSuggestions(releases []transport.Release, origin corecharm.Origin) []string {
 	channelSeries := make(map[string][]string)
 	for _, release := range releases {
-		base := corecharm.NormalisePlatformSeries(corecharm.Platform{
+		base := corecharm.Platform{
 			Architecture: release.Base.Architecture,
 			OS:           release.Base.Name,
 			Channel:      release.Base.Channel,
-		})
+		}
 		arch := base.Architecture
 		if arch == "all" {
 			arch = origin.Platform.Architecture
@@ -717,23 +714,23 @@ func (c *CharmHubRepository) composeSuggestions(releases []transport.Release, or
 		if arch != origin.Platform.Architecture {
 			continue
 		}
+		var (
+			series string
+			err    error
+		)
 		track, err := corecharm.ChannelTrack(base.Channel)
 		if err != nil {
 			c.logger.Errorf("invalid base channel %v: %s", base.Channel, err)
 			continue
 		}
-		var series string
-		if track == "all" {
-			var err error
-			if series, err = coreseries.VersionSeries(origin.Platform.Channel); err != nil {
-				c.logger.Errorf("converting version to series: %s", err)
-				continue
-			}
+		if track == "all" || base.OS == "all" {
+			series, err = coreseries.GetSeriesFromChannel(origin.Platform.OS, origin.Platform.Channel)
 		} else {
-			if series, err = coreseries.VersionSeries(track); err != nil {
-				c.logger.Errorf("converting version to series: %s", err)
-				continue
-			}
+			series, err = coreseries.GetSeriesFromChannel(base.OS, base.Channel)
+		}
+		if err != nil {
+			c.logger.Errorf("converting version to series: %s", err)
+			continue
 		}
 		channelSeries[release.Channel] = append(channelSeries[release.Channel], series)
 	}
@@ -772,11 +769,11 @@ func selectReleaseByArchAndChannel(releases []transport.Release, origin corechar
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		platform := corecharm.NormalisePlatformSeries(corecharm.Platform{
+		platform := corecharm.Platform{
 			Architecture: origin.Platform.Architecture,
 			OS:           os,
 			Channel:      track,
-		})
+		}
 		if (empty || channel.String() == release.Channel) && (arch == "all" || arch == origin.Platform.Architecture) {
 			results = append(results, platform)
 		}

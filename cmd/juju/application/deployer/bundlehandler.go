@@ -709,7 +709,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 	switch {
 	case url.Series == "bundle" || resolvedOrigin.Type == "bundle":
 		return errors.Errorf("expected charm, got bundle %q %v", ch.Name, resolvedOrigin)
-	case resolvedOrigin.Channel == "":
+	case resolvedOrigin.Base.Channel.Empty():
 		modelCfg, workloadSeries, err := seriesSelectorRequirements(h.deployAPI, h.clock, url)
 		if err != nil {
 			return errors.Trace(err)
@@ -736,9 +736,8 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		resolvedOrigin.OS = base.Name
-		resolvedOrigin.Channel = base.Channel
-		logger.Tracef("Using channel %s/%s from %v to deploy %v", resolvedOrigin.OS, resolvedOrigin.Channel, supportedSeries, url)
+		resolvedOrigin.Base = base
+		logger.Tracef("Using channel %s from %v to deploy %v", resolvedOrigin.Base.String(), supportedSeries, url)
 	}
 
 	var macaroon *macaroon.Macaroon
@@ -962,8 +961,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		if err != nil {
 			return errors.Trace(err)
 		}
-		origin.OS = base.Name
-		origin.Channel = base.Channel
+		origin.Base = base
 	case charm.CharmStore.Matches(chID.URL.Schema):
 		// Figure out what series we need to deploy with. For CharmHub charms,
 		// this was determined when addcharm was called.
@@ -1161,8 +1159,8 @@ func (h *bundleHandler) addMachine(change *bundlechanges.AddMachineChange) error
 		}
 		p.Series = ""
 		base = &params.Base{
-			Name:    info.Name,
-			Channel: info.Channel,
+			Name:    info.OS,
+			Channel: info.Channel.String(),
 		}
 	}
 	machineParams := params.AddMachineParams{

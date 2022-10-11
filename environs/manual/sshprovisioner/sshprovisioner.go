@@ -246,8 +246,8 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 		return nil, errors.NotValidf("machine series %q", machineSeries)
 	}
 	base := &params.Base{
-		Name:    info.Name,
-		Channel: info.Channel,
+		Name:    info.OS,
+		Channel: info.Channel.String(),
 	}
 
 	// There will never be a corresponding "instance" that any provider

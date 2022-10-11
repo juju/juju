@@ -244,9 +244,8 @@ func (s *BootstrapSuite) TestStoreControllerCharm(c *gc.C) {
 	storeOrigin.Type = "charm"
 	repo.EXPECT().ResolveWithPreferredChannel(curl, origin, nil).Return(&storeCurl, storeOrigin, nil, nil)
 
-	origin.Platform.Channel = "22.04"
 	downloader.EXPECT().DownloadAndStore(&storeCurl, storeOrigin, nil, false).
-		DoAndReturn(func(charmURL *charm.URL, requestedOrigin corecharm.Origin, macaroons macaroon.Slice, force bool) (*charm.CharmArchive, error) {
+		DoAndReturn(func(charmURL *charm.URL, requestedOrigin corecharm.Origin, macaroons macaroon.Slice, force bool) (corecharm.Origin, error) {
 			controllerCharm := testcharms.Repo.CharmArchive(c.MkDir(), "juju-controller")
 			st, closer := s.getSystemState(c)
 			defer closer()
@@ -257,7 +256,7 @@ func (s *BootstrapSuite) TestStoreControllerCharm(c *gc.C) {
 				SHA256:      "bar", // required to flag the charm as uploaded
 			})
 			c.Assert(err, jc.ErrorIsNil)
-			return controllerCharm, nil
+			return requestedOrigin, nil
 		})
 
 	_, cmd, err := s.initBootstrapCommand(c, nil)

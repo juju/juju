@@ -347,7 +347,7 @@ func (m *backingMachine) updated(ctx *allWatcherContext) error {
 		ModelUUID:                m.ModelUUID,
 		ID:                       m.Id,
 		Life:                     life.Value(m.Life.String()),
-		Base:                     base.String(),
+		Base:                     base.DisplayString(),
 		ContainerType:            m.ContainerType,
 		IsManual:                 isManual,
 		Jobs:                     paramsJobsFromJobs(m.Jobs),
@@ -515,19 +515,15 @@ func (u *backingUnit) updateAgentVersion(info *multiwatcher.UnitInfo) {
 
 func (u *backingUnit) updated(ctx *allWatcherContext) error {
 	allWatcherLogger.Tracef(`unit "%s:%s" updated`, ctx.modelUUID, ctx.id)
-	var base series.Base
-	if u.Series != "" {
-		var err error
-		base, err = series.GetBaseFromSeries(u.Series)
-		if err != nil {
-			return errors.Annotatef(err, "converting unit series %q to base", u.Series)
-		}
+	base, err := series.ParseBase(u.Base.OS, u.Base.Channel)
+	if err != nil {
+		return errors.Trace(err)
 	}
 	info := &multiwatcher.UnitInfo{
 		ModelUUID:   u.ModelUUID,
 		Name:        u.Name,
 		Application: u.Application,
-		Base:        base.String(),
+		Base:        base.DisplayString(),
 		Life:        life.Value(u.Life.String()),
 		MachineID:   u.MachineId,
 		Principal:   u.Principal,

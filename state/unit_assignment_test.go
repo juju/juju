@@ -23,6 +23,10 @@ func (s *UnitAssignmentSuite) testAddApplicationUnitAssignment(c *gc.C) (*state.
 	charm := s.AddTestingCharm(c, "dummy")
 	app, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name: "dummy", Charm: charm, NumUnits: 2,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			OS:      "ubuntu",
+			Channel: "22.04/stable",
+		}},
 		Placement: []*instance.Placement{{s.State.ModelUUID(), "abc"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -80,8 +84,12 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementMakesContainerInNewMach
 	charm := s.AddTestingCharm(c, "dummy")
 	placement := instance.Placement{Scope: "lxd"}
 	app, err := s.State.AddApplication(state.AddApplicationArgs{
-		Name:      "dummy",
-		Charm:     charm,
+		Name:  "dummy",
+		Charm: charm,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			OS:      "ubuntu",
+			Channel: "22.04/stable",
+		}},
 		NumUnits:  1,
 		Placement: []*instance.Placement{&placement},
 	})
@@ -111,8 +119,12 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementNewMachinesHaveBindings
 	charm := s.AddTestingCharm(c, "dummy")
 	placement := instance.Placement{Scope: "lxd"}
 	app, err := s.State.AddApplication(state.AddApplicationArgs{
-		Name:      "dummy",
-		Charm:     charm,
+		Name:  "dummy",
+		Charm: charm,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			OS:      "ubuntu",
+			Channel: "22.04/stable",
+		}},
 		NumUnits:  1,
 		Placement: []*instance.Placement{&placement},
 		EndpointBindings: map[string]string{
@@ -156,8 +168,12 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementNewMachinesHaveBindings
 	charm := s.AddTestingCharm(c, "dummy")
 	placement := instance.Placement{Scope: "lxd"}
 	app, err := s.State.AddApplication(state.AddApplicationArgs{
-		Name:      "dummy",
-		Charm:     charm,
+		Name:  "dummy",
+		Charm: charm,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			OS:      "ubuntu",
+			Channel: "22.04/stable",
+		}},
 		NumUnits:  1,
 		Placement: []*instance.Placement{&placement},
 		// Same space used in both bindings and constraints to test merging.
@@ -200,8 +216,12 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementDirective(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	placement := instance.Placement{Scope: s.State.ModelUUID(), Directive: "zone=test"}
 	app, err := s.State.AddApplication(state.AddApplicationArgs{
-		Name:      "dummy",
-		Charm:     charm,
+		Name:  "dummy",
+		Charm: charm,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			OS:      "ubuntu",
+			Channel: "22.04/stable",
+		}},
 		NumUnits:  1,
 		Placement: []*instance.Placement{&placement},
 	})
@@ -226,8 +246,12 @@ func (s *UnitAssignmentSuite) TestAssignUnitCleanMachineUpgradeSeriesLockError(c
 
 	charm := s.AddTestingCharm(c, "dummy")
 	app, err := s.State.AddApplication(state.AddApplicationArgs{
-		Name:     "dummy",
-		Charm:    charm,
+		Name:  "dummy",
+		Charm: charm,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			OS:      "ubuntu",
+			Channel: "22.04/stable",
+		}},
 		NumUnits: 1,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -262,8 +286,12 @@ func (s *UnitAssignmentSuite) TestAssignUnitExtantContainerOnMachinePlacementUpg
 func (s *UnitAssignmentSuite) testPlacementUpgradeSeriesLockError(c *gc.C, placement *instance.Placement) {
 	charm := s.AddTestingCharm(c, "dummy")
 	app, err := s.State.AddApplication(state.AddApplicationArgs{
-		Name:      "dummy",
-		Charm:     charm,
+		Name:  "dummy",
+		Charm: charm,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			OS:      "ubuntu",
+			Channel: "12.10/stable",
+		}},
 		NumUnits:  1,
 		Placement: []*instance.Placement{placement},
 	})

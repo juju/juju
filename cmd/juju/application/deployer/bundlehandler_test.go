@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
@@ -367,8 +368,8 @@ func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccess(c *gc.C)
 	s.runDeploy(c, kubernetesGitlabBundle)
 
 	c.Assert(s.deployArgs, gc.HasLen, 2)
-	s.assertDeployArgs(c, gitlabCurl.String(), "gitlab", "kubernetes", "kubernetes")
-	s.assertDeployArgs(c, mariadbCurl.String(), "mariadb", "kubernetes", "kubernetes")
+	s.assertDeployArgs(c, gitlabCurl.String(), "gitlab", "ubuntu", "20.04")
+	s.assertDeployArgs(c, mariadbCurl.String(), "mariadb", "ubuntu", "20.04")
 	s.assertDeployArgsStorage(c, "mariadb", map[string]storage.Constraints{"database": {Pool: "mariadb-pv", Size: 0x14, Count: 0x1}})
 	s.assertDeployArgsConfig(c, "mariadb", map[string]interface{}{"dataset-size": "70%"})
 
@@ -457,8 +458,7 @@ func (s *BundleDeployRepositorySuite) expectK8sCharm(curl *charm.URL, rev int) *
 		// Ensure the same curl that is provided, is returned.
 		func(curl *charm.URL, origin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []string, error) {
 			curl = curl.WithRevision(rev).WithSeries("focal").WithArchitecture("amd64")
-			origin.OS = "ubuntu"
-			origin.Channel = "20.04"
+			origin.Base = coreseries.MakeDefaultBase("ubuntu", "20.04")
 			origin.Revision = &rev
 			origin.Type = "charm"
 			return curl, origin, []string{"focal"}, nil
@@ -471,7 +471,6 @@ func (s *BundleDeployRepositorySuite) expectK8sCharm(curl *charm.URL, rev int) *
 		false,
 	).DoAndReturn(
 		func(_ *charm.URL, origin commoncharm.Origin, _ bool) (commoncharm.Origin, error) {
-			origin.OS = "ubuntu"
 			return origin, nil
 		})
 
@@ -506,8 +505,7 @@ func (s *BundleDeployRepositorySuite) expectK8sCharmKub(curl *charm.URL, rev int
 		// Ensure the same curl that is provided, is returned.
 		func(curl *charm.URL, origin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []string, error) {
 			curl = curl.WithRevision(rev).WithSeries("20.04").WithArchitecture("amd64")
-			origin.OS = "ubuntu"
-			origin.Channel = "20.04"
+			origin.Base = coreseries.MakeDefaultBase("ubuntu", "20.04")
 			origin.Revision = &rev
 			origin.Type = "charm"
 			return curl, origin, []string{"kubernetes"}, nil
@@ -520,7 +518,6 @@ func (s *BundleDeployRepositorySuite) expectK8sCharmKub(curl *charm.URL, rev int
 		false,
 	).DoAndReturn(
 		func(_ *charm.URL, origin commoncharm.Origin, _ bool) (commoncharm.Origin, error) {
-			origin.OS = "ubuntu"
 			return origin, nil
 		})
 
@@ -599,8 +596,7 @@ func (s *BundleDeployRepositorySuite) expectK8sCharmByRevision(curl *charm.URL, 
 			curl = curl.WithRevision(rev)
 			curl = curl.WithSeries("focal")
 			curl = curl.WithArchitecture("amd64")
-			origin.OS = "ubuntu"
-			origin.Channel = "20.04"
+			origin.Base = coreseries.MakeDefaultBase("ubuntu", "20.04")
 			origin.Revision = &rev
 			origin.Type = "charm"
 			return curl, origin, []string{"focal"}, nil
@@ -613,7 +609,6 @@ func (s *BundleDeployRepositorySuite) expectK8sCharmByRevision(curl *charm.URL, 
 		false,
 	).DoAndReturn(
 		func(_ *charm.URL, origin commoncharm.Origin, _ bool) (commoncharm.Origin, error) {
-			origin.OS = "ubuntu"
 			return origin, nil
 		})
 
@@ -729,8 +724,8 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleDevices(c *gc.C) {
 	s.runDeployWithSpec(c, kubernetesBitcoinBundle, spec)
 
 	c.Assert(s.deployArgs, gc.HasLen, 2)
-	s.assertDeployArgs(c, dashboardCurl.String(), dashboardCurl.Name, "kubernetes", "kubernetes")
-	s.assertDeployArgs(c, bitcoinCurl.String(), bitcoinCurl.Name, "kubernetes", "kubernetes")
+	s.assertDeployArgs(c, dashboardCurl.String(), dashboardCurl.Name, "ubuntu", "20.04")
+	s.assertDeployArgs(c, bitcoinCurl.String(), bitcoinCurl.Name, "ubuntu", "20.04")
 	s.assertDeployArgsDevices(c, bitcoinCurl.Name, devConstraints)
 
 	c.Check(s.output.String(), gc.Equals, ""+
@@ -776,7 +771,7 @@ func (s *BundleDeployRepositorySuite) expectCharmstoreK8sCharm(curl *charm.URL, 
 		false,
 	).DoAndReturn(
 		func(_ *charm.URL, origin commoncharm.Origin, _ bool) (commoncharm.Origin, error) {
-			origin.OS = "kubernetes"
+			origin.Base = coreseries.MakeDefaultBase("kubernetes", "kubernetes")
 			return origin, nil
 		})
 
@@ -1280,7 +1275,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleMachineAttributes(c *gc.C)
 			Constraints:   constraints.MustParse("cores=4 mem=4G"),
 			ContainerType: instance.ContainerType(""),
 			Jobs:          []model.MachineJob{model.JobHostUnits},
-			Base:          &params.Base{Name: "ubuntu", Channel: "16.04"},
+			Base:          &params.Base{Name: "ubuntu", Channel: "16.04/stable"},
 		},
 	}
 	results := []params.AddMachinesResult{
@@ -2136,8 +2131,8 @@ func (s *BundleDeployRepositorySuite) assertDeployArgs(c *gc.C, curl, appName, o
 	arg, found := s.deployArgs[appName]
 	c.Assert(found, jc.IsTrue, gc.Commentf("Application %q not found in deploy args %s", appName))
 	c.Assert(arg.CharmID.URL.String(), gc.Equals, curl)
-	c.Assert(arg.CharmOrigin.OS, gc.Equals, os)
-	c.Assert(arg.CharmOrigin.Channel, gc.Equals, channel, gc.Commentf("%s", pretty.Sprint(arg)))
+	c.Assert(arg.CharmOrigin.Base.OS, gc.Equals, os)
+	c.Assert(arg.CharmOrigin.Base.Channel.Track, gc.Equals, channel, gc.Commentf("%s", pretty.Sprint(arg)))
 }
 
 func (s *BundleDeployRepositorySuite) assertDeployArgsStorage(c *gc.C, appName string, storage map[string]storage.Constraints) {
@@ -2505,7 +2500,7 @@ func (s *BundleDeployRepositorySuite) expectAddContainer(parent, machine, channe
 		},
 	}
 	if channel != "" {
-		args[0].Base = &params.Base{Name: "ubuntu", Channel: channel}
+		args[0].Base = &params.Base{Name: "ubuntu", Channel: channel + "/stable"}
 	}
 	results := []params.AddMachinesResult{
 		{Machine: machine},
@@ -2626,8 +2621,7 @@ func (s *BundleHandlerOriginSuite) TestConstructChannelAndOrigin(c *gc.C) {
 	c.Assert(resultChannel, gc.DeepEquals, corecharm.MustParseChannel("stable"))
 	c.Assert(resultOrigin, gc.DeepEquals, commoncharm.Origin{
 		Source:       "charm-hub",
-		OS:           "ubuntu",
-		Channel:      "20.04",
+		Base:         coreseries.MakeDefaultBase("ubuntu", "20.04"),
 		Risk:         "stable",
 		Architecture: "arm64",
 	})
@@ -2646,8 +2640,7 @@ func (s *BundleHandlerOriginSuite) TestConstructChannelAndOriginUsingArchFallbac
 	c.Assert(resultChannel, gc.DeepEquals, corecharm.MustParseChannel("stable"))
 	c.Assert(resultOrigin, gc.DeepEquals, commoncharm.Origin{
 		Source:       "charm-hub",
-		OS:           "ubuntu",
-		Channel:      "20.04",
+		Base:         coreseries.MakeDefaultBase("ubuntu", "20.04"),
 		Risk:         "stable",
 		Architecture: "amd64",
 	})
@@ -2669,8 +2662,7 @@ func (s *BundleHandlerOriginSuite) TestConstructChannelAndOriginEmptyChannel(c *
 	c.Assert(resultChannel, gc.DeepEquals, charm.Channel{})
 	c.Assert(resultOrigin, gc.DeepEquals, commoncharm.Origin{
 		Source:       "charm-hub",
-		OS:           "ubuntu",
-		Channel:      "20.04",
+		Base:         coreseries.MakeDefaultBase("ubuntu", "20.04"),
 		Architecture: "arm64",
 	})
 }
@@ -2692,7 +2684,6 @@ func (s *BundleHandlerResolverSuite) TestResolveCharmChannelAndRevision(c *gc.C)
 	}
 
 	charmURL := charm.MustParseURL("ch:ubuntu")
-	charmSeries := "focal"
 	charmChannel := "stable"
 	arch := "amd64"
 	rev := 33
@@ -2701,15 +2692,14 @@ func (s *BundleHandlerResolverSuite) TestResolveCharmChannelAndRevision(c *gc.C)
 		Source:       "charm-hub",
 		Architecture: arch,
 		Risk:         charmChannel,
-		OS:           "ubuntu",
-		Channel:      "20.04",
+		Base:         coreseries.MakeDefaultBase("ubuntu", "20.04"),
 	}
 	resolvedOrigin := origin
 	resolvedOrigin.Revision = &rev
 
 	resolver.EXPECT().ResolveCharm(charmURL, origin, false).Return(charmURL, resolvedOrigin, nil, nil)
 
-	channel, rev, err := handler.resolveCharmChannelAndRevision(charmURL.String(), charmSeries, charmChannel, arch, -1)
+	channel, rev, err := handler.resolveCharmChannelAndRevision(charmURL.String(), "focal", charmChannel, arch, -1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(channel, gc.DeepEquals, "stable")
 	c.Assert(rev, gc.Equals, rev)
@@ -2726,7 +2716,6 @@ func (s *BundleHandlerResolverSuite) TestResolveCharmChannelWithoutRevision(c *g
 	}
 
 	charmURL := charm.MustParseURL("ch:ubuntu")
-	charmSeries := "focal"
 	charmChannel := "stable"
 	arch := "amd64"
 
@@ -2734,14 +2723,13 @@ func (s *BundleHandlerResolverSuite) TestResolveCharmChannelWithoutRevision(c *g
 		Source:       "charm-hub",
 		Architecture: arch,
 		Risk:         charmChannel,
-		OS:           "ubuntu",
-		Channel:      "20.04",
+		Base:         coreseries.MakeDefaultBase("ubuntu", "20.04"),
 	}
 	resolvedOrigin := origin
 
 	resolver.EXPECT().ResolveCharm(charmURL, origin, false).Return(charmURL, resolvedOrigin, nil, nil)
 
-	channel, rev, err := handler.resolveCharmChannelAndRevision(charmURL.String(), charmSeries, charmChannel, arch, -1)
+	channel, rev, err := handler.resolveCharmChannelAndRevision(charmURL.String(), "focal", charmChannel, arch, -1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(channel, gc.DeepEquals, "stable")
 	c.Assert(rev, gc.Equals, -1)
@@ -2859,14 +2847,14 @@ func (s *BundleHandlerMakeModelSuite) expectDeployerAPIStatusWordpressBundle() {
 	status := &params.FullStatus{
 		Model: params.ModelStatusInfo{},
 		Machines: map[string]params.MachineStatus{
-			"0": {Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
-			"1": {Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
+			"0": {Base: params.Base{Name: "ubuntu", Channel: "18.04/stable"}},
+			"1": {Base: params.Base{Name: "ubuntu", Channel: "18.04/stable"}},
 		},
 		Applications: map[string]params.ApplicationStatus{
 			"mysql": {
 				Charm: "cs:mysql-42",
 				Scale: 1,
-				Base:  params.Base{Name: "ubuntu", Channel: "18.04"},
+				Base:  params.Base{Name: "ubuntu", Channel: "18.04/stable"},
 				Units: map[string]params.UnitStatus{
 					"mysql/0": {Machine: "0"},
 				},
@@ -2874,7 +2862,7 @@ func (s *BundleHandlerMakeModelSuite) expectDeployerAPIStatusWordpressBundle() {
 			"wordpress": {
 				Charm: "cs:wordpress-47",
 				Scale: 1,
-				Base:  params.Base{Name: "ubuntu", Channel: "18.04"},
+				Base:  params.Base{Name: "ubuntu", Channel: "18.04/stable"},
 				Units: map[string]params.UnitStatus{
 					"mysql/0": {Machine: "1"},
 				},

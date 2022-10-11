@@ -107,7 +107,10 @@ func (s *runSuite) TestRunMachineAndApplication(c *gc.C) {
 	s.addMachine(c)
 
 	charm := s.AddTestingCharm(c, "dummy")
-	magic, err := s.State.AddApplication(state.AddApplicationArgs{Name: "magic", Charm: charm})
+	magic, err := s.State.AddApplication(state.AddApplicationArgs{
+		Name: "magic", Charm: charm,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "20.04/stable"}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.addUnit(c, magic)
 	s.addUnit(c, magic)
@@ -155,7 +158,10 @@ func (s *runSuite) TestRunApplicationWorkload(c *gc.C) {
 	s.addMachine(c)
 
 	charm := s.AddTestingCharm(c, "dummy")
-	magic, err := s.State.AddApplication(state.AddApplicationArgs{Name: "magic", Charm: charm})
+	magic, err := s.State.AddApplication(state.AddApplicationArgs{
+		Name: "magic", Charm: charm,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "20.04/stable"}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.addUnit(c, magic)
 	s.addUnit(c, magic)

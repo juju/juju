@@ -22,6 +22,7 @@ import (
 
 	"github.com/juju/juju/api/client/resources"
 	apicharm "github.com/juju/juju/api/common/charm"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -126,7 +127,7 @@ func (s *UploadSuite) TestAddPendingResources(c *gc.C) {
 			Source:       "charm-hub",
 			ID:           "id",
 			Risk:         "stable",
-			OS:           "ubuntu",
+			Base:         params.Base{Name: "ubuntu", Channel: "22.04/stable"},
 			Architecture: "arm64",
 		},
 		Resources: []params.CharmResource{apiResult.Resources[0].CharmResource},
@@ -148,7 +149,7 @@ func (s *UploadSuite) TestAddPendingResources(c *gc.C) {
 				Source:       apicharm.OriginCharmHub,
 				ID:           "id",
 				Risk:         "stable",
-				OS:           "ubuntu",
+				Base:         series.MakeDefaultBase("ubuntu", "22.04"),
 				Architecture: "arm64",
 			},
 		},
