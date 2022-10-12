@@ -139,10 +139,16 @@ func channelSeries(platforms []corecharm.Platform) set.Strings {
 	return series
 }
 
-func channelBases(platforms []corecharm.Platform) set.Strings {
-	bases := set.NewStrings()
+func channelBases(platforms []corecharm.Platform) []Base {
+	seen := make(map[Base]bool)
+	var bases []Base
 	for _, v := range platforms {
-		bases.Add(fmt.Sprintf("%s:%s", v.OS, v.Channel))
+		base := Base{Name: v.OS, Channel: v.Channel}
+		if seen[base] {
+			continue
+		}
+		seen[base] = true
+		bases = append(bases, base)
 	}
 	return bases
 }
@@ -332,7 +338,7 @@ func filterChannels(channelMap []transport.InfoChannelMap, arch, series string) 
 			ReleasedAt: ch.ReleasedAt,
 			Size:       cm.Revision.Download.Size,
 			Arches:     channelArches(platforms).SortedValues(),
-			Bases:      channelBases(platforms).SortedValues(),
+			Bases:      channelBases(platforms),
 		}
 
 		if _, ok := channels[ch.Track]; !ok {

@@ -361,7 +361,10 @@ func getCharmInfoResponse() InfoResponse {
 					Size:       12042240,
 					Version:    "1.0.3",
 					Arches:     []string{"amd64"},
-					Bases:      []string{"ubuntu:22.04", "ubuntu:20.04"},
+					Bases: []Base{
+						{Name: "ubuntu", Channel: "22.04"},
+						{Name: "ubuntu", Channel: "20.04"},
+					},
 				}, {
 					ReleasedAt: "2018-12-16T19:44:44.076943+00:00",
 					Track:      "latest",
@@ -370,7 +373,9 @@ func getCharmInfoResponse() InfoResponse {
 					Size:       12042240,
 					Version:    "1.0.3",
 					Arches:     []string{"arm64"},
-					Bases:      []string{"ubuntu:22.04"},
+					Bases: []Base{
+						{Name: "ubuntu", Channel: "22.04"},
+					},
 				}},
 				"beta": {{
 					ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
@@ -380,7 +385,9 @@ func getCharmInfoResponse() InfoResponse {
 					Size:       12042240,
 					Version:    "1.0.3",
 					Arches:     []string{"amd64"},
-					Bases:      []string{"ubuntu:22.04"},
+					Bases: []Base{
+						{Name: "ubuntu", Channel: "22.04"},
+					},
 				}},
 				"candidate": {{
 					ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
@@ -390,7 +397,9 @@ func getCharmInfoResponse() InfoResponse {
 					Size:       12042240,
 					Version:    "1.0.3",
 					Arches:     []string{"amd64"},
-					Bases:      []string{"ubuntu:22.04"},
+					Bases: []Base{
+						{Name: "ubuntu", Channel: "22.04"},
+					},
 				}},
 				"edge": {{
 					ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
@@ -400,7 +409,9 @@ func getCharmInfoResponse() InfoResponse {
 					Size:       12042240,
 					Version:    "1.0.3",
 					Arches:     []string{"amd64"},
-					Bases:      []string{"coolos:3.14"},
+					Bases: []Base{
+						{Name: "coolos", Channel: "3.14"},
+					},
 				}},
 			}},
 		Tracks: []string{"latest"},

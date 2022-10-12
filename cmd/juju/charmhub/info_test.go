@@ -170,8 +170,14 @@ func (s *infoSuite) TestRunJSON(c *gc.C) {
             "amd64"
           ],
           "bases": [
-            "ubuntu:16.04",
-            "ubuntu:18.04"
+            {
+              "name": "ubuntu",
+              "channel": "18.04"
+            },
+            {
+              "name": "ubuntu",
+              "channel": "16.04"
+            }
           ]
         }
       ]
@@ -290,8 +296,14 @@ func (s *infoSuite) TestRunJSONSpecifySeriesNotDefault(c *gc.C) {
             "amd64"
           ],
           "bases": [
-            "ubuntu:16.04",
-            "ubuntu:18.04"
+            {
+              "name": "ubuntu",
+              "channel": "18.04"
+            },
+            {
+              "name": "ubuntu",
+              "channel": "16.04"
+            }
           ]
         }
       ]
@@ -403,8 +415,14 @@ func (s *infoSuite) TestRunJSONSpecifyArch(c *gc.C) {
             "amd64"
           ],
           "bases": [
-            "ubuntu:16.04",
-            "ubuntu:18.04"
+            {
+              "name": "ubuntu",
+              "channel": "18.04"
+            },
+            {
+              "name": "ubuntu",
+              "channel": "16.04"
+            }
           ]
         }
       ]
@@ -586,8 +604,10 @@ channels:
       architectures:
       - amd64
       bases:
-      - ubuntu:16.04
-      - ubuntu:18.04
+      - name: ubuntu
+        channel: "18.04"
+      - name: ubuntu
+        channel: "16.04"
 tracks:
 - latest
 `[1:])

@@ -43,7 +43,7 @@ type FindResponse struct {
 	Version   string   `json:"version" yaml:"version"`
 	Arches    []string `json:"architectures,omitempty" yaml:"architectures,omitempty"`
 	OS        []string `json:"os,omitempty" yaml:"os,omitempty"`
-	Series    []string `json:"series,omitempty" yaml:"series,omitempty"`
+	Series    []string `json:"series,omitempty" yaml:"series,omitempty"` // TODO(benhoyt): change this to "Supports []Base"
 	StoreURL  string   `json:"store-url" yaml:"store-url"`
 }
 
@@ -55,7 +55,12 @@ type Revision struct {
 	ReleasedAt string   `json:"released-at" yaml:"released-at"`
 	Size       int      `json:"size" yaml:"size"`
 	Arches     []string `json:"architectures" yaml:"architectures"`
-	Bases      []string `json:"bases" yaml:"bases"`
+	Bases      []Base   `json:"bases" yaml:"bases"`
+}
+
+type Base struct {
+	Name    string `json:"name" yaml:"name"`
+	Channel string `json:"channel" yaml:"channel"`
 }
 
 // Charm matches a params.CharmHubCharm
