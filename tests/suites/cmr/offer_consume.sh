@@ -43,7 +43,7 @@ run_offer_consume() {
 	echo "Relate workload in consume model with offer"
 	juju consume "${BOOTSTRAPPED_JUJU_CTRL_NAME}:admin/model-offer.dummy-offer"
 	juju relate dummy-sink dummy-offer
-	# wait for relation joined before migrate.
+	# wait for relation joined.
 	wait_for "dummy-offer" '.applications["dummy-sink"] | .relations.source[0]'
 
 	echo "Provide config for offered workload and change the status of consumed offer"
@@ -56,6 +56,8 @@ run_offer_consume() {
 
 	echo "Remove offer"
 	juju remove-relation dummy-sink dummy-offer
+	# wait for relation removed.
+	wait_for null '.applications["dummy-sink"] | .relations.source[0]'
 	# The offer must be removed before model/controller destruction will work.
 	# See discussion under https://bugs.launchpad.net/juju/+bug/1830292.
 	juju switch "model-offer"
@@ -100,7 +102,7 @@ run_offer_consume_cross_controller() {
 	echo "Relate workload in consume controller with offer"
 	juju consume "${offer_controller}:admin/model-offer.dummy-source"
 	juju relate dummy-sink dummy-source
-	# wait for relation joined before migrate.
+	# wait for relation joined.
 	wait_for "dummy-source" '.applications["dummy-sink"] | .relations.source[0]'
 
 	echo "Provide config if offered workload and change the status of consumed offer"
@@ -113,6 +115,8 @@ run_offer_consume_cross_controller() {
 
 	echo "Remove offer"
 	juju remove-relation dummy-sink dummy-source
+	# wait for relation removed.
+	wait_for null '.applications["dummy-sink"] | .relations.source[0]'
 	# The offer must be removed before model/controller destruction will work.
 	# See discussion under https://bugs.launchpad.net/juju/+bug/1830292.
 	juju switch "${offer_controller}:model-offer"
