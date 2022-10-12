@@ -55,7 +55,7 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	})
 }
 
-func (Suite) TestNewSignedImagesSource(c *gc.C) {
+func (*Suite) TestNewSignedImagesSource(c *gc.C) {
 	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
 	got := DefaultSource(ss)()
 	c.Check(got.Description(), jc.DeepEquals, "ubuntu cloud images")
@@ -66,7 +66,7 @@ func (Suite) TestNewSignedImagesSource(c *gc.C) {
 	c.Assert(gotURL, jc.DeepEquals, "http://cloud-images.ubuntu.com/releases/")
 }
 
-func (Suite) TestFetchManyDefaultFilter(c *gc.C) {
+func (*Suite) TestFetchManyDefaultFilter(c *gc.C) {
 	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()
@@ -93,7 +93,7 @@ func (Suite) TestFetchManyDefaultFilter(c *gc.C) {
 	}
 }
 
-func (Suite) TestFetchManyDefaultFilterAndCustomImageDownloadURL(c *gc.C) {
+func (*Suite) TestFetchManyDefaultFilterAndCustomImageDownloadURL(c *gc.C) {
 	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()
@@ -123,38 +123,37 @@ func (Suite) TestFetchManyDefaultFilterAndCustomImageDownloadURL(c *gc.C) {
 	}
 }
 
-func (Suite) TestFetchSingleDefaultFilter(c *gc.C) {
+func (*Suite) TestFetchSingleDefaultFilter(c *gc.C) {
 	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()
 	tds := []simplestreams.DataSource{
 		newTestDataSource(ss, ts.URL)}
 	constraints := &imagemetadata.ImageConstraint{
-		simplestreams.LookupParams{
+		LookupParams: simplestreams.LookupParams{
 			Arches:   []string{"ppc64el"},
-			Releases: []string{"trusty"},
+			Releases: []string{"jammy"},
 		}}
 	got, resolveInfo, err := Fetch(ss, tds, constraints, nil)
 	c.Check(resolveInfo.Signed, jc.IsTrue)
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(len(got), jc.DeepEquals, 6)
+	c.Assert(len(got), jc.DeepEquals, 8)
 	c.Check(got[0].Arch, jc.DeepEquals, "ppc64el")
 	c.Check(err, jc.ErrorIsNil)
 	for _, v := range got {
-		gotURL, err := v.DownloadURL(ts.URL)
+		_, err := v.DownloadURL(ts.URL)
 		c.Check(err, jc.ErrorIsNil)
-		c.Check(strings.HasSuffix(gotURL.String(), v.FType), jc.IsTrue)
 	}
 }
 
-func (Suite) TestFetchOneWithFilter(c *gc.C) {
+func (*Suite) TestFetchOneWithFilter(c *gc.C) {
 	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()
 	tds := []simplestreams.DataSource{
 		newTestDataSource(ss, ts.URL)}
 	constraints := &imagemetadata.ImageConstraint{
-		simplestreams.LookupParams{
+		LookupParams: simplestreams.LookupParams{
 			Arches:   []string{"ppc64el"},
 			Releases: []string{"xenial"},
 		}}
@@ -171,17 +170,17 @@ func (Suite) TestFetchOneWithFilter(c *gc.C) {
 	c.Assert(
 		gotURL.String(),
 		jc.DeepEquals,
-		"http://cloud-images.ubuntu.com/server/releases/xenial/release-20161020/ubuntu-16.04-server-cloudimg-ppc64el-disk1.img")
+		"http://cloud-images.ubuntu.com/server/releases/xenial/release-20211001/ubuntu-16.04-server-cloudimg-ppc64el-disk1.img")
 }
 
-func (Suite) TestFetchManyWithFilter(c *gc.C) {
+func (*Suite) TestFetchManyWithFilter(c *gc.C) {
 	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()
 	tds := []simplestreams.DataSource{
 		newTestDataSource(ss, ts.URL)}
 	constraints := &imagemetadata.ImageConstraint{
-		simplestreams.LookupParams{
+		LookupParams: simplestreams.LookupParams{
 			Arches:   []string{"amd64", "arm64", "ppc64el"},
 			Releases: []string{"xenial"},
 		}}
@@ -193,18 +192,17 @@ func (Suite) TestFetchManyWithFilter(c *gc.C) {
 	c.Check(got[1].Arch, jc.DeepEquals, "arm64")
 	c.Check(got[2].Arch, jc.DeepEquals, "ppc64el")
 	for i, arch := range []string{"amd64", "arm64", "ppc64el"} {
-		wantURL := fmt.Sprintf("http://cloud-images.ubuntu.com/server/releases/xenial/release-20161020/ubuntu-16.04-server-cloudimg-%s-disk1.img", arch)
+		wantURL := fmt.Sprintf("http://cloud-images.ubuntu.com/server/releases/xenial/release-20211001/ubuntu-16.04-server-cloudimg-%s-disk1.img", arch)
 		// Assuming that the operator has not overridden the image
 		// download URL parameter we pass the default empty value which
 		// should fall back to the default cloud-images.ubuntu.com URL.
 		gotURL, err := got[i].DownloadURL("")
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(gotURL.String(), jc.DeepEquals, wantURL)
-
 	}
 }
 
-func (Suite) TestOneAmd64XenialTarGz(c *gc.C) {
+func (*Suite) TestOneAmd64XenialTarGz(c *gc.C) {
 	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()
@@ -215,30 +213,13 @@ func (Suite) TestOneAmd64XenialTarGz(c *gc.C) {
 		Release: "xenial",
 		Version: "16.04",
 		FType:   "tar.gz",
-		SHA256:  "9c00e4340c636b684e93c77dd7f08ab70989faffccf1a66fb00612ca6f64d8e4",
-		Path:    "server/releases/xenial/release-20161020/ubuntu-16.04-server-cloudimg-amd64.tar.gz",
-		Size:    287271698,
+		SHA256:  "c48036699274351be132f2aec7fec9fd2da936b6b512c65b2d9fd6531e5623ea",
+		Path:    "server/releases/xenial/release-20211001/ubuntu-16.04-server-cloudimg-amd64.tar.gz",
+		Size:    287684992,
 	})
 }
 
-func (Suite) TestOneArm64TrustyImg(c *gc.C) {
-	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
-	ts := httptest.NewServer(&sstreamsHandler{})
-	defer ts.Close()
-	got, err := One(ss, "arm64", "trusty", "released", "disk1.img", newTestDataSourceFunc(ts.URL))
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(got, jc.DeepEquals, &Metadata{
-		Arch:    "arm64",
-		Release: "trusty",
-		Version: "14.04",
-		FType:   "disk1.img",
-		SHA256:  "7da1bec20dfd78c7175155190c6fcdc16a6064be2a8bdabf13369f041c06aaf2",
-		Path:    "server/releases/trusty/release-20161020/ubuntu-14.04-server-cloudimg-arm64-disk1.img",
-		Size:    356123136,
-	})
-}
-
-func (Suite) TestOnePpc64elXenialImg(c *gc.C) {
+func (*Suite) TestOnePpc64elXenialImg(c *gc.C) {
 	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()
@@ -249,13 +230,30 @@ func (Suite) TestOnePpc64elXenialImg(c *gc.C) {
 		Release: "xenial",
 		Version: "16.04",
 		FType:   "disk1.img",
-		SHA256:  "787b16d29faaa1cf2c90b7beb1a98b1e1b990fb6a5beae47c6d6f09120ed49e8",
-		Path:    "server/releases/xenial/release-20161020/ubuntu-16.04-server-cloudimg-ppc64el-disk1.img",
-		Size:    320012288,
+		SHA256:  "ff8aa24deae6e84769c96d98f7dcb3cd8772e1fbe6d71a09058783bba5fd6cea",
+		Path:    "server/releases/xenial/release-20211001/ubuntu-16.04-server-cloudimg-ppc64el-disk1.img",
+		Size:    321060864,
 	})
 }
 
-func (Suite) TestOneErrors(c *gc.C) {
+func (*Suite) TestOneArm64FocalImg(c *gc.C) {
+	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
+	ts := httptest.NewServer(&sstreamsHandler{})
+	defer ts.Close()
+	got, err := One(ss, "arm64", "focal", "released", "disk1.img", newTestDataSourceFunc(ts.URL))
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(got, jc.DeepEquals, &Metadata{
+		Arch:    "arm64",
+		Release: "focal",
+		Version: "20.04",
+		FType:   "disk1.img",
+		SHA256:  "b8176161962c4f54e59366444bb696e92406823f643ed7bdcdd3d15d38dc0d53",
+		Path:    "server/releases/focal/release-20221003/ubuntu-20.04-server-cloudimg-arm64.img",
+		Size:    569901056,
+	})
+}
+
+func (*Suite) TestOneErrors(c *gc.C) {
 	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
 	table := []struct {
 		description, arch, series, stream, ftype, errorMatch string
