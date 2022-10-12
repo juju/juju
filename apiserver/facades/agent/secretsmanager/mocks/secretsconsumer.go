@@ -37,18 +37,19 @@ func (m *MockSecretsConsumer) EXPECT() *MockSecretsConsumerMockRecorder {
 }
 
 // GetSecretConsumer mocks base method.
-func (m *MockSecretsConsumer) GetSecretConsumer(arg0 *secrets.URI, arg1 names.Tag) (*secrets.SecretConsumerMetadata, error) {
+func (m *MockSecretsConsumer) GetSecretConsumer(arg0 *secrets.URI, arg1 string, arg2 names.Tag) (*secrets.URI, *secrets.SecretConsumerMetadata, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetSecretConsumer", arg0, arg1)
-	ret0, _ := ret[0].(*secrets.SecretConsumerMetadata)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret := m.ctrl.Call(m, "GetSecretConsumer", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*secrets.URI)
+	ret1, _ := ret[1].(*secrets.SecretConsumerMetadata)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // GetSecretConsumer indicates an expected call of GetSecretConsumer.
-func (mr *MockSecretsConsumerMockRecorder) GetSecretConsumer(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockSecretsConsumerMockRecorder) GetSecretConsumer(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretConsumer", reflect.TypeOf((*MockSecretsConsumer)(nil).GetSecretConsumer), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretConsumer", reflect.TypeOf((*MockSecretsConsumer)(nil).GetSecretConsumer), arg0, arg1, arg2)
 }
 
 // GrantSecretAccess mocks base method.
