@@ -15,6 +15,7 @@ import (
 	"github.com/juju/charm/v9"
 	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/errors"
+	"github.com/juju/juju/api/base/mocks"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"github.com/kr/pretty"
@@ -116,7 +117,8 @@ func (s *UploadSuite) TestUploadFailed(c *gc.C) {
 }
 
 func (s *UploadSuite) TestAddPendingResources(c *gc.C) {
-	defer s.setUpMocks(c).Finish()
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
 	res, apiResult := newResourceResult(c, "spam")
 	args := params.AddPendingResourcesArgsV2{
@@ -134,13 +136,16 @@ func (s *UploadSuite) TestAddPendingResources(c *gc.C) {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []string{uuid.String()}
-	resultParams := params.AddPendingResourcesResult{
+	result := new(params.AddPendingResourcesResult)
+	results := params.AddPendingResourcesResult{
 		PendingIDs: expected,
 	}
-	s.facade.EXPECT().FacadeCall("AddPendingResources", &args, gomock.Any()).SetArg(2, resultParams).Return(nil)
+	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("AddPendingResources", &args, result).SetArg(2, results).Return(nil)
+	client := resources.NewClientFromCaller(mockFacadeCaller)
 
 	cURL := charm.MustParseURL("ch:spam")
-	pendingIDs, err := s.client.AddPendingResources(resources.AddPendingResourcesArgs{
+	pendingIDs, err := client.AddPendingResources(resources.AddPendingResourcesArgs{
 		ApplicationID: "a-application",
 		CharmID: resources.CharmID{
 			URL: cURL,
@@ -159,7 +164,8 @@ func (s *UploadSuite) TestAddPendingResources(c *gc.C) {
 }
 
 func (s *UploadSuite) TestUploadPendingResource(c *gc.C) {
-	defer s.setUpMocks(c).Finish()
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
 	res, apiResult := newResourceResult(c, "spam")
 	args := params.AddPendingResourcesArgsV2{
