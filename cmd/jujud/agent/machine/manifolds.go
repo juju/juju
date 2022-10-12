@@ -808,7 +808,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:            agentName,
 			ClockName:            clockName,
 			CentralHubName:       centralHubName,
-			StateName:            stateName,
 			FSM:                  config.LeaseFSM,
 			RequestTopic:         lease.LeaseRequestTopic,
 			Logger:               loggo.GetLogger("juju.worker.lease.raft"),
