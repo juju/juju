@@ -93,9 +93,15 @@ func (s *infoSuite) TestRunJSON(c *gc.C) {
   "description": "This will install and setup WordPress optimized to run in the cloud.",
   "publisher": "WordPress Charmers",
   "summary": "WordPress is a full featured web blogging tool, this charm deploys it.",
-  "series": [
-    "bionic",
-    "xenial"
+  "supports": [
+    {
+      "name": "ubuntu",
+      "channel": "18.04"
+    },
+    {
+      "name": "ubuntu",
+      "channel": "16.04"
+    }
   ],
   "store-url": "https://someurl.com/wordpress",
   "tags": [
@@ -219,9 +225,15 @@ func (s *infoSuite) TestRunJSONSpecifySeriesNotDefault(c *gc.C) {
   "description": "This will install and setup WordPress optimized to run in the cloud.",
   "publisher": "WordPress Charmers",
   "summary": "WordPress is a full featured web blogging tool, this charm deploys it.",
-  "series": [
-    "bionic",
-    "xenial"
+  "supports": [
+    {
+      "name": "ubuntu",
+      "channel": "18.04"
+    },
+    {
+      "name": "ubuntu",
+      "channel": "16.04"
+    }
   ],
   "store-url": "https://someurl.com/wordpress",
   "tags": [
@@ -338,9 +350,15 @@ func (s *infoSuite) TestRunJSONSpecifyArch(c *gc.C) {
   "description": "This will install and setup WordPress optimized to run in the cloud.",
   "publisher": "WordPress Charmers",
   "summary": "WordPress is a full featured web blogging tool, this charm deploys it.",
-  "series": [
-    "bionic",
-    "xenial"
+  "supports": [
+    {
+      "name": "ubuntu",
+      "channel": "18.04"
+    },
+    {
+      "name": "ubuntu",
+      "channel": "16.04"
+    }
   ],
   "store-url": "https://someurl.com/wordpress",
   "tags": [
@@ -457,9 +475,15 @@ func (s *infoSuite) TestRunJSONWithSeriesFoundChannel(c *gc.C) {
   "description": "This will install and setup WordPress optimized to run in the cloud.",
   "publisher": "WordPress Charmers",
   "summary": "WordPress is a full featured web blogging tool, this charm deploys it.",
-  "series": [
-    "bionic",
-    "xenial"
+  "supports": [
+    {
+      "name": "ubuntu",
+      "channel": "18.04"
+    },
+    {
+      "name": "ubuntu",
+      "channel": "16.04"
+    }
   ],
   "store-url": "https://someurl.com/wordpress",
   "tags": [
@@ -549,9 +573,11 @@ name: wordpress
 description: This will install and setup WordPress optimized to run in the cloud.
 publisher: WordPress Charmers
 summary: WordPress is a full featured web blogging tool, this charm deploys it.
-series:
-- bionic
-- xenial
+supports:
+- name: ubuntu
+  channel: "18.04"
+- name: ubuntu
+  channel: "16.04"
 store-url: https://someurl.com/wordpress
 tags:
 - app

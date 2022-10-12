@@ -323,8 +323,11 @@ func getCharmInfoResponse() InfoResponse {
 		Summary:     "WordPress is a full featured web blogging tool, this charm deploys it.",
 		Publisher:   "WordPress Charmers",
 		Description: "This will install and setup WordPress optimized to run in the cloud.\nBy default it will place Ngnix and php-fpm configured to scale horizontally with\nNginx's reverse proxy.",
-		Series:      []string{"bionic", "xenial"},
-		Tags:        []string{"app", "seven"},
+		Supports: []Base{
+			{Name: "ubuntu", Channel: "18.04"},
+			{Name: "ubuntu", Channel: "16.04"},
+		},
+		Tags: []string{"app", "seven"},
 		Charm: &Charm{
 			Config: &charm.Config{
 				Options: map[string]charm.Option{
