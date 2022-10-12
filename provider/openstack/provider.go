@@ -608,7 +608,7 @@ func (e *Environ) ConstraintsValidator(ctx context.ProviderCallContext) (constra
 	sort.Strings(instTypeNames)
 	validator.RegisterVocabulary(constraints.InstanceType, instTypeNames)
 	validator.RegisterVocabulary(constraints.VirtType, []string{"kvm", "lxd"})
-	validator.RegisterVocabulary(constraints.RootDiskSource, []string{rootDiskSourceVolume})
+	validator.RegisterVocabulary(constraints.RootDiskSource, []string{rootDiskSourceVolume, rootDiskSourceLocal})
 	return validator, nil
 }
 
