@@ -347,7 +347,6 @@ func (s *SecretsManagerAPI) GetSecretContentInfo(args params.GetSecretContentArg
 
 func (s *SecretsManagerAPI) getOwnerSecretMetadata(uri *coresecrets.URI, label string) (*coresecrets.SecretMetadata, error) {
 	md, err := s.secretsBackend.GetSecret(uri, label, s.authTag)
-	logger.Criticalf("getOwnerSecretMetadata uri %q, label %q, s.authTag %q, md %#v, err %#v", uri, label, s.authTag, md, err)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -402,7 +401,6 @@ func (s *SecretsManagerAPI) getSecretContent(arg params.GetSecretContentArg) (*s
 	// 1. both URI and label is required for the first time access.
 	// 2. either URI or label is required for later acsess.
 	secretURI, consumer, err := s.secretsConsumer.GetSecretConsumer(uri, arg.Label, s.authTag)
-	logger.Criticalf("GetSecretConsumer(%q, %q, %q): secretURI %q, consumer %#v, err %#v", uri, arg.Label, s.authTag, secretURI, consumer, err)
 	if errors.Is(err, errors.NotFound) && uri == nil {
 		return nil, errors.NotFoundf("consumer label %q", arg.Label)
 	}

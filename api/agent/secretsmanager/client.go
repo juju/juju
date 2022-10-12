@@ -5,7 +5,6 @@ package secretsmanager
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/base"
@@ -17,8 +16,6 @@ import (
 	"github.com/juju/juju/secrets"
 	"github.com/juju/juju/secrets/provider"
 )
-
-var logger = loggo.GetLogger("juju.api.secretsmanager")
 
 // Client is the api client for the SecretsManager facade.
 type Client struct {
@@ -84,7 +81,6 @@ func (c *Client) GetContentInfo(uri *coresecrets.URI, label string, update, peek
 	if uri != nil {
 		arg.URI = uri.String()
 	}
-	logger.Criticalf("GetContentInfo arg %#v", arg)
 
 	var results params.SecretContentResults
 
