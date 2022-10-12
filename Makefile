@@ -8,6 +8,7 @@ GOOS=$(shell go env GOOS)
 GOARCH=$(shell go env GOARCH)
 GOHOSTOS=$(shell go env GOHOSTOS)
 GOHOSTARCH=$(shell go env GOHOSTARCH)
+GO_MOD_VERSION=$(shell grep -P "^go \d+\.\d+" go.mod | cut -d ' ' -f 2)
 export CGO_ENABLED=0
 
 BUILD_DIR ?= $(PROJECT_DIR)/_build
@@ -338,11 +339,11 @@ endif
 # PPA includes the required mongodb-server binaries.
 install-snap-dependencies:
 ## install-snap-dependencies: Install the supported snap dependencies
-ifeq ($(shell go version | grep -o "go1.19" || true),go1.19)
-	@echo Using installed go-1.19
+ifeq ($(shell go version | cut -d ' ' -f 3 | sed -e /go/s///),$(GO_MOD_VERSION))
+	@echo 'Using installed go-$(GO_MOD_VERSION)'
 else
-	@echo Installing go-1.19 snap
-	@sudo snap install go --channel=1.19/stable --classic
+	@echo 'Installing go-$(GO_MOD_VERSION) snap'
+	@sudo snap install go --channel=$(GO_MOD_VERSION)/stable --classic
 endif
 
 WAIT_FOR_DPKG=bash -c '. "${PROJECT_DIR}/make_functions.sh"; wait_for_dpkg "$$@"' wait_for_dpkg
