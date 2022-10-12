@@ -93,13 +93,16 @@ func (c *secretGetCommand) Init(args []string) (err error) {
 	}
 
 	if c.secretUri == nil && c.label == "" {
-		return errors.New("require either a secret URI or label to fetch metadata")
+		return errors.New("require either a secret URI or label")
+	}
+
+	if !c.update {
+		if c.secretUri != nil && c.label != "" {
+			return errors.New("specify either a secret URI or label but not both")
+		}
 	}
 
 	if c.metadata {
-		if c.secretUri != nil && c.label != "" {
-			return errors.New("specify either a secret URI or label but not both to fetch metadata")
-		}
 		if c.peek || c.update {
 			return errors.New("--peek and --update are not valid when fetching metadata")
 		}
