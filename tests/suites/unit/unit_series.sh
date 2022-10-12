@@ -15,7 +15,7 @@ run_unit_set_series() {
 
 	wait_for "ubuntu" "$(idle_condition "ubuntu" 0 1)"
 
-	juju status --format=json | jq -r '.machines | .["1"] | .series' | grep "jammy"
+	juju status --format=json | jq -r '.machines | .["1"] | .base' | grep "ubuntu:22.04"
 
 	destroy_model "unit-series"
 }
