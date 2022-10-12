@@ -813,26 +813,18 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsManyMatchingResults(c *gc.C) {
 
 	args := params.UpdateCredentialArgs{
 		Force: false,
-		Credentials: []params.TaggedCredential{{
-			Tag: "cloudcred-foo_bob_bar0",
+	}
+	count := 2
+	for tag, credential := range createCredentials(count) {
+		args.Credentials = append(args.Credentials, params.TaggedCredential{
+			Tag: tag,
 			Credential: params.CloudCredential{
-				AuthType: "userpass",
-				Attributes: map[string]string{
-					"username": "admin",
-					"password": "adm1n",
-				},
+				AuthType:   string(credential.AuthType()),
+				Attributes: credential.Attributes(),
 			},
-		},
-			{
-				Tag: "cloudcred-foo_bob_bar1",
-				Credential: params.CloudCredential{
-					AuthType: "userpass",
-					Attributes: map[string]string{
-						"username": "admin",
-						"password": "adm1n",
-					},
-				},
-			}}}
+		})
+	}
+
 	res := new(params.UpdateCredentialResults)
 	results := params.UpdateCredentialResults{
 		Results: []params.UpdateCredentialResult{
@@ -843,7 +835,6 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsManyMatchingResults(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall("UpdateCredentialsCheckModels", args, res).SetArg(2, results).Return(nil)
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
-	count := 2
 	result, err := client.UpdateCloudsCredentials(createCredentials(count), false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.HasLen, count)
