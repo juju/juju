@@ -523,7 +523,7 @@ func (s *SecretsSuite) TestUpdateDataSetsLatestConsumerRevision(c *gc.C) {
 		LeaderToken: &fakeToken{},
 		Data:        newData,
 	})
-	cmd, err = s.State.GetSecretConsumer(uri, names.NewUnitTag("mariadb/0"))
+	_, cmd, err = s.State.GetSecretConsumer(uri, "", names.NewUnitTag("mariadb/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmd, jc.DeepEquals, &secrets.SecretConsumerMetadata{
 		Label:           "foobar",
@@ -564,10 +564,10 @@ func (s *SecretsSuite) TestUpdateDataSetsLatestConsumerRevisionConcurrentAdd(c *
 		LeaderToken: &fakeToken{},
 		Data:        newData,
 	})
-	cmd, err = s.State.GetSecretConsumer(uri, names.NewUnitTag("mariadb/0"))
+	_, cmd, err = s.State.GetSecretConsumer(uri, "", names.NewUnitTag("mariadb/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmd.LatestRevision, gc.Equals, 2)
-	cmd, err = s.State.GetSecretConsumer(uri, names.NewUnitTag("mariadb/0"))
+	_, cmd, err = s.State.GetSecretConsumer(uri, "", names.NewUnitTag("mariadb/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmd.LatestRevision, gc.Equals, 2)
 }
@@ -612,10 +612,10 @@ func (s *SecretsSuite) TestUpdateDataSetsLatestConsumerRevisionConcurrentRemove(
 		LeaderToken: &fakeToken{},
 		Data:        newData,
 	})
-	cmd, err = s.State.GetSecretConsumer(uri, names.NewUnitTag("mariadb/0"))
+	_, cmd, err = s.State.GetSecretConsumer(uri, "", names.NewUnitTag("mariadb/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmd.LatestRevision, gc.Equals, 2)
-	_, err = s.State.GetSecretConsumer(uri, names.NewUnitTag("mysql/0"))
+	_, _, err = s.State.GetSecretConsumer(uri, "", names.NewUnitTag("mysql/0"))
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -661,6 +661,11 @@ func (s *SecretsSuite) assertUpdatedSecret(c *gc.C, original *secrets.SecretMeta
 		c.Assert(providerId, gc.IsNil)
 		c.Assert(val.EncodedValues(), jc.DeepEquals, expectedData)
 	}
+	if update.Label != nil {
+		md, err := s.store.GetSecret(nil, *update.Label, s.owner.Tag())
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(md.URI, gc.Equals, original.URI)
+	}
 	if update.ExpireTime != nil {
 		revs, err := s.store.ListSecretRevisions(md.URI)
 		c.Assert(err, jc.ErrorIsNil)
@@ -673,7 +678,7 @@ func (s *SecretsSuite) assertUpdatedSecret(c *gc.C, original *secrets.SecretMeta
 			}
 		}
 		c.Fatalf("expire time not set for secret revision %d", expectedRevision)
-		md, err := s.store.GetSecret(original.URI)
+		md, err := s.store.GetSecret(original.URI, "", nil)
 		c.Assert(err, jc.ErrorIsNil)
 		if update.ExpireTime.IsZero() {
 			c.Assert(md.LatestExpireTime, gc.IsNil)
@@ -722,6 +727,41 @@ func (s *SecretsSuite) TestUpdateConcurrent(c *gc.C) {
 		NextRotateTime: ptr(next),
 		Data:           newData,
 	})
+}
+
+func (s *SecretsSuite) TestGetSecret(c *gc.C) {
+	uri := secrets.NewURI()
+	
+	now := s.Clock.Now().Round(time.Second).UTC()
+	next := now.Add(time.Minute).Round(time.Second).UTC()
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			Label: strPtr("label-1"),
+			LeaderToken:    &fakeToken{},
+			RotatePolicy:   ptr(secrets.RotateDaily),
+			NextRotateTime: ptr(next),
+			Data:           map[string]string{"foo": "bar"},
+		},
+	}
+	md, err := s.store.CreateSecret(uri, cp)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(md.URI, jc.DeepEquals, uri)
+	
+	_, err = s.store.GetSecret(nil, "", nil)
+	c.Check(err, gc.ErrorMatches, `both uri and label are empty`)
+	
+	_, err = s.store.GetSecret(nil, "label", nil)
+	c.Check(err, gc.ErrorMatches, `owner tag is required for fetching by label`)
+	
+	md, err = s.store.GetSecret(uri, "", nil)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(md.URI, jc.DeepEquals, uri)
+	
+	md, err = s.store.GetSecret(uri, "label-1", s.owner.Tag())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(md.URI, jc.DeepEquals, uri)
 }
 
 func (s *SecretsSuite) TestListSecretRevisions(c *gc.C) {
@@ -816,7 +856,7 @@ func (s *SecretsSuite) TestGetSecretConsumer(c *gc.C) {
 	_, err := s.store.CreateSecret(uri, cp)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.State.GetSecretConsumer(uri, names.NewUnitTag("mariadb/0"))
+	_, _, err = s.State.GetSecretConsumer(uri, "", names.NewUnitTag("mariadb/0"))
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	md := &secrets.SecretConsumerMetadata{
 		Label:           "foobar",
@@ -824,11 +864,20 @@ func (s *SecretsSuite) TestGetSecretConsumer(c *gc.C) {
 	}
 	err = s.State.SaveSecretConsumer(uri, names.NewUnitTag("mariadb/0"), md)
 	c.Assert(err, jc.ErrorIsNil)
-	md2, err := s.State.GetSecretConsumer(uri, names.NewUnitTag("mariadb/0"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(md2, jc.DeepEquals, md)
-	_, err = s.State.GetSecretConsumer(uri, names.NewUnitTag("mysql/0"))
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	
+	_, _, err = s.State.GetSecretConsumer(nil, "", names.NewUnitTag("mariadb/0"))
+	c.Check(err, gc.ErrorMatches, `both uri and label are empty`)
+	
+	_, md2, err := s.State.GetSecretConsumer(uri, "", names.NewUnitTag("mariadb/0"))
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(md2, jc.DeepEquals, md)
+	
+	_, md3, err := s.State.GetSecretConsumer(nil, "foobar", names.NewUnitTag("mariadb/0"))
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(md3, jc.DeepEquals, md)
+	
+	_, _, err = s.State.GetSecretConsumer(uri, "", names.NewUnitTag("mysql/0"))
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *SecretsSuite) TestSaveSecretConsumer(c *gc.C) {
@@ -849,13 +898,13 @@ func (s *SecretsSuite) TestSaveSecretConsumer(c *gc.C) {
 	}
 	err = s.State.SaveSecretConsumer(uri, names.NewUnitTag("mariadb/0"), md)
 	c.Assert(err, jc.ErrorIsNil)
-	md2, err := s.State.GetSecretConsumer(uri, names.NewUnitTag("mariadb/0"))
+	_, md2, err := s.State.GetSecretConsumer(uri, "", names.NewUnitTag("mariadb/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(md2, jc.DeepEquals, md)
 	md.CurrentRevision = 668
 	err = s.State.SaveSecretConsumer(uri, names.NewUnitTag("mariadb/0"), md)
 	c.Assert(err, jc.ErrorIsNil)
-	md2, err = s.State.GetSecretConsumer(uri, names.NewUnitTag("mariadb/0"))
+	_, md2, err = s.State.GetSecretConsumer(uri, "", names.NewUnitTag("mariadb/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(md2, jc.DeepEquals, md)
 }
@@ -882,7 +931,7 @@ func (s *SecretsSuite) TestSaveSecretConsumerConcurrent(c *gc.C) {
 	})
 	err = s.State.SaveSecretConsumer(uri, names.NewUnitTag("mariadb/0"), md)
 	c.Assert(err, jc.ErrorIsNil)
-	md2, err := s.State.GetSecretConsumer(uri, names.NewUnitTag("mariadb/0"))
+	_, md2, err := s.State.GetSecretConsumer(uri, "", names.NewUnitTag("mariadb/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(md2, jc.DeepEquals, md)
 }
@@ -1211,7 +1260,7 @@ func (s *SecretsSuite) TestDeleteRevisions(c *gc.C) {
 	c.Assert(removed, jc.IsTrue)
 	_, _, err = s.store.GetSecretValue(uri, 3)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	_, err = s.store.GetSecret(uri)
+	_, err = s.store.GetSecret(uri, "", nil)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 

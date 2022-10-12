@@ -3250,7 +3250,7 @@ func (s *ApplicationSuite) TestDestroyAlsoDeletesOwnedSecrets(c *gc.C) {
 
 	err = s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = store.GetSecret(uri)
+	_, err = store.GetSecret(uri, "", nil)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// Create again, no label clash.

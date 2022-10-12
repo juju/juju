@@ -654,6 +654,9 @@ func (s *secretsStore) GetSecret(uri *secrets.URI, label string, owner names.Tag
 	if uri == nil && label == "" {
 		return nil, errors.NewNotValid(nil, "both uri and label are empty")
 	}
+	if uri == nil && owner == nil {
+		return nil, errors.NewNotValid(nil, "owner tag is required for fetching by label")
+	}
 
 	secretMetadataCollection, closer := s.st.db().GetCollection(secretMetadataC)
 	defer closer()
