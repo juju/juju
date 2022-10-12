@@ -60,7 +60,6 @@ const (
 
 var (
 	BinarystorageNew              = &binarystorageNew
-	ImageStorageNewStorage        = &imageStorageNewStorage
 	MachineIdLessThan             = machineIdLessThan
 	CombineMeterStatus            = combineMeterStatus
 	ApplicationGlobalKey          = applicationGlobalKey

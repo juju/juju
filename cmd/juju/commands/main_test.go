@@ -295,7 +295,6 @@ var commandNames = []string{
 	"autoload-credentials",
 	"bind",
 	"bootstrap",
-	"cached-images",
 	"cancel-task",
 	"change-user-password",
 	"charm-resources",
@@ -348,7 +347,6 @@ var commandNames = []string{
 	"kill-controller",
 	"list-actions",
 	"list-agreements",
-	"list-cached-images",
 	"list-charm-resources",
 	"list-clouds",
 	"list-controllers",
@@ -389,7 +387,6 @@ var commandNames = []string{
 	"relate", // alias for integrate
 	"reload-spaces",
 	"remove-application",
-	"remove-cached-images",
 	"remove-cloud",
 	"remove-credential",
 	"remove-k8s",

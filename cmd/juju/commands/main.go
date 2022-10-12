@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/cmd/juju/backups"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/caas"
-	"github.com/juju/juju/cmd/juju/cachedimages"
 	"github.com/juju/juju/cmd/juju/charmhub"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/cmd/juju/controller"
@@ -415,10 +414,6 @@ func registerCommands(r commandRegistry) {
 	r.Register(user.NewLogoutCommand())
 	r.Register(user.NewRemoveCommand())
 	r.Register(user.NewWhoAmICommand())
-
-	// Manage cached images
-	r.Register(cachedimages.NewRemoveCommand())
-	r.Register(cachedimages.NewListCommand())
 
 	// Manage machines
 	r.Register(machine.NewAddCommand())
