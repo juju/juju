@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -148,7 +149,7 @@ func (manager *containerManager) Namespace() instance.Namespace {
 func (manager *containerManager) CreateContainer(
 	instanceConfig *instancecfg.InstanceConfig,
 	cons constraints.Value,
-	series string,
+	base series.Base,
 	networkConfig *container.NetworkConfig,
 	storageConfig *container.StorageConfig,
 	callback environs.StatusCallbackFunc,
@@ -191,7 +192,7 @@ func (manager *containerManager) CreateContainer(
 	// Create the container.
 	startParams := ParseConstraintsToStartParams(cons)
 	startParams.Arch = arch.HostArch()
-	startParams.Series = series
+	startParams.Version = base.Channel.Track
 	startParams.Network = networkConfig
 	startParams.UserDataFile = userDataFilename
 	startParams.NetworkConfigData = cloudinit.CloudInitNetworkConfigDisabled

@@ -215,9 +215,9 @@ func (s *factorySuite) TestMakeMachineNil(c *gc.C) {
 	saved, err := s.State.Machine(machine.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(saved.Series(), gc.Equals, machine.Series())
+	c.Assert(saved.Base().String(), gc.Equals, machine.Base().String())
 	c.Assert(saved.Id(), gc.Equals, machine.Id())
-	c.Assert(saved.Series(), gc.Equals, machine.Series())
+	c.Assert(saved.Base().String(), gc.Equals, machine.Base().String())
 	c.Assert(saved.Tag(), gc.Equals, machine.Tag())
 	c.Assert(saved.Life(), gc.Equals, machine.Life())
 	c.Assert(saved.Jobs(), gc.DeepEquals, machine.Jobs())
@@ -231,7 +231,7 @@ func (s *factorySuite) TestMakeMachineNil(c *gc.C) {
 }
 
 func (s *factorySuite) TestMakeMachine(c *gc.C) {
-	series := "quantal"
+	base := state.UbuntuBase("12.10")
 	jobs := []state.MachineJob{state.JobManageModel}
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
@@ -243,7 +243,7 @@ func (s *factorySuite) TestMakeMachine(c *gc.C) {
 	}}
 
 	machine, pwd := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
-		Series:      series,
+		Base:        base,
 		Jobs:        jobs,
 		Password:    password,
 		Nonce:       nonce,
@@ -254,7 +254,7 @@ func (s *factorySuite) TestMakeMachine(c *gc.C) {
 	c.Assert(machine, gc.NotNil)
 	c.Assert(pwd, gc.Equals, password)
 
-	c.Assert(machine.Series(), gc.Equals, series)
+	c.Assert(machine.Base().String(), gc.Equals, base.String())
 	c.Assert(machine.Jobs(), gc.DeepEquals, jobs)
 	machineInstanceId, err := machine.InstanceId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -292,7 +292,7 @@ func (s *factorySuite) TestMakeMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(saved.Id(), gc.Equals, machine.Id())
-	c.Assert(saved.Series(), gc.Equals, machine.Series())
+	c.Assert(saved.Base().String(), gc.Equals, machine.Base().String())
 	c.Assert(saved.Tag(), gc.Equals, machine.Tag())
 	c.Assert(saved.Life(), gc.Equals, machine.Life())
 	c.Assert(saved.Jobs(), gc.DeepEquals, machine.Jobs())

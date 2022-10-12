@@ -8,7 +8,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/series"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
@@ -18,7 +17,7 @@ type cmdSetSeriesSuite struct {
 	jujutesting.JujuConnSuite
 }
 
-func (s *cmdSetSeriesSuite) TestSetApplicationSeries(c *gc.C) {
+func (s *cmdSetSeriesSuite) TestSetApplicationBase(c *gc.C) {
 	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "multi-series", URL: "local:focal/multi-series-1"})
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm:       charm,
@@ -31,7 +30,5 @@ func (s *cmdSetSeriesSuite) TestSetApplicationSeries(c *gc.C) {
 
 	err = app.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	base, err := app.Base()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(base, jc.DeepEquals, series.MakeDefaultBase("ubuntu", "22.04"))
+	c.Assert(app.Base().String(), gc.Equals, "ubuntu:22.04/stable")
 }

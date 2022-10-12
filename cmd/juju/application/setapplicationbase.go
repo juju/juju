@@ -27,7 +27,7 @@ func NewSetSeriesCommand() cmd.Command {
 // by the set-application-base command.
 type setSeriesAPI interface {
 	Close() error
-	UpdateApplicationSeries(string, string, bool) error
+	UpdateApplicationBase(string, string, bool) error
 }
 
 // setSeriesCommand is responsible for updating the series of an application or machine.
@@ -139,7 +139,7 @@ func (c *setSeriesCommand) Run(ctx *cmd.Context) error {
 
 func (c *setSeriesCommand) updateApplicationSeries() error {
 	err := block.ProcessBlockedError(
-		c.setSeriesClient.UpdateApplicationSeries(c.applicationName, c.series, false),
+		c.setSeriesClient.UpdateApplicationBase(c.applicationName, c.series, false),
 		block.BlockChange)
 
 	return err

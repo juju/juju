@@ -1833,8 +1833,8 @@
     },
     {
         "Name": "Application",
-        "Description": "APIv14 provides the Application API facade for version 14.",
-        "Version": 14,
+        "Description": "APIv15 provides the Application API facade for version 15.",
+        "Version": 15,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -2183,7 +2183,7 @@
                     },
                     "description": "UnsetApplicationsConfig implements the server side of Application.UnsetApplicationsConfig."
                 },
-                "UpdateApplicationSeries": {
+                "UpdateApplicationBase": {
                     "type": "object",
                     "properties": {
                         "Params": {
@@ -2193,7 +2193,7 @@
                             "$ref": "#/definitions/ErrorResults"
                         }
                     },
-                    "description": "UpdateApplicationSeries updates the application series. Series for\nsubordinates updated too."
+                    "description": "UpdateApplicationBase updates the application base.\nBase for subordinates is updated too."
                 }
             },
             "definitions": {
@@ -2829,7 +2829,7 @@
                         "force": {
                             "type": "boolean"
                         },
-                        "force-series": {
+                        "force-base": {
                             "type": "boolean"
                         },
                         "force-units": {
@@ -2863,7 +2863,7 @@
                         "channel",
                         "force",
                         "force-units",
-                        "force-series"
+                        "force-base"
                     ]
                 },
                 "ApplicationUnexpose": {
@@ -33281,18 +33281,6 @@
                         }
                     },
                     "description": "Remove removes every given entity from state, calling EnsureDead\nfirst, then Remove. It will fail if the entity is not present."
-                },
-                "Series": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/StringResults"
-                        }
-                    },
-                    "description": "Series returns the deployed series for each given machine entity."
                 },
                 "SetCharmProfiles": {
                     "type": "object",

@@ -371,16 +371,6 @@ func (h *toolsUploadHandler) processPost(r *http.Request, st *state.State) (*too
 	}
 
 	logger.Debugf("request to upload agent binaries: %s", toolsVersion)
-	// TODO(juju4) - drop this compatibility with series params
-	// If the binary is for a workload series, convert the release to an OS type name.
-	allSeries, err := coreseries.AllWorkloadSeries("", "")
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if allSeries.Contains(toolsVersion.Release) {
-		toolsVersion.Release = coreseries.DefaultOSTypeNameFromSeries(toolsVersion.Release)
-	}
-
 	toolsVersions := []version.Binary{toolsVersion}
 	serverRoot := h.getServerRoot(r, query, st)
 	return h.handleUpload(r.Body, toolsVersions, serverRoot, st)

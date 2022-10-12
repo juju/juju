@@ -6,6 +6,7 @@ package common_test
 import (
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/os"
 	"github.com/juju/juju/provider/common"
 )
 
@@ -15,17 +16,14 @@ var _ = gc.Suite(&DiskSuite{})
 
 func (s *DiskSuite) TestMinRootDiskSizeGiB(c *gc.C) {
 	var diskTests = []struct {
-		series       string
+		osname       string
 		expectedSize uint64
 	}{
-		{"jammy", 8},
-		{"centos7", 8},
-		{"centos8", 8},
-		{"opensuseleap", 8},
-		{"fake-series", 8},
+		{"ubuntu", 8},
+		{"centos", 8},
 	}
 	for _, t := range diskTests {
-		actualSize := common.MinRootDiskSizeGiB(t.series)
+		actualSize := common.MinRootDiskSizeGiB(os.OSTypeForName(t.osname))
 		c.Assert(t.expectedSize, gc.Equals, actualSize)
 	}
 }

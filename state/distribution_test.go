@@ -64,7 +64,7 @@ func (s *InstanceDistributorSuite) SetUpTest(c *gc.C) {
 	s.machines = make([]*state.Machine, 3)
 	for i := range s.machines {
 		m, err := s.State.AddOneMachine(state.MachineTemplate{
-			Series:      "quantal",
+			Base:        state.UbuntuBase("12.10"),
 			Jobs:        []state.MachineJob{state.JobHostUnits},
 			Constraints: constraints.MustParse("arch=amd64"),
 		})
@@ -179,7 +179,7 @@ func (s *InstanceDistributorSuite) TestDistributeInstancesEmptyDistributionGroup
 
 	// InstanceDistributor is not called if the distribution group is empty.
 	m, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series:                  "quantal",
+		Base:                    state.UbuntuBase("12.10"),
 		Jobs:                    []state.MachineJob{state.JobHostUnits},
 		Constraints:             constraints.MustParse("arch=amd64"),
 		HardwareCharacteristics: *s.hwChar,
@@ -278,8 +278,8 @@ func (s *ApplicationMachinesSuite) SetUpTest(c *gc.C) {
 	for i := range s.machines {
 		var err error
 		s.machines[i], err = s.State.AddOneMachine(state.MachineTemplate{
-			Series: "quantal",
-			Jobs:   []state.MachineJob{state.JobHostUnits},
+			Base: state.UbuntuBase("12.10"),
+			Jobs: []state.MachineJob{state.JobHostUnits},
 		})
 		c.Assert(err, jc.ErrorIsNil)
 	}

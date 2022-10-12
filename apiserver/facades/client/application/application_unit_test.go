@@ -61,7 +61,7 @@ type mockLXDProfilerCharm struct {
 type ApplicationSuite struct {
 	testing.CleanupSuite
 
-	api *application.APIv14
+	api *application.APIv15
 
 	backend            *mocks.MockBackend
 	storageAccess      *mocks.MockStorageInterface
@@ -206,7 +206,7 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 		s.caasBroker,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.api = &application.APIv14{api}
+	s.api = &application.APIv15{api}
 	return ctrl
 }
 
@@ -419,7 +419,7 @@ func (s *ApplicationSuite) TestSetCharmInvalidApplication(c *gc.C) {
 	err := s.api.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "badapplication",
 		CharmURL:        "cs:something-else",
-		ForceSeries:     true,
+		ForceBase:       true,
 		ForceUnits:      true,
 	})
 	c.Assert(err, gc.ErrorMatches, `application "badapplication" not found`)
@@ -2495,10 +2495,10 @@ func (s *ApplicationSuite) TestConsumeRemoteAppTerminated(c *gc.C) {
 	c.Assert(results.OneError(), gc.IsNil)
 }
 
-func (s *ApplicationSuite) TestApplicationUpdateSeriesNoParams(c *gc.C) {
+func (s *ApplicationSuite) TestApplicationUpdateBaseNoParams(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	results, err := s.api.UpdateApplicationSeries(
+	results, err := s.api.UpdateApplicationBase(
 		params.UpdateChannelArgs{
 			Args: []params.UpdateChannelArg{},
 		},
@@ -2507,13 +2507,13 @@ func (s *ApplicationSuite) TestApplicationUpdateSeriesNoParams(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{}})
 }
 
-func (s *ApplicationSuite) TestApplicationUpdateSeriesPermissionDenied(c *gc.C) {
+func (s *ApplicationSuite) TestApplicationUpdateBasePermissionDenied(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("fred"),
 	}
 	defer s.setup(c).Finish()
 
-	_, err := s.api.UpdateApplicationSeries(
+	_, err := s.api.UpdateApplicationBase(
 		params.UpdateChannelArgs{
 			Args: []params.UpdateChannelArg{{
 				Entity:  params.Entity{Tag: names.NewApplicationTag("postgresql").String()},

@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
@@ -688,12 +689,12 @@ func DiscardSecurityGroup(e environs.Environ, name string) error {
 
 func FindInstanceSpec(
 	e environs.Environ,
-	series, arch, cons string,
+	base series.Base, arch, cons string,
 	imageMetadata []*imagemetadata.ImageMetadata,
 ) (spec *instances.InstanceSpec, err error) {
 	env := e.(*Environ)
 	return findInstanceSpec(env, instances.InstanceConstraint{
-		Series:      series,
+		Base:        base,
 		Arch:        arch,
 		Region:      env.cloud().Region,
 		Constraints: constraints.MustParse(cons),

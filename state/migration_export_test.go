@@ -319,7 +319,7 @@ func (s *MigrationExportSuite) assertMachinesMigrated(c *gc.C, cons constraints.
 
 	exported := machines[0]
 	c.Assert(exported.Tag(), gc.Equals, machine1.MachineTag())
-	c.Assert(exported.Series(), gc.Equals, machine1.Series())
+	c.Assert(exported.Base(), gc.Equals, machine1.Base().String())
 	c.Assert(exported.Annotations(), jc.DeepEquals, testAnnotations)
 
 	expCons := exported.Constraints()
@@ -1378,8 +1378,8 @@ func (s *MigrationExportSuite) TestInstanceDataSkipped(c *gc.C) {
 
 func (s *MigrationExportSuite) TestMissingInstanceDataIgnored(c *gc.C) {
 	_, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series: "bionic",
-		Jobs:   []state.MachineJob{state.JobManageModel},
+		Base: state.UbuntuBase("18.04"),
+		Jobs: []state.MachineJob{state.JobManageModel},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1411,8 +1411,8 @@ func (s *MigrationBaseSuite) TestMachineAgentBinariesSkipped(c *gc.C) {
 
 func (s *MigrationBaseSuite) TestMissingMachineAgentBinariesIgnored(c *gc.C) {
 	_, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series: "bionic",
-		Jobs:   []state.MachineJob{state.JobManageModel},
+		Base: state.UbuntuBase("18.04"),
+		Jobs: []state.MachineJob{state.JobManageModel},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1655,7 +1655,6 @@ func (s *MigrationExportSuite) TestCloudImageMetadata(c *gc.C) {
 		Stream:          "stream",
 		Region:          "region-test",
 		Version:         "22.04",
-		Series:          "jammy",
 		Arch:            "arch",
 		VirtType:        "virtType-test",
 		RootStorageType: "rootStorageType-test",
@@ -1694,7 +1693,6 @@ func (s *MigrationExportSuite) TestCloudImageMetadataSkipped(c *gc.C) {
 		Stream:          "stream",
 		Region:          "region-test",
 		Version:         "22.04",
-		Series:          "jammy",
 		Arch:            "arch",
 		VirtType:        "virtType-test",
 		RootStorageType: "rootStorageType-test",

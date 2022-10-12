@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/core/machinelock"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/reboot"
 )
@@ -41,8 +40,8 @@ var _ = gc.Suite(&rebootSuite{})
 func (s *rebootSuite) SetUpTest(c *gc.C) {
 	var err error
 	template := state.MachineTemplate{
-		Series: version.DefaultSupportedLTS(),
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.DefaultLTSBase(),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 	}
 	s.JujuConnSuite.SetUpTest(c)
 

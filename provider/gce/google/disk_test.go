@@ -45,7 +45,7 @@ func (s *diskSuite) TestDiskSpecSizeGBMinUbuntu(c *gc.C) {
 
 func (s *diskSuite) TestDiskSpecSizeGBMinUnknown(c *gc.C) {
 	s.DiskSpec.SizeHintGB = 0
-	s.DiskSpec.Series = "arch"
+	s.DiskSpec.OS = "centos"
 	size := s.DiskSpec.SizeGB()
 
 	c.Check(size, gc.Equals, uint64(10))

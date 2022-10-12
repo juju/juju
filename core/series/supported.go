@@ -163,6 +163,24 @@ func (s *supportedInfo) workloadSeries(includeUnsupported bool) []string {
 	return result
 }
 
+// workloadVersions returns a slice of versions that are supported to run on a
+// target workload (charm).
+// Note: workload series will also include controller workload types, as they
+// can also be used for workloads.
+func (s *supportedInfo) workloadVersions(includeUnsupported bool) []string {
+	var result []string
+	for _, namedSeries := range s.namedSeries() {
+		version := namedSeries.SeriesVersion
+		if version.WorkloadType == UnsupportedWorkloadType {
+			continue
+		}
+		if includeUnsupported || version.ESMSupported || version.Supported {
+			result = append(result, version.Version)
+		}
+	}
+	return result
+}
+
 // WorkloadType defines what type of workload the series is aimed at.
 // Controllers only support Ubuntu systems.
 type WorkloadType int

@@ -144,7 +144,7 @@ func (s *collectionSuite) TestModelStateCollection(c *gc.C) {
 	st1 := s.Factory.MakeModel(c, nil)
 	defer st1.Close()
 	f1 := factory.NewFactory(st1, s.StatePool)
-	otherM0 := f1.MakeMachine(c, &factory.MachineParams{Series: "jammy"})
+	otherM0 := f1.MakeMachine(c, &factory.MachineParams{Base: state.UbuntuBase("jammy")})
 
 	// Ensure that the first machine in each model have overlapping ids
 	// (otherwise tests may not fail when they should)
@@ -170,7 +170,7 @@ func (s *collectionSuite) TestModelStateCollection(c *gc.C) {
 		{
 			label: "Find filters by model",
 			test: func() (int, error) {
-				return machines0.Find(bson.D{{"series", m0.Series()}}).Count()
+				return machines0.Find(bson.D{{"base", m0.Base()}}).Count()
 			},
 			expectedCount: 2,
 		},
@@ -312,7 +312,7 @@ func (s *collectionSuite) TestModelStateCollection(c *gc.C) {
 				// Attempt to remove the trusty machine in the second
 				// model with the collection that's filtering for the
 				// first model - nothing should get removed.
-				err := machines0.Writeable().Remove(bson.D{{"series", "jammy"}})
+				err := machines0.Writeable().Remove(bson.D{{"base", state.UbuntuBase("22.04")}})
 				c.Assert(err, gc.ErrorMatches, "not found")
 				return s.machines.Count()
 			},
@@ -348,7 +348,7 @@ func (s *collectionSuite) TestModelStateCollection(c *gc.C) {
 		{
 			label: "RemoveAll filters by model",
 			test: func() (int, error) {
-				_, err := machines0.Writeable().RemoveAll(bson.D{{"series", m0.Series()}})
+				_, err := machines0.Writeable().RemoveAll(bson.D{{"base.channel", m0.Base().Channel}})
 				c.Assert(err, jc.ErrorIsNil)
 				return s.machines.Count()
 			},

@@ -69,7 +69,7 @@ func (s *machineSuite) TestTag(c *gc.C) {
 func (s *machineSuite) TestInstanceId(c *gc.C) {
 	// Add another, not provisioned machine to test
 	// CodeNotProvisioned.
-	newMachine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	newMachine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	apiNewMachine, err := s.firewaller.Machine(newMachine.Tag().(names.MachineTag))
 	c.Assert(err, jc.ErrorIsNil)
@@ -115,7 +115,7 @@ func (s *machineSuite) TestIsManual(c *gc.C) {
 	c.Assert(answer, jc.IsFalse)
 
 	m, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series:     "quantal",
+		Base:       state.UbuntuBase("12.10"),
 		Jobs:       []state.MachineJob{state.JobHostUnits},
 		InstanceId: "2",
 		Nonce:      "manual:",

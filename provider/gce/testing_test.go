@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -36,6 +37,7 @@ import (
 	"github.com/juju/juju/provider/gce/google"
 	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // Ensure GCE provider supports the expected interfaces.
@@ -163,7 +165,8 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	var instType = "n1-standard-1"
 	cons := constraints.Value{InstanceType: &instType}
 
-	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(testing.FakeControllerConfig(), cons, cons, "jammy", "", nil)
+	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(testing.FakeControllerConfig(), cons, cons,
+		jujuversion.DefaultSupportedLTSBase(), "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = instanceConfig.SetTools(tools)
@@ -262,7 +265,7 @@ func (s *BaseSuiteUnpatched) UpdateConfig(c *gc.C, attrs map[string]interface{})
 
 func (s *BaseSuiteUnpatched) NewBaseInstance(c *gc.C, id string) *google.Instance {
 	diskSpec := google.DiskSpec{
-		Series:     "jammy",
+		OS:         "ubuntu",
 		SizeHintGB: 15,
 		ImageURL:   "some/image/path",
 		Boot:       true,
@@ -390,7 +393,7 @@ type fakeCommon struct {
 	fake
 
 	Arch        string
-	Series      string
+	Base        series.Base
 	BSFinalizer environs.CloudBootstrapFinalizer
 	AZInstances []common.AvailabilityZoneInstances
 }
@@ -404,7 +407,7 @@ func (fc *fakeCommon) Bootstrap(ctx environs.BootstrapContext, env environs.Envi
 
 	result := &environs.BootstrapResult{
 		Arch:                    fc.Arch,
-		Series:                  fc.Series,
+		Base:                    fc.Base,
 		CloudBootstrapFinalizer: fc.BSFinalizer,
 	}
 	return result, fc.err()

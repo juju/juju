@@ -24,7 +24,7 @@ import (
 type Backend interface {
 	IsController() bool
 	Machine(id string) (Machine, error)
-	MachineSeries(id string) (string, error)
+	MachineBase(id string) (series.Base, error)
 	MongoSession() *mgo.Session
 	ModelTag() names.ModelTag
 	ModelType() state.ModelType
@@ -138,8 +138,7 @@ func CreateResult(meta *backups.Metadata, filename string) params.BackupsMetadat
 	result.Machine = meta.Origin.Machine
 	result.Hostname = meta.Origin.Hostname
 	result.Version = meta.Origin.Version
-	base, _ := series.GetBaseFromSeries(meta.Origin.Series)
-	result.Base = base.String()
+	result.Base = meta.Origin.Base
 
 	result.ControllerUUID = meta.Controller.UUID
 	result.FormatVersion = meta.FormatVersion

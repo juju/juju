@@ -339,9 +339,9 @@ func (m *backingMachine) updated(ctx *allWatcherContext) error {
 
 	}
 	isManual := isManualMachine(m.Id, m.Nonce, providerType)
-	base, err := series.GetBaseFromSeries(m.Series)
+	base, err := series.ParseBase(m.Base.OS, m.Base.Channel)
 	if err != nil {
-		return errors.Annotatef(err, "converting machine series %q to base", m.Series) // Should not happen.
+		return errors.Trace(err)
 	}
 	info := &multiwatcher.MachineInfo{
 		ModelUUID:                m.ModelUUID,

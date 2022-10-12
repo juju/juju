@@ -299,10 +299,7 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting application config")
 	}
-	base, err := app.Base()
-	if err != nil {
-		return nil, errors.Annotate(err, "getting app base")
-	}
+	base := app.Base()
 	return &params.CAASApplicationProvisioningInfo{
 		Version:              vers,
 		APIAddresses:         addrs,
@@ -311,7 +308,7 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 		Filesystems:          filesystemParams,
 		Devices:              devices,
 		Constraints:          mergedCons,
-		Base:                 params.Base{Name: base.OS, Channel: base.Channel.String()},
+		Base:                 params.Base{Name: base.OS, Channel: base.Channel},
 		ImageRepo:            params.NewDockerImageInfo(cfg.CAASImageRepo(), imagePath),
 		CharmModifiedVersion: app.CharmModifiedVersion(),
 		CharmURL:             *charmURL,
@@ -654,7 +651,7 @@ func (a *API) applicationFilesystemParams(
 			charmStorage := ch.Meta().Storage[name]
 			id := fmt.Sprintf("%s/%v", name, i)
 			tag := names.NewStorageTag(id)
-			location, err := state.FilesystemMountPoint(charmStorage, tag, "kubernetes")
+			location, err := state.FilesystemMountPoint(charmStorage, tag, "ubuntu")
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

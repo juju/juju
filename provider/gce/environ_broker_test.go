@@ -63,7 +63,7 @@ func (s *environBrokerSuite) SetUpTest(c *gc.C) {
 	}
 	s.ic = &instances.InstanceConstraint{
 		Region:      "home",
-		Series:      "jammy",
+		Base:        series.MakeDefaultBase("ubuntu", "22.04"),
 		Arch:        amd64,
 		Constraints: s.StartInstArgs.Constraints,
 	}
@@ -216,18 +216,19 @@ func (s *environBrokerSuite) TestGetMetadataOSNotSupported(c *gc.C) {
 }
 
 var getDisksTests = []struct {
-	Series   string
+	osname   string
 	basePath string
 	error    error
 }{
-	{"jammy", gce.UbuntuImageBasePath, nil},
-	{"focal", "/tmp/", nil}, // --config base-image-path=/tmp/
-	{"arch", "", errors.New("os Arch is not supported on the gce provider")},
+	{"ubuntu", gce.UbuntuImageBasePath, nil},
+	{"ubuntu", "/tmp/", nil}, // --config base-image-path=/tmp/
+	{"suse", "", errors.New("os Suse is not supported on the gce provider")},
 }
 
 func (s *environBrokerSuite) TestGetDisks(c *gc.C) {
 	for _, test := range getDisksTests {
-		diskSpecs, err := gce.GetDisks(s.spec, s.StartInstArgs.Constraints, test.Series, "32f7d570-5bac-4b72-b169-250c24a94b2b", test.basePath)
+		os := jujuos.OSTypeForName(test.osname)
+		diskSpecs, err := gce.GetDisks(s.spec, s.StartInstArgs.Constraints, os, "32f7d570-5bac-4b72-b169-250c24a94b2b", test.basePath)
 		if test.error != nil {
 			c.Assert(err, gc.Equals, err)
 		} else {
@@ -236,8 +237,6 @@ func (s *environBrokerSuite) TestGetDisks(c *gc.C) {
 
 			diskSpec := diskSpecs[0]
 
-			os, err := series.GetOSFromSeries(test.Series)
-			c.Assert(err, jc.ErrorIsNil)
 			switch os {
 			case jujuos.Ubuntu:
 				c.Check(diskSpec.SizeHintGB, gc.Equals, uint64(8))
@@ -250,7 +249,7 @@ func (s *environBrokerSuite) TestGetDisks(c *gc.C) {
 		}
 	}
 
-	diskSpecs, err := gce.GetDisks(s.spec, s.StartInstArgs.Constraints, "jammy", "32f7d570-5bac-4b72-b169-250c24a94b2b", gce.UbuntuDailyImageBasePath)
+	diskSpecs, err := gce.GetDisks(s.spec, s.StartInstArgs.Constraints, jujuos.Ubuntu, "32f7d570-5bac-4b72-b169-250c24a94b2b", gce.UbuntuDailyImageBasePath)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(diskSpecs, gc.HasLen, 1)
 	spec := diskSpecs[0]
