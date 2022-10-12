@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/storage"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 )
@@ -174,7 +175,10 @@ func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineSt
 
 	var base *formattedBase
 	if machine.Base.Channel != "" {
-		base = &formattedBase{Name: machine.Base.Name, Channel: machine.Base.Channel}
+		channel, err := series.ParseChannel(machine.Base.Channel)
+		if err == nil {
+			base = &formattedBase{Name: machine.Base.Name, Channel: channel.DisplayString()}
+		}
 	}
 	out = machineStatus{
 		JujuStatus:         sf.getStatusInfoContents(machine.AgentStatus),
@@ -261,10 +265,15 @@ func (sf *statusFormatter) formatApplication(name string, application params.App
 		charmName = curl.Name
 	}
 
+	var base *formattedBase
+	channel, err := series.ParseChannel(application.Base.Channel)
+	if err == nil {
+		base = &formattedBase{Name: application.Base.Name, Channel: channel.DisplayString()}
+	}
 	out := applicationStatus{
 		Err:              typedNilCheck(application.Err),
 		Charm:            charmAlias,
-		Base:             formattedBase{Name: application.Base.Name, Channel: application.Base.Channel},
+		Base:             base,
 		CharmOrigin:      charmOrigin,
 		CharmName:        charmName,
 		CharmRev:         charmRev,

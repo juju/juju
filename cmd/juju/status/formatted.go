@@ -119,7 +119,7 @@ type lxdProfileContents struct {
 type applicationStatus struct {
 	Err              error                 `json:"-" yaml:",omitempty"`
 	Charm            string                `json:"charm" yaml:"charm"`
-	Base             formattedBase         `json:"base" yaml:"base"`
+	Base             *formattedBase        `json:"base,omitempty" yaml:"base,omitempty"`
 	CharmOrigin      string                `json:"charm-origin" yaml:"charm-origin"`
 	CharmName        string                `json:"charm-name" yaml:"charm-name"`
 	CharmRev         int                   `json:"charm-rev" yaml:"charm-rev"`

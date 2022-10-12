@@ -5776,7 +5776,7 @@ func (s *StatusSuite) TestFilterToContainer(c *gc.C) {
 		"      current: idle\n" +
 		"      since: 01 Apr 15 01:23+10:00\n" +
 		"    base:\n" +
-		"    - name: ubuntu\n" +
+		"      name: ubuntu\n" +
 		"      channel: \"12.10\"\n" +
 		"    network-interfaces:\n" +
 		"      eth0:\n" +
@@ -5796,8 +5796,8 @@ func (s *StatusSuite) TestFilterToContainer(c *gc.C) {
 		"        modification-status:\n" +
 		"          current: idle\n" +
 		"          since: 01 Apr 15 01:23+10:00\n" +
-		"        base: \n" +
-		"        - name: ubuntu\n" +
+		"        base:\n" +
+		"          name: ubuntu\n" +
 		"          channel: \"12.10\"\n" +
 		"    hardware: arch=amd64 cores=1 mem=1024M root-disk=8192M\n" +
 		"    controller-member-status: adding-vote\n" +
