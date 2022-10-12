@@ -29,6 +29,8 @@ import (
 	corearch "github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/os"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -69,7 +71,7 @@ func (s *legacyEnvironBrokerSuite) SetUpTest(c *gc.C) {
 func (s *legacyEnvironBrokerSuite) createStartInstanceArgs(c *gc.C) environs.StartInstanceParams {
 	var cons constraints.Value
 	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(
-		coretesting.FakeControllerConfig(), cons, cons, "jammy", "", nil,
+		coretesting.FakeControllerConfig(), cons, cons, coreseries.MakeDefaultBase("ubuntu", "22.04"), "", nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -153,7 +155,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstance(c *gc.C) {
 	c.Assert(createVMArgs, jc.DeepEquals, vsphereclient.CreateVirtualMachineParams{
 		Name:            "juju-f75cba-0",
 		Folder:          `Juju Controller (deadbeef-1bad-500d-9000-4b1d0d06f00d)/Model "testmodel" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)`,
-		Series:          startInstArgs.InstanceConfig.Series,
+		Series:          "jammy",
 		Metadata:        startInstArgs.InstanceConfig.Tags,
 		ComputeResource: s.client.computeResources[0].Resource,
 		ResourcePool: types.ManagedObjectReference{
@@ -356,7 +358,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceDefaultConstraintsApplied(c 
 
 	var (
 		arch      = "amd64"
-		rootDisk  = common.MinRootDiskSizeGiB("jammy") * 1024
+		rootDisk  = common.MinRootDiskSizeGiB(os.Ubuntu) * 1024
 		datastore = "datastore0"
 	)
 	c.Assert(res.Hardware, jc.DeepEquals, &instance.HardwareCharacteristics{
@@ -410,7 +412,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceDefaultDiskSizeIsUsedForSmal
 	startInstArgs.Constraints.RootDisk = &rootDisk
 	res, err := s.env.StartInstance(s.callCtx, startInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*res.Hardware.RootDisk, gc.Equals, common.MinRootDiskSizeGiB("jammy")*uint64(1024))
+	c.Assert(*res.Hardware.RootDisk, gc.Equals, common.MinRootDiskSizeGiB(os.Ubuntu)*uint64(1024))
 }
 
 func (s *legacyEnvironBrokerSuite) TestStartInstanceSelectZone(c *gc.C) {
@@ -621,7 +623,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceNoDatastoreSetting(c *gc.C) 
 
 	var (
 		arch           = "amd64"
-		rootDisk       = common.MinRootDiskSizeGiB("jammy") * 1024
+		rootDisk       = common.MinRootDiskSizeGiB(os.Ubuntu) * 1024
 		rootDiskSource = ""
 	)
 
@@ -639,7 +641,7 @@ func (s *legacyEnvironBrokerSuite) TestNotBootstrapping(c *gc.C) {
 		"0",
 		"nonce",
 		"",
-		"jammy",
+		coreseries.MakeDefaultBase("ubuntu", "22.04"),
 		&api.Info{
 			Tag:      names.NewMachineTag("0"),
 			ModelTag: coretesting.ModelTag,

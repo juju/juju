@@ -339,7 +339,7 @@ func (s *ModelSuite) TestNewModel(c *gc.C) {
 	c.Assert(entity.Tag(), gc.Equals, modelTag)
 
 	// Ensure the model is functional by adding a machine
-	_, err = st.AddMachine("quantal", state.JobHostUnits)
+	_, err = st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the default model was created.
@@ -796,7 +796,7 @@ func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithResources(c *gc.C) 
 	// add some machines and applications
 	otherModel, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = otherSt.AddMachine("quantal", state.JobHostUnits)
+	_, err = otherSt.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	application := s.Factory.MakeApplication(c, nil)
 
@@ -1275,7 +1275,7 @@ func (s *ModelSuite) TestProcessDyingModelWithMachinesAndApplicationsNoOp(c *gc.
 	// add some machines and applications
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = st.AddMachine("quantal", state.JobHostUnits)
+	_, err = st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	application := s.Factory.MakeApplication(c, nil)
 
@@ -1325,8 +1325,8 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumeBackedFilesystems(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	machine, err := st.AddOneMachine(state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 		Filesystems: []state.HostFilesystemParams{{
 			Filesystem: state.FilesystemParams{
 				Pool: "modelscoped-block",
@@ -1376,8 +1376,8 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumes(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	machine, err := st.AddOneMachine(state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 		Volumes: []state.HostVolumeParams{{
 			Volume: state.VolumeParams{
 				Pool: "modelscoped",

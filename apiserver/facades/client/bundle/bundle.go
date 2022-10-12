@@ -370,7 +370,10 @@ func (b *BundleAPI) fillBundleData(model description.Model, includeCharmDefaults
 
 	// Machine bundle data.
 	var machineSeries set.Strings
-	data.Machines, machineSeries = b.bundleDataMachines(model.Machines(), machineIds, defaultSeries)
+	data.Machines, machineSeries, err = b.bundleDataMachines(model.Machines(), machineIds, defaultSeries)
+	if err != nil {
+		return nil, err
+	}
 	usedSeries = usedSeries.Union(machineSeries)
 
 	// Remote Application bundle data.
@@ -636,14 +639,21 @@ func applicationDataResources(resources []description.Resource) map[string]inter
 	return resourceData
 }
 
-func (b *BundleAPI) bundleDataMachines(machines []description.Machine, machineIds set.Strings, defaultSeries string) (map[string]*charm.MachineSpec, set.Strings) {
+func (b *BundleAPI) bundleDataMachines(machines []description.Machine, machineIds set.Strings, defaultSeries string) (map[string]*charm.MachineSpec, set.Strings, error) {
 	usedSeries := set.NewStrings()
 	machineData := make(map[string]*charm.MachineSpec)
 	for _, machine := range machines {
 		if !machineIds.Contains(machine.Tag().Id()) {
 			continue
 		}
-		macSeries := machine.Series()
+		macBase, err := state.ParseBase(machine.Base())
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+		macSeries, err := series.GetSeriesFromChannel(macBase.OS, macBase.Channel)
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
 		usedSeries.Add(macSeries)
 		newMachine := &charm.MachineSpec{
 			Annotations: machine.Annotations(),
@@ -658,7 +668,7 @@ func (b *BundleAPI) bundleDataMachines(machines []description.Machine, machineId
 
 		machineData[machine.Id()] = newMachine
 	}
-	return machineData, usedSeries
+	return machineData, usedSeries, nil
 }
 
 func bundleDataRemoteApplications(remoteApps []description.RemoteApplication) map[string]*charm.SaasSpec {

@@ -10,6 +10,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	lxd "github.com/juju/juju/container/lxd"
 	network "github.com/juju/juju/core/network"
+	series "github.com/juju/juju/core/series"
 	environs "github.com/juju/juju/environs"
 	cloudspec "github.com/juju/juju/environs/cloudspec"
 	client "github.com/lxc/lxd/client"
@@ -259,7 +260,7 @@ func (mr *MockServerMockRecorder) FilterContainers(arg0 interface{}, arg1 ...int
 }
 
 // FindImage mocks base method.
-func (m *MockServer) FindImage(arg0, arg1 string, arg2 []lxd.ServerSpec, arg3 bool, arg4 environs.StatusCallbackFunc) (lxd.SourcedImage, error) {
+func (m *MockServer) FindImage(arg0 series.Base, arg1 string, arg2 []lxd.ServerSpec, arg3 bool, arg4 environs.StatusCallbackFunc) (lxd.SourcedImage, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FindImage", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(lxd.SourcedImage)

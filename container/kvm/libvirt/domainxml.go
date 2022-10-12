@@ -180,11 +180,8 @@ func generateFeaturesElement(p domainParams) *Features {
 func generateCPU(p domainParams) *CPU {
 	if p.Arch() == arch.ARM64 {
 		return &CPU{
-			Mode:  "custom",
-			Match: "exact",
-			Model: Model{
-				Fallback: "allow",
-				Text:     "cortex-a53"},
+			Mode:  "host-passthrough",
+			Check: "none",
 		}
 	}
 	return nil
@@ -280,7 +277,7 @@ type GIC struct {
 type CPU struct {
 	Mode  string `xml:"mode,attr,omitempty"`
 	Match string `xml:"match,attr,omitempty"`
-	Model Model  `xml:"model,omitempty"`
+	Check string `xml:"check,attr,omitempty"`
 }
 
 // Address is static. We generate a default value for it.

@@ -19,12 +19,10 @@ import (
 	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/v2/series"
 	"github.com/juju/proxy"
 	"github.com/juju/utils/v3"
 
 	"github.com/juju/juju/agent"
-	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/core/os"
 	"github.com/juju/juju/environs/bootstrap"
@@ -368,14 +366,6 @@ func (w *unixConfigure) ConfigureJuju() error {
 		return errors.Trace(err)
 	}
 
-	// Add the cloud archive cloud-tools pocket to apt sources
-	// for series that need it. This gives us up-to-date LXC,
-	// MongoDB, and other infrastructure.
-	// This is only done on ubuntu.
-	if w.conf.SystemUpdate() && w.conf.RequiresCloudArchiveCloudTools() {
-		w.conf.AddCloudArchiveCloudTools()
-	}
-
 	if w.icfg.Bootstrap != nil {
 		if err = w.addLocalSnapUpload(); err != nil {
 			return errors.Trace(err)
@@ -623,21 +613,6 @@ func (w *unixConfigure) addDownloadToolsCmds() error {
 			tools.SHA256, tools.Version),
 		"tar zxf $bin/tools.tar.gz -C $bin",
 	)
-
-	// When adding a machine to a 2.8 or earlier model on a 2.9 controller,
-	// we need to add a symlink named after the series so that the 2.x agent
-	// can still find the binaries when deploying units.
-	if vers := w.icfg.AgentVersion(); vers.Major == 2 && vers.Minor <= 8 {
-		hostSeries, err := series.HostSeries()
-		if err != nil {
-			return err
-		}
-		legacyVers := w.icfg.AgentVersion()
-		legacyVers.Release = hostSeries
-		w.conf.AddScripts(
-			fmt.Sprintf("ln -s $bin %s", agenttools.SharedToolsDir(w.icfg.DataDir, legacyVers)),
-		)
-	}
 
 	toolsJson, err := json.Marshal(tools)
 	if err != nil {

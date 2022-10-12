@@ -280,7 +280,7 @@ func runProvisionScript(script, host string, progressWriter io.Writer) error {
 // executed on a remote host to carry out the cloud-init
 // configuration.
 func ProvisioningScript(icfg *instancecfg.InstanceConfig) (string, error) {
-	cloudcfg, err := cloudinit.New(icfg.Series)
+	cloudcfg, err := cloudinit.New(icfg.Base.OS)
 	if err != nil {
 		return "", errors.Annotate(err, "error generating cloud-config")
 	}

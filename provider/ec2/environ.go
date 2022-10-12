@@ -45,6 +45,7 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tags"
@@ -483,7 +484,11 @@ func (e *environ) AgentMetadataLookupParams(region string) (*simplestreams.Metad
 
 // ImageMetadataLookupParams returns parameters which are used to query image simple-streams metadata.
 func (e *environ) ImageMetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
-	return e.metadataLookupParams(region, config.PreferredSeries(e.ecfg()))
+	release, err := imagemetadata.ImageRelease(config.PreferredSeries(e.ecfg()))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return e.metadataLookupParams(region, release)
 }
 
 // MetadataLookupParams returns parameters which are used to query simple-streams metadata.
@@ -600,7 +605,7 @@ func (e *environ) StartInstance(
 		instanceTypes,
 		&instances.InstanceConstraint{
 			Region:      e.cloud.Region,
-			Series:      args.InstanceConfig.Series,
+			Base:        args.InstanceConfig.Base,
 			Arch:        arch,
 			Constraints: args.Constraints,
 			Storage:     []string{ssdStorage, ebsStorage},
@@ -640,7 +645,7 @@ func (e *environ) StartInstance(
 
 	blockDeviceMappings, err := getBlockDeviceMappings(
 		args.Constraints,
-		args.InstanceConfig.Series,
+		args.InstanceConfig.Base.OS,
 		args.InstanceConfig.IsController(),
 		args.RootDisk,
 	)

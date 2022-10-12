@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	io "io"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"

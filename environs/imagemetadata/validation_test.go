@@ -25,7 +25,7 @@ type ValidateSuite struct {
 
 var _ = gc.Suite(&ValidateSuite{})
 
-func (s *ValidateSuite) makeLocalMetadata(c *gc.C, ss *simplestreams.Simplestreams, id, region, series, endpoint, stream string) {
+func (s *ValidateSuite) makeLocalMetadata(c *gc.C, ss *simplestreams.Simplestreams, id, region, version, endpoint, stream string) {
 	metadata := []*imagemetadata.ImageMetadata{
 		{
 			Id:     id,
@@ -39,7 +39,7 @@ func (s *ValidateSuite) makeLocalMetadata(c *gc.C, ss *simplestreams.Simplestrea
 	}
 	targetStorage, err := filestorage.NewFileStorageWriter(s.metadataDir)
 	c.Assert(err, jc.ErrorIsNil)
-	err = imagemetadata.MergeAndWriteMetadata(ss, series, metadata, &cloudSpec, targetStorage)
+	err = imagemetadata.MergeAndWriteMetadata(ss, version, metadata, &cloudSpec, targetStorage)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -49,11 +49,11 @@ func (s *ValidateSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ValidateSuite) assertMatch(c *gc.C, ss *simplestreams.Simplestreams, stream string) {
-	s.makeLocalMetadata(c, ss, "1234", "region-2", "raring", "some-auth-url", stream)
+	s.makeLocalMetadata(c, ss, "1234", "region-2", "13.04", "some-auth-url", stream)
 	metadataPath := filepath.Join(s.metadataDir, "images")
 	params := &simplestreams.MetadataLookupParams{
 		Region:        "region-2",
-		Release:       "raring",
+		Release:       "13.04",
 		Architectures: []string{"amd64"},
 		Endpoint:      "some-auth-url",
 		Stream:        stream,
@@ -79,10 +79,10 @@ func (s *ValidateSuite) TestMatch(c *gc.C) {
 }
 
 func (s *ValidateSuite) assertNoMatch(c *gc.C, ss *simplestreams.Simplestreams, stream string) {
-	s.makeLocalMetadata(c, ss, "1234", "region-2", "raring", "some-auth-url", stream)
+	s.makeLocalMetadata(c, ss, "1234", "region-2", "13.04", "some-auth-url", stream)
 	params := &simplestreams.MetadataLookupParams{
 		Region:        "region-2",
-		Release:       "precise",
+		Release:       "12.04",
 		Architectures: []string{"amd64"},
 		Endpoint:      "some-auth-url",
 		Stream:        stream,

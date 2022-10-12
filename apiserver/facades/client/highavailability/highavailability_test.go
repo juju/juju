@@ -67,7 +67,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.State.AddMachines(state.MachineTemplate{
-		Series:      "quantal",
+		Base:        state.UbuntuBase("12.10"),
 		Jobs:        []state.MachineJob{state.JobManageModel},
 		Constraints: controllerCons,
 		Addresses: []network.SpaceAddress{
@@ -131,7 +131,7 @@ func (s *clientSuite) TestEnableHAErrorForMultiCloudLocal(c *gc.C) {
 	machines, err := s.State.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 1)
-	c.Assert(machines[0].Series(), gc.Equals, "quantal")
+	c.Assert(machines[0].Base().DisplayString(), gc.Equals, "ubuntu:12.10")
 
 	err = machines[0].SetMachineAddresses(
 		network.NewSpaceAddress("cloud-local2.internal", network.WithScope(network.ScopeCloudLocal)),
@@ -148,7 +148,7 @@ func (s *clientSuite) TestEnableHAErrorForMultiCloudLocal(c *gc.C) {
 func (s *clientSuite) TestEnableHAErrorForNoCloudLocal(c *gc.C) {
 	m0, err := s.State.Machine("0")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m0.Series(), gc.Equals, "quantal")
+	c.Assert(m0.Base().DisplayString(), gc.Equals, "ubuntu:12.10")
 
 	// remove the extra provider addresses, so we have no valid CloudLocal addresses
 	c.Assert(m0.SetProviderAddresses(
@@ -181,7 +181,7 @@ func (s *clientSuite) TestEnableHAAddMachinesErrorForMultiCloudLocal(c *gc.C) {
 	machines, err := s.State.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 1)
-	c.Assert(machines[0].Series(), gc.Equals, "quantal")
+	c.Assert(machines[0].Base().String(), gc.Equals, "ubuntu:12.10/stable")
 
 	enableHAResult, err := s.enableHA(c, 3, emptyCons, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -317,13 +317,13 @@ func (s *clientSuite) TestEnableHAPlacement(c *gc.C) {
 func (s *clientSuite) TestEnableHAPlacementTo(c *gc.C) {
 	machine1Cons := constraints.MustParse("mem=8G")
 	_, err := s.State.AddMachines(state.MachineTemplate{
-		Series:      "quantal",
+		Base:        state.UbuntuBase("12.10"),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: machine1Cons,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	_, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	placement := []string{"1", "2"}
@@ -360,14 +360,14 @@ func (s *clientSuite) TestEnableHAPlacementToWithAddressInSpace(c *gc.C) {
 	_, err = controllerSettings.Write()
 	c.Assert(err, jc.ErrorIsNil)
 
-	m1, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	m1, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	a1 := network.NewSpaceAddress("192.168.6.6")
 	a1.SpaceID = sp.Id()
 	err = m1.SetProviderAddresses(a1)
 	c.Assert(err, jc.ErrorIsNil)
 
-	m2, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	m2, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	a2 := network.NewSpaceAddress("192.168.6.7")
 	a2.SpaceID = sp.Id()
@@ -388,7 +388,7 @@ func (s *clientSuite) TestEnableHAPlacementToErrorForInaccessibleSpace(c *gc.C) 
 	_, err = controllerSettings.Write()
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	_, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	placement := []string{"1", "2"}

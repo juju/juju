@@ -124,7 +124,7 @@ exec_simplestream_metadata() {
 		fi
 	done
 
-	juju upgrade-charm ubuntu
+	juju refresh ubuntu
 
 	sleep 10
 	wait_for "ubuntu" "$(idle_condition "ubuntu")"

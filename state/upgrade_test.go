@@ -45,7 +45,7 @@ func (s *UpgradeSuite) provision(c *gc.C, machineIds ...string) {
 }
 
 func (s *UpgradeSuite) addControllers(c *gc.C) (machineId1, machineId2 string) {
-	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil)
+	changes, err := s.State.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.04"), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return changes.Added[0], changes.Added[1]
 }
@@ -58,7 +58,7 @@ func (s *UpgradeSuite) assertUpgrading(c *gc.C, expect bool) {
 
 func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	controller, err := s.State.AddMachine("quantal", state.JobManageModel)
+	controller, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	s.serverIdA = controller.Id()
 	s.provision(c, s.serverIdA)

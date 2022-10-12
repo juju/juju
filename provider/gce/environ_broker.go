@@ -4,6 +4,8 @@
 package gce
 
 import (
+	"strings"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -11,7 +13,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	jujuos "github.com/juju/juju/core/os"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -95,7 +96,7 @@ func (env *environ) buildInstanceSpec(ctx context.ProviderCallContext, args envi
 	spec, err := findInstanceSpec(
 		env, &instances.InstanceConstraint{
 			Region:      env.cloud.Region,
-			Series:      args.InstanceConfig.Series,
+			Base:        args.InstanceConfig.Base,
 			Arch:        arch,
 			Constraints: args.Constraints,
 		},
@@ -158,11 +159,7 @@ func (env *environ) newRawInstance(
 		return nil, environs.ZoneIndependentError(err)
 	}
 
-	os, err := series.GetOSFromSeries(args.InstanceConfig.Series)
-	if err != nil {
-		return nil, environs.ZoneIndependentError(err)
-	}
-
+	os := jujuos.OSTypeForName(args.InstanceConfig.Base.OS)
 	metadata, err := getMetadata(args, os)
 	if err != nil {
 		return nil, environs.ZoneIndependentError(err)
@@ -179,7 +176,7 @@ func (env *environ) newRawInstance(
 
 	disks, err := getDisks(
 		spec, args.Constraints,
-		args.InstanceConfig.Series,
+		os,
 		env.Config().UUID(),
 		imageURLBase,
 	)
@@ -247,8 +244,8 @@ func getMetadata(args environs.StartInstanceParams, os jujuos.OSType) (map[strin
 // the new instances and returns it. This will always include a root
 // disk with characteristics determined by the provides args and
 // constraints.
-func getDisks(spec *instances.InstanceSpec, cons constraints.Value, ser, eUUID string, imageURLBase string) ([]google.DiskSpec, error) {
-	size := common.MinRootDiskSizeGiB(ser)
+func getDisks(spec *instances.InstanceSpec, cons constraints.Value, os jujuos.OSType, eUUID string, imageURLBase string) ([]google.DiskSpec, error) {
+	size := common.MinRootDiskSizeGiB(os)
 	if cons.RootDisk != nil && *cons.RootDisk > size {
 		size = common.MiBToGiB(*cons.RootDisk)
 	}
@@ -258,7 +255,7 @@ func getDisks(spec *instances.InstanceSpec, cons constraints.Value, ser, eUUID s
 	imageURL := imageURLBase + spec.Image.Id
 	logger.Infof("fetching disk image from %v", imageURL)
 	dSpec := google.DiskSpec{
-		Series:     ser,
+		OS:         strings.ToLower(os.String()),
 		SizeHintGB: size,
 		ImageURL:   imageURL,
 		Boot:       true,

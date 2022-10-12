@@ -119,19 +119,19 @@ func validateArgs(arch, release, stream, ftype string) error {
 		bad[arch] = fmt.Sprintf("arch=%q", arch)
 	}
 
-	validSeries := false
-	workloadSeries, err := series.AllWorkloadSeries(release, stream)
+	validVersion := false
+	workloadVersions, err := series.AllWorkloadVersions(release, stream)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	for _, supported := range workloadSeries.Values() {
+	for _, supported := range workloadVersions.Values() {
 		if release == supported {
-			validSeries = true
+			validVersion = true
 			break
 		}
 	}
-	if !validSeries {
-		bad[release] = fmt.Sprintf("series=%q", release)
+	if !validVersion {
+		bad[release] = fmt.Sprintf("version=%q", release)
 	}
 
 	if !validFTypes[ftype] {

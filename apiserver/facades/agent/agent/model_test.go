@@ -33,7 +33,7 @@ func (s *modelSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	var err error
-	s.machine0, err = s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageModel)
+	s.machine0, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits, state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.authorizer = apiservertesting.FakeAuthorizer{

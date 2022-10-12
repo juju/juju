@@ -271,7 +271,7 @@ func bootstrapCAAS(
 	podConfig, err := podcfg.NewBootstrapControllerPodConfig(
 		args.ControllerConfig,
 		args.ControllerName,
-		result.Series,
+		result.Base.OS,
 		bootstrapConstraints,
 	)
 	if err != nil {
@@ -590,7 +590,7 @@ func bootstrapIAAS(
 		args.ControllerConfig,
 		bootstrapParams.BootstrapConstraints,
 		args.ModelConstraints,
-		result.Series,
+		result.Base,
 		publicKey,
 		args.ExtraAgentValuesForTesting,
 	)
@@ -598,13 +598,12 @@ func bootstrapIAAS(
 		return errors.Trace(err)
 	}
 
-	osType := series.DefaultOSTypeNameFromSeries(result.Series)
 	matchingTools, err := bootstrapParams.AvailableTools.Match(coretools.Filter{
 		Arch:   result.Arch,
-		OSType: osType,
+		OSType: result.Base.OS,
 	})
 	if err != nil {
-		return errors.Annotatef(err, "expected tools for %q", osType)
+		return errors.Annotatef(err, "expected tools for %q", result.Base.OS)
 	}
 	selectedToolsList, err := getBootstrapToolsVersion(matchingTools)
 	if err != nil {

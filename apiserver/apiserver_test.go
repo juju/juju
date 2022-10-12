@@ -310,7 +310,7 @@ func (s *apiserverBaseSuite) OpenAPIAsNewMachine(c *gc.C, srv *apiserver.Server,
 	if len(jobs) == 0 {
 		jobs = []state.MachineJob{state.JobHostUnits}
 	}
-	machine, err := s.State.AddMachine("quantal", jobs...)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), jobs...)
 	c.Assert(err, jc.ErrorIsNil)
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)

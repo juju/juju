@@ -86,7 +86,7 @@ type CharmParams struct {
 
 // Params for creating a machine.
 type MachineParams struct {
-	Series          string
+	Base            state.Base
 	Jobs            []state.MachineJob
 	Password        string
 	Nonce           string
@@ -268,8 +268,8 @@ func (factory *Factory) paramsFillDefaults(c *gc.C, params *MachineParams) *Mach
 	if params == nil {
 		params = &MachineParams{}
 	}
-	if params.Series == "" {
-		params.Series = "quantal"
+	if params.Base.String() == "" {
+		params.Base = state.UbuntuBase("12.10")
 	}
 	if params.Nonce == "" {
 		params.Nonce = "nonce"
@@ -302,7 +302,7 @@ func (factory *Factory) paramsFillDefaults(c *gc.C, params *MachineParams) *Mach
 func (factory *Factory) MakeMachineNested(c *gc.C, parentId string, params *MachineParams) *state.Machine {
 	params = factory.paramsFillDefaults(c, params)
 	machineTemplate := state.MachineTemplate{
-		Series:      params.Series,
+		Base:        params.Base,
 		Jobs:        params.Jobs,
 		Volumes:     params.Volumes,
 		Filesystems: params.Filesystems,
@@ -361,7 +361,7 @@ func (factory *Factory) MakeUnprovisionedMachineReturningPassword(c *gc.C, param
 
 func (factory *Factory) makeMachineReturningPassword(c *gc.C, params *MachineParams, setProvisioned bool) (*state.Machine, string) {
 	machineTemplate := state.MachineTemplate{
-		Series:      params.Series,
+		Base:        params.Base,
 		Jobs:        params.Jobs,
 		Volumes:     params.Volumes,
 		Filesystems: params.Filesystems,
@@ -599,10 +599,8 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 			var mParams *MachineParams
 			if params.Application != nil {
 				platform := params.Application.CharmOrigin().Platform
-				mSeries, err := coreseries.GetSeriesFromChannel(platform.OS, platform.Channel)
-				c.Assert(err, jc.ErrorIsNil)
 				mParams = &MachineParams{
-					Series: mSeries,
+					Base: state.Base{OS: platform.OS, Channel: platform.Channel},
 				}
 			}
 			params.Machine = factory.MakeMachine(c, mParams)

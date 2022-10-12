@@ -326,6 +326,7 @@ func (s *MigrationSuite) TestMachineDocFields(c *gc.C) {
 	)
 	migrated := set.NewStrings(
 		"Addresses",
+		"Base",
 		"ContainerType",
 		"Jobs",
 		"MachineAddresses",
@@ -338,7 +339,6 @@ func (s *MigrationSuite) TestMachineDocFields(c *gc.C) {
 		"PreferredPrivateAddress",
 		"PreferredPublicAddress",
 		"Principals",
-		"Series",
 		"SupportedContainers",
 		"SupportedContainersKnown",
 		"Tools",

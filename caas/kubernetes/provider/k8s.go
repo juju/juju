@@ -40,6 +40,7 @@ import (
 	"k8s.io/utils/pointer"
 
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+	jujuversion "github.com/juju/juju/version"
 
 	"github.com/juju/juju/caas"
 	k8sapplication "github.com/juju/juju/caas/kubernetes/provider/application"
@@ -57,7 +58,6 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/paths"
 	coreresources "github.com/juju/juju/core/resources"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/docker"
@@ -530,10 +530,10 @@ please choose a different initial model name then try again.`, initialModelName)
 	if args.BootstrapConstraints.HasArch() {
 		podArch = *args.BootstrapConstraints.Arch
 	}
+	// TODO(wallyworld) - use actual series of controller pod image
 	return &environs.BootstrapResult{
-		Arch: podArch,
-		// TODO(wallyworld) - use actual series of controller pod image
-		Series:                 series.LatestLTS(),
+		Arch:                   podArch,
+		Base:                   jujuversion.DefaultSupportedLTSBase(),
 		CaasBootstrapFinalizer: finalizer,
 	}, nil
 }

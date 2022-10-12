@@ -1398,9 +1398,9 @@ func setFilesystemAttachmentInfoOps(
 func FilesystemMountPoint(
 	meta charm.Storage,
 	tag names.StorageTag,
-	series string,
+	osname string,
 ) (string, error) {
-	storageDir := paths.StorageDir(paths.SeriesToOS(series))
+	storageDir := paths.StorageDir(paths.OSType(osname))
 	if strings.HasPrefix(meta.Location, storageDir) {
 		return "", errors.Errorf(
 			"invalid location %q: must not fall within %q",

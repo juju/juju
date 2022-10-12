@@ -29,13 +29,14 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/state"
 	statestorage "github.com/juju/juju/state/storage"
+	jujuversion "github.com/juju/juju/version"
 )
 
 const controllerCharmURL = "ch:juju-controller"
 
 func (c *BootstrapCommand) deployControllerCharm(st *state.State, cons constraints.Value, charmPath, charmRisk string, isCAAS bool, unitPassword string) (resultErr error) {
 	arch := corearch.DefaultArchitecture
-	series := coreseries.LatestLTS()
+	base := jujuversion.DefaultSupportedLTSBase()
 	if cons.HasArch() {
 		arch = *cons.Arch
 	}
@@ -69,7 +70,10 @@ func (c *BootstrapCommand) deployControllerCharm(st *state.State, cons constrain
 				resultErr = controllerUnit.AssignToMachine(m)
 			}
 		}()
-		series = m.Series()
+		base, err = coreseries.ParseBase(m.Base().OS, m.Base().Channel)
+		if err != nil {
+			return errors.Trace(err)
+		}
 		pa, err := m.PublicAddress()
 		if err != nil && !network.IsNoAddressError(err) {
 			return errors.Trace(err)
@@ -79,10 +83,6 @@ func (c *BootstrapCommand) deployControllerCharm(st *state.State, cons constrain
 		}
 	}
 
-	base, err := coreseries.GetBaseFromSeries(series)
-	if err != nil {
-		return errors.Trace(err)
-	}
 	// First try using a local charm specified at bootstrap time.
 	source := "local"
 	curl, origin, err := populateLocalControllerCharm(st, c.DataDir(), arch, base)

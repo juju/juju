@@ -59,6 +59,6 @@ Commands that can be disabled are grouped based on logical operations as follows
     set-constraints
     sync-agents
     unexpose
-    upgrade-charm
+    refresh
     upgrade-model
 	`

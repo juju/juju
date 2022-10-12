@@ -32,9 +32,13 @@ func init() {
 }
 
 func findImageMetadata(env environs.Environ, arch string, series string) (*OvaFileMetadata, error) {
+	vers, err := imagemetadata.ImageRelease(series)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	ic := &imagemetadata.ImageConstraint{
 		LookupParams: simplestreams.LookupParams{
-			Releases: []string{series},
+			Releases: []string{vers},
 			Arches:   []string{arch},
 			Stream:   env.Config().ImageStream(),
 		},

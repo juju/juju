@@ -50,7 +50,7 @@ func newTestConfig(c *gc.C) *configInternal {
 }
 
 func (*formatSuite) TestWriteCommands(c *gc.C) {
-	cloudcfg, err := cloudinit.New("quantal")
+	cloudcfg, err := cloudinit.New("ubuntu")
 	c.Assert(err, jc.ErrorIsNil)
 	config := newTestConfig(c)
 	commands, err := config.WriteCommands(cloudcfg.ShellRenderer())

@@ -33,6 +33,7 @@ type StorageStateSuiteBase struct {
 	ConnSuite
 
 	series         string
+	base           state.Base
 	st             *state.State
 	storageBackend *state.StorageBackend
 	pm             poolmanager.PoolManager
@@ -44,6 +45,7 @@ func (s *StorageStateSuiteBase) SetUpTest(c *gc.C) {
 
 	var registry storage.ProviderRegistry
 	if s.series == "kubernetes" {
+		s.base = state.UbuntuBase("20.04")
 		s.st = s.Factory.MakeCAASModel(c, nil)
 		s.AddCleanup(func(_ *gc.C) { s.st.Close() })
 		var err error
@@ -53,8 +55,9 @@ func (s *StorageStateSuiteBase) SetUpTest(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		registry = stateenvirons.NewStorageProviderRegistry(broker)
 	} else {
-		s.st = s.State
 		s.series = "quantal"
+		s.base = state.UbuntuBase("12.10")
+		s.st = s.State
 		registry = storage.ChainedProviderRegistry{
 			dummystorage.StorageProviders(),
 			provider.CommonStorageProviders(),
@@ -95,7 +98,7 @@ func (s *StorageStateSuiteBase) AddTestingCharm(c *gc.C, name string) *state.Cha
 }
 
 func (s *StorageStateSuiteBase) AddTestingApplication(c *gc.C, name string, ch *state.Charm) *state.Application {
-	return state.AddTestingApplicationForSeries(c, s.st, s.series, name, ch)
+	return state.AddTestingApplicationForBase(c, s.st, s.base, name, ch)
 }
 
 func (s *StorageStateSuiteBase) AddTestingApplicationWithStorage(c *gc.C, name string, ch *state.Charm, storage map[string]state.StorageConstraints) *state.Application {

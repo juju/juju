@@ -3852,7 +3852,7 @@ type addMachine struct {
 
 func (am addMachine) step(c *gc.C, ctx *context) {
 	m, err := ctx.st.AddOneMachine(state.MachineTemplate{
-		Series:      "quantal",
+		Base:        state.UbuntuBase("12.10"),
 		Constraints: am.cons,
 		Jobs:        []state.MachineJob{am.job},
 	})
@@ -3881,8 +3881,8 @@ type addContainer struct {
 
 func (ac addContainer) step(c *gc.C, ctx *context) {
 	template := state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{ac.job},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{ac.job},
 	}
 	m, err := ctx.st.AddMachineInsideMachine(template, ac.parentId, instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)

@@ -48,7 +48,7 @@ func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
 	// Create a machine and unit to work with
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	arch := arch.DefaultArchitecture

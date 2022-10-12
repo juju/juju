@@ -752,7 +752,6 @@ func (s *BootstrapSuite) TestStructuredImageMetadataStored(c *gc.C) {
 			Region:          "region",
 			Arch:            "amd64",
 			Version:         "22.04",
-			Series:          "jammy",
 			RootStorageType: "rootStore",
 			VirtType:        "virtType",
 			Source:          "custom",
@@ -761,17 +760,6 @@ func (s *BootstrapSuite) TestStructuredImageMetadataStored(c *gc.C) {
 		ImageId:  "imageId",
 	}
 	s.assertWrittenToState(c, s.Session, expect)
-}
-
-func (s *BootstrapSuite) TestStructuredImageMetadataInvalidSeries(c *gc.C) {
-	s.bootstrapParams.CustomImageMetadata = createImageMetadata()
-	s.bootstrapParams.CustomImageMetadata[0].Version = "woat"
-	s.writeBootstrapParamsFile(c)
-
-	_, cmd, err := s.initBootstrapCommand(c, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	err = cmd.Run(nil)
-	c.Assert(err, gc.ErrorMatches, `cannot determine series for version woat: unknown series for version: \"woat\"`)
 }
 
 func (s *BootstrapSuite) makeTestModel(c *gc.C) {

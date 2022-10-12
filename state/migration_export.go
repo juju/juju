@@ -463,7 +463,7 @@ func (e *exporter) newMachine(exParent description.Machine, machine *Machine, in
 		Nonce:         machine.doc.Nonce,
 		PasswordHash:  machine.doc.PasswordHash,
 		Placement:     machine.doc.Placement,
-		Series:        machine.doc.Series,
+		Base:          machine.doc.Base.String(),
 		ContainerType: machine.doc.ContainerType,
 	}
 
