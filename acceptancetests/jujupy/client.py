@@ -1476,7 +1476,7 @@ class ModelClient:
             args = args + ('--path', charm_path)
         if resvision is not None:
             args = args + ('--revision', resvision)
-        self.juju('upgrade-charm', args)
+        self.juju('refresh', args)
 
     def remove_application(self, service):
         self.juju('remove-application', (service,))

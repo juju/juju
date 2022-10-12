@@ -1065,7 +1065,7 @@ class TestModelClient(ClientTest):
             env.upgrade_charm('foo-service',
                               '/bar/repository/angsty/mongodb')
         mock_juju.assert_called_once_with(
-            'upgrade-charm', ('foo-service', '--path',
+            'refresh', ('foo-service', '--path',
                               '/bar/repository/angsty/mongodb',))
 
     def test_remove_service(self):

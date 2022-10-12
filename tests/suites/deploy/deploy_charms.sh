@@ -123,7 +123,7 @@ run_deploy_lxd_to_machine() {
 	lxc profile show "juju-test-deploy-lxd-machine-lxd-profile-alt-0" |
 		grep -E "linux.kernel_modules: ([a-zA-Z0-9\_,]+)?ip_tables,ip6_tables([a-zA-Z0-9\_,]+)?"
 
-	juju upgrade-charm "lxd-profile-alt" --path "${charm}"
+	juju refresh "lxd-profile-alt" --path "${charm}"
 
 	# Ensure that an upgrade will be kicked off. This doesn't mean an upgrade
 	# has finished though, just started.
@@ -181,7 +181,7 @@ run_deploy_lxd_to_container() {
 	OUT=$(juju exec --machine 0 -- sh -c 'sudo lxc profile show "juju-test-deploy-lxd-container-lxd-profile-alt-0"')
 	echo "${OUT}" | grep -E "linux.kernel_modules: ([a-zA-Z0-9\_,]+)?ip_tables,ip6_tables([a-zA-Z0-9\_,]+)?"
 
-	juju upgrade-charm "lxd-profile-alt" --path "${charm}"
+	juju refresh "lxd-profile-alt" --path "${charm}"
 
 	# Ensure that an upgrade will be kicked off. This doesn't mean an upgrade
 	# has finished though, just started.
