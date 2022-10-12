@@ -60,6 +60,9 @@ const (
 
 	// ControllerServiceFQDNTemplate is the FQDN of the controller service using the cluster DNS.
 	ControllerServiceFQDNTemplate = "controller-service.controller-%s.svc.cluster.local"
+
+	// CharmVolumeName is the name of the k8s volume where shared charm data is stored.
+	CharmVolumeName = "charm-data"
 )
 
 // DefaultPropagationPolicy returns the default propagation policy.
