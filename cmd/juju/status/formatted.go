@@ -141,7 +141,7 @@ type applicationStatus struct {
 }
 
 type formattedBase struct {
-	OS      string `json:"os" yaml:"os"`
+	Name    string `json:"name" yaml:"name"`
 	Channel string `json:"channel" yaml:"channel"`
 }
 

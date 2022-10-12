@@ -174,7 +174,7 @@ func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineSt
 
 	var base *formattedBase
 	if machine.Base.Channel != "" {
-		base = &formattedBase{OS: machine.Base.Name, Channel: machine.Base.Channel}
+		base = &formattedBase{Name: machine.Base.Name, Channel: machine.Base.Channel}
 	}
 	out = machineStatus{
 		JujuStatus:         sf.getStatusInfoContents(machine.AgentStatus),
@@ -264,7 +264,7 @@ func (sf *statusFormatter) formatApplication(name string, application params.App
 	out := applicationStatus{
 		Err:              typedNilCheck(application.Err),
 		Charm:            charmAlias,
-		Base:             formattedBase{OS: application.Base.Name, Channel: application.Base.Channel},
+		Base:             formattedBase{Name: application.Base.Name, Channel: application.Base.Channel},
 		CharmOrigin:      charmOrigin,
 		CharmName:        charmName,
 		CharmRev:         charmRev,

@@ -614,7 +614,7 @@ func printMachine(w *output.Wrapper, m machineStatus) {
 	w.PrintColor(output.InfoHighlight, m.DNSName)
 	baseStr := ""
 	if m.Base != nil {
-		base, err := series.ParseBase(m.Base.OS, m.Base.Channel)
+		base, err := series.ParseBase(m.Base.Name, m.Base.Channel)
 		if err == nil {
 			baseStr = base.DisplayString()
 		}

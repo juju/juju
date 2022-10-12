@@ -6154,7 +6154,7 @@ func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
 			"1": {
 				JujuStatus:        statusInfoContents{Current: "error", Message: "<error while provisioning>"},
 				InstanceId:        "pending",
-				Base:              &formattedBase{OS: "ubuntu", Channel: "22.04"},
+				Base:              &formattedBase{Name: "ubuntu", Channel: "22.04"},
 				Id:                "1",
 				Containers:        map[string]machineStatus{},
 				NetworkInterfaces: map[string]networkInterface{},
@@ -6203,7 +6203,7 @@ func (s *StatusSuite) TestMissingControllerTimestampInFullStatus(c *gc.C) {
 			"1": {
 				JujuStatus:        statusInfoContents{Current: "error", Message: "<error while provisioning>"},
 				InstanceId:        "pending",
-				Base:              &formattedBase{OS: "ubuntu", Channel: "22.04"},
+				Base:              &formattedBase{Name: "ubuntu", Channel: "22.04"},
 				Id:                "1",
 				Containers:        map[string]machineStatus{},
 				NetworkInterfaces: map[string]networkInterface{},
@@ -6251,7 +6251,7 @@ func (s *StatusSuite) TestControllerTimestampInFullStatus(c *gc.C) {
 			"1": {
 				JujuStatus:        statusInfoContents{Current: "error", Message: "<error while provisioning>"},
 				InstanceId:        "pending",
-				Base:              &formattedBase{OS: "ubuntu", Channel: "22.04"},
+				Base:              &formattedBase{Name: "ubuntu", Channel: "22.04"},
 				Id:                "1",
 				Containers:        map[string]machineStatus{},
 				NetworkInterfaces: map[string]networkInterface{},
