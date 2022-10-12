@@ -1050,7 +1050,7 @@ class FakeBackend:
                 self.controller_state.add_user_perms(username, permissions)
                 register_string = get_user_register_command_info(username)
                 return info_string + register_string
-            if command == 'show-status':
+            if command == 'status':
                 status_dict = model_state.get_status_dict()
                 # Parsing JSON is much faster than parsing YAML, and JSON is a
                 # subset of YAML, so emit JSON.

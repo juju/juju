@@ -651,7 +651,7 @@ class ModelClient:
             if container_type in cls.supported_container_types:
                 return container_type
 
-    _show_status = 'show-status'
+    _show_status = 'status'
     _show_controller = 'show-controller'
 
     @classmethod
