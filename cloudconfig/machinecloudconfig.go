@@ -15,7 +15,7 @@ import (
 
 	utilsos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/paths"
-	utilsseries "github.com/juju/juju/core/series"
+	"github.com/juju/juju/core/series"
 )
 
 // InitReader describes methods for extracting machine provisioning config,
@@ -34,8 +34,8 @@ type InitReader interface {
 // MachineInitReader to retrieve initialisation configuration for
 // a single machine.
 type MachineInitReaderConfig struct {
-	// Series is the OS series of the machine.
-	Series string
+	// Base is the base of the machine.
+	Base series.Base
 
 	// CloudInitConfigDir is the directory where cloud configuration resides
 	// on MAAS hosts.
@@ -59,11 +59,11 @@ type MachineInitReader struct {
 }
 
 // NewMachineInitReader creates and returns a new MachineInitReader for the
-// input series.
-func NewMachineInitReader(series string) (InitReader, error) {
-	osType := paths.SeriesToOS(series)
+// input os name.
+func NewMachineInitReader(base series.Base) (InitReader, error) {
+	osType := paths.OSType(base.OS)
 	cfg := MachineInitReaderConfig{
-		Series:                     series,
+		Base:                       base,
 		CloudInitConfigDir:         paths.CloudInitCfgDir(osType),
 		CloudInitInstanceConfigDir: paths.MachineCloudInitDir(osType),
 		CurtinInstallConfigFile:    paths.CurtinInstallConfig(osType),
@@ -71,7 +71,7 @@ func NewMachineInitReader(series string) (InitReader, error) {
 	return NewMachineInitReaderFromConfig(cfg), nil
 }
 
-// NewMachineInitReader creates and returns a new MachineInitReader using
+// NewMachineInitReaderFromConfig creates and returns a new MachineInitReader using
 // the input configuration.
 func NewMachineInitReaderFromConfig(cfg MachineInitReaderConfig) InitReader {
 	return &MachineInitReader{config: cfg}
@@ -80,21 +80,16 @@ func NewMachineInitReaderFromConfig(cfg MachineInitReaderConfig) InitReader {
 // GetInitConfig returns a map of configuration data used to provision the
 // machine. It is sourced from both Cloud-Init and Curtin data.
 func (r *MachineInitReader) GetInitConfig() (map[string]interface{}, error) {
-	series := r.config.Series
-
-	containerOS, err := utilsseries.GetOSFromSeries(series)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	switch containerOS {
+	switch utilsos.OSTypeForName(r.config.Base.OS) {
 	case utilsos.Ubuntu, utilsos.CentOS, utilsos.OpenSUSE:
 		hostSeries, err := osseries.HostSeries()
-		if err != nil || series != hostSeries {
-			logger.Debugf("not attempting to get init config for %s, series of machine and container differ", series)
+		series, err2 := series.GetSeriesFromBase(r.config.Base)
+		if err != nil || err2 != nil || series != hostSeries {
+			logger.Debugf("not attempting to get init config for %s, base of machine and container differ", r.config.Base.DisplayString())
 			return nil, nil
 		}
 	default:
-		logger.Debugf("not attempting to get init config for %s container", series)
+		logger.Debugf("not attempting to get init config for %s container", r.config.Base.DisplayString())
 		return nil, nil
 	}
 

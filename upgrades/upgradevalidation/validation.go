@@ -8,7 +8,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/replicaset/v3"
@@ -158,7 +157,11 @@ var windowsSeries = []string{
 }
 
 func checkNoWinMachinesForModel(modelUUID string, pool StatePool, st State, model Model) (*Blocker, error) {
-	result, err := st.MachineCountForSeries(windowsSeries...)
+	windowsBases := make([]state.Base, len(windowsSeries))
+	for i, s := range windowsSeries {
+		windowsBases[i] = state.Base{OS: "windows", Channel: s}
+	}
+	result, err := st.MachineCountForBase(windowsBases...)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot count windows machines")
 	}
@@ -188,12 +191,17 @@ func checkForDeprecatedUbuntuSeriesForModel(
 	modelUUID string, pool StatePool, st State, model Model,
 ) (*Blocker, error) {
 	supported := false
-	deprecatedSeries := set.NewStrings()
-	for s := range series.UbuntuVersions(&supported, nil) {
-		deprecatedSeries.Add(s)
+	var deprecatedBases []state.Base
+	for _, vers := range series.UbuntuVersions(&supported, nil) {
+		deprecatedBases = append(deprecatedBases, state.Base{OS: "ubuntu", Channel: vers})
 	}
-	result, err := st.MachineCountForSeries(
-		deprecatedSeries.SortedValues()..., // sort for tests.
+
+	// sort for tests.
+	sort.Slice(deprecatedBases, func(i, j int) bool {
+		return deprecatedBases[i].Channel < deprecatedBases[j].Channel
+	})
+	result, err := st.MachineCountForBase(
+		deprecatedBases...,
 	)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot count deprecated ubuntu machines")

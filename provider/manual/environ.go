@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -128,9 +129,13 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, callCtx context
 		return common.ConfigureMachine(ctx, ssh.DefaultClient, e.host, icfg, nil)
 	}
 
+	base, err := coreseries.GetBaseFromSeries(series)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	result := &environs.BootstrapResult{
 		Arch:                    *hw.Arch,
-		Series:                  series,
+		Base:                    base,
 		CloudBootstrapFinalizer: finalize,
 	}
 	return result, nil

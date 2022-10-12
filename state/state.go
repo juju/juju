@@ -32,7 +32,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
@@ -689,48 +688,38 @@ func (st *State) AllMachines() ([]*Machine, error) {
 	return st.allMachines(machinesCollection)
 }
 
-// MachineCountForSeries counts the machines for the provided series in the model.
-func (st *State) MachineCountForSeries(series ...string) (map[string]int, error) {
+// MachineCountForBase counts the machines for the provided bases in the model.
+// The bases must all be for the one os.
+func (st *State) MachineCountForBase(base ...Base) (map[string]int, error) {
 	machinesCollection, closer := st.db().GetCollection(machinesC)
 	defer closer()
-	pipe := machinesCollection.Pipe([]bson.M{
-		{
-			"$match": bson.M{
-				"series":     bson.M{"$in": series},
-				"model-uuid": st.ModelUUID(),
-			},
-		},
-		{
-			"$group": bson.M{
-				"_id": "$series", "count": bson.M{"$sum": 1},
-			},
-		},
-		{
-			"$sort": bson.M{"_id": 1},
-		},
-		{
-			"$group": bson.M{
-				"_id": nil,
-				"counts": bson.M{
-					"$push": bson.M{"k": "$_id", "v": "$count"},
-				},
-			},
-		},
-		{
-			"$replaceRoot": bson.M{
-				"newRoot": bson.M{"$arrayToObject": "$counts"},
-			},
-		},
-	})
-	var result []map[string]int
-	err := pipe.All(&result)
+
+	var (
+		os       string
+		channels []string
+	)
+	for _, b := range base {
+		if os != "" && os != b.OS {
+			return nil, errors.New("bases must all be for the same OS")
+		}
+		os = b.OS
+		channels = append(channels, b.Normalise().Channel)
+	}
+
+	var docs []machineDoc
+	err := machinesCollection.Find(bson.D{
+		{"base.channel", bson.D{{"$in", channels}}},
+		{"base.os", os},
+	}).Select(bson.M{"base": 1}).All(&docs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if len(result) > 0 {
-		return result[0], nil
+	result := make(map[string]int)
+	for _, m := range docs {
+		b := m.Base.DisplayString()
+		result[b] = result[b] + 1
 	}
-	return nil, nil
+	return result, nil
 }
 
 type machineDocSlice []machineDoc
@@ -1413,8 +1402,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	return nil, errors.Trace(err)
 }
 
-func (st *State) processCommonModelApplicationArgs(args *AddApplicationArgs) (string, error) {
-	var appSeries string
+func (st *State) processCommonModelApplicationArgs(args *AddApplicationArgs) (Base, error) {
 	// User has specified series. Overriding supported series is
 	// handled by the client, so args.Release is not necessarily
 	// one of the charm's supported series. We require that the
@@ -1422,11 +1410,11 @@ func (st *State) processCommonModelApplicationArgs(args *AddApplicationArgs) (st
 	// the supported series. For old-style charms with the series
 	// in the URL, that series is the one and only supported
 	// series.
-	var err error
-	appSeries, err = series.GetSeriesFromChannel(args.CharmOrigin.Platform.OS, args.CharmOrigin.Platform.Channel)
+	appBase, err := series.ParseBase(args.CharmOrigin.Platform.OS, args.CharmOrigin.Platform.Channel)
 	if err != nil {
-		return "", errors.Trace(err)
+		return Base{}, errors.Trace(err)
 	}
+
 	var supportedSeries []string
 	if cSeries := args.Charm.URL().Series; cSeries != "" {
 		supportedSeries = []string{cSeries}
@@ -1441,15 +1429,11 @@ func (st *State) processCommonModelApplicationArgs(args *AddApplicationArgs) (st
 		var err error
 		supportedSeries, err = corecharm.ComputedSeries(args.Charm)
 		if err != nil {
-			return "", errors.Trace(err)
+			return Base{}, errors.Trace(err)
 		}
 	}
 	if len(supportedSeries) > 0 {
-		seriesOS, err := series.GetOSFromSeries(appSeries)
-		if err != nil {
-			return "", errors.Trace(err)
-		}
-		supportedOperatingSystems := make(map[os.OSType]bool)
+		supportedOperatingSystems := make(map[string]bool)
 		for _, supportedSeries := range supportedSeries {
 			os, err := series.GetOSFromSeries(supportedSeries)
 			if err != nil {
@@ -1457,12 +1441,13 @@ func (st *State) processCommonModelApplicationArgs(args *AddApplicationArgs) (st
 				// just skip it.
 				continue
 			}
-			supportedOperatingSystems[os] = true
+			supportedOperatingSystems[strings.ToLower(os.String())] = true
 		}
-		if !supportedOperatingSystems[seriesOS] && !supportedOperatingSystems[os.Kubernetes] {
-			return "", errors.NewNotSupported(errors.Errorf(
-				"series %q (OS %q) not supported by charm, supported series are %q",
-				appSeries, seriesOS, strings.Join(supportedSeries, ", "),
+		if !supportedOperatingSystems[appBase.OS] && !supportedOperatingSystems["kubernetes"] {
+			series, _ := series.GetSeriesFromBase(appBase)
+			return Base{}, errors.NewNotSupported(errors.Errorf(
+				"series %q not supported by charm, supported series are %q",
+				series, strings.Join(supportedSeries, ", "),
 			), "")
 		}
 	}
@@ -1472,18 +1457,18 @@ func (st *State) processCommonModelApplicationArgs(args *AddApplicationArgs) (st
 	// but we only want application constraints to be persisted here.
 	cons, err := st.ResolveConstraints(args.Constraints)
 	if err != nil {
-		return "", errors.Trace(err)
+		return Base{}, errors.Trace(err)
 	}
 	unsupported, err := st.validateConstraints(cons)
 	if len(unsupported) > 0 {
 		logger.Warningf(
 			"deploying %q: unsupported constraints: %v", args.Name, strings.Join(unsupported, ","))
 	}
-	return appSeries, errors.Trace(err)
+	return Base{appBase.OS, appBase.Channel.String()}, errors.Trace(err)
 }
 
 func (st *State) processIAASModelApplicationArgs(args *AddApplicationArgs) error {
-	appSeries, err := st.processCommonModelApplicationArgs(args)
+	appBase, err := st.processCommonModelApplicationArgs(args)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1545,7 +1530,7 @@ func (st *State) processIAASModelApplicationArgs(args *AddApplicationArgs) error
 			}
 			subordinate := args.Charm.Meta().Subordinate
 			if err := validateUnitMachineAssignment(
-				m, appSeries, subordinate, storagePools,
+				m, appBase, subordinate, storagePools,
 			); err != nil {
 				return errors.Annotatef(
 					err, "cannot deploy to machine %s", m,
@@ -1557,7 +1542,7 @@ func (st *State) processIAASModelApplicationArgs(args *AddApplicationArgs) error
 
 		case directivePlacement:
 			if err := st.precheckInstance(
-				appSeries,
+				appBase,
 				args.Constraints,
 				data.directive,
 				volumeAttachments,
@@ -1569,7 +1554,7 @@ func (st *State) processIAASModelApplicationArgs(args *AddApplicationArgs) error
 	// We want to check the constraints if there's no placement at all.
 	if len(args.Placement) == 0 {
 		if err := st.precheckInstance(
-			appSeries,
+			appBase,
 			args.Constraints,
 			"",
 			volumeAttachments,
@@ -1850,13 +1835,9 @@ func (st *State) addMachineWithPlacement(unit *Unit, data *placementData) (*Mach
 
 	switch data.placementType() {
 	case containerPlacement:
-		mSeries, err := series.GetSeriesFromChannel(unit.Base().OS, unit.Base().Channel)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
 		// If a container is to be used, create it.
 		template := MachineTemplate{
-			Series:      mSeries,
+			Base:        unit.doc.Base,
 			Jobs:        []MachineJob{JobHostUnits},
 			Dirty:       true,
 			Constraints: cons,
@@ -2213,7 +2194,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 					charmBasees = append(charmBasees, b.DisplayString())
 				}
 				if len(charmBasees) == 0 {
-					localBase, err := localApp.Base()
+					localBase, err := series.ParseBase(localApp.Base().OS, localApp.Base().Channel)
 					if err != nil {
 						return nil, errors.Trace(err)
 					}

@@ -202,8 +202,8 @@ func (a *Application) deviceConstraintsKey() string {
 }
 
 // Base returns the specified base for this charm.
-func (a *Application) Base() (series.Base, error) {
-	return series.ParseBase(a.doc.CharmOrigin.Platform.OS, a.doc.CharmOrigin.Platform.Channel)
+func (a *Application) Base() Base {
+	return Base{OS: a.doc.CharmOrigin.Platform.OS, Channel: a.doc.CharmOrigin.Platform.Channel}
 }
 
 // Life returns whether the application is Alive, Dying or Dead.
@@ -1543,9 +1543,9 @@ type SetCharmConfig struct {
 	// ForceUnits forces the upgrade on units in an error state.
 	ForceUnits bool
 
-	// ForceSeries forces the use of the charm even if it is not one of
+	// ForceBase forces the use of the charm even if it is not one of
 	// the charm's supported series.
-	ForceSeries bool
+	ForceBase bool
 
 	// Force forces the overriding of the lxd profile validation even if the
 	// profile doesn't validate.
@@ -1598,7 +1598,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 
 	// If it's a v1 or v2 machine charm (no containers), check series.
 	if charm.MetaFormat(cfg.Charm) == charm.FormatV1 || !corecharm.IsKubernetes(cfg.Charm) {
-		err := checkSeriesForSetCharm(a.CharmOrigin().Platform, cfg.Charm, cfg.ForceSeries)
+		err := checkSeriesForSetCharm(a.CharmOrigin().Platform, cfg.Charm, cfg.ForceBase)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1837,7 +1837,7 @@ func (a *Application) SetDownloadedIDAndHash(id, hash string) error {
 	return nil
 }
 
-func checkSeriesForSetCharm(currentPlatform *Platform, charm *Charm, forceSeries bool) error {
+func checkSeriesForSetCharm(currentPlatform *Platform, charm *Charm, ForceBase bool) error {
 	// For old style charms written for only one series, we still retain
 	// this check. Newer charms written for multi-series have a URL
 	// with series = "".
@@ -1851,7 +1851,7 @@ func checkSeriesForSetCharm(currentPlatform *Platform, charm *Charm, forceSeries
 		if charm.URL().Schema != "ch" && charm.URL().Series != "kubernetes" && charm.URL().Series != curSeries {
 			return errors.Errorf("cannot change an application's series")
 		}
-	} else if !forceSeries {
+	} else if !ForceBase {
 		supported := false
 		charmSeries, err := corecharm.ComputedSeries(charm)
 		if err != nil {
@@ -1871,7 +1871,7 @@ func checkSeriesForSetCharm(currentPlatform *Platform, charm *Charm, forceSeries
 			return errors.Errorf("only these series are supported: %v", supportedSeries)
 		}
 	} else {
-		// Even with forceSeries=true, we do not allow a charm to be used which is for
+		// Even with forceBase=true, we do not allow a charm to be used which is for
 		// a different OS. This assumes the charm declares it has supported series which
 		// we can check for OS compatibility. Otherwise, we just accept the series supplied.
 		currentOS, err := series.GetOSFromSeries(curSeries)
@@ -1997,8 +1997,8 @@ func unitAppName(unitName string) string {
 	return unitParts[0]
 }
 
-// UpdateApplicationSeries updates the series for the Application.
-func (a *Application) UpdateApplicationSeries(newSeries string, force bool) (err error) {
+// UpdateApplicationBase updates the base for the Application.
+func (a *Application) UpdateApplicationBase(newBase Base, force bool) (err error) {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			// If we've tried once already and failed, re-evaluate the criteria.
@@ -2007,21 +2007,25 @@ func (a *Application) UpdateApplicationSeries(newSeries string, force bool) (err
 			}
 		}
 		// Exit early if the Application series doesn't need to change
-		newBase, err := series.GetBaseFromSeries(newSeries)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
 		if err := a.Refresh(); err != nil {
 			return nil, errors.Trace(err)
 		}
 		appOrigin := a.CharmOrigin()
-		sameOrigin := appOrigin.Platform.OS == newBase.OS && appOrigin.Platform.Channel == newBase.Channel.String()
+		appBase, err := series.ParseBase(appOrigin.Platform.OS, appOrigin.Platform.Channel)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		newAppBase, err := series.ParseBase(newBase.OS, newBase.Channel)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		sameOrigin := appBase.DisplayString() == newAppBase.DisplayString()
 		if sameOrigin {
 			return nil, jujutxn.ErrNoOperations
 		}
 
 		// Verify and gather data for the transaction operations.
-		err = a.VerifySupportedSeries(newSeries, force)
+		err = a.VerifySupportedBase(newBase, force)
 		if err != nil {
 			return nil, err
 		}
@@ -2040,7 +2044,7 @@ func (a *Application) UpdateApplicationSeries(newSeries string, force bool) (err
 				if err != nil {
 					return nil, err
 				}
-				err = app.VerifySupportedSeries(newSeries, force)
+				err = app.VerifySupportedBase(newBase, force)
 				if err != nil {
 					return nil, err
 				}
@@ -2056,7 +2060,7 @@ func (a *Application) UpdateApplicationSeries(newSeries string, force bool) (err
 				{"charmurl", a.doc.CharmURL},
 				{"unitcount", a.doc.UnitCount}},
 			Update: bson.D{{"$set", bson.D{{
-				"charm-origin.platform.channel", newBase.Channel.String()}}}},
+				"charm-origin.platform.channel", newAppBase.Channel.String()}}}},
 		}}
 
 		if unit != nil {
@@ -2076,7 +2080,7 @@ func (a *Application) UpdateApplicationSeries(newSeries string, force bool) (err
 					{"charmurl", sub.doc.CharmURL},
 					{"unitcount", sub.doc.UnitCount}},
 				Update: bson.D{{"$set", bson.D{{
-					"charm-origin.platform.channel", newBase.Channel.String()}}}},
+					"charm-origin.platform.channel", newAppBase.Channel.String()}}}},
 			})
 		}
 		return ops, nil
@@ -2086,11 +2090,11 @@ func (a *Application) UpdateApplicationSeries(newSeries string, force bool) (err
 	return errors.Annotatef(err, "updating application series")
 }
 
-// VerifySupportedSeries verifies if the given series is supported by the
+// VerifySupportedBase verifies if the given base is supported by the
 // application.
 // TODO (stickupkid): This will be removed once we align all upgrade-machine
 // commands.
-func (a *Application) VerifySupportedSeries(series string, force bool) error {
+func (a *Application) VerifySupportedBase(base Base, force bool) error {
 	ch, _, err := a.Charm()
 	if err != nil {
 		return err
@@ -2101,6 +2105,10 @@ func (a *Application) VerifySupportedSeries(series string, force bool) error {
 	}
 	if len(supportedSeries) == 0 {
 		supportedSeries = append(supportedSeries, ch.URL().Series)
+	}
+	series, err := series.GetSeriesFromChannel(base.OS, base.Channel)
+	if err != nil {
+		return errors.Trace(err)
 	}
 	_, seriesSupportedErr := corecharm.SeriesForCharm(series, supportedSeries)
 	if seriesSupportedErr != nil && !force {
@@ -2431,11 +2439,12 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 	globalKey := unitGlobalKey(name)
 	agentGlobalKey := unitAgentGlobalKey(name)
 	platform := a.CharmOrigin().Platform
+	base := Base{OS: platform.OS, Channel: platform.Channel}.Normalise()
 	udoc := &unitDoc{
 		DocID:                  docID,
 		Name:                   name,
 		Application:            a.doc.Name,
-		Base:                   Base{OS: platform.OS, Channel: platform.Channel},
+		Base:                   base,
 		Life:                   Alive,
 		Principal:              args.principalName,
 		MachineId:              args.principalMachineID,

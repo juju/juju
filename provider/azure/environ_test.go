@@ -508,7 +508,7 @@ func (s *environSuite) makeErrorSender(pattern string, err error, repeat int) *a
 	return sender
 }
 
-func makeStartInstanceParams(c *gc.C, controllerUUID, series string) environs.StartInstanceParams {
+func makeStartInstanceParams(c *gc.C, controllerUUID string, base coreseries.Base) environs.StartInstanceParams {
 	machineTag := names.NewMachineTag("0")
 	apiInfo := &api.Info{
 		Addrs:    []string{"localhost:17777"},
@@ -521,7 +521,7 @@ func makeStartInstanceParams(c *gc.C, controllerUUID, series string) environs.St
 	icfg, err := instancecfg.NewInstanceConfig(
 		names.NewControllerTag(controllerUUID),
 		machineTag.Id(), "yanonce", imagemetadata.ReleasedStream,
-		series, apiInfo,
+		base, apiInfo,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	icfg.ControllerConfig = controller.Config{}
@@ -530,10 +530,9 @@ func makeStartInstanceParams(c *gc.C, controllerUUID, series string) environs.St
 		tags.JujuController: controllerUUID,
 	}
 
-	osType := coreseries.DefaultOSTypeNameFromSeries(series)
 	return environs.StartInstanceParams{
 		ControllerUUID: controllerUUID,
-		Tools:          makeToolsList(osType),
+		Tools:          makeToolsList(base.OS),
 		InstanceConfig: icfg,
 	}
 }
@@ -612,7 +611,7 @@ func (s *environSuite) assertStartInstance(
 ) {
 	env := s.openEnviron(c)
 
-	args := makeStartInstanceParams(c, s.controllerUUID, "jammy")
+	args := makeStartInstanceParams(c, s.controllerUUID, coreseries.MakeDefaultBase("ubuntu", "22.04"))
 	if withConflictRetry {
 		s.vmTags[tags.JujuUnitsDeployed] = "mysql/0 wordpress/0"
 		args.InstanceConfig.Tags[tags.JujuUnitsDeployed] = "mysql/0 wordpress/0"
@@ -718,7 +717,7 @@ func (s *environSuite) TestStartInstanceNoAuthorizedKeys(c *gc.C) {
 
 	s.sender = s.startInstanceSenders(startInstanceSenderParams{bootstrap: false})
 	s.requests = nil
-	_, err = env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, "jammy"))
+	_, err = env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, coreseries.MakeDefaultBase("ubuntu", "22.04")))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.linuxOsProfile.LinuxConfiguration.SSH.PublicKeys = []*armcompute.SSHPublicKey{{
@@ -751,25 +750,19 @@ func (s *environSuite) TestStartInstanceInvalidCredential(c *gc.C) {
 	s.requests = nil
 	c.Assert(s.invalidatedCredential, jc.IsFalse)
 
-	_, err = env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, "jammy"))
+	_, err = env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, coreseries.MakeDefaultBase("ubuntu", "22.04")))
 	c.Assert(err, gc.NotNil)
 	c.Assert(s.invalidatedCredential, jc.IsTrue)
 }
 
 func (s *environSuite) TestStartInstanceCentOS(c *gc.C) {
-	for _, series := range []string{"centos7", "centos8"} {
-		s.assertStartInstanceCentOS(c, series)
-	}
-}
-
-func (s *environSuite) assertStartInstanceCentOS(c *gc.C, series string) {
 	// Starting a CentOS VM, we should not expect an image query.
 	s.PatchValue(&s.ubuntuServerSKUs, nil)
 
 	env := s.openEnviron(c)
 	s.sender = s.startInstanceSenders(startInstanceSenderParams{bootstrap: false})
 	s.requests = nil
-	args := makeStartInstanceParams(c, s.controllerUUID, series)
+	args := makeStartInstanceParams(c, s.controllerUUID, coreseries.MakeDefaultBase("centos", "7"))
 	_, err := env.StartInstance(s.callCtx, args)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -804,7 +797,7 @@ func (s *environSuite) TestStartInstanceCommonDeployment(c *gc.C) {
 	s.sender = senders
 	s.requests = nil
 
-	_, err := env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, "jammy"))
+	_, err := env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, coreseries.MakeDefaultBase("ubuntu", "22.04")))
 	c.Assert(err, gc.ErrorMatches,
 		`creating virtual machine "machine-0": `+
 			`waiting for common resources to be created: `+
@@ -828,7 +821,7 @@ func (s *environSuite) TestStartInstanceCommonDeploymentRetryTimeout(c *gc.C) {
 	s.sender = senders
 	s.requests = nil
 
-	_, err := env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, "jammy"))
+	_, err := env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, coreseries.MakeDefaultBase("ubuntu", "22.04")))
 	c.Assert(err, gc.ErrorMatches,
 		`creating virtual machine "machine-0": `+
 			`waiting for common resources to be created: `+
@@ -848,7 +841,7 @@ func (s *environSuite) TestStartInstanceServiceAvailabilitySet(c *gc.C) {
 	s.vmTags[tags.JujuUnitsDeployed] = "mysql/0 wordpress/0"
 	s.sender = s.startInstanceSenders(startInstanceSenderParams{bootstrap: false})
 	s.requests = nil
-	params := makeStartInstanceParams(c, s.controllerUUID, "jammy")
+	params := makeStartInstanceParams(c, s.controllerUUID, coreseries.MakeDefaultBase("ubuntu", "22.04"))
 	params.InstanceConfig.Tags[tags.JujuUnitsDeployed] = "mysql/0 wordpress/0"
 
 	_, err := env.StartInstance(s.callCtx, params)
@@ -867,7 +860,7 @@ func (s *environSuite) TestStartInstanceWithSpaceConstraints(c *gc.C) {
 	env := s.openEnviron(c)
 	s.sender = s.startInstanceSenders(startInstanceSenderParams{bootstrap: false, hasSpaceConstraints: true})
 	s.requests = nil
-	params := makeStartInstanceParams(c, s.controllerUUID, "jammy")
+	params := makeStartInstanceParams(c, s.controllerUUID, coreseries.MakeDefaultBase("ubuntu", "22.04"))
 	params.Constraints.Spaces = &[]string{"foo", "bar"}
 	params.SubnetsToZones = []map[corenetwork.Id][]string{
 		{"/path/to/subnet1": nil},
@@ -891,7 +884,7 @@ func (s *environSuite) TestStartInstanceWithInvalidPlacement(c *gc.C) {
 	env := s.openEnviron(c)
 	s.sender = s.startInstanceSenders(startInstanceSenderParams{bootstrap: false})
 	s.requests = nil
-	params := makeStartInstanceParams(c, s.controllerUUID, "jammy")
+	params := makeStartInstanceParams(c, s.controllerUUID, coreseries.MakeDefaultBase("ubuntu", "22.04"))
 	params.Placement = "foo"
 
 	_, err := env.StartInstance(s.callCtx, params)
@@ -902,7 +895,7 @@ func (s *environSuite) TestStartInstanceWithInvalidSubnet(c *gc.C) {
 	env := s.openEnviron(c)
 	s.sender = s.startInstanceSenders(startInstanceSenderParams{bootstrap: false})
 	s.requests = nil
-	params := makeStartInstanceParams(c, s.controllerUUID, "jammy")
+	params := makeStartInstanceParams(c, s.controllerUUID, coreseries.MakeDefaultBase("ubuntu", "22.04"))
 	params.Placement = "subnet=foo"
 
 	_, err := env.StartInstance(s.callCtx, params)
@@ -929,7 +922,7 @@ func (s *environSuite) TestStartInstanceWithPlacementNoSpacesConstraint(c *gc.C)
 		subnets:   subnets,
 	})
 	s.requests = nil
-	params := makeStartInstanceParams(c, s.controllerUUID, "jammy")
+	params := makeStartInstanceParams(c, s.controllerUUID, coreseries.MakeDefaultBase("ubuntu", "22.04"))
 	params.Placement = "subnet=subnet2"
 
 	_, err := env.StartInstance(s.callCtx, params)
@@ -965,7 +958,7 @@ func (s *environSuite) TestStartInstanceWithPlacement(c *gc.C) {
 		subnets:   subnets,
 	})
 	s.requests = nil
-	params := makeStartInstanceParams(c, s.controllerUUID, "jammy")
+	params := makeStartInstanceParams(c, s.controllerUUID, coreseries.MakeDefaultBase("ubuntu", "22.04"))
 	params.Constraints.Spaces = &[]string{"foo", "bar"}
 	params.SubnetsToZones = []map[corenetwork.Id][]string{
 		{"/path/to/subnet1": nil},
@@ -1464,7 +1457,7 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Arch, gc.Equals, "amd64")
-	c.Assert(result.Series, gc.Equals, "jammy")
+	c.Assert(result.Base.DisplayString(), gc.Equals, "ubuntu:22.04")
 
 	c.Assert(len(s.requests), gc.Equals, numExpectedBootstrapStartInstanceRequests)
 	s.vmTags[tags.JujuIsController] = "true"
@@ -1498,7 +1491,7 @@ func (s *environSuite) TestBootstrapPrivateIP(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Arch, gc.Equals, "amd64")
-	c.Assert(result.Series, gc.Equals, "jammy")
+	c.Assert(result.Base.DisplayString(), gc.Equals, "ubuntu:22.04")
 
 	c.Assert(len(s.requests), gc.Equals, numExpectedBootstrapStartInstanceRequests)
 	s.vmTags[tags.JujuIsController] = "true"
@@ -1532,7 +1525,7 @@ func (s *environSuite) TestBootstrapCustomNetwork(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Arch, gc.Equals, "amd64")
-	c.Assert(result.Series, gc.Equals, "jammy")
+	c.Assert(result.Base.DisplayString(), gc.Equals, "ubuntu:22.04")
 
 	// 2 extra requests for network setup.
 	c.Assert(len(s.requests), gc.Equals, numExpectedBootstrapStartInstanceRequests+2)
@@ -1701,7 +1694,7 @@ func (s *environSuite) TestBootstrapWithAutocert(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Arch, gc.Equals, "amd64")
-	c.Assert(result.Series, gc.Equals, "jammy")
+	c.Assert(result.Base.DisplayString(), gc.Equals, "ubuntu:22.04")
 
 	c.Assert(len(s.requests), gc.Equals, numExpectedBootstrapStartInstanceRequests)
 	s.vmTags[tags.JujuIsController] = "true"

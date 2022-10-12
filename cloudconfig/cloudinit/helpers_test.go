@@ -63,7 +63,7 @@ func (HelperSuite) TestAddPkgCmdsCommon(c *gc.C) {
 
 	upd, upg := true, true
 
-	err := addPackageCommandsCommon(f, proxyCfg, upd, upg, "jammy")
+	err := addPackageCommandsCommon(f, proxyCfg, upd, upg)
 	c.Assert(err, gc.IsNil)
 	c.Assert(f.packageProxySettings, gc.Equals, pps)
 	c.Assert(f.snapProxySettings, gc.Equals, sps)
@@ -74,7 +74,7 @@ func (HelperSuite) TestAddPkgCmdsCommon(c *gc.C) {
 
 	f = &fakeCfg{}
 	upd, upg = false, false
-	err = addPackageCommandsCommon(f, proxyCfg, upd, upg, "jammy")
+	err = addPackageCommandsCommon(f, proxyCfg, upd, upg)
 	c.Assert(err, gc.IsNil)
 	c.Assert(f.packageProxySettings, gc.Equals, pps)
 	c.Assert(f.snapProxySettings, gc.Equals, sps)
@@ -85,13 +85,12 @@ func (HelperSuite) TestAddPkgCmdsCommon(c *gc.C) {
 
 	f = &fakeCfg{}
 	upd, upg = false, false
-	err = addPackageCommandsCommon(f, proxyCfg, upd, upg, "precise")
+	err = addPackageCommandsCommon(f, proxyCfg, upd, upg)
 	c.Assert(err, gc.IsNil)
 	c.Assert(f.packageProxySettings, gc.Equals, pps)
 	c.Assert(f.snapProxySettings, gc.Equals, sps)
 	c.Assert(f.packageMirror, gc.Equals, proxyCfg.aptMirror)
-	// for precise we need to override addUpdateScripts to always be true
-	c.Assert(f.addUpdateScripts, gc.Equals, true)
+	c.Assert(f.addUpdateScripts, gc.Equals, upd)
 	c.Assert(f.addUpgradeScripts, gc.Equals, upg)
 	c.Assert(f.calledAddReq, gc.Equals, true)
 }

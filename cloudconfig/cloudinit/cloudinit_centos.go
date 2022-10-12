@@ -8,11 +8,12 @@ import (
 	"fmt"
 	"strings"
 
-	corenetwork "github.com/juju/juju/core/network"
-	jujupackaging "github.com/juju/juju/packaging"
 	"github.com/juju/packaging/v2"
 	"github.com/juju/packaging/v2/config"
 	"gopkg.in/yaml.v2"
+
+	corenetwork "github.com/juju/juju/core/network"
+	jujupackaging "github.com/juju/juju/packaging"
 )
 
 // PackageHelper is the interface for configuring specific parameter of the package manager
@@ -164,13 +165,6 @@ func (cfg *centOSCloudConfig) RenderScript() (string, error) {
 	return renderScriptCommon(cfg)
 }
 
-// AddCloudArchiveCloudTools is defined on the AdvancedPackagingConfig.
-func (cfg *centOSCloudConfig) AddCloudArchiveCloudTools() {
-	src, pref := config.GetCloudArchiveSource(cfg.series)
-	cfg.AddPackageSource(src)
-	cfg.AddPackagePreferences(pref)
-}
-
 func (cfg *centOSCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 	var cmds []string
 
@@ -224,27 +218,14 @@ func (cfg *centOSCloudConfig) AddPackageCommands(
 		proxyCfg,
 		addUpdateScripts,
 		addUpgradeScripts,
-		cfg.series,
 	)
 }
 
 // addRequiredPackages is defined on the AdvancedPackagingConfig interface.
 func (cfg *centOSCloudConfig) addRequiredPackages() {
-
 	packages := cfg.helper.getRequiredPackages()
-
-	// The required packages need to come from the correct repo.
-	// For CentOS 7, this requires an rpm cloud archive be up.
-	// In the event of the addition of such a repository, its addition should
-	// happen in the utils/packaging/config package whilst leaving the below
-	// code untouched.
-	pkgConfer := cfg.getPackagingConfigurer(jujupackaging.YumPackageManager)
 	for _, pack := range packages {
-		if config.SeriesRequiresCloudArchiveTools(cfg.series) && pkgConfer.IsCloudArchivePackage(pack) {
-			cfg.AddPackage(strings.Join(pkgConfer.ApplyCloudArchiveTarget(pack), " "))
-		} else {
-			cfg.AddPackage(pack)
-		}
+		cfg.AddPackage(pack)
 	}
 }
 

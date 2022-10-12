@@ -203,7 +203,7 @@ const (
 	CodeForbidden                 = "forbidden"
 	CodeDischargeRequired         = "macaroon discharge required"
 	CodeRedirect                  = "redirection required"
-	CodeIncompatibleSeries        = "incompatible series"
+	CodeIncompatibleBase          = "incompatible base"
 	CodeCloudRegionRequired       = "cloud region required"
 	CodeIncompatibleClouds        = "incompatible clouds"
 	CodeQuotaLimitExceeded        = "quota limit exceeded"
@@ -297,16 +297,8 @@ func IsCodeNoCreds(err error) bool {
 	return ec == CodeNoCreds || (ec == CodeUnauthorized && strings.HasPrefix(errors.Cause(err).Error(), CodeNoCreds))
 }
 
-func IsCodeLoginExpired(err error) bool {
-	return ErrCode(err) == CodeLoginExpired
-}
-
 func IsCodeNotYetAvailable(err error) bool {
 	return ErrCode(err) == CodeNotYetAvailable
-}
-
-func IsCodeNotValid(err error) bool {
-	return ErrCode(err) == CodeNotValid
 }
 
 // IsCodeNotFoundOrCodeUnauthorized is used in API clients which,
@@ -426,16 +418,8 @@ func IsRedirect(err error) bool {
 	return ErrCode(err) == CodeRedirect
 }
 
-func IsCodeIncompatibleSeries(err error) bool {
-	return ErrCode(err) == CodeIncompatibleSeries
-}
-
 func IsCodeForbidden(err error) bool {
 	return ErrCode(err) == CodeForbidden
-}
-
-func IsCodeCloudRegionRequired(err error) bool {
-	return ErrCode(err) == CodeCloudRegionRequired
 }
 
 // IsCodeQuotaLimitExceeded returns true if err includes a QuotaLimitExceeded

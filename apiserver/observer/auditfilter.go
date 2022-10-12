@@ -161,7 +161,6 @@ var readonlyMethods = set.NewStrings(
 	"Charms.List",
 	"Controller.ListBlockedModels",
 	"FirewallRules.ListFirewallRules",
-	"ImageManager.ListImages",
 	"ImageMetadata.List",
 	"KeyManager.ListKeys",
 	"ModelManager.ListModels",

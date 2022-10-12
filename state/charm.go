@@ -19,6 +19,7 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/mongo"
 	mongoutils "github.com/juju/juju/mongo/utils"
 	stateerrors "github.com/juju/juju/state/errors"
@@ -64,6 +65,62 @@ type Channel struct {
 type Base struct {
 	OS      string `bson:"os"`
 	Channel string `bson:"channel"`
+}
+
+// Normalise ensures the channel always has a risk.
+func (b Base) Normalise() Base {
+	if strings.Contains(b.Channel, "/") {
+		return b
+	}
+	nb := b
+	nb.Channel = b.Channel + "/stable"
+	return nb
+}
+
+func (b Base) compatibleWith(other Base) bool {
+	if b.OS != other.OS {
+		return false
+	}
+	c1, err := series.ParseChannel(b.Channel)
+	if err != nil {
+		return false
+	}
+	c2, err := series.ParseChannel(other.Channel)
+	if err != nil {
+		return false
+	}
+	return c1 == c2
+}
+
+// DisplayString prints the base without the rask component.
+func (b Base) DisplayString() string {
+	if b.OS == "" || b.Channel == "" {
+		return ""
+	}
+	return fmt.Sprintf("%s:%s", b.OS, strings.Split(b.Channel, "/")[0])
+}
+
+func (b Base) String() string {
+	if b.OS == "" || b.Channel == "" {
+		return ""
+	}
+	return fmt.Sprintf("%s:%s", b.OS, b.Channel)
+}
+
+// ParseBase parses a machine base string.
+func ParseBase(b string) (Base, error) {
+	parts := strings.Split(b, ":")
+	return Base{OS: parts[0], Channel: parts[1]}, nil
+}
+
+// UbuntuBase is used in tests.
+func UbuntuBase(channel string) Base {
+	return Base{OS: "ubuntu", Channel: channel + "/stable"}
+}
+
+// DefaultLTSBase is used in tests.
+func DefaultLTSBase() Base {
+	return Base{OS: "ubuntu", Channel: jujuversion.DefaultSupportedLTSBase().Channel.String()}
 }
 
 // Platform identifies the platform the charm was installed on.

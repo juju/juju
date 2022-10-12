@@ -130,16 +130,7 @@ func (cfg *ubuntuCloudConfig) AddPackageCommands(
 		proxyCfg,
 		addUpdateScripts,
 		addUpgradeScripts,
-		cfg.series,
 	)
-}
-
-// AddCloudArchiveCloudTools is defined on the AdvancedPackagingConfig
-// interface.
-func (cfg *ubuntuCloudConfig) AddCloudArchiveCloudTools() {
-	src, pref := config.GetCloudArchiveSource(cfg.series)
-	cfg.AddPackageSource(src)
-	cfg.AddPackagePreferences(pref)
 }
 
 // getCommandsForAddingPackages is a helper function for generating a script
@@ -251,29 +242,8 @@ func (cfg *ubuntuCloudConfig) addRequiredPackages() {
 		"tmux",
 		"ubuntu-fan",
 	}
-
-	// The required packages need to come from the correct repo.
-	// For precise, that might require an explicit --target-release parameter.
-	// We cannot just pass packages below, because
-	// this will generate install commands which older
-	// versions of cloud-init (e.g. 0.6.3 in precise) will
-	// interpret incorrectly (see bug http://pad.lv/1424777).
-	pkgConfer := cfg.getPackagingConfigurer(jujupackaging.AptPackageManager)
 	for _, pack := range packages {
-		if config.SeriesRequiresCloudArchiveTools(cfg.series) && pkgConfer.IsCloudArchivePackage(pack) {
-			// On precise, we need to pass a --target-release entry in
-			// pieces (as "packages") for it to work:
-			// --target-release, precise-updates/cloud-tools,
-			// package-name. All these 3 entries are needed so
-			// cloud-init 0.6.3 can generate the correct apt-get
-			// install command line for "package-name".
-			args := pkgConfer.ApplyCloudArchiveTarget(pack)
-			for _, arg := range args {
-				cfg.AddPackage(arg)
-			}
-		} else {
-			cfg.AddPackage(pack)
-		}
+		cfg.AddPackage(pack)
 	}
 }
 

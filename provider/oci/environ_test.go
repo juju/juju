@@ -434,7 +434,7 @@ func (s *environSuite) TestControllerInstancesOneController(c *gc.C) {
 }
 
 func (s *environSuite) TestCloudInit(c *gc.C) {
-	cfg, err := oci.GetCloudInitConfig(s.env, "quantal", 1234, 4321)
+	cfg, err := oci.GetCloudInitConfig(s.env, "ubuntu", 1234, 4321)
 	c.Assert(err, jc.ErrorIsNil)
 	script, err := cfg.RenderScript()
 	c.Assert(err, jc.ErrorIsNil)
@@ -442,7 +442,7 @@ func (s *environSuite) TestCloudInit(c *gc.C) {
 	c.Check(script, jc.Contains, "/sbin/iptables -I INPUT -p tcp --dport 4321 -j ACCEPT")
 	c.Check(script, jc.Contains, "/etc/init.d/netfilter-persistent save")
 
-	cfg, err = oci.GetCloudInitConfig(s.env, "quantal", 0, 0)
+	cfg, err = oci.GetCloudInitConfig(s.env, "ubuntu", 0, 0)
 	c.Assert(err, jc.ErrorIsNil)
 	script, err = cfg.RenderScript()
 	c.Assert(err, jc.ErrorIsNil)
@@ -450,7 +450,7 @@ func (s *environSuite) TestCloudInit(c *gc.C) {
 	c.Check(script, gc.Not(jc.Contains), "/sbin/iptables -I INPUT -p tcp --dport 4321 -j ACCEPT")
 	c.Check(script, gc.Not(jc.Contains), "/etc/init.d/netfilter-persistent save")
 
-	cfg, err = oci.GetCloudInitConfig(s.env, "centos7", 1234, 4321)
+	cfg, err = oci.GetCloudInitConfig(s.env, "centos", 1234, 4321)
 	c.Assert(err, jc.ErrorIsNil)
 	script, err = cfg.RenderScript()
 	c.Assert(err, jc.ErrorIsNil)

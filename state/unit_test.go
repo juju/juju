@@ -823,7 +823,7 @@ func (s *UnitSuite) TestAllAddresses(c *gc.C) {
 }
 
 func (s *UnitSuite) TestPublicAddress(c *gc.C) {
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -843,7 +843,7 @@ func (s *UnitSuite) TestPublicAddress(c *gc.C) {
 }
 
 func (s *UnitSuite) TestStablePrivateAddress(c *gc.C) {
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -863,7 +863,7 @@ func (s *UnitSuite) TestStablePrivateAddress(c *gc.C) {
 }
 
 func (s *UnitSuite) TestStablePublicAddress(c *gc.C) {
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -883,7 +883,7 @@ func (s *UnitSuite) TestStablePublicAddress(c *gc.C) {
 }
 
 func (s *UnitSuite) TestPublicAddressMachineAddresses(c *gc.C) {
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -918,7 +918,7 @@ func (s *UnitSuite) TestPrivateAddressSubordinate(c *gc.C) {
 }
 
 func (s *UnitSuite) TestPrivateAddress(c *gc.C) {
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -951,7 +951,7 @@ func (s *UnitSuite) destroyMachineTestCases(c *gc.C) []destroyMachineTestCase {
 
 	{
 		tc := destroyMachineTestCase{desc: "standalone principal", destroyed: true}
-		tc.host, err = s.State.AddMachine("quantal", state.JobHostUnits)
+		tc.host, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
 		tc.target, err = s.application.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
@@ -960,7 +960,7 @@ func (s *UnitSuite) destroyMachineTestCases(c *gc.C) []destroyMachineTestCase {
 	}
 	{
 		tc := destroyMachineTestCase{desc: "co-located principals", destroyed: false}
-		tc.host, err = s.State.AddMachine("quantal", state.JobHostUnits)
+		tc.host, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
 		tc.target, err = s.application.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
@@ -973,11 +973,11 @@ func (s *UnitSuite) destroyMachineTestCases(c *gc.C) []destroyMachineTestCase {
 	}
 	{
 		tc := destroyMachineTestCase{desc: "host has container", destroyed: false}
-		tc.host, err = s.State.AddMachine("quantal", state.JobHostUnits)
+		tc.host, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
 		_, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
-			Series: "quantal",
-			Jobs:   []state.MachineJob{state.JobHostUnits},
+			Base: state.UbuntuBase("12.10"),
+			Jobs: []state.MachineJob{state.JobHostUnits},
 		}, tc.host.Id(), instance.LXD)
 		c.Assert(err, jc.ErrorIsNil)
 		tc.target, err = s.application.AddUnit(state.AddUnitParams{})
@@ -988,9 +988,9 @@ func (s *UnitSuite) destroyMachineTestCases(c *gc.C) []destroyMachineTestCase {
 	}
 	{
 		tc := destroyMachineTestCase{desc: "host has vote", destroyed: false}
-		tc.host, err = s.State.AddMachine("quantal", state.JobHostUnits)
+		tc.host, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
-		_, err = s.State.EnableHA(1, constraints.Value{}, "quantal", []string{tc.host.Id()})
+		_, err = s.State.EnableHA(1, constraints.Value{}, state.UbuntuBase("12.10"), []string{tc.host.Id()})
 		c.Assert(err, jc.ErrorIsNil)
 		node, err := s.State.ControllerNode(tc.host.Id())
 		c.Assert(err, jc.ErrorIsNil)
@@ -1003,7 +1003,7 @@ func (s *UnitSuite) destroyMachineTestCases(c *gc.C) []destroyMachineTestCase {
 	}
 	{
 		tc := destroyMachineTestCase{desc: "unassigned unit", destroyed: true}
-		tc.host, err = s.State.AddMachine("quantal", state.JobHostUnits)
+		tc.host, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
 		tc.target, err = s.application.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
@@ -1053,7 +1053,7 @@ func (s *UnitSuite) TestRemoveUnitMachineNoDestroy(c *gc.C) {
 	charmWithOut := s.AddTestingCharm(c, "mysql")
 	applicationWithOutProfile := s.AddTestingApplication(c, "mysql", charmWithOut)
 
-	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	host, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1087,9 +1087,9 @@ func (s *UnitSuite) demoteController(c *gc.C, m *state.Machine) {
 }
 
 func (s *UnitSuite) TestRemoveUnitMachineThrashed(c *gc.C) {
-	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	host, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.EnableHA(3, constraints.Value{}, "quantal", []string{host.Id()})
+	_, err = s.State.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.10"), []string{host.Id()})
 	c.Assert(err, jc.ErrorIsNil)
 	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1114,9 +1114,9 @@ func (s *UnitSuite) TestRemoveUnitMachineThrashed(c *gc.C) {
 }
 
 func (s *UnitSuite) TestRemoveUnitMachineRetryVoter(c *gc.C) {
-	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	host, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.EnableHA(3, constraints.Value{}, "quantal", []string{host.Id()})
+	_, err = s.State.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.10"), []string{host.Id()})
 	c.Assert(err, jc.ErrorIsNil)
 	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1133,9 +1133,9 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryVoter(c *gc.C) {
 }
 
 func (s *UnitSuite) TestRemoveUnitMachineRetryNoVoter(c *gc.C) {
-	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	host, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.EnableHA(3, constraints.Value{}, "quantal", []string{host.Id()})
+	_, err = s.State.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.10"), []string{host.Id()})
 	c.Assert(err, jc.ErrorIsNil)
 	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1153,7 +1153,7 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryNoVoter(c *gc.C) {
 }
 
 func (s *UnitSuite) TestRemoveUnitMachineRetryContainer(c *gc.C) {
-	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	host, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	target, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1161,8 +1161,8 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryContainer(c *gc.C) {
 	defer state.SetTestHooks(c, s.State, jujutxn.TestHook{
 		Before: func() {
 			machine, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
-				Series: "quantal",
-				Jobs:   []state.MachineJob{state.JobHostUnits},
+				Base: state.UbuntuBase("12.10"),
+				Jobs: []state.MachineJob{state.JobHostUnits},
 			}, host.Id(), instance.LXD)
 			c.Assert(err, jc.ErrorIsNil)
 			assertLife(c, machine, state.Alive)
@@ -1181,9 +1181,9 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryContainer(c *gc.C) {
 }
 
 func (s *UnitSuite) TestRemoveUnitMachineRetryOrCond(c *gc.C) {
-	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	host, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.EnableHA(1, constraints.Value{}, "quantal", []string{host.Id()})
+	_, err = s.State.EnableHA(1, constraints.Value{}, state.UbuntuBase("12.10"), []string{host.Id()})
 	c.Assert(err, jc.ErrorIsNil)
 	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1422,7 +1422,7 @@ func (s *UnitSuite) TestDestroyChangeCharmRetry(c *gc.C) {
 }
 
 func (s *UnitSuite) TestDestroyAssignRetry(c *gc.C) {
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1443,7 +1443,7 @@ func (s *UnitSuite) TestDestroyAssignRetry(c *gc.C) {
 }
 
 func (s *UnitSuite) TestDestroyUnassignRetry(c *gc.C) {
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1676,7 +1676,7 @@ func (s *UnitSuite) TestUnitsInError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Set a non unit error to ensure it's ignored.
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetStatus(status.StatusInfo{
 		Status:  status.Error,
@@ -1778,7 +1778,7 @@ func (s *UnitSuite) TesOpenedPorts(c *gc.C) {
 	_, err := s.unit.OpenedPortRanges()
 	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotAssigned)
 
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1872,7 +1872,7 @@ func (s *UnitSuite) assertPortRangesAfterOpenClose(c *gc.C, u *state.Unit, openR
 }
 
 func (s *UnitSuite) TestOpenClosePortWhenDying(c *gc.C) {
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1918,7 +1918,7 @@ func (s *UnitSuite) TestOpenClosePortWhenDying(c *gc.C) {
 }
 
 func (s *UnitSuite) TestRemoveLastUnitOnMachineRemovesAllPorts(c *gc.C) {
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1949,7 +1949,7 @@ func (s *UnitSuite) TestRemoveLastUnitOnMachineRemovesAllPorts(c *gc.C) {
 }
 
 func (s *UnitSuite) TestRemoveUnitRemovesItsPortsOnly(c *gc.C) {
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2816,7 +2816,7 @@ func (s *UnitSuite) TestWatchMachineAndEndpointAddressesHash(c *gc.C) {
 
 	// Create machine with 2 interfaces on the above spaces
 	m1, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series:      "quantal",
+		Base:        state.UbuntuBase("12.10"),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: constraints.MustParse("spaces=public,private"),
 	})

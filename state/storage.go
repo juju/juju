@@ -756,7 +756,7 @@ func createStorageOps(
 	entityTag names.Tag,
 	charmMeta *charm.Meta,
 	cons map[string]StorageConstraints,
-	series string,
+	osname string,
 	maybeMachineAssignable machineAssignable,
 ) (ops []txn.Op, storageTags map[string][]names.StorageTag, numStorageAttachments int, err error) {
 
@@ -849,7 +849,7 @@ func createStorageOps(
 				if maybeMachineAssignable != nil {
 					var err error
 					hostStorageOps, err = unitAssignedMachineStorageOps(
-						sb, unitTag, charmMeta, series,
+						sb, charmMeta, osname,
 						storageInstance,
 						maybeMachineAssignable,
 					)
@@ -864,7 +864,7 @@ func createStorageOps(
 				// as there's no machine for the unit to be assigned to.
 				if sb.modelType == ModelTypeCAAS {
 					storageParams, err := storageParamsForStorageInstance(
-						sb, charmMeta, unitTag, series, storageInstance,
+						sb, charmMeta, osname, storageInstance,
 					)
 					if err != nil {
 						return fail(errors.Trace(err))
@@ -903,9 +903,8 @@ func createStorageOps(
 // this, and no error will be returned.
 func unitAssignedMachineStorageOps(
 	sb *storageBackend,
-	unitTag names.UnitTag,
 	charmMeta *charm.Meta,
-	series string,
+	osname string,
 	storage *storageInstance,
 	machineAssignable machineAssignable,
 ) (ops []txn.Op, err error) {
@@ -921,7 +920,7 @@ func unitAssignedMachineStorageOps(
 	}
 
 	storageParams, err := storageParamsForStorageInstance(
-		sb, charmMeta, unitTag, series, storage,
+		sb, charmMeta, osname, storage,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1092,7 +1091,7 @@ func (sb *storageBackend) AttachStorage(storage names.StorageTag, unit names.Uni
 func (sb *storageBackend) attachStorageOps(
 	si *storageInstance,
 	unitTag names.UnitTag,
-	unitSeries string,
+	osName string,
 	ch *Charm,
 	maybeMachineAssignable machineAssignable,
 ) ([]txn.Op, error) {
@@ -1163,7 +1162,7 @@ func (sb *storageBackend) attachStorageOps(
 
 	if maybeMachineAssignable != nil {
 		machineStorageOps, err := unitAssignedMachineStorageOps(
-			sb, unitTag, charmMeta, unitSeries, si,
+			sb, charmMeta, osName, si,
 			maybeMachineAssignable,
 		)
 		if err != nil {

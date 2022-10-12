@@ -85,7 +85,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
     "repository": "test-account"
 }`[1:]
 	pcfg, err := podcfg.NewBootstrapControllerPodConfig(
-		s.controllerCfg, controllerName, "bionic", constraints.MustParse("root-disk=10000M mem=4000M"))
+		s.controllerCfg, controllerName, "ubuntu", constraints.MustParse("root-disk=10000M mem=4000M"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	current := jujuversion.Current
@@ -641,7 +641,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 			Env: []core.EnvVar{
 				{
 					Name:  "JUJU_CONTAINER_NAMES",
-					Value: "",
+					Value: "api-server",
 				},
 				{
 					Name:  osenv.JujuFeatureFlagEnvKey,
@@ -764,7 +764,22 @@ mkdir -p $JUJU_TOOLS_DIR
 cp /opt/jujud $JUJU_TOOLS_DIR/jujud
 
 test -e $JUJU_DATA_DIR/agents/controller-0/agent.conf || JUJU_DEV_FEATURE_FLAGS=developer-mode $JUJU_TOOLS_DIR/jujud bootstrap-state $JUJU_DATA_DIR/bootstrap-params --data-dir $JUJU_DATA_DIR --debug --timeout 10m0s
-JUJU_DEV_FEATURE_FLAGS=developer-mode $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-to-stderr --debug
+
+mkdir -p /var/lib/pebble/default/layers
+cat > /var/lib/pebble/default/layers/001-jujud.yaml <<EOF
+summary: jujud service
+services:
+    jujud:
+        summary: Juju controller agent
+        startup: enabled
+        override: replace
+        command: $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-to-stderr --debug
+        environment:
+            JUJU_DEV_FEATURE_FLAGS: developer-mode
+
+EOF
+
+/opt/pebble run --http :38811 --verbose
 `[1:],
 			},
 			WorkingDir: "/var/lib/juju",
@@ -803,6 +818,54 @@ JUJU_DEV_FEATURE_FLAGS=developer-mode $JUJU_TOOLS_DIR/jujud machine --data-dir $
 					SubPath:   "bootstrap-params",
 					ReadOnly:  true,
 				},
+				{
+					Name:      "charm-data",
+					MountPath: "/charm/container",
+					SubPath:   "charm/containers/api-server",
+				},
+			},
+			StartupProbe: &core.Probe{
+				ProbeHandler: core.ProbeHandler{
+					HTTPGet: &core.HTTPGetAction{
+						Path: "/v1/health?level=alive",
+						Port: intstr.Parse("38811"),
+					},
+				},
+				InitialDelaySeconds: 3,
+				TimeoutSeconds:      3,
+				PeriodSeconds:       3,
+				SuccessThreshold:    1,
+				FailureThreshold:    5,
+			},
+			LivenessProbe: &core.Probe{
+				ProbeHandler: core.ProbeHandler{
+					HTTPGet: &core.HTTPGetAction{
+						Path: "/v1/health?level=alive",
+						Port: intstr.Parse("38811"),
+					},
+				},
+				InitialDelaySeconds: 1,
+				TimeoutSeconds:      3,
+				PeriodSeconds:       5,
+				SuccessThreshold:    1,
+				FailureThreshold:    2,
+			},
+			ReadinessProbe: &core.Probe{
+				ProbeHandler: core.ProbeHandler{
+					HTTPGet: &core.HTTPGetAction{
+						Path: "/v1/health?level=ready",
+						Port: intstr.Parse("38811"),
+					},
+				},
+				InitialDelaySeconds: 1,
+				TimeoutSeconds:      3,
+				PeriodSeconds:       5,
+				SuccessThreshold:    1,
+				FailureThreshold:    2,
+			},
+			SecurityContext: &core.SecurityContext{
+				RunAsUser:  pointer.Int64Ptr(0),
+				RunAsGroup: pointer.Int64Ptr(0),
 			},
 		},
 	}
@@ -816,7 +879,7 @@ JUJU_DEV_FEATURE_FLAGS=developer-mode $JUJU_TOOLS_DIR/jujud machine --data-dir $
 		Env: []core.EnvVar{
 			{
 				Name:  "JUJU_CONTAINER_NAMES",
-				Value: "",
+				Value: "api-server",
 			},
 			{
 				Name: "JUJU_K8S_POD_NAME",

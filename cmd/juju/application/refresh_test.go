@@ -804,12 +804,12 @@ func (s *RefreshSuccessStateSuite) TestForcedLXDProfileUpgrade(c *gc.C) {
 
 	container, err := s.State.AddMachineInsideNewMachine(
 		state.MachineTemplate{
-			Series: "jammy",
-			Jobs:   []state.MachineJob{state.JobHostUnits},
+			Base: state.UbuntuBase("22.04"),
+			Jobs: []state.MachineJob{state.JobHostUnits},
 		},
 		state.MachineTemplate{ // parent
-			Series: "jammy",
-			Jobs:   []state.MachineJob{state.JobHostUnits},
+			Base: state.UbuntuBase("22.04"),
+			Jobs: []state.MachineJob{state.JobHostUnits},
 		},
 		instance.LXD,
 	)

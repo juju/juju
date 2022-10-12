@@ -139,11 +139,11 @@ type ImageConstraint struct {
 
 func NewImageConstraint(params simplestreams.LookupParams) (*ImageConstraint, error) {
 	if len(params.Releases) == 0 {
-		workloadSeries, err := series.AllWorkloadSeries("", params.Stream)
+		workloadVersions, err := series.AllWorkloadVersions("", params.Stream)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		params.Releases = workloadSeries.Values()
+		params.Releases = workloadVersions.SortedValues()
 	}
 	if len(params.Arches) == 0 {
 		params.Arches = arch.AllSupportedArches
@@ -155,6 +155,19 @@ const (
 	// Used to specify the released image metadata.
 	ReleasedStream = "released"
 )
+
+// ImageRelease maps a legacy series to an image version.
+func ImageRelease(imSeries string) (string, error) {
+	base, err := series.GetBaseFromSeries(imSeries)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if base.OS != "centos" {
+		return base.Channel.Track, nil
+	}
+	// Centos requires special handling.
+	return "centos" + base.Channel.Track, nil
+}
 
 // idStream returns the string to use in making a product id
 // for the given product stream.
@@ -176,14 +189,10 @@ func (ic *ImageConstraint) IndexIds() []string {
 func (ic *ImageConstraint) ProductIds() ([]string, error) {
 	stream := idStream(ic.Stream)
 	nrArches := len(ic.Arches)
-	nrSeries := len(ic.Releases)
-	ids := make([]string, nrArches*nrSeries)
+	nrVersions := len(ic.Releases)
+	ids := make([]string, nrArches*nrVersions)
 	for i, arch := range ic.Arches {
-		for j, ser := range ic.Releases {
-			version, err := series.SeriesVersion(ser)
-			if err != nil {
-				return nil, err
-			}
+		for j, version := range ic.Releases {
 			ids[j*nrArches+i] = fmt.Sprintf("com.ubuntu.cloud%s:server:%s:%s", stream, version, arch)
 		}
 	}

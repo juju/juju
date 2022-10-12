@@ -499,7 +499,7 @@ var ctests = []struct {
 func (S) TestOutput(c *gc.C) {
 	for i, t := range ctests {
 		c.Logf("test %d: %s", i, t.name)
-		cfg, err := cloudinit.New("precise")
+		cfg, err := cloudinit.New("ubuntu")
 		c.Assert(err, jc.ErrorIsNil)
 		err = t.setOption(cfg)
 		c.Assert(err, jc.ErrorIsNil)
@@ -515,7 +515,7 @@ func (S) TestOutput(c *gc.C) {
 }
 
 func (S) TestRunCmds(c *gc.C) {
-	cfg, err := cloudinit.New("precise")
+	cfg, err := cloudinit.New("ubuntu")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.RunCmds(), gc.HasLen, 0)
 	cfg.AddScripts("a", "b")
@@ -526,7 +526,7 @@ func (S) TestRunCmds(c *gc.C) {
 }
 
 func (S) TestPackages(c *gc.C) {
-	cfg, err := cloudinit.New("precise")
+	cfg, err := cloudinit.New("ubuntu")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.Packages(), gc.HasLen, 0)
 	cfg.AddPackage("a b c")
@@ -554,7 +554,7 @@ func (S) TestSetOutput(c *gc.C) {
 	},
 	}
 
-	cfg, err := cloudinit.New("jammy")
+	cfg, err := cloudinit.New("ubuntu")
 	c.Assert(err, jc.ErrorIsNil)
 	stdout, stderr := cfg.Output(cloudinit.OutAll)
 	c.Assert(stdout, gc.Equals, "")

@@ -26,7 +26,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/iam v1.9.0
 	github.com/aws/smithy-go v1.8.0
 	github.com/bmizerany/pat v0.0.0-20160217103242-c068ca2f0aac
-	github.com/canonical/pebble v0.0.0-20221004042842-d7797bb9b104
+	github.com/canonical/pebble v0.0.0-20221010231311-dfff36380603
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
 	github.com/coreos/go-systemd/v22 v22.3.2
 	github.com/docker/distribution v2.7.1+incompatible
@@ -49,12 +49,12 @@ require (
 	github.com/im7mortal/kmutex v1.0.1
 	github.com/juju/ansiterm v1.0.0
 	github.com/juju/blobstore/v3 v3.0.2
-	github.com/juju/charm/v9 v9.0.4
+	github.com/juju/charm/v9 v9.0.5
 	github.com/juju/charmrepo/v7 v7.0.1
 	github.com/juju/clock v1.0.2
 	github.com/juju/cmd/v3 v3.0.2
 	github.com/juju/collections v1.0.0
-	github.com/juju/description/v3 v3.0.4
+	github.com/juju/description/v3 v3.0.5
 	github.com/juju/errors v1.0.0
 	github.com/juju/featureflag v1.0.0
 	github.com/juju/gnuflag v1.0.0
@@ -105,13 +105,13 @@ require (
 	github.com/rs/xid v1.4.0
 	github.com/vishvananda/netlink v1.2.1-beta.2
 	github.com/vmware/govmomi v0.21.1-0.20191008161538-40aebf13ba45
-	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa
-	golang.org/x/net v0.0.0-20220812174116-3211cb980234
-	golang.org/x/oauth2 v0.0.0-20220608161450-d0670ef3b1eb
-	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f
-	golang.org/x/sys v0.0.0-20220728004956-3c1f35247d10
-	golang.org/x/tools v0.1.11
-	google.golang.org/api v0.81.0
+	golang.org/x/crypto v0.0.0-20221010152910-d6f0a8c073c2
+	golang.org/x/net v0.0.0-20221004154528-8021a29435af
+	golang.org/x/oauth2 v0.0.0-20221006150949-b44042a4b9c1
+	golang.org/x/sync v0.0.0-20220929204114-8fcdb60fdcc0
+	golang.org/x/sys v0.0.0-20221010170243-090e33056c14
+	golang.org/x/tools v0.1.12
+	google.golang.org/api v0.84.0
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
 	gopkg.in/httprequest.v1 v1.2.1
 	gopkg.in/ini.v1 v1.66.6
@@ -131,7 +131,7 @@ require (
 )
 
 require (
-	cloud.google.com/go/compute v1.6.1 // indirect
+	cloud.google.com/go/compute v1.7.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.0.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/keyvault/internal v0.5.0 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
@@ -172,6 +172,7 @@ require (
 	github.com/google/go-cmp v0.5.8 // indirect
 	github.com/google/gofuzz v1.1.0 // indirect
 	github.com/google/uuid v1.3.0 // indirect
+	github.com/googleapis/enterprise-certificate-proxy v0.0.0-20220520183353-fd19c99a87aa // indirect
 	github.com/googleapis/gax-go/v2 v2.4.0 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
@@ -265,7 +266,7 @@ require (
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20220720214146-176da50484ac // indirect
 	google.golang.org/grpc v1.48.0 // indirect
-	google.golang.org/protobuf v1.28.0 // indirect
+	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/errgo.v1 v1.0.1 // indirect
 	gopkg.in/gobwas/glob.v0 v0.2.3 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect

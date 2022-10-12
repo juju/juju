@@ -54,7 +54,7 @@ func CloudInitUserData(
 	instanceConfig *instancecfg.InstanceConfig,
 	networkConfig *container.NetworkConfig,
 ) ([]byte, error) {
-	cloudConfig, err := cloudinit.New(instanceConfig.Series)
+	cloudConfig, err := cloudinit.New(instanceConfig.Base.OS)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

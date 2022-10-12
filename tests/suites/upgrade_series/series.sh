@@ -35,13 +35,14 @@ run_upgrade_series_relation() {
 
 # Assert the given machine has the given series.
 assert_machine_series() {
-	local machine expected_series actual_series
+	local machine expected_series actual_base actual_series
 	machine=$1
 	expected_series=$2
-	actual_series=$(juju status --format=json | jq -r ".machines[\"$machine\"].series")
+	actual_base=$(juju status --format=json | jq -r ".machines[\"$machine\"].base")
+	actual_series=$(base_to_series "${actual_base}")
 
 	if [[ $expected_series == "$actual_series" ]]; then
-		echo "Machine $machine has series $actual_series"
+		echo "Machine $machine has series $actual_base"
 	else
 		echo "Machine $machine has series $actual_series, expected $expected_series"
 		exit 1

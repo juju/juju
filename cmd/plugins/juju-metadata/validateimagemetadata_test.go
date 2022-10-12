@@ -75,7 +75,7 @@ func (s *ValidateImageMetadataSuite) TestUnsupportedProviderError(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `maas provider does not support image metadata validation`)
 }
 
-func (s *ValidateImageMetadataSuite) makeLocalMetadata(id, region, series, endpoint, stream string) error {
+func (s *ValidateImageMetadataSuite) makeLocalMetadata(id, region, version, endpoint, stream string) error {
 	im := &imagemetadata.ImageMetadata{
 		Id:     id,
 		Arch:   "amd64",
@@ -90,7 +90,7 @@ func (s *ValidateImageMetadataSuite) makeLocalMetadata(id, region, series, endpo
 		return err
 	}
 	ss := simplestreams.NewSimpleStreams(sstestings.TestDataSourceFactory())
-	err = imagemetadata.MergeAndWriteMetadata(ss, series, []*imagemetadata.ImageMetadata{im}, &cloudSpec, targetStorage)
+	err = imagemetadata.MergeAndWriteMetadata(ss, version, []*imagemetadata.ImageMetadata{im}, &cloudSpec, targetStorage)
 	if err != nil {
 		return err
 	}
@@ -165,7 +165,7 @@ func (s *ValidateImageMetadataSuite) setupEc2LocalMetadata(c *gc.C, region, stre
 	ep, err := resolver.ResolveEndpoint(region, ec2.EndpointResolverOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.makeLocalMetadata("1234", region, "jammy", ep.URL, stream)
+	err = s.makeLocalMetadata("1234", region, "22.04", ep.URL, stream)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -229,7 +229,7 @@ func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataNoMatch(c *gc.C) {
 }
 
 func (s *ValidateImageMetadataSuite) TestOpenstackLocalMetadataWithManualParams(c *gc.C) {
-	err := s.makeLocalMetadata("1234", "region-2", "raring", "some-auth-url", "")
+	err := s.makeLocalMetadata("1234", "region-2", "13.04", "some-auth-url", "")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx, err := runValidateImageMetadata(c, s.store,
 		"-p", "openstack", "-s", "raring", "-r", "region-2",
@@ -244,7 +244,7 @@ func (s *ValidateImageMetadataSuite) TestOpenstackLocalMetadataWithManualParams(
 }
 
 func (s *ValidateImageMetadataSuite) TestOpenstackLocalMetadataNoMatch(c *gc.C) {
-	err := s.makeLocalMetadata("1234", "region-2", "raring", "some-auth-url", "")
+	err := s.makeLocalMetadata("1234", "region-2", "13.04", "some-auth-url", "")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = runValidateImageMetadata(c, s.store,
 		"-p", "openstack", "-s", "jammy", "-r", "region-2",
