@@ -73,8 +73,31 @@ func (s *findSuite) TestRunJSON(c *gc.C) {
 	ctx := commandContextForTest(c)
 	err = command.Run(ctx)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `[{"type":"object","id":"charmCHARMcharmCHARMcharmCHARM01","name":"wordpress","publisher":"WordPress Charmers","summary":"WordPress is a full featured web blogging tool, this charm deploys it.","version":"1.0.3","architectures":["all"],"os":["ubuntu"],"series":["bionic"],"store-url":"https://someurl.com/wordpress"}]
-`)
+	c.Assert(indentJSON(c, cmdtesting.Stdout(ctx)), gc.Equals, `
+[
+  {
+    "type": "object",
+    "id": "charmCHARMcharmCHARMcharmCHARM01",
+    "name": "wordpress",
+    "publisher": "WordPress Charmers",
+    "summary": "WordPress is a full featured web blogging tool, this charm deploys it.",
+    "version": "1.0.3",
+    "architectures": [
+      "all"
+    ],
+    "os": [
+      "ubuntu"
+    ],
+    "supports": [
+      {
+        "name": "ubuntu",
+        "channel": "18.04"
+      }
+    ],
+    "store-url": "https://someurl.com/wordpress"
+  }
+]
+`[1:])
 }
 
 func (s *findSuite) TestRunYAML(c *gc.C) {
@@ -102,8 +125,9 @@ func (s *findSuite) TestRunYAML(c *gc.C) {
   - all
   os:
   - ubuntu
-  series:
-  - bionic
+  supports:
+  - name: ubuntu
+    channel: "18.04"
   store-url: https://someurl.com/wordpress
 `[1:])
 }

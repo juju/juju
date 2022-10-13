@@ -38,7 +38,7 @@ run_charmhub_find_json() {
 
 	# There should always be 1 charm with ubuntu in the name,
 	# charms should always have at least 1 supported base.
-	output=$(juju find ubuntu --format json | jq '.[0].base | length')
+	output=$(juju find ubuntu --format json | jq '.[0].supports | length')
 	check_gt "${output}" "0"
 
 	destroy_model "test-${name}"

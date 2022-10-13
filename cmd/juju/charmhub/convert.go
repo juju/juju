@@ -40,14 +40,14 @@ func convertInfoResponse(info transport.InfoResponse, arch, series string) (Info
 		ir.Charm = convertCharm(info)
 	}
 
-	seen := set.NewStrings()
-	for _, base := range info.DefaultRelease.Revision.Bases {
-		if s, err := coreseries.GetSeriesFromChannel(base.Name, base.Channel); err == nil {
-			if !seen.Contains(s) {
-				ir.Series = append(ir.Series, s)
-				seen.Add(s)
-			}
+	seen := make(map[Base]bool)
+	for _, b := range info.DefaultRelease.Revision.Bases {
+		base := Base{Name: b.Name, Channel: b.Channel}
+		if seen[base] {
+			continue
 		}
+		seen[base] = true
+		ir.Supports = append(ir.Supports, base)
 	}
 
 	var err error
@@ -77,7 +77,7 @@ func convertCharmFindResult(resp transport.FindResponse) FindResponse {
 		StoreURL:  resp.Entity.StoreURL,
 	}
 	supported := transformFindArchitectureSeries(resp.DefaultRelease)
-	result.Arches, result.OS, result.Series = supported.Architectures, supported.OS, supported.Series
+	result.Arches, result.OS, result.Supports = supported.Architectures, supported.OS, supported.Supports
 	return result
 }
 
@@ -139,10 +139,16 @@ func channelSeries(platforms []corecharm.Platform) set.Strings {
 	return series
 }
 
-func channelBases(platforms []corecharm.Platform) set.Strings {
-	bases := set.NewStrings()
+func channelBases(platforms []corecharm.Platform) []Base {
+	seen := make(map[Base]bool)
+	var bases []Base
 	for _, v := range platforms {
-		bases.Add(fmt.Sprintf("%s:%s", v.OS, v.Channel))
+		base := Base{Name: v.OS, Channel: v.Channel}
+		if seen[base] {
+			continue
+		}
+		seen[base] = true
+		bases = append(bases, base)
 	}
 	return bases
 }
@@ -181,7 +187,7 @@ func categories(cats []transport.Category) []string {
 type supported struct {
 	Architectures []string
 	OS            []string
-	Series        []string
+	Supports      []Base
 }
 
 // transformFindArchitectureSeries returns a supported type which contains
@@ -191,23 +197,25 @@ func transformFindArchitectureSeries(channel transport.FindChannelMap) supported
 		return supported{}
 	}
 
-	var (
-		arches = set.NewStrings()
-		os     = set.NewStrings()
-		series = set.NewStrings()
-	)
+	arches := set.NewStrings()
+	os := set.NewStrings()
+	var bases []Base
+	basesSeen := make(map[Base]bool)
 	for _, p := range channel.Revision.Bases {
 		arches.Add(p.Architecture)
 		os.Add(p.Name)
-		if s, err := coreseries.GetSeriesFromChannel(p.Name, p.Channel); err == nil {
-			series.Add(s)
-		}
 
+		base := Base{Name: p.Name, Channel: p.Channel}
+		if basesSeen[base] {
+			continue
+		}
+		basesSeen[base] = true
+		bases = append(bases, base)
 	}
 	return supported{
 		Architectures: arches.SortedValues(),
 		OS:            os.SortedValues(),
-		Series:        series.SortedValues(),
+		Supports:      bases,
 	}
 }
 
@@ -332,7 +340,7 @@ func filterChannels(channelMap []transport.InfoChannelMap, arch, series string) 
 			ReleasedAt: ch.ReleasedAt,
 			Size:       cm.Revision.Download.Size,
 			Arches:     channelArches(platforms).SortedValues(),
-			Bases:      channelBases(platforms).SortedValues(),
+			Bases:      channelBases(platforms),
 		}
 
 		if _, ok := channels[ch.Track]; !ok {

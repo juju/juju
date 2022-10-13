@@ -93,9 +93,15 @@ func (s *infoSuite) TestRunJSON(c *gc.C) {
   "description": "This will install and setup WordPress optimized to run in the cloud.",
   "publisher": "WordPress Charmers",
   "summary": "WordPress is a full featured web blogging tool, this charm deploys it.",
-  "series": [
-    "bionic",
-    "xenial"
+  "supports": [
+    {
+      "name": "ubuntu",
+      "channel": "18.04"
+    },
+    {
+      "name": "ubuntu",
+      "channel": "16.04"
+    }
   ],
   "store-url": "https://someurl.com/wordpress",
   "tags": [
@@ -170,8 +176,14 @@ func (s *infoSuite) TestRunJSON(c *gc.C) {
             "amd64"
           ],
           "bases": [
-            "ubuntu:16.04",
-            "ubuntu:18.04"
+            {
+              "name": "ubuntu",
+              "channel": "18.04"
+            },
+            {
+              "name": "ubuntu",
+              "channel": "16.04"
+            }
           ]
         }
       ]
@@ -213,9 +225,15 @@ func (s *infoSuite) TestRunJSONSpecifySeriesNotDefault(c *gc.C) {
   "description": "This will install and setup WordPress optimized to run in the cloud.",
   "publisher": "WordPress Charmers",
   "summary": "WordPress is a full featured web blogging tool, this charm deploys it.",
-  "series": [
-    "bionic",
-    "xenial"
+  "supports": [
+    {
+      "name": "ubuntu",
+      "channel": "18.04"
+    },
+    {
+      "name": "ubuntu",
+      "channel": "16.04"
+    }
   ],
   "store-url": "https://someurl.com/wordpress",
   "tags": [
@@ -290,8 +308,14 @@ func (s *infoSuite) TestRunJSONSpecifySeriesNotDefault(c *gc.C) {
             "amd64"
           ],
           "bases": [
-            "ubuntu:16.04",
-            "ubuntu:18.04"
+            {
+              "name": "ubuntu",
+              "channel": "18.04"
+            },
+            {
+              "name": "ubuntu",
+              "channel": "16.04"
+            }
           ]
         }
       ]
@@ -326,9 +350,15 @@ func (s *infoSuite) TestRunJSONSpecifyArch(c *gc.C) {
   "description": "This will install and setup WordPress optimized to run in the cloud.",
   "publisher": "WordPress Charmers",
   "summary": "WordPress is a full featured web blogging tool, this charm deploys it.",
-  "series": [
-    "bionic",
-    "xenial"
+  "supports": [
+    {
+      "name": "ubuntu",
+      "channel": "18.04"
+    },
+    {
+      "name": "ubuntu",
+      "channel": "16.04"
+    }
   ],
   "store-url": "https://someurl.com/wordpress",
   "tags": [
@@ -403,8 +433,14 @@ func (s *infoSuite) TestRunJSONSpecifyArch(c *gc.C) {
             "amd64"
           ],
           "bases": [
-            "ubuntu:16.04",
-            "ubuntu:18.04"
+            {
+              "name": "ubuntu",
+              "channel": "18.04"
+            },
+            {
+              "name": "ubuntu",
+              "channel": "16.04"
+            }
           ]
         }
       ]
@@ -439,9 +475,15 @@ func (s *infoSuite) TestRunJSONWithSeriesFoundChannel(c *gc.C) {
   "description": "This will install and setup WordPress optimized to run in the cloud.",
   "publisher": "WordPress Charmers",
   "summary": "WordPress is a full featured web blogging tool, this charm deploys it.",
-  "series": [
-    "bionic",
-    "xenial"
+  "supports": [
+    {
+      "name": "ubuntu",
+      "channel": "18.04"
+    },
+    {
+      "name": "ubuntu",
+      "channel": "16.04"
+    }
   ],
   "store-url": "https://someurl.com/wordpress",
   "tags": [
@@ -531,9 +573,11 @@ name: wordpress
 description: This will install and setup WordPress optimized to run in the cloud.
 publisher: WordPress Charmers
 summary: WordPress is a full featured web blogging tool, this charm deploys it.
-series:
-- bionic
-- xenial
+supports:
+- name: ubuntu
+  channel: "18.04"
+- name: ubuntu
+  channel: "16.04"
 store-url: https://someurl.com/wordpress
 tags:
 - app
@@ -586,8 +630,10 @@ channels:
       architectures:
       - amd64
       bases:
-      - ubuntu:16.04
-      - ubuntu:18.04
+      - name: ubuntu
+        channel: "18.04"
+      - name: ubuntu
+        channel: "16.04"
 tracks:
 - latest
 `[1:])
