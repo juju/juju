@@ -45,35 +45,6 @@ run_deploy_ck() {
 	# juju --show-log run "$integrator_app_name/leader"--wait=10m purge-subnet-tags  # 3.0
 }
 
-# Ensure that a CAAS workload (mariadb+mediawiki) deploys successfully,
-# and that we can relate the two applications once it has.
-run_deploy_caas_workload() {
-	echo
-
-	local name k8s_cloud_name model_name file storage controller_name
-
-	name="deploy-caas-workload"
-	k8s_cloud_name="k8s-cloud"
-	model_name="test-${name}"
-	file="${TEST_DIR}/${model_name}.log"
-
-	storage=$(kubectl get sc -o json | jq -r '.items[] | select(.metadata.annotations."storageclass.kubernetes.io/is-default-class"=="true") | .metadata.name')
-
-	controller_name=$(juju controllers --format json | jq -r '.controllers | keys[0]')
-	juju add-k8s "${k8s_cloud_name}" --storage "${storage}" --controller "${controller_name}" 2>&1 | OUTPUT "${file}"
-
-	add_model "${model_name}" "${k8s_cloud_name}" "${controller_name}" "${file}"
-
-	juju deploy cs:~juju/mariadb-k8s-3
-	juju deploy cs:~juju/mediawiki-k8s-4 --config kubernetes-service-type=loadbalancer
-	juju relate mediawiki-k8s:db mariadb-k8s:server
-
-	wait_for "active" '.applications["mariadb-k8s"] | ."application-status".current' 300
-	wait_for "active" '.applications["mediawiki-k8s"] | ."application-status".current'
-
-	destroy_model "${model_name}"
-}
-
 test_deploy_ck() {
 	if [ "$(skip 'test_deploy_ck')" ]; then
 		echo "==> TEST SKIPPED: Test Deploy CK"
@@ -86,6 +57,5 @@ test_deploy_ck() {
 		cd .. || exit
 
 		run "run_deploy_ck"
-		run "run_deploy_caas_workload"
 	)
 }
