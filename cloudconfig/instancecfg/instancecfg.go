@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -299,8 +300,8 @@ type StateInitializationParams struct {
 	// ControllerCharmPath points to a controller charm on Charmhub.
 	ControllerCharmPath string
 
-	// ControllerCharmRisk is used when deploying the controller charm.
-	ControllerCharmRisk string
+	// ControllerCharmChannel is used when deploying the controller charm.
+	ControllerCharmChannel charm.Channel
 
 	// ControllerInheritedConfig is a set of config attributes to be shared by all
 	// models managed by this controller.
@@ -364,7 +365,7 @@ type stateInitializationParamsInternal struct {
 	ControllerCloudCredentialName           string                            `yaml:"controller-cloud-credential-name,omitempty"`
 	ControllerCloudCredential               *cloud.Credential                 `yaml:"controller-cloud-credential,omitempty"`
 	ControllerCharmPath                     string                            `yaml:"controller-charm-path,omitempty"`
-	ControllerCharmRisk                     string                            `yaml:"controller-charm-risk,omitempty"`
+	ControllerCharmChannel                  charm.Channel                     `yaml:"controller-charm-channel,omitempty"`
 }
 
 // Marshal marshals StateInitializationParams to an opaque byte array.
@@ -396,7 +397,7 @@ func (p *StateInitializationParams) Marshal() ([]byte, error) {
 		ControllerCloudCredentialName:           p.ControllerCloudCredentialName,
 		ControllerCloudCredential:               p.ControllerCloudCredential,
 		ControllerCharmPath:                     p.ControllerCharmPath,
-		ControllerCharmRisk:                     p.ControllerCharmRisk,
+		ControllerCharmChannel:                  p.ControllerCharmChannel,
 	}
 	return yaml.Marshal(&internal)
 }
@@ -439,7 +440,7 @@ func (p *StateInitializationParams) Unmarshal(data []byte) error {
 		ControllerCloudCredentialName:           internal.ControllerCloudCredentialName,
 		ControllerCloudCredential:               internal.ControllerCloudCredential,
 		ControllerCharmPath:                     internal.ControllerCharmPath,
-		ControllerCharmRisk:                     internal.ControllerCharmRisk,
+		ControllerCharmChannel:                  internal.ControllerCharmChannel,
 	}
 	return nil
 }
