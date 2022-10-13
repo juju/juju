@@ -225,7 +225,7 @@ func (s *BootstrapSuite) TestStoreControllerCharm(c *gc.C) {
 	})
 
 	curl := charm.MustParseURL(controllerCharmURL)
-	channel := corecharm.MustParseChannel("beta")
+	channel := corecharm.MustParseChannel("3.0/beta")
 	origin := corecharm.Origin{
 		Source:  corecharm.CharmHub,
 		Channel: &channel,
@@ -817,7 +817,7 @@ func (s *BootstrapSuite) makeTestModel(c *gc.C) {
 		Type:      "dummy",
 		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
 	}
-	args.ControllerCharmRisk = "beta"
+	args.ControllerCharmChannel = charm.Channel{Track: "3.0", Risk: "beta"}
 	s.bootstrapParams = args
 	s.writeBootstrapParamsFile(c)
 }

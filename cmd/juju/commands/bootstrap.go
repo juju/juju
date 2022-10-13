@@ -243,8 +243,9 @@ type bootstrapCommand struct {
 	// in addition to the controller model.
 	initialModelName string
 
-	ControllerCharmPath string
-	ControllerCharmRisk string
+	ControllerCharmPath       string
+	ControllerCharmChannelStr string
+	ControllerCharmChannel    charm.Channel
 
 	// Force is used to allow a bootstrap to be run on unsupported series.
 	Force bool
@@ -329,8 +330,9 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.noSwitch, "no-switch", false, "Do not switch to the newly created controller")
 	f.BoolVar(&c.Force, "force", false, "Allow the bypassing of checks such as supported series")
 	f.StringVar(&c.ControllerCharmPath, "controller-charm-path", "", "Path to a locally built controller charm")
-	f.StringVar(&c.ControllerCharmRisk, "controller-charm-risk", "beta",
-		"The controller charm risk if not using a local charm")
+	f.StringVar(&c.ControllerCharmChannelStr, "controller-charm-channel",
+		fmt.Sprintf("%d.%d/stable", jujuversion.Current.Major, jujuversion.Current.Minor),
+		"The Charmhub channel to download the controller charm from (if not using a local charm)")
 }
 
 func (c *bootstrapCommand) Init(args []string) (err error) {
@@ -379,10 +381,9 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 		}
 	}
 
-	if c.ControllerCharmRisk != "" {
-		if _, err := charm.MakeChannel("", c.ControllerCharmRisk, ""); err != nil {
-			return errors.NotValidf("controller charm risk %q", c.ControllerCharmRisk)
-		}
+	c.ControllerCharmChannel, err = parseControllerCharmChannel(c.ControllerCharmChannelStr)
+	if err != nil {
+		return errors.NotValidf("controller charm channel %q", c.ControllerCharmChannelStr)
 	}
 
 	if c.showClouds && c.showRegionsForCloud != "" {
@@ -453,6 +454,21 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 		return cmd.CheckEmpty(args[2:])
 	}
 	return nil
+}
+
+func parseControllerCharmChannel(channelStr string) (charm.Channel, error) {
+	ch, err := charm.ParseChannel(channelStr)
+	if err != nil {
+		return charm.Channel{}, err
+	}
+
+	if ch.Track == "" {
+		ch.Track = fmt.Sprintf("%d.%d", jujuversion.Current.Major, jujuversion.Current.Minor)
+	}
+	if ch.Risk == "" {
+		ch.Risk = charm.Stable
+	}
+	return ch, nil
 }
 
 // BootstrapInterface provides bootstrap functionality that Run calls to support cleaner testing.
@@ -858,7 +874,7 @@ to create a new model to deploy %sworkloads.
 		JujuDbSnapAssertionsPath:  c.JujuDbSnapAssertionsPath,
 		StoragePools:              bootstrapCfg.storagePools,
 		ControllerCharmPath:       c.ControllerCharmPath,
-		ControllerCharmRisk:       c.ControllerCharmRisk,
+		ControllerCharmChannel:    c.ControllerCharmChannel,
 		DialOpts: environs.BootstrapDialOpts{
 			Timeout:        bootstrapCfg.bootstrap.BootstrapTimeout,
 			RetryDelay:     bootstrapCfg.bootstrap.BootstrapRetryDelay,

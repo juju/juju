@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/juju/charm/v9"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -874,19 +875,20 @@ func (s *bootstrapSuite) TestBootstrapControllerCharmLocal(c *gc.C) {
 	c.Assert(env.instanceConfig.Bootstrap.ControllerCharm, gc.Equals, path)
 }
 
-func (s *bootstrapSuite) TestBootstrapControllerCharmRisk(c *gc.C) {
+func (s *bootstrapSuite) TestBootstrapControllerCharmChannel(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ctx := cmdtesting.Context(c)
+	ch := charm.Channel{Track: "3.0", Risk: "beta"}
 	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(context.Background(), ctx), env,
 		s.callContext, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              "admin-secret",
 			CAPrivateKey:             coretesting.CAKey,
 			SupportedBootstrapSeries: supportedJujuSeries,
-			ControllerCharmRisk:      "beta",
+			ControllerCharmChannel:   ch,
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.instanceConfig.Bootstrap.ControllerCharmRisk, gc.Equals, "beta")
+	c.Assert(env.instanceConfig.Bootstrap.ControllerCharmChannel, gc.Equals, ch)
 }
 
 // createImageMetadata creates some image metadata in a local directory.

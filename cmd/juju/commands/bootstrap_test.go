@@ -2140,9 +2140,9 @@ func (s *BootstrapSuite) TestBootstrapWithLocalControllerCharm(c *gc.C) {
 	}
 }
 
-func (s *BootstrapSuite) TestBootstrapInvalidControllerCharmRisk(c *gc.C) {
-	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "--controller-charm-risk", "foo")
-	c.Assert(err, gc.ErrorMatches, `controller charm risk "foo" not valid`)
+func (s *BootstrapSuite) TestBootstrapInvalidControllerCharmChannel(c *gc.C) {
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "--controller-charm-channel", "3.0/foo")
+	c.Assert(err, gc.ErrorMatches, `controller charm channel "3.0/foo" not valid`)
 }
 
 func (s *BootstrapSuite) TestBootstrapSetsControllerOnBase(c *gc.C) {
