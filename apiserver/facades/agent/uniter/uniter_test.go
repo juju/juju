@@ -4651,9 +4651,9 @@ func (s *uniterSuite) TestCommitHookChangesWithSecrets(c *gc.C) {
 	})
 
 	// Verify state
-	_, err = store.GetSecret(uri3, "", nil)
+	_, err = store.GetSecret(uri3)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	md, err := store.GetSecret(uri, "", nil)
+	md, err := store.GetSecret(uri)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(md.Description, gc.Equals, "a secret")
 	c.Assert(md.Label, gc.Equals, "foobar")

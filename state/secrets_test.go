@@ -5,8 +5,8 @@ package state_test
 
 import (
 	"fmt"
-	"time"
 	"sort"
+	"time"
 
 	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
@@ -257,8 +257,8 @@ func (s *SecretsSuite) TestListByOwner(c *gc.C) {
 	mc := jc.NewMultiChecker()
 	mc.AddExpr(`_.CreateTime`, jc.Almost, jc.ExpectedValue)
 	mc.AddExpr(`_.UpdateTime`, jc.Almost, jc.ExpectedValue)
-	
-	sortMD := func (l []*secrets.SecretMetadata) {
+
+	sortMD := func(l []*secrets.SecretMetadata) {
 		sort.Slice(l, func(i, j int) bool {
 			return l[i].URI.String() < l[j].URI.String()
 		})
@@ -673,9 +673,9 @@ func (s *SecretsSuite) assertUpdatedSecret(c *gc.C, original *secrets.SecretMeta
 		c.Assert(val.EncodedValues(), jc.DeepEquals, expectedData)
 	}
 	if update.Label != nil {
-		md, err := s.store.GetSecret(nil, *update.Label, s.owner.Tag())
+		uri, err := s.store.GetSecretURI(*update.Label, s.owner.Tag())
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(md.URI, gc.DeepEquals, original.URI)
+		c.Assert(uri, gc.DeepEquals, original.URI)
 	}
 	if update.ExpireTime != nil {
 		revs, err := s.store.ListSecretRevisions(md.URI)
@@ -689,7 +689,7 @@ func (s *SecretsSuite) assertUpdatedSecret(c *gc.C, original *secrets.SecretMeta
 			}
 		}
 		c.Fatalf("expire time not set for secret revision %d", expectedRevision)
-		md, err := s.store.GetSecret(original.URI, "", nil)
+		md, err := s.store.GetSecret(original.URI)
 		c.Assert(err, jc.ErrorIsNil)
 		if update.ExpireTime.IsZero() {
 			c.Assert(md.LatestExpireTime, gc.IsNil)
@@ -740,16 +740,16 @@ func (s *SecretsSuite) TestUpdateConcurrent(c *gc.C) {
 	})
 }
 
-func (s *SecretsSuite) TestGetSecret(c *gc.C) {
+func (s *SecretsSuite) TestGetSecretAndGetSecretURI(c *gc.C) {
 	uri := secrets.NewURI()
-	
+
 	now := s.Clock.Now().Round(time.Second).UTC()
 	next := now.Add(time.Minute).Round(time.Second).UTC()
 	cp := state.CreateSecretParams{
 		Version: 1,
 		Owner:   s.owner.Tag(),
 		UpdateSecretParams: state.UpdateSecretParams{
-			Label: strPtr("label-1"),
+			Label:          strPtr("label-1"),
 			LeaderToken:    &fakeToken{},
 			RotatePolicy:   ptr(secrets.RotateDaily),
 			NextRotateTime: ptr(next),
@@ -759,20 +759,14 @@ func (s *SecretsSuite) TestGetSecret(c *gc.C) {
 	md, err := s.store.CreateSecret(uri, cp)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(md.URI, jc.DeepEquals, uri)
-	
-	_, err = s.store.GetSecret(nil, "", nil)
-	c.Check(err, gc.ErrorMatches, `both uri and label are empty`)
-	
-	_, err = s.store.GetSecret(nil, "label", nil)
-	c.Check(err, gc.ErrorMatches, `owner tag is required for fetching by label`)
-	
-	md, err = s.store.GetSecret(uri, "", nil)
+
+	md, err = s.store.GetSecret(uri)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(md.URI, jc.DeepEquals, uri)
-	
-	md, err = s.store.GetSecret(uri, "label-1", s.owner.Tag())
+
+	result, err := s.store.GetSecretURI("label-1", s.owner.Tag())
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(md.URI, jc.DeepEquals, uri)
+	c.Check(result, jc.DeepEquals, uri)
 }
 
 func (s *SecretsSuite) TestListSecretRevisions(c *gc.C) {
@@ -875,18 +869,18 @@ func (s *SecretsSuite) TestGetSecretConsumer(c *gc.C) {
 	}
 	err = s.State.SaveSecretConsumer(uri, names.NewUnitTag("mariadb/0"), md)
 	c.Assert(err, jc.ErrorIsNil)
-	
+
 	_, _, err = s.State.GetSecretConsumer(nil, "", names.NewUnitTag("mariadb/0"))
 	c.Check(err, gc.ErrorMatches, `both uri and label are empty`)
-	
+
 	_, md2, err := s.State.GetSecretConsumer(uri, "", names.NewUnitTag("mariadb/0"))
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(md2, jc.DeepEquals, md)
-	
+
 	_, md3, err := s.State.GetSecretConsumer(nil, "foobar", names.NewUnitTag("mariadb/0"))
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(md3, jc.DeepEquals, md)
-	
+
 	_, _, err = s.State.GetSecretConsumer(uri, "", names.NewUnitTag("mysql/0"))
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
@@ -1155,7 +1149,7 @@ func (s *SecretsSuite) TestDelete(c *gc.C) {
 		_, err := s.store.CreateSecret(uri, cp)
 		c.Assert(err, jc.ErrorIsNil)
 		cmd := &secrets.SecretConsumerMetadata{
-			Label:           "consumer-"+label,
+			Label:           "consumer-" + label,
 			CurrentRevision: 1,
 		}
 		err = s.State.SaveSecretConsumer(uri, names.NewUnitTag("mariadb/0"), cmd)
@@ -1271,7 +1265,7 @@ func (s *SecretsSuite) TestDeleteRevisions(c *gc.C) {
 	c.Assert(removed, jc.IsTrue)
 	_, _, err = s.store.GetSecretValue(uri, 3)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	_, err = s.store.GetSecret(uri, "", nil)
+	_, err = s.store.GetSecret(uri)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 

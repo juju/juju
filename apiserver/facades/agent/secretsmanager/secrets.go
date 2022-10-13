@@ -175,7 +175,7 @@ func (s *SecretsManagerAPI) updateSecret(arg params.UpdateSecretArg) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	md, err := s.secretsBackend.GetSecret(uri, "", nil)
+	md, err := s.secretsBackend.GetSecret(uri)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -346,7 +346,15 @@ func (s *SecretsManagerAPI) GetSecretContentInfo(args params.GetSecretContentArg
 }
 
 func (s *SecretsManagerAPI) getOwnerSecretMetadata(uri *coresecrets.URI, label string) (*coresecrets.SecretMetadata, error) {
-	md, err := s.secretsBackend.GetSecret(uri, label, s.authTag)
+	if uri == nil {
+		var err error
+		uri, err = s.secretsBackend.GetSecretURI(label, s.authTag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+
+	md, err := s.secretsBackend.GetSecret(uri)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -402,8 +410,8 @@ func (s *SecretsManagerAPI) getSecretContent(arg params.GetSecretContentArg) (*s
 	}
 
 	// arg.Label is the consumer label for consumers.
-	// 1. both URI and label is required for the first time access.
-	// 2. either URI or label is required for later acsess.
+	shouldUpdateLabel := arg.Label != "" && uri != nil
+
 	secretURI, consumer, err := s.secretsConsumer.GetSecretConsumer(uri, arg.Label, s.authTag)
 	if errors.Is(err, errors.NotFound) && uri == nil {
 		return nil, errors.NotFoundf("consumer label %q", arg.Label)
@@ -416,11 +424,14 @@ func (s *SecretsManagerAPI) getSecretContent(arg params.GetSecretContentArg) (*s
 		uri = secretURI
 	}
 
-	update := arg.Update || err != nil
 	peek := arg.Peek
+	update := arg.Update ||
+		err != nil // NotFound, so need to create one.
+
+	// Use the latest revision as the current one if --update or --peek.
 	if update || peek {
 		// We are consumer, so fetch using URI.
-		md, err := s.secretsBackend.GetSecret(uri, "", nil)
+		md, err := s.secretsBackend.GetSecret(uri)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -430,15 +441,13 @@ func (s *SecretsManagerAPI) getSecretContent(arg params.GetSecretContentArg) (*s
 			}
 		}
 		consumer.CurrentRevision = md.LatestRevision
+	}
+	if update || shouldUpdateLabel {
 		if arg.Label != "" {
 			consumer.Label = arg.Label
 		}
-
-		if update {
-			err := s.secretsConsumer.SaveSecretConsumer(uri, s.authTag, consumer)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
+		if err := s.secretsConsumer.SaveSecretConsumer(uri, s.authTag, consumer); err != nil {
+			return nil, errors.Trace(err)
 		}
 	}
 	return getSecretValue(uri, consumer.CurrentRevision)
@@ -575,7 +584,7 @@ func (s *SecretsManagerAPI) SecretsRotated(args params.SecretRotatedArgs) (param
 		if err != nil {
 			return errors.Trace(err)
 		}
-		md, err := s.secretsBackend.GetSecret(uri, "", nil)
+		md, err := s.secretsBackend.GetSecret(uri)
 		if err != nil {
 			return errors.Trace(err)
 		}

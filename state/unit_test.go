@@ -2075,7 +2075,7 @@ func (s *UnitSuite) TestDestroyAlsoDeletesOwnedSecrets(c *gc.C) {
 
 	err = s.unit.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = store.GetSecret(uri, "", nil)
+	_, err = store.GetSecret(uri)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// Create again, no label clash.

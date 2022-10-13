@@ -376,7 +376,7 @@ func (s *FlushContextSuite) TestRunHookUpdatesSecrets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the secrets are not actually updated in state yet.
-	md, err := store.GetSecret(uri, "", nil)
+	md, err := store.GetSecret(uri)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(md.Description, gc.Equals, "")
 	val, _, err := store.GetSecretValue(uri, 1)
@@ -390,9 +390,9 @@ func (s *FlushContextSuite) TestRunHookUpdatesSecrets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Verify changes now saved.
-	_, err = store.GetSecret(uri2, "", nil)
+	_, err = store.GetSecret(uri2)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	md, err = store.GetSecret(uri, "", nil)
+	md, err = store.GetSecret(uri)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(md.Description, gc.Equals, "a secret")
 	c.Assert(md.Label, gc.Equals, "foobar")
