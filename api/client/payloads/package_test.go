@@ -15,17 +15,8 @@ func Test(t *testing.T) {
 	gc.TestingT(t)
 }
 
-func NewClientForTest(caller base.FacadeCaller) *Client {
+func NewClientFromCaller(caller base.FacadeCaller) *Client {
 	return &Client{
-		ClientFacade: noopCloser{caller},
-		facade:       caller,
+		facade: caller,
 	}
-}
-
-type noopCloser struct {
-	base.FacadeCaller
-}
-
-func (noopCloser) Close() error {
-	return nil
 }
