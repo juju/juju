@@ -11,11 +11,13 @@ test_charmhub() {
 
 	file="${TEST_DIR}/test-charmhub.log"
 
+	# These tests don't need a controller.
+	test_charmhub_find
+	test_charmhub_info
+
 	bootstrap "test-charmhub" "${file}"
 
 	test_charmhub_download
-	test_charmhub_find
-	test_charmhub_info
 
 	destroy_controller "test-charmhub"
 }
