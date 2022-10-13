@@ -69,10 +69,7 @@ func (b *Base) DisplayString() string {
 	if b.OS == "kubernetes" {
 		return b.OS
 	}
-	if b.Channel.Risk == Stable {
-		return fmt.Sprintf("%s:%s", b.OS, b.Channel.Track)
-	}
-	return fmt.Sprintf("%s:%s", b.OS, b.Channel)
+	return b.OS + ":" + b.Channel.DisplayString()
 }
 
 // GetBaseFromSeries returns the Base infor for a series.
