@@ -2757,7 +2757,7 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation
 	if op.FatalError(err) {
 		return nil, errors.Trace(err)
 	}
-	secretConsumerLabelOps, err := a.st.removeConsumerSecretLabelOps(a.ApplicationTag())
+	secretConsumerLabelOps, err := a.st.removeConsumerSecretLabelOps(u.Tag())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

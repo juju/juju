@@ -394,6 +394,10 @@ func (s *SecretsManagerAPI) getSecretContent(arg params.GetSecretContentArg) (*s
 	}
 	if md != nil {
 		// Owner can access the content directly.
+		if arg.Update {
+			// We should not have cmd flag knowledge here but we have to check here because jujuc cannot know it.
+			return nil, errors.NewNotValid(nil, "secret owner cannot use --update")
+		}
 		return getSecretValue(md.URI, md.LatestRevision)
 	}
 

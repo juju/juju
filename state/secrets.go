@@ -918,21 +918,21 @@ func (st *State) uniqueSecretOwnerLabelOps(ownerTag string, label string) ([]txn
 	return st.uniqueSecretLabelOps(ownerTag, label, secretOwnerLabelKey)
 }
 
-func (st *State) uniqueSecretConsumerLabelOps(ownerTag string, label string) ([]txn.Op, error) {
-	return st.uniqueSecretLabelOps(ownerTag, label, secretConsumerLabelKey)
+func (st *State) uniqueSecretConsumerLabelOps(consumerTag string, label string) ([]txn.Op, error) {
+	return st.uniqueSecretLabelOps(consumerTag, label, secretConsumerLabelKey)
 }
 
-func (st *State) uniqueSecretLabelOps(ownerTag string, label string, keyGenerator func(string, string) string) ([]txn.Op, error) {
+func (st *State) uniqueSecretLabelOps(tag string, label string, keyGenerator func(string, string) string) ([]txn.Op, error) {
 	refCountCollection, ccloser := st.db().GetCollection(refcountsC)
 	defer ccloser()
 
-	key := keyGenerator(ownerTag, label)
+	key := keyGenerator(tag, label)
 	countOp, count, err := nsRefcounts.CurrentOp(refCountCollection, key)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	if count > 0 {
-		return nil, errors.WithType(errors.Errorf("label %q for %q already exists", label, ownerTag), LabelExists)
+		return nil, errors.WithType(errors.Errorf("label %q for %q already exists", label, tag), LabelExists)
 	}
 	incOp, err := nsRefcounts.CreateOrIncRefOp(refCountCollection, key, 1)
 	if err != nil {
@@ -949,7 +949,7 @@ func (st *State) removeConsumerSecretLabelOps(consumerTag names.Tag) ([]txn.Op, 
 	return st.removeSecretLabelOps(consumerTag, secretConsumerLabelKey)
 }
 
-func (st *State) removeSecretLabelOps(ownerTag names.Tag, keyGenerator func(string, string) string) ([]txn.Op, error) {
+func (st *State) removeSecretLabelOps(tag names.Tag, keyGenerator func(string, string) string) ([]txn.Op, error) {
 	refCountsCollection, closer := st.db().GetCollection(refcountsC)
 	defer closer()
 
@@ -957,7 +957,7 @@ func (st *State) removeSecretLabelOps(ownerTag names.Tag, keyGenerator func(stri
 		doc bson.M
 		ops []txn.Op
 	)
-	id := secretOwnerLabelKey(ownerTag.String(), ".*")
+	id := keyGenerator(tag.String(), ".*")
 	q := bson.D{{"_id", bson.D{{"$regex", id}}}}
 	iter := refCountsCollection.Find(q).Iter()
 	for iter.Next(&doc) {

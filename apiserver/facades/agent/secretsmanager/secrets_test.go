@@ -522,6 +522,27 @@ func (s *SecretsManagerSuite) TestGetSecretContentOwner(c *gc.C) {
 	})
 }
 
+func (s *SecretsManagerSuite) TestGetSecretContentOwnerFailedWithUpdate(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	uri := coresecrets.NewURI()
+	s.secretsBackend.EXPECT().GetSecret(uri, "label", names.NewUnitTag("mariadb/0")).Return(
+		&coresecrets.SecretMetadata{
+			URI:            uri,
+			LatestRevision: 668,
+			OwnerTag:       "unit-mariadb-0",
+		}, nil,
+	)
+
+	results, err := s.facade.GetSecretContentInfo(params.GetSecretContentArgs{
+		Args: []params.GetSecretContentArg{
+			{URI: uri.String(), Label: "label", Update: true},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches, `secret owner cannot use --update`)
+}
+
 func (s *SecretsManagerSuite) assertGetSecretContentConsumer(c *gc.C, notOwner bool) {
 	defer s.setup(c).Finish()
 
