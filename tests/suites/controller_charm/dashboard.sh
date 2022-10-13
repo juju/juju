@@ -11,8 +11,17 @@ run_dashboard() {
 	juju deploy juju-dashboard --channel=beta
 	juju relate juju-dashboard controller.dashboard
 	wait_for "juju-dashboard" "$(idle_condition "juju-dashboard")"
-	# TODO: ensure controller charm still "active", not "error"
-	# TODO: run the juju dashboard command, check that it prints the url etc
+
+	# Ensure controller charm still "active", not "error"
+	local controller_charm_status
+	controller_charm_status=$(juju status -m controller --format json | jq -r '.applications.controller."application-status".current')
+	if [[ $controller_charm_status != 'active' ]]; then
+		exit 1
+	fi
+
+	# juju dashboard
+	# TODO: check that it prints the url etc
+	# TODO: this command will block, how do we interrupt it?
 
 	destroy_model "test-dashboard"
 }

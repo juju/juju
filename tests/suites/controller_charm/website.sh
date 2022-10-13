@@ -11,7 +11,13 @@ run_website() {
 	juju deploy haproxy
 	juju relate haproxy controller.website
 	wait_for "haproxy" "$(idle_condition "haproxy")"
-	# TODO: ensure controller charm still "active", not "error"
+
+	# Ensure controller charm still "active", not "error"
+	local controller_charm_status
+	controller_charm_status=$(juju status -m controller --format json | jq -r '.applications.controller."application-status".current')
+	if [[ $controller_charm_status != 'active' ]]; then
+		exit 1
+	fi
 
 	destroy_model "test-website"
 }
