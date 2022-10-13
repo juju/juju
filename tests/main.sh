@@ -60,6 +60,7 @@ TEST_NAMES="agents \
             model \
             network \
             ovs_maas \
+            refresh \
             relations \
             resources \
             sidecar \
