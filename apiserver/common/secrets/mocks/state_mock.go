@@ -72,18 +72,18 @@ func (mr *MockSecretsStoreMockRecorder) DeleteSecret(arg0 interface{}, arg1 ...i
 }
 
 // GetSecret mocks base method.
-func (m *MockSecretsStore) GetSecret(arg0 *secrets.URI) (*secrets.SecretMetadata, error) {
+func (m *MockSecretsStore) GetSecret(arg0 *secrets.URI, arg1 string, arg2 names.Tag) (*secrets.SecretMetadata, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetSecret", arg0)
+	ret := m.ctrl.Call(m, "GetSecret", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*secrets.SecretMetadata)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetSecret indicates an expected call of GetSecret.
-func (mr *MockSecretsStoreMockRecorder) GetSecret(arg0 interface{}) *gomock.Call {
+func (mr *MockSecretsStoreMockRecorder) GetSecret(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecret", reflect.TypeOf((*MockSecretsStore)(nil).GetSecret), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecret", reflect.TypeOf((*MockSecretsStore)(nil).GetSecret), arg0, arg1, arg2)
 }
 
 // GetSecretRevision mocks base method.
