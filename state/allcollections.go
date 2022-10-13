@@ -532,8 +532,7 @@ func allCollections() CollectionSchema {
 
 		secretMetadataC: {
 			indexes: []mgo.Index{{
-				Key:    []string{"owner-tag", "label", "model-uuid"},
-				Unique: true,
+				Key: []string{"owner-tag", "label", "model-uuid"},
 			}},
 		},
 
@@ -545,8 +544,7 @@ func allCollections() CollectionSchema {
 
 		secretConsumersC: {
 			indexes: []mgo.Index{{
-				Key:    []string{"consumer-tag", "label", "model-uuid"},
-				Unique: true,
+				Key: []string{"consumer-tag", "label", "model-uuid"},
 			}},
 		},
 

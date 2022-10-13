@@ -6,6 +6,7 @@ package state_test
 import (
 	"fmt"
 	"time"
+	"sort"
 
 	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
@@ -228,14 +229,7 @@ func (s *SecretsSuite) TestListByOwner(c *gc.C) {
 	_, err = s.store.CreateSecret(uri3, p)
 	c.Assert(err, jc.ErrorIsNil)
 
-	list, err := s.store.ListSecrets(state.SecretsFilter{
-		OwnerTags: []names.Tag{s.owner.Tag(), names.NewApplicationTag("mariadb")},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	mc := jc.NewMultiChecker()
-	mc.AddExpr(`_.CreateTime`, jc.Almost, jc.ExpectedValue)
-	mc.AddExpr(`_.UpdateTime`, jc.Almost, jc.ExpectedValue)
-	c.Assert(list, mc, []*secrets.SecretMetadata{{
+	expectedList := []*secrets.SecretMetadata{{
 		URI:              uri,
 		RotatePolicy:     secrets.RotateDaily,
 		NextRotateTime:   ptr(next),
@@ -254,7 +248,24 @@ func (s *SecretsSuite) TestListByOwner(c *gc.C) {
 		OwnerTag:       another.Tag().String(),
 		CreateTime:     now2,
 		UpdateTime:     now2,
-	}})
+	}}
+	list, err := s.store.ListSecrets(state.SecretsFilter{
+		OwnerTags: []names.Tag{s.owner.Tag(), names.NewApplicationTag("mariadb")},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	mc := jc.NewMultiChecker()
+	mc.AddExpr(`_.CreateTime`, jc.Almost, jc.ExpectedValue)
+	mc.AddExpr(`_.UpdateTime`, jc.Almost, jc.ExpectedValue)
+	
+	sortMD := func (l []*secrets.SecretMetadata) {
+		sort.Slice(l, func(i, j int) bool {
+			return l[i].URI.String() < l[j].URI.String()
+		})
+	}
+	sortMD(list)
+	sortMD(expectedList)
+	c.Assert(list, mc, expectedList)
 }
 
 func (s *SecretsSuite) TestListByURI(c *gc.C) {
@@ -664,7 +675,7 @@ func (s *SecretsSuite) assertUpdatedSecret(c *gc.C, original *secrets.SecretMeta
 	if update.Label != nil {
 		md, err := s.store.GetSecret(nil, *update.Label, s.owner.Tag())
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(md.URI, gc.Equals, original.URI)
+		c.Assert(md.URI, gc.DeepEquals, original.URI)
 	}
 	if update.ExpireTime != nil {
 		revs, err := s.store.ListSecretRevisions(md.URI)
@@ -1144,7 +1155,7 @@ func (s *SecretsSuite) TestDelete(c *gc.C) {
 		_, err := s.store.CreateSecret(uri, cp)
 		c.Assert(err, jc.ErrorIsNil)
 		cmd := &secrets.SecretConsumerMetadata{
-			Label:           "foobar",
+			Label:           "consumer-"+label,
 			CurrentRevision: 1,
 		}
 		err = s.State.SaveSecretConsumer(uri, names.NewUnitTag("mariadb/0"), cmd)

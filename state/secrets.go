@@ -584,14 +584,10 @@ func (st *State) deleteSecrets(uris []*secrets.URI, revisions ...int) (removed b
 			return false, errors.Annotatef(err, "deleting permissions for %s", uri.String())
 		}
 
-		secretConsumersCollection, closer := st.db().GetCollection(secretConsumersC)
-		defer closer()
-		_, err = secretConsumersCollection.Writeable().RemoveAll(bson.D{{
-			"_id", bson.D{{"$regex", fmt.Sprintf("%s#.*", uri.ID)}},
-		}})
-		if err != nil {
-			return false, errors.Annotatef(err, "deleting consumer info for %s", uri.String())
+		if err = st.removeSecretConsumer(uri); err != nil {
+			return false, errors.Trace(err)
 		}
+
 		refCountsCollection, closer := st.db().GetCollection(refcountsC)
 		defer closer()
 		_, err = refCountsCollection.Writeable().RemoveAll(bson.D{{
@@ -1008,6 +1004,49 @@ func (st *State) GetSecretConsumer(uri *secrets.URI, label string, consumer name
 	}, nil
 }
 
+func (st *State) removeSecretConsumer(uri *secrets.URI) error {
+	secretConsumersCollection, closer := st.db().GetCollection(secretConsumersC)
+	defer closer()
+
+	var docs []secretConsumerDoc
+	err := secretConsumersCollection.Find(
+		bson.D{
+			{
+				Name: "$and", Value: []bson.D{
+					{{"_id", bson.D{{"$regex", fmt.Sprintf("%s#.*", uri.ID)}}}},
+					{{"label", bson.D{{"$exists", true}, {"$ne", ""}}}},
+				},
+			},
+		},
+	).Select(bson.D{{"consumer-tag", 1}, {"label", 1}}).All(&docs)
+	if errors.Cause(err) == mgo.ErrNotFound {
+		return nil
+	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	refCountsCollection, closer := st.db().GetCollection(refcountsC)
+	defer closer()
+	for _, doc := range docs {
+		key := secretConsumerLabelKey(doc.ConsumerTag, doc.Label)
+		_, err = refCountsCollection.Writeable().RemoveAll(bson.D{{
+			"_id", key,
+		}})
+		if err != nil {
+			return errors.Annotatef(err, "cannot delete consumer label refcounts for %s", key)
+		}
+	}
+
+	_, err = secretConsumersCollection.Writeable().RemoveAll(bson.D{{
+		"_id", bson.D{{"$regex", fmt.Sprintf("%s#.*", uri.ID)}},
+	}})
+	if err != nil {
+		return errors.Annotatef(err, "cannot delete consumer info for %s", uri.String())
+	}
+	return nil
+}
+
 // SaveSecretConsumer saves or updates secret consumer metadata.
 func (st *State) SaveSecretConsumer(uri *secrets.URI, consumer names.Tag, metadata *secrets.SecretConsumerMetadata) error {
 	key := secretConsumerKey(uri.ID, consumer.String())
@@ -1019,28 +1058,22 @@ func (st *State) SaveSecretConsumer(uri *secrets.URI, consumer names.Tag, metada
 		if err := st.checkExists(uri); err != nil {
 			return nil, errors.Trace(err)
 		}
+		err := secretConsumersCollection.FindId(key).One(&doc)
+		if err != nil && err != mgo.ErrNotFound {
+			return nil, errors.Trace(err)
+		}
+		create := err != nil
+
 		var ops []txn.Op
-		if metadata.Label != "" {
+
+		if metadata.Label != "" && (create || metadata.Label != doc.Label) {
 			uniqueLabelOps, err := st.uniqueSecretConsumerLabelOps(consumer.String(), metadata.Label)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 			ops = append(ops, uniqueLabelOps...)
 		}
-		err := secretConsumersCollection.FindId(key).One(&doc)
-		if err == nil {
-			ops = append(ops, txn.Op{
-				C:      secretConsumersC,
-				Id:     key,
-				Assert: txn.DocExists,
-				Update: bson.M{"$set": bson.M{
-					"label":            metadata.Label,
-					"current-revision": metadata.CurrentRevision,
-				}},
-			})
-		} else if err != mgo.ErrNotFound {
-			return nil, errors.Trace(err)
-		} else {
+		if create {
 			ops = append(ops, txn.Op{
 				C:      secretConsumersC,
 				Id:     key,
@@ -1061,6 +1094,16 @@ func (st *State) SaveSecretConsumer(uri *secrets.URI, consumer names.Tag, metada
 				return nil, errors.Trace(err)
 			}
 			ops = append(ops, countRefOps...)
+		} else {
+			ops = append(ops, txn.Op{
+				C:      secretConsumersC,
+				Id:     key,
+				Assert: txn.DocExists,
+				Update: bson.M{"$set": bson.M{
+					"label":            metadata.Label,
+					"current-revision": metadata.CurrentRevision,
+				}},
+			})
 		}
 
 		// The consumer is tracking a new revision, which might result in the
