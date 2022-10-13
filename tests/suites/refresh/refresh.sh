@@ -11,9 +11,11 @@ run_refresh_cs() {
 
 	OUT=$(juju refresh ubuntu 2>&1 || true)
 	if echo "${OUT}" | grep -E -vq "Added"; then
+		# shellcheck disable=SC2046
 		echo $(red "failed refreshing charm: ${OUT}")
 		exit 5
 	fi
+	# shellcheck disable=SC2059
 	printf "${OUT}\n"
 
 	# Added charm-store charm "ubuntu", revision 21 in channel stable, to the model
@@ -40,9 +42,11 @@ run_refresh_local() {
 
 	OUT=$(juju refresh ubuntu --path "${charm_name}" 2>&1 || true)
 	if echo "${OUT}" | grep -E -vq "Added local charm"; then
+		# shellcheck disable=SC2046
 		echo $(red "failed refreshing charm: ${OUT}")
 		exit 5
 	fi
+	# shellcheck disable=SC2059
 	printf "${OUT}\n"
 
 	# Added local charm "ubuntu", revision 2, to the model

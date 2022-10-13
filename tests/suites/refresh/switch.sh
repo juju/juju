@@ -11,9 +11,11 @@ run_refresh_switch_cs_to_ch() {
 
 	OUT=$(juju refresh ubuntu --switch ch:ubuntu 2>&1 || true)
 	if echo "${OUT}" | grep -E -vq "Added charm-hub charm"; then
+		# shellcheck disable=SC2046
 		echo $(red "failed refreshing charm: ${OUT}")
 		exit 5
 	fi
+	# shellcheck disable=SC2059
 	printf "${OUT}\n"
 
 	# Added local charm "ubuntu", revision 2, to the model
@@ -38,9 +40,11 @@ run_refresh_switch_cs_to_ch_channel() {
 
 	OUT=$(juju refresh ubuntu --switch ch:ubuntu --channel edge 2>&1 || true)
 	if echo "${OUT}" | grep -E -vq "in channel edge"; then
+		# shellcheck disable=SC2046
 		echo $(red "failed refreshing charm: ${OUT}")
 		exit 5
 	fi
+	# shellcheck disable=SC2059
 	printf "${OUT}\n"
 
 	# Added local charm "ubuntu", revision 2, to the model
@@ -68,9 +72,11 @@ run_refresh_switch_local_to_ch_channel() {
 
 	OUT=$(juju refresh ubuntu --switch ch:ubuntu --channel edge 2>&1 || true)
 	if echo "${OUT}" | grep -E -vq "Added charm-hub charm"; then
+		# shellcheck disable=SC2046
 		echo $(red "failed refreshing charm: ${OUT}")
 		exit 5
 	fi
+	# shellcheck disable=SC2059
 	printf "${OUT}\n"
 
 	# Added local charm "ubuntu", revision 2, to the model
@@ -95,6 +101,7 @@ run_refresh_switch_channel() {
 	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
 
 	OUT=$(juju refresh juju-qa-test --channel 2.0/edge 2>&1 || true)
+	# shellcheck disable=SC2059
 	printf "${OUT}\n"
 
 	# Added local charm "ubuntu", revision 2, to the model
