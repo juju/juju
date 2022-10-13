@@ -401,7 +401,7 @@ func (s *SecretsManagerAPI) getSecretContent(arg params.GetSecretContentArg) (*s
 		return getSecretValue(md.URI, md.LatestRevision)
 	}
 
-	// arg.Label is the consumer label for consumer.
+	// arg.Label is the consumer label for consumers.
 	// 1. both URI and label is required for the first time access.
 	// 2. either URI or label is required for later acsess.
 	secretURI, consumer, err := s.secretsConsumer.GetSecretConsumer(uri, arg.Label, s.authTag)

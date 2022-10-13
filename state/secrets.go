@@ -645,7 +645,7 @@ func (s *secretsStore) getSecretValue(uri *secrets.URI, revision int, checkExist
 	return secrets.NewSecretValue(data), doc.ProviderId, nil
 }
 
-// GetSecret gets the secret metadata for the specified URL.
+// GetSecret gets the secret metadata for the specified URL or label.
 func (s *secretsStore) GetSecret(uri *secrets.URI, label string, owner names.Tag) (*secrets.SecretMetadata, error) {
 	if uri == nil && label == "" {
 		return nil, errors.NewNotValid(nil, "both uri and label are empty")
@@ -911,14 +911,14 @@ func secretConsumerLabelKey(ownerTag string, label string) string {
 }
 
 func (st *State) uniqueSecretOwnerLabelOps(ownerTag string, label string) ([]txn.Op, error) {
-	return st.uniqueSecretLabelOps(ownerTag, label, secretOwnerLabelKey)
+	return st.uniqueSecretLabelOps(ownerTag, label, "owner", secretOwnerLabelKey)
 }
 
 func (st *State) uniqueSecretConsumerLabelOps(consumerTag string, label string) ([]txn.Op, error) {
-	return st.uniqueSecretLabelOps(consumerTag, label, secretConsumerLabelKey)
+	return st.uniqueSecretLabelOps(consumerTag, label, "consumer", secretConsumerLabelKey)
 }
 
-func (st *State) uniqueSecretLabelOps(tag string, label string, keyGenerator func(string, string) string) ([]txn.Op, error) {
+func (st *State) uniqueSecretLabelOps(tag string, label string, role string, keyGenerator func(string, string) string) ([]txn.Op, error) {
 	refCountCollection, ccloser := st.db().GetCollection(refcountsC)
 	defer ccloser()
 
@@ -928,7 +928,7 @@ func (st *State) uniqueSecretLabelOps(tag string, label string, keyGenerator fun
 		return nil, errors.Trace(err)
 	}
 	if count > 0 {
-		return nil, errors.WithType(errors.Errorf("label %q for %q already exists", label, tag), LabelExists)
+		return nil, errors.WithType(errors.Errorf("secret label %q for %s %q already exists", label, role, tag), LabelExists)
 	}
 	incOp, err := nsRefcounts.CreateOrIncRefOp(refCountCollection, key, 1)
 	if err != nil {

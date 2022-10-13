@@ -40,9 +40,6 @@ func (s *SecretGetSuite) TestSecretGetInit(c *gc.C) {
 		args: []string{"secret:9m4e2mr0ui3e8a215n4g", "--label", "foo", "--metadata"},
 		err:  "ERROR specify either a secret URI or label but not both",
 	}, {
-		args: []string{"secret:9m4e2mr0ui3e8a215n4g", "--label", "foo"},
-		err:  "ERROR specify either a secret URI or label but not both",
-	}, {
 		args: []string{"secret:9m4e2mr0ui3e8a215n4g", "--metadata", "--update"},
 		err:  "ERROR --peek and --update are not valid when fetching metadata",
 	}, {

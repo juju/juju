@@ -633,7 +633,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentConsumerFirstTime(c *gc.C) {
 	s.secretsBackend.EXPECT().GetSecret(uri, "", nil).Return(&coresecrets.SecretMetadata{LatestRevision: 668}, nil)
 	s.secretsConsumer.EXPECT().SaveSecretConsumer(
 		uri, names.NewUnitTag("mariadb/0"), &coresecrets.SecretConsumerMetadata{
-			Label: "label",
+			Label:           "label",
 			CurrentRevision: 668,
 			LatestRevision:  668,
 		}).Return(nil)
@@ -687,7 +687,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentConsumerUpdateArg(c *gc.C) {
 	s.secretsBackend.EXPECT().GetSecret(uri, "", nil).Return(&coresecrets.SecretMetadata{LatestRevision: 668}, nil)
 	s.secretsConsumer.EXPECT().SaveSecretConsumer(
 		uri, names.NewUnitTag("mariadb/0"), &coresecrets.SecretConsumerMetadata{
-			Label: "label",
+			Label:           "label",
 			CurrentRevision: 668,
 			LatestRevision:  666,
 		}).Return(nil)
