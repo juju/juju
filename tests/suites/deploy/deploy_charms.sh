@@ -19,11 +19,13 @@ run_deploy_specific_series() {
 	ensure "test-deploy-specific-series" "${file}"
 
 	juju deploy postgresql --series focal
-	base=$(juju status --format=json | jq ".applications.postgresql.base")
+	base_name=$(juju status --format=json | jq ".applications.postgresql.base.name")
+	base_channel=$(juju status --format=json | jq ".applications.postgresql.base.channel")
 
 	destroy_model "test-deploy-specific-series"
 
-	echo "$base" | check "ubuntu:20.04"
+	echo "$base_name" | check "ubuntu"
+	echo "$base_channel" | check "20.04"
 }
 
 run_deploy_lxd_profile_charm() {
