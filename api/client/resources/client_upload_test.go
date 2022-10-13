@@ -10,33 +10,54 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v9"
 	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/errors"
-	"github.com/juju/juju/api/base/mocks"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/resources"
 	apicharm "github.com/juju/juju/api/common/charm"
+	httpmocks "github.com/juju/juju/api/http/mocks"
+	coreresources "github.com/juju/juju/core/resources"
+	resourcetesting "github.com/juju/juju/core/resources/testing"
 	"github.com/juju/juju/rpc/params"
 )
 
 var _ = gc.Suite(&UploadSuite{})
 
 type UploadSuite struct {
-	BaseSuite
+	mockHTTPClient   *httpmocks.MockHTTPDoer
+	mockAPICaller    *mocks.MockAPICallCloser
+	mockFacadeCaller *mocks.MockFacadeCaller
+	client           *resources.Client
+}
+
+func (s *UploadSuite) setup(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.mockHTTPClient = httpmocks.NewMockHTTPDoer(ctrl)
+	s.mockAPICaller = mocks.NewMockAPICallCloser(ctrl)
+	s.mockAPICaller.EXPECT().BestFacadeVersion(gomock.Any()).Return(3).AnyTimes()
+
+	s.mockFacadeCaller = mocks.NewMockFacadeCaller(ctrl)
+	s.mockFacadeCaller.EXPECT().RawAPICaller().Return(s.mockAPICaller).AnyTimes()
+	s.mockFacadeCaller.EXPECT().BestAPIVersion().Return(2).AnyTimes()
+	s.client = resources.NewClientForTest(s.mockFacadeCaller, s.mockHTTPClient)
+	return ctrl
 }
 
 func (s *UploadSuite) TestUpload(c *gc.C) {
-	defer s.setUpMocks(c).Finish()
+	defer s.setup(c).Finish()
 
 	ctx := context.TODO()
-	s.apiCaller.EXPECT().Context().Return(ctx)
+	s.mockAPICaller.EXPECT().Context().Return(ctx)
 
 	data := "<data>"
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(data))
@@ -49,7 +70,7 @@ func (s *UploadSuite) TestUpload(c *gc.C) {
 	req.Header.Set("Content-Disposition", "form-data; filename=foo.zip")
 	req.ContentLength = int64(len(data))
 
-	s.httpClient.EXPECT().Do(ctx, reqMatcher{c, req}, gomock.Any())
+	s.mockHTTPClient.EXPECT().Do(ctx, reqMatcher{c, req}, gomock.Any())
 
 	err = s.client.Upload("a-application", "spam", "foo.zip", strings.NewReader(data))
 	c.Assert(err, jc.ErrorIsNil)
@@ -87,17 +108,14 @@ func (m reqMatcher) String() string {
 }
 
 func (s *UploadSuite) TestUploadBadApplication(c *gc.C) {
-	defer s.setUpMocks(c).Finish()
+	defer s.setup(c).Finish()
 
 	err := s.client.Upload("???", "spam", "file.zip", nil)
 	c.Check(err, gc.ErrorMatches, `.*invalid application.*`)
 }
 
 func (s *UploadSuite) TestUploadFailed(c *gc.C) {
-	defer s.setUpMocks(c).Finish()
-
-	ctx := context.TODO()
-	s.apiCaller.EXPECT().Context().Return(ctx)
+	defer s.setup(c).Finish()
 
 	data := "<data>"
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(data))
@@ -110,15 +128,15 @@ func (s *UploadSuite) TestUploadFailed(c *gc.C) {
 	req.Header.Set("Content-Disposition", "form-data; filename=foo.zip")
 	req.ContentLength = int64(len(data))
 
-	s.httpClient.EXPECT().Do(ctx, reqMatcher{c, req}, gomock.Any()).Return(errors.New("boom"))
-
+	ctx := context.TODO()
+	s.mockAPICaller.EXPECT().Context().Return(ctx)
+	s.mockHTTPClient.EXPECT().Do(ctx, reqMatcher{c, req}, gomock.Any()).Return(errors.New("boom"))
 	err = s.client.Upload("a-application", "spam", "foo.zip", strings.NewReader(data))
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
 func (s *UploadSuite) TestAddPendingResources(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
+	defer s.setup(c).Finish()
 
 	res, apiResult := newResourceResult(c, "spam")
 	args := params.AddPendingResourcesArgsV2{
@@ -140,12 +158,10 @@ func (s *UploadSuite) TestAddPendingResources(c *gc.C) {
 	results := params.AddPendingResourcesResult{
 		PendingIDs: expected,
 	}
-	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("AddPendingResources", &args, result).SetArg(2, results).Return(nil)
-	client := resources.NewClientFromCaller(mockFacadeCaller)
+	s.mockFacadeCaller.EXPECT().FacadeCall("AddPendingResources", &args, result).SetArg(2, results).Return(nil)
 
 	cURL := charm.MustParseURL("ch:spam")
-	pendingIDs, err := client.AddPendingResources(resources.AddPendingResourcesArgs{
+	pendingIDs, err := s.client.AddPendingResources(resources.AddPendingResourcesArgs{
 		ApplicationID: "a-application",
 		CharmID: resources.CharmID{
 			URL: cURL,
@@ -164,8 +180,7 @@ func (s *UploadSuite) TestAddPendingResources(c *gc.C) {
 }
 
 func (s *UploadSuite) TestUploadPendingResource(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
+	defer s.setup(c).Finish()
 
 	res, apiResult := newResourceResult(c, "spam")
 	args := params.AddPendingResourcesArgsV2{
@@ -175,14 +190,9 @@ func (s *UploadSuite) TestUploadPendingResource(c *gc.C) {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	expected := uuid.String()
-	resultParams := params.AddPendingResourcesResult{
+	results := params.AddPendingResourcesResult{
 		PendingIDs: []string{expected},
 	}
-	s.facade.EXPECT().FacadeCall("AddPendingResources", &args, gomock.Any()).SetArg(2, resultParams).Return(nil)
-
-	ctx := context.TODO()
-	s.apiCaller.EXPECT().Context().Return(ctx)
-
 	data := "<data>"
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(data))
 	c.Assert(err, jc.ErrorIsNil)
@@ -195,7 +205,10 @@ func (s *UploadSuite) TestUploadPendingResource(c *gc.C) {
 	req.URL.RawQuery = "pendingid=" + expected
 	req.Header.Set("Content-Disposition", "form-data; filename=file.zip")
 
-	s.httpClient.EXPECT().Do(ctx, reqMatcher{c, req}, gomock.Any())
+	ctx := context.TODO()
+	s.mockAPICaller.EXPECT().Context().Return(ctx)
+	s.mockFacadeCaller.EXPECT().FacadeCall("AddPendingResources", &args, gomock.Any()).SetArg(2, results).Return(nil)
+	s.mockHTTPClient.EXPECT().Do(ctx, reqMatcher{c, req}, gomock.Any())
 
 	uploadID, err := s.client.UploadPendingResource("a-application", res[0].Resource, "file.zip", strings.NewReader(data))
 	c.Assert(err, jc.ErrorIsNil)
@@ -203,7 +216,7 @@ func (s *UploadSuite) TestUploadPendingResource(c *gc.C) {
 }
 
 func (s *UploadSuite) TestUploadPendingResourceNoFile(c *gc.C) {
-	defer s.setUpMocks(c).Finish()
+	defer s.setup(c).Finish()
 
 	res, apiResult := newResourceResult(c, "spam")
 	args := params.AddPendingResourcesArgsV2{
@@ -213,10 +226,10 @@ func (s *UploadSuite) TestUploadPendingResourceNoFile(c *gc.C) {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	expected := uuid.String()
-	resultParams := params.AddPendingResourcesResult{
+	results := params.AddPendingResourcesResult{
 		PendingIDs: []string{expected},
 	}
-	s.facade.EXPECT().FacadeCall("AddPendingResources", &args, gomock.Any()).SetArg(2, resultParams).Return(nil)
+	s.mockFacadeCaller.EXPECT().FacadeCall("AddPendingResources", &args, gomock.Any()).SetArg(2, results).Return(nil)
 
 	uploadID, err := s.client.UploadPendingResource("a-application", res[0].Resource, "file.zip", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -224,7 +237,8 @@ func (s *UploadSuite) TestUploadPendingResourceNoFile(c *gc.C) {
 }
 
 func (s *UploadSuite) TestUploadPendingResourceBadApplication(c *gc.C) {
-	defer s.setUpMocks(c).Finish()
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
 	res, _ := newResourceResult(c, "spam")
 	_, err := s.client.UploadPendingResource("???", res[0].Resource, "file.zip", nil)
@@ -232,7 +246,7 @@ func (s *UploadSuite) TestUploadPendingResourceBadApplication(c *gc.C) {
 }
 
 func (s *UploadSuite) TestUploadPendingResourceFailed(c *gc.C) {
-	defer s.setUpMocks(c).Finish()
+	defer s.setup(c).Finish()
 
 	res, apiResult := newResourceResult(c, "spam")
 	args := params.AddPendingResourcesArgsV2{
@@ -242,14 +256,9 @@ func (s *UploadSuite) TestUploadPendingResourceFailed(c *gc.C) {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	expected := uuid.String()
-	resultParams := params.AddPendingResourcesResult{
+	results := params.AddPendingResourcesResult{
 		PendingIDs: []string{expected},
 	}
-	s.facade.EXPECT().FacadeCall("AddPendingResources", &args, gomock.Any()).SetArg(2, resultParams).Return(nil)
-
-	ctx := context.TODO()
-	s.apiCaller.EXPECT().Context().Return(ctx)
-
 	data := "<data>"
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(data))
 	c.Assert(err, jc.ErrorIsNil)
@@ -262,8 +271,55 @@ func (s *UploadSuite) TestUploadPendingResourceFailed(c *gc.C) {
 	req.URL.RawQuery = "pendingid=" + expected
 	req.Header.Set("Content-Disposition", "form-data; filename=file.zip")
 
-	s.httpClient.EXPECT().Do(ctx, reqMatcher{c, req}, gomock.Any()).Return(errors.New("boom"))
+	ctx := context.TODO()
+	s.mockAPICaller.EXPECT().Context().Return(ctx)
+	s.mockFacadeCaller.EXPECT().FacadeCall("AddPendingResources", &args, gomock.Any()).SetArg(2, results).Return(nil)
+	s.mockHTTPClient.EXPECT().Do(ctx, reqMatcher{c, req}, gomock.Any()).Return(errors.New("boom"))
 
 	_, err = s.client.UploadPendingResource("a-application", res[0].Resource, "file.zip", strings.NewReader(data))
 	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
+func newResourceResult(c *gc.C, names ...string) ([]coreresources.Resource, params.ResourcesResult) {
+	var res []coreresources.Resource
+	var apiResult params.ResourcesResult
+	for _, name := range names {
+		data := name + "...spamspamspam"
+		newRes, apiRes := newResource(c, name, "a-user", data)
+		res = append(res, newRes)
+		apiResult.Resources = append(apiResult.Resources, apiRes)
+	}
+	return res, apiResult
+}
+
+func newResource(c *gc.C, name, username, data string) (coreresources.Resource, params.Resource) {
+	opened := resourcetesting.NewResource(c, nil, name, "a-application", data)
+	res := opened.Resource
+	res.Revision = 1
+	res.Username = username
+	if username == "" {
+		// Note that resourcetesting.NewResource() returns a resources
+		// with a username and timestamp set. So if the username was
+		// "un-set" then we have to also unset the timestamp.
+		res.Timestamp = time.Time{}
+	}
+
+	apiRes := params.Resource{
+		CharmResource: params.CharmResource{
+			Name:        name,
+			Description: name + " description",
+			Type:        "file",
+			Path:        res.Path,
+			Origin:      "upload",
+			Revision:    1,
+			Fingerprint: res.Fingerprint.Bytes(),
+			Size:        res.Size,
+		},
+		ID:            res.ID,
+		ApplicationID: res.ApplicationID,
+		Username:      username,
+		Timestamp:     res.Timestamp,
+	}
+
+	return res, apiRes
 }

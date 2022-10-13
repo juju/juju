@@ -6,20 +6,19 @@ package resources_test
 import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/api/base/mocks"
-	"github.com/juju/juju/api/client/resources"
-	coreresources "github.com/juju/juju/core/resources"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api/base/mocks"
+	"github.com/juju/juju/api/client/resources"
+	coreresources "github.com/juju/juju/core/resources"
 	"github.com/juju/juju/rpc/params"
 )
 
 var _ = gc.Suite(&ListResourcesSuite{})
 
-type ListResourcesSuite struct {
-	BaseSuite
-}
+type ListResourcesSuite struct{}
 
 func (s *ListResourcesSuite) TestListResources(c *gc.C) {
 	ctrl := gomock.NewController(c)
