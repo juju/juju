@@ -672,11 +672,6 @@ func (s *SecretsSuite) assertUpdatedSecret(c *gc.C, original *secrets.SecretMeta
 		c.Assert(providerId, gc.IsNil)
 		c.Assert(val.EncodedValues(), jc.DeepEquals, expectedData)
 	}
-	if update.Label != nil {
-		uri, err := s.store.GetURIBySecretLabel(*update.Label, s.owner.Tag())
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(uri, gc.DeepEquals, original.URI)
-	}
 	if update.ExpireTime != nil {
 		revs, err := s.store.ListSecretRevisions(md.URI)
 		c.Assert(err, jc.ErrorIsNil)
@@ -740,7 +735,7 @@ func (s *SecretsSuite) TestUpdateConcurrent(c *gc.C) {
 	})
 }
 
-func (s *SecretsSuite) TestGetSecretAndGetSecretURI(c *gc.C) {
+func (s *SecretsSuite) TestGetSecret(c *gc.C) {
 	uri := secrets.NewURI()
 
 	now := s.Clock.Now().Round(time.Second).UTC()
@@ -763,10 +758,6 @@ func (s *SecretsSuite) TestGetSecretAndGetSecretURI(c *gc.C) {
 	md, err = s.store.GetSecret(uri)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(md.URI, jc.DeepEquals, uri)
-
-	result, err := s.store.GetURIBySecretLabel("label-1", s.owner.Tag())
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(result, jc.DeepEquals, uri)
 }
 
 func (s *SecretsSuite) TestListSecretRevisions(c *gc.C) {

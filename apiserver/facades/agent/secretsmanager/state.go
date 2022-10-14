@@ -35,7 +35,6 @@ type SecretsBackend interface {
 	UpdateSecret(*secrets.URI, state.UpdateSecretParams) (*secrets.SecretMetadata, error)
 	DeleteSecret(*secrets.URI, ...int) (bool, error)
 	GetSecret(*secrets.URI) (*secrets.SecretMetadata, error)
-	GetURIBySecretLabel(string, names.Tag) (*secrets.URI, error)
 	GetSecretValue(*secrets.URI, int) (secrets.SecretValue, *string, error)
 	ListSecrets(state.SecretsFilter) ([]*secrets.SecretMetadata, error)
 	ListSecretRevisions(uri *secrets.URI) ([]*secrets.SecretRevisionMetadata, error)

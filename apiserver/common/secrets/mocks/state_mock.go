@@ -117,21 +117,6 @@ func (mr *MockSecretsStoreMockRecorder) GetSecretValue(arg0, arg1 interface{}) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretValue", reflect.TypeOf((*MockSecretsStore)(nil).GetSecretValue), arg0, arg1)
 }
 
-// GetURIBySecretLabel mocks base method.
-func (m *MockSecretsStore) GetURIBySecretLabel(arg0 string, arg1 names.Tag) (*secrets.URI, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetURIBySecretLabel", arg0, arg1)
-	ret0, _ := ret[0].(*secrets.URI)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetURIBySecretLabel indicates an expected call of GetURIBySecretLabel.
-func (mr *MockSecretsStoreMockRecorder) GetURIBySecretLabel(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetURIBySecretLabel", reflect.TypeOf((*MockSecretsStore)(nil).GetURIBySecretLabel), arg0, arg1)
-}
-
 // ListSecretRevisions mocks base method.
 func (m *MockSecretsStore) ListSecretRevisions(arg0 *secrets.URI) ([]*secrets.SecretRevisionMetadata, error) {
 	m.ctrl.T.Helper()

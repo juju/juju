@@ -73,7 +73,6 @@ type SecretsStore interface {
 	UpdateSecret(*secrets.URI, UpdateSecretParams) (*secrets.SecretMetadata, error)
 	DeleteSecret(*secrets.URI, ...int) (bool, error)
 	GetSecret(*secrets.URI) (*secrets.SecretMetadata, error)
-	GetURIBySecretLabel(string, names.Tag) (*secrets.URI, error)
 	GetSecretValue(*secrets.URI, int) (secrets.SecretValue, *string, error)
 	ListSecrets(SecretsFilter) ([]*secrets.SecretMetadata, error)
 	ListSecretRevisions(uri *secrets.URI) ([]*secrets.SecretRevisionMetadata, error)
@@ -646,24 +645,6 @@ func (s *secretsStore) getSecretValue(uri *secrets.URI, revision int, checkExist
 	return secrets.NewSecretValue(data), doc.ProviderId, nil
 }
 
-// GetURIBySecretLabel get the secret URI for the specified label.
-func (s *secretsStore) GetURIBySecretLabel(label string, owner names.Tag) (*secrets.URI, error) {
-	secretMetadataCollection, closer := s.st.db().GetCollection(secretMetadataC)
-	defer closer()
-
-	var doc secretMetadataDoc
-	err := secretMetadataCollection.Find(bson.M{
-		"owner-tag": owner.String(), "label": label,
-	}).Select(bson.D{{"_id", 1}}).One(&doc)
-	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("secret with label %q for %q", label, owner)
-	}
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &secrets.URI{ID: s.st.localID(doc.DocID)}, nil
-}
-
 // GetSecret gets the secret metadata for the specified URLl.
 func (s *secretsStore) GetSecret(uri *secrets.URI) (*secrets.SecretMetadata, error) {
 	if uri == nil {
@@ -989,7 +970,7 @@ func (st *State) GetURIByConsumerLabel(label string, consumer names.Tag) (*secre
 		return nil, errors.Trace(err)
 	}
 	id, _ := splitSecretConsumerKey(st.localID(doc.DocID))
-	if id  == "" {
+	if id == "" {
 		return nil, errors.NotFoundf("secret consumer with label %q for %q", label, consumer)
 	}
 	return &secrets.URI{ID: id}, nil

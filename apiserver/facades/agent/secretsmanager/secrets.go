@@ -344,22 +344,14 @@ func (s *SecretsManagerAPI) GetSecretContentInfo(args params.GetSecretContentArg
 	return result, nil
 }
 
-func (s *SecretsManagerAPI) getOwnerSecretMetadata(uri *coresecrets.URI, label string) (*coresecrets.SecretMetadata, error) {
-	if uri == nil {
-		var err error
-		uri, err = s.secretsBackend.GetURIBySecretLabel(label, s.authTag)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-
+func (s *SecretsManagerAPI) getOwnerSecretMetadata(uri *coresecrets.URI) (*coresecrets.SecretMetadata, error) {
 	md, err := s.secretsBackend.GetSecret(uri)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	if s.authTag.String() != md.OwnerTag {
 		// Invisible for non owner users.
-		return nil, errors.NotFoundf("secret %s, label %q", uri, label)
+		return nil, errors.NotFoundf("secret %s", uri)
 	}
 	return md, nil
 }
@@ -394,18 +386,19 @@ func (s *SecretsManagerAPI) getSecretContent(arg params.GetSecretContentArg) (*s
 		}
 	}
 
-	// arg.Label is the secret label for owner.
-	md, err := s.getOwnerSecretMetadata(uri, arg.Label)
-	if err != nil && !errors.Is(err, errors.NotFound) {
-		return nil, errors.Trace(err)
-	}
-	if md != nil {
-		// Owner can access the content directly.
-		if arg.Update {
-			// We should not have cmd flag knowledge here but we have to check here because jujuc cannot know it.
-			return nil, errors.NewNotValid(nil, "secret owner cannot use --update")
+	if uri != nil && arg.Label == "" {
+		md, err := s.getOwnerSecretMetadata(uri)
+		if err != nil && !errors.Is(err, errors.NotFound) {
+			return nil, errors.Trace(err)
 		}
-		return getSecretValue(md.URI, md.LatestRevision)
+		if md != nil {
+			// Owner can access the content directly.
+			if arg.Update {
+				// We should not have cmd flag knowledge here but we have to check here because jujuc cannot know it.
+				return nil, errors.NewNotValid(nil, "secret owner cannot use --update")
+			}
+			return getSecretValue(md.URI, md.LatestRevision)
+		}
 	}
 
 	// arg.Label is the consumer label for consumers.
