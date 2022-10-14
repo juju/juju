@@ -7,6 +7,7 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
+
 	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	"github.com/juju/juju/apiserver/facade"
 )
@@ -17,8 +18,7 @@ func Register(registry facade.FacadeRegistry) {
 		return newStateFacadeLegacy(ctx)
 	}, reflect.TypeOf((*Facade)(nil)))
 
-	// TODO(juju3): rename to CAASFirewallerSidecar
-	registry.MustRegister("CAASFirewallerEmbedded", 1, func(ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("CAASFirewallerSidecar", 1, func(ctx facade.Context) (facade.Facade, error) {
 		return newStateFacadeSidecar(ctx)
 	}, reflect.TypeOf((*FacadeSidecar)(nil)))
 }
