@@ -1524,7 +1524,7 @@
     {
         "Name": "AllModelWatcher",
         "Description": "SrvAllWatcher defines the API methods on a state.Multiwatcher.\nwhich watches any changes to the state. Each client has its own\ncurrent set of watchers, stored in resources. It is used by both\nthe AllWatcher and AllModelWatcher facades.",
-        "Version": 3,
+        "Version": 4,
         "AvailableTo": [
             "controller-user"
         ],
@@ -1584,7 +1584,7 @@
     {
         "Name": "AllWatcher",
         "Description": "SrvAllWatcher defines the API methods on a state.Multiwatcher.\nwhich watches any changes to the state. Each client has its own\ncurrent set of watchers, stored in resources. It is used by both\nthe AllWatcher and AllModelWatcher facades.",
-        "Version": 2,
+        "Version": 3,
         "AvailableTo": [
             "model-user"
         ],
@@ -9028,7 +9028,7 @@
         }
     },
     {
-        "Name": "CAASFirewallerEmbedded",
+        "Name": "CAASFirewallerSidecar",
         "Description": "FacadeSidecar provides access to the CAASFirewaller API facade for sidecar applications.",
         "Version": 1,
         "AvailableTo": [
@@ -26293,7 +26293,7 @@
     {
         "Name": "MachineManager",
         "Description": "MachineManagerAPI provides access to the MachineManager API facade.",
-        "Version": 8,
+        "Version": 9,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -37242,7 +37242,7 @@
     {
         "Name": "Resources",
         "Description": "API is the public API facade for resources.",
-        "Version": 2,
+        "Version": 3,
         "AvailableTo": [
             "model-user"
         ],

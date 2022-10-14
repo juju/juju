@@ -44,8 +44,7 @@ type ClientSidecar struct {
 // NewClientSidecar returns a client used to access the CAAS unit provisioner API.
 func NewClientSidecar(caller base.APICaller) *ClientSidecar {
 	// TODO(sidecar): add OpenedPorts and ClosedPorts API for caasfirewallersidecar worker to fetch port mapping changes.
-	// TODO(juju3): rename to CAASFirewallerSidecar
-	facadeCaller := base.NewFacadeCaller(caller, "CAASFirewallerEmbedded")
+	facadeCaller := base.NewFacadeCaller(caller, "CAASFirewallerSidecar")
 	charmInfoClient := charmscommon.NewCharmInfoClient(facadeCaller)
 	appCharmInfoClient := charmscommon.NewApplicationCharmInfoClient(facadeCaller)
 	return &ClientSidecar{
