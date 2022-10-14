@@ -38,13 +38,13 @@ assert_machine_series() {
 	local machine expected_series actual_base actual_series
 	machine=$1
 	expected_series=$2
-	actual_base=$(juju status --format=json | jq -r ".machines[\"$machine\"].base")
+	actual_base=$(juju status --format=json | jq -r ".machines[\"$machine\"] | (.base.name+\":\"+.base.channel)")
 	actual_series=$(base_to_series "${actual_base}")
 
 	if [[ $expected_series == "$actual_series" ]]; then
-		echo "Machine $machine has series $actual_base"
+		echo "Machine $machine has series $actual_series from base $actual_base"
 	else
-		echo "Machine $machine has series $actual_series, expected $expected_series"
+		echo "Machine $machine has series $actual_series from base $actual_base, expected $expected_series"
 		exit 1
 	fi
 }

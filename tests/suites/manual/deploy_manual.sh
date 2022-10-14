@@ -44,8 +44,13 @@ manual_deploy() {
 
 	juju enable-ha >"${TEST_DIR}/enable-ha.log" 2>&1
 
-	machine_base=$(juju machines --format=json | jq -r '.machines | .["0"] | .base')
+	machine_base=$(juju machines --format=json | jq -r '.machines | .["0"] | (.base.name+":"+.base.channel)')
 	machine_series=$(base_to_series "${machine_base}")
+
+	if [[ -z ${machine_series} ]]; then
+		echo "machine 0 has invalid series"
+		exit 1
+	fi
 
 	juju deploy ubuntu --to=0 --series="${machine_series}"
 
