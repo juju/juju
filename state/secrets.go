@@ -645,7 +645,7 @@ func (s *secretsStore) getSecretValue(uri *secrets.URI, revision int, checkExist
 	return secrets.NewSecretValue(data), doc.ProviderId, nil
 }
 
-// GetSecret gets the secret metadata for the specified URLl.
+// GetSecret gets the secret metadata for the specified URL.
 func (s *secretsStore) GetSecret(uri *secrets.URI) (*secrets.SecretMetadata, error) {
 	if uri == nil {
 		return nil, errors.NewNotValid(nil, "empty URI")

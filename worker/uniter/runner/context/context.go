@@ -792,23 +792,31 @@ func (ctx *HookContext) lookupOwnedSecretURIByLabel(label string) (*coresecrets.
 
 // GetSecret returns the value of the specified secret.
 func (ctx *HookContext) GetSecret(uri *coresecrets.URI, label string, update, peek bool) (coresecrets.SecretValue, error) {
-	store, err := ctx.getSecretsStore()
-	if err != nil {
-		return nil, err
-	}
 	if uri == nil && label == "" {
 		return nil, errors.NotValidf("empty URI and label")
 	}
-	if uri == nil {
+	if label != "" {
 		// try to resolve label to URI by looking up owned secrets.
-		uri, err = ctx.lookupOwnedSecretURIByLabel(label)
+		ownedSecretURI, err := ctx.lookupOwnedSecretURIByLabel(label)
 		if err != nil && !errors.Is(err, errors.NotFound) {
 			return nil, err
 		}
-		if uri != nil {
+		if ownedSecretURI != nil {
+			if uri != nil {
+				return nil, errors.NewNotValid(nil, "either URI or label should be used for getting an owned secret but not both")
+			}
+			if update {
+				return nil, errors.NewNotValid(nil, "secret owner cannot use --update")
+			}
 			// Found owned secret, no need label anymore.
+			uri = ownedSecretURI
 			label = ""
 		}
+	}
+
+	store, err := ctx.getSecretsStore()
+	if err != nil {
+		return nil, err
 	}
 	v, err := store.GetContent(uri, label, update, peek)
 	if err != nil {

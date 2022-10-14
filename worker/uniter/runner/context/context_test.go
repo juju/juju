@@ -1015,6 +1015,34 @@ func (s *mockHookContextSuite) TestSecretGet(c *gc.C) {
 	})
 }
 
+func (s *mockHookContextSuite) TestSecretGetOwnedSecretFailedBothURIAndLabel(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uri := coresecrets.NewURI()
+	hookContext := context.NewMockUnitHookContext(s.mockUnit, s.mockLeadership)
+	context.SetEnvironmentHookContextSecret(hookContext, uri.String(),
+		map[string]jujuc.SecretMetadata{
+			uri.ID: {Label: "label"},
+		}, nil, nil)
+
+	_, err := hookContext.GetSecret(uri, "label", false, false)
+	c.Assert(err, gc.ErrorMatches, `either URI or label should be used for getting an owned secret but not both`)
+}
+
+func (s *mockHookContextSuite) TestSecretGetOwnedSecretFailedWithUpdate(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uri := coresecrets.NewURI()
+	hookContext := context.NewMockUnitHookContext(s.mockUnit, s.mockLeadership)
+	context.SetEnvironmentHookContextSecret(hookContext, uri.String(),
+		map[string]jujuc.SecretMetadata{
+			uri.ID: {Label: "label"},
+		}, nil, nil)
+
+	_, err := hookContext.GetSecret(nil, "label", true, false)
+	c.Assert(err, gc.ErrorMatches, `secret owner cannot use --update`)
+}
+
 func (s *mockHookContextSuite) assertSecretGetOwnedSecretURILookup(
 	c *gc.C, patchContext func(*context.HookContext, *coresecrets.URI, string, context.SecretsAccessor, secrets.Store),
 ) {
@@ -1043,8 +1071,8 @@ func (s *mockHookContextSuite) assertSecretGetOwnedSecretURILookup(
 		c.Assert(arg, gc.DeepEquals, params.GetSecretContentArgs{
 			Args: []params.GetSecretContentArg{{
 				URI:    uri.String(),
-				Update: true,
-				Peek:   true,
+				Update: false,
+				Peek:   false,
 			}},
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.SecretContentResults{})
@@ -1064,7 +1092,7 @@ func (s *mockHookContextSuite) assertSecretGetOwnedSecretURILookup(
 
 	patchContext(hookContext, uri, "label", jujuSecretsAPI, secretsStore)
 
-	value, err := hookContext.GetSecret(nil, "label", true, true)
+	value, err := hookContext.GetSecret(nil, "label", false, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(value.EncodedValues(), jc.DeepEquals, map[string]string{
 		"foo": "bar",

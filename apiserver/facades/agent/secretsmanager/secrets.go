@@ -357,8 +357,10 @@ func (s *SecretsManagerAPI) getOwnerSecretMetadata(uri *coresecrets.URI) (*cores
 }
 
 func (s *SecretsManagerAPI) getSecretContent(arg params.GetSecretContentArg) (*secrets.ContentParams, error) {
-	// Only the owner can access secrets via the secret label (Note: the leader unit is not the owner of the application secrets).
-	// Non owners have to use secret URI or consumer label.
+	// Only the owner can access secrets via the secret metadata label added by the owner.
+	// (Note: the leader unit is not the owner of the application secrets).
+	// Consumers get to use their own label.
+	// Both owners and consumers can also just use the secret URI.
 
 	if arg.URI == "" && arg.Label == "" {
 		return nil, errors.NewNotValid(nil, "both uri and label are empty")
@@ -393,10 +395,6 @@ func (s *SecretsManagerAPI) getSecretContent(arg params.GetSecretContentArg) (*s
 		}
 		if md != nil {
 			// Owner can access the content directly.
-			if arg.Update {
-				// We should not have cmd flag knowledge here but we have to check here because jujuc cannot know it.
-				return nil, errors.NewNotValid(nil, "secret owner cannot use --update")
-			}
 			return getSecretValue(md.URI, md.LatestRevision)
 		}
 	}
