@@ -77,7 +77,7 @@ func (s *KVMSuite) createRunningContainer(c *gc.C, name string) kvm.Container {
 	}}
 	net := container.BridgeNetworkConfig(0, nics)
 	c.Assert(kvmContainer.Start(kvm.StartParams{
-		Series:       "quantal",
+		Version:      "12.10",
 		Arch:         arch.HostArch(),
 		UserDataFile: "userdata.txt",
 		Network:      net}), gc.IsNil)
@@ -192,7 +192,7 @@ func (s *KVMSuite) TestCreateContainerUsesSetImageMetadataURL(c *gc.C) {
 func (s *KVMSuite) TestImageAcquisitionUsesSimpleStream(c *gc.C) {
 
 	startParams := kvm.StartParams{
-		Series:           "mocked-series",
+		Version:          "mocked-version",
 		Arch:             "mocked-arch",
 		Stream:           "released",
 		ImageDownloadURL: "mocked-url",
@@ -205,7 +205,7 @@ func (s *KVMSuite) TestImageAcquisitionUsesSimpleStream(c *gc.C) {
 	expectedArgs := fmt.Sprintf(
 		"synchronise images for %s %s %s %s",
 		startParams.Arch,
-		startParams.Series,
+		startParams.Version,
 		startParams.Stream,
 		startParams.ImageDownloadURL,
 	)

@@ -85,8 +85,8 @@ func (s *dblogSuite) TestControllerAgentLogsGoToDBCAAS(c *gc.C) {
 func (s *dblogSuite) TestMachineAgentLogsGoToDBIAAS(c *gc.C) {
 	// Create a machine and an agent for it.
 	m, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
-		Nonce:  agent.BootstrapNonce,
-		Series: "quantal",
+		Nonce: agent.BootstrapNonce,
+		Base:  state.UbuntuBase("12.10"),
 	})
 
 	s.PrimeAgent(c, m.Tag(), password)

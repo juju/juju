@@ -186,7 +186,7 @@ func (s *firewallerSuite) TestAreManuallyProvisioned(c *gc.C) {
 	defer s.ctrl.Finish()
 
 	m, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series:     "quantal",
+		Base:       state.UbuntuBase("12.10"),
 		Jobs:       []state.MachineJob{state.JobHostUnits},
 		InstanceId: "2",
 		Nonce:      "manual:",

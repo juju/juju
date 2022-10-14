@@ -216,9 +216,7 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 		p.Addrs = nil
 	}
 
-	// TODO(wallyworld) - from here on we still expect series.
-	// Future work will convert downstream to use Base.
-	var series string
+	var base coreseries.Base
 	if p.Base == nil {
 		model, err := mm.st.Model()
 		if err != nil {
@@ -228,13 +226,18 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		series = config.PreferredSeries(conf)
+		base = config.PreferredBase(conf)
 	} else {
 		var err error
-		series, err = coreseries.GetSeriesFromChannel(p.Base.Name, p.Base.Channel)
+		base, err = coreseries.ParseBase(p.Base.Name, p.Base.Channel)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+	}
+	// TODO(wallyworld) - I think we can remove this check
+	series, err := coreseries.GetSeriesFromBase(base)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 	supportedSeries, err := supportedJujuSeries(time.Now(), series, "")
 	if err != nil {
@@ -288,7 +291,7 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 		return nil, errors.Trace(err)
 	}
 	template := state.MachineTemplate{
-		Series:                  series,
+		Base:                    state.Base{OS: base.OS, Channel: base.Channel.String()},
 		Constraints:             p.Constraints,
 		Volumes:                 volumes,
 		InstanceId:              p.InstanceId,
@@ -755,26 +758,18 @@ func (mm *MachineManagerAPI) machineFromTag(tag string) (Machine, error) {
 	return machine, nil
 }
 
-// isSeriesLessThan returns a bool indicating whether the first argument's
+// isBaseLessThan returns a bool indicating whether the first argument's
 // version is lexicographically less than the second argument's, thus indicating
 // that the series represents an older version of the operating system. The
 // output is only valid for Ubuntu series.
-func isSeriesLessThan(series1, series2 string) (bool, error) {
-	version1, err := coreseries.SeriesVersion(series1)
-	if err != nil {
-		return false, err
-	}
-	version2, err := coreseries.SeriesVersion(series2)
-	if err != nil {
-		return false, err
-	}
+func isBaseLessThan(base1, base2 coreseries.Base) (bool, error) {
 	// Versions may be numeric.
-	vers1Int, err1 := strconv.Atoi(version1)
-	vers2Int, err2 := strconv.Atoi(version2)
+	vers1Int, err1 := strconv.Atoi(base1.Channel.Track)
+	vers2Int, err2 := strconv.Atoi(base2.Channel.Track)
 	if err1 == nil && err2 == nil {
 		return vers2Int > vers1Int, nil
 	}
-	return version2 > version1, nil
+	return base2.Channel.Track > base1.Channel.Track, nil
 }
 
 // ModelAuthorizer defines if a given operation can be performed based on a

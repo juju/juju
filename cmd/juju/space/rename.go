@@ -38,7 +38,7 @@ rename a space from db to fe:
 
 See also:
 	add-space
-	list-spaces
+	spaces
 	reload-spaces
 	remove-space
 	show-space

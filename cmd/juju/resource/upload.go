@@ -74,7 +74,6 @@ func (c *UploadCommand) Info() *cmd.Info {
 		Args:    "application name=file|OCI image",
 		Purpose: "Update a resource for an application.",
 		Doc:     attachDoc,
-		Aliases: []string{"attach"},
 	})
 }
 

@@ -5,6 +5,7 @@ package series
 
 import (
 	"fmt"
+	"runtime/debug"
 	"strings"
 
 	"github.com/juju/errors"
@@ -21,6 +22,10 @@ type Base struct {
 
 // ParseBase constructs a Base from the os and channel string.
 func ParseBase(os string, channel string) (Base, error) {
+	if channel == "kubernetes" {
+		logger.Criticalf("%s", debug.Stack())
+	}
+
 	if os == "" && channel == "" {
 		return Base{}, nil
 	}
@@ -36,17 +41,25 @@ func ParseBase(os string, channel string) (Base, error) {
 
 // MakeDefaultBase creates a base from an os and simple version string, eg "22.04".
 func MakeDefaultBase(os string, channel string) Base {
+	if channel == "kubernetes" {
+		logger.Criticalf("%s", debug.Stack())
+	}
+
 	return Base{OS: os, Channel: MakeDefaultChannel(channel)}
 }
 
-func (b *Base) String() string {
-	if b == nil || b.OS == "" {
+func (b Base) String() string {
+	if b.OS == "" {
 		return ""
 	}
-	if b.OS == "kubernetes" {
-		return b.OS
-	}
+	//if b.OS == "kubernetes" {
+	//	return b.OS
+	//}
 	return fmt.Sprintf("%s:%s", b.OS, b.Channel)
+}
+
+func (b Base) IsCompatible(other Base) bool {
+	return b.OS == other.OS && b.Channel.Track == other.Channel.Track
 }
 
 func (b *Base) DisplayString() string {
@@ -56,14 +69,14 @@ func (b *Base) DisplayString() string {
 	if b.OS == "kubernetes" {
 		return b.OS
 	}
-	if b.Channel.Risk == Stable {
-		return fmt.Sprintf("%s:%s", b.OS, b.Channel.Track)
-	}
-	return fmt.Sprintf("%s:%s", b.OS, b.Channel)
+	return b.OS + ":" + b.Channel.DisplayString()
 }
 
 // GetBaseFromSeries returns the Base infor for a series.
 func GetBaseFromSeries(series string) (Base, error) {
+	if series == "kubernetes" {
+		logger.Criticalf("%s", debug.Stack())
+	}
 	var result Base
 	osName, err := GetOSFromSeries(series)
 	if err != nil {

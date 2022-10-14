@@ -5,6 +5,7 @@ package state_test
 
 import (
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/juju/charm/v9"
@@ -228,14 +229,7 @@ func (s *SecretsSuite) TestListByOwner(c *gc.C) {
 	_, err = s.store.CreateSecret(uri3, p)
 	c.Assert(err, jc.ErrorIsNil)
 
-	list, err := s.store.ListSecrets(state.SecretsFilter{
-		OwnerTags: []names.Tag{s.owner.Tag(), names.NewApplicationTag("mariadb")},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	mc := jc.NewMultiChecker()
-	mc.AddExpr(`_.CreateTime`, jc.Almost, jc.ExpectedValue)
-	mc.AddExpr(`_.UpdateTime`, jc.Almost, jc.ExpectedValue)
-	c.Assert(list, mc, []*secrets.SecretMetadata{{
+	expectedList := []*secrets.SecretMetadata{{
 		URI:              uri,
 		RotatePolicy:     secrets.RotateDaily,
 		NextRotateTime:   ptr(next),
@@ -254,7 +248,24 @@ func (s *SecretsSuite) TestListByOwner(c *gc.C) {
 		OwnerTag:       another.Tag().String(),
 		CreateTime:     now2,
 		UpdateTime:     now2,
-	}})
+	}}
+	list, err := s.store.ListSecrets(state.SecretsFilter{
+		OwnerTags: []names.Tag{s.owner.Tag(), names.NewApplicationTag("mariadb")},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	mc := jc.NewMultiChecker()
+	mc.AddExpr(`_.CreateTime`, jc.Almost, jc.ExpectedValue)
+	mc.AddExpr(`_.UpdateTime`, jc.Almost, jc.ExpectedValue)
+
+	sortMD := func(l []*secrets.SecretMetadata) {
+		sort.Slice(l, func(i, j int) bool {
+			return l[i].URI.String() < l[j].URI.String()
+		})
+	}
+	sortMD(list)
+	sortMD(expectedList)
+	c.Assert(list, mc, expectedList)
 }
 
 func (s *SecretsSuite) TestListByURI(c *gc.C) {
@@ -724,6 +735,31 @@ func (s *SecretsSuite) TestUpdateConcurrent(c *gc.C) {
 	})
 }
 
+func (s *SecretsSuite) TestGetSecret(c *gc.C) {
+	uri := secrets.NewURI()
+
+	now := s.Clock.Now().Round(time.Second).UTC()
+	next := now.Add(time.Minute).Round(time.Second).UTC()
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			Label:          strPtr("label-1"),
+			LeaderToken:    &fakeToken{},
+			RotatePolicy:   ptr(secrets.RotateDaily),
+			NextRotateTime: ptr(next),
+			Data:           map[string]string{"foo": "bar"},
+		},
+	}
+	md, err := s.store.CreateSecret(uri, cp)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(md.URI, jc.DeepEquals, uri)
+
+	md, err = s.store.GetSecret(uri)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(md.URI, jc.DeepEquals, uri)
+}
+
 func (s *SecretsSuite) TestListSecretRevisions(c *gc.C) {
 	uri := secrets.NewURI()
 	now := s.Clock.Now().Round(time.Second).UTC()
@@ -803,7 +839,7 @@ func (s *SecretsSuite) TestGetSecretRevision(c *gc.C) {
 	})
 }
 
-func (s *SecretsSuite) TestGetSecretConsumer(c *gc.C) {
+func (s *SecretsSuite) TestGetSecretConsumerAndGetSecretConsumerURI(c *gc.C) {
 	cp := state.CreateSecretParams{
 		Version: 1,
 		Owner:   s.owner.Tag(),
@@ -824,11 +860,20 @@ func (s *SecretsSuite) TestGetSecretConsumer(c *gc.C) {
 	}
 	err = s.State.SaveSecretConsumer(uri, names.NewUnitTag("mariadb/0"), md)
 	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.GetSecretConsumer(nil, names.NewUnitTag("mariadb/0"))
+	c.Check(err, gc.ErrorMatches, `empty URI`)
+
 	md2, err := s.State.GetSecretConsumer(uri, names.NewUnitTag("mariadb/0"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(md2, jc.DeepEquals, md)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(md2, jc.DeepEquals, md)
+
+	uri3, err := s.State.GetURIByConsumerLabel("foobar", names.NewUnitTag("mariadb/0"))
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(uri3, jc.DeepEquals, uri)
+
 	_, err = s.State.GetSecretConsumer(uri, names.NewUnitTag("mysql/0"))
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *SecretsSuite) TestSaveSecretConsumer(c *gc.C) {
@@ -1095,7 +1140,7 @@ func (s *SecretsSuite) TestDelete(c *gc.C) {
 		_, err := s.store.CreateSecret(uri, cp)
 		c.Assert(err, jc.ErrorIsNil)
 		cmd := &secrets.SecretConsumerMetadata{
-			Label:           "foobar",
+			Label:           "consumer-" + label,
 			CurrentRevision: 1,
 		}
 		err = s.State.SaveSecretConsumer(uri, names.NewUnitTag("mariadb/0"), cmd)

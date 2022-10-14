@@ -86,7 +86,7 @@ func (s *charmsSuite) SetUpTest(c *gc.C) {
 	}
 
 	var err error
-	s.api, err = charms.NewFacadeV4(&charmsSuiteContext{cs: s})
+	s.api, err = charms.NewFacade(&charmsSuiteContext{cs: s})
 	c.Assert(err, jc.ErrorIsNil)
 }
 

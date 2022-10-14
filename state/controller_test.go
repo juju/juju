@@ -183,7 +183,7 @@ func (s *ControllerSuite) TestUpdateControllerConfigRejectsSpaceWithoutAddresses
 	_, err := s.State.AddSpace("mgmt-space", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	m, err := s.State.AddMachine("quantal", state.JobManageModel, state.JobHostUnits)
+	m, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.SetMachineAddresses(network.NewSpaceAddress("192.168.9.9")), jc.ErrorIsNil)
 
@@ -198,7 +198,7 @@ func (s *ControllerSuite) TestUpdateControllerConfigAcceptsSpaceWithAddresses(c 
 	sp, err := s.State.AddSpace("mgmt-space", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	m, err := s.State.AddMachine("quantal", state.JobManageModel, state.JobHostUnits)
+	m, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr := network.NewSpaceAddress("192.168.9.9")
@@ -227,9 +227,9 @@ func (s *ControllerSuite) TestControllerInfo(c *gc.C) {
 }
 
 func (s *ControllerSuite) TestSetMachineAddressesControllerCharm(c *gc.C) {
-	controller, err := s.State.AddMachine("quantal", state.JobManageModel, state.JobHostUnits)
+	controller, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	worker, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	worker, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerApp := s.AddTestingApplication(c, "controller", s.AddTestingCharm(c, "juju-controller"))

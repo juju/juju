@@ -49,3 +49,9 @@ func (s *ChannelSuite) TestString(c *gc.C) {
 	c.Assert(Channel{Track: "22.04"}.String(), gc.Equals, "22.04")
 	c.Assert(Channel{Track: "22.04", Risk: "edge"}.String(), gc.Equals, "22.04/edge")
 }
+
+func (s *ChannelSuite) TestDisplayString(c *gc.C) {
+	c.Assert(Channel{Track: "18.04"}.DisplayString(), gc.Equals, "18.04")
+	c.Assert(Channel{Track: "20.04", Risk: "stable"}.DisplayString(), gc.Equals, "20.04")
+	c.Assert(Channel{Track: "22.04", Risk: "edge"}.DisplayString(), gc.Equals, "22.04/edge")
+}

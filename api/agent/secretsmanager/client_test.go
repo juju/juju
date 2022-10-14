@@ -117,6 +117,34 @@ func (s *SecretsSuite) TestGetContentInfo(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, &secrets.ContentParams{SecretValue: value})
 }
 
+func (s *SecretsSuite) TestGetContentInfoLabelArgOnly(c *gc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "SecretsManager")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "GetSecretContentInfo")
+		c.Check(arg, jc.DeepEquals, params.GetSecretContentArgs{
+			Args: []params.GetSecretContentArg{{
+				Label:  "label",
+				Update: true,
+				Peek:   true,
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.SecretContentResults{})
+		*(result.(*params.SecretContentResults)) = params.SecretContentResults{
+			[]params.SecretContentResult{{
+				Content: params.SecretContentParams{Data: map[string]string{"foo": "bar"}},
+			}},
+		}
+		return nil
+	})
+	client := secretsmanager.NewClient(apiCaller)
+	result, err := client.GetContentInfo(nil, "label", true, true)
+	c.Assert(err, jc.ErrorIsNil)
+	value := coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
+	c.Assert(result, jc.DeepEquals, &secrets.ContentParams{SecretValue: value})
+}
+
 func (s *SecretsSuite) TestGetContentInfoError(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		*(result.(*params.SecretContentResults)) = params.SecretContentResults{

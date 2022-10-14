@@ -126,7 +126,6 @@ func MachineChange(c *gc.C, modelUUID string, machine *state.Machine) cache.Mach
 
 	sc, scKnown := machine.SupportedContainers()
 
-	base, _ := series.GetBaseFromSeries(machine.Series())
 	return cache.MachineChange{
 		ModelUUID:                modelUUID,
 		Id:                       machine.Id(),
@@ -134,7 +133,7 @@ func MachineChange(c *gc.C, modelUUID string, machine *state.Machine) cache.Mach
 		AgentStatus:              aSts,
 		InstanceStatus:           iSts,
 		Life:                     life.Value(machine.Life().String()),
-		Base:                     base.String(),
+		Base:                     machine.Base().String(),
 		ContainerType:            string(machine.ContainerType()),
 		IsManual:                 isManual,
 		SupportedContainers:      sc,

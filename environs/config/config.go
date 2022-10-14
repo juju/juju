@@ -395,6 +395,16 @@ func PreferredSeries(cfg HasDefaultSeries) string {
 	return GetDefaultSupportedLTS()
 }
 
+// PreferredBase returns the preferred base to use when a charm does not
+// explicitly specify a base.
+func PreferredBase(cfg HasDefaultSeries) series.Base {
+	ser, ok := cfg.DefaultSeries()
+	if !ok {
+		return jujuversion.DefaultSupportedLTSBase()
+	}
+	return series.MakeDefaultBase("ubuntu", ser)
+}
+
 // Config holds an immutable environment configuration.
 type Config struct {
 	// defined holds the attributes that are defined for Config.

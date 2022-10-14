@@ -72,7 +72,7 @@ type ApplicationUpdate struct {
 	ApplicationName string             `json:"application"`
 	CharmURL        string             `json:"charm-url"`
 	ForceCharmURL   bool               `json:"force-charm-url"`
-	ForceSeries     bool               `json:"force-series"`
+	ForceBase       bool               `json:"force-base"`
 	Force           bool               `json:"force"`
 	MinUnits        *int               `json:"min-units,omitempty"`
 	SettingsStrings map[string]string  `json:"settings,omitempty"` // Takes precedence over yaml entries if both are present.
@@ -119,9 +119,9 @@ type ApplicationSetCharm struct {
 	// ForceUnits forces the upgrade on units in an error state.
 	ForceUnits bool `json:"force-units"`
 
-	// ForceSeries forces the use of the charm even if it doesn't match the
+	// ForceBase forces the use of the charm even if it doesn't match the
 	// series of the unit.
-	ForceSeries bool `json:"force-series"`
+	ForceBase bool `json:"force-base"`
 
 	// ResourceIDs is a map of resource names to resource IDs to activate during
 	// the upgrade.

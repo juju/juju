@@ -5,9 +5,10 @@ package oci
 
 import (
 	"github.com/juju/clock"
+	"github.com/oracle/oci-go-sdk/v47/core"
+
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/provider/common"
-	"github.com/oracle/oci-go-sdk/v47/core"
 )
 
 var (
@@ -39,6 +40,6 @@ func NewInstanceWithConfigurator(
 	return i, nil
 }
 
-func GetCloudInitConfig(env *Environ, series string, apiPort int, statePort int) (cloudinit.CloudConfig, error) {
-	return env.getCloudInitConfig(series, apiPort, statePort)
+func GetCloudInitConfig(env *Environ, osname string, apiPort int, statePort int) (cloudinit.CloudConfig, error) {
+	return env.getCloudInitConfig(osname, apiPort, statePort)
 }

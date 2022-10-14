@@ -41,7 +41,7 @@ type applicationSuite struct {
 	jujutesting.JujuConnSuite
 	commontesting.BlockHelper
 
-	applicationAPI *application.APIv14
+	applicationAPI *application.APIv15
 	application    *state.Application
 	authorizer     *apiservertesting.FakeAuthorizer
 	lastKnownRev   map[string]int
@@ -63,7 +63,7 @@ func (s *applicationSuite) SetUpTest(c *gc.C) {
 	s.lastKnownRev = make(map[string]int)
 }
 
-func (s *applicationSuite) makeAPI(c *gc.C) *application.APIv14 {
+func (s *applicationSuite) makeAPI(c *gc.C) *application.APIv15 {
 	resources := common.NewResources()
 	c.Assert(resources.RegisterNamed("dataDir", common.StringResource(c.MkDir())), jc.ErrorIsNil)
 	storageAccess, err := application.GetStorageState(s.State)
@@ -89,7 +89,7 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.APIv14 {
 		nil, // CAAS Broker not used in this suite.
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	return &application.APIv14{api}
+	return &application.APIv15{api}
 }
 
 func (s *applicationSuite) setupApplicationDeploy(c *gc.C, args string) (*charm.URL, charm.Charm, constraints.Value) {
@@ -222,7 +222,7 @@ func (s *applicationSuite) TestApplicationDeployConfigError(c *gc.C) {
 func (s *applicationSuite) TestApplicationDeployToMachine(c *gc.C) {
 	curl, ch := s.addCharmToState(c, "cs:jammy/dummy-0", "dummy")
 
-	machine, err := s.State.AddMachine("jammy", state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("22.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	arch := arch.DefaultArchitecture
@@ -270,7 +270,7 @@ func (s *applicationSuite) TestApplicationDeployToMachine(c *gc.C) {
 func (s *applicationSuite) TestApplicationDeployToMachineWithLXDProfile(c *gc.C) {
 	curl, ch := s.addCharmToState(c, "cs:jammy/lxd-profile-0", "lxd-profile")
 
-	machine, err := s.State.AddMachine("jammy", state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("22.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	arch := arch.DefaultArchitecture
@@ -324,7 +324,7 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithLXDProfile(c *gc.C)
 func (s *applicationSuite) TestApplicationDeployToMachineWithInvalidLXDProfileAndForceStillSucceeds(c *gc.C) {
 	curl, ch := s.addCharmToState(c, "cs:jammy/lxd-profile-fail-0", "lxd-profile-fail")
 
-	machine, err := s.State.AddMachine("jammy", state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("22.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	arch := arch.DefaultArchitecture
@@ -488,7 +488,7 @@ func (s *applicationSuite) TestClientAddApplicationUnits(c *gc.C) {
 
 func (s *applicationSuite) TestAddApplicationUnitsToNewContainer(c *gc.C) {
 	app := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
-	machine, err := s.State.AddMachine("jammy", state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("22.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.applicationAPI.AddUnits(params.AddApplicationUnits{
@@ -534,7 +534,7 @@ var addApplicationUnitTests = []struct {
 func (s *applicationSuite) TestAddApplicationUnits(c *gc.C) {
 	s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
 	// Add a machine for the units to be placed on.
-	_, err := s.State.AddMachine("jammy", state.JobHostUnits)
+	_, err := s.State.AddMachine(state.UbuntuBase("22.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	for i, t := range addApplicationUnitTests {
 		c.Logf("test %d. %s", i, t.about)

@@ -157,7 +157,9 @@ func (s *MachineListCommandSuite) TestListMachineYaml(c *gc.C) {
 		"    - 10.0.0.1\n"+
 		"    - 10.0.1.1\n"+
 		"    instance-id: juju-badd06-0\n"+
-		"    base: ubuntu:22.04\n"+
+		"    base:\n"+
+		"      name: ubuntu\n"+
+		"      channel: \"22.04\"\n"+
 		"    network-interfaces:\n"+
 		"      eth0:\n"+
 		"        ip-addresses:\n"+
@@ -175,7 +177,9 @@ func (s *MachineListCommandSuite) TestListMachineYaml(c *gc.C) {
 		"    - 10.0.0.2\n"+
 		"    - 10.0.1.2\n"+
 		"    instance-id: juju-badd06-1\n"+
-		"    base: ubuntu:22.04\n"+
+		"    base:\n"+
+		"      name: ubuntu\n"+
+		"      channel: \"22.04\"\n"+
 		"    network-interfaces:\n"+
 		"      eth0:\n"+
 		"        ip-addresses:\n"+
@@ -192,7 +196,9 @@ func (s *MachineListCommandSuite) TestListMachineYaml(c *gc.C) {
 		"        - 10.0.0.3\n"+
 		"        - 10.0.1.3\n"+
 		"        instance-id: juju-badd06-1-lxd-0\n"+
-		"        base: ubuntu:22.04\n"+
+		"        base:\n"+
+		"          name: ubuntu\n"+
+		"          channel: \"22.04\"\n"+
 		"        network-interfaces:\n"+
 		"          eth0:\n"+
 		"            ip-addresses:\n"+
@@ -234,7 +240,7 @@ func (s *MachineListCommandSuite) TestListMachineJson(c *gc.C) {
 		"		  \"instance-id\":\"juju-badd06-0\"," +
 		"		  \"machine-status\":{}," +
 		"		  \"modification-status\":{}," +
-		"		  \"base\":\"ubuntu:22.04\"," +
+		"		  \"base\":{\"name\":\"ubuntu\",\"channel\":\"22.04\"}," +
 		"		  \"network-interfaces\":{" +
 		"			 \"eth0\":{" +
 		"				\"ip-addresses\":[" +
@@ -260,7 +266,7 @@ func (s *MachineListCommandSuite) TestListMachineJson(c *gc.C) {
 		"		  \"instance-id\":\"juju-badd06-1\"," +
 		"		  \"machine-status\":{}," +
 		"		  \"modification-status\":{}," +
-		"		  \"base\":\"ubuntu:22.04\"," +
+		"		  \"base\":{\"name\":\"ubuntu\",\"channel\":\"22.04\"}," +
 		"		  \"network-interfaces\":{" +
 		"			 \"eth0\":{" +
 		"				\"ip-addresses\":[" +
@@ -284,7 +290,7 @@ func (s *MachineListCommandSuite) TestListMachineJson(c *gc.C) {
 		"				\"instance-id\":\"juju-badd06-1-lxd-0\"," +
 		"				\"machine-status\":{}," +
 		"				\"modification-status\":{}," +
-		"				\"base\":\"ubuntu:22.04\"," +
+		"		        \"base\":{\"name\":\"ubuntu\",\"channel\":\"22.04\"}," +
 		"				\"network-interfaces\":{" +
 		"				   \"eth0\":{" +
 		"					  \"ip-addresses\":[" +

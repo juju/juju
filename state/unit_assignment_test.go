@@ -306,19 +306,19 @@ func (s *UnitAssignmentSuite) testPlacementUpgradeSeriesLockError(c *gc.C, place
 }
 
 func (s *UnitAssignmentSuite) addLockedMachine(c *gc.C, addContainer bool) (*state.Machine, *state.Machine) {
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var child *state.Machine
 	if addContainer {
 		template := state.MachineTemplate{
-			Series: "quantal",
-			Jobs:   []state.MachineJob{state.JobHostUnits},
+			Base: state.UbuntuBase("12.10"),
+			Jobs: []state.MachineJob{state.JobHostUnits},
 		}
 		child, err = s.State.AddMachineInsideMachine(template, machine.Id(), "lxd")
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	c.Assert(machine.CreateUpgradeSeriesLock(nil, "jammy"), jc.ErrorIsNil)
+	c.Assert(machine.CreateUpgradeSeriesLock(nil, state.UbuntuBase("22.04")), jc.ErrorIsNil)
 	return machine, child
 }

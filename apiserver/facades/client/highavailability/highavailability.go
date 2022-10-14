@@ -118,7 +118,7 @@ func (api *HighAvailabilityAPI) enableHASingle(st *state.State, spec params.Cont
 	}
 
 	// Might be nicer to pass the spec itself to this method.
-	changes, err := st.EnableHA(spec.NumControllers, spec.Constraints, referenceMachine.Series(), spec.Placement)
+	changes, err := st.EnableHA(spec.NumControllers, spec.Constraints, referenceMachine.Base(), spec.Placement)
 	if err != nil {
 		return params.ControllersChanges{}, err
 	}

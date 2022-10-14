@@ -316,8 +316,8 @@ type ControllerDetails struct {
 
 	// AgentVersion is the version of the agent running on this controller.
 	// AgentVersion need not always exist so we omitempty here. This struct is
-	// used in both list-controller and show-controller. show-controller
-	// displays the agent version where list-controller does not.
+	// used in both controllers and show-controller. show-controller
+	// displays the agent version where controllers does not.
 	AgentVersion string `yaml:"agent-version,omitempty" json:"agent-version,omitempty"`
 
 	// AgentGitCommit is the git commit hash used to build the controller binary.

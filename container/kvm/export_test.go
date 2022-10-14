@@ -41,19 +41,6 @@ func ContainerFromInstance(inst instances.Instance) Container {
 	return kvm.container
 }
 
-// Patcher defines an interface that matches the PatchValue method on
-// CleanupSuite
-type Patcher interface {
-	PatchValue(ptr, value interface{})
-}
-
-// PatchGetHostSeries allows tests to override host series detection.
-func PatchGetHostSeries(p Patcher, fn func() (string, error)) {
-	p.PatchValue(&getHostSeries, func() (string, error) {
-		return fn()
-	})
-}
-
 // NewRunStub is a stub to fake shelling out to os.Exec or utils.RunCommand.
 func NewRunStub(output string, err error) *runStub {
 	return &runStub{output: output, err: err}

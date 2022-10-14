@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/relation"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -611,7 +612,14 @@ func printMachine(w *output.Wrapper, m machineStatus) {
 	w.Print(m.Id)
 	w.PrintStatus(status)
 	w.PrintColor(output.InfoHighlight, m.DNSName)
-	w.Print(m.machineName(), m.Base, az)
+	baseStr := ""
+	if m.Base != nil {
+		base, err := series.ParseBase(m.Base.Name, m.Base.Channel)
+		if err == nil {
+			baseStr = base.DisplayString()
+		}
+	}
+	w.Print(m.machineName(), baseStr, az)
 	if message != "" { //some unit tests were failing because of the printed empty string .
 		w.PrintColorNoTab(output.EmphasisHighlight.Gray, message)
 	}

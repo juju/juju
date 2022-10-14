@@ -6,8 +6,6 @@ package cloudinit
 
 import (
 	"strings"
-
-	"github.com/juju/packaging/v2/config"
 )
 
 // addPackageCommandsCommon is a helper function which applies the given
@@ -17,17 +15,9 @@ func addPackageCommandsCommon(
 	proxyCfg PackageManagerProxyConfig,
 	addUpdateScripts bool,
 	addUpgradeScripts bool,
-	series string,
 ) error {
 	// Set the package mirror.
 	cfg.SetPackageMirror(proxyCfg.AptMirror())
-
-	// For LTS series which need support for the cloud-tools archive,
-	// we need to enable package-list update regardless of the environ
-	// setting, otherwise bootstrap or provisioning will fail.
-	if config.SeriesRequiresCloudArchiveTools(series) && !addUpdateScripts {
-		addUpdateScripts = true
-	}
 
 	// Bring packages up-to-date.
 	cfg.SetSystemUpdate(addUpdateScripts)

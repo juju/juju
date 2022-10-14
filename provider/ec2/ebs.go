@@ -23,6 +23,7 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/os"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/provider/common"
@@ -1103,8 +1104,8 @@ func blockDeviceNamer(numbers bool) func() (requestName, actualName string, err 
 	}
 }
 
-func minRootDiskSizeMiB(series string) uint64 {
-	return gibToMib(common.MinRootDiskSizeGiB(series))
+func minRootDiskSizeMiB(osname string) uint64 {
+	return gibToMib(common.MinRootDiskSizeGiB(os.OSTypeForName(osname)))
 }
 
 // getBlockDeviceMappings translates constraints into BlockDeviceMappings.
@@ -1113,11 +1114,11 @@ func minRootDiskSizeMiB(series string) uint64 {
 // stores (ephemeral disks).
 func getBlockDeviceMappings(
 	cons constraints.Value,
-	series string,
+	osname string,
 	controller bool,
 	rootDisk *storage.VolumeParams,
 ) ([]types.BlockDeviceMapping, error) {
-	minRootDiskSizeMiB := minRootDiskSizeMiB(series)
+	minRootDiskSizeMiB := minRootDiskSizeMiB(osname)
 	rootDiskSizeMiB := minRootDiskSizeMiB
 	if controller {
 		rootDiskSizeMiB = defaultControllerDiskSizeMiB

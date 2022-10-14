@@ -1520,7 +1520,7 @@ storage:
 			waitUniterDead{},
 		),
 		// TODO(axw) test that storage-attached is run for new
-		// storage attachments before upgrade-charm is run. This
+		// storage attachments before refresh is run. This
 		// requires additions to state to add storage when a charm
 		// is upgraded.
 	})

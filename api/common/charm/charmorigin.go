@@ -63,6 +63,10 @@ type Origin struct {
 func (o Origin) WithSeries(aseries string) Origin {
 	other := o
 	if aseries != "" {
+		// Legacy k8s charms - assume ubuntu focal.
+		if aseries == "kubernetes" {
+			aseries = "focal"
+		}
 		other.Base, _ = series.GetBaseFromSeries(aseries)
 	}
 	return other

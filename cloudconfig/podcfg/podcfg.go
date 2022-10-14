@@ -276,10 +276,10 @@ func NewControllerPodConfig(
 	controllerTag names.ControllerTag,
 	podID,
 	controllerName,
-	series string,
+	osName string,
 	apiInfo *api.Info,
 ) (*ControllerPodConfig, error) {
-	osType := paths.SeriesToOS(series)
+	osType := paths.OSType(osName)
 	pcfg := &ControllerPodConfig{
 		// Fixed entries.
 		DataDir:         paths.DataDir(osType),
@@ -301,13 +301,13 @@ func NewControllerPodConfig(
 func NewBootstrapControllerPodConfig(
 	config controller.Config,
 	controllerName,
-	series string,
+	osname string,
 	bootstrapConstraints constraints.Value,
 ) (*ControllerPodConfig, error) {
 	// For a bootstrap pod, the caller must provide the state.Info
 	// and the api.Info. The pod id must *always* be "0".
 	pcfg, err := NewControllerPodConfig(
-		names.NewControllerTag(config.ControllerUUID()), "0", controllerName, series, nil,
+		names.NewControllerTag(config.ControllerUUID()), "0", controllerName, osname, nil,
 	)
 	if err != nil {
 		return nil, err

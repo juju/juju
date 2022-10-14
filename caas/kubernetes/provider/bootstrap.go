@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/canonical/pebble/plan"
 	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -16,6 +17,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/retry"
+	"gopkg.in/yaml.v3"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -24,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/utils/pointer"
 
 	"github.com/juju/juju/agent"
 	agentconstants "github.com/juju/juju/agent/constants"
@@ -31,6 +34,7 @@ import (
 	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/provider/application"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/caas/kubernetes/provider/pebble"
 	k8sproxy "github.com/juju/juju/caas/kubernetes/provider/proxy"
 	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	providerutils "github.com/juju/juju/caas/kubernetes/provider/utils"
@@ -60,6 +64,18 @@ var (
 const (
 	mongoDBContainerName   = "mongodb"
 	apiServerContainerName = "api-server"
+
+	apiServerStartupProbeInitialDelay = 3
+	apiServerStartupProbeTimeout      = 3
+	apiServerStartupProbePeriod       = 3
+	apiServerStartupProbeSuccess      = 1
+	apiServerStartupProbeFailure      = 5
+
+	apiServerLivenessProbeInitialDelay = 1
+	apiServerLivenessProbeTimeout      = 3
+	apiServerLivenessProbePeriod       = 5
+	apiServerLivenessProbeSuccess      = 1
+	apiServerLivenessProbeFailure      = 2
 )
 
 type controllerServiceSpec struct {
@@ -1174,7 +1190,7 @@ func (c *controllerStack) appSecretName() string {
 	return c.stackName + "-application-config"
 }
 
-func (c *controllerStack) controllerContainers(jujudCmd, controllerImage string) ([]core.Container, error) {
+func (c *controllerStack) controllerContainers(setupCmd, machineCmd, controllerImage string, jujudEnv map[string]string) ([]core.Container, error) {
 	var containerSpec []core.Container
 	// add container mongoDB.
 	// TODO(bootstrap): refactor mongo package to make it usable for IAAS and CAAS,
@@ -1291,6 +1307,10 @@ func (c *controllerStack) controllerContainers(jujudCmd, controllerImage string)
 	})
 
 	// add container API server.
+	pebbleLayer, err := jujudPebbleLayer(machineCmd, jujudEnv)
+	if err != nil {
+		return nil, errors.Annotate(err, "writing jujud pebble layer")
+	}
 	apiContainer := core.Container{
 		Name:            apiServerContainerName,
 		ImagePullPolicy: core.PullIfNotPresent,
@@ -1301,10 +1321,11 @@ func (c *controllerStack) controllerContainers(jujudCmd, controllerImage string)
 		Args: []string{
 			"-c",
 			fmt.Sprintf(
-				caas.JujudStartUpSh,
+				caas.APIServerStartUpSh,
 				c.pcfg.DataDir,
-				"tools",
-				jujudCmd,
+				setupCmd,
+				pebbleLayer,
+				pebble.ApiServerHealthCheckPort,
 			),
 		},
 		WorkingDir: c.pcfg.DataDir,
@@ -1315,6 +1336,42 @@ func (c *controllerStack) controllerContainers(jujudCmd, controllerImage string)
 				},
 			},
 		}},
+		Env: []core.EnvVar{{
+			Name:  "JUJU_CONTAINER_NAME",
+			Value: apiServerContainerName,
+		}, {
+			Name:  "PEBBLE_SOCKET",
+			Value: "/charm/container/pebble.socket",
+		}},
+		StartupProbe: &core.Probe{
+			ProbeHandler:        pebble.StartupHandler(pebble.ApiServerHealthCheckPort),
+			InitialDelaySeconds: apiServerStartupProbeInitialDelay,
+			TimeoutSeconds:      apiServerStartupProbeTimeout,
+			PeriodSeconds:       apiServerStartupProbePeriod,
+			SuccessThreshold:    apiServerStartupProbeSuccess,
+			FailureThreshold:    apiServerStartupProbeFailure,
+		},
+		LivenessProbe: &core.Probe{
+			ProbeHandler:        pebble.LivenessHandler(pebble.ApiServerHealthCheckPort),
+			InitialDelaySeconds: apiServerLivenessProbeInitialDelay,
+			TimeoutSeconds:      apiServerLivenessProbeTimeout,
+			PeriodSeconds:       apiServerLivenessProbePeriod,
+			SuccessThreshold:    apiServerLivenessProbeSuccess,
+			FailureThreshold:    apiServerLivenessProbeFailure,
+		},
+		ReadinessProbe: &core.Probe{
+			ProbeHandler:        pebble.ReadinessHandler(pebble.ApiServerHealthCheckPort),
+			InitialDelaySeconds: apiServerLivenessProbeInitialDelay,
+			TimeoutSeconds:      apiServerLivenessProbeTimeout,
+			PeriodSeconds:       apiServerLivenessProbePeriod,
+			SuccessThreshold:    apiServerLivenessProbeSuccess,
+			FailureThreshold:    apiServerLivenessProbeFailure,
+		},
+		// Run Pebble as root (because it's a service manager).
+		SecurityContext: &core.SecurityContext{
+			RunAsUser:  pointer.Int64Ptr(0),
+			RunAsGroup: pointer.Int64Ptr(0),
+		},
 		VolumeMounts: []core.VolumeMount{
 			{
 				Name:      storageName,
@@ -1348,6 +1405,11 @@ func (c *controllerStack) controllerContainers(jujudCmd, controllerImage string)
 				SubPath:   cloudconfig.FileNameBootstrapParams,
 				ReadOnly:  true,
 			},
+			{
+				Name:      constants.CharmVolumeName,
+				MountPath: "/charm/container",
+				SubPath:   fmt.Sprintf("charm/containers/%s", apiServerContainerName),
+			},
 		},
 	}
 	if features := featureflag.AsEnvironmentValue(); features != "" {
@@ -1359,6 +1421,27 @@ func (c *controllerStack) controllerContainers(jujudCmd, controllerImage string)
 
 	containerSpec = append(containerSpec, apiContainer)
 	return containerSpec, nil
+}
+
+// jujudPebbleLayer returns the Pebble layer yaml for running the jujud
+// service. This will be written to a file in the Pebble layers directory.
+func jujudPebbleLayer(machineCmd string, env map[string]string) ([]byte, error) {
+	layer := plan.Layer{
+		Summary: "jujud service",
+		Services: map[string]*plan.Service{
+			"jujud": {
+				Override: plan.ReplaceOverride,
+				Summary:  "Juju controller agent",
+				Command:  machineCmd,
+				Startup:  plan.StartupEnabled,
+			},
+		},
+	}
+	if env != nil {
+		layer.Services["jujud"].Environment = env
+	}
+
+	return yaml.Marshal(layer)
 }
 
 func (c *controllerStack) buildContainerSpecForController() (*core.PodSpec, error) {
@@ -1374,14 +1457,14 @@ func (c *controllerStack) buildContainerSpecForController() (*core.PodSpec, erro
 		fmt.Sprintf("controller-%s", c.pcfg.ControllerId),
 		agentconstants.AgentConfigFilename,
 	)
-	var jujudCmds []string
-	pushCmd := func(cmd string) {
-		jujudCmds = append(jujudCmds, cmd)
-	}
+
+	var jujudEnv map[string]string = nil
 	featureFlags := featureflag.AsEnvironmentValue()
 	if featureFlags != "" {
-		featureFlags = fmt.Sprintf("%s=%s", osenv.JujuFeatureFlagEnvKey, featureFlags)
+		jujudEnv = map[string]string{osenv.JujuFeatureFlagEnvKey: featureFlags}
 	}
+
+	setupCmd := ""
 	if c.pcfg.ControllerId == agent.BootstrapControllerId {
 		// only do bootstrap-state on the bootstrap controller - controller-0.
 		bootstrapStateCmd := fmt.Sprintf(
@@ -1392,37 +1475,32 @@ func (c *controllerStack) buildContainerSpecForController() (*core.PodSpec, erro
 			c.timeout.String(),
 		)
 		if featureFlags != "" {
-			bootstrapStateCmd = fmt.Sprintf("%s %s", featureFlags, bootstrapStateCmd)
+			bootstrapStateCmd = fmt.Sprintf("%s=%s %s", osenv.JujuFeatureFlagEnvKey, featureFlags, bootstrapStateCmd)
 		}
-		pushCmd(
-			fmt.Sprintf(
-				"test -e %s || %s",
-				c.pathJoin("$JUJU_DATA_DIR", agentConfigRelativePath),
-				bootstrapStateCmd,
-			),
+		setupCmd = fmt.Sprintf(
+			"test -e %s || %s",
+			c.pathJoin("$JUJU_DATA_DIR", agentConfigRelativePath),
+			bootstrapStateCmd,
 		)
 	}
+
 	machineCmd := fmt.Sprintf(
 		"%s machine --data-dir $JUJU_DATA_DIR --controller-id %s --log-to-stderr %s",
 		c.pathJoin("$JUJU_TOOLS_DIR", "jujud"),
 		c.pcfg.ControllerId,
 		loggingOption,
 	)
-	if featureFlags != "" {
-		machineCmd = fmt.Sprintf("%s %s", featureFlags, machineCmd)
-	}
-	pushCmd(machineCmd)
 
-	return c.buildContainerSpecForCommands(jujudCmds)
+	return c.buildContainerSpecForCommands(setupCmd, machineCmd, jujudEnv)
 }
 
-func (c *controllerStack) buildContainerSpecForCommands(jujudCmds []string) (*core.PodSpec, error) {
+func (c *controllerStack) buildContainerSpecForCommands(setupCmd, machineCmd string, jujudEnv map[string]string) (*core.PodSpec, error) {
 	controllerImage, err := c.pcfg.GetControllerImagePath()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	containers, err := c.controllerContainers(strings.Join(jujudCmds, "\n"), controllerImage)
+	containers, err := c.controllerContainers(setupCmd, machineCmd, controllerImage, jujudEnv)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1472,6 +1550,7 @@ func (c *controllerStack) buildContainerSpecForCommands(jujudCmds []string) (*co
 		Constraints:          c.pcfg.Bootstrap.BootstrapMachineConstraints,
 		// TODO(wallyworld) - use pebble to manage the controller workloads
 		//Containers:           containers,
+		ExistingContainers: []string{apiServerContainerName},
 		// TODO(wallyworld) - use storage so the volumes don't need to be manually set up
 		//Filesystems: nil,
 	}
@@ -1498,6 +1577,7 @@ func (c *controllerStack) buildContainerSpecForCommands(jujudCmds []string) (*co
 		spec.InitContainers[i] = ct
 	}
 	for i, ct := range spec.Containers {
+		// Modify "charm" container spec
 		if ct.Name != constants.ApplicationCharmContainer {
 			continue
 		}

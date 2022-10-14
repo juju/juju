@@ -173,14 +173,11 @@ func (sf *statusFormatter) MachineFormat(machineId []string) formattedMachineSta
 func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineStatus {
 	var out machineStatus
 
-	var (
-		base series.Base
-		err  error
-	)
+	var base *formattedBase
 	if machine.Base.Channel != "" {
-		base, err = series.ParseBase(machine.Base.Name, machine.Base.Channel)
-		if err != nil {
-			logger.Errorf("failed create machine base: %v", err)
+		channel, err := series.ParseChannel(machine.Base.Channel)
+		if err == nil {
+			base = &formattedBase{Name: machine.Base.Name, Channel: channel.DisplayString()}
 		}
 	}
 	out = machineStatus{
@@ -192,7 +189,7 @@ func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineSt
 		DisplayName:        machine.DisplayName,
 		MachineStatus:      sf.getStatusInfoContents(machine.InstanceStatus),
 		ModificationStatus: sf.getStatusInfoContents(machine.ModificationStatus),
-		Base:               base.DisplayString(),
+		Base:               base,
 		Id:                 machine.Id,
 		NetworkInterfaces:  make(map[string]networkInterface),
 		Containers:         make(map[string]machineStatus),
@@ -268,14 +265,15 @@ func (sf *statusFormatter) formatApplication(name string, application params.App
 		charmName = curl.Name
 	}
 
-	base, err := series.ParseBase(application.Base.Name, application.Base.Channel)
-	if err != nil {
-		logger.Errorf("failed create charm base: %v", err)
+	var base *formattedBase
+	channel, err := series.ParseChannel(application.Base.Channel)
+	if err == nil {
+		base = &formattedBase{Name: application.Base.Name, Channel: channel.DisplayString()}
 	}
 	out := applicationStatus{
 		Err:              typedNilCheck(application.Err),
 		Charm:            charmAlias,
-		Base:             base.DisplayString(),
+		Base:             base,
 		CharmOrigin:      charmOrigin,
 		CharmName:        charmName,
 		CharmRev:         charmRev,

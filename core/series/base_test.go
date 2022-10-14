@@ -44,3 +44,12 @@ func (s *BaseSuite) TestGetSeriesFromBase(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(series, gc.Equals, "jammy")
 }
+
+func (s *BaseSuite) TestDisplayString(c *gc.C) {
+	b := Base{OS: "ubuntu", Channel: Channel{Track: "18.04"}}
+	c.Check(b.DisplayString(), gc.Equals, "ubuntu:18.04")
+	b = Base{OS: "kubuntu", Channel: Channel{Track: "20.04", Risk: "stable"}}
+	c.Check(b.DisplayString(), gc.Equals, "kubuntu:20.04")
+	b = Base{OS: "qubuntu", Channel: Channel{Track: "22.04", Risk: "edge"}}
+	c.Check(b.DisplayString(), gc.Equals, "qubuntu:22.04/edge")
+}

@@ -912,8 +912,8 @@ func (b *fakeBackend) HasUpgradeSeriesLocks() (bool, error) {
 	return *b.hasUpgradeSeriesLocks, b.hasUpgradeSeriesLocksErr
 }
 
-func (b *fakeBackend) MachineCountForSeries(series ...string) (map[string]int, error) {
-	if strings.HasPrefix(series[0], "win") {
+func (b *fakeBackend) MachineCountForBase(base ...state.Base) (map[string]int, error) {
+	if strings.HasPrefix(base[0].Channel, "win") {
 		if b.machineCountForSeriesWin == nil {
 			return nil, nil
 		}

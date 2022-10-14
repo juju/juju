@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/state"
@@ -54,7 +55,7 @@ func (s *PrecheckerSuite) TestPrecheckInstance(c *gc.C) {
 	placement := ""
 	template, err := s.addOneMachine(c, modelCons, placement)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.prechecker.precheckInstanceArgs.Series, gc.Equals, template.Series)
+	c.Assert(s.prechecker.precheckInstanceArgs.Base.String(), gc.Equals, template.Base.String())
 	c.Assert(s.prechecker.precheckInstanceArgs.Placement, gc.Equals, placement)
 	validator := constraints.NewValidator()
 	cons, err := validator.Merge(modelCons, template.Constraints)
@@ -72,7 +73,7 @@ func (s *PrecheckerSuite) TestPrecheckInstanceWithPlacement(c *gc.C) {
 	placement := "abc123"
 	template, err := s.addOneMachine(c, modelCons, placement)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.prechecker.precheckInstanceArgs.Series, gc.Equals, template.Series)
+	c.Assert(s.prechecker.precheckInstanceArgs.Base.String(), gc.Equals, template.Base.String())
 	c.Assert(s.prechecker.precheckInstanceArgs.Placement, gc.Equals, placement)
 	c.Assert(s.prechecker.precheckInstanceArgs.Constraints, gc.DeepEquals, template.Constraints)
 }
@@ -124,7 +125,7 @@ func (s *PrecheckerSuite) addMachine(c *gc.C, modelCons constraints.Value, place
 	oneJob := []state.MachineJob{state.JobHostUnits}
 	extraCons := constraints.MustParse("cores=4")
 	template := state.MachineTemplate{
-		Series:      "focal",
+		Base:        state.UbuntuBase("20.04"),
 		Constraints: extraCons,
 		Jobs:        oneJob,
 		Placement:   placement,
@@ -136,7 +137,7 @@ func (s *PrecheckerSuite) addMachine(c *gc.C, modelCons constraints.Value, place
 func (s *PrecheckerSuite) TestPrecheckInstanceInjectMachine(c *gc.C) {
 	template := state.MachineTemplate{
 		InstanceId: instance.Id("bootstrap"),
-		Series:     "precise",
+		Base:       state.UbuntuBase("22.04"),
 		Nonce:      agent.BootstrapNonce,
 		Jobs:       []state.MachineJob{state.JobManageModel},
 		Placement:  "anyoldthing",
@@ -145,7 +146,7 @@ func (s *PrecheckerSuite) TestPrecheckInstanceInjectMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	// PrecheckInstance should not have been called, as we've
 	// injected a machine with an existing instance.
-	c.Assert(s.prechecker.precheckInstanceArgs.Series, gc.Equals, "")
+	c.Assert(s.prechecker.precheckInstanceArgs.Base.String(), gc.Equals, "")
 	c.Assert(s.prechecker.precheckInstanceArgs.Placement, gc.Equals, "")
 }
 
@@ -153,13 +154,13 @@ func (s *PrecheckerSuite) TestPrecheckContainerNewMachine(c *gc.C) {
 	// Attempting to add a container to a new machine should cause
 	// PrecheckInstance to be called.
 	template := state.MachineTemplate{
-		Series:    "precise",
+		Base:      state.UbuntuBase("22.04"),
 		Jobs:      []state.MachineJob{state.JobHostUnits},
 		Placement: "intertubes",
 	}
 	_, err := s.State.AddMachineInsideNewMachine(template, template, instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.prechecker.precheckInstanceArgs.Series, gc.Equals, template.Series)
+	c.Assert(s.prechecker.precheckInstanceArgs.Base.String(), gc.Equals, template.Base.String())
 	c.Assert(s.prechecker.precheckInstanceArgs.Placement, gc.Equals, template.Placement)
 }
 
@@ -272,7 +273,7 @@ func (s *PrecheckerSuite) TestPrecheckAddApplicationNoPlacement(c *gc.C) {
 	})
 	c.Assert(err, gc.ErrorMatches, `cannot add application "wordpress": failed for some reason`)
 	c.Assert(s.prechecker.precheckInstanceArgs, jc.DeepEquals, environs.PrecheckInstanceParams{
-		Series:      "quantal",
+		Base:        series.MakeDefaultBase("ubuntu", "12.10"),
 		Constraints: constraints.MustParse("arch=amd64 root-disk=20G"),
 	})
 }
@@ -328,7 +329,7 @@ func (s *PrecheckerSuite) TestPrecheckAddApplicationMixedPlacement(c *gc.C) {
 	})
 	c.Assert(err, gc.ErrorMatches, `cannot add application "wordpress": hey now`)
 	c.Assert(s.prechecker.precheckInstanceArgs, jc.DeepEquals, environs.PrecheckInstanceParams{
-		Series:      "focal",
+		Base:        series.MakeDefaultBase("ubuntu", "20.04"),
 		Placement:   "somewhere",
 		Constraints: constraints.MustParse("arch=amd64"),
 	})

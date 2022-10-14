@@ -178,7 +178,7 @@ func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
 	script, err := sshprovisioner.ProvisioningScript(icfg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	cloudcfg, err := cloudinit.New(series)
+	cloudcfg, err := cloudinit.New("ubuntu")
 	c.Assert(err, jc.ErrorIsNil)
 	udata, err := cloudconfig.NewUserdataConfig(icfg, cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)

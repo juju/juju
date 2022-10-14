@@ -29,7 +29,7 @@ Examples:
     juju show-action postgresql backup
 
 See also:
-    list-actions
+    actions
     run
 `
 

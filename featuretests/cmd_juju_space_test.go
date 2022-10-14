@@ -84,7 +84,7 @@ func (s *cmdSpaceSuite) RunAdd(c *gc.C, expectedError string, args ...string) {
 }
 
 func (s *cmdSpaceSuite) RunList(c *gc.C, expectedError string, args ...string) {
-	cmdArgs := append([]string{"list-spaces"}, args...)
+	cmdArgs := append([]string{"spaces"}, args...)
 	_, stderr, err := s.Run(c, cmdArgs...)
 	if expectedError != "" {
 		c.Assert(err, gc.NotNil)
@@ -191,7 +191,7 @@ func (s *cmdSpaceSuite) TestSpaceListOneResultNoSubnets(c *gc.C) {
 
 	// The default space is listed in addition to the one we added.
 	expectedOutput := "{\"spaces\":[{\"id\":\"0\",\"name\":\"alpha\",\"subnets\":{}},{\"id\":\"1\",\"name\":\"myspace\",\"subnets\":{}}]}\n"
-	stdout, _, err := s.Run(c, "list-spaces", "--format", "json")
+	stdout, _, err := s.Run(c, "spaces", "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stdout, jc.Contains, expectedOutput)
 }
@@ -205,7 +205,7 @@ func (s *cmdSpaceSuite) TestSpaceListMoreResults(c *gc.C) {
 	infos2 := s.MakeSubnetInfos(c, space2.Id(), "10.20.%d.0/24", 1)
 	s.AddSubnets(c, infos2)
 
-	stdout, stderr, err := s.Run(c, "list-spaces", "--format", "yaml")
+	stdout, stderr, err := s.Run(c, "spaces", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stderr, gc.Equals, "")
 

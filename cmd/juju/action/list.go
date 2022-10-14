@@ -38,9 +38,9 @@ List the actions available to run on the target application, with a short
 description.  To show the full schema for the actions, use --schema.
 
 Examples:
-    juju list-actions postgresql
-    juju list-actions postgresql --format yaml
-    juju list-actions postgresql --schema
+    juju actions postgresql
+    juju actions postgresql --format yaml
+    juju actions postgresql --schema
 
 See also:
     run

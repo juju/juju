@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/juju/charm/v9"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -330,7 +331,7 @@ func (s *bootstrapSuite) assertFinalizePodBootstrapConfig(c *gc.C, serviceType, 
 	podConfig, err := podcfg.NewBootstrapControllerPodConfig(
 		coretesting.FakeControllerConfig(),
 		"test",
-		"kubernetes",
+		"ubuntu",
 		constraints.Value{},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -874,19 +875,20 @@ func (s *bootstrapSuite) TestBootstrapControllerCharmLocal(c *gc.C) {
 	c.Assert(env.instanceConfig.Bootstrap.ControllerCharm, gc.Equals, path)
 }
 
-func (s *bootstrapSuite) TestBootstrapControllerCharmRisk(c *gc.C) {
+func (s *bootstrapSuite) TestBootstrapControllerCharmChannel(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ctx := cmdtesting.Context(c)
+	ch := charm.Channel{Track: "3.0", Risk: "beta"}
 	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(context.Background(), ctx), env,
 		s.callContext, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              "admin-secret",
 			CAPrivateKey:             coretesting.CAKey,
 			SupportedBootstrapSeries: supportedJujuSeries,
-			ControllerCharmRisk:      "beta",
+			ControllerCharmChannel:   ch,
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.instanceConfig.Bootstrap.ControllerCharmRisk, gc.Equals, "beta")
+	c.Assert(env.instanceConfig.Bootstrap.ControllerCharmChannel, gc.Equals, ch)
 }
 
 // createImageMetadata creates some image metadata in a local directory.
@@ -913,7 +915,7 @@ func createImageMetadataForArch(c *gc.C, arch string) (dir string, _ []*imagemet
 	sourceStor, err := filestorage.NewFileStorageWriter(sourceDir)
 	c.Assert(err, jc.ErrorIsNil)
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	err = imagemetadata.MergeAndWriteMetadata(ss, "xenial", im, cloudSpec, sourceStor)
+	err = imagemetadata.MergeAndWriteMetadata(ss, "16.04", im, cloudSpec, sourceStor)
 	c.Assert(err, jc.ErrorIsNil)
 	return sourceDir, im
 }
@@ -1446,14 +1448,18 @@ func (e *bootstrapEnviron) Bootstrap(ctx environs.BootstrapContext, callCtx envc
 		e.instanceConfig = icfg
 		return nil
 	}
-	series := jujuversion.DefaultSupportedLTS()
+	base := jujuversion.DefaultSupportedLTSBase()
 	if args.BootstrapSeries != "" {
-		series = args.BootstrapSeries
+		var err error
+		base, err = jujuseries.GetBaseFromSeries(args.BootstrapSeries)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 	arch, _ := args.AvailableTools.OneArch()
 	return &environs.BootstrapResult{
 		Arch:                    arch,
-		Series:                  series,
+		Base:                    base,
 		CloudBootstrapFinalizer: finalizer,
 	}, nil
 }

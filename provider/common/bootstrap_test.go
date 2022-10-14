@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -129,7 +130,7 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 			coretesting.FakeControllerConfig(),
 			args.Constraints,
 			args.Constraints,
-			args.InstanceConfig.Series,
+			args.InstanceConfig.Base,
 			"",
 			nil,
 		)
@@ -208,7 +209,7 @@ func (s *BootstrapSuite) TestBootstrapSeries(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Arch, gc.Equals, "ppc64el") // based on hardware characteristics
-	c.Check(result.Series, gc.Equals, bootstrapSeries)
+	c.Check(result.Base.String(), gc.Equals, jujuversion.DefaultSupportedLTSBase().String())
 }
 
 func (s *BootstrapSuite) TestBootstrapInvalidSeries(c *gc.C) {
@@ -248,7 +249,7 @@ func (s *BootstrapSuite) TestBootstrapFallbackSeries(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Arch, gc.Equals, "ppc64el") // based on hardware characteristics
-	c.Check(result.Series, gc.Equals, jujuversion.DefaultSupportedLTS())
+	c.Check(result.Base.String(), gc.Equals, jujuversion.DefaultSupportedLTSBase().String())
 }
 
 func (s *BootstrapSuite) TestBootstrapSeriesWithForce(c *gc.C) {
@@ -270,7 +271,7 @@ func (s *BootstrapSuite) TestBootstrapSeriesWithForce(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Arch, gc.Equals, "ppc64el") // based on hardware characteristics
-	c.Check(result.Series, gc.Equals, "xenial")
+	c.Check(result.Base.String(), gc.Equals, coreseries.MakeDefaultBase("ubuntu", "16.04").String())
 }
 
 func (s *BootstrapSuite) TestBootstrapSeriesWithForceAndInvalidFallback(c *gc.C) {
@@ -633,7 +634,9 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Arch, gc.Equals, "ppc64el") // based on hardware characteristics
-	c.Assert(result.Series, gc.Equals, config.PreferredSeries(mocksConfig))
+	series, err := coreseries.GetSeriesFromBase(result.Base)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(series, gc.Equals, config.PreferredSeries(mocksConfig))
 	c.Assert(result.CloudBootstrapFinalizer, gc.NotNil)
 
 	// Check that we make the SSH connection with desired options.
