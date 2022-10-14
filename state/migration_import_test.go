@@ -2927,7 +2927,7 @@ func (s *MigrationImportSuite) TestSecrets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(access, gc.Equals, secrets.RoleManage)
 
-	_, info, err := newSt.GetSecretConsumer(uri, "", consumer.Tag())
+	info, err := newSt.GetSecretConsumer(uri, consumer.Tag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, &secrets.SecretConsumerMetadata{
 		Label:           "consumer label",

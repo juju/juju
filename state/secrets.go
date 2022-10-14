@@ -666,7 +666,7 @@ func (s *secretsStore) GetSecretURI(label string, owner names.Tag) (*secrets.URI
 
 // GetSecret gets the secret metadata for the specified URLl.
 func (s *secretsStore) GetSecret(uri *secrets.URI) (*secrets.SecretMetadata, error) {
-	if uri == nil  {
+	if uri == nil {
 		return nil, errors.NewNotValid(nil, "empty URI")
 	}
 
@@ -973,36 +973,47 @@ func (st *State) removeSecretLabelOps(tag names.Tag, keyGenerator func(string, s
 	return ops, iter.Close()
 }
 
-// GetSecretConsumer gets secret consumer metadata.
-func (st *State) GetSecretConsumer(uri *secrets.URI, label string, consumer names.Tag) (*secrets.URI, *secrets.SecretConsumerMetadata, error) {
-	if uri == nil && label == "" {
-		return nil, nil, errors.NewNotValid(nil, "both uri and label are empty")
-	}
-
+// GetSecretConsumerURI gets the secret URI for the specified secret consumer label.
+func (st *State) GetSecretConsumerURI(label string, consumer names.Tag) (*secrets.URI, error) {
 	secretConsumersCollection, closer := st.db().GetCollection(secretConsumersC)
 	defer closer()
 
 	var doc secretConsumerDoc
-	var err error
-	if uri != nil {
-		if err := st.checkExists(uri); err != nil {
-			return nil, nil, errors.Trace(err)
-		}
-		key := secretConsumerKey(uri.ID, consumer.String())
-		err = secretConsumersCollection.FindId(key).One(&doc)
-	} else {
-		err = secretConsumersCollection.Find(bson.M{
-			"consumer-tag": consumer.String(), "label": label,
-		}).One(&doc)
-	}
-	if errors.Cause(err) == mgo.ErrNotFound {
-		return nil, nil, errors.NotFoundf("consumer %q metadata for secret %q", consumer, uri.String())
+	err := secretConsumersCollection.Find(bson.M{
+		"consumer-tag": consumer.String(), "label": label,
+	}).Select(bson.D{{"_id", 1}}).One(&doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("secret consumer with label %q for %q", label, consumer)
 	}
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	id, _ := splitSecretConsumerKey(st.localID(doc.DocID))
-	return &secrets.URI{ID: id}, &secrets.SecretConsumerMetadata{
+	return &secrets.URI{ID: id}, nil
+}
+
+// GetSecretConsumer gets secret consumer metadata.
+func (st *State) GetSecretConsumer(uri *secrets.URI, consumer names.Tag) (*secrets.SecretConsumerMetadata, error) {
+	if uri == nil {
+		return nil, errors.NewNotValid(nil, "empty URI")
+	}
+	
+	if err := st.checkExists(uri); err != nil {
+		return nil, errors.Trace(err)
+	}
+	
+	secretConsumersCollection, closer := st.db().GetCollection(secretConsumersC)
+	defer closer()
+	key := secretConsumerKey(uri.ID, consumer.String())
+	var doc secretConsumerDoc
+	err := secretConsumersCollection.FindId(key).One(&doc)
+	if errors.Cause(err) == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("consumer %q metadata for secret %q", consumer, uri.String())
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &secrets.SecretConsumerMetadata{
 		Label:           doc.Label,
 		CurrentRevision: doc.CurrentRevision,
 		LatestRevision:  doc.LatestRevision,
