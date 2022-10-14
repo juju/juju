@@ -305,6 +305,14 @@ func (ctx *HookContext) PendingSecretUpdates() []uniter.SecretUpdateArg {
 	return ctx.secretChanges.pendingUpdates
 }
 
+func (ctx *HookContext) SetPendingSecretCreates(in []uniter.SecretCreateArg) {
+	ctx.secretChanges.pendingCreates = in
+}
+
+func (ctx *HookContext) SetPendingSecretUpdates(in []uniter.SecretUpdateArg) {
+	ctx.secretChanges.pendingUpdates = in
+}
+
 func (ctx *HookContext) PendingSecretGrants() []uniter.SecretGrantRevokeArgs {
 	return ctx.secretChanges.pendingGrants
 }

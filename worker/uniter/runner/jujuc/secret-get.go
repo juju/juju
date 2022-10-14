@@ -91,21 +91,21 @@ func (c *secretGetCommand) Init(args []string) (err error) {
 		}
 		args = args[1:]
 	}
+
+	if c.secretUri == nil && c.label == "" {
+		return errors.New("require either a secret URI or label")
+	}
+
 	if c.metadata {
-		if c.secretUri == nil && c.label == "" {
-			return errors.New("require either a secret URI or label to fetch metadata")
-		}
 		if c.secretUri != nil && c.label != "" {
-			return errors.New("specify either a secret URI or label but not both to fetch metadata")
+			return errors.New("specify either a secret URI or label but not both")
 		}
 		if c.peek || c.update {
 			return errors.New("--peek and --update are not valid when fetching metadata")
 		}
 		return cmd.CheckEmpty(args)
 	}
-	if c.secretUri == nil {
-		return errors.New("missing secret URI")
-	}
+
 	if c.peek && c.update {
 		return errors.New("specify one of --peek or --update but not both")
 	}
@@ -126,37 +126,14 @@ type metadataDisplay struct {
 	NextRotateTime   *time.Time           `yaml:"rotates,omitempty" json:"rotates,omitempty"`
 }
 
-// Run implements cmd.Command.
-func (c *secretGetCommand) Run(ctx *cmd.Context) error {
-	if c.metadata {
-		all, err := c.ctx.SecretMetadata()
-		if err != nil {
-			return err
-		}
-		var (
-			md        SecretMetadata
-			found     bool
-			want, got string
-		)
-		if c.secretUri != nil {
-			want = c.secretUri.ID
-			got = c.secretUri.ID
-			md, found = all[c.secretUri.ID]
-		} else {
-			want = c.label
-			for id, m := range all {
-				if m.Label == c.label {
-					found = true
-					md = m
-					got = id
-				}
-			}
-		}
-		if !found {
-			return errors.NotFoundf("secret %q", want)
-		}
+func (c *secretGetCommand) getMetadata(ctx *cmd.Context) error {
+	all, err := c.ctx.SecretMetadata()
+	if err != nil {
+		return err
+	}
+	print := func(id string, md SecretMetadata) error {
 		return c.out.Write(ctx, map[string]metadataDisplay{
-			got: {
+			id: {
 				LatestRevision:   md.LatestRevision,
 				Label:            md.Label,
 				Owner:            md.Owner.Kind(),
@@ -166,6 +143,30 @@ func (c *secretGetCommand) Run(ctx *cmd.Context) error {
 				NextRotateTime:   md.NextRotateTime,
 			}})
 	}
+	var want string
+	if c.secretUri != nil {
+		want := c.secretUri.ID
+		if md, found := all[want]; found {
+			return print(want, md)
+		}
+
+	} else {
+		want = c.label
+		for id, md := range all {
+			if md.Label == want {
+				return print(id, md)
+			}
+		}
+	}
+	return errors.NotFoundf("secret %q", want)
+}
+
+// Run implements cmd.Command.
+func (c *secretGetCommand) Run(ctx *cmd.Context) error {
+	if c.metadata {
+		return c.getMetadata(ctx)
+	}
+
 	value, err := c.ctx.GetSecret(c.secretUri, c.label, c.update, c.peek)
 	if err != nil {
 		return err
