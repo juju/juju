@@ -246,14 +246,8 @@ func (s *FacadeSuite) TestPublicKeysError(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	expectedArg := params.Entities{[]params.Entity{{
-		names.NewUnitTag("foo/0").String(),
-	}}}
-
-	res := new(params.SSHPublicKeysResults)
-
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("PublicKeys", expectedArg, res).Return(errors.New("boom"))
+	mockFacadeCaller.EXPECT().FacadeCall("PublicKeys", gomock.Any(), gomock.Any()).Return(errors.New("boom"))
 	facade := sshclient.NewFacadeFromCaller(mockFacadeCaller)
 	keys, err := facade.PublicKeys("foo/0")
 	c.Check(keys, gc.IsNil)
@@ -352,10 +346,8 @@ func (s *FacadeSuite) TestProxyError(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	res := new(params.SSHProxyResult)
-
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("Proxy", nil, res).Return(errors.New("boom"))
+	mockFacadeCaller.EXPECT().FacadeCall("Proxy", gomock.Any(), gomock.Any()).Return(errors.New("boom"))
 	facade := sshclient.NewFacadeFromCaller(mockFacadeCaller)
 
 	_, err := facade.Proxy()
