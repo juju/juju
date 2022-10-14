@@ -98,7 +98,7 @@ type dbWorker struct {
 	dbHandles map[string]*sql.DB
 }
 
-func NewWorker(cfg WorkerConfig) (*dbWorker, error) {
+func newWorker(cfg WorkerConfig) (*dbWorker, error) {
 	var err error
 	if err = cfg.Validate(); err != nil {
 		return nil, errors.Trace(err)
