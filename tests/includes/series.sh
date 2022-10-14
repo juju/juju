@@ -9,7 +9,7 @@ base_to_series() {
 	base=${1}
 	IFS=':' read -ra base_parts <<<"$base"
 	os=${base_parts[0]}
-	channel=${base_parts[1]}
+	channel=${base_parts[1]:-}
 	case "${os}" in
 	"ubuntu")
 		case "${channel}" in
@@ -25,7 +25,11 @@ base_to_series() {
 		series=${os}${channel}
 		;;
 	*)
-		series=""
+		if [[ -z ${channel} ]]; then
+			series=${os}
+		else
+			series=""
+		fi
 		;;
 	esac
 	echo "${series}"
