@@ -765,21 +765,21 @@ func (ctx *HookContext) lookupOwnedSecretURIByLabel(label string) (*coresecrets.
 		return nil, err
 	}
 	for ID, md := range mds {
-		if md.Label == label {
+		if md.Label == label && md.Owner.Id() == ctx.unit.Tag().Id() {
 			return &coresecrets.URI{ID: ID}, nil
-		}
-	}
-	for _, md := range ctx.secretChanges.pendingUpdates {
-		// Check if we have any pending label update changes.
-		if md.Label == nil || md.URI == nil {
-			continue
-		}
-		if *md.Label == label {
-			return md.URI, nil
 		}
 	}
 	for _, md := range ctx.secretChanges.pendingCreates {
 		// Check if we have any pending create changes.
+		if md.Label == nil || md.URI == nil {
+			continue
+		}
+		if *md.Label == label && md.OwnerTag.Id() == ctx.unit.Tag().Id() {
+			return md.URI, nil
+		}
+	}
+	for _, md := range ctx.secretChanges.pendingUpdates {
+		// Check if we have any pending label update changes.
 		if md.Label == nil || md.URI == nil {
 			continue
 		}

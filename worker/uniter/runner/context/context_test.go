@@ -1022,7 +1022,7 @@ func (s *mockHookContextSuite) TestSecretGetOwnedSecretFailedBothURIAndLabel(c *
 	hookContext := context.NewMockUnitHookContext(s.mockUnit, s.mockLeadership)
 	context.SetEnvironmentHookContextSecret(hookContext, uri.String(),
 		map[string]jujuc.SecretMetadata{
-			uri.ID: {Label: "label"},
+			uri.ID: {Label: "label", Owner: s.mockUnit.Tag()},
 		}, nil, nil)
 
 	_, err := hookContext.GetSecret(uri, "label", false, false)
@@ -1036,7 +1036,7 @@ func (s *mockHookContextSuite) TestSecretGetOwnedSecretFailedWithUpdate(c *gc.C)
 	hookContext := context.NewMockUnitHookContext(s.mockUnit, s.mockLeadership)
 	context.SetEnvironmentHookContextSecret(hookContext, uri.String(),
 		map[string]jujuc.SecretMetadata{
-			uri.ID: {Label: "label"},
+			uri.ID: {Label: "label", Owner: s.mockUnit.Tag()},
 		}, nil, nil)
 
 	_, err := hookContext.GetSecret(nil, "label", true, false)
@@ -1105,7 +1105,7 @@ func (s *mockHookContextSuite) TestSecretGetOwnedSecretURILookupFromAppliedCache
 			context.SetEnvironmentHookContextSecret(
 				ctx, uri.String(),
 				map[string]jujuc.SecretMetadata{
-					uri.ID: {Label: "label"},
+					uri.ID: {Label: "label", Owner: s.mockUnit.Tag()},
 				},
 				client, store)
 		},
@@ -1115,7 +1115,7 @@ func (s *mockHookContextSuite) TestSecretGetOwnedSecretURILookupFromAppliedCache
 func (s *mockHookContextSuite) TestSecretGetOwnedSecretURILookupFromPendingCreate(c *gc.C) {
 	s.assertSecretGetOwnedSecretURILookup(c,
 		func(ctx *context.HookContext, uri *coresecrets.URI, label string, client context.SecretsAccessor, store secrets.Store) {
-			arg := uniter.SecretCreateArg{}
+			arg := uniter.SecretCreateArg{OwnerTag: s.mockUnit.Tag()}
 			arg.URI = uri
 			arg.Label = ptr(label)
 			ctx.SetPendingSecretCreates(
