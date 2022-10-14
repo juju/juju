@@ -14426,7 +14426,7 @@
     {
         "Name": "Charms",
         "Description": "API implements the charms interface and is the concrete\nimplementation of the API end point.",
-        "Version": 4,
+        "Version": 5,
         "AvailableTo": [
             "model-user"
         ],
@@ -15681,7 +15681,7 @@
     {
         "Name": "Client",
         "Description": "Client serves client-specific API methods.",
-        "Version": 5,
+        "Version": 6,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
