@@ -86,21 +86,6 @@ func (mr *MockSecretsBackendMockRecorder) GetSecret(arg0 interface{}) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecret", reflect.TypeOf((*MockSecretsBackend)(nil).GetSecret), arg0)
 }
 
-// GetSecretURI mocks base method.
-func (m *MockSecretsBackend) GetSecretURI(arg0 string, arg1 names.Tag) (*secrets.URI, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetSecretURI", arg0, arg1)
-	ret0, _ := ret[0].(*secrets.URI)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetSecretURI indicates an expected call of GetSecretURI.
-func (mr *MockSecretsBackendMockRecorder) GetSecretURI(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretURI", reflect.TypeOf((*MockSecretsBackend)(nil).GetSecretURI), arg0, arg1)
-}
-
 // GetSecretValue mocks base method.
 func (m *MockSecretsBackend) GetSecretValue(arg0 *secrets.URI, arg1 int) (secrets.SecretValue, *string, error) {
 	m.ctrl.T.Helper()
@@ -115,6 +100,21 @@ func (m *MockSecretsBackend) GetSecretValue(arg0 *secrets.URI, arg1 int) (secret
 func (mr *MockSecretsBackendMockRecorder) GetSecretValue(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretValue", reflect.TypeOf((*MockSecretsBackend)(nil).GetSecretValue), arg0, arg1)
+}
+
+// GetURIBySecretLabel mocks base method.
+func (m *MockSecretsBackend) GetURIBySecretLabel(arg0 string, arg1 names.Tag) (*secrets.URI, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetURIBySecretLabel", arg0, arg1)
+	ret0, _ := ret[0].(*secrets.URI)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetURIBySecretLabel indicates an expected call of GetURIBySecretLabel.
+func (mr *MockSecretsBackendMockRecorder) GetURIBySecretLabel(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetURIBySecretLabel", reflect.TypeOf((*MockSecretsBackend)(nil).GetURIBySecretLabel), arg0, arg1)
 }
 
 // ListSecretRevisions mocks base method.

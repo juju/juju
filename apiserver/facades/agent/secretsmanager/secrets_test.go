@@ -529,7 +529,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentOwnerArgLabel(c *gc.C) {
 	val := coresecrets.NewSecretValue(data)
 	uri := coresecrets.NewURI()
 	s.expectSecretAccessQuery(1)
-	s.secretsBackend.EXPECT().GetSecretURI("label", names.NewUnitTag("mariadb/0")).Return(uri, nil)
+	s.secretsBackend.EXPECT().GetURIBySecretLabel("label", names.NewUnitTag("mariadb/0")).Return(uri, nil)
 	s.secretsBackend.EXPECT().GetSecret(uri).Return(
 		&coresecrets.SecretMetadata{
 			URI:            uri,
@@ -630,8 +630,8 @@ func (s *SecretsManagerSuite) TestGetSecretContentConsumerLabelOnly(c *gc.C) {
 	uri := coresecrets.NewURI()
 	s.expectSecretAccessQuery(1)
 
-	s.secretsBackend.EXPECT().GetSecretURI("label", names.NewUnitTag("mariadb/0")).Return(nil, errors.NotFoundf("secret"))
-	s.secretsConsumer.EXPECT().GetSecretConsumerURI("label", names.NewUnitTag("mariadb/0")).Return(uri, nil)
+	s.secretsBackend.EXPECT().GetURIBySecretLabel("label", names.NewUnitTag("mariadb/0")).Return(nil, errors.NotFoundf("secret"))
+	s.secretsConsumer.EXPECT().GetURIByConsumerLabel("label", names.NewUnitTag("mariadb/0")).Return(uri, nil)
 	s.secretsConsumer.EXPECT().GetSecretConsumer(uri, names.NewUnitTag("mariadb/0")).
 		Return(&coresecrets.SecretConsumerMetadata{CurrentRevision: 666}, nil)
 	s.secretsBackend.EXPECT().GetSecretValue(uri, 666).Return(
@@ -730,8 +730,8 @@ func (s *SecretsManagerSuite) TestGetSecretContentConsumerUpdateLabel(c *gc.C) {
 func (s *SecretsManagerSuite) TestGetSecretContentConsumerFirstTimeUsingLabelFailed(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.secretsBackend.EXPECT().GetSecretURI("label-1", names.NewUnitTag("mariadb/0")).Return(nil, errors.NotFoundf("secret"))
-	s.secretsConsumer.EXPECT().GetSecretConsumerURI("label-1", names.NewUnitTag("mariadb/0")).Return(nil, errors.NotFoundf("secret"))
+	s.secretsBackend.EXPECT().GetURIBySecretLabel("label-1", names.NewUnitTag("mariadb/0")).Return(nil, errors.NotFoundf("secret"))
+	s.secretsConsumer.EXPECT().GetURIByConsumerLabel("label-1", names.NewUnitTag("mariadb/0")).Return(nil, errors.NotFoundf("secret"))
 
 	results, err := s.facade.GetSecretContentInfo(params.GetSecretContentArgs{
 		Args: []params.GetSecretContentArg{

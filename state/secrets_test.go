@@ -673,7 +673,7 @@ func (s *SecretsSuite) assertUpdatedSecret(c *gc.C, original *secrets.SecretMeta
 		c.Assert(val.EncodedValues(), jc.DeepEquals, expectedData)
 	}
 	if update.Label != nil {
-		uri, err := s.store.GetSecretURI(*update.Label, s.owner.Tag())
+		uri, err := s.store.GetURIBySecretLabel(*update.Label, s.owner.Tag())
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(uri, gc.DeepEquals, original.URI)
 	}
@@ -764,7 +764,7 @@ func (s *SecretsSuite) TestGetSecretAndGetSecretURI(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(md.URI, jc.DeepEquals, uri)
 
-	result, err := s.store.GetSecretURI("label-1", s.owner.Tag())
+	result, err := s.store.GetURIBySecretLabel("label-1", s.owner.Tag())
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(result, jc.DeepEquals, uri)
 }
@@ -877,7 +877,7 @@ func (s *SecretsSuite) TestGetSecretConsumerAndGetSecretConsumerURI(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(md2, jc.DeepEquals, md)
 
-	uri3, err := s.State.GetSecretConsumerURI("foobar", names.NewUnitTag("mariadb/0"))
+	uri3, err := s.State.GetURIByConsumerLabel("foobar", names.NewUnitTag("mariadb/0"))
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(uri3, jc.DeepEquals, uri)
 

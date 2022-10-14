@@ -73,7 +73,7 @@ type SecretsStore interface {
 	UpdateSecret(*secrets.URI, UpdateSecretParams) (*secrets.SecretMetadata, error)
 	DeleteSecret(*secrets.URI, ...int) (bool, error)
 	GetSecret(*secrets.URI) (*secrets.SecretMetadata, error)
-	GetSecretURI(string, names.Tag) (*secrets.URI, error)
+	GetURIBySecretLabel(string, names.Tag) (*secrets.URI, error)
 	GetSecretValue(*secrets.URI, int) (secrets.SecretValue, *string, error)
 	ListSecrets(SecretsFilter) ([]*secrets.SecretMetadata, error)
 	ListSecretRevisions(uri *secrets.URI) ([]*secrets.SecretRevisionMetadata, error)
@@ -646,8 +646,8 @@ func (s *secretsStore) getSecretValue(uri *secrets.URI, revision int, checkExist
 	return secrets.NewSecretValue(data), doc.ProviderId, nil
 }
 
-// GetSecretURI get the secret URI for the specified label.
-func (s *secretsStore) GetSecretURI(label string, owner names.Tag) (*secrets.URI, error) {
+// GetURIBySecretLabel get the secret URI for the specified label.
+func (s *secretsStore) GetURIBySecretLabel(label string, owner names.Tag) (*secrets.URI, error) {
 	secretMetadataCollection, closer := s.st.db().GetCollection(secretMetadataC)
 	defer closer()
 
@@ -923,7 +923,7 @@ func (st *State) uniqueSecretConsumerLabelOps(consumerTag string, label string) 
 	return st.uniqueSecretLabelOps(consumerTag, label, "consumer", secretConsumerLabelKey)
 }
 
-func (st *State) uniqueSecretLabelOps(tag string, label string, role string, keyGenerator func(string, string) string) ([]txn.Op, error) {
+func (st *State) uniqueSecretLabelOps(tag, label, role string, keyGenerator func(string, string) string) ([]txn.Op, error) {
 	refCountCollection, ccloser := st.db().GetCollection(refcountsC)
 	defer ccloser()
 
@@ -973,8 +973,8 @@ func (st *State) removeSecretLabelOps(tag names.Tag, keyGenerator func(string, s
 	return ops, iter.Close()
 }
 
-// GetSecretConsumerURI gets the secret URI for the specified secret consumer label.
-func (st *State) GetSecretConsumerURI(label string, consumer names.Tag) (*secrets.URI, error) {
+// GetURIByConsumerLabel gets the secret URI for the specified secret consumer label.
+func (st *State) GetURIByConsumerLabel(label string, consumer names.Tag) (*secrets.URI, error) {
 	secretConsumersCollection, closer := st.db().GetCollection(secretConsumersC)
 	defer closer()
 
@@ -989,6 +989,9 @@ func (st *State) GetSecretConsumerURI(label string, consumer names.Tag) (*secret
 		return nil, errors.Trace(err)
 	}
 	id, _ := splitSecretConsumerKey(st.localID(doc.DocID))
+	if id  == "" {
+		return nil, errors.NotFoundf("secret consumer with label %q for %q", label, consumer)
+	}
 	return &secrets.URI{ID: id}, nil
 }
 
@@ -1035,13 +1038,9 @@ func (st *State) removeSecretConsumer(uri *secrets.URI) error {
 			},
 		},
 	).Select(bson.D{{"consumer-tag", 1}, {"label", 1}}).All(&docs)
-	if errors.Cause(err) == mgo.ErrNotFound {
-		return nil
-	}
-	if err != nil {
+	if err != nil && errors.Cause(err) != mgo.ErrNotFound {
 		return errors.Trace(err)
 	}
-
 	refCountsCollection, closer := st.db().GetCollection(refcountsC)
 	defer closer()
 	for _, doc := range docs {

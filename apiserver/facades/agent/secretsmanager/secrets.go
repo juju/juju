@@ -267,8 +267,7 @@ func (s *SecretsManagerAPI) getSecretConsumerInfo(consumerTag names.Tag, uriStr 
 	if !s.canRead(uri, consumerTag) {
 		return nil, apiservererrors.ErrPerm
 	}
-	md, err := s.secretsConsumer.GetSecretConsumer(uri, consumerTag)
-	return md, err
+	return s.secretsConsumer.GetSecretConsumer(uri, consumerTag)
 }
 
 // GetSecretMetadata returns metadata for the caller's secrets.
@@ -348,7 +347,7 @@ func (s *SecretsManagerAPI) GetSecretContentInfo(args params.GetSecretContentArg
 func (s *SecretsManagerAPI) getOwnerSecretMetadata(uri *coresecrets.URI, label string) (*coresecrets.SecretMetadata, error) {
 	if uri == nil {
 		var err error
-		uri, err = s.secretsBackend.GetSecretURI(label, s.authTag)
+		uri, err = s.secretsBackend.GetURIBySecretLabel(label, s.authTag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -414,7 +413,7 @@ func (s *SecretsManagerAPI) getSecretContent(arg params.GetSecretContentArg) (*s
 
 	if uri == nil {
 		var err error
-		uri, err = s.secretsConsumer.GetSecretConsumerURI(arg.Label, s.authTag)
+		uri, err = s.secretsConsumer.GetURIByConsumerLabel(arg.Label, s.authTag)
 		if errors.Is(err, errors.NotFound) {
 			return nil, errors.NotFoundf("consumer label %q", arg.Label)
 		}
@@ -433,7 +432,6 @@ func (s *SecretsManagerAPI) getSecretContent(arg params.GetSecretContentArg) (*s
 
 	// Use the latest revision as the current one if --update or --peek.
 	if update || peek {
-		// We are consumer, so fetch using URI.
 		md, err := s.secretsBackend.GetSecret(uri)
 		if err != nil {
 			return nil, errors.Trace(err)
