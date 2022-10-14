@@ -37,19 +37,33 @@ func (m *MockSecretsConsumer) EXPECT() *MockSecretsConsumerMockRecorder {
 }
 
 // GetSecretConsumer mocks base method.
-func (m *MockSecretsConsumer) GetSecretConsumer(arg0 *secrets.URI, arg1 string, arg2 names.Tag) (*secrets.URI, *secrets.SecretConsumerMetadata, error) {
+func (m *MockSecretsConsumer) GetSecretConsumer(arg0 *secrets.URI, arg1 names.Tag) (*secrets.SecretConsumerMetadata, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetSecretConsumer", arg0, arg1, arg2)
-	ret0, _ := ret[0].(*secrets.URI)
-	ret1, _ := ret[1].(*secrets.SecretConsumerMetadata)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret := m.ctrl.Call(m, "GetSecretConsumer", arg0, arg1)
+	ret0, _ := ret[0].(*secrets.SecretConsumerMetadata)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // GetSecretConsumer indicates an expected call of GetSecretConsumer.
-func (mr *MockSecretsConsumerMockRecorder) GetSecretConsumer(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockSecretsConsumerMockRecorder) GetSecretConsumer(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretConsumer", reflect.TypeOf((*MockSecretsConsumer)(nil).GetSecretConsumer), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretConsumer", reflect.TypeOf((*MockSecretsConsumer)(nil).GetSecretConsumer), arg0, arg1)
+}
+
+// GetSecretConsumerURI mocks base method.
+func (m *MockSecretsConsumer) GetSecretConsumerURI(arg0 string, arg1 names.Tag) (*secrets.URI, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSecretConsumerURI", arg0, arg1)
+	ret0, _ := ret[0].(*secrets.URI)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSecretConsumerURI indicates an expected call of GetSecretConsumerURI.
+func (mr *MockSecretsConsumerMockRecorder) GetSecretConsumerURI(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretConsumerURI", reflect.TypeOf((*MockSecretsConsumer)(nil).GetSecretConsumerURI), arg0, arg1)
 }
 
 // GrantSecretAccess mocks base method.

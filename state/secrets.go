@@ -997,11 +997,11 @@ func (st *State) GetSecretConsumer(uri *secrets.URI, consumer names.Tag) (*secre
 	if uri == nil {
 		return nil, errors.NewNotValid(nil, "empty URI")
 	}
-	
+
 	if err := st.checkExists(uri); err != nil {
 		return nil, errors.Trace(err)
 	}
-	
+
 	secretConsumersCollection, closer := st.db().GetCollection(secretConsumersC)
 	defer closer()
 	key := secretConsumerKey(uri.ID, consumer.String())

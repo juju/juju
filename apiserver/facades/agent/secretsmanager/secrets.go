@@ -267,7 +267,7 @@ func (s *SecretsManagerAPI) getSecretConsumerInfo(consumerTag names.Tag, uriStr 
 	if !s.canRead(uri, consumerTag) {
 		return nil, apiservererrors.ErrPerm
 	}
-	_, md, err := s.secretsConsumer.GetSecretConsumer(uri, "", consumerTag)
+	md, err := s.secretsConsumer.GetSecretConsumer(uri, consumerTag)
 	return md, err
 }
 
@@ -410,23 +410,26 @@ func (s *SecretsManagerAPI) getSecretContent(arg params.GetSecretContentArg) (*s
 	}
 
 	// arg.Label is the consumer label for consumers.
-	shouldUpdateLabel := arg.Label != "" && uri != nil
+	possibleUpdateLabel := arg.Label != "" && uri != nil
 
-	secretURI, consumer, err := s.secretsConsumer.GetSecretConsumer(uri, arg.Label, s.authTag)
-	if errors.Is(err, errors.NotFound) && uri == nil {
-		return nil, errors.NotFoundf("consumer label %q", arg.Label)
+	if uri == nil {
+		var err error
+		uri, err = s.secretsConsumer.GetSecretConsumerURI(arg.Label, s.authTag)
+		if errors.Is(err, errors.NotFound) {
+			return nil, errors.NotFoundf("consumer label %q", arg.Label)
+		}
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
+
+	consumer, err := s.secretsConsumer.GetSecretConsumer(uri, s.authTag)
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
 	}
-	if uri == nil {
-		// Found the secret URI using consumer label.
-		uri = secretURI
-	}
-
-	peek := arg.Peek
 	update := arg.Update ||
-		err != nil // NotFound, so need to create one.
+		err != nil // Not found, so need to create one.
+	peek := arg.Peek
 
 	// Use the latest revision as the current one if --update or --peek.
 	if update || peek {
@@ -442,7 +445,7 @@ func (s *SecretsManagerAPI) getSecretContent(arg params.GetSecretContentArg) (*s
 		}
 		consumer.CurrentRevision = md.LatestRevision
 	}
-	if update || shouldUpdateLabel {
+	if update || possibleUpdateLabel {
 		if arg.Label != "" {
 			consumer.Label = arg.Label
 		}

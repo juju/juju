@@ -21,7 +21,8 @@ type SecretTriggers interface {
 
 // SecretsConsumer instances provide secret consumer apis.
 type SecretsConsumer interface {
-	GetSecretConsumer(*secrets.URI, string, names.Tag) (*secrets.URI, *secrets.SecretConsumerMetadata, error)
+	GetSecretConsumer(*secrets.URI, names.Tag) (*secrets.SecretConsumerMetadata, error)
+	GetSecretConsumerURI(string, names.Tag) (*secrets.URI, error)
 	SaveSecretConsumer(*secrets.URI, names.Tag, *secrets.SecretConsumerMetadata) error
 	WatchConsumedSecretsChanges(consumer names.Tag) (state.StringsWatcher, error)
 	GrantSecretAccess(*secrets.URI, state.SecretAccessParams) error
