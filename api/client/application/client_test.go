@@ -289,7 +289,7 @@ func (s *applicationSuite) TestSetCharm(c *gc.C) {
 		ApplicationName: "application",
 		CharmURL:        "cs:trusty/application-1",
 		CharmOrigin: &params.CharmOrigin{
-			Source: "charm-hub",
+			Source: "charm-store",
 			Risk:   "edge",
 		},
 		Channel: "edge",
@@ -313,7 +313,7 @@ func (s *applicationSuite) TestSetCharm(c *gc.C) {
 		CharmID: application.CharmID{
 			URL: charm.MustParseURL("cs:trusty/application-1"),
 			Origin: apicharm.Origin{
-				Source: "charm-hub",
+				Source: "charm-store",
 				Risk:   "edge",
 			},
 		},
