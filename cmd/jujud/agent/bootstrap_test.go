@@ -225,7 +225,7 @@ func (s *BootstrapSuite) TestStoreControllerCharm(c *gc.C) {
 	})
 
 	curl := charm.MustParseURL(controllerCharmURL)
-	channel := corecharm.MustParseChannel("beta")
+	channel := corecharm.MustParseChannel("3.0/beta")
 	origin := corecharm.Origin{
 		Source:  corecharm.CharmHub,
 		Channel: &channel,
@@ -752,7 +752,6 @@ func (s *BootstrapSuite) TestStructuredImageMetadataStored(c *gc.C) {
 			Region:          "region",
 			Arch:            "amd64",
 			Version:         "22.04",
-			Series:          "jammy",
 			RootStorageType: "rootStore",
 			VirtType:        "virtType",
 			Source:          "custom",
@@ -761,17 +760,6 @@ func (s *BootstrapSuite) TestStructuredImageMetadataStored(c *gc.C) {
 		ImageId:  "imageId",
 	}
 	s.assertWrittenToState(c, s.Session, expect)
-}
-
-func (s *BootstrapSuite) TestStructuredImageMetadataInvalidSeries(c *gc.C) {
-	s.bootstrapParams.CustomImageMetadata = createImageMetadata()
-	s.bootstrapParams.CustomImageMetadata[0].Version = "woat"
-	s.writeBootstrapParamsFile(c)
-
-	_, cmd, err := s.initBootstrapCommand(c, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	err = cmd.Run(nil)
-	c.Assert(err, gc.ErrorMatches, `cannot determine series for version woat: unknown series for version: \"woat\"`)
 }
 
 func (s *BootstrapSuite) makeTestModel(c *gc.C) {
@@ -829,7 +817,7 @@ func (s *BootstrapSuite) makeTestModel(c *gc.C) {
 		Type:      "dummy",
 		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
 	}
-	args.ControllerCharmRisk = "beta"
+	args.ControllerCharmChannel = charm.Channel{Track: "3.0", Risk: "beta"}
 	s.bootstrapParams = args
 	s.writeBootstrapParamsFile(c)
 }

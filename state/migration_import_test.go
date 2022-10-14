@@ -29,7 +29,6 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
-	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/secrets"
@@ -320,7 +319,7 @@ func (s *MigrationImportSuite) TestMeterStatusNotAvailable(c *gc.C) {
 func (s *MigrationImportSuite) AssertMachineEqual(c *gc.C, newMachine, oldMachine *state.Machine) {
 	c.Assert(newMachine.Id(), gc.Equals, oldMachine.Id())
 	c.Assert(newMachine.Principals(), jc.DeepEquals, oldMachine.Principals())
-	c.Assert(newMachine.Series(), gc.Equals, oldMachine.Series())
+	c.Assert(newMachine.Base().String(), gc.Equals, oldMachine.Base().String())
 	c.Assert(newMachine.ContainerType(), gc.Equals, oldMachine.ContainerType())
 	newHardware, err := newMachine.HardwareCharacteristics()
 	c.Assert(err, jc.ErrorIsNil)
@@ -424,41 +423,6 @@ func (s *MigrationImportSuite) TestMachines(c *gc.C) {
 	characteristics, err := parent.HardwareCharacteristics()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*characteristics.RootDiskSource, gc.Equals, "bunyan")
-}
-
-func (s *MigrationImportSuite) TestMachineAgentVersion(c *gc.C) {
-	machine1 := s.Factory.MakeMachine(c, nil)
-	_ = s.Factory.MakeMachineNested(c, machine1.Id(), nil)
-	hardware, err := machine1.HardwareCharacteristics()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hardware, gc.NotNil)
-
-	// Set the original machine to use series based agent binary version.
-	err = machine1.SetAgentVersion(version.Binary{
-		Number:  version.MustParse("1.2.3"),
-		Release: coretesting.HostSeries(c),
-		Arch:    "amd64",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	allMachines, err := s.State.AllMachines()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(allMachines, gc.HasLen, 2)
-
-	_, newSt := s.importModel(c, s.State)
-
-	importedMachines, err := newSt.AllMachines()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(importedMachines, gc.HasLen, 2)
-
-	for i, newMachine := range importedMachines {
-		agentTools, err := newMachine.AgentTools()
-		c.Assert(err, jc.ErrorIsNil)
-		oldTools, err := allMachines[i].AgentTools()
-		c.Assert(err, jc.ErrorIsNil)
-		oldTools.Version.Release = coreos.HostOSTypeName()
-		c.Assert(agentTools.Version, gc.DeepEquals, oldTools.Version)
-	}
 }
 
 func (s *MigrationImportSuite) TestMachineDevices(c *gc.C) {
@@ -1856,7 +1820,6 @@ func (s *MigrationImportSuite) TestCloudImageMetadata(c *gc.C) {
 		Stream:          "stream",
 		Region:          "region-test",
 		Version:         "22.04",
-		Series:          "jammy",
 		Arch:            "arch",
 		VirtType:        "virtType-test",
 		RootStorageType: "rootStorageType-test",
@@ -1867,7 +1830,6 @@ func (s *MigrationImportSuite) TestCloudImageMetadata(c *gc.C) {
 		Stream:          "stream",
 		Region:          "region-custom",
 		Version:         "22.04",
-		Series:          "jammy",
 		Arch:            "arch",
 		VirtType:        "virtType-test",
 		RootStorageType: "rootStorageType-test",

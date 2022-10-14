@@ -785,7 +785,7 @@ class TestModelClient(ClientTest):
                           return_value=output_text) as gjo_mock:
             result = client.get_status()
         gjo_mock.assert_called_once_with(
-            'show-status', '--format', 'yaml', controller=False)
+            'status', '--format', 'yaml', controller=False)
         self.assertEqual(Status, type(result))
         self.assertEqual(['a', 'b', 'c'], result.status)
 
@@ -1065,7 +1065,7 @@ class TestModelClient(ClientTest):
             env.upgrade_charm('foo-service',
                               '/bar/repository/angsty/mongodb')
         mock_juju.assert_called_once_with(
-            'upgrade-charm', ('foo-service', '--path',
+            'refresh', ('foo-service', '--path',
                               '/bar/repository/angsty/mongodb',))
 
     def test_remove_service(self):
@@ -2017,7 +2017,7 @@ class TestModelClient(ClientTest):
                           return_value=value) as gjo_mock:
             client.wait_for_ha()
         gjo_mock.assert_called_once_with(
-            'show-status', '--format', 'yaml', controller=False)
+            'status', '--format', 'yaml', controller=False)
 
     def test_wait_for_ha_requires_controller_client(self):
         client = fake_juju_client()

@@ -128,23 +128,22 @@ func formatRevision(r Revision, showName bool) string {
 		namePrefix, r.Version, r.ReleasedAt[:10], r.Revision, sizeToStr(r.Size))
 }
 
-// basesToSeries converts a list of bases in "ubuntu:22.04" format to a list
-// of series ("jammy"). Any bases that can't be mapped will be included in the
+// basesToSeries converts a list of bases to a list of series ("jammy").
+// Any bases that can't be mapped will be included in the
 // result unmodified.
 //
 // NOTE: This will go away when we switch to --base and bases output.
-func basesToSeries(bases []string) []string {
+func basesToSeries(bases []Base) []string {
 	series := make([]string, len(bases))
-	for i, baseStr := range bases {
-		name, channel, _ := strings.Cut(baseStr, ":")
-		base, err := coreseries.ParseBase(name, channel)
+	for i, b := range bases {
+		base, err := coreseries.ParseBase(b.Name, b.Channel)
 		if err != nil {
-			series[i] = baseStr
+			series[i] = base.DisplayString()
 			continue
 		}
 		s, err := coreseries.GetSeriesFromBase(base)
 		if err != nil {
-			series[i] = baseStr
+			series[i] = base.DisplayString()
 			continue
 		}
 		series[i] = s
@@ -213,7 +212,7 @@ func (c charmInfoWriter) Print() error {
 		ID:          c.in.ID,
 		Summary:     c.in.Summary,
 		Publisher:   c.in.Publisher,
-		Supports:    strings.Join(c.in.Series, ", "),
+		Supports:    strings.Join(basesToSeries(c.in.Supports), ", "),
 		StoreURL:    c.in.StoreURL,
 		Description: c.in.Description,
 		Channels:    c.channels(),

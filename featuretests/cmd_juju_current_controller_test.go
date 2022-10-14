@@ -63,7 +63,7 @@ func (s *cmdCurrentControllerSuite) run(c *gc.C, args ...string) (*cmd.Context, 
 }
 
 func (s *cmdCurrentControllerSuite) TestControllerListCommand(c *gc.C) {
-	context, err := s.run(c, "list-controllers")
+	context, err := s.run(c, "controllers")
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedOutput := `

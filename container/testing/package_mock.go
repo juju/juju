@@ -11,6 +11,7 @@ import (
 	container "github.com/juju/juju/container"
 	constraints "github.com/juju/juju/core/constraints"
 	instance "github.com/juju/juju/core/instance"
+	series "github.com/juju/juju/core/series"
 	environs "github.com/juju/juju/environs"
 	instances "github.com/juju/juju/environs/instances"
 )
@@ -39,7 +40,7 @@ func (m *MockManager) EXPECT() *MockManagerMockRecorder {
 }
 
 // CreateContainer mocks base method.
-func (m *MockManager) CreateContainer(arg0 *instancecfg.InstanceConfig, arg1 constraints.Value, arg2 string, arg3 *container.NetworkConfig, arg4 *container.StorageConfig, arg5 environs.StatusCallbackFunc) (instances.Instance, *instance.HardwareCharacteristics, error) {
+func (m *MockManager) CreateContainer(arg0 *instancecfg.InstanceConfig, arg1 constraints.Value, arg2 series.Base, arg3 *container.NetworkConfig, arg4 *container.StorageConfig, arg5 environs.StatusCallbackFunc) (instances.Instance, *instance.HardwareCharacteristics, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateContainer", arg0, arg1, arg2, arg3, arg4, arg5)
 	ret0, _ := ret[0].(instances.Instance)

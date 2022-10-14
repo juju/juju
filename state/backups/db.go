@@ -16,7 +16,6 @@ import (
 	"github.com/juju/mgo/v3/bson"
 
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state/imagestorage"
 )
 
 // db is a surrogate for the proverbial DB layer abstraction that we
@@ -51,8 +50,7 @@ type DBInfo struct {
 var ignoredDatabases = set.NewStrings(
 	"admin",
 	"backups",
-	"presence",            // note: this is still backed up anyway
-	imagestorage.ImagesDB, // note: this is still backed up anyway
+	"presence", // note: this is still backed up anyway
 )
 
 // DBSession is a subset of mgo.Session.

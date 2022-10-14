@@ -17,7 +17,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/v2/series"
 	"github.com/juju/utils/v3/arch"
 	"github.com/juju/utils/v3/ssh"
 	"github.com/juju/version/v2"
@@ -373,7 +372,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	}
 
 	// Deploy and set up the controller charm and application.
-	if err := c.deployControllerCharm(st, args.BootstrapMachineConstraints, args.ControllerCharmPath, args.ControllerCharmRisk, isCAAS, controllerUnitPassword); err != nil {
+	if err := c.deployControllerCharm(st, args.BootstrapMachineConstraints, args.ControllerCharmPath, args.ControllerCharmChannel, isCAAS, controllerUnitPassword); err != nil {
 		return errors.Annotate(err, "cannot deploy controller application")
 	}
 
@@ -542,9 +541,6 @@ func (c *BootstrapCommand) populateTools(st *state.State) error {
 	return nil
 }
 
-// Override for testing.
-var seriesFromVersion = series.VersionSeries
-
 // saveCustomImageMetadata stores the custom image metadata to the database,
 func (c *BootstrapCommand) saveCustomImageMetadata(st *state.State, env environs.BootstrapEnviron, imageMetadata []*imagemetadata.ImageMetadata) error {
 	logger.Debugf("saving custom image metadata")
@@ -572,11 +568,6 @@ func storeImageMetadataInState(st *state.State, env environs.BootstrapEnviron, s
 			Priority: priority,
 			ImageId:  one.Id,
 		}
-		s, err := seriesFromVersion(one.Version)
-		if err != nil {
-			return errors.Annotatef(err, "cannot determine series for version %v", one.Version)
-		}
-		m.Series = s
 		if m.Stream == "" {
 			m.Stream = cfg.ImageStream()
 		}

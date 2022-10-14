@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/v3/arch"
 
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm/libvirt"
@@ -46,20 +45,16 @@ func (c *kvmContainer) EnsureCachedImage(params StartParams) error {
 			return imagedownloads.NewDataSource(c.fetcher, params.ImageDownloadURL)
 		}
 	}
-	var fType = BIOSFType
-	if params.Arch == arch.ARM64 {
-		fType = UEFIFType
-	}
 
 	sp := syncParams{
 		fetcher: c.fetcher,
 		arch:    params.Arch,
-		series:  params.Series,
+		version: params.Version,
 		stream:  params.Stream,
-		fType:   fType,
+		fType:   DiskImageType,
 		srcFunc: srcFunc,
 	}
-	logger.Debugf("synchronise images for %s %s %s %s", sp.arch, sp.series, sp.stream, params.ImageDownloadURL)
+	logger.Debugf("synchronise images for %s %s %s %s", sp.arch, sp.version, sp.stream, params.ImageDownloadURL)
 	var callback ProgressCallback
 	if params.StatusCallback != nil {
 		callback = func(msg string) {
@@ -108,7 +103,7 @@ func (c *kvmContainer) Start(params StartParams) error {
 	}
 	mparams := CreateMachineParams{
 		Hostname:          c.name,
-		Series:            params.Series,
+		Version:           params.Version,
 		UserDataFile:      params.UserDataFile,
 		NetworkConfigData: params.NetworkConfigData,
 		Memory:            params.Memory,

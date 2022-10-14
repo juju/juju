@@ -1301,7 +1301,6 @@ applications:
 }
 
 func (s *bundleSuite) addApplicationToModel(model description.Model, name string, numUnits int) string {
-	series := "focal"
 	var charmURL string
 	var channel string
 
@@ -1327,8 +1326,8 @@ func (s *bundleSuite) addApplicationToModel(model description.Model, name string
 	application.SetStatus(minimalStatusArgs())
 	for i := 0; i < numUnits; i++ {
 		machine := model.AddMachine(description.MachineArgs{
-			Id:     names.NewMachineTag(fmt.Sprint(i)),
-			Series: series,
+			Id:   names.NewMachineTag(fmt.Sprint(i)),
+			Base: "ubuntu:20.04",
 		})
 		unit := application.AddUnit(description.UnitArgs{
 			Tag:     names.NewUnitTag(fmt.Sprintf("%s/%d", name, i)),
@@ -1732,7 +1731,7 @@ func (s *bundleSuite) addMinimalMachineWithConstraints(model description.Model, 
 		Id:           names.NewMachineTag(id),
 		Nonce:        "a-nonce",
 		PasswordHash: "some-hash",
-		Series:       "focal",
+		Base:         "ubuntu:20.04",
 		Jobs:         []string{"host-units"},
 	})
 	args := description.ConstraintsArgs{
@@ -1799,7 +1798,7 @@ func (s *bundleSuite) addMinimalMachineWithAnnotations(model description.Model, 
 		Id:           names.NewMachineTag(id),
 		Nonce:        "a-nonce",
 		PasswordHash: "some-hash",
-		Series:       "focal",
+		Base:         "ubuntu:20.04",
 		Jobs:         []string{"host-units"},
 	})
 	m.SetAnnotations(map[string]string{
@@ -1867,8 +1866,8 @@ func (s *bundleSuite) TestExportBundleWithContainers(c *gc.C) {
 	application0.SetStatus(minimalStatusArgs())
 
 	m0 := s.st.model.AddMachine(description.MachineArgs{
-		Id:     names.NewMachineTag("0"),
-		Series: "focal",
+		Id:   names.NewMachineTag("0"),
+		Base: "ubuntu:20.04",
 	})
 	args := description.ConstraintsArgs{
 		Architecture: "amd64",
@@ -1890,8 +1889,8 @@ func (s *bundleSuite) TestExportBundleWithContainers(c *gc.C) {
 	application1.SetStatus(minimalStatusArgs())
 
 	m1 := s.st.model.AddMachine(description.MachineArgs{
-		Id:     names.NewMachineTag("1"),
-		Series: "focal",
+		Id:   names.NewMachineTag("1"),
+		Base: "ubuntu:20.04",
 	})
 	args = description.ConstraintsArgs{
 		Architecture: "amd64",
@@ -1951,8 +1950,8 @@ func (s *bundleSuite) TestMixedSeries(c *gc.C) {
 		Machine: names.NewMachineTag("0"),
 	})
 	s.st.model.AddMachine(description.MachineArgs{
-		Id:     names.NewMachineTag("0"),
-		Series: "bionic",
+		Id:   names.NewMachineTag("0"),
+		Base: "ubuntu:18.04",
 	})
 
 	application = s.st.model.AddApplication(description.ApplicationArgs{
@@ -1965,8 +1964,8 @@ func (s *bundleSuite) TestMixedSeries(c *gc.C) {
 		Machine: names.NewMachineTag("1"),
 	})
 	s.st.model.AddMachine(description.MachineArgs{
-		Id:     names.NewMachineTag("1"),
-		Series: "jammy",
+		Id:   names.NewMachineTag("1"),
+		Base: "ubuntu:22.04",
 	})
 
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
@@ -2015,8 +2014,8 @@ func (s *bundleSuite) TestMixedSeriesNoDefaultSeries(c *gc.C) {
 		Machine: names.NewMachineTag("0"),
 	})
 	s.st.model.AddMachine(description.MachineArgs{
-		Id:     names.NewMachineTag("0"),
-		Series: "focal",
+		Id:   names.NewMachineTag("0"),
+		Base: "ubuntu:20.04",
 	})
 
 	application = s.st.model.AddApplication(description.ApplicationArgs{
@@ -2029,8 +2028,8 @@ func (s *bundleSuite) TestMixedSeriesNoDefaultSeries(c *gc.C) {
 		Machine: names.NewMachineTag("1"),
 	})
 	s.st.model.AddMachine(description.MachineArgs{
-		Id:     names.NewMachineTag("1"),
-		Series: "jammy",
+		Id:   names.NewMachineTag("1"),
+		Base: "ubuntu:22.04",
 	})
 
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})

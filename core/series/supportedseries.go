@@ -52,13 +52,13 @@ func WorkloadSeries(now time.Time, requestedSeries, imageStream string) (set.Str
 	return set.NewStrings(supported.workloadSeries(false)...), nil
 }
 
-// AllWorkloadSeries returns all the workload series (supported or not).
-func AllWorkloadSeries(requestedSeries, imageStream string) (set.Strings, error) {
+// AllWorkloadVersions returns all the workload versions (supported or not).
+func AllWorkloadVersions(requestedSeries, imageStream string) (set.Strings, error) {
 	supported, err := seriesForTypes(UbuntuDistroInfo, time.Now(), requestedSeries, imageStream)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return set.NewStrings(supported.workloadSeries(true)...), nil
+	return set.NewStrings(supported.workloadVersions(true)...), nil
 }
 
 // AllWorkloadOSTypes returns all the workload os types (supported or not).
@@ -233,7 +233,7 @@ func UbuntuSeriesVersion(series string) (string, error) {
 	return "", errors.Trace(unknownSeriesVersionError(series))
 }
 
-// UbuntuVersions returns the ubuntu versions as a map..
+// UbuntuVersions returns the ubuntu versions as a map.
 func UbuntuVersions(supported, esmSupported *bool) map[string]string {
 	return ubuntuVersions(supported, esmSupported, ubuntuSeries)
 }

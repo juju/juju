@@ -35,7 +35,7 @@ func (s *MachinePortsDocSuite) SetUpTest(c *gc.C) {
 
 	s.charm = s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
 	s.application = s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: s.charm})
-	s.machine = s.Factory.MakeMachine(c, &factory.MachineParams{Series: "quantal"})
+	s.machine = s.Factory.MakeMachine(c, &factory.MachineParams{Base: state.UbuntuBase("12.10")})
 	s.unit1 = s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.application, Machine: s.machine})
 	s.unit2 = s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.application, Machine: s.machine})
 
@@ -110,7 +110,7 @@ func (s *MachinePortsDocSuite) TestModelAllOpenPortRanges(c *gc.C) {
 	s.mustOpenCloseMachinePorts(c, s.machPortRanges, s.unit2.Name(), allEndpoints, toOpen[1:2], nil)
 
 	// Add a second machine with another unit and open the last port range
-	mach2 := s.Factory.MakeMachine(c, &factory.MachineParams{Series: "quantal"})
+	mach2 := s.Factory.MakeMachine(c, &factory.MachineParams{Base: state.UbuntuBase("12.10")})
 	unit3 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.application, Machine: mach2})
 	mach2Ports, err := mach2.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)

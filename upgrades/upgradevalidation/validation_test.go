@@ -119,14 +119,8 @@ func (s *upgradeValidationSuite) TestCheckNoWinMachinesForModel(c *gc.C) {
 
 	state := mocks.NewMockState(ctrl)
 	gomock.InOrder(
-		state.EXPECT().MachineCountForSeries(
-			"win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
-			"win2016", "win2016hv", "win2019", "win7", "win8", "win81", "win10",
-		).Return(nil, nil),
-		state.EXPECT().MachineCountForSeries(
-			"win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
-			"win2016", "win2016hv", "win2019", "win7", "win8", "win81", "win10",
-		).Return(map[string]int{"win10": 1, "win7": 2}, nil),
+		state.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(nil, nil),
+		state.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(map[string]int{"win10": 1, "win7": 2}, nil),
 	)
 
 	blocker, err := upgradevalidation.CheckNoWinMachinesForModel("", nil, state, nil)
@@ -144,28 +138,7 @@ func (s *upgradeValidationSuite) TestCheckForDeprecatedUbuntuSeriesForModel(c *g
 
 	state := mocks.NewMockState(ctrl)
 	gomock.InOrder(
-		state.EXPECT().MachineCountForSeries(
-			"artful",
-			"bionic",
-			"cosmic",
-			"disco",
-			"eoan",
-			"groovy",
-			"hirsute",
-			"impish",
-			"kinetic",
-			"precise",
-			"quantal",
-			"raring",
-			"saucy",
-			"trusty",
-			"utopic",
-			"vivid",
-			"wily",
-			"xenial",
-			"yakkety",
-			"zesty",
-		).Return(map[string]int{"xenial": 1, "vivid": 2, "trusty": 3}, nil),
+		state.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(map[string]int{"xenial": 1, "vivid": 2, "trusty": 3}, nil),
 	)
 
 	blocker, err := upgradevalidation.CheckForDeprecatedUbuntuSeriesForModel("", nil, state, nil)

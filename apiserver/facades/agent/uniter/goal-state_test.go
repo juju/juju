@@ -39,8 +39,8 @@ func (s *uniterGoalStateSuite) SetUpTest(c *gc.C) {
 	s.setupState(c)
 
 	s.machine2 = s.Factory.MakeMachine(c, &factory.MachineParams{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 	})
 
 	loggingCharm := s.Factory.MakeCharm(c, &factory.CharmParams{

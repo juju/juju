@@ -51,7 +51,7 @@ Move a list of CIDRs from their space to a new space:
 
 See also:
 	add-space
-	list-spaces
+	spaces
 	reload-spaces
 	rename-space
 	show-space

@@ -8,10 +8,11 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/juju/juju/core/paths"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/core/paths"
 
 	. "github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/environs/imagedownloads"
@@ -91,13 +92,6 @@ type commandWrapperSuite struct {
 
 var _ = gc.Suite(&commandWrapperSuite{})
 
-func (s *commandWrapperSuite) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
-	PatchGetHostSeries(s, func() (string, error) {
-		return "bionic", nil
-	})
-}
-
 func (commandWrapperSuite) TestCreateNoHostname(c *gc.C) {
 	stub := NewRunStub("exit before this", nil)
 	p := CreateMachineParams{}
@@ -106,25 +100,7 @@ func (commandWrapperSuite) TestCreateNoHostname(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "hostname is required")
 }
 
-func (commandWrapperSuite) TestCreateMachineSuccess(c *gc.C) {
-	tmpDir, err := os.MkdirTemp("", "juju-libvirtSuite-")
-	c.Check(err, jc.ErrorIsNil)
-
-	want := []string{
-		tmpDir + ` genisoimage -output \/tmp\/juju-libvirtSuite-\d+\/kvm\/guests\/host00-ds\.iso -volid cidata -joliet -rock user-data meta-data network-config`,
-		` qemu-img create -b \/tmp/juju-libvirtSuite-\d+\/kvm\/guests\/precise-arm64-backing-file.qcow -f qcow2 \/tmp\/juju-libvirtSuite-\d+\/kvm\/guests\/host00.qcow 8G`,
-		` virsh define \/tmp\/juju-libvirtSuite-\d+\/host00.xml`,
-		" virsh start host00",
-	}
-
-	assertCreateMachineSuccess(c, tmpDir, want)
-}
-
 func (s *commandWrapperSuite) TestCreateMachineSuccessOnFocal(c *gc.C) {
-	PatchGetHostSeries(s, func() (string, error) {
-		return "focal", nil
-	})
-
 	tmpDir, err := os.MkdirTemp("", "juju-libvirtSuite-")
 	c.Check(err, jc.ErrorIsNil)
 
@@ -132,7 +108,7 @@ func (s *commandWrapperSuite) TestCreateMachineSuccessOnFocal(c *gc.C) {
 		tmpDir + ` genisoimage -output \/tmp\/juju-libvirtSuite-\d+\/kvm\/guests\/host00-ds\.iso -volid cidata -joliet -rock user-data meta-data network-config`,
 		// On focal, the backing image format must be explicitly specified
 		// hence the '-F raw'
-		` qemu-img create -b \/tmp/juju-libvirtSuite-\d+\/kvm\/guests\/precise-arm64-backing-file.qcow -F raw -f qcow2 \/tmp\/juju-libvirtSuite-\d+\/kvm\/guests\/host00.qcow 8G`,
+		` qemu-img create -b \/tmp/juju-libvirtSuite-\d+\/kvm\/guests\/20_04-arm64-backing-file.qcow -F raw -f qcow2 \/tmp\/juju-libvirtSuite-\d+\/kvm\/guests\/host00.qcow 8G`,
 		` virsh define \/tmp\/juju-libvirtSuite-\d+\/host00.xml`,
 		" virsh start host00",
 	}
@@ -163,7 +139,7 @@ func assertCreateMachineSuccess(c *gc.C, tmpDir string, expCommands []string) {
 	hostname := "host00"
 	params := CreateMachineParams{
 		Hostname:          hostname,
-		Series:            "precise",
+		Version:           "20.04",
 		UserDataFile:      cloudInitPath,
 		NetworkConfigData: "this-is-network-config",
 		CpuCores:          1,

@@ -290,13 +290,11 @@ var commandNames = []string{
 	"add-user",
 	"agree",
 	"agreements",
-	"attach",
 	"attach-resource",
 	"attach-storage",
 	"autoload-credentials",
 	"bind",
 	"bootstrap",
-	"cached-images",
 	"cancel-task",
 	"change-user-password",
 	"charm-resources",
@@ -342,8 +340,6 @@ var commandNames = []string{
 	"grant-cloud",
 	"help",
 	"help-tool",
-	"hook-tool",
-	"hook-tools",
 	"import-filesystem",
 	"import-ssh-key",
 	"info",
@@ -351,7 +347,6 @@ var commandNames = []string{
 	"kill-controller",
 	"list-actions",
 	"list-agreements",
-	"list-cached-images",
 	"list-charm-resources",
 	"list-clouds",
 	"list-controllers",
@@ -392,9 +387,7 @@ var commandNames = []string{
 	"relate", // alias for integrate
 	"reload-spaces",
 	"remove-application",
-	"remove-cached-images",
 	"remove-cloud",
-	"remove-consumed-application",
 	"remove-credential",
 	"remove-k8s",
 	"remove-machine",
@@ -422,7 +415,7 @@ var commandNames = []string{
 	"set-application-base",
 	"set-credential",
 	"set-constraints",
-	"set-default-credential",
+	"set-default-credentials",
 	"set-default-region",
 	"set-firewall-rule",
 	"set-meter-status",
@@ -438,7 +431,6 @@ var commandNames = []string{
 	"show-offer",
 	"show-operation",
 	"show-secret",
-	"show-status",
 	"show-status-log",
 	"show-storage",
 	"show-space",
@@ -455,7 +447,6 @@ var commandNames = []string{
 	"suspend-relation",
 	"switch",
 	"sync-agent-binary",
-	"sync-tools",
 	"trust",
 	"unexpose",
 	"unregister",
@@ -465,9 +456,7 @@ var commandNames = []string{
 	"update-credential",
 	"update-credentials",
 	"update-storage-pool",
-	"upgrade-charm",
 	"upgrade-controller",
-	"upgrade-juju",
 	"upgrade-model",
 	"upgrade-machine",
 	"users",
@@ -592,7 +581,7 @@ func (s *MainSuite) TestRegisterCommandsWhitelist(c *gc.C) {
 		excluded:        set.NewStrings(),
 	}
 	registerCommands(registry)
-	c.Assert(stubRegistry.names, jc.SameContents, []string{"show-status", "status"})
+	c.Assert(stubRegistry.names, jc.SameContents, []string{"status"})
 }
 
 func (s *MainSuite) TestRegisterCommandsEmbedded(c *gc.C) {

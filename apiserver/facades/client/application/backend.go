@@ -97,7 +97,7 @@ type Application interface {
 	UnsetExposeSettings([]string) error
 	SetMetricCredentials([]byte) error
 	SetMinUnits(int) error
-	UpdateApplicationSeries(string, bool) error
+	UpdateApplicationBase(state.Base, bool) error
 	UpdateCharmConfig(string, charm.Settings) error
 	UpdateApplicationConfig(coreconfig.ConfigAttributes, []string, environschema.Fields, schema.Defaults) error
 	SetScale(int, int64, bool) error

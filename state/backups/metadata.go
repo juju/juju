@@ -36,7 +36,7 @@ type Origin struct {
 	Machine  string
 	Hostname string
 	Version  version.Number
-	Series   string
+	Base     string
 }
 
 // UnknownString is a marker value for string fields with unknown values.
@@ -132,7 +132,7 @@ type backend interface {
 }
 
 // NewMetadataState composes a new backup metadata based on the current Juju state.
-func NewMetadataState(db backend, machine, series string) (*Metadata, error) {
+func NewMetadataState(db backend, machine, base string) (*Metadata, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
 		// If os.Hostname() is not working, something is woefully wrong.
@@ -143,7 +143,7 @@ func NewMetadataState(db backend, machine, series string) (*Metadata, error) {
 	meta.Origin.Model = db.ModelTag().Id()
 	meta.Origin.Machine = machine
 	meta.Origin.Hostname = hostname
-	meta.Origin.Series = series
+	meta.Origin.Base = base
 
 	controllerCfg, err := db.ControllerConfig()
 	if err != nil {
@@ -194,7 +194,7 @@ type flatMetadataV0 struct {
 	Machine     string
 	Hostname    string
 	Version     version.Number
-	Series      string
+	Base        string
 
 	CACert       string
 	CAPrivateKey string
@@ -223,7 +223,7 @@ func (flat *flatMetadataV0) inflate() (*Metadata, error) {
 		Machine:  flat.Machine,
 		Hostname: flat.Hostname,
 		Version:  flat.Version,
-		Series:   flat.Series,
+		Base:     flat.Base,
 	}
 	return meta, nil
 }
@@ -252,7 +252,7 @@ type flatMetadata struct {
 	Machine                     string
 	Hostname                    string
 	Version                     version.Number
-	Series                      string
+	Base                        string
 	ControllerUUID              string
 	HANodes                     int64
 	ControllerMachineID         string
@@ -271,7 +271,7 @@ func (m *Metadata) flat() flatMetadata {
 		Machine:                     m.Origin.Machine,
 		Hostname:                    m.Origin.Hostname,
 		Version:                     m.Origin.Version,
-		Series:                      m.Origin.Series,
+		Base:                        m.Origin.Base,
 		FormatVersion:               m.FormatVersion,
 		ControllerUUID:              m.Controller.UUID,
 		ControllerMachineID:         m.Controller.MachineID,
@@ -313,7 +313,7 @@ func (flat *flatMetadata) inflate() (*Metadata, error) {
 		Machine:  flat.Machine,
 		Hostname: flat.Hostname,
 		Version:  flat.Version,
-		Series:   flat.Series,
+		Base:     flat.Base,
 	}
 
 	meta.Controller = ControllerMetadata{

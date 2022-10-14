@@ -30,7 +30,7 @@ import (
 	"github.com/juju/juju/core/network/firewall"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
 	"github.com/juju/juju/core/secrets"
-	coreseries "github.com/juju/juju/core/series"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"
@@ -524,7 +524,7 @@ func (s *ApplicationSuite) assignUnitOnMachineWithSpaceToApplication(c *gc.C, a 
 	c.Assert(err, gc.IsNil)
 
 	m1, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series:      "quantal",
+		Base:        state.UbuntuBase("12.10"),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: constraints.MustParse("spaces=isolated"),
 	})
@@ -629,8 +629,8 @@ func (s *ApplicationSuite) TestSetCharmLegacy(c *gc.C) {
 	chDifferentSeries := state.AddTestingCharmForSeries(c, s.State, "precise", "mysql")
 
 	cfg := state.SetCharmConfig{
-		Charm:       chDifferentSeries,
-		ForceSeries: true,
+		Charm:     chDifferentSeries,
+		ForceBase: true,
 	}
 	err := s.mysql.SetCharm(cfg)
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "mysql" to charm "local:precise/precise-mysql-1": cannot change an application's series`)
@@ -638,7 +638,7 @@ func (s *ApplicationSuite) TestSetCharmLegacy(c *gc.C) {
 
 func (s *ApplicationSuite) TestClientApplicationSetCharmUnsupportedSeries(c *gc.C) {
 	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
-	app := state.AddTestingApplicationForSeries(c, s.State, "precise", "application", ch)
+	app := state.AddTestingApplicationForBase(c, s.State, state.UbuntuBase("12.04"), "application", ch)
 
 	chDifferentSeries := state.AddTestingCharmMultiSeries(c, s.State, "multi-series2")
 	cfg := state.SetCharmConfig{
@@ -650,12 +650,12 @@ func (s *ApplicationSuite) TestClientApplicationSetCharmUnsupportedSeries(c *gc.
 
 func (s *ApplicationSuite) TestClientApplicationSetCharmUnsupportedSeriesForce(c *gc.C) {
 	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
-	app := state.AddTestingApplicationForSeries(c, s.State, "precise", "application", ch)
+	app := state.AddTestingApplicationForBase(c, s.State, state.UbuntuBase("12.04"), "application", ch)
 
 	chDifferentSeries := state.AddTestingCharmMultiSeries(c, s.State, "multi-series2")
 	cfg := state.SetCharmConfig{
-		Charm:       chDifferentSeries,
-		ForceSeries: true,
+		Charm:     chDifferentSeries,
+		ForceBase: true,
 	}
 	err := app.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -668,12 +668,12 @@ func (s *ApplicationSuite) TestClientApplicationSetCharmUnsupportedSeriesForce(c
 
 func (s *ApplicationSuite) TestClientApplicationSetCharmWrongOS(c *gc.C) {
 	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
-	app := state.AddTestingApplicationForSeries(c, s.State, "precise", "application", ch)
+	app := state.AddTestingApplicationForBase(c, s.State, state.UbuntuBase("12.04"), "application", ch)
 
 	chDifferentSeries := state.AddTestingCharmMultiSeries(c, s.State, "multi-series-centos")
 	cfg := state.SetCharmConfig{
-		Charm:       chDifferentSeries,
-		ForceSeries: true,
+		Charm:     chDifferentSeries,
+		ForceBase: true,
 	}
 	err := app.SetCharm(cfg)
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "cs:multi-series-centos-1": OS "Ubuntu" not supported by charm`)
@@ -1710,9 +1710,9 @@ func (s *ApplicationSuite) TestUpdateCharmConfig(c *gc.C) {
 	}
 }
 
-func (s *ApplicationSuite) setupCharmForTestUpdateApplicationSeries(c *gc.C, name string) *state.Application {
+func (s *ApplicationSuite) setupCharmForTestUpdateApplicationBase(c *gc.C, name string) *state.Application {
 	ch := state.AddTestingCharmMultiSeries(c, s.State, name)
-	app := state.AddTestingApplicationForSeries(c, s.State, "focal", name, ch)
+	app := state.AddTestingApplicationForBase(c, s.State, state.UbuntuBase("20.04"), name, ch)
 
 	rev := ch.Revision()
 	origin := &state.CharmOrigin{
@@ -1734,22 +1734,22 @@ func (s *ApplicationSuite) setupCharmForTestUpdateApplicationSeries(c *gc.C, nam
 	return app
 }
 
-func (s *ApplicationSuite) TestUpdateApplicationSeries(c *gc.C) {
-	app := s.setupCharmForTestUpdateApplicationSeries(c, "multi-series")
-	err := app.UpdateApplicationSeries("jammy", false)
+func (s *ApplicationSuite) TestUpdateApplicationBase(c *gc.C) {
+	app := s.setupCharmForTestUpdateApplicationBase(c, "multi-series")
+	err := app.UpdateApplicationBase(state.UbuntuBase("22.04"), false)
 	c.Assert(err, jc.ErrorIsNil)
-	assertApplicationSeriesUpdate(c, app, "jammy")
+	assertApplicationBaseUpdate(c, app, state.UbuntuBase("22.04"))
 }
 
 func (s *ApplicationSuite) TestUpdateApplicationSeriesSamesSeriesToStart(c *gc.C) {
-	app := s.setupCharmForTestUpdateApplicationSeries(c, "multi-series")
-	err := app.UpdateApplicationSeries("focal", false)
+	app := s.setupCharmForTestUpdateApplicationBase(c, "multi-series")
+	err := app.UpdateApplicationBase(state.UbuntuBase("20.04"), false)
 	c.Assert(err, jc.ErrorIsNil)
-	assertApplicationSeriesUpdate(c, app, "focal")
+	assertApplicationBaseUpdate(c, app, state.UbuntuBase("20.04"))
 }
 
 func (s *ApplicationSuite) TestUpdateApplicationSeriesSamesSeriesAfterStart(c *gc.C) {
-	app := s.setupCharmForTestUpdateApplicationSeries(c, "multi-series")
+	app := s.setupCharmForTestUpdateApplicationBase(c, "multi-series")
 
 	defer state.SetTestHooks(c, s.State,
 		jujutxn.TestHook{
@@ -1768,18 +1768,18 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesSamesSeriesAfterStart(c *g
 				state.RunTransaction(c, s.State, ops)
 			},
 			After: func() {
-				assertApplicationSeriesUpdate(c, app, "jammy")
+				assertApplicationBaseUpdate(c, app, state.UbuntuBase("22.04"))
 			},
 		},
 	).Check()
 
-	err := app.UpdateApplicationSeries("jammy", false)
+	err := app.UpdateApplicationBase(state.UbuntuBase("22.04"), false)
 	c.Assert(err, jc.ErrorIsNil)
-	assertApplicationSeriesUpdate(c, app, "jammy")
+	assertApplicationBaseUpdate(c, app, state.UbuntuBase("22.04"))
 }
 
 func (s *ApplicationSuite) TestUpdateApplicationSeriesCharmURLChangedSeriesFail(c *gc.C) {
-	app := s.setupCharmForTestUpdateApplicationSeries(c, "multi-series")
+	app := s.setupCharmForTestUpdateApplicationBase(c, "multi-series")
 
 	defer state.SetTestHooks(c, s.State,
 		jujutxn.TestHook{
@@ -1793,14 +1793,14 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesCharmURLChangedSeriesFail(
 	).Check()
 
 	// Trusty is listed in only version 1 of the charm.
-	err := app.UpdateApplicationSeries("jammy", false)
+	err := app.UpdateApplicationBase(state.UbuntuBase("22.04"), false)
 	c.Assert(err, gc.ErrorMatches,
 		"updating application series: series \"jammy\" not supported by charm \"cs:multi-series-2\", "+
 			"supported series are: focal, bionic")
 }
 
 func (s *ApplicationSuite) TestUpdateApplicationSeriesCharmURLChangedSeriesPass(c *gc.C) {
-	app := s.setupCharmForTestUpdateApplicationSeries(c, "multi-series")
+	app := s.setupCharmForTestUpdateApplicationBase(c, "multi-series")
 
 	defer state.SetTestHooks(c, s.State,
 		jujutxn.TestHook{
@@ -1814,9 +1814,9 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesCharmURLChangedSeriesPass(
 	).Check()
 
 	// bionic is listed in both revisions of the charm.
-	err := app.UpdateApplicationSeries("bionic", false)
+	err := app.UpdateApplicationBase(state.UbuntuBase("18.04"), false)
 	c.Assert(err, jc.ErrorIsNil)
-	assertApplicationSeriesUpdate(c, app, "bionic")
+	assertApplicationBaseUpdate(c, app, state.UbuntuBase("18.04"))
 }
 
 func (s *ApplicationSuite) setupMultiSeriesUnitSubordinate(c *gc.C, app *state.Application, name string) *state.Application {
@@ -1828,7 +1828,7 @@ func (s *ApplicationSuite) setupMultiSeriesUnitSubordinate(c *gc.C, app *state.A
 }
 
 func (s *ApplicationSuite) setupMultiSeriesUnitSubordinateGivenUnit(c *gc.C, app *state.Application, unit *state.Unit, name string) *state.Application {
-	subApp := s.setupCharmForTestUpdateApplicationSeries(c, name)
+	subApp := s.setupCharmForTestUpdateApplicationBase(c, name)
 
 	eps, err := s.State.InferEndpoints(app.Name(), name)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1850,45 +1850,43 @@ func (s *ApplicationSuite) setupMultiSeriesUnitSubordinateGivenUnit(c *gc.C, app
 	return subApp
 }
 
-func assertApplicationSeriesUpdate(c *gc.C, a *state.Application, series string) {
+func assertApplicationBaseUpdate(c *gc.C, a *state.Application, base state.Base) {
 	err := a.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	base, err := coreseries.GetBaseFromSeries(series)
+	stBase, err := series.ParseBase(base.OS, base.Channel)
 	c.Assert(err, jc.ErrorIsNil)
-	appBase, err := a.Base()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(base, jc.DeepEquals, appBase)
+	c.Assert(a.Base().String(), gc.Equals, stBase.String())
 }
 
 func (s *ApplicationSuite) TestUpdateApplicationSeriesWithSubordinate(c *gc.C) {
-	app := s.setupCharmForTestUpdateApplicationSeries(c, "multi-series")
+	app := s.setupCharmForTestUpdateApplicationBase(c, "multi-series")
 	subApp := s.setupMultiSeriesUnitSubordinate(c, app, "multi-series-subordinate")
-	err := app.UpdateApplicationSeries("jammy", false)
+	err := app.UpdateApplicationBase(state.UbuntuBase("22.04"), false)
 	c.Assert(err, jc.ErrorIsNil)
-	assertApplicationSeriesUpdate(c, app, "jammy")
-	assertApplicationSeriesUpdate(c, subApp, "jammy")
+	assertApplicationBaseUpdate(c, app, state.UbuntuBase("22.04"))
+	assertApplicationBaseUpdate(c, subApp, state.UbuntuBase("22.04"))
 }
 
 func (s *ApplicationSuite) TestUpdateApplicationSeriesWithSubordinateFail(c *gc.C) {
-	app := s.setupCharmForTestUpdateApplicationSeries(c, "multi-series")
+	app := s.setupCharmForTestUpdateApplicationBase(c, "multi-series")
 	subApp := s.setupMultiSeriesUnitSubordinate(c, app, "multi-series-subordinate")
-	err := app.UpdateApplicationSeries("xenial", false)
+	err := app.UpdateApplicationBase(state.UbuntuBase("16.04"), false)
 	c.Assert(errors.Is(err, stateerrors.IncompatibleSeriesError), jc.IsTrue)
-	assertApplicationSeriesUpdate(c, app, "focal")
-	assertApplicationSeriesUpdate(c, subApp, "focal")
+	assertApplicationBaseUpdate(c, app, state.UbuntuBase("20.04"))
+	assertApplicationBaseUpdate(c, subApp, state.UbuntuBase("20.04"))
 }
 
 func (s *ApplicationSuite) TestUpdateApplicationSeriesWithSubordinateForce(c *gc.C) {
-	app := s.setupCharmForTestUpdateApplicationSeries(c, "multi-series")
+	app := s.setupCharmForTestUpdateApplicationBase(c, "multi-series")
 	subApp := s.setupMultiSeriesUnitSubordinate(c, app, "multi-series-subordinate")
-	err := app.UpdateApplicationSeries("xenial", true)
+	err := app.UpdateApplicationBase(state.UbuntuBase("16.04"), true)
 	c.Assert(err, jc.ErrorIsNil)
-	assertApplicationSeriesUpdate(c, app, "xenial")
-	assertApplicationSeriesUpdate(c, subApp, "xenial")
+	assertApplicationBaseUpdate(c, app, state.UbuntuBase("16.04"))
+	assertApplicationBaseUpdate(c, subApp, state.UbuntuBase("16.04"))
 }
 
 func (s *ApplicationSuite) TestUpdateApplicationSeriesUnitCountChange(c *gc.C) {
-	app := s.setupCharmForTestUpdateApplicationSeries(c, "multi-series")
+	app := s.setupCharmForTestUpdateApplicationBase(c, "multi-series")
 	units, err := app.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(units), gc.Equals, 0)
@@ -1902,20 +1900,20 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesUnitCountChange(c *gc.C) {
 		},
 	).Check()
 
-	err = app.UpdateApplicationSeries("jammy", false)
+	err = app.UpdateApplicationBase(state.UbuntuBase("22.04"), false)
 	c.Assert(err, jc.ErrorIsNil)
-	assertApplicationSeriesUpdate(c, app, "jammy")
+	assertApplicationBaseUpdate(c, app, state.UbuntuBase("22.04"))
 
 	units, err = app.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(units), gc.Equals, 1)
 	subApp, err := s.State.Application("multi-series-subordinate")
 	c.Assert(err, jc.ErrorIsNil)
-	assertApplicationSeriesUpdate(c, subApp, "jammy")
+	assertApplicationBaseUpdate(c, subApp, state.UbuntuBase("22.04"))
 }
 
 func (s *ApplicationSuite) TestUpdateApplicationSeriesSecondSubordinate(c *gc.C) {
-	app := s.setupCharmForTestUpdateApplicationSeries(c, "multi-series")
+	app := s.setupCharmForTestUpdateApplicationBase(c, "multi-series")
 	subApp := s.setupMultiSeriesUnitSubordinate(c, app, "multi-series-subordinate")
 	unit, err := s.State.Unit("multi-series/0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1930,18 +1928,18 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesSecondSubordinate(c *gc.C)
 		},
 	).Check()
 
-	err = app.UpdateApplicationSeries("jammy", false)
+	err = app.UpdateApplicationBase(state.UbuntuBase("22.04"), false)
 	c.Assert(err, jc.ErrorIsNil)
-	assertApplicationSeriesUpdate(c, app, "jammy")
-	assertApplicationSeriesUpdate(c, subApp, "jammy")
+	assertApplicationBaseUpdate(c, app, state.UbuntuBase("22.04"))
+	assertApplicationBaseUpdate(c, subApp, state.UbuntuBase("22.04"))
 
 	subApp2, err := s.State.Application("multi-series-subordinate2")
 	c.Assert(err, jc.ErrorIsNil)
-	assertApplicationSeriesUpdate(c, subApp2, "jammy")
+	assertApplicationBaseUpdate(c, subApp2, state.UbuntuBase("22.04"))
 }
 
 func (s *ApplicationSuite) TestUpdateApplicationSeriesSecondSubordinateIncompatible(c *gc.C) {
-	app := s.setupCharmForTestUpdateApplicationSeries(c, "multi-series")
+	app := s.setupCharmForTestUpdateApplicationBase(c, "multi-series")
 	subApp := s.setupMultiSeriesUnitSubordinate(c, app, "multi-series-subordinate")
 	unit, err := s.State.Unit("multi-series/0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1956,14 +1954,14 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesSecondSubordinateIncompati
 		},
 	).Check()
 
-	err = app.UpdateApplicationSeries("bionic", false)
+	err = app.UpdateApplicationBase(state.UbuntuBase("18.04"), false)
 	c.Assert(errors.Is(err, stateerrors.IncompatibleSeriesError), jc.IsTrue)
-	assertApplicationSeriesUpdate(c, app, "focal")
-	assertApplicationSeriesUpdate(c, subApp, "focal")
+	assertApplicationBaseUpdate(c, app, state.UbuntuBase("20.04"))
+	assertApplicationBaseUpdate(c, subApp, state.UbuntuBase("20.04"))
 
 	subApp2, err := s.State.Application("multi-series-subordinate2")
 	c.Assert(err, jc.ErrorIsNil)
-	assertApplicationSeriesUpdate(c, subApp2, "focal")
+	assertApplicationBaseUpdate(c, subApp2, state.UbuntuBase("20.04"))
 }
 
 func assertNoSettingsRef(c *gc.C, st *state.State, appName string, sch *state.Charm) {
@@ -2773,7 +2771,7 @@ func (s *ApplicationSuite) TestAddUnit(c *gc.C) {
 	c.Assert(unitOne.SubordinateNames(), gc.HasLen, 0)
 
 	// Assign the principal unit to a machine.
-	m, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	m, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = unitZero.AssignToMachine(m)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3190,7 +3188,7 @@ func (s *ApplicationSuite) TestDestroyQueuesUnitCleanup(c *gc.C) {
 func (s *ApplicationSuite) TestRemoveApplicationMachine(c *gc.C) {
 	unit, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unit.AssignToMachine(machine), gc.IsNil)
 
@@ -5091,7 +5089,7 @@ func (s *CAASApplicationSuite) TestDestroyStaleZeroUnitCount(c *gc.C) {
 
 func (s *CAASApplicationSuite) TestDestroyWithRemovableRelation(c *gc.C) {
 	ch := state.AddTestingCharmForSeries(c, s.caasSt, "kubernetes", "mysql")
-	mysql := state.AddTestingApplicationForSeries(c, s.caasSt, "kubernetes", "mysql", ch)
+	mysql := state.AddTestingApplicationForBase(c, s.caasSt, state.UbuntuBase("20.04"), "mysql", ch)
 	eps, err := s.caasSt.InferEndpoints("gitlab", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.caasSt.AddRelation(eps...)
@@ -5120,14 +5118,14 @@ func (s *CAASApplicationSuite) TestDestroyWithReferencedRelationStaleCount(c *gc
 
 func (s *CAASApplicationSuite) assertDestroyWithReferencedRelation(c *gc.C, refresh bool) {
 	ch := state.AddTestingCharmForSeries(c, s.caasSt, "kubernetes", "mysql")
-	mysql := state.AddTestingApplicationForSeries(c, s.caasSt, "kubernetes", "mysql", ch)
+	mysql := state.AddTestingApplicationForBase(c, s.caasSt, state.UbuntuBase("20.04"), "mysql", ch)
 	eps, err := s.caasSt.InferEndpoints("gitlab", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rel0, err := s.caasSt.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ch = state.AddTestingCharmForSeries(c, s.caasSt, "kubernetes", "proxy")
-	state.AddTestingApplicationForSeries(c, s.caasSt, "kubernetes", "proxy", ch)
+	state.AddTestingApplicationForBase(c, s.caasSt, state.UbuntuBase("20.04"), "proxy", ch)
 	eps, err = s.caasSt.InferEndpoints("proxy", "gitlab")
 	c.Assert(err, jc.ErrorIsNil)
 	rel1, err := s.caasSt.AddRelation(eps...)
@@ -5241,9 +5239,9 @@ func (s *ApplicationSuite) TestSetOperatorStatus(c *gc.C) {
 func (s *ApplicationSuite) TestCharmLegacyOnlySupportsOneSeries(c *gc.C) {
 	ch := state.AddTestingCharmForSeries(c, s.State, "precise", "mysql")
 	app := s.AddTestingApplication(c, "legacy-charm", ch)
-	err := app.VerifySupportedSeries("precise", false)
+	err := app.VerifySupportedBase(state.UbuntuBase("12.04"), false)
 	c.Assert(err, jc.ErrorIsNil)
-	err = app.VerifySupportedSeries("xenial", false)
+	err = app.VerifySupportedBase(state.UbuntuBase("16.04"), false)
 	c.Assert(err, gc.ErrorMatches, "series \"xenial\" not supported by charm \"local:precise/precise-mysql-1\", supported series are: precise")
 }
 

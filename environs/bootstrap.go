@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
@@ -106,8 +107,8 @@ type BootstrapResult struct {
 	// Arch is the instance's architecture.
 	Arch string
 
-	// Series is the instance's series.
-	Series string
+	// Base is the instance's base.
+	Base series.Base
 
 	// CloudBootstrapFinalizer is a function that must be called finalize the
 	// bootstrap process by transferring the tools and installing the

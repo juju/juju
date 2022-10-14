@@ -45,7 +45,7 @@ type API struct {
 	factory func(*charm.URL) (NewCharmRepository, error)
 }
 
-// NewFacadeV2 creates a public API facade for resources. It is
+// NewFacade creates a public API facade for resources. It is
 // used for API registration.
 func NewFacade(ctx facade.Context) (*API, error) {
 	authorizer := ctx.Auth()

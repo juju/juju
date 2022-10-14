@@ -14,7 +14,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/v2/series"
+	utilseries "github.com/juju/os/v2/series"
 	"github.com/juju/utils/v3"
 
 	"github.com/juju/juju/agent"
@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/raft/queue"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/database"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -451,7 +452,7 @@ func initBootstrapMachine(st *state.State, args InitializeStateParams) (bootstra
 		hardware = *args.BootstrapMachineHardwareCharacteristics
 	}
 
-	hostSeries, err := series.HostSeries()
+	hostSeries, err := utilseries.HostSeries()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -461,9 +462,13 @@ func initBootstrapMachine(st *state.State, args InitializeStateParams) (bootstra
 		return nil, errors.Trace(err)
 	}
 
+	base, err := series.GetBaseFromSeries(hostSeries)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	m, err := st.AddOneMachine(state.MachineTemplate{
 		Addresses:               spaceAddrs,
-		Series:                  hostSeries,
+		Base:                    state.Base{OS: base.OS, Channel: base.Channel.String()},
 		Nonce:                   agent.BootstrapNonce,
 		Constraints:             args.BootstrapMachineConstraints,
 		InstanceId:              args.BootstrapMachineInstanceId,

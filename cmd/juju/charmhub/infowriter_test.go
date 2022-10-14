@@ -323,8 +323,11 @@ func getCharmInfoResponse() InfoResponse {
 		Summary:     "WordPress is a full featured web blogging tool, this charm deploys it.",
 		Publisher:   "WordPress Charmers",
 		Description: "This will install and setup WordPress optimized to run in the cloud.\nBy default it will place Ngnix and php-fpm configured to scale horizontally with\nNginx's reverse proxy.",
-		Series:      []string{"bionic", "xenial"},
-		Tags:        []string{"app", "seven"},
+		Supports: []Base{
+			{Name: "ubuntu", Channel: "18.04"},
+			{Name: "ubuntu", Channel: "16.04"},
+		},
+		Tags: []string{"app", "seven"},
 		Charm: &Charm{
 			Config: &charm.Config{
 				Options: map[string]charm.Option{
@@ -361,7 +364,10 @@ func getCharmInfoResponse() InfoResponse {
 					Size:       12042240,
 					Version:    "1.0.3",
 					Arches:     []string{"amd64"},
-					Bases:      []string{"ubuntu:22.04", "ubuntu:20.04"},
+					Bases: []Base{
+						{Name: "ubuntu", Channel: "22.04"},
+						{Name: "ubuntu", Channel: "20.04"},
+					},
 				}, {
 					ReleasedAt: "2018-12-16T19:44:44.076943+00:00",
 					Track:      "latest",
@@ -370,7 +376,9 @@ func getCharmInfoResponse() InfoResponse {
 					Size:       12042240,
 					Version:    "1.0.3",
 					Arches:     []string{"arm64"},
-					Bases:      []string{"ubuntu:22.04"},
+					Bases: []Base{
+						{Name: "ubuntu", Channel: "22.04"},
+					},
 				}},
 				"beta": {{
 					ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
@@ -380,7 +388,9 @@ func getCharmInfoResponse() InfoResponse {
 					Size:       12042240,
 					Version:    "1.0.3",
 					Arches:     []string{"amd64"},
-					Bases:      []string{"ubuntu:22.04"},
+					Bases: []Base{
+						{Name: "ubuntu", Channel: "22.04"},
+					},
 				}},
 				"candidate": {{
 					ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
@@ -390,7 +400,9 @@ func getCharmInfoResponse() InfoResponse {
 					Size:       12042240,
 					Version:    "1.0.3",
 					Arches:     []string{"amd64"},
-					Bases:      []string{"ubuntu:22.04"},
+					Bases: []Base{
+						{Name: "ubuntu", Channel: "22.04"},
+					},
 				}},
 				"edge": {{
 					ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
@@ -400,7 +412,9 @@ func getCharmInfoResponse() InfoResponse {
 					Size:       12042240,
 					Version:    "1.0.3",
 					Arches:     []string{"amd64"},
-					Bases:      []string{"coolos:3.14"},
+					Bases: []Base{
+						{Name: "coolos", Channel: "3.14"},
+					},
 				}},
 			}},
 		Tracks: []string{"latest"},

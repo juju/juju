@@ -29,13 +29,14 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/state"
 	statestorage "github.com/juju/juju/state/storage"
+	jujuversion "github.com/juju/juju/version"
 )
 
 const controllerCharmURL = "ch:juju-controller"
 
-func (c *BootstrapCommand) deployControllerCharm(st *state.State, cons constraints.Value, charmPath, charmRisk string, isCAAS bool, unitPassword string) (resultErr error) {
+func (c *BootstrapCommand) deployControllerCharm(st *state.State, cons constraints.Value, charmPath string, channel charm.Channel, isCAAS bool, unitPassword string) (resultErr error) {
 	arch := corearch.DefaultArchitecture
-	series := coreseries.LatestLTS()
+	base := jujuversion.DefaultSupportedLTSBase()
 	if cons.HasArch() {
 		arch = *cons.Arch
 	}
@@ -69,7 +70,10 @@ func (c *BootstrapCommand) deployControllerCharm(st *state.State, cons constrain
 				resultErr = controllerUnit.AssignToMachine(m)
 			}
 		}()
-		series = m.Series()
+		base, err = coreseries.ParseBase(m.Base().OS, m.Base().Channel)
+		if err != nil {
+			return errors.Trace(err)
+		}
 		pa, err := m.PublicAddress()
 		if err != nil && !network.IsNoAddressError(err) {
 			return errors.Trace(err)
@@ -79,10 +83,6 @@ func (c *BootstrapCommand) deployControllerCharm(st *state.State, cons constrain
 		}
 	}
 
-	base, err := coreseries.GetBaseFromSeries(series)
-	if err != nil {
-		return errors.Trace(err)
-	}
 	// First try using a local charm specified at bootstrap time.
 	source := "local"
 	curl, origin, err := populateLocalControllerCharm(st, c.DataDir(), arch, base)
@@ -92,7 +92,7 @@ func (c *BootstrapCommand) deployControllerCharm(st *state.State, cons constrain
 	// If no local charm, use the one from charmhub.
 	if err != nil {
 		source = "store"
-		if curl, origin, err = populateStoreControllerCharm(st, charmPath, charmRisk, arch, base); err != nil {
+		if curl, origin, err = populateStoreControllerCharm(st, charmPath, channel, arch, base); err != nil {
 			return errors.Annotate(err, "deploying charmhub controller charm")
 		}
 	}
@@ -136,7 +136,7 @@ var (
 )
 
 // populateStoreControllerCharm downloads and stores the controller charm from charmhub.
-func populateStoreControllerCharm(st *state.State, charmPath, charmRisk, arch string, base coreseries.Base) (*charm.URL, *corecharm.Origin, error) {
+func populateStoreControllerCharm(st *state.State, charmPath string, channel charm.Channel, arch string, base coreseries.Base) (*charm.URL, *corecharm.Origin, error) {
 	model, err := st.Model()
 	if err != nil {
 		return nil, nil, err
@@ -161,7 +161,6 @@ func populateStoreControllerCharm(st *state.State, charmPath, charmRisk, arch st
 	} else {
 		curl = charm.MustParseURL(charmPath)
 	}
-	channel, err := charm.ParseChannelNormalize(charmRisk)
 	if err != nil {
 		return nil, nil, err
 	}

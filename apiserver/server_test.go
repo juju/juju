@@ -160,7 +160,7 @@ func (s *serverSuite) TestOpenAsMachineErrors(c *gc.C) {
 	st.Close()
 
 	// Now add another machine, intentionally unprovisioned.
-	stm1, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	stm1, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = stm1.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)

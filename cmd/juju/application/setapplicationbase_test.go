@@ -35,7 +35,7 @@ func (s *setSeriesSuite) runUpdateSeries(c *gc.C, args ...string) (*cmd.Context,
 func (s *setSeriesSuite) TestSetSeriesApplicationGoodPath(c *gc.C) {
 	_, err := s.runUpdateSeries(c, "ghost", "xenial")
 	c.Assert(err, jc.ErrorIsNil)
-	s.mockApplicationAPI.CheckCall(c, 0, "UpdateApplicationSeries", "ghost", "xenial", false)
+	s.mockApplicationAPI.CheckCall(c, 0, "UpdateApplicationBase", "ghost", "xenial", false)
 }
 
 func (s *setSeriesSuite) TestNoArguments(c *gc.C) {
@@ -67,7 +67,7 @@ func (a *mockSetApplicationSeriesAPI) Close() error {
 	return a.NextErr()
 }
 
-func (a *mockSetApplicationSeriesAPI) UpdateApplicationSeries(appName, series string, force bool) error {
-	a.MethodCall(a, "UpdateApplicationSeries", appName, series, force)
+func (a *mockSetApplicationSeriesAPI) UpdateApplicationBase(appName, series string, force bool) error {
+	a.MethodCall(a, "UpdateApplicationBase", appName, series, force)
 	return a.NextErr()
 }

@@ -90,7 +90,7 @@ func (s *printFindSuite) TestCharmPrintFindWithMissingData(c *gc.C) {
 	fr := getCharmFindResponse()
 	fr[0].Version = ""
 	fr[0].Arches = make([]string, 0)
-	fr[0].Series = make([]string, 0)
+	fr[0].Supports = []Base{}
 	fr[0].Summary = ""
 
 	ctx := commandContextForTest(c)
@@ -139,8 +139,10 @@ func getCharmFindResponse() []FindResponse {
 		Summary:   "WordPress is a full featured web blogging tool, this charm deploys it.",
 		Version:   "1.0.3",
 		Arches:    []string{"all"},
-		Series:    []string{"bionic"},
-		StoreURL:  "https://someurl.com/wordpress",
+		Supports: []Base{
+			{Name: "ubuntu", Channel: "18.04"},
+		},
+		StoreURL: "https://someurl.com/wordpress",
 	}, {
 		Name:      "osm",
 		Type:      "bundle",
@@ -149,8 +151,12 @@ func getCharmFindResponse() []FindResponse {
 		Summary:   "Single instance OSM bundle.",
 		Version:   "3.2.3",
 		Arches:    []string{"all"},
-		Series:    []string{"bionic", "focal", "jammy"},
-		StoreURL:  "https://someurl.com/osm",
+		Supports: []Base{
+			{Name: "ubuntu", Channel: "18.04"},
+			{Name: "ubuntu", Channel: "20.04"},
+			{Name: "ubuntu", Channel: "22.04"},
+		},
+		StoreURL: "https://someurl.com/osm",
 	}}
 }
 

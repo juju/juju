@@ -16,7 +16,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
@@ -57,7 +56,7 @@ func runImageMetadata(c *gc.C, store jujuclient.ClientStore, args ...string) (*c
 }
 
 type expectedMetadata struct {
-	series   string
+	version  string
 	arch     string
 	region   string
 	endpoint string
@@ -82,9 +81,7 @@ func (s *ImageMetadataSuite) assertCommandOutput(c *gc.C, expected expectedMetad
 	err = json.Unmarshal(data, &indices)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(indices.(map[string]interface{})["format"], gc.Equals, "index:1.0")
-	version, err := series.SeriesVersion(expected.series)
-	c.Assert(err, jc.ErrorIsNil)
-	prodId := fmt.Sprintf("com.ubuntu.cloud:server:%s:%s", version, expected.arch)
+	prodId := fmt.Sprintf("com.ubuntu.cloud:server:%s:%s", expected.version, expected.arch)
 	c.Assert(content, jc.Contains, prodId)
 	c.Assert(content, jc.Contains, fmt.Sprintf(`"region": %q`, expected.region))
 	c.Assert(content, jc.Contains, fmt.Sprintf(`"endpoint": %q`, expected.endpoint))
@@ -121,7 +118,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesNoEnv(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	expected := expectedMetadata{
-		series:   "raring",
+		version:  "13.04",
 		arch:     "arch",
 		virtType: "pv",
 		storage:  "root",
@@ -136,8 +133,8 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesDefaultArch(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	expected := expectedMetadata{
-		series: "raring",
-		arch:   "amd64",
+		version: "13.04",
+		arch:    "amd64",
 	}
 	s.assertCommandOutput(c, expected, out, defaultIndexFileName, defaultImageFileName)
 }
@@ -165,8 +162,8 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesLatestLTS(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	expected := expectedMetadata{
-		series: version.DefaultSupportedLTS(),
-		arch:   "arch",
+		version: version.DefaultSupportedLTSBase().Channel.Track,
+		arch:    "arch",
 	}
 	s.assertCommandOutput(c, expected, out, defaultIndexFileName, defaultImageFileName)
 }
@@ -178,7 +175,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnv(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	expected := expectedMetadata{
-		series:   "jammy",
+		version:  "22.04",
 		arch:     "amd64",
 		region:   "us-east-1",
 		endpoint: "https://ec2.us-east-1.amazonaws.com",
@@ -195,7 +192,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnvWithRegionOverride(c 
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	expected := expectedMetadata{
-		series:   "jammy",
+		version:  "22.04",
 		arch:     "amd64",
 		region:   "us-west-1",
 		endpoint: "https://ec2.us-west-1.amazonaws.com",

@@ -210,7 +210,7 @@ func ServerError(err error) *params.Error {
 	case errors.Is(err, errors.NotValid):
 		code = params.CodeNotValid
 	case errors.Is(err, IncompatibleSeriesError), errors.Is(err, stateerrors.IncompatibleSeriesError):
-		code = params.CodeIncompatibleSeries
+		code = params.CodeIncompatibleBase
 	case errors.As(err, &dischargeRequiredError):
 		code = params.CodeDischargeRequired
 		info = params.DischargeRequiredErrorInfo{

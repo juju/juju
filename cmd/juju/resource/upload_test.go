@@ -109,7 +109,6 @@ For OCI image resources used by k8s applications, an OCI image or file path is s
 A file is specified when a private OCI image is needed and the username/password used to
 access the image is needed along with the image path.
 `,
-		Aliases:        []string{"attach"},
 		FlagKnownAs:    "option",
 		ShowSuperFlags: []string{"show-log", "debug", "logging-config", "verbose", "quiet", "h", "help"},
 	})

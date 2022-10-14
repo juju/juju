@@ -37,7 +37,7 @@ func (s *constraintsValidationSuite) SetUpTest(c *gc.C) {
 
 func (s *constraintsValidationSuite) addOneMachine(c *gc.C, cons constraints.Value) (*state.Machine, error) {
 	return s.State.AddOneMachine(state.MachineTemplate{
-		Series:      "quantal",
+		Base:        state.UbuntuBase("12.10"),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: cons,
 	})

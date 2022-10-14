@@ -117,12 +117,12 @@ func (s *uniterSuiteBase) SetUpTest(c *gc.C) {
 // setupState creates 2 machines, 2 services and adds a unit to each service.
 func (s *uniterSuiteBase) setupState(c *gc.C) {
 	s.machine0 = s.Factory.MakeMachine(c, &factory.MachineParams{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits, state.JobManageModel},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits, state.JobManageModel},
 	})
 	s.machine1 = s.Factory.MakeMachine(c, &factory.MachineParams{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 	})
 
 	s.wpCharm = s.Factory.MakeCharm(c, &factory.CharmParams{
@@ -3926,7 +3926,7 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *uniterNetworkInfoSuite) addProvisionedMachineWithDevicesAndAddresses(c *gc.C, addrSuffix int) *state.Machine {
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetInstanceInfo("i-am", "", "fake_nonce", nil, nil, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)

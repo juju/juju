@@ -46,11 +46,6 @@ func (w *watcherCommon) Stop() error {
 	return w.resources.Stop(w.id)
 }
 
-// SrvAllWatcherV1 defines the API methods on a state.Multiwatcher.
-type SrvAllWatcherV1 struct {
-	*SrvAllWatcher
-}
-
 // SrvAllWatcher defines the API methods on a state.Multiwatcher.
 // which watches any changes to the state. Each client has its own
 // current set of watchers, stored in resources. It is used by both
@@ -60,55 +55,6 @@ type SrvAllWatcher struct {
 	watcher multiwatcher.Watcher
 
 	deltaTranslater DeltaTranslater
-}
-
-// NewAllWatcherV1 is a wrapper that creates a V1 AllWatcher API.
-func NewAllWatcherV1(context facade.Context) (facade.Facade, error) {
-	api, err := newAllWatcher(context, newAllWatcherDeltaTranslaterV1())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &SrvAllWatcherV1{api}, nil
-}
-
-// Next will return the current state of everything on the first call
-// and subsequent calls will
-func (aw *SrvAllWatcherV1) Next() (params.AllWatcherNextResults, error) {
-	deltas, err := aw.watcher.Next()
-	return params.AllWatcherNextResults{
-		Deltas: translate(aw.deltaTranslater, deltas),
-	}, err
-}
-
-type allWatcherDeltaTranslaterV1 struct {
-	DeltaTranslater
-}
-
-func newAllWatcherDeltaTranslaterV1() DeltaTranslater {
-	return &allWatcherDeltaTranslaterV1{
-		newAllWatcherDeltaTranslater(),
-	}
-}
-
-func (aw allWatcherDeltaTranslaterV1) TranslateAction(info multiwatcher.EntityInfo) params.EntityInfo {
-	orig, ok := info.(*multiwatcher.ActionInfo)
-	if !ok {
-		logger.Criticalf("consistency error: %s", pretty.Sprint(info))
-		return nil
-	}
-	return &params.ActionInfo{
-		ModelUUID:  orig.ModelUUID,
-		Id:         orig.ID,
-		Receiver:   orig.Receiver,
-		Name:       orig.Name,
-		Parameters: orig.Parameters,
-		Status:     orig.Status,
-		Message:    orig.Message,
-		Results:    orig.Results,
-		Enqueued:   orig.Enqueued,
-		Started:    orig.Started,
-		Completed:  orig.Completed,
-	}
 }
 
 func newAllWatcher(context facade.Context, deltaTranslater DeltaTranslater) (*SrvAllWatcher, error) {

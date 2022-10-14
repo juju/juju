@@ -36,7 +36,7 @@ func (s *environPolicySuite) SetUpTest(c *gc.C) {
 
 func (s *environPolicySuite) TestPrecheckInstanceDefaults(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	err := s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: version.DefaultSupportedLTS()})
+	err := s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Base: version.DefaultSupportedLTSBase()})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -45,7 +45,7 @@ func (s *environPolicySuite) TestPrecheckInstanceHasInstanceType(c *gc.C) {
 
 	cons := constraints.MustParse("instance-type=some-instance-type")
 	err := s.env.PrecheckInstance(
-		s.callCtx, environs.PrecheckInstanceParams{Series: version.DefaultSupportedLTS(), Constraints: cons})
+		s.callCtx, environs.PrecheckInstanceParams{Base: version.DefaultSupportedLTSBase(), Constraints: cons})
 
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -55,7 +55,7 @@ func (s *environPolicySuite) TestPrecheckInstanceDiskSize(c *gc.C) {
 
 	cons := constraints.MustParse("root-disk=1G")
 	err := s.env.PrecheckInstance(
-		s.callCtx, environs.PrecheckInstanceParams{Series: version.DefaultSupportedLTS(), Constraints: cons})
+		s.callCtx, environs.PrecheckInstanceParams{Base: version.DefaultSupportedLTSBase(), Constraints: cons})
 
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -65,7 +65,7 @@ func (s *environPolicySuite) TestPrecheckInstanceUnsupportedArch(c *gc.C) {
 
 	cons := constraints.MustParse("arch=i386")
 	err := s.env.PrecheckInstance(
-		s.callCtx, environs.PrecheckInstanceParams{Series: version.DefaultSupportedLTS(), Constraints: cons})
+		s.callCtx, environs.PrecheckInstanceParams{Base: version.DefaultSupportedLTSBase(), Constraints: cons})
 
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -92,7 +92,7 @@ func (s *environPolicySuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 
 	placement := "zone=a-zone"
 	err := s.env.PrecheckInstance(
-		s.callCtx, environs.PrecheckInstanceParams{Series: version.DefaultSupportedLTS(), Placement: placement})
+		s.callCtx, environs.PrecheckInstanceParams{Base: version.DefaultSupportedLTSBase(), Placement: placement})
 
 	c.Check(err, gc.ErrorMatches, `availability zone "a-zone" not valid`)
 }

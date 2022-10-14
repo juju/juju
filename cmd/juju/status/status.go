@@ -165,7 +165,6 @@ func (c *statusCommand) Info() *cmd.Info {
 		Args:    "[<selector> [...]]",
 		Purpose: usageSummary,
 		Doc:     usageDetails,
-		Aliases: []string{"show-status"},
 	})
 }
 

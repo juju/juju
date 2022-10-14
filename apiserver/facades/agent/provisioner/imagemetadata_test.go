@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/provisioner"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/imagemetadata"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
@@ -84,7 +83,7 @@ func (s *ImageMetadataSuite) TestMetadataFromState(c *gc.C) {
 	expected := s.expectedDataSoureImageMetadata()
 
 	// Write metadata to state.
-	metadata := s.convertCloudImageMetadata(c, expected[0])
+	metadata := s.convertCloudImageMetadata(expected[0])
 	for _, m := range metadata {
 		err := s.State.CloudImageMetadataStorage.SaveMetadata(
 			[]cloudimagemetadata.Metadata{m},
@@ -108,15 +107,12 @@ func (s *ImageMetadataSuite) getTestMachinesTags(c *gc.C) params.Entities {
 	return params.Entities{Entities: testMachines}
 }
 
-func (s *ImageMetadataSuite) convertCloudImageMetadata(c *gc.C, all []params.CloudImageMetadata) []cloudimagemetadata.Metadata {
+func (s *ImageMetadataSuite) convertCloudImageMetadata(all []params.CloudImageMetadata) []cloudimagemetadata.Metadata {
 	expected := make([]cloudimagemetadata.Metadata, len(all))
 	for i, one := range all {
-		mSeries, err := series.GetSeriesFromChannel("ubuntu", one.Version)
-		c.Assert(err, jc.ErrorIsNil)
 		expected[i] = cloudimagemetadata.Metadata{
 			cloudimagemetadata.MetadataAttributes{
 				Region:          one.Region,
-				Series:          mSeries,
 				Version:         one.Version,
 				Arch:            one.Arch,
 				VirtType:        one.VirtType,

@@ -196,7 +196,7 @@ var (
 			"current": "idle",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"base": "ubuntu:12.10",
+		"base": M{"name": "ubuntu", "channel": "12.10"},
 		"network-interfaces": M{
 			"eth0": M{
 				"ip-addresses": []string{"10.0.0.1"},
@@ -224,7 +224,7 @@ var (
 			"current": "idle",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"base": "ubuntu:12.10",
+		"base": M{"name": "ubuntu", "channel": "12.10"},
 		"network-interfaces": M{
 			"eth0": M{
 				"ip-addresses": []string{"10.0.1.1"},
@@ -251,7 +251,7 @@ var (
 			"current": "idle",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"base": "ubuntu:12.10",
+		"base": M{"name": "ubuntu", "channel": "12.10"},
 		"network-interfaces": M{
 			"eth0": M{
 				"ip-addresses": []string{"10.0.1.1"},
@@ -307,7 +307,7 @@ var (
 			"current": "idle",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"base": "ubuntu:12.10",
+		"base": M{"name": "ubuntu", "channel": "12.10"},
 		"network-interfaces": M{
 			"eth0": M{
 				"ip-addresses": []string{"10.0.2.1"},
@@ -335,7 +335,7 @@ var (
 			"current": "idle",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"base": "ubuntu:12.10",
+		"base": M{"name": "ubuntu", "channel": "12.10"},
 		"network-interfaces": M{
 			"eth0": M{
 				"ip-addresses": []string{"10.0.3.1"},
@@ -362,7 +362,7 @@ var (
 			"current": "idle",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"base": "ubuntu:12.10",
+		"base": M{"name": "ubuntu", "channel": "12.10"},
 		"network-interfaces": M{
 			"eth0": M{
 				"ip-addresses": []string{"10.0.4.1"},
@@ -400,7 +400,7 @@ var (
 							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"base": "ubuntu:12.10",
+						"base": M{"name": "ubuntu", "channel": "12.10"},
 						"network-interfaces": M{
 							"eth0": M{
 								"ip-addresses": []string{"10.0.3.1"},
@@ -421,7 +421,7 @@ var (
 					"current": "idle",
 					"since":   "01 Apr 15 01:23+10:00",
 				},
-				"base": "ubuntu:12.10",
+				"base": M{"name": "ubuntu", "channel": "12.10"},
 				"network-interfaces": M{
 					"eth0": M{
 						"ip-addresses": []string{"10.0.2.1"},
@@ -444,7 +444,7 @@ var (
 					"current": "idle",
 					"since":   "01 Apr 15 01:23+10:00",
 				},
-				"base": "ubuntu:12.10",
+				"base": M{"name": "ubuntu", "channel": "12.10"},
 			},
 		},
 		"hostname":     "eldritch-octopii",
@@ -459,7 +459,7 @@ var (
 			"current": "idle",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"base": "ubuntu:12.10",
+		"base": M{"name": "ubuntu", "channel": "12.10"},
 		"network-interfaces": M{
 			"eth0": M{
 				"ip-addresses": []string{"10.0.1.1"},
@@ -487,7 +487,7 @@ var (
 		"charm-origin": "charmstore",
 		"charm-name":   "logging",
 		"charm-rev":    1,
-		"base":         "ubuntu:12.10",
+		"base":         M{"name": "ubuntu", "channel": "12.10"},
 		"exposed":      true,
 		"application-status": M{
 			"current": "error",
@@ -548,7 +548,7 @@ var statusTests = []testCase{
 							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"base":                     "ubuntu:12.10",
+						"base":                     M{"name": "ubuntu", "channel": "12.10"},
 						"controller-member-status": "adding-vote",
 					},
 				},
@@ -586,7 +586,7 @@ var statusTests = []testCase{
 							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"base": "ubuntu:12.10",
+						"base": M{"name": "ubuntu", "channel": "12.10"},
 						"network-interfaces": M{
 							"eth0": M{
 								"ip-addresses": []string{"10.0.0.1"},
@@ -633,7 +633,7 @@ var statusTests = []testCase{
 							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"base": "ubuntu:12.10",
+						"base": M{"name": "ubuntu", "channel": "12.10"},
 						"network-interfaces": M{
 							"eth0": M{
 								"ip-addresses": []string{"10.0.0.1"},
@@ -681,7 +681,7 @@ var statusTests = []testCase{
 							"since":   "01 Apr 15 01:23+10:00",
 							"version": "1.2.3",
 						},
-						"base": "ubuntu:12.10",
+						"base": M{"name": "ubuntu", "channel": "12.10"},
 						"network-interfaces": M{
 							"eth0": M{
 								"ip-addresses": []string{"10.0.0.1"},
@@ -736,7 +736,7 @@ var statusTests = []testCase{
 							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"base": "ubuntu:12.10",
+						"base": M{"name": "ubuntu", "channel": "12.10"},
 						"network-interfaces": M{
 							"eth0": M{
 								"ip-addresses": []string{"10.0.0.1"},
@@ -786,7 +786,7 @@ var statusTests = []testCase{
 							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"base":                     "ubuntu:12.10",
+						"base":                     M{"name": "ubuntu", "channel": "12.10"},
 						"constraints":              "cores=2 mem=8192M root-disk=8192M",
 						"hardware":                 "arch=amd64 cores=2 mem=8192M root-disk=8192M",
 						"controller-member-status": "adding-vote",
@@ -822,7 +822,7 @@ var statusTests = []testCase{
 							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"base":                     "ubuntu:12.10",
+						"base":                     M{"name": "ubuntu", "channel": "12.10"},
 						"controller-member-status": "adding-vote",
 					},
 				},
@@ -854,7 +854,7 @@ var statusTests = []testCase{
 							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"base":                     "ubuntu:12.10",
+						"base":                     M{"name": "ubuntu", "channel": "12.10"},
 						"hardware":                 "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 						"controller-member-status": "adding-vote",
 					},
@@ -1067,7 +1067,7 @@ var statusTests = []testCase{
 							"message": "Really?",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"base": "ubuntu:12.10",
+						"base": M{"name": "ubuntu", "channel": "12.10"},
 						"network-interfaces": M{
 							"eth0": M{
 								"ip-addresses": []string{"10.0.3.1"},
@@ -1095,7 +1095,7 @@ var statusTests = []testCase{
 							"message": "Beware the red toys",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"base": "ubuntu:12.10",
+						"base": M{"name": "ubuntu", "channel": "12.10"},
 						"network-interfaces": M{
 							"eth0": M{
 								"ip-addresses": []string{"10.0.4.1"},
@@ -1120,7 +1120,7 @@ var statusTests = []testCase{
 							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"base": "ubuntu:12.10",
+						"base": M{"name": "ubuntu", "channel": "12.10"},
 					},
 				},
 				"applications": M{
@@ -1647,7 +1647,7 @@ var statusTests = []testCase{
 							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"base": "ubuntu:12.10",
+						"base": M{"name": "ubuntu", "channel": "12.10"},
 					},
 				},
 				"applications": M{
@@ -1710,7 +1710,7 @@ var statusTests = []testCase{
 							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"base":     "ubuntu:12.10",
+						"base":     M{"name": "ubuntu", "channel": "12.10"},
 						"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 					},
 				},
@@ -1883,7 +1883,7 @@ var statusTests = []testCase{
 						"charm-origin": "charmstore",
 						"charm-name":   "varnish",
 						"charm-rev":    1,
-						"base":         "ubuntu:12.10",
+						"base":         M{"name": "ubuntu", "channel": "12.10"},
 						"exposed":      true,
 						"application-status": M{
 							"current": "waiting",
@@ -2012,7 +2012,7 @@ var statusTests = []testCase{
 						"charm-origin": "charmstore",
 						"charm-name":   "riak",
 						"charm-rev":    7,
-						"base":         "ubuntu:12.10",
+						"base":         M{"name": "ubuntu", "channel": "12.10"},
 						"exposed":      true,
 						"application-status": M{
 							"current": "active",
@@ -2586,7 +2586,7 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"base": "ubuntu:12.10",
+								"base": M{"name": "ubuntu", "channel": "12.10"},
 								"network-interfaces": M{
 									"eth0": M{
 										"ip-addresses": []string{"10.0.2.1"},
@@ -2608,7 +2608,7 @@ var statusTests = []testCase{
 							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"base": "ubuntu:12.10",
+						"base": M{"name": "ubuntu", "channel": "12.10"},
 						"network-interfaces": M{
 							"eth0": M{
 								"ip-addresses": []string{"10.0.1.1"},
@@ -3319,7 +3319,7 @@ var statusTests = []testCase{
 							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"base": "ubuntu:12.10",
+						"base": M{"name": "ubuntu", "channel": "12.10"},
 						"network-interfaces": M{
 							"eth0": M{
 								"ip-addresses": []string{"2001:db8::1"},
@@ -3549,7 +3549,7 @@ var statusTests = []testCase{
 							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"base": "ubuntu:12.10",
+						"base": M{"name": "ubuntu", "channel": "12.10"},
 						"network-interfaces": M{
 							"eth0": M{
 								"ip-addresses": []string{"10.0.1.1"},
@@ -3560,7 +3560,7 @@ var statusTests = []testCase{
 						"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 					},
 					"0": M{
-						"base": "ubuntu:12.10",
+						"base": M{"name": "ubuntu", "channel": "12.10"},
 						"network-interfaces": M{
 							"eth0": M{
 								"ip-addresses": []string{"10.0.0.1"},
@@ -3589,7 +3589,7 @@ var statusTests = []testCase{
 				},
 				"applications": M{
 					"wordpress": M{
-						"base":       "ubuntu:12.10",
+						"base":       M{"name": "ubuntu", "channel": "12.10"},
 						"charm-name": "wordpress",
 						"exposed":    bool(false),
 						"units": M{
@@ -3740,7 +3740,7 @@ func mysqlCharm(extras M) M {
 		"charm-origin": "charmstore",
 		"charm-name":   "mysql",
 		"charm-rev":    1,
-		"base":         "ubuntu:12.10",
+		"base":         M{"name": "ubuntu", "channel": "12.10"},
 		"exposed":      false,
 	}
 	return composeCharms(charm, extras)
@@ -3753,7 +3753,7 @@ func lxdProfileCharm(extras M) M {
 		"charm-name":    "lxd-profile",
 		"charm-rev":     1,
 		"charm-profile": "juju-controller-lxd-profile-1",
-		"base":          "ubuntu:12.10",
+		"base":          M{"name": "ubuntu", "channel": "12.10"},
 		"exposed":       false,
 	}
 	return composeCharms(charm, extras)
@@ -3765,7 +3765,7 @@ func meteredCharm(extras M) M {
 		"charm-origin": "charmstore",
 		"charm-name":   "metered",
 		"charm-rev":    1,
-		"base":         "ubuntu:12.10",
+		"base":         M{"name": "ubuntu", "channel": "12.10"},
 		"exposed":      false,
 	}
 	return composeCharms(charm, extras)
@@ -3777,7 +3777,7 @@ func dummyCharm(extras M) M {
 		"charm-origin": "charmstore",
 		"charm-name":   "dummy",
 		"charm-rev":    1,
-		"base":         "ubuntu:12.10",
+		"base":         M{"name": "ubuntu", "channel": "12.10"},
 		"exposed":      false,
 	}
 	return composeCharms(charm, extras)
@@ -3789,7 +3789,7 @@ func wordpressCharm(extras M) M {
 		"charm-origin": "charmstore",
 		"charm-name":   "wordpress",
 		"charm-rev":    3,
-		"base":         "ubuntu:12.10",
+		"base":         M{"name": "ubuntu", "channel": "12.10"},
 		"exposed":      false,
 	}
 	return composeCharms(charm, extras)
@@ -3852,7 +3852,7 @@ type addMachine struct {
 
 func (am addMachine) step(c *gc.C, ctx *context) {
 	m, err := ctx.st.AddOneMachine(state.MachineTemplate{
-		Series:      "quantal",
+		Base:        state.UbuntuBase("12.10"),
 		Constraints: am.cons,
 		Jobs:        []state.MachineJob{am.job},
 	})
@@ -3881,8 +3881,8 @@ type addContainer struct {
 
 func (ac addContainer) step(c *gc.C, ctx *context) {
 	template := state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{ac.job},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{ac.job},
 	}
 	m, err := ctx.st.AddMachineInsideMachine(template, ac.parentId, instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
@@ -5775,7 +5775,9 @@ func (s *StatusSuite) TestFilterToContainer(c *gc.C) {
 		"    modification-status:\n" +
 		"      current: idle\n" +
 		"      since: 01 Apr 15 01:23+10:00\n" +
-		"    base: ubuntu:12.10\n" +
+		"    base:\n" +
+		"      name: ubuntu\n" +
+		"      channel: \"12.10\"\n" +
 		"    network-interfaces:\n" +
 		"      eth0:\n" +
 		"        ip-addresses:\n" +
@@ -5794,7 +5796,9 @@ func (s *StatusSuite) TestFilterToContainer(c *gc.C) {
 		"        modification-status:\n" +
 		"          current: idle\n" +
 		"          since: 01 Apr 15 01:23+10:00\n" +
-		"        base: ubuntu:12.10\n" +
+		"        base:\n" +
+		"          name: ubuntu\n" +
+		"          channel: \"12.10\"\n" +
 		"    hardware: arch=amd64 cores=1 mem=1024M root-disk=8192M\n" +
 		"    controller-member-status: adding-vote\n" +
 		"applications: {}\n" +
@@ -6150,7 +6154,7 @@ func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
 			"1": {
 				JujuStatus:        statusInfoContents{Current: "error", Message: "<error while provisioning>"},
 				InstanceId:        "pending",
-				Base:              "ubuntu:22.04",
+				Base:              &formattedBase{Name: "ubuntu", Channel: "22.04"},
 				Id:                "1",
 				Containers:        map[string]machineStatus{},
 				NetworkInterfaces: map[string]networkInterface{},
@@ -6199,7 +6203,7 @@ func (s *StatusSuite) TestMissingControllerTimestampInFullStatus(c *gc.C) {
 			"1": {
 				JujuStatus:        statusInfoContents{Current: "error", Message: "<error while provisioning>"},
 				InstanceId:        "pending",
-				Base:              "ubuntu:22.04",
+				Base:              &formattedBase{Name: "ubuntu", Channel: "22.04"},
 				Id:                "1",
 				Containers:        map[string]machineStatus{},
 				NetworkInterfaces: map[string]networkInterface{},
@@ -6247,7 +6251,7 @@ func (s *StatusSuite) TestControllerTimestampInFullStatus(c *gc.C) {
 			"1": {
 				JujuStatus:        statusInfoContents{Current: "error", Message: "<error while provisioning>"},
 				InstanceId:        "pending",
-				Base:              "ubuntu:22.04",
+				Base:              &formattedBase{Name: "ubuntu", Channel: "22.04"},
 				Id:                "1",
 				Containers:        map[string]machineStatus{},
 				NetworkInterfaces: map[string]networkInterface{},
