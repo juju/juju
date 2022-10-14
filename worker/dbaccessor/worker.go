@@ -21,9 +21,13 @@ import (
 
 const replSocketFileName = "juju.sock"
 
+// DBGetter describes the ability to supply a sql.DB
+// reference for a particular database.
 type DBGetter interface {
+	// GetDB returns a sql.DB reference for the dqlite-backed database that
+	// contains the data for the specified namespace.
+	// A NotFound error is returned if the worker is unaware of the requested DB.
 	GetDB(namespace string) (*sql.DB, error)
-	GetExistingDB(namespace string) (*sql.DB, error)
 }
 
 // WorkerConfig encapsulates the configuration options for the
@@ -165,12 +169,20 @@ func (w *dbWorker) Wait() error {
 	return w.catacomb.Wait()
 }
 
-// GetDB returns a sql.DB handle for the dqlite-backed database that contains
-// the data for the specified namespace.
+// GetDB returns a sql.DB reference for the dqlite-backed database that
+// contains the data for the specified namespace.
+// A NotFound error is returned if the worker is unaware of the requested DB.
+// TODO (manadart 2022-10-14): At present, Dqlite does not expose the ability
+// to detect if a database exists. so we can't just call `Open`
+// (potentially creating new databases) without any guards.
+// At this point, we expect any databases to have been opened and cached upon
+// worker startup - if it isn't in the cache, it doesn't exist.
+// Work out if we need an alternative approach later. We could lazily open and
+// cache, but the access patterns are such that the DBs would all be opened
+// pretty much at once anyway.
 func (w *dbWorker) GetDB(namespace string) (*sql.DB, error) {
 	select {
 	case <-w.dbReadyCh:
-		// dqlite has been initialized
 	case <-w.catacomb.Dying():
 		return nil, w.catacomb.ErrDying()
 	}
@@ -178,35 +190,6 @@ func (w *dbWorker) GetDB(namespace string) (*sql.DB, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	// Check if a DB handle has already been created and cached.
-	if cachedDB := w.dbHandles[namespace]; cachedDB != nil {
-		return cachedDB, nil
-	}
-
-	// Create and cache DB instance.
-	db, err := w.dbApp.Open(context.TODO(), namespace)
-	if err != nil {
-		return nil, errors.Annotatef(err, "accessing DB for namespace %q", namespace)
-	}
-	w.dbHandles[namespace] = db
-	return db, nil
-}
-
-// GetExistingDB returns a sql.DB handle for the dqlite-backed database that
-// contains the data for the specified namespace or a NotFound error if the
-// DB is not known.
-func (w *dbWorker) GetExistingDB(namespace string) (*sql.DB, error) {
-	select {
-	case <-w.dbReadyCh:
-		// dqlite has been initialized
-	case <-w.catacomb.Dying():
-		return nil, w.catacomb.ErrDying()
-	}
-
-	w.mu.Lock()
-	defer w.mu.Unlock()
-
-	// Check if a DB handle has already been created and cached.
 	if cachedDB := w.dbHandles[namespace]; cachedDB != nil {
 		return cachedDB, nil
 	}
@@ -252,17 +235,31 @@ func (w *dbWorker) initializeDqlite() error {
 	if err := w.dbApp.Ready(context.TODO()); err != nil {
 		_ = w.dbApp.Close()
 		w.dbApp = nil
-		return errors.Annotatef(err, "ensuring dqlite is ready to process changes")
+		return errors.Annotatef(err, "ensuring Dqlite is ready to process changes")
+	}
+
+	if err := w.openDatabases(); err != nil {
+		return errors.Annotate(err, "opening initial databases")
 	}
 
 	if err := w.startREPL(dataDir); err != nil {
 		_ = w.dbApp.Close()
 		w.dbApp = nil
-		return errors.Annotatef(err, "starting dqlite REPL")
+		return errors.Annotatef(err, "starting Dqlite REPL")
 	}
 
-	w.cfg.Logger.Infof("initialized dqlite application (ID: %v)", w.dbApp.ID())
+	w.cfg.Logger.Infof("initialized Dqlite application (ID: %v)", w.dbApp.ID())
 	close(w.dbReadyCh) // start accepting GetDB() requests.
+	return nil
+}
+
+func (w *dbWorker) openDatabases() error {
+	db, err := w.dbApp.Open(context.TODO(), "controller")
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	w.dbHandles["controller"] = db
 	return nil
 }
 
