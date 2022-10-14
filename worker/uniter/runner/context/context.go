@@ -759,11 +759,56 @@ func (ctx *HookContext) getSecretsStore() (secrets.Store, error) {
 	return ctx.secretsStore, nil
 }
 
+func (ctx *HookContext) lookupOwnedSecretURIByLabel(label string) (*coresecrets.URI, error) {
+	mds, err := ctx.SecretMetadata()
+	if err != nil {
+		return nil, err
+	}
+	for ID, md := range mds {
+		if md.Label == label {
+			return &coresecrets.URI{ID: ID}, nil
+		}
+	}
+	for _, md := range ctx.secretChanges.pendingUpdates {
+		// Check if we have any pending label update changes.
+		if md.Label == nil || md.URI == nil {
+			continue
+		}
+		if *md.Label == label {
+			return md.URI, nil
+		}
+	}
+	for _, md := range ctx.secretChanges.pendingCreates {
+		// Check if we have any pending create changes.
+		if md.Label == nil || md.URI == nil {
+			continue
+		}
+		if *md.Label == label {
+			return md.URI, nil
+		}
+	}
+	return nil, errors.NotFoundf("secret owned by %q with label %q", ctx.unitName, label)
+}
+
 // GetSecret returns the value of the specified secret.
 func (ctx *HookContext) GetSecret(uri *coresecrets.URI, label string, update, peek bool) (coresecrets.SecretValue, error) {
 	store, err := ctx.getSecretsStore()
 	if err != nil {
 		return nil, err
+	}
+	if uri == nil && label == "" {
+		return nil, errors.NotValidf("empty URI and label")
+	}
+	if uri == nil {
+		// try to resolve label to URI by looking up owned secrets.
+		uri, err = ctx.lookupOwnedSecretURIByLabel(label)
+		if err != nil && !errors.Is(err, errors.NotFound) {
+			return nil, err
+		}
+		if uri != nil {
+			// Found owned secret, no need label anymore.
+			label = ""
+		}
 	}
 	v, err := store.GetContent(uri, label, update, peek)
 	if err != nil {

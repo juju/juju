@@ -1015,6 +1015,99 @@ func (s *mockHookContextSuite) TestSecretGet(c *gc.C) {
 	})
 }
 
+func (s *mockHookContextSuite) assertSecretGetOwnedSecretURILookup(
+	c *gc.C, patchContext func(*context.HookContext, *coresecrets.URI, string, context.SecretsAccessor, secrets.Store),
+) {
+	defer s.setupMocks(c).Finish()
+
+	call := 0
+	uri := coresecrets.NewURI()
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		if call == 0 {
+			call++
+			c.Assert(objType, gc.Equals, "SecretsManager")
+			c.Assert(version, gc.Equals, 0)
+			c.Assert(id, gc.Equals, "")
+			c.Assert(request, gc.Equals, "GetSecretStoreConfig")
+			c.Assert(arg, gc.IsNil)
+			c.Assert(result, gc.FitsTypeOf, &params.SecretStoreConfig{})
+			*(result.(*params.SecretStoreConfig)) = params.SecretStoreConfig{
+				StoreType: "juju",
+			}
+			return nil
+		}
+		c.Assert(objType, gc.Equals, "SecretsManager")
+		c.Assert(version, gc.Equals, 0)
+		c.Assert(id, gc.Equals, "")
+		c.Assert(request, gc.Equals, "GetSecretContentInfo")
+		c.Assert(arg, gc.DeepEquals, params.GetSecretContentArgs{
+			Args: []params.GetSecretContentArg{{
+				URI:    uri.String(),
+				Update: true,
+				Peek:   true,
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.SecretContentResults{})
+		*(result.(*params.SecretContentResults)) = params.SecretContentResults{
+			[]params.SecretContentResult{{
+				Content: params.SecretContentParams{Data: map[string]string{"foo": "bar"}},
+			}},
+		}
+		return nil
+	})
+
+	hookContext := context.NewMockUnitHookContext(s.mockUnit, s.mockLeadership)
+	jujuSecretsAPI := secretsmanager.NewClient(apiCaller)
+	secretsStore, err := secrets.NewClient(jujuSecretsAPI)
+	c.Assert(err, jc.ErrorIsNil)
+	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), nil, jujuSecretsAPI, secretsStore)
+
+	patchContext(hookContext, uri, "label", jujuSecretsAPI, secretsStore)
+
+	value, err := hookContext.GetSecret(nil, "label", true, true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(value.EncodedValues(), jc.DeepEquals, map[string]string{
+		"foo": "bar",
+	})
+}
+
+func (s *mockHookContextSuite) TestSecretGetOwnedSecretURILookupFromAppliedCache(c *gc.C) {
+	s.assertSecretGetOwnedSecretURILookup(c,
+		func(ctx *context.HookContext, uri *coresecrets.URI, label string, client context.SecretsAccessor, store secrets.Store) {
+			context.SetEnvironmentHookContextSecret(
+				ctx, uri.String(),
+				map[string]jujuc.SecretMetadata{
+					uri.ID: {Label: "label"},
+				},
+				client, store)
+		},
+	)
+}
+
+func (s *mockHookContextSuite) TestSecretGetOwnedSecretURILookupFromPendingCreate(c *gc.C) {
+	s.assertSecretGetOwnedSecretURILookup(c,
+		func(ctx *context.HookContext, uri *coresecrets.URI, label string, client context.SecretsAccessor, store secrets.Store) {
+			arg := uniter.SecretCreateArg{}
+			arg.URI = uri
+			arg.Label = ptr(label)
+			ctx.SetPendingSecretCreates(
+				[]uniter.SecretCreateArg{arg})
+		},
+	)
+}
+
+func (s *mockHookContextSuite) TestSecretGetOwnedSecretURILookupFromPendingUpdate(c *gc.C) {
+	s.assertSecretGetOwnedSecretURILookup(c,
+		func(ctx *context.HookContext, uri *coresecrets.URI, label string, client context.SecretsAccessor, store secrets.Store) {
+			arg := uniter.SecretUpdateArg{}
+			arg.URI = uri
+			arg.Label = ptr(label)
+			ctx.SetPendingSecretUpdates(
+				[]uniter.SecretUpdateArg{arg})
+		},
+	)
+}
+
 func ptr[T any](v T) *T {
 	return &v
 }
