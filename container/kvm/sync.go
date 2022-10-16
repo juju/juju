@@ -11,7 +11,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/dustin/go-humanize"
@@ -302,6 +301,5 @@ func newImage(md *imagedownloads.Metadata, imageDownloadURL string, pathfinder p
 }
 
 func backingFileName(version, arch string) string {
-	vers := strings.ReplaceAll(version, ".", "_")
-	return fmt.Sprintf("%s-%s-backing-file.qcow", vers, arch)
+	return fmt.Sprintf("%s-%s-backing-file.qcow", version, arch)
 }
