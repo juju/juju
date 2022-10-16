@@ -294,7 +294,7 @@ func newImage(md *imagedownloads.Metadata, imageDownloadURL string, pathfinder p
 
 	return &Image{
 		FilePath: filepath.Join(
-			baseDir, kvm, guestDir, backingFileName(md.Release, md.Arch)),
+			baseDir, kvm, guestDir, backingFileName(md.Version, md.Arch)),
 		tmpFile:  fh,
 		runCmd:   run,
 		progress: callback,
