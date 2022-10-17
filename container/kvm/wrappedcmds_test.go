@@ -108,7 +108,7 @@ func (s *commandWrapperSuite) TestCreateMachineSuccessOnFocal(c *gc.C) {
 		tmpDir + ` genisoimage -output \/tmp\/juju-libvirtSuite-\d+\/kvm\/guests\/host00-ds\.iso -volid cidata -joliet -rock user-data meta-data network-config`,
 		// On focal, the backing image format must be explicitly specified
 		// hence the '-F raw'
-		` qemu-img create -b \/tmp/juju-libvirtSuite-\d+\/kvm\/guests\/20_04-arm64-backing-file.qcow -F raw -f qcow2 \/tmp\/juju-libvirtSuite-\d+\/kvm\/guests\/host00.qcow 8G`,
+		` qemu-img create -b \/tmp/juju-libvirtSuite-\d+\/kvm\/guests\/20.04-arm64-backing-file.qcow -F raw -f qcow2 \/tmp\/juju-libvirtSuite-\d+\/kvm\/guests\/host00.qcow 8G`,
 		` virsh define \/tmp\/juju-libvirtSuite-\d+\/host00.xml`,
 		" virsh start host00",
 	}

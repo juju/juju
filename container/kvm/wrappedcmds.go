@@ -198,13 +198,13 @@ func CreateMachine(params CreateMachineParams) error {
 
 	out, err := params.runCmdAsRoot("", virsh, "define", domainPath)
 	if err != nil {
-		return errors.Annotatef(err, "failed to defined the domain for %q from %s", params.Host(), domainPath)
+		return errors.Annotatef(err, "failed to define the domain for %q from %s:%s", params.Host(), domainPath, out)
 	}
 	logger.Debugf("created domain: %s", out)
 
 	out, err = params.runCmdAsRoot("", virsh, "start", params.Host())
 	if err != nil {
-		return errors.Annotatef(err, "failed to start domain %q", params.Host())
+		return errors.Annotatef(err, "failed to start domain %q:%s", params.Host(), out)
 	}
 	logger.Debugf("started domain: %s", out)
 
