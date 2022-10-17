@@ -202,20 +202,9 @@ func FilterBridgeAddresses(addresses corenetwork.ProviderAddresses) corenetwork.
 	gatherLXCAddresses(addressesToRemove)
 	gatherBridgeAddresses(DefaultLXDBridge, addressesToRemove)
 	gatherBridgeAddresses(DefaultKVMBridge, addressesToRemove)
-	gatherFanAddresses(addresses, addressesToRemove)
 	filtered := filterAddrs(addresses, addressesToRemove)
 	logger.Debugf("addresses after filtering: %v", filtered)
 	return filtered
-}
-
-func gatherFanAddresses(addresses corenetwork.ProviderAddresses, addressesToRemove map[string][]string) {
-	var fanAddrs []string
-	for _, addr := range addresses {
-		if addr.Scope == corenetwork.ScopeFanLocal {
-			fanAddrs = append(fanAddrs, addr.Value)
-		}
-	}
-	addressesToRemove["fan"] = fanAddrs
 }
 
 // QuoteSpaces takes a slice of space names, and returns a nicely formatted
