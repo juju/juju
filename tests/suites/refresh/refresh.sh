@@ -1,4 +1,5 @@
 run_refresh_cs() {
+	# Test a plain juju refresh with a charm store charm
 	echo
 
 	model_name="test-refresh-cs"
@@ -28,6 +29,7 @@ run_refresh_cs() {
 }
 
 run_refresh_local() {
+	# Test a plain juju refresh with a local charm
 	echo
 
 	model_name="test-refresh-local"

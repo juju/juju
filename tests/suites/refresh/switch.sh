@@ -1,4 +1,5 @@
 run_refresh_switch_cs_to_ch() {
+	# Test juju refresh from a charm store charm to a charm hub charm
 	echo
 
 	model_name="test-refresh-switch-ch"
@@ -28,6 +29,7 @@ run_refresh_switch_cs_to_ch() {
 }
 
 run_refresh_switch_cs_to_ch_channel() {
+	# Test juju refresh from a charm store charm to a charm hub charm with a specific channel
 	echo
 
 	model_name="test-refresh-switch-ch-channel"
@@ -58,6 +60,7 @@ run_refresh_switch_cs_to_ch_channel() {
 }
 
 run_refresh_switch_local_to_ch_channel() {
+	# Test juju refresh from a local charm to a charm hub charm with a specific channel
 	echo
 
 	model_name="test-refresh-local-switch-ch"
@@ -90,6 +93,7 @@ run_refresh_switch_local_to_ch_channel() {
 }
 
 run_refresh_switch_channel() {
+	# Test juju refresh switching from one channel to another
 	echo
 
 	model_name="test-refresh-switch-channel"
