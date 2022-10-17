@@ -58,21 +58,17 @@ type Origin struct {
 	InstanceKey string
 }
 
-// WithSeries allows to update the series of an origin.
-// TODO(juju3) - remove, replace with os/channel
-func (o Origin) WithSeries(aseries string) Origin {
+// WithBase allows to update the base of an origin.
+func (o Origin) WithBase(b *series.Base) Origin {
 	other := o
-	if aseries != "" {
-		// Legacy k8s charms - assume ubuntu focal.
-		if aseries == "kubernetes" {
-			aseries = "focal"
-		}
-		other.Base, _ = series.GetBaseFromSeries(aseries)
+	other.Base = series.Base{}
+	if b != nil {
+		other.Base = *b
 	}
 	return other
 }
 
-// CharmChannel returns the the channel indicated by this origin.
+// CharmChannel returns the channel indicated by this origin.
 func (o Origin) CharmChannel() charm.Channel {
 	var track string
 	if o.Track != nil {

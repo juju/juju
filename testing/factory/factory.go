@@ -497,7 +497,7 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 		chSeries := params.Charm.URL().Series
 		// Legacy k8s charms - assume ubuntu focal.
 		if chSeries == "kubernetes" {
-			chSeries = "focal"
+			chSeries = coreseries.LegacyKubernetesSeries()
 		}
 		base, err := coreseries.GetBaseFromSeries(chSeries)
 		c.Assert(err, jc.ErrorIsNil)

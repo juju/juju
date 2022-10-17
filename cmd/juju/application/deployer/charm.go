@@ -482,7 +482,16 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	}
 
 	// Ensure we save the origin.
-	origin = origin.WithSeries(series)
+	var base coreseries.Base
+	if series == coreseries.Kubernetes.String() {
+		base = coreseries.LegacyKubernetesBase()
+	} else {
+		base, err = coreseries.GetBaseFromSeries(series)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	origin = origin.WithBase(&base)
 
 	// In-order for the url to represent the following updates to the origin
 	// and machine, we need to ensure that the series is actually correct as
