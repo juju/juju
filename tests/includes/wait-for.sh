@@ -78,6 +78,12 @@ active_condition() {
 	echo ".applications | select(.[\"$name\"] | .[\"application-status\"] | .current == \"active\") | keys[$app_index]"
 }
 
+# if an application is in error, we want to count it as an application which is not idle
+# not_idle_list lists all such applications.
+not_idle_list() {
+	echo '[.applications[] | select((.units[] | .["juju-status"].current != "idle") or (.units[] | .["workload-status"].current == "error"))] | length'
+}
+
 # workload_status gets the workload-status object for the unit - use
 # .current or .message to select the actual field you need.
 workload_status() {

@@ -47,6 +47,7 @@ TEST_NAMES="agents \
             cli \
             constraints \
             controller \
+            coslite \
             credential \
             ck \
             deploy \
