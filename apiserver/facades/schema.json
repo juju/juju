@@ -1701,7 +1701,7 @@
     {
         "Name": "AllModelWatcher",
         "Description": "SrvAllWatcher defines the API methods on a state.Multiwatcher.\nwhich watches any changes to the state. Each client has its own\ncurrent set of watchers, stored in resources. It is used by both\nthe AllWatcher and AllModelWatcher facades.",
-        "Version": 3,
+        "Version": 4,
         "AvailableTo": [
             "controller-user"
         ],
@@ -1761,7 +1761,7 @@
     {
         "Name": "AllWatcher",
         "Description": "SrvAllWatcher defines the API methods on a state.Multiwatcher.\nwhich watches any changes to the state. Each client has its own\ncurrent set of watchers, stored in resources. It is used by both\nthe AllWatcher and AllModelWatcher facades.",
-        "Version": 2,
+        "Version": 3,
         "AvailableTo": [
             "model-user"
         ],
@@ -2010,8 +2010,8 @@
     },
     {
         "Name": "Application",
-        "Description": "APIv14 provides the Application API facade for version 14.\nIt adds Leader.",
-        "Version": 14,
+        "Description": "APIv15 provides the Application API facade for version 15.",
+        "Version": 15,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -2390,7 +2390,7 @@
                     },
                     "description": "UnsetApplicationsConfig implements the server side of Application.UnsetApplicationsConfig."
                 },
-                "UpdateApplicationSeries": {
+                "UpdateApplicationBase": {
                     "type": "object",
                     "properties": {
                         "Params": {
@@ -2400,7 +2400,7 @@
                             "$ref": "#/definitions/ErrorResults"
                         }
                     },
-                    "description": "UpdateApplicationSeries updates the application series. Series for\nsubordinates updated too."
+                    "description": "UpdateApplicationBase updates the application series. Bases for\nsubordinates updated too."
                 }
             },
             "definitions": {
@@ -15267,7 +15267,7 @@
     {
         "Name": "Charms",
         "Description": "API implements the charms interface and is the concrete\nimplementation of the API end point.",
-        "Version": 4,
+        "Version": 5,
         "AvailableTo": [
             "model-user"
         ],
@@ -16537,7 +16537,7 @@
     {
         "Name": "Client",
         "Description": "Client serves client-specific API methods.",
-        "Version": 5,
+        "Version": 6,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -28656,8 +28656,8 @@
     },
     {
         "Name": "MachineManager",
-        "Description": "MachineManagerAPIV8 defines the Version 8 of Machine Manager API.",
-        "Version": 8,
+        "Description": "MachineManagerAPIV9 defines the Version 9 of Machine Manager API.",
+        "Version": 9,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -39818,7 +39818,7 @@
     {
         "Name": "Resources",
         "Description": "API is the public API facade for resources.",
-        "Version": 2,
+        "Version": 3,
         "AvailableTo": [
             "model-user"
         ],

@@ -238,7 +238,9 @@ func (s *DestroyMachineManagerSuite) apiV4() machinemanager.MachineManagerAPIV4 
 			MachineManagerAPIV6: &machinemanager.MachineManagerAPIV6{
 				MachineManagerAPIV7: &machinemanager.MachineManagerAPIV7{
 					MachineManagerAPIV8: &machinemanager.MachineManagerAPIV8{
-						MachineManagerAPI: s.api,
+						MachineManagerAPIV9: &machinemanager.MachineManagerAPIV9{
+							MachineManagerAPI: s.api,
+						},
 					},
 				},
 			},

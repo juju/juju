@@ -771,11 +771,16 @@ func (task *provisionerTask) constructInstanceConfig(
 	}
 
 	nonce := fmt.Sprintf("%s:%s", task.hostTag, uuid)
-	mSeries := pInfo.Series
-	if mSeries == "" {
-		mSeries, err = series.GetSeriesFromChannel(pInfo.Base.Name, pInfo.Base.Channel)
+	var base series.Base
+	if pInfo.Series != "" {
+		base, err = series.GetBaseFromSeries(pInfo.Series)
 		if err != nil {
-			return nil, errors.Annotatef(err, "converting machine base %q to series", pInfo.Base)
+			return nil, errors.Annotatef(err, "converting machine series %q to base", pInfo.Series)
+		}
+	} else {
+		base, err = series.ParseBase(pInfo.Base.Name, pInfo.Base.Channel)
+		if err != nil {
+			return nil, errors.Annotatef(err, "parsing machine base %q to series", pInfo.Base)
 		}
 	}
 	instanceConfig, err := instancecfg.NewInstanceConfig(
@@ -783,7 +788,7 @@ func (task *provisionerTask) constructInstanceConfig(
 		machine.Id(),
 		nonce,
 		task.imageStream,
-		mSeries,
+		base,
 		apiInfo,
 	)
 	if err != nil {

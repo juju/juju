@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/paths"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/tags"
@@ -132,8 +133,12 @@ type InstanceConfig struct {
 	// that it shouldn't verify SSL certificates
 	DisableSSLHostnameVerification bool
 
+	// TODO(juju3) - remove series
 	// Series represents the instance series.
 	Series string
+
+	// Base represents the instance base.
+	Base series.Base
 
 	// MachineAgentServiceName is the init service name for the Juju machine agent.
 	MachineAgentServiceName string
@@ -727,11 +732,15 @@ func NewInstanceConfig(
 	controllerTag names.ControllerTag,
 	machineID,
 	machineNonce,
-	imageStream,
-	series string,
+	imageStream string,
+	base series.Base,
 	apiInfo *api.Info,
 ) (*InstanceConfig, error) {
-	osType := paths.SeriesToOS(series)
+	mseries, err := series.GetSeriesFromBase(base)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	osType := paths.SeriesToOS(mseries)
 	logDir := paths.LogDir(osType)
 	icfg := &InstanceConfig{
 		// Fixed entries.
@@ -742,7 +751,8 @@ func NewInstanceConfig(
 		CloudInitOutputLog:      path.Join(logDir, "cloud-init-output.log"),
 		TransientDataDir:        paths.TransientDataDir(osType),
 		MachineAgentServiceName: "jujud-" + names.NewMachineTag(machineID).String(),
-		Series:                  series,
+		Series:                  mseries,
+		Base:                    base,
 		Tags:                    map[string]string{},
 
 		// Parameter entries.
@@ -761,12 +771,12 @@ func NewInstanceConfig(
 func NewBootstrapInstanceConfig(
 	config controller.Config,
 	cons, modelCons constraints.Value,
-	series, publicImageSigningKey string,
+	base series.Base, publicImageSigningKey string,
 	agentEnvironment map[string]string,
 ) (*InstanceConfig, error) {
 	// For a bootstrap instance, the caller must provide the state.Info
 	// and the api.Info. The machine id must *always* be "0".
-	icfg, err := NewInstanceConfig(names.NewControllerTag(config.ControllerUUID()), agent.BootstrapControllerId, agent.BootstrapNonce, "", series, nil)
+	icfg, err := NewInstanceConfig(names.NewControllerTag(config.ControllerUUID()), agent.BootstrapControllerId, agent.BootstrapNonce, "", base, nil)
 	if err != nil {
 		return nil, err
 	}

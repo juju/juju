@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/lxdprofile"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -87,7 +88,7 @@ func prepInstanceConfig(c *gc.C) *instancecfg.InstanceConfig {
 		"123",
 		"nonce",
 		"imagestream",
-		"xenial",
+		series.MakeDefaultBase("ubuntu", "16.04"),
 		apiInfo,
 	)
 	c.Assert(err, jc.ErrorIsNil)

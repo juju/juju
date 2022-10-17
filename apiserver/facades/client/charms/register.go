@@ -27,20 +27,21 @@ func Register(registry facade.FacadeRegistry) {
 	}, reflect.TypeOf((*APIv3)(nil)))
 	registry.MustRegister("Charms", 4, func(ctx facade.Context) (facade.Facade, error) {
 		return newFacadeV4(ctx)
+	}, reflect.TypeOf((*APIv4)(nil)))
+	registry.MustRegister("Charms", 5, func(ctx facade.Context) (facade.Facade, error) {
+		return newFacadeV5(ctx)
 	}, reflect.TypeOf((*API)(nil)))
 }
 
 // newFacadeV2 provides the signature required for facade V2 registration.
 // It is unknown where V1 is.
 func newFacadeV2(ctx facade.Context) (*APIv2, error) {
-	v4, err := newFacadeV4(ctx)
+	v3, err := newFacadeV3(ctx)
 	if err != nil {
 		return nil, nil
 	}
 	return &APIv2{
-		APIv3: &APIv3{
-			API: v4,
-		},
+		APIv3: v3,
 	}, nil
 }
 
@@ -50,11 +51,20 @@ func newFacadeV3(ctx facade.Context) (*APIv3, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &APIv3{API: api}, nil
+	return &APIv3{APIv4: api}, nil
 }
 
 // newFacadeV4 provides the signature required for facade V4 registration.
-func newFacadeV4(ctx facade.Context) (*API, error) {
+func newFacadeV4(ctx facade.Context) (*APIv4, error) {
+	api, err := newFacadeV5(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIv4{API: api}, nil
+}
+
+// newFacadeV5 provides the signature required for facade V5 registration.
+func newFacadeV5(ctx facade.Context) (*API, error) {
 	authorizer := ctx.Auth()
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm

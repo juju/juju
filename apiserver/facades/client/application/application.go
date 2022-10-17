@@ -119,6 +119,11 @@ type APIv13 struct {
 // APIv14 provides the Application API facade for version 14.
 // It adds Leader.
 type APIv14 struct {
+	*APIv15
+}
+
+// APIv15 provides the Application API facade for version 15.
+type APIv15 struct {
 	*APIBase
 }
 
@@ -1050,9 +1055,18 @@ func (api *APIBase) setConfig(app Application, generation, settingsYAML string, 
 	return nil
 }
 
-// UpdateApplicationSeries updates the application series. Series for
+// UpdateApplicationBase isn't on the V14 API.
+func (api *APIv14) UpdateApplicationBase(_ struct{}) {}
+
+// UpdateApplicationSeries updates the application base. Series for
 // subordinates updated too.
-func (api *APIBase) UpdateApplicationSeries(args params.UpdateChannelArgs) (params.ErrorResults, error) {
+func (api *APIv14) UpdateApplicationSeries(args params.UpdateChannelArgs) (params.ErrorResults, error) {
+	return api.APIBase.UpdateApplicationBase(args)
+}
+
+// UpdateApplicationBase updates the application series. Bases for
+// subordinates updated too.
+func (api *APIBase) UpdateApplicationBase(args params.UpdateChannelArgs) (params.ErrorResults, error) {
 	if err := api.checkCanWrite(); err != nil {
 		return params.ErrorResults{}, err
 	}
@@ -1070,6 +1084,21 @@ func (api *APIBase) UpdateApplicationSeries(args params.UpdateChannelArgs) (para
 }
 
 func (api *APIBase) updateOneApplicationSeries(arg params.UpdateChannelArg) error {
+	if arg.Series == "" {
+		channel, err := series.ParseChannel(arg.Channel)
+		if err != nil {
+			return errors.NotValidf("channel %q", arg.Channel)
+		}
+		var mseries string
+		mseries, err = series.VersionSeries(channel.Track)
+		if err != nil {
+			mseries, err = series.VersionSeries("centos" + channel.Track)
+		}
+		if err != nil {
+			return errors.NotValidf("channel %q", arg.Channel)
+		}
+		arg.Series = mseries
+	}
 	return api.updateSeries.UpdateSeries(arg.Entity.Tag, arg.Series, arg.Force)
 }
 

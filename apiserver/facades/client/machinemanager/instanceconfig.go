@@ -109,9 +109,12 @@ func InstanceConfig(ctrlSt ControllerBackend, st InstanceConfigBackend, machineI
 	if err != nil {
 		return nil, errors.Annotate(err, "setting up machine authentication")
 	}
-
+	base, err := coreseries.GetBaseFromSeries(machine.Series())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	icfg, err := instancecfg.NewInstanceConfig(ctrlSt.ControllerTag(), machineId, nonce, modelConfig.ImageStream(),
-		machine.Series(), apiInfo,
+		base, apiInfo,
 	)
 	if err != nil {
 		return nil, errors.Annotate(err, "initializing instance config")

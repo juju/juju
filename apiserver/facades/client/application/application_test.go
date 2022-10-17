@@ -53,7 +53,7 @@ type applicationSuite struct {
 	jujutesting.JujuConnSuite
 	commontesting.BlockHelper
 
-	applicationAPI *application.APIv14
+	applicationAPI *application.APIv15
 	application    *state.Application
 	authorizer     *apiservertesting.FakeAuthorizer
 	repo           *mockRepo
@@ -117,7 +117,7 @@ func (s *applicationSuite) UploadCharmMultiSeries(c *gc.C, url, name string) (*c
 	return s.UploadCharm(c, url, name)
 }
 
-func (s *applicationSuite) makeAPI(c *gc.C) *application.APIv14 {
+func (s *applicationSuite) makeAPI(c *gc.C) *application.APIv15 {
 	resources := common.NewResources()
 	c.Assert(resources.RegisterNamed("dataDir", common.StringResource(c.MkDir())), jc.ErrorIsNil)
 	storageAccess, err := application.GetStorageState(s.State)
@@ -143,7 +143,7 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.APIv14 {
 		nil, // CAAS Broker not used in this suite.
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	return &application.APIv14{api}
+	return &application.APIv15{api}
 }
 
 func (s *applicationSuite) TestCharmConfig(c *gc.C) {
@@ -170,7 +170,9 @@ func (s *applicationSuite) TestCharmConfigV8(c *gc.C) {
 				APIv11: &application.APIv11{
 					APIv12: &application.APIv12{
 						APIv13: &application.APIv13{
-							s.applicationAPI,
+							APIv14: &application.APIv14{
+								s.applicationAPI,
+							},
 						},
 					},
 				},
@@ -1757,7 +1759,7 @@ func (s *applicationSuite) checkClientApplicationUpdateSetCharm(c *gc.C, forceCh
 		MinUnits:        &minUnits,
 		ForceCharmURL:   forceCharmURL,
 	}
-	api := &application.APIv12{&application.APIv13{s.applicationAPI}}
+	api := &application.APIv12{&application.APIv13{&application.APIv14{s.applicationAPI}}}
 	err = api.Update(args)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1800,7 +1802,7 @@ func (s *applicationSuite) TestBlockChangeApplicationUpdate(c *gc.C) {
 		CharmURL:        curl,
 		ForceCharmURL:   false,
 	}
-	api := &application.APIv12{&application.APIv13{s.applicationAPI}}
+	api := &application.APIv12{&application.APIv13{&application.APIv14{s.applicationAPI}}}
 	err := api.Update(args)
 	s.AssertBlocked(c, err, "TestBlockChangeApplicationUpdate")
 }
@@ -1814,7 +1816,7 @@ func (s *applicationSuite) TestApplicationUpdateSetMinUnits(c *gc.C) {
 		ApplicationName: "dummy",
 		MinUnits:        &minUnits,
 	}
-	api := &application.APIv12{&application.APIv13{s.applicationAPI}}
+	api := &application.APIv12{&application.APIv13{&application.APIv14{s.applicationAPI}}}
 	err := api.Update(args)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1832,7 +1834,7 @@ func (s *applicationSuite) TestApplicationUpdateSetMinUnitsWithLXDProfile(c *gc.
 		ApplicationName: "lxd-profile",
 		MinUnits:        &minUnits,
 	}
-	api := &application.APIv12{&application.APIv13{s.applicationAPI}}
+	api := &application.APIv12{&application.APIv13{&application.APIv14{s.applicationAPI}}}
 	err := api.Update(args)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1860,7 +1862,7 @@ func (s *applicationSuite) TestApplicationUpdateSetMinUnitsError(c *gc.C) {
 		ApplicationName: "dummy",
 		MinUnits:        &minUnits,
 	}
-	api := &application.APIv12{&application.APIv13{s.applicationAPI}}
+	api := &application.APIv12{&application.APIv13{&application.APIv14{s.applicationAPI}}}
 	err := api.Update(args)
 	c.Assert(err, gc.ErrorMatches,
 		`cannot set minimum units for application "dummy": cannot set a negative minimum number of units`)
@@ -1888,7 +1890,7 @@ func (s *applicationSuite) testApplicationUpdateSetSettingsStrings(c *gc.C, bran
 		SettingsStrings: map[string]string{"title": "s-title", "username": "s-user"},
 		Generation:      branchName,
 	}
-	api := &application.APIv12{&application.APIv13{s.applicationAPI}}
+	api := &application.APIv12{&application.APIv13{&application.APIv14{s.applicationAPI}}}
 	err := api.Update(args)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1912,7 +1914,7 @@ func (s *applicationSuite) TestApplicationUpdateSetSettingsStringsBranch(c *gc.C
 		SettingsStrings: map[string]string{"title": "s-title", "username": "s-user"},
 		Generation:      newBranch,
 	}
-	api := &application.APIv12{&application.APIv13{s.applicationAPI}}
+	api := &application.APIv12{&application.APIv13{&application.APIv14{s.applicationAPI}}}
 	err := api.Update(args)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1946,7 +1948,7 @@ func (s *applicationSuite) testApplicationUpdateSetSettingsYAML(c *gc.C, branchN
 		SettingsYAML:    "dummy:\n  title: y-title\n  username: y-user",
 		Generation:      branchName,
 	}
-	api := &application.APIv12{&application.APIv13{s.applicationAPI}}
+	api := &application.APIv12{&application.APIv13{&application.APIv14{s.applicationAPI}}}
 	err := api.Update(args)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1970,7 +1972,7 @@ func (s *applicationSuite) TestApplicationUpdateSetSettingsYAMLBranch(c *gc.C) {
 		SettingsYAML:    "dummy:\n  title: y-title\n  username: y-user",
 		Generation:      newBranch,
 	}
-	api := &application.APIv12{&application.APIv13{s.applicationAPI}}
+	api := &application.APIv12{&application.APIv13{&application.APIv14{s.applicationAPI}}}
 	err := api.Update(args)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1996,7 +1998,7 @@ func (s *applicationSuite) TestClientApplicationUpdateSetSettingsGetYAML(c *gc.C
 		SettingsYAML:    "charm: dummy\napplication: dummy\nsettings:\n  title:\n    value: y-title\n    type: string\n  username:\n    value: y-user\n  ignore:\n    blah: true",
 		Generation:      model.GenerationMaster,
 	}
-	api := &application.APIv12{&application.APIv13{s.applicationAPI}}
+	api := &application.APIv12{&application.APIv13{&application.APIv14{s.applicationAPI}}}
 	err := api.Update(args)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2023,7 +2025,7 @@ func (s *applicationSuite) TestApplicationUpdateCombinedStringAndYAMLSettings(c 
 		SettingsYAML: "dummy:\n  title: s-title",
 		Generation:   newBranch,
 	}
-	api := &application.APIv12{&application.APIv13{s.applicationAPI}}
+	api := &application.APIv12{&application.APIv13{&application.APIv14{s.applicationAPI}}}
 	err := api.Update(args)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2049,7 +2051,7 @@ func (s *applicationSuite) TestApplicationUpdateSetConstraints(c *gc.C) {
 		ApplicationName: "dummy",
 		Constraints:     &cons,
 	}
-	api := &application.APIv12{&application.APIv13{s.applicationAPI}}
+	api := &application.APIv12{&application.APIv13{&application.APIv14{s.applicationAPI}}}
 	err = api.Update(args)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2087,7 +2089,7 @@ func (s *applicationSuite) TestApplicationUpdateAllParams(c *gc.C) {
 		Constraints:     &cons,
 		Generation:      model.GenerationMaster,
 	}
-	api := &application.APIv12{&application.APIv13{s.applicationAPI}}
+	api := &application.APIv12{&application.APIv13{&application.APIv14{s.applicationAPI}}}
 	err = api.Update(args)
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 
@@ -2110,20 +2112,20 @@ func (s *applicationSuite) TestApplicationUpdateNoParams(c *gc.C) {
 
 	// Calling Update with no parameters set is a no-op.
 	args := params.ApplicationUpdate{ApplicationName: "wordpress"}
-	api := &application.APIv12{&application.APIv13{s.applicationAPI}}
+	api := &application.APIv12{&application.APIv13{&application.APIv14{s.applicationAPI}}}
 	err := api.Update(args)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *applicationSuite) TestApplicationUpdateNoApplication(c *gc.C) {
-	api := &application.APIv12{&application.APIv13{s.applicationAPI}}
+	api := &application.APIv12{&application.APIv13{&application.APIv14{s.applicationAPI}}}
 	err := api.Update(params.ApplicationUpdate{})
 	c.Assert(err, gc.ErrorMatches, `"" is not a valid application name`)
 }
 
 func (s *applicationSuite) TestApplicationUpdateInvalidApplication(c *gc.C) {
 	args := params.ApplicationUpdate{ApplicationName: "no-such-application"}
-	api := &application.APIv12{&application.APIv13{s.applicationAPI}}
+	api := &application.APIv12{&application.APIv13{&application.APIv14{s.applicationAPI}}}
 	err := api.Update(args)
 	c.Assert(err, gc.ErrorMatches, `application "no-such-application" not found`)
 }

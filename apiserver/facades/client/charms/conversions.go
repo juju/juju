@@ -30,7 +30,7 @@ func convertOrigin(origin corecharm.Origin) (params.CharmOrigin, error) {
 		var err error
 		chSeries, err = series.VersionSeries(origin.Platform.Channel)
 		if err != nil {
-			return params.CharmOrigin{}, errors.Trace(err)
+			chSeries = origin.Platform.Channel
 		}
 	}
 	return params.CharmOrigin{

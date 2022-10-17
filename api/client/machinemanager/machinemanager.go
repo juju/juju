@@ -44,6 +44,23 @@ func (c *Client) ModelUUID() (string, bool) {
 
 // AddMachines adds new machines with the supplied parameters, creating any requested disks.
 func (client *Client) AddMachines(machineParams []params.AddMachineParams) ([]params.AddMachinesResult, error) {
+	if client.BestAPIVersion() == 8 {
+		for i, m := range machineParams {
+			if m.Base == nil || m.Base.Name != "centos" {
+				continue
+			}
+			m.Base.Channel = coreseries.ToLegacyCentosChannel(m.Base.Channel)
+			machineParams[i] = m
+		}
+	} else if client.BestAPIVersion() >= 9 {
+		for i, m := range machineParams {
+			if m.Base == nil || m.Base.Name != "centos" {
+				continue
+			}
+			m.Base.Channel = coreseries.FromLegacyCentosChannel(m.Base.Channel)
+			machineParams[i] = m
+		}
+	}
 	args := params.AddMachines{
 		MachineParams: machineParams,
 	}

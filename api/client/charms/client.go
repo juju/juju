@@ -25,6 +25,7 @@ import (
 	commoncharms "github.com/juju/juju/api/common/charms"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/rpc/params"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -83,7 +84,7 @@ func (c *Client) ResolveCharms(charms []CharmToResolve) ([]ResolvedCharm, error)
 	for i, ch := range charms {
 		args.Resolve[i] = params.ResolveCharmWithChannel{
 			Reference:   ch.URL.String(),
-			Origin:      ch.Origin.ParamsCharmOrigin(),
+			Origin:      c.paramsCharmOrigin(ch.Origin),
 			SwitchCharm: ch.SwitchCharm,
 		}
 	}
@@ -134,7 +135,7 @@ func (c *Client) GetDownloadInfo(curl *charm.URL, origin apicharm.Origin, mac *m
 	args := params.CharmURLAndOrigins{
 		Entities: []params.CharmURLAndOrigin{{
 			CharmURL: curl.String(),
-			Origin:   origin.ParamsCharmOrigin(),
+			Origin:   c.paramsCharmOrigin(origin),
 			Macaroon: mac,
 		}},
 	}
@@ -156,6 +157,17 @@ func (c *Client) GetDownloadInfo(curl *charm.URL, origin apicharm.Origin, mac *m
 	}, nil
 }
 
+func (c *Client) paramsCharmOrigin(origin apicharm.Origin) params.CharmOrigin {
+	if origin.Base.Name == "centos" {
+		if c.BestAPIVersion() < 5 {
+			origin.Base.Channel.Track = series.ToLegacyCentosChannel(origin.Base.Channel.Track)
+		} else {
+			origin.Base.Channel.Track = series.FromLegacyCentosChannel(origin.Base.Channel.Track)
+		}
+	}
+	return origin.ParamsCharmOrigin()
+}
+
 // AddCharm adds the given charm URL (which must include revision) to
 // the model, if it does not exist yet. Local charms are not
 // supported, only charm store and charm hub URLs. See also AddLocalCharm().
@@ -166,7 +178,7 @@ func (c *Client) GetDownloadInfo(curl *charm.URL, origin apicharm.Origin, mac *m
 func (c *Client) AddCharm(curl *charm.URL, origin apicharm.Origin, force bool) (apicharm.Origin, error) {
 	args := params.AddCharmWithOrigin{
 		URL:    curl.String(),
-		Origin: origin.ParamsCharmOrigin(),
+		Origin: c.paramsCharmOrigin(origin),
 		Force:  force,
 		// Deprecated: Series is used here to communicate with older
 		// controllers and instead we use Origin to describe the platform.
@@ -193,7 +205,7 @@ func (c *Client) AddCharm(curl *charm.URL, origin apicharm.Origin, force bool) (
 func (c *Client) AddCharmWithAuthorization(curl *charm.URL, origin apicharm.Origin, csMac *macaroon.Macaroon, force bool) (apicharm.Origin, error) {
 	args := params.AddCharmWithAuth{
 		URL:                curl.String(),
-		Origin:             origin.ParamsCharmOrigin(),
+		Origin:             c.paramsCharmOrigin(origin),
 		CharmStoreMacaroon: csMac,
 		Force:              force,
 		// Deprecated: Series is used here to communicate with older
@@ -395,7 +407,7 @@ func (c *Client) ListCharmResources(curl *charm.URL, origin apicharm.Origin) ([]
 	args := params.CharmURLAndOrigins{
 		Entities: []params.CharmURLAndOrigin{{
 			CharmURL: curl.String(),
-			Origin:   origin.ParamsCharmOrigin(),
+			Origin:   c.paramsCharmOrigin(origin),
 		}},
 	}
 	var results params.CharmResourcesResults

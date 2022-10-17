@@ -139,8 +139,12 @@ func BootstrapInstance(
 		return nil, "", nil, err
 	}
 	envCfg := env.Config()
+	base, err := series.GetBaseFromSeries(selectedSeries)
+	if err != nil {
+		return nil, "", nil, err
+	}
 	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(
-		args.ControllerConfig, args.BootstrapConstraints, args.ModelConstraints, selectedSeries, publicKey,
+		args.ControllerConfig, args.BootstrapConstraints, args.ModelConstraints, base, publicKey,
 		args.ExtraAgentValuesForTesting,
 	)
 	if err != nil {
