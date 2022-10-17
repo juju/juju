@@ -11,6 +11,9 @@ test_deploy_caas() {
 
 	file="${TEST_DIR}/test-deploy-caas.log"
 
+	if [[ -n ${OPERATOR_IMAGE_ACCOUNT:-} ]]; then
+		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --config caas-image-repo=${OPERATOR_IMAGE_ACCOUNT}"
+	fi
 	bootstrap "test-deploy-caas" "${file}"
 
 	case "${BOOTSTRAP_PROVIDER:-}" in
