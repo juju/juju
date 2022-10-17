@@ -65,7 +65,7 @@ run_model_migration_version() {
 
 	# test against beta channel for devel
 	# TODO: change back to stable once 3.0 released.
-	channel="$major_minor/beta"
+	channel="$major_minor/candidate"
 
 	stable_version=$(snap info juju | yq ".channels[\"$channel\"]" | cut -d' ' -f1)
 	echo "stable_version ==> $stable_version"
