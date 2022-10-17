@@ -1434,8 +1434,11 @@ func (st *State) processCommonModelApplicationArgs(args *AddApplicationArgs) (Ba
 	}
 	if len(supportedSeries) > 0 {
 		supportedOperatingSystems := make(map[string]bool)
-		for _, supportedSeries := range supportedSeries {
-			os, err := series.GetOSFromSeries(supportedSeries)
+		for _, chSeries := range supportedSeries {
+			if chSeries == series.Kubernetes.String() {
+				chSeries = series.LegacyKubernetesSeries()
+			}
+			os, err := series.GetOSFromSeries(chSeries)
 			if err != nil {
 				// If we can't figure out a series written in the charm
 				// just skip it.
@@ -1443,7 +1446,7 @@ func (st *State) processCommonModelApplicationArgs(args *AddApplicationArgs) (Ba
 			}
 			supportedOperatingSystems[strings.ToLower(os.String())] = true
 		}
-		if !supportedOperatingSystems[appBase.OS] && !supportedOperatingSystems["kubernetes"] {
+		if !supportedOperatingSystems[appBase.OS] {
 			series, _ := series.GetSeriesFromBase(appBase)
 			return Base{}, errors.NewNotSupported(errors.Errorf(
 				"series %q not supported by charm, supported series are %q",
@@ -2185,22 +2188,26 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
-				var charmBasees []string
+				var charmBases []string
 				for _, s := range charmSeries {
+					if s == series.Kubernetes.String() {
+						charmBases = append(charmBases, series.LegacyKubernetesBase().DisplayString())
+						continue
+					}
 					b, err := series.GetBaseFromSeries(s)
 					if err != nil {
 						return nil, errors.Trace(err)
 					}
-					charmBasees = append(charmBasees, b.DisplayString())
+					charmBases = append(charmBases, b.DisplayString())
 				}
-				if len(charmBasees) == 0 {
+				if len(charmBases) == 0 {
 					localBase, err := series.ParseBase(localApp.Base().OS, localApp.Base().Channel)
 					if err != nil {
 						return nil, errors.Trace(err)
 					}
-					charmBasees = []string{localBase.DisplayString()}
+					charmBases = []string{localBase.DisplayString()}
 				}
-				appBases[localApp.doc.Name] = charmBasees
+				appBases[localApp.doc.Name] = charmBases
 				ops = append(ops, txn.Op{
 					C:      applicationsC,
 					Id:     st.docID(ep.ApplicationName),

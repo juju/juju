@@ -842,7 +842,7 @@ func (s *JujuConnSuite) AddTestingCharmForSeries(c *gc.C, name, series string) *
 func (s *JujuConnSuite) AddTestingApplication(c *gc.C, name string, ch *state.Charm) *state.Application {
 	appSeries := ch.URL().Series
 	if appSeries == "kubernetes" {
-		appSeries = "focal"
+		appSeries = series.LegacyKubernetesSeries()
 	}
 	base, err := series.GetBaseFromSeries(appSeries)
 	c.Assert(err, jc.ErrorIsNil)

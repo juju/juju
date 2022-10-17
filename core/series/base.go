@@ -5,7 +5,6 @@ package series
 
 import (
 	"fmt"
-	"runtime/debug"
 	"strings"
 
 	"github.com/juju/errors"
@@ -22,10 +21,6 @@ type Base struct {
 
 // ParseBase constructs a Base from the os and channel string.
 func ParseBase(os string, channel string) (Base, error) {
-	if channel == "kubernetes" {
-		logger.Criticalf("%s", debug.Stack())
-	}
-
 	if os == "" && channel == "" {
 		return Base{}, nil
 	}
@@ -41,10 +36,6 @@ func ParseBase(os string, channel string) (Base, error) {
 
 // MakeDefaultBase creates a base from an os and simple version string, eg "22.04".
 func MakeDefaultBase(os string, channel string) Base {
-	if channel == "kubernetes" {
-		logger.Criticalf("%s", debug.Stack())
-	}
-
 	return Base{OS: os, Channel: MakeDefaultChannel(channel)}
 }
 
@@ -52,21 +43,21 @@ func (b Base) String() string {
 	if b.OS == "" {
 		return ""
 	}
-	//if b.OS == "kubernetes" {
-	//	return b.OS
-	//}
 	return fmt.Sprintf("%s:%s", b.OS, b.Channel)
 }
 
+// IsCompatible returns true if base other is the same underlying
+// OS version, ignoring risk.
 func (b Base) IsCompatible(other Base) bool {
 	return b.OS == other.OS && b.Channel.Track == other.Channel.Track
 }
 
-func (b *Base) DisplayString() string {
-	if b == nil || b.OS == "" {
+// DisplayString returns the base string ignoring risk.
+func (b Base) DisplayString() string {
+	if b.Channel.Track == "" || b.OS == "" {
 		return ""
 	}
-	if b.OS == "kubernetes" {
+	if b.OS == Kubernetes.String() {
 		return b.OS
 	}
 	return b.OS + ":" + b.Channel.DisplayString()
@@ -74,9 +65,6 @@ func (b *Base) DisplayString() string {
 
 // GetBaseFromSeries returns the Base infor for a series.
 func GetBaseFromSeries(series string) (Base, error) {
-	if series == "kubernetes" {
-		logger.Criticalf("%s", debug.Stack())
-	}
 	var result Base
 	osName, err := GetOSFromSeries(series)
 	if err != nil {
@@ -116,4 +104,14 @@ func GetSeriesFromBase(v Base) (string, error) {
 		}
 	}
 	return "", errors.NotFoundf("os %q version %q", v.OS, v.Channel.Track)
+}
+
+// LegacyKubernetesBase is the ubuntu base image for legacy k8s charms.
+func LegacyKubernetesBase() Base {
+	return MakeDefaultBase("ubuntu", "20.04")
+}
+
+// LegacyKubernetesSeries is the ubuntu series for legacy k8s charms.
+func LegacyKubernetesSeries() string {
+	return "focal"
 }
