@@ -1,3 +1,4 @@
+# Ensure that related applications can exchange data via databag correctly.
 run_relation_data_exchange() {
 	echo
 
@@ -8,10 +9,10 @@ run_relation_data_exchange() {
 
 	echo "Deploy 2 wordpress instances and one mysql instance"
 	juju deploy wordpress -n 2 --force --series bionic
-	wait_for "wordpress" "$(idle_condition "wordpress" 0 0)"
-	wait_for "wordpress" "$(idle_condition "wordpress" 0 1)"
 	# mysql charm does not have stable channel, so we use edge channel
 	juju deploy mysql --channel=edge --force --series focal
+	wait_for "wordpress" "$(idle_condition "wordpress" 1 0)"
+	wait_for "wordpress" "$(idle_condition "wordpress" 1 1)"
 	wait_for "mysql" "$(idle_condition "mysql")"
 
 	echo "Establish relation"
@@ -53,49 +54,22 @@ run_relation_data_exchange() {
 
 	echo "Exchange relation data"
 	juju exec --unit 'mysql/0' 'relation-set --app -r db:2 origin=mysql'
-
-	echo "As the leader units, set some *application* data for both sides of a non-peer relation"
+	# As the leader units, set some *application* data for both sides of a non-peer relation
 	juju exec --unit "${leader_wordpress_unit}" 'relation-set --app -r db:2 origin=wordpress'
 	juju exec --unit 'mysql/0' 'relation-set --app -r db:2 origin=mysql'
-
-	echo "As the leader wordpress unit, also set *application* data for a peer relation"
+	# As the leader wordpress unit, also set *application* data for a peer relation
 	juju exec --unit "${leader_wordpress_unit}" 'relation-set --app -r loadbalancer:0 visible=to-peers'
 
-	echo "Check 1: ensure that leaders can read the application databag for their own application (LP1854348)"
-	got=$(juju exec --unit "${leader_wordpress_unit}" 'relation-get --app -r db:2 origin wordpress')
-	if [ "${got}" != "wordpress" ]; then
-		# shellcheck disable=SC2046
-		echo $(red "expected wordpress leader to read its own databag for non-peer relation")
-		exit 1
-	fi
-	got=$(juju exec --unit 'mysql/0' 'relation-get --app -r db:2 origin mysql')
-	if [ "${got}" != "mysql" ]; then
-		# shellcheck disable=SC2046
-		echo $(red "expected mysql leader to read its own databag for non-peer relation")
-		exit 1
-	fi
+	echo "Check 1: ensure that leaders can read the application databag for their own application"
+	juju exec --unit "${leader_wordpress_unit}" 'relation-get --app -r db:2 origin wordpress' | check "wordpress"
+	juju exec --unit 'mysql/0' 'relation-get --app -r db:2 origin mysql' | check "mysql"
 
-	echo "Check 2: ensure that any unit can read its own application databag for *peer* relations LP1865229)"
-	got=$(juju exec --unit "${leader_wordpress_unit}" 'relation-get --app -r loadbalancer:0 visible wordpress')
-	if [ "${got}" != "to-peers" ]; then
-		# shellcheck disable=SC2046
-		echo $(red "expected wordpress leader to read its own databag for a peer relation")
-		exit 1
-	fi
-	got=$(juju exec --unit "${non_leader_wordpress_unit}" 'relation-get --app -r loadbalancer:0 visible wordpress')
-	if [ "${got}" != "to-peers" ]; then
-		# shellcheck disable=SC2046
-		echo $(red "expected wordpress non-leader to read its own databag for a peer relation")
-		exit 1
-	fi
+	echo "Check 2: ensure that any unit can read its own application databag for *peer* relations"
+	juju exec --unit "${leader_wordpress_unit}" 'relation-get --app -r loadbalancer:0 visible wordpress' | check "to-peers"
+	juju exec --unit "${non_leader_wordpress_unit}" 'relation-get --app -r loadbalancer:0 visible wordpress' | check "to-peers"
 
-#	echo "Check 3: ensure that non-leader units are not allowed to read their own application databag for non-peer relations"
-#	got=$(juju exec --unit "${non_leader_wordpress_unit}" 'relation-get --app -r db:2 origin wordpress')
-#	if [ "${got}" != "ERROR permission denied" ]; then
-#		# shellcheck disable=SC2046
-#		echo $(red "expected wordpress non-leader not to be allowed to read the databag for a non-peer relation")
-#		exit 1
-#	fi
+	echo "Check 3: ensure that non-leader units are not allowed to read their own application databag for non-peer relations"
+	juju exec --unit "${non_leader_wordpress_unit}" 'relation-get --app -r db:2 origin wordpress' 2>&1 || echo "PERMISSION DENIED" | check "PERMISSION DENIED"
 
 	destroy_model "${model_name}"
 }
