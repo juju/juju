@@ -26,6 +26,7 @@ import (
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/cmd/juju/commands/mocks"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
@@ -44,6 +45,7 @@ type sshContainerSuite struct {
 	mockPods           *k8smocks.MockPodInterface
 	mockNamespaces     *k8smocks.MockNamespaceInterface
 	mockSSHClient      *mocks.MockSSHClientAPI
+	controllerAPI      *mocks.MockSSHControllerAPI
 
 	sshC commands.SSHContainerInterfaceForTest
 }
@@ -89,6 +91,7 @@ func (s *sshContainerSuite) setUpController(c *gc.C, remote bool, containerName 
 	mockCoreV1.EXPECT().Namespaces().AnyTimes().Return(s.mockNamespaces)
 
 	s.mockSSHClient = mocks.NewMockSSHClientAPI(ctrl)
+	s.controllerAPI = mocks.NewMockSSHControllerAPI(ctrl)
 
 	s.sshC = commands.NewSSHContainer(
 		s.modelUUID,
@@ -101,6 +104,7 @@ func (s *sshContainerSuite) setUpController(c *gc.C, remote bool, containerName 
 		s.mockSSHClient,
 		remote,
 		containerName,
+		s.controllerAPI,
 	)
 	return ctrl
 }
@@ -823,4 +827,20 @@ func (s *sshContainerSuite) TestCopyToWorkloadPodWithContainerSpecified(c *gc.C)
 
 	err := s.sshC.Copy(ctx)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *sshContainerSuite) TestNamespaceControllerModel(c *gc.C) {
+	ctrl := s.setUpController(c, true, "")
+	defer ctrl.Finish()
+
+	mc := mocks.NewMockModelCommand(ctrl)
+	mc.EXPECT().ModelIdentifier().Return("admin/controller", nil)
+	mc.EXPECT().NewControllerAPIRoot().Return(nil, nil)
+	mc.EXPECT().NewAPIRoot().Return(nil, nil)
+	s.controllerAPI.EXPECT().ControllerConfig().Return(
+		controller.Config{"controller-name": "foobar"}, nil)
+
+	err := s.sshC.InitRun(mc)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.sshC.Namespace(), gc.Equals, "controller-foobar")
 }

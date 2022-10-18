@@ -235,8 +235,8 @@ type sshProvider interface {
 	setRetryStrategy(retry.CallArgs)
 }
 
-// Run resolves c.Target to a machine, to the address of a i
-// machine or unit forks ssh passing any arguments provided.
+// Run resolves the given target to a machine or unit, then opens
+// an SSH connection to this target.
 func (c *sshCommand) Run(ctx *cmd.Context) error {
 	if err := c.provider.initRun(&c.ModelCommandBase); err != nil {
 		return errors.Trace(err)

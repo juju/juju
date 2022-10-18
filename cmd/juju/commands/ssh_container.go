@@ -21,9 +21,12 @@ import (
 	"github.com/juju/juju/api/client/modelmanager"
 	"github.com/juju/juju/api/client/sshclient"
 	commoncharm "github.com/juju/juju/api/common/charms"
+	controllerapi "github.com/juju/juju/api/controller/controller"
+	"github.com/juju/juju/caas/kubernetes/provider"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"
 	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
 	environsbootstrap "github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/cloudspec"
@@ -42,18 +45,20 @@ type sshContainer struct {
 	args      []string
 	modelUUID string
 	modelName string
+	namespace string
 
 	cloudCredentialAPI CloudCredentialAPI
 	modelAPI           ModelAPI
 	applicationAPI     ApplicationAPI
 	charmsAPI          CharmsAPI
-	execClientGetter   func(string, string, cloudspec.CloudSpec) (k8sexec.Executor, error)
+	execClientGetter   func(string, cloudspec.CloudSpec) (k8sexec.Executor, error)
 	execClient         k8sexec.Executor
 	statusAPIGetter    statusAPIGetterFunc
 	// TODO(juju3) - remove
 	modelType       model.ModelType
 	sshClient       SSHClientAPI
 	leaderAPIGetter leaderAPIGetterFunc
+	controllerAPI   SSHControllerAPI
 }
 
 // CloudCredentialAPI defines cloud credential related APIs.
@@ -89,6 +94,10 @@ type ModelAPI interface {
 type CharmsAPI interface {
 	Close() error
 	CharmInfo(charmURL string) (*commoncharm.CharmInfo, error)
+}
+
+type SSHControllerAPI interface {
+	ControllerConfig() (controller.Config, error)
 }
 
 // SetFlags sets up options and flags for the command.
@@ -167,6 +176,19 @@ func (c *sshContainer) initRun(mc ModelCommand) (err error) {
 	if c.execClientGetter == nil {
 		c.execClientGetter = k8sexec.NewForJujuCloudSpec
 	}
+
+	c.namespace = modelNameWithoutUsername(c.modelName)
+	if c.namespace == environsbootstrap.ControllerModelName {
+		if c.controllerAPI == nil {
+			c.controllerAPI = controllerapi.NewClient(cAPI)
+		}
+		controllerCfg, err := c.controllerAPI.ControllerConfig()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		c.namespace = provider.DecideControllerNamespace(controllerCfg.ControllerName())
+	}
+
 	if c.execClient == nil {
 		if c.execClient, err = c.getExecClient(); err != nil {
 			return errors.Trace(err)
@@ -427,7 +449,7 @@ func (c *sshContainer) getExecClient() (k8sexec.Executor, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return c.execClientGetter(modelNameWithoutUsername(c.modelName), c.modelUUID, cloudSpec)
+	return c.execClientGetter(c.namespace, cloudSpec)
 }
 
 func (c *sshContainer) getCloudSpec() (cloudspec.CloudSpec, error) {
@@ -439,6 +461,7 @@ func (c *sshContainer) getCloudSpec() (cloudspec.CloudSpec, error) {
 		return c.sshClient.ModelCredentialForSSH()
 	}
 
+	// legacy code for v3 API
 	modelTag := names.NewModelTag(c.modelUUID)
 	mInfoResults, err := c.modelAPI.ModelInfo([]names.ModelTag{modelTag})
 	if err != nil {
