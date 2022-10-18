@@ -19,8 +19,8 @@ run_relation_data_exchange() {
 	juju relate wordpress mysql
 
 	echo "Get the leader unit name"
-	leader_wordpress_unit=$(juju status wordpress --format json | jq -r  ".applications.wordpress.units | to_entries[] | select(.value.leader==true) | .key")
-	non_leader_wordpress_unit=$(juju status wordpress --format json | jq -r  ".applications.wordpress.units | to_entries[] | select(.value.leader!=true) | .key")
+	leader_wordpress_unit=$(juju status wordpress --format json | jq -r ".applications.wordpress.units | to_entries[] | select(.value.leader==true) | .key")
+	non_leader_wordpress_unit=$(juju status wordpress --format json | jq -r ".applications.wordpress.units | to_entries[] | select(.value.leader!=true) | .key")
 
 	echo "Block until the relation is joined; otherwise, the relation-set commands below will fail"
 	attempt=0
