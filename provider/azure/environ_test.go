@@ -557,10 +557,12 @@ func makeStartInstanceParams(c *gc.C, controllerUUID, series string) environs.St
 		ModelTag: testing.ModelTag,
 	}
 
+	base, err := coreseries.GetBaseFromSeries(series)
+	c.Assert(err, jc.ErrorIsNil)
 	icfg, err := instancecfg.NewInstanceConfig(
 		names.NewControllerTag(controllerUUID),
 		machineTag.Id(), "yanonce", imagemetadata.ReleasedStream,
-		series, apiInfo,
+		base, apiInfo,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	icfg.ControllerConfig = controller.Config{}

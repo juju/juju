@@ -6,6 +6,7 @@ package backups
 import (
 	"bytes"
 	"io"
+	"strings"
 	"text/template"
 	"time"
 
@@ -103,7 +104,7 @@ func (c *CommandBase) dumpMetadata(ctx *cmd.Context, result *params.BackupsMetad
 	ctx.Verbosef(c.metadata(result))
 }
 
-const backupMetadataTemplate = `
+var backupMetadataTemplate = `
 backup format version: {{.FormatVersion}} 
 juju version:          {{.JujuVersion}} 
 series:                {{.Series}} 
@@ -145,6 +146,10 @@ type MetadataParams struct {
 }
 
 func (c *CommandBase) metadata(result *params.BackupsMetadataResult) string {
+	if result.Series == "" && result.Base != "" {
+		result.Series = result.Base
+		backupMetadataTemplate = strings.ReplaceAll(backupMetadataTemplate, "series:", "base:")
+	}
 	m := MetadataParams{
 		result.FormatVersion,
 		result.Checksum,

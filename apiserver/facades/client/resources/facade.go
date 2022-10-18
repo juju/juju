@@ -46,6 +46,10 @@ type API struct {
 }
 
 type APIv1 struct {
+	*APIv2
+}
+
+type APIv2 struct {
 	*API
 }
 

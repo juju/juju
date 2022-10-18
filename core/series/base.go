@@ -5,6 +5,7 @@ package series
 
 import (
 	"fmt"
+	"runtime/debug"
 	"strings"
 
 	"github.com/juju/errors"
@@ -27,6 +28,9 @@ func ParseBase(name string, channel string) (Base, error) {
 	ch, err := ParseChannelNormalize(channel)
 	if err != nil {
 		return Base{}, errors.Annotatef(err, "parsing base %s:%s", name, channel)
+	}
+	if name == "centos" {
+		ch.Track = ToLegacyCentosChannel(ch.Track)
 	}
 	return Base{Name: name, Channel: ch}, nil
 }
@@ -75,6 +79,20 @@ func GetBaseFromSeries(series string) (Base, error) {
 	return result, nil
 }
 
+func ToLegacyCentosChannel(channel string) string {
+	if strings.HasPrefix(channel, "centos") {
+		return channel
+	}
+	return "centos" + channel
+}
+
+func FromLegacyCentosChannel(series string) string {
+	if strings.HasPrefix(series, "centos") {
+		return strings.TrimLeft(series, "centos")
+	}
+	return series
+}
+
 // GetSeriesFromChannel gets the series from os name and channel.
 func GetSeriesFromChannel(name string, channel string) (string, error) {
 	base, err := ParseBase(name, channel)
@@ -93,6 +111,7 @@ func GetSeriesFromBase(v Base) (string, error) {
 		osSeries = ubuntuSeries
 	case "centos":
 		osSeries = centosSeries
+		v.Channel.Track = ToLegacyCentosChannel(v.Channel.Track)
 	// TODO(juju3) - remove when legacy k8s charms are gone
 	case "kubernetes":
 		osSeries = kubernetesSeries
@@ -116,5 +135,6 @@ func GetSeriesFromBase(v Base) (string, error) {
 			return string(s), nil
 		}
 	}
+	logger.Criticalf("%s", debug.Stack())
 	return "", errors.NotFoundf("os %q version %q", v.Name, v.Channel.Track)
 }

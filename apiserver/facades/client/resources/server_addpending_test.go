@@ -21,7 +21,7 @@ type AddPendingResourcesSuite struct {
 func (s *AddPendingResourcesSuite) newFacadeV1(c *gc.C) *APIv1 {
 	facade, err := NewResourcesAPI(s.data, s.newCSFactory())
 	c.Assert(err, jc.ErrorIsNil)
-	return &APIv1{facade}
+	return &APIv1{&APIv2{facade}}
 }
 
 func (s *AddPendingResourcesSuite) TestNoURL(c *gc.C) {
@@ -224,9 +224,9 @@ func (s *AddPendingResourcesSuite) TestLocalCharm(c *gc.C) {
 	s.data.ReturnAddPendingResource = id1
 	facade, err := NewResourcesAPI(s.data, s.newLocalFactory())
 	c.Assert(err, jc.ErrorIsNil)
-	facadeV2 := &APIv1{facade}
+	facadeV1 := &APIv1{&APIv2{facade}}
 
-	result, err := facadeV2.AddPendingResources(params.AddPendingResourcesArgs{
+	result, err := facadeV1.AddPendingResources(params.AddPendingResourcesArgs{
 		Entity: params.Entity{
 			Tag: "application-a-application",
 		},

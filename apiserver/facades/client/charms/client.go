@@ -58,6 +58,10 @@ type APIv2 struct {
 }
 
 type APIv3 struct {
+	*APIv4
+}
+
+type APIv4 struct {
 	*API
 }
 

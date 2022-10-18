@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/golang/mock/gomock"
+	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	"github.com/packethost/packngo"
@@ -18,6 +19,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -26,7 +28,6 @@ import (
 	"github.com/juju/juju/provider/equinix/mocks"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	jtesting "github.com/juju/testing"
 )
 
 type environProviderSuite struct {
@@ -475,7 +476,8 @@ func (s *environProviderSuite) TestStartInstance(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env, gc.NotNil)
 	cons := constraints.Value{}
-	iConfig, err := instancecfg.NewBootstrapInstanceConfig(testing.FakeControllerConfig(), cons, cons, "focal", "", nil)
+	iConfig, err := instancecfg.NewBootstrapInstanceConfig(testing.FakeControllerConfig(), cons, cons,
+		series.MakeDefaultBase("ubuntu", "20.04"), "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = env.StartInstance(environContext.NewCloudCallContext(context.TODO()), environs.StartInstanceParams{
 		ControllerUUID:   env.Config().UUID(),

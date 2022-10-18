@@ -197,12 +197,16 @@ func FillInStartInstanceParams(env environs.Environ, machineId string, isControl
 
 	machineNonce := "fake_nonce"
 	apiInfo := FakeAPIInfo(machineId)
+	base, err := series.GetBaseFromSeries(preferredSeries)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	instanceConfig, err := instancecfg.NewInstanceConfig(
 		testing.ControllerTag,
 		machineId,
 		machineNonce,
 		imagemetadata.ReleasedStream,
-		preferredSeries,
+		base,
 		apiInfo,
 	)
 	if err != nil {

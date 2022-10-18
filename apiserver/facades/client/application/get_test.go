@@ -31,7 +31,7 @@ import (
 type getSuite struct {
 	jujutesting.JujuConnSuite
 
-	applicationAPI *application.APIv14
+	applicationAPI *application.APIv15
 	authorizer     apiservertesting.FakeAuthorizer
 }
 
@@ -64,7 +64,7 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 		nil, // CAAS Broker not used in this suite.
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.applicationAPI = &application.APIv14{api}
+	s.applicationAPI = &application.APIv15{api}
 }
 
 func (s *getSuite) TestClientApplicationGetSmokeTestV4(c *gc.C) {
@@ -79,7 +79,9 @@ func (s *getSuite) TestClientApplicationGetSmokeTestV4(c *gc.C) {
 								&application.APIv11{
 									APIv12: &application.APIv12{
 										APIv13: &application.APIv13{
-											s.applicationAPI,
+											APIv14: &application.APIv14{
+												s.applicationAPI,
+											},
 										},
 									},
 								},
@@ -120,7 +122,9 @@ func (s *getSuite) TestClientApplicationGetSmokeTestV5(c *gc.C) {
 							&application.APIv11{
 								APIv12: &application.APIv12{
 									APIv13: &application.APIv13{
-										s.applicationAPI,
+										APIv14: &application.APIv14{
+											s.applicationAPI,
+										},
 									},
 								},
 							},
@@ -271,7 +275,9 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 					APIv12: &application.APIv12{
 						APIv13: &application.APIv13{
 							APIv14: &application.APIv14{
-								api,
+								APIv15: &application.APIv15{
+									api,
+								},
 							},
 						},
 					},

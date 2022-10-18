@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -125,11 +126,13 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 
 		// The machine config should set its upgrade behavior based on
 		// the environment config.
+		base, err := coreseries.GetBaseFromSeries(args.InstanceConfig.Series)
+		c.Assert(err, jc.ErrorIsNil)
 		expectedMcfg, err := instancecfg.NewBootstrapInstanceConfig(
 			coretesting.FakeControllerConfig(),
 			args.Constraints,
 			args.Constraints,
-			args.InstanceConfig.Series,
+			base,
 			"",
 			nil,
 		)

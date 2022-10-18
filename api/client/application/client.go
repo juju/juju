@@ -137,6 +137,17 @@ func (c *Client) Leader(app string) (string, error) {
 	return result.Result, nil
 }
 
+func (c *Client) paramsCharmOrigin(origin apicharm.Origin) params.CharmOrigin {
+	if origin.Base.Name == "centos" {
+		if c.BestAPIVersion() < 15 {
+			origin.Base.Channel.Track = coreseries.ToLegacyCentosChannel(origin.Base.Channel.Track)
+		} else {
+			origin.Base.Channel.Track = coreseries.FromLegacyCentosChannel(origin.Base.Channel.Track)
+		}
+	}
+	return origin.ParamsCharmOrigin()
+}
+
 // Deploy obtains the charm, either locally or from the charm store, and deploys
 // it. Placement directives, if provided, specify the machine on which the charm
 // is deployed.
@@ -156,7 +167,7 @@ func (c *Client) Deploy(args DeployArgs) error {
 		}
 		attachStorage[i] = names.NewStorageTag(id).String()
 	}
-	origin := args.CharmOrigin.ParamsCharmOrigin()
+	origin := c.paramsCharmOrigin(args.CharmOrigin)
 	deployArgs := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName:  args.ApplicationName,
@@ -451,13 +462,11 @@ func (c *Client) SetCharm(branchName string, cfg SetCharmConfig) error {
 		}
 	}
 
-	origin := cfg.CharmID.Origin
-	paramsCharmOrigin := origin.ParamsCharmOrigin()
-
+	origin := c.paramsCharmOrigin(cfg.CharmID.Origin)
 	args := params.ApplicationSetCharm{
 		ApplicationName:    cfg.ApplicationName,
 		CharmURL:           cfg.CharmID.URL.String(),
-		CharmOrigin:        &paramsCharmOrigin,
+		CharmOrigin:        &origin,
 		Channel:            origin.Risk,
 		ConfigSettings:     cfg.ConfigSettings,
 		ConfigSettingsYAML: cfg.ConfigSettingsYAML,
@@ -480,6 +489,10 @@ func (c *Client) Update(args params.ApplicationUpdate) error {
 
 // UpdateApplicationSeries updates the application series in the db.
 func (c *Client) UpdateApplicationSeries(appName, series string, force bool) error {
+	method := "UpdateApplicationBase"
+	if c.BestAPIVersion() < 15 {
+		method = "UpdateApplicationSeries"
+	}
 	base, err := coreseries.GetBaseFromSeries(series)
 	if err != nil {
 		return errors.Trace(err)
@@ -494,7 +507,7 @@ func (c *Client) UpdateApplicationSeries(appName, series string, force bool) err
 	}
 
 	results := new(params.ErrorResults)
-	err = c.facade.FacadeCall("UpdateApplicationSeries", args, results)
+	err = c.facade.FacadeCall(method, args, results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1187,6 +1200,22 @@ func (c *Client) ApplicationsInfo(applications []names.ApplicationTag) ([]params
 	}
 	if resultsLen := len(out.Results); resultsLen != len(applications) {
 		return nil, errors.Errorf("expected %d results, got %d", len(applications), resultsLen)
+	}
+	for i, result := range out.Results {
+		if result.Result == nil {
+			continue
+		}
+		details := result.Result
+		appSeries := details.Series
+		if appSeries == "" {
+			base, err := coreseries.ParseBase(details.Base.Name, details.Base.Channel)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			appSeries, _ = coreseries.GetSeriesFromBase(base)
+			details.Series = appSeries
+			out.Results[i] = result
+		}
 	}
 	return out.Results, nil
 }

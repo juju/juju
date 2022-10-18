@@ -29,6 +29,7 @@ import (
 	corearch "github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -68,8 +69,9 @@ func (s *legacyEnvironBrokerSuite) SetUpTest(c *gc.C) {
 
 func (s *legacyEnvironBrokerSuite) createStartInstanceArgs(c *gc.C) environs.StartInstanceParams {
 	var cons constraints.Value
+	base := coreseries.MakeDefaultBase("ubuntu", "14.04")
 	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(
-		coretesting.FakeControllerConfig(), cons, cons, "trusty", "", nil,
+		coretesting.FakeControllerConfig(), cons, cons, base, "", nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -639,7 +641,7 @@ func (s *legacyEnvironBrokerSuite) TestNotBootstrapping(c *gc.C) {
 		"0",
 		"nonce",
 		"",
-		"trusty",
+		coreseries.MakeDefaultBase("ubuntu", "14.04"),
 		&api.Info{
 			Tag:      names.NewMachineTag("0"),
 			ModelTag: coretesting.ModelTag,

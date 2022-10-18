@@ -18,6 +18,7 @@ import (
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -55,11 +56,13 @@ func (s *configureSuite) getCloudConfig(c *gc.C, controller bool, vers version.B
 	var icfg *instancecfg.InstanceConfig
 	var err error
 	modelConfig := testConfig(c, series, vers)
+	base, err := coreseries.GetBaseFromSeries(series)
+	c.Assert(err, jc.ErrorIsNil)
 	if controller {
 		icfg, err = instancecfg.NewBootstrapInstanceConfig(
 			coretesting.FakeControllerConfig(),
 			constraints.Value{}, constraints.Value{},
-			series, "",
+			base, "",
 			map[string]string{"foo": "bar"},
 		)
 		c.Assert(err, jc.ErrorIsNil)
@@ -90,7 +93,7 @@ func (s *configureSuite) getCloudConfig(c *gc.C, controller bool, vers version.B
 			APIPort:      456,
 		}
 	} else {
-		icfg, err = instancecfg.NewInstanceConfig(coretesting.ControllerTag, "0", "ya", imagemetadata.ReleasedStream, series, nil)
+		icfg, err = instancecfg.NewInstanceConfig(coretesting.ControllerTag, "0", "ya", imagemetadata.ReleasedStream, base, nil)
 		c.Assert(err, jc.ErrorIsNil)
 		icfg.Jobs = []model.MachineJob{model.JobHostUnits}
 	}

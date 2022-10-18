@@ -60,7 +60,7 @@ type mockLXDProfilerCharm struct {
 type ApplicationSuite struct {
 	testing.CleanupSuite
 
-	api *application.APIv14
+	api *application.APIv15
 
 	backend            *mocks.MockBackend
 	storageAccess      *mocks.MockStorageInterface
@@ -200,7 +200,7 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 		s.caasBroker,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.api = &application.APIv14{api}
+	s.api = &application.APIv15{api}
 	return ctrl
 }
 
@@ -303,7 +303,7 @@ func (s *ApplicationSuite) TestUpdateCAASApplicationSettings(c *gc.C) {
 		ApplicationName: "postgresql",
 		SettingsYAML:    "postgresql:\n  stringOption: bar\n  juju-external-hostname: foo",
 	}
-	api := &application.APIv12{&application.APIv13{s.api}}
+	api := &application.APIv12{&application.APIv13{&application.APIv14{s.api}}}
 	err := api.Update(args)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -320,7 +320,7 @@ func (s *ApplicationSuite) TestUpdateCAASApplicationSettingsInIAASModelTriggersE
 		ApplicationName: "postgresql",
 		SettingsYAML:    "postgresql:\n  stringOption: bar\n  juju-external-hostname: foo",
 	}
-	api := &application.APIv12{&application.APIv13{s.api}}
+	api := &application.APIv12{&application.APIv13{&application.APIv14{s.api}}}
 	err := api.Update(args)
 	c.Assert(err, gc.ErrorMatches, `.*unknown option "juju-external-hostname"`, gc.Commentf("expected to get an error when attempting to set CAAS-specific app setting in IAAS model"))
 }
@@ -2098,7 +2098,8 @@ func (s *ApplicationSuite) TestConsumeRemoteAppTerminated(c *gc.C) {
 func (s *ApplicationSuite) TestApplicationUpdateSeriesNoParams(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	results, err := s.api.UpdateApplicationSeries(
+	api := application.APIv14{s.api}
+	results, err := api.UpdateApplicationSeries(
 		params.UpdateChannelArgs{
 			Args: []params.UpdateChannelArg{},
 		},
@@ -2107,13 +2108,25 @@ func (s *ApplicationSuite) TestApplicationUpdateSeriesNoParams(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{}})
 }
 
-func (s *ApplicationSuite) TestApplicationUpdateSeriesPermissionDenied(c *gc.C) {
+func (s *ApplicationSuite) TestApplicationUpdateBaseNoParams(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	results, err := s.api.UpdateApplicationBase(
+		params.UpdateChannelArgs{
+			Args: []params.UpdateChannelArg{},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{}})
+}
+
+func (s *ApplicationSuite) TestApplicationUpdateBasePermissionDenied(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("fred"),
 	}
 	defer s.setup(c).Finish()
 
-	_, err := s.api.UpdateApplicationSeries(
+	_, err := s.api.UpdateApplicationBase(
 		params.UpdateChannelArgs{
 			Args: []params.UpdateChannelArg{{
 				Entity: params.Entity{Tag: names.NewApplicationTag("postgresql").String()},
@@ -2150,7 +2163,7 @@ func (s *ApplicationSuite) TestSetApplicationConfigExplicitMaster(c *gc.C) {
 	s.expectUpdateApplicationConfig(c, app)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
-	api := &application.APIv12{&application.APIv13{s.api}}
+	api := &application.APIv12{&application.APIv13{&application.APIv14{s.api}}}
 	result, err := api.SetApplicationsConfig(params.ApplicationConfigSetArgs{
 		Args: []params.ApplicationConfigSet{{
 			ApplicationName: "postgresql",
@@ -2175,7 +2188,7 @@ func (s *ApplicationSuite) TestSetApplicationConfigEmptyUsesMaster(c *gc.C) {
 	s.expectUpdateApplicationConfig(c, app)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
-	api := &application.APIv12{&application.APIv13{s.api}}
+	api := &application.APIv12{&application.APIv13{&application.APIv14{s.api}}}
 	result, err := api.SetApplicationsConfig(params.ApplicationConfigSetArgs{
 		Args: []params.ApplicationConfigSet{{
 			ApplicationName: "postgresql",
@@ -2203,7 +2216,7 @@ func (s *ApplicationSuite) TestSetApplicationConfigBranch(c *gc.C) {
 	gen.EXPECT().AssignApplication("postgresql")
 	s.backend.EXPECT().Branch("new-branch").Return(gen, nil)
 
-	api := &application.APIv12{&application.APIv13{s.api}}
+	api := &application.APIv12{&application.APIv13{&application.APIv14{s.api}}}
 	result, err := api.SetApplicationsConfig(params.ApplicationConfigSetArgs{
 		Args: []params.ApplicationConfigSet{{
 			ApplicationName: "postgresql",
@@ -2227,7 +2240,7 @@ func (s *ApplicationSuite) TestSetApplicationsEmptyConfigMasterBranch(c *gc.C) {
 	s.expectUpdateApplicationConfig(c, app)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
-	api := &application.APIv12{&application.APIv13{s.api}}
+	api := &application.APIv12{&application.APIv13{&application.APIv14{s.api}}}
 	result, err := api.SetApplicationsConfig(params.ApplicationConfigSetArgs{
 		Args: []params.ApplicationConfigSet{{
 			ApplicationName: "postgresql",
@@ -2298,7 +2311,7 @@ func (s *ApplicationSuite) TestSetApplicationConfigPermissionDenied(c *gc.C) {
 	s.modelType = state.ModelTypeCAAS
 	defer s.setup(c).Finish()
 
-	api := &application.APIv12{&application.APIv13{s.api}}
+	api := &application.APIv12{&application.APIv13{&application.APIv14{s.api}}}
 	_, err := api.SetApplicationsConfig(params.ApplicationConfigSetArgs{
 		Args: []params.ApplicationConfigSet{{
 			ApplicationName: "postgresql",

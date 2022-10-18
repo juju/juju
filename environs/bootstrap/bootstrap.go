@@ -584,6 +584,10 @@ func bootstrapIAAS(
 	if err != nil {
 		return errors.Trace(err)
 	}
+	base, err := series.GetBaseFromSeries(result.Series)
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	publicKey, err := userPublicSigningKey()
 	if err != nil {
@@ -593,7 +597,7 @@ func bootstrapIAAS(
 		args.ControllerConfig,
 		bootstrapParams.BootstrapConstraints,
 		args.ModelConstraints,
-		result.Series,
+		base,
 		publicKey,
 		args.ExtraAgentValuesForTesting,
 	)

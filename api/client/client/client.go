@@ -56,13 +56,6 @@ func (c *Client) Status(patterns []string) (*params.FullStatus, error) {
 		result.Model.Type = model.IAAS.String()
 	}
 	for id, m := range result.Machines {
-		if m.Series != "" && m.Base.Name == "" {
-			base, err := series.GetBaseFromSeries(m.Series)
-			if err != nil {
-				return nil, err
-			}
-			m.Base = params.Base{Name: base.Name, Channel: base.Channel.String()}
-		}
 		if m.Series == "" && m.Base.Name != "" {
 			mSeries, err := series.GetSeriesFromChannel(m.Base.Name, m.Base.Channel)
 			if err != nil {
@@ -151,6 +144,17 @@ func (c *Client) RetryProvisioning(all bool, machines ...names.MachineTag) ([]pa
 // AddMachines adds new machines with the supplied parameters.
 // TODO(juju3) - remove
 func (c *Client) AddMachines(machineParams []params.AddMachineParams) ([]params.AddMachinesResult, error) {
+	for i, m := range machineParams {
+		if m.Base == nil || m.Base.Name != "centos" {
+			continue
+		}
+		if c.BestAPIVersion() >= 6 {
+			m.Base.Channel = series.FromLegacyCentosChannel(m.Base.Channel)
+		} else {
+			m.Base.Channel = series.ToLegacyCentosChannel(m.Base.Channel)
+		}
+		machineParams[i] = m
+	}
 	args := params.AddMachines{
 		MachineParams: machineParams,
 	}

@@ -168,6 +168,11 @@ type MachineManagerAPIV7 struct {
 
 // MachineManagerAPIV8 defines the Version 8 of Machine Manager API.
 type MachineManagerAPIV8 struct {
+	*MachineManagerAPIV9
+}
+
+// MachineManagerAPIV9 defines the Version 9 of Machine Manager API.
+type MachineManagerAPIV9 struct {
 	*MachineManagerAPI
 }
 

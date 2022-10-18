@@ -103,6 +103,11 @@ type ClientV3 struct {
 
 // ClientV4 serves the (v4) client-specific API methods.
 type ClientV4 struct {
+	*ClientV5
+}
+
+// ClientV5 serves the (v5) client-specific API methods.
+type ClientV5 struct {
 	*Client
 }
 

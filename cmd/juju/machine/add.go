@@ -366,6 +366,9 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 			Name:    info.Name,
 			Channel: info.Channel.String(),
 		}
+		if machineManager.BestAPIVersion() >= 9 {
+			base.Channel = series.FromLegacyCentosChannel(base.Channel)
+		}
 	}
 	machineParams := params.AddMachineParams{
 		Placement:   c.Placement,

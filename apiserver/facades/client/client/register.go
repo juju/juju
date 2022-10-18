@@ -7,6 +7,7 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/apiserver/facade"
 )
 
@@ -25,6 +26,9 @@ func Register(registry facade.FacadeRegistry) {
 		return newFacadeV4(ctx)
 	}, reflect.TypeOf((*ClientV4)(nil)))
 	registry.MustRegister("Client", 5, func(ctx facade.Context) (facade.Facade, error) {
+		return newFacadeV5(ctx)
+	}, reflect.TypeOf((*Client)(nil)))
+	registry.MustRegister("Client", 6, func(ctx facade.Context) (facade.Facade, error) {
 		return NewFacade(ctx)
 	}, reflect.TypeOf((*Client)(nil)))
 }
@@ -58,9 +62,18 @@ func newFacadeV3(ctx facade.Context) (*ClientV3, error) {
 
 // newFacadeV4 creates a version 4 Client facade to handle API requests.
 func newFacadeV4(ctx facade.Context) (*ClientV4, error) {
-	client, err := NewFacade(ctx)
+	client, err := newFacadeV5(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &ClientV4{client}, nil
+}
+
+// newFacadeV5 creates a version 5 Client facade to handle API requests.
+func newFacadeV5(ctx facade.Context) (*ClientV5, error) {
+	client, err := NewFacade(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &ClientV5{client}, nil
 }
