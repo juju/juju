@@ -4,6 +4,7 @@
 package usermanager
 
 import (
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/base/testing"
 )
 
@@ -17,4 +18,10 @@ func PatchResponses(p testing.Patcher, client *Client, responseFunc func(interfa
 	testing.PatchFacadeCall(p, &client.facade, func(request string, params, response interface{}) error {
 		return responseFunc(response)
 	})
+}
+
+func NewClientFromCaller(caller base.FacadeCaller) *Client {
+	return &Client{
+		facade: caller,
+	}
 }
