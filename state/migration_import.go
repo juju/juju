@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/series"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
@@ -656,13 +657,23 @@ func (i *importer) makeMachineDoc(m description.Machine) (*machineDoc, error) {
 		return nil, errors.Trace(err)
 	}
 
+	base, err := series.ParseOSChannelStringAsBase(m.Base())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	series, err := series.GetSeriesFromBase(base)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	machineTag := m.Tag()
 	return &machineDoc{
 		DocID:                    i.st.docID(id),
 		Id:                       id,
 		ModelUUID:                i.st.ModelUUID(),
 		Nonce:                    m.Nonce(),
-		Series:                   m.Series(),
+		Series:                   series,
 		ContainerType:            m.ContainerType(),
 		Principals:               nil, // Set during unit import.
 		Life:                     Alive,
@@ -1312,9 +1323,20 @@ func (i *importer) makeApplicationDoc(a description.Application) (*applicationDo
 		return nil, errors.Trace(err)
 	}
 	cURL := a.CharmURL()
+
+	platform, err := corecharm.ParsePlatform(a.CharmOrigin().Platform())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	series, err := series.GetSeriesFromChannel(platform.OS, platform.Channel)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return &applicationDoc{
 		Name:                 a.Name(),
-		Series:               a.Series(),
+		Series:               series,
 		Subordinate:          a.Subordinate(),
 		CharmURL:             &cURL,
 		Channel:              a.Channel(),
@@ -1418,9 +1440,6 @@ func (i *importer) makeCharmOrigin(a description.Application, units []descriptio
 		if err != nil {
 			series = p.Channel
 		}
-		if series != a.Series() {
-			series = a.Series()
-		}
 		platform = &Platform{
 			Architecture: p.Architecture,
 			OS:           p.OS,
@@ -1458,12 +1477,13 @@ func (i *importer) deduceCharmOrigin(a description.Application, url *charm.URL, 
 	}
 
 	source, channel := getApplicationSourceChannel(a, url)
+	platform := i.getApplicationPlatform(a, url, units)
 	return &CharmOrigin{
 		Type:     t,
 		Source:   source.String(),
 		Revision: &url.Revision,
 		Channel:  channel,
-		Platform: i.getApplicationPlatform(a, url, units),
+		Platform: platform,
 	}, nil
 }
 
@@ -1516,8 +1536,17 @@ func (i *importer) getApplicationPlatform(a description.Application, url *charm.
 	} else if arc := getApplicationArchConstraint(a); arc != "" {
 		platform = &Platform{
 			Architecture: arc,
-			Series:       a.Series(),
 		}
+	}
+
+	descriptionPlatform, err := corecharm.ParsePlatform(a.CharmOrigin().Platform())
+	if err != nil {
+		return platform
+	}
+
+	series, err := series.GetSeriesFromChannel(descriptionPlatform.OS, descriptionPlatform.Channel)
+	if err != nil {
+		return platform
 	}
 
 	if platform == nil || platform.Architecture == "" {
@@ -1545,7 +1574,7 @@ func (i *importer) getApplicationPlatform(a description.Application, url *charm.
 			platform = &Platform{}
 		}
 		platform.Architecture = arch
-		platform.Series = a.Series()
+		platform.Series = series
 	}
 
 	return platform
@@ -1621,10 +1650,20 @@ func (i *importer) makeUnitDoc(s description.Application, u description.Unit) (*
 		return nil, errors.Trace(err)
 	}
 
+	platform, err := corecharm.ParsePlatform(s.CharmOrigin().Platform())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	series, err := series.GetSeriesFromChannel(platform.OS, platform.Channel)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return &unitDoc{
 		Name:                   u.Name(),
 		Application:            s.Name(),
-		Series:                 s.Series(),
+		Series:                 series,
 		CharmURL:               &charmURL,
 		Principal:              u.Principal().Id(),
 		Subordinates:           subordinates,
@@ -2159,13 +2198,18 @@ func (i *importer) cloudimagemetadata() error {
 		if rootStorageSize, ok := image.RootStorageSize(); ok {
 			rootStoragePtr = &rootStorageSize
 		}
+		series, err := series.VersionSeries(image.Version())
+		if err != nil {
+			return errors.Trace(err)
+		}
+
 		metadatas = append(metadatas, cloudimagemetadata.Metadata{
 			MetadataAttributes: cloudimagemetadata.MetadataAttributes{
 				Source:          image.Source(),
 				Stream:          image.Stream(),
 				Region:          image.Region(),
 				Version:         image.Version(),
-				Series:          image.Series(),
+				Series:          series,
 				Arch:            image.Arch(),
 				RootStorageType: image.RootStorageType(),
 				RootStorageSize: rootStoragePtr,

@@ -24,11 +24,13 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	appFacade "github.com/juju/juju/apiserver/facades/client/application"
 	bundlechanges "github.com/juju/juju/core/bundle/changes"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
@@ -559,7 +561,17 @@ func (b *BundleAPI) bundleDataApplications(
 
 	for _, application := range apps {
 		var newApplication *charm.ApplicationSpec
-		appSeries := application.Series()
+
+		platform, err := corecharm.ParsePlatform(application.CharmOrigin().Platform())
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("extracting series from application description %w", err)
+		}
+
+		appSeries, err := series.GetSeriesFromChannel(platform.OS, platform.Channel)
+		if err != nil {
+			return nil, nil, nil, errors.Trace(err)
+		}
+
 		usedSeries.Add(appSeries)
 
 		endpointsWithSpaceNames, err := b.endpointBindings(application.EndpointBindings(), allSpacesInfoLookup, printEndpointBindingSpaceNames)
@@ -763,7 +775,16 @@ func (b *BundleAPI) bundleDataMachines(machines []description.Machine, machineId
 		if !machineIds.Contains(machine.Tag().Id()) {
 			continue
 		}
-		macSeries := machine.Series()
+		base, err := series.ParseOSChannelStringAsBase(machine.Base())
+		if err != nil {
+			return machineData, usedSeries
+		}
+
+		macSeries, err := series.GetSeriesFromBase(base)
+		if err != nil {
+			return machineData, usedSeries
+		}
+
 		usedSeries.Add(macSeries)
 		newMachine := &charm.MachineSpec{
 			Annotations: machine.Annotations(),

@@ -5,7 +5,6 @@ package series
 
 import (
 	"fmt"
-	"runtime/debug"
 	"strings"
 
 	"github.com/juju/errors"
@@ -27,12 +26,26 @@ func ParseBase(name string, channel string) (Base, error) {
 	}
 	ch, err := ParseChannelNormalize(channel)
 	if err != nil {
-		return Base{}, errors.Annotatef(err, "parsing base %s:%s", name, channel)
+		return Base{}, errors.Annotatef(err, "parsing base %s@%s", name, channel)
 	}
 	if name == "centos" {
 		ch.Track = ToLegacyCentosChannel(ch.Track)
 	}
 	return Base{Name: name, Channel: ch}, nil
+}
+
+// ParseOSChannelStringAsBase takes a string containing os and channel seperated
+// by : and returns a base.
+func ParseOSChannelStringAsBase(b string) (Base, error) {
+	parts := strings.Split(b, "@")
+	if len(parts) != 2 {
+		return Base{}, errors.New("expected base string to contain os and channel seperated by '@'")
+	}
+	channel, err := ParseChannel(parts[1])
+	if err != nil {
+		return Base{}, errors.Trace(err)
+	}
+	return Base{Name: parts[0], Channel: channel}, nil
 }
 
 // MakeDefaultBase creates a base from an os name and simple version string, eg "22.04".
@@ -47,7 +60,7 @@ func (b *Base) String() string {
 	if b.Name == "kubernetes" {
 		return b.Name
 	}
-	return fmt.Sprintf("%s:%s", b.Name, b.Channel)
+	return fmt.Sprintf("%s@%s", b.Name, b.Channel)
 }
 
 func (b *Base) DisplayString() string {
@@ -58,9 +71,9 @@ func (b *Base) DisplayString() string {
 		return b.Name
 	}
 	if b.Channel.Risk == Stable {
-		return fmt.Sprintf("%s:%s", b.Name, b.Channel.Track)
+		return fmt.Sprintf("%s@%s", b.Name, b.Channel.Track)
 	}
-	return fmt.Sprintf("%s:%s", b.Name, b.Channel)
+	return fmt.Sprintf("%s@%s", b.Name, b.Channel)
 }
 
 // GetBaseFromSeries returns the Base infor for a series.
@@ -135,6 +148,10 @@ func GetSeriesFromBase(v Base) (string, error) {
 			return string(s), nil
 		}
 	}
-	logger.Criticalf("%s", debug.Stack())
 	return "", errors.NotFoundf("os %q version %q", v.Name, v.Channel.Track)
+}
+
+// LegacyKubernetesSeries is the ubuntu series for legacy k8s charms.
+func LegacyKubernetesSeries() string {
+	return "focal"
 }

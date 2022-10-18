@@ -24,6 +24,7 @@ import (
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/macaroon.v2"
 
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
@@ -330,8 +331,13 @@ func (s *MigrationExportSuite) assertMachinesMigrated(c *gc.C, cons constraints.
 	c.Assert(machines, gc.HasLen, 1)
 
 	exported := machines[0]
+	base, err := coreseries.ParseOSChannelStringAsBase(exported.Base())
+	c.Assert(err, jc.ErrorIsNil)
+	series, err := coreseries.GetSeriesFromBase(base)
+	c.Assert(err, jc.ErrorIsNil)
+
 	c.Assert(exported.Tag(), gc.Equals, machine1.MachineTag())
-	c.Assert(exported.Series(), gc.Equals, machine1.Series())
+	c.Assert(series, gc.Equals, machine1.Series())
 	c.Assert(exported.Annotations(), jc.DeepEquals, testAnnotations)
 
 	expCons := exported.Constraints()
@@ -537,10 +543,15 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, isSidecar bool
 	c.Assert(applications, gc.HasLen, 1)
 
 	exported := applications[0]
+	platform, err := corecharm.ParsePlatform(exported.CharmOrigin().Platform())
+	c.Assert(err, jc.ErrorIsNil)
+	exportedSeries, err := coreseries.GetSeriesFromChannel(platform.OS, platform.Channel)
+	c.Assert(err, jc.ErrorIsNil)
+
 	c.Assert(exported.Name(), gc.Equals, application.Name())
 	c.Assert(exported.Tag(), gc.Equals, application.ApplicationTag())
 	c.Assert(exported.Type(), gc.Equals, string(dbModel.Type()))
-	c.Assert(exported.Series(), gc.Equals, application.Series())
+	c.Assert(exportedSeries, gc.Equals, application.Series())
 	c.Assert(exported.Annotations(), jc.DeepEquals, testAnnotations)
 
 	origin := exported.CharmOrigin()
@@ -667,10 +678,15 @@ func (s *MigrationExportSuite) TestMalformedApplications(c *gc.C) {
 	c.Assert(applications, gc.HasLen, 1)
 
 	exported := applications[0]
+	platform, err := corecharm.ParsePlatform(exported.CharmOrigin().Platform())
+	c.Assert(err, jc.ErrorIsNil)
+	exportedSeries, err := coreseries.GetSeriesFromChannel(platform.OS, platform.Channel)
+	c.Assert(err, jc.ErrorIsNil)
+
 	c.Assert(exported.Name(), gc.Equals, application.Name())
 	c.Assert(exported.Tag(), gc.Equals, application.ApplicationTag())
 	c.Assert(exported.Type(), gc.Equals, string(dbModel.Type()))
-	c.Assert(exported.Series(), gc.Equals, application.Series())
+	c.Assert(exportedSeries, gc.Equals, application.Series())
 	c.Assert(exported.Annotations(), jc.DeepEquals, testAnnotations)
 
 	origin := exported.CharmOrigin()

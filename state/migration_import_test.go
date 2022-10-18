@@ -678,8 +678,13 @@ func (s *MigrationImportSuite) TestApplications(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) TestApplicationsUpdateSeriesNotPlatform(c *gc.C) {
-	// The application series should be quantal, the origin platform series should
-	// be focal.  After migration, the platform series should be quantal as well.
+	// In previous versions of Juju it's been possible that the application doc
+	// series get's out of sync with the platform series. While this has been
+	// fixed this test asserts that a hard decision is made should the case
+	// ever be come across.
+	// We should always use the platform series for applications now on import.
+	// This asserts this is the path we take.
+
 	cons := constraints.MustParse("arch=amd64 mem=8G root-disk-source=tralfamadore")
 	platform := &state.Platform{
 		Architecture: corearch.DefaultArchitecture,
@@ -705,7 +710,7 @@ func (s *MigrationImportSuite) TestApplicationsUpdateSeriesNotPlatform(c *gc.C) 
 	obtainedOrigin := obtainedApp.CharmOrigin()
 	c.Assert(obtainedOrigin, gc.NotNil)
 	c.Assert(obtainedOrigin.Platform, gc.NotNil)
-	c.Assert(obtainedOrigin.Platform.Series, gc.Equals, exportedApp.Series())
+	c.Assert(obtainedOrigin.Platform.Series, gc.Equals, "focal")
 }
 
 func (s *MigrationImportSuite) TestApplicationsWithMissingPlatform(c *gc.C) {

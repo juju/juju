@@ -56,7 +56,7 @@ require (
 	github.com/juju/clock v1.0.2
 	github.com/juju/cmd/v3 v3.0.0
 	github.com/juju/collections v1.0.0
-	github.com/juju/description/v3 v3.0.1
+	github.com/juju/description/v3 v3.0.8
 	github.com/juju/errors v1.0.0
 	github.com/juju/featureflag v1.0.0
 	github.com/juju/gnuflag v1.0.0
@@ -85,10 +85,10 @@ require (
 	github.com/juju/rpcreflect v1.0.0
 	github.com/juju/schema v1.0.1
 	github.com/juju/terms-client/v2 v2.0.0
-	github.com/juju/testing v1.0.1
+	github.com/juju/testing v1.0.2
 	github.com/juju/txn/v2 v2.0.0
 	github.com/juju/utils/v3 v3.0.0
-	github.com/juju/version/v2 v2.0.0
+	github.com/juju/version/v2 v2.0.1
 	github.com/juju/webbrowser v1.0.0
 	github.com/juju/worker/v3 v3.0.1
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
@@ -103,11 +103,11 @@ require (
 	github.com/prometheus/client_model v0.2.0
 	github.com/vishvananda/netlink v1.2.1-beta.2
 	github.com/vmware/govmomi v0.21.1-0.20191008161538-40aebf13ba45
-	golang.org/x/crypto v0.0.0-20220829220503-c86fa9a7ed90
-	golang.org/x/net v0.0.0-20220907135653-1e95f45603a7
+	golang.org/x/crypto v0.0.0-20221012134737-56aed061732a
+	golang.org/x/net v0.0.0-20221017152216-f25eb7ecb193
 	golang.org/x/oauth2 v0.0.0-20220608161450-d0670ef3b1eb
 	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f
-	golang.org/x/sys v0.0.0-20220908164124-27713097b956
+	golang.org/x/sys v0.1.0
 	golang.org/x/tools v0.1.11
 	google.golang.org/api v0.78.0
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
@@ -181,6 +181,7 @@ require (
 	github.com/juju/gojsonpointer v0.0.0-20150204194629-afe8b77aa08f // indirect
 	github.com/juju/gojsonreference v0.0.0-20150204194633-f0d24ac5ee33 // indirect
 	github.com/juju/lru v0.0.0-20190314140547-92a0afabdc41 // indirect
+	github.com/juju/mgo/v3 v3.0.3 // indirect
 	github.com/juju/usso v1.0.1 // indirect
 	github.com/juju/version v0.0.0-20210303051006-2015802527a8 // indirect
 	github.com/julienschmidt/httprouter v1.3.0 // indirect
@@ -216,6 +217,7 @@ require (
 	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/rogpeppe/fastuuid v1.2.0 // indirect
 	github.com/rogpeppe/go-internal v1.9.0 // indirect
+	github.com/rs/xid v1.4.0 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/vishvananda/netns v0.0.0-20211101163701-50045581ed74 // indirect

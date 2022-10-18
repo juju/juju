@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/resources"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/utils"
@@ -298,11 +299,32 @@ type addTestingApplicationParams struct {
 
 func addTestingApplication(c *gc.C, params addTestingApplicationParams) *Application {
 	c.Assert(params.ch, gc.NotNil)
+
+	series := params.series
+	if params.series == "" {
+		series = params.ch.URL().Series
+	}
+	if series == "kubernetes" {
+		series = "focal"
+	}
+
+	origin := params.origin
+	if params.origin == nil {
+		base, err := coreseries.GetBaseFromSeries(series)
+		c.Assert(err, jc.ErrorIsNil)
+
+		origin = &CharmOrigin{Platform: &Platform{
+			Architecture: params.ch.URL().Architecture,
+			OS:           base.Name,
+			Series:       series,
+		}}
+	}
+
 	app, err := params.st.AddApplication(AddApplicationArgs{
 		Name:             params.name,
-		Series:           params.series,
+		Series:           series,
 		Charm:            params.ch,
-		CharmOrigin:      params.origin,
+		CharmOrigin:      origin,
 		EndpointBindings: params.bindings,
 		Storage:          params.storage,
 		Devices:          params.devices,
