@@ -14,7 +14,7 @@ var logger = loggo.GetLogger("juju.upgrades.validations")
 // MinMajorMigrateVersion defines the minimum version the model
 // must be running before migrating to the target controller.
 var MinMajorMigrateVersion = map[int]version.Number{
-	3: version.MustParse("2.9.32"),
+	3: version.MustParse("2.9.36"),
 }
 
 // MigrateToAllowed checks if the model can be migrated to the target controller.
@@ -28,7 +28,7 @@ func MigrateToAllowed(modelVersion, targetControllerVersion version.Number) (boo
 // must be running before a major version upgrade.
 var MinMajorUpgradeVersion = map[int]version.Number{
 	// We don't support upgrading in place from 2.9 to 3.0 yet.
-	//3: version.MustParse("2.9.35"),
+	// 3: version.MustParse("2.9.35"),
 }
 
 // UpgradeToAllowed returns true if a major version upgrade is allowed

@@ -49,7 +49,7 @@ func checkClientVersion(userLogin bool, callerVersion version.Number) func(facad
 		if !userLogin {
 			// Only recent older agents can make api calls.
 			if minAgentVersion, ok := minAgentVersions[serverVersion.Major]; !ok || callerVersion.Compare(minAgentVersion) < 0 {
-				logger.Debugf("rejected agent api all %v.%v for agent version %v", facadeName, methodName, callerVersion)
+				logger.Warningf("rejected agent api all %v.%v for agent version %v", facadeName, methodName, callerVersion)
 				return incompatibleClientError
 			}
 			return nil
