@@ -7,11 +7,11 @@ run_relation_data_exchange() {
 	ensure "${model_name}" "${file}"
 
 	# Deploy 2 wordpress instances and one mysql instance
-	juju deploy wordpress -n 2 --force --series jammy
+	juju deploy wordpress -n 2 --force --series bionic
 	wait_for "wordpress" "$(idle_condition "wordpress" 0 0)"
 	wait_for "wordpress" "$(idle_condition "wordpress" 0 1)"
 	# mysql charm does not have stable channel, so we use edge channel
-	juju deploy mysql --channel=edge --force --series jammy
+	juju deploy mysql --channel=edge --force --series focal
 	wait_for "mysql" "$(idle_condition "mysql")"
 
 	# Establish relation
