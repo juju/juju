@@ -9,7 +9,6 @@ import (
 )
 
 type (
-	SSHContainer   = sshContainer
 	ResolvedTarget = resolvedTarget
 )
 
@@ -53,6 +52,14 @@ func (c *sshContainer) SetArgs(args []string) {
 	c.setArgs(args)
 }
 
+func (c *sshContainer) InitRun(mc ModelCommand) (err error) {
+	return c.initRun(mc)
+}
+
+func (c *sshContainer) Namespace() string {
+	return c.namespace
+}
+
 type SSHContainerInterfaceForTest interface {
 	CleanupRun()
 	ResolveTarget(string) (*resolvedTarget, error)
@@ -60,8 +67,9 @@ type SSHContainerInterfaceForTest interface {
 	Copy(ctx Context) error
 	GetExecClient() (k8sexec.Executor, error)
 	ModelName() string
-
 	SetArgs([]string)
+	InitRun(mc ModelCommand) (err error)
+	Namespace() string
 }
 
 func NewSSHContainer(
@@ -74,6 +82,7 @@ func NewSSHContainer(
 	sshClient SSHClientAPI,
 	remote bool,
 	containerName string,
+	controllerAPI SSHControllerAPI,
 ) SSHContainerInterfaceForTest {
 	return &sshContainer{
 		modelUUID:          modelUUID,
@@ -84,10 +93,11 @@ func NewSSHContainer(
 		charmsAPI:          charmsAPI,
 		execClient:         execClient,
 		sshClient:          sshClient,
-		execClientGetter: func(string, string, cloudspec.CloudSpec) (k8sexec.Executor, error) {
+		execClientGetter: func(string, cloudspec.CloudSpec) (k8sexec.Executor, error) {
 			return execClient, nil
 		},
-		remote:    remote,
-		container: containerName,
+		remote:        remote,
+		container:     containerName,
+		controllerAPI: controllerAPI,
 	}
 }

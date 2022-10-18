@@ -38,7 +38,7 @@ You can set current model by running "juju switch"
 or specify any other model on the command line using the "-m" option.
 `)
 
-// ModelCommand extends cmd.Command with a SetModelName method.
+// ModelCommand extends cmd.Command with a SetModelIdentifier method.
 type ModelCommand interface {
 	Command
 
@@ -80,7 +80,7 @@ type ModelCommand interface {
 	ActiveBranch() (string, error)
 
 	// ControllerName returns the name of the controller that contains
-	// the model returned by ModelName().
+	// the model returned by ModelIdentifier().
 	ControllerName() (string, error)
 
 	// maybeInitModel initializes the model name, resolving empty
