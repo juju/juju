@@ -285,7 +285,7 @@ func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, isPrivate
 			AgentVersion:         version.MustParse("1.1.1"),
 			IsPrivateImageRepo:   isPrivateImageRepo,
 			AgentImagePath:       "operator/image-path:1.1.1",
-			CharmBaseImagePath:   "ubuntu:22.04",
+			CharmBaseImagePath:   "ubuntu@22.04",
 			CharmModifiedVersion: 9001,
 			Filesystems: []storage.KubernetesFilesystemParams{
 				{
@@ -492,7 +492,7 @@ func getPodSpec() corev1.PodSpec {
 		Containers: []corev1.Container{{
 			Name:            "charm",
 			ImagePullPolicy: corev1.PullIfNotPresent,
-			Image:           "ubuntu:22.04",
+			Image:           "ubuntu@22.04",
 			WorkingDir:      jujuDataDir,
 			Command:         []string{"/charm/bin/pebble"},
 			Args: []string{

@@ -2726,7 +2726,7 @@ func (s *MachineSuite) TestUpdateMachineSeriesSameSeriesAfterStart(c *gc.C) {
 			After: func() {
 				err := mach.Refresh()
 				c.Assert(err, jc.ErrorIsNil)
-				c.Assert(mach.Base().String(), gc.Equals, "ubuntu:22.04/stable")
+				c.Assert(mach.Base().String(), gc.Equals, "ubuntu@22.04/stable")
 			},
 		},
 	).Check()
@@ -2735,7 +2735,7 @@ func (s *MachineSuite) TestUpdateMachineSeriesSameSeriesAfterStart(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = mach.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mach.Base().DisplayString(), gc.Equals, "ubuntu:22.04")
+	c.Assert(mach.Base().DisplayString(), gc.Equals, "ubuntu@22.04")
 }
 
 func (s *MachineSuite) TestUpdateMachineSeriesPrincipalsListChange(c *gc.C) {

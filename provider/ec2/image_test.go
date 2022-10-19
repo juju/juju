@@ -273,12 +273,12 @@ var findInstanceSpecErrorTests = []struct {
 	{
 		base: version.DefaultSupportedLTSBase(),
 		arch: "arm",
-		err:  `no metadata for "ubuntu:22.04" images in test with arch arm`,
+		err:  `no metadata for "ubuntu@22.04" images in test with arch arm`,
 	}, {
 		base: series.MakeDefaultBase("ubuntu", "15.04"),
 		arch: "amd64",
 		cons: "mem=4G",
-		err:  `no metadata for \"ubuntu:15.04\" images in test with arch amd64`,
+		err:  `no metadata for \"ubuntu@15.04\" images in test with arch amd64`,
 	}, {
 		base: version.DefaultSupportedLTSBase(),
 		arch: "amd64",

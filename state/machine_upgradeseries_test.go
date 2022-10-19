@@ -80,7 +80,7 @@ func (s *MachineSuite) TestDoesNotCreateUpgradeSeriesLockOnSameSeries(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = mach.CreateUpgradeSeriesLock([]string{""}, state.UbuntuBase("16.04"))
-	c.Assert(err, gc.ErrorMatches, "machine .* already at base ubuntu:16.04/stable")
+	c.Assert(err, gc.ErrorMatches, "machine .* already at base ubuntu@16.04/stable")
 }
 
 func (s *MachineSuite) TestDoesNotCreateUpgradeSeriesLockUnitsChanged(c *gc.C) {
@@ -99,7 +99,7 @@ func (s *MachineSuite) TestUpgradeSeriesTarget(c *gc.C) {
 
 	target, err := mach.UpgradeSeriesTarget()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(target, gc.Equals, "ubuntu:18.04/stable")
+	c.Check(target, gc.Equals, "ubuntu@18.04/stable")
 }
 
 func (s *MachineSuite) TestRemoveUpgradeSeriesLockUnlocksMachine(c *gc.C) {

@@ -97,19 +97,19 @@ func (b Base) DisplayString() string {
 	if b.OS == "" || b.Channel == "" {
 		return ""
 	}
-	return fmt.Sprintf("%s:%s", b.OS, strings.Split(b.Channel, "/")[0])
+	return fmt.Sprintf("%s@%s", b.OS, strings.Split(b.Channel, "/")[0])
 }
 
 func (b Base) String() string {
 	if b.OS == "" || b.Channel == "" {
 		return ""
 	}
-	return fmt.Sprintf("%s:%s", b.OS, b.Channel)
+	return fmt.Sprintf("%s@%s", b.OS, b.Channel)
 }
 
 // ParseBase parses a machine base string.
 func ParseBase(b string) (Base, error) {
-	parts := strings.Split(b, ":")
+	parts := strings.Split(b, "@")
 	return Base{OS: parts[0], Channel: parts[1]}, nil
 }
 

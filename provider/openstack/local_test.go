@@ -1548,7 +1548,7 @@ func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 
 	// An error occurs if no suitable image is found.
 	_, err := openstack.FindInstanceSpec(env, series.MakeDefaultBase("ubuntu", "15.04"), "amd64", "mem=1G", nil)
-	c.Assert(err, gc.ErrorMatches, `no metadata for "ubuntu:15.04" images in some-region with arch amd64`)
+	c.Assert(err, gc.ErrorMatches, `no metadata for "ubuntu@15.04" images in some-region with arch amd64`)
 }
 
 func (s *localServerSuite) TestConstraintsValidator(c *gc.C) {

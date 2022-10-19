@@ -303,7 +303,7 @@ var findInstanceSpecTests = []instanceSpecTestParams{
 	{
 		desc:   "no image exists in metadata",
 		region: "invalid-region",
-		err:    `no metadata for "ubuntu:12.04" images in invalid-region with arch amd64`,
+		err:    `no metadata for "ubuntu@12.04" images in invalid-region with arch amd64`,
 	},
 	{
 		desc:          "no valid instance types",
@@ -315,7 +315,7 @@ var findInstanceSpecTests = []instanceSpecTestParams{
 		desc:          "no compatible instance types",
 		region:        "arm-only",
 		instanceTypes: []InstanceType{{Id: "1", Name: "it-1", Arch: "amd64", Mem: 2048}},
-		err:           `no "ubuntu:12.04" images in arm-only matching instance types \[it-1\]`,
+		err:           `no "ubuntu@12.04" images in arm-only matching instance types \[it-1\]`,
 	},
 }
 
@@ -463,10 +463,10 @@ func (*imageSuite) TestInstanceConstraintString(c *gc.C) {
 	}
 	c.Assert(
 		ic.String(), gc.Equals,
-		"{region: region, base: ubuntu:12.04, arch: amd64, constraints: mem=4096M, storage: []}")
+		"{region: region, base: ubuntu@12.04, arch: amd64, constraints: mem=4096M, storage: []}")
 
 	ic.Storage = []string{"ebs", "ssd"}
 	c.Assert(
 		ic.String(), gc.Equals,
-		"{region: region, base: ubuntu:12.04, arch: amd64, constraints: mem=4096M, storage: [ebs ssd]}")
+		"{region: region, base: ubuntu@12.04, arch: amd64, constraints: mem=4096M, storage: [ebs ssd]}")
 }

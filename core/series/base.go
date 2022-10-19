@@ -43,7 +43,7 @@ func (b Base) String() string {
 	if b.OS == "" {
 		return ""
 	}
-	return fmt.Sprintf("%s:%s", b.OS, b.Channel)
+	return fmt.Sprintf("%s@%s", b.OS, b.Channel)
 }
 
 // IsCompatible returns true if base other is the same underlying
@@ -60,7 +60,7 @@ func (b Base) DisplayString() string {
 	if b.OS == Kubernetes.String() {
 		return b.OS
 	}
-	return b.OS + ":" + b.Channel.DisplayString()
+	return b.OS + "@" + b.Channel.DisplayString()
 }
 
 // GetBaseFromSeries returns the Base infor for a series.
