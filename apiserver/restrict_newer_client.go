@@ -12,20 +12,6 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-// minAgentVersions defines the minimum agent version
-// allowed to make a call to a controller with the major version.
-var minAgentVersions = map[int]version.Number{
-	3: version.MustParse("2.9.36"),
-}
-
-// minClientVersions defines the minimum user client version
-// allowed to make a call to a controller with the major version,
-// or the minimum controller version needed to accept a call from a
-// client with the major version.
-var minClientVersions = map[int]version.Number{
-	3: version.MustParse("2.9.36"),
-}
-
 func checkClientVersion(userLogin bool, callerVersion version.Number) func(facadeName, methodName string) error {
 	return func(facadeName, methodName string) error {
 		serverVersion := jujuversion.Current

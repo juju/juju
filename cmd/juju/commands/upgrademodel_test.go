@@ -17,7 +17,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/upgrades/upgradevalidation"
 
 	"github.com/juju/juju/cmd/juju/commands/mocks"
 	"github.com/juju/juju/core/model"
@@ -179,11 +178,9 @@ func (s *upgradeNewSuite) TestUpgradeModelWithAgentVersion(c *gc.C) {
 	ctrl, cmd := s.upgradeJujuCommand(c, false)
 	defer ctrl.Finish()
 
-	agentVersion := coretesting.FakeVersionNumber
 	cfg := coretesting.FakeConfig().Merge(coretesting.Attrs{
-		"agent-version": agentVersion.String(),
+		"agent-version": coretesting.FakeVersionNumber.String(),
 	})
-	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersions, map[int]version.Number{3: agentVersion})
 
 	gomock.InOrder(
 		s.modelConfigAPI.EXPECT().ModelGet().Return(cfg, nil),
@@ -412,11 +409,9 @@ func (s *upgradeNewSuite) TestUpgradeModelWithAgentVersionDryRun(c *gc.C) {
 	ctrl, cmd := s.upgradeJujuCommand(c, false)
 	defer ctrl.Finish()
 
-	agentVersion := coretesting.FakeVersionNumber
 	cfg := coretesting.FakeConfig().Merge(coretesting.Attrs{
-		"agent-version": agentVersion.String(),
+		"agent-version": coretesting.FakeVersionNumber.String(),
 	})
-	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersions, map[int]version.Number{3: agentVersion})
 
 	gomock.InOrder(
 		s.modelConfigAPI.EXPECT().ModelGet().Return(cfg, nil),
@@ -443,11 +438,9 @@ func (s *upgradeNewSuite) TestUpgradeModelWithAgentVersionGotBlockers(c *gc.C) {
 	ctrl, cmd := s.upgradeJujuCommand(c, false)
 	defer ctrl.Finish()
 
-	agentVersion := coretesting.FakeVersionNumber
 	cfg := coretesting.FakeConfig().Merge(coretesting.Attrs{
-		"agent-version": agentVersion.String(),
+		"agent-version": coretesting.FakeVersionNumber.String(),
 	})
-	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersions, map[int]version.Number{3: agentVersion})
 
 	gomock.InOrder(
 		s.modelConfigAPI.EXPECT().ModelGet().Return(cfg, nil),
