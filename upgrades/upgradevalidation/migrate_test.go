@@ -38,7 +38,7 @@ func (s *upgradeValidationSuite) TestValidatorsForModelMigrationSourceJuju3(c *g
 
 	gomock.InOrder(
 		// - check agent version;
-		model.EXPECT().AgentVersion().Return(version.MustParse("2.9.32"), nil),
+		model.EXPECT().AgentVersion().Return(version.MustParse("2.9.36"), nil),
 		// - check no upgrade series in process.
 		state.EXPECT().HasUpgradeSeriesLocks().Return(false, nil),
 		// - check if the model has win machines;

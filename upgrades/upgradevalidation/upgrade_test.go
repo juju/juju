@@ -25,7 +25,7 @@ func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju3(c *gc.C
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersion, map[int]version.Number{
+	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersions, map[int]version.Number{
 		3: version.MustParse("2.9.1"),
 	})
 
@@ -160,7 +160,7 @@ func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju2(c *gc.C
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersion, map[int]version.Number{
+	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersions, map[int]version.Number{
 		3: version.MustParse("2.9.1"),
 	})
 
@@ -224,7 +224,7 @@ func (s *upgradeValidationSuite) TestValidatorsForModelUpgradeJuju3(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersion, map[int]version.Number{
+	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersions, map[int]version.Number{
 		3: version.MustParse("2.9.1"),
 	})
 
@@ -289,7 +289,7 @@ func (s *upgradeValidationSuite) TestValidatorsForModelUpgradeJuju2(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersion, map[int]version.Number{
+	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersions, map[int]version.Number{
 		3: version.MustParse("2.9.1"),
 	})
 

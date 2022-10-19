@@ -201,7 +201,7 @@ func (s *upgradeValidationSuite) TestGetCheckTargetVersionForModel(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersion, map[int]version.Number{
+	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersions, map[int]version.Number{
 		3: version.MustParse("2.9.30"),
 	})
 
