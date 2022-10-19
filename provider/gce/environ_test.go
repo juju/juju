@@ -85,7 +85,7 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(result.Arch, gc.Equals, "amd64")
-	c.Check(result.Base.DisplayString(), gc.Equals, "ubuntu:22.04")
+	c.Check(result.Base.DisplayString(), gc.Equals, "ubuntu@22.04")
 	// We don't check bsFinalizer because functions cannot be compared.
 	c.Check(result.CloudBootstrapFinalizer, gc.NotNil)
 }
