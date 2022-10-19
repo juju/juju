@@ -79,10 +79,10 @@ run_deploy_revision_refresh() {
 	juju deploy juju-qa-test --revision 23 --channel latest/edge
 	wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" 23)"
 
-  # NOTE:
-  # The following loop is specific to juju 3.0+ due to
-  # async charm download and should NOT be removed in
-  # a merge from 2.9.
+	# NOTE:
+	# The following loop is specific to juju 3.0+ due to
+	# async charm download and should NOT be removed in
+	# a merge from 2.9.
 	attempt=0
 	while true; do
 		# Ensure that refresh gets the revision from the channel
