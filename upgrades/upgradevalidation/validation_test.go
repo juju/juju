@@ -402,10 +402,10 @@ func (s *upgradeValidationSuite) TestGetCheckForLXDVersionFailed(c *gc.C) {
 	cloudSpec := environscloudspec.CloudSpec{Type: "lxd"}
 	gomock.InOrder(
 		serverFactory.EXPECT().RemoteServer(cloudSpec).Return(server, nil),
-		server.EXPECT().ServerVersion().Return("5.1"),
+		server.EXPECT().ServerVersion().Return("4.0"),
 	)
 
 	blocker, err := upgradevalidation.GetCheckForLXDVersion(cloudSpec)("", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blocker.Error(), gc.Equals, `LXD version has to be at least "5.2.0", but current version is only "5.1.0"`)
+	c.Assert(blocker.Error(), gc.Equals, `LXD version has to be at least "5.0.0", but current version is only "4.0.0"`)
 }
