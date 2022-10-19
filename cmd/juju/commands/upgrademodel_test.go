@@ -179,7 +179,12 @@ func (s *upgradeNewSuite) TestUpgradeModelWithAgentVersion(c *gc.C) {
 	defer ctrl.Finish()
 
 	cfg := coretesting.FakeConfig().Merge(coretesting.Attrs{
-		"agent-version": coretesting.FakeVersionNumber.String(),
+		// TODO (hml) 19-oct-2022
+		// Once upgrade from 2.9 to 3.0 is supported, go back to
+		// using coretesting.FakeVersionNumber.String() in this
+		// test.
+		//"agent-version": coretesting.FakeVersionNumber.String(),
+		"agent-version": "3.0.1",
 	})
 
 	gomock.InOrder(
@@ -214,7 +219,11 @@ func (s *upgradeNewSuite) TestUpgradeModelWithAgentVersionUploadLocalOfficial(c 
 	ctrl, cmd := s.upgradeJujuCommand(c, false)
 	defer ctrl.Finish()
 
-	agentVersion := coretesting.FakeVersionNumber
+	// TODO (hml) 19-oct-2022
+	// Once upgrade from 2.9 to 3.0 is supported, go back to
+	// using coretesting.FakeVersionNumber in this test.
+	//agentVersion := coretesting.FakeVersionNumber
+	agentVersion := version.MustParse("3.0.1")
 	cfg := coretesting.FakeConfig().Merge(coretesting.Attrs{
 		"agent-version": agentVersion.String(),
 	})
@@ -260,7 +269,11 @@ func (s *upgradeNewSuite) TestUpgradeModelWithAgentVersionAlreadyUpToDate(c *gc.
 	ctrl, cmd := s.upgradeJujuCommand(c, false)
 	defer ctrl.Finish()
 
-	agentVersion := coretesting.FakeVersionNumber
+	// TODO (hml) 19-oct-2022
+	// Once upgrade from 2.9 to 3.0 is supported, go back to
+	// using coretesting.FakeVersionNumber in this test.
+	//agentVersion := coretesting.FakeVersionNumber
+	agentVersion := version.MustParse("3.0.1")
 	cfg := coretesting.FakeConfig().Merge(coretesting.Attrs{
 		"agent-version": agentVersion.String(),
 	})
@@ -338,7 +351,11 @@ func (s *upgradeNewSuite) TestUpgradeModelWithAgentVersionExpectUploadFailedDueT
 	ctrl, cmd := s.upgradeJujuCommand(c, false)
 	defer ctrl.Finish()
 
-	agentVersion := coretesting.FakeVersionNumber
+	// TODO (hml) 19-oct-2022
+	// Once upgrade from 2.9 to 3.0 is supported, go back to
+	// using coretesting.FakeVersionNumber in this test.
+	//agentVersion := coretesting.FakeVersionNumber
+	agentVersion := version.MustParse("3.0.1")
 	cfg := coretesting.FakeConfig().Merge(coretesting.Attrs{
 		"agent-version": agentVersion.String(),
 	})
@@ -373,7 +390,11 @@ func (s *upgradeNewSuite) TestUpgradeModelWithAgentVersionExpectUploadFailedDueT
 	ctrl, cmd := s.upgradeJujuCommand(c, false)
 	defer ctrl.Finish()
 
-	agentVersion := coretesting.FakeVersionNumber
+	// TODO (hml) 19-oct-2022
+	// Once upgrade from 2.9 to 3.0 is supported, go back to
+	// using coretesting.FakeVersionNumber in this test.
+	//agentVersion := coretesting.FakeVersionNumber
+	agentVersion := version.MustParse("3.0.1")
 	modelCfg := coretesting.FakeConfig().Merge(coretesting.Attrs{
 		"agent-version": agentVersion.String(),
 	})
@@ -410,7 +431,12 @@ func (s *upgradeNewSuite) TestUpgradeModelWithAgentVersionDryRun(c *gc.C) {
 	defer ctrl.Finish()
 
 	cfg := coretesting.FakeConfig().Merge(coretesting.Attrs{
-		"agent-version": coretesting.FakeVersionNumber.String(),
+		// TODO (hml) 19-oct-2022
+		// Once upgrade from 2.9 to 3.0 is supported, go back to
+		// using coretesting.FakeVersionNumber.String() in this
+		// test.
+		//"agent-version": coretesting.FakeVersionNumber.String(),
+		"agent-version": "3.0.1",
 	})
 
 	gomock.InOrder(
@@ -439,7 +465,12 @@ func (s *upgradeNewSuite) TestUpgradeModelWithAgentVersionGotBlockers(c *gc.C) {
 	defer ctrl.Finish()
 
 	cfg := coretesting.FakeConfig().Merge(coretesting.Attrs{
-		"agent-version": coretesting.FakeVersionNumber.String(),
+		// TODO (hml) 19-oct-2022
+		// Once upgrade from 2.9 to 3.0 is supported, go back to
+		// using coretesting.FakeVersionNumber.String() in this
+		// test.
+		//"agent-version": coretesting.FakeVersionNumber.String(),
+		"agent-version": "3.0.1",
 	})
 
 	gomock.InOrder(
