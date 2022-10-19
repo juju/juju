@@ -25,27 +25,27 @@ var MinClientVersions = map[int]version.Number{
 	3: version.MustParse("2.9.36"),
 }
 
-// MinMajorMigrateVersion defines the minimum version the model
+// MinMajorMigrateVersions defines the minimum version the model
 // must be running before migrating to the target controller.
-var MinMajorMigrateVersion = MinAgentVersions
+var MinMajorMigrateVersions = MinAgentVersions
 
 // MigrateToAllowed checks if the model can be migrated to the target controller.
 func MigrateToAllowed(modelVersion, targetControllerVersion version.Number) (bool, version.Number, error) {
 	return versionCheck(
-		modelVersion, targetControllerVersion, MinMajorMigrateVersion, "migrate",
+		modelVersion, targetControllerVersion, MinMajorMigrateVersions, "migrate",
 	)
 }
 
-// MinMajorUpgradeVersion defines the minimum version all models
+// MinMajorUpgradeVersions defines the minimum version all models
 // must be running before a major version upgrade.
-// var MinMajorUpgradeVersion = MinAgentVersions // We don't support upgrading in place from 2.9 to 3.0 yet.
-var MinMajorUpgradeVersion = map[int]version.Number{}
+// var MinMajorUpgradeVersions = MinAgentVersions // We don't support upgrading in place from 2.9 to 3.0 yet.
+var MinMajorUpgradeVersions = map[int]version.Number{}
 
 // UpgradeToAllowed returns true if a major version upgrade is allowed
 // for the specified from and to versions.
 func UpgradeToAllowed(from, to version.Number) (bool, version.Number, error) {
 	return versionCheck(
-		from, to, MinMajorUpgradeVersion, "upgrade",
+		from, to, MinMajorUpgradeVersions, "upgrade",
 	)
 }
 

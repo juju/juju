@@ -70,7 +70,7 @@ func (s *versionSuite) TestUpgradeToAllowed(c *gc.C) {
 func (s *versionSuite) assertUpgradeToAllowed(c *gc.C, i int, t versionCheckTC) {
 	c.Logf("testing %d", i)
 	if t.patch {
-		restore := jujutesting.PatchValue(&upgradevalidation.MinMajorUpgradeVersion, map[int]version.Number{
+		restore := jujutesting.PatchValue(&upgradevalidation.MinMajorUpgradeVersions, map[int]version.Number{
 			3: version.MustParse("2.9.35"),
 		})
 		defer restore()
