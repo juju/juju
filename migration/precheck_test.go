@@ -103,7 +103,7 @@ func (s *SourcePrecheckSuite) TestTargetController3Failed(c *gc.C) {
 	backend.hasUpgradeSeriesLocks = &hasUpgradeSeriesLocks
 	backend.machineCountForSeriesWin = map[string]int{"win10": 1, "win7": 2}
 	backend.machineCountForSeriesUbuntu = map[string]int{"xenial": 1, "vivid": 2, "trusty": 3}
-	agentVersion := version.MustParse("2.9.31")
+	agentVersion := version.MustParse("2.9.35")
 	backend.model.agentVersion = &agentVersion
 	backend.model.name = "model-1"
 	backend.model.owner = names.NewUserTag("foo")
@@ -121,7 +121,7 @@ func (s *SourcePrecheckSuite) TestTargetController3Failed(c *gc.C) {
 	c.Assert(err.Error(), gc.Equals, `
 cannot migrate to controller ("3.0.0") due to issues:
 "foo/model-1":
-- current model ("2.9.31") has to be upgraded to "2.9.32" at least
+- current model ("2.9.35") has to be upgraded to "2.9.36" at least
 - unexpected upgrade series lock found
 - the model hosts deprecated windows machine(s): win10(1) win7(2)
 - the model hosts deprecated ubuntu machine(s): trusty(3) vivid(2) xenial(1)
@@ -525,9 +525,9 @@ func (s *TargetPrecheckSuite) TestModelMinimumVersion(c *gc.C) {
 	s.modelInfo.AgentVersion = version.MustParse("2.8.0")
 	err := s.runPrecheck(backend)
 	c.Assert(err.Error(), gc.Equals,
-		`model must be upgraded to at least version 2.9.32 before being migrated to a controller with version 3.0.0`)
+		`model must be upgraded to at least version 2.9.36 before being migrated to a controller with version 3.0.0`)
 
-	s.modelInfo.AgentVersion = version.MustParse("2.9.32")
+	s.modelInfo.AgentVersion = version.MustParse("2.9.36")
 	err = s.runPrecheck(backend)
 	c.Assert(err, jc.ErrorIsNil)
 }
