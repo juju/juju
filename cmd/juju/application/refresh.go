@@ -5,17 +5,20 @@ package application
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/charm/v9"
 	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/charmrepo/v7"
 	csparams "github.com/juju/charmrepo/v7/csclient/params"
+	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
+	"github.com/juju/retry"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
@@ -93,6 +96,7 @@ func newRefreshCommand() *refreshCommand {
 			)
 		},
 		NewRefresherFactory: refresher.NewRefresherFactory,
+		RetryDelay:          3 * time.Second,
 	}
 }
 
@@ -176,6 +180,10 @@ type refreshCommand struct {
 	// Storage is a map of storage constraints, keyed on the storage name
 	// defined in charm storage metadata, to add or update during upgrade.
 	Storage map[string]storage.Constraints
+
+	// RetryDelay is the time between retries when trying to request the\
+	// old charm ID, so we can wait for the charm to fully deploy.
+	RetryDelay time.Duration
 }
 
 const refreshDoc = `
@@ -305,6 +313,9 @@ func (c *refreshCommand) Init(args []string) error {
 	return nil
 }
 
+// ErrDeployIncomplete is returned when the old charm origin's ID is blank.
+var ErrDeployIncomplete = errors.ConstError("deploy incomplete, please try refresh again later")
+
 // Run connects to the specified environment and starts the charm
 // upgrade process.
 func (c *refreshCommand) Run(ctx *cmd.Context) error {
@@ -319,18 +330,34 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	charmRefreshClient := c.NewCharmRefreshClient(apiRoot)
-	oldURL, oldOrigin, err := charmRefreshClient.GetCharmURLOrigin(generation, c.ApplicationName)
-	if err != nil {
-		return errors.Trace(err)
-	}
 
 	// There is a timing window where deploy has been called and the charm
 	// is not yet downloaded. Check here to verify the origin has an ID,
-	// otherwise refresh result may be in accurate. We could use the
-	// retry package, but the issue is only seen in automated test due to
-	// speed. Can always use retry if it becomes an issue.
-	if oldOrigin.Source == commoncharm.OriginCharmHub && oldOrigin.ID == "" {
-		return errors.Errorf("%q deploy incomplete, please try refresh again in a little bit.", c.ApplicationName)
+	// otherwise refresh result may be inaccurate. If there is no ID, we will
+	// retry a couple of times while we wait for the charm to download.
+	var oldURL *charm.URL
+	var oldOrigin commoncharm.Origin
+	err = retry.Call(retry.CallArgs{
+		Func: func() error {
+			oldURL, oldOrigin, err = charmRefreshClient.GetCharmURLOrigin(generation, c.ApplicationName)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if oldOrigin.Source == commoncharm.OriginCharmHub && oldOrigin.ID == "" {
+				return errors.Annotatef(ErrDeployIncomplete, "application %q", c.ApplicationName)
+			}
+			return nil
+		},
+		// errors from GetCharmURLOrigin are fatal but DeployIncomplete errors are not
+		IsFatalError: func(err error) bool {
+			return !errors.Is(err, ErrDeployIncomplete)
+		},
+		Attempts: 5,
+		Delay:    c.RetryDelay,
+		Clock:    clock.WallClock,
+	})
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	// Set a default URL schema for charm URLs that don't provide one.

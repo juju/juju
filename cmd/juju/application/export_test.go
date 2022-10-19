@@ -38,6 +38,7 @@ func NewRefreshCommandForTest(
 	newSpacesClient func(base.APICallCloser) SpacesAPI,
 	newModelConfigClient func(base.APICallCloser) ModelConfigClient,
 	newCharmHubClient func(string) (store.DownloadBundleClient, error),
+	retryDelay time.Duration,
 
 ) cmd.Command {
 	cmd := &refreshCommand{
@@ -53,6 +54,7 @@ func NewRefreshCommandForTest(
 		NewRefresherFactory:   refresher.NewRefresherFactory,
 		ModelConfigClient:     newModelConfigClient,
 		NewCharmHubClient:     newCharmHubClient,
+		RetryDelay:            retryDelay,
 	}
 	cmd.SetClientStore(store)
 	cmd.SetAPIOpen(apiOpen)

@@ -236,6 +236,7 @@ func (s *BaseRefreshSuite) refreshCommand() cmd.Command {
 			s.AddCall("NewCharmHubClient", curl)
 			return &s.downloadBundleClient, nil
 		},
+		time.Nanosecond,
 	)
 	return cmd
 }
@@ -640,9 +641,17 @@ func (s *RefreshSuite) TestRefreshShouldRespectDeployedChannelByDefault(c *gc.C)
 func (s *RefreshSuite) TestUpgradeFailWithoutCharmHubOriginID(c *gc.C) {
 	s.resolvedChannel = csclientparams.BetaChannel
 	s.charmAPIClient.charmOrigin.Source = "charm-hub"
+	retries := 5
+
 	_, err := s.runRefresh(c, "foo", "--channel=beta")
-	c.Assert(err, gc.ErrorMatches, "\"foo\" deploy incomplete, please try refresh again in a little bit.")
-	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin")
+	c.Assert(err, gc.ErrorMatches,
+		`attempt count exceeded: application "foo": deploy incomplete, please try refresh again later`)
+
+	callNames := []string{}
+	for i := 0; i < retries; i++ {
+		callNames = append(callNames, "GetCharmURLOrigin")
+	}
+	s.charmAPIClient.CheckCallNames(c, callNames...)
 }
 
 func (s *RefreshSuite) TestSwitch(c *gc.C) {

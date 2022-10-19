@@ -83,7 +83,7 @@ run_deploy_revision_refresh() {
 
 	# revision 21 is in channel latest/edge
 	wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" 21)"
-	wait_for "juju-qa-test" "$(charm_channel "juju-qa-test" "latest/edge")"
+	wait_for "juju-qa-test" "$(charm_channel "juju-qa-test" "edge")"
 
 	destroy_model "${model_name}"
 }
