@@ -1663,9 +1663,11 @@ func (s *upgradeNewSuite) TestUpgradeModelWithAgentVersion(c *gc.C) {
 	ctrl, cmd := s.upgradeJujuCommand(c, false)
 	defer ctrl.Finish()
 
+	agentVersion := coretesting.FakeVersionNumber
 	cfg := coretesting.FakeConfig().Merge(coretesting.Attrs{
-		"agent-version": coretesting.FakeVersionNumber.String(),
+		"agent-version": agentVersion.String(),
 	})
+	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersion, map[int]version.Number{3: agentVersion})
 
 	gomock.InOrder(
 		s.modelConfigAPI.EXPECT().ModelGet().Return(cfg, nil),
@@ -1894,9 +1896,11 @@ func (s *upgradeNewSuite) TestUpgradeModelWithAgentVersionDryRun(c *gc.C) {
 	ctrl, cmd := s.upgradeJujuCommand(c, false)
 	defer ctrl.Finish()
 
+	agentVersion := coretesting.FakeVersionNumber
 	cfg := coretesting.FakeConfig().Merge(coretesting.Attrs{
-		"agent-version": coretesting.FakeVersionNumber.String(),
+		"agent-version": agentVersion.String(),
 	})
+	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersion, map[int]version.Number{3: agentVersion})
 
 	gomock.InOrder(
 		s.modelConfigAPI.EXPECT().ModelGet().Return(cfg, nil),
@@ -1923,9 +1927,11 @@ func (s *upgradeNewSuite) TestUpgradeModelWithAgentVersionGotBlockers(c *gc.C) {
 	ctrl, cmd := s.upgradeJujuCommand(c, false)
 	defer ctrl.Finish()
 
+	agentVersion := coretesting.FakeVersionNumber
 	cfg := coretesting.FakeConfig().Merge(coretesting.Attrs{
-		"agent-version": coretesting.FakeVersionNumber.String(),
+		"agent-version": agentVersion.String(),
 	})
+	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersion, map[int]version.Number{3: agentVersion})
 
 	gomock.InOrder(
 		s.modelConfigAPI.EXPECT().ModelGet().Return(cfg, nil),
