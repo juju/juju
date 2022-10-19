@@ -213,9 +213,12 @@ func (s *serverSuite) TestSetModelAgentVersionOldModels(c *gc.C) {
 		Version: version.MustParse("3.0.0"),
 	}
 	err = s.client.SetModelAgentVersion(args)
-	c.Assert(err, gc.ErrorMatches, `
-these models must first be upgraded to at least 2.9.35 before upgrading the controller:
- -admin/controller`[1:])
+	// TODO: (hml) 18-10-2022
+	// Change back when upgrades from 2.9 to 3.0 enabled again.
+	//	c.Assert(err, gc.ErrorMatches, `
+	//these models must first be upgraded to at least 2.9.35 before upgrading the controller:
+	// -admin/controller`[1:])
+	c.Assert(err, gc.ErrorMatches, `upgrade to \"3.0.0\" is not supported from \"2.8.0\"`)
 }
 
 func (s *serverSuite) TestSetModelAgentVersionForced(c *gc.C) {

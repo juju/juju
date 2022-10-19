@@ -53,7 +53,7 @@ func (s *versionSuite) TestUpgradeToAllowed(c *gc.C) {
 			allowed: false,
 			minVers: "0.0.0",
 			patch:   true,
-			err:     `cannot upgrade, "4.0.0" is not a supported version`,
+			err:     `upgrade to \"4.0.0\" is not supported from \"2.9.0\"`,
 		}, {
 			from:    "3.0.0",
 			to:      "2.0.0",
@@ -112,7 +112,7 @@ func (s *versionSuite) TestMigrateToAllowed(c *gc.C) {
 			to:      "4.0.0",
 			allowed: false,
 			minVers: "0.0.0",
-			err:     `cannot migrate, "4.0.0" is not a supported version`,
+			err:     `migrate to \"4.0.0\" is not supported from \"2.9.0\"`,
 		},
 		{
 			from:    "3.0.0",
