@@ -37,7 +37,6 @@ import (
 	registrymocks "github.com/juju/juju/docker/registry/mocks"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
@@ -117,17 +116,6 @@ func (s *serverSuite) assertModelVersion(c *gc.C, st *state.State, expectedVersi
 	c.Assert(found, jc.IsTrue)
 	c.Assert(agentStream, gc.Equals, expectedStream)
 
-}
-
-type mockEnviron struct {
-	environs.Environ
-	validateCloudEndpointCalled bool
-	err                         error
-}
-
-func (m *mockEnviron) ValidateCloudEndpoint(context.ProviderCallContext) error {
-	m.validateCloudEndpointCalled = true
-	return m.err
 }
 
 type clientSuite struct {
