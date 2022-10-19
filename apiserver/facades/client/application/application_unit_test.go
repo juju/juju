@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/controller"
 	coreassumes "github.com/juju/juju/core/assumes"
 	corecharm "github.com/juju/juju/core/charm"
@@ -2936,4 +2937,105 @@ func (s *ApplicationSuite) TestLeader(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.Result, gc.Equals, "postgresql/0")
+}
+
+func (s *ApplicationSuite) TestApplicationGetCharmURL(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	app := s.expectDefaultApplication(ctrl)
+	s.backend.EXPECT().Application("postgresql").Return(app, nil)
+
+	curl := "local:quantal/postgresql-3"
+	app.EXPECT().CharmURL().Return(&curl, false)
+	result, err := s.api.GetCharmURL(params.ApplicationGet{ApplicationName: "postgresql"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.Result, gc.Equals, "local:quantal/postgresql-3")
+}
+
+func (s *ApplicationSuite) TestApplicationGetCharmURLOrigin(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	app := s.expectDefaultApplication(ctrl)
+	s.backend.EXPECT().Application("postgresql").Return(app, nil)
+
+	// Technically this charm origin is impossible, a local
+	// charm cannot have a channel.  Done just for testing.
+	rev := 666
+	stateOrigin := state.CharmOrigin{
+		Source:   "local",
+		Revision: &rev,
+		Channel: &state.Channel{
+			Track:  "latest",
+			Risk:   "stable",
+			Branch: "foo",
+		},
+		Platform: &state.Platform{
+			Architecture: "amd64",
+			OS:           "ubuntu",
+			Series:       "focal",
+		},
+	}
+	curl := "local:quantal/postgresql-666"
+	app.EXPECT().ApplicationTag().Return(names.NewApplicationTag("postgresql")).AnyTimes()
+	app.EXPECT().CharmURL().Return(&curl, false)
+	app.EXPECT().CharmOrigin().Return(&stateOrigin)
+	result, err := s.api.GetCharmURLOrigin(params.ApplicationGet{ApplicationName: "postgresql"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.URL, gc.Equals, curl)
+
+	latest := "latest"
+	branch := "foo"
+
+	c.Assert(result.Origin, jc.DeepEquals, params.CharmOrigin{
+		Source:       "local",
+		Risk:         "stable",
+		Revision:     &rev,
+		Track:        &latest,
+		Branch:       &branch,
+		Architecture: "amd64",
+		OS:           "ubuntu",
+		Series:       "focal",
+		Channel:      "20.04/stable",
+		Base:         params.Base{Name: "ubuntu", Channel: "20.04/stable"},
+		InstanceKey:  charmhub.CreateInstanceKey(app.ApplicationTag(), s.model.ModelTag()),
+	})
+}
+
+// TODO(juju3) - delete me
+func (s *ApplicationSuite) TestApplicationGetCharmURLOriginMissingOS(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	app := s.expectDefaultApplication(ctrl)
+	s.backend.EXPECT().Application("postgresql").Return(app, nil)
+
+	stateOrigin := state.CharmOrigin{
+		Source: "local",
+		Platform: &state.Platform{
+			Architecture: "amd64",
+			Series:       "focal",
+		},
+	}
+	curl := "local:quantal/postgresql-666"
+	app.EXPECT().ApplicationTag().Return(names.NewApplicationTag("postgresql")).AnyTimes()
+	app.EXPECT().CharmURL().Return(&curl, false)
+	app.EXPECT().CharmOrigin().Return(&stateOrigin)
+	result, err := s.api.GetCharmURLOrigin(params.ApplicationGet{ApplicationName: "postgresql"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.URL, gc.Equals, curl)
+
+	c.Assert(result.Origin, jc.DeepEquals, params.CharmOrigin{
+		Source:       "local",
+		Architecture: "amd64",
+		OS:           "ubuntu",
+		Series:       "focal",
+		Channel:      "20.04/stable",
+		Base:         params.Base{Name: "ubuntu", Channel: "20.04/stable"},
+		InstanceKey:  charmhub.CreateInstanceKey(app.ApplicationTag(), s.model.ModelTag()),
+	})
 }

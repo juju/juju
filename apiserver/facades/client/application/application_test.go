@@ -27,7 +27,6 @@ import (
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/facades/client/application"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -972,57 +971,6 @@ func (s *applicationSuite) TestAddCharmOverwritesPlaceholders(c *gc.C) {
 	c.Assert(sch.URL(), jc.DeepEquals, curl)
 	c.Assert(sch.IsPlaceholder(), jc.IsFalse)
 	c.Assert(sch.IsUploaded(), jc.IsTrue)
-}
-
-func (s *applicationSuite) TestApplicationGetCharmURL(c *gc.C) {
-	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	result, err := s.applicationAPI.GetCharmURL(params.ApplicationGet{ApplicationName: "wordpress"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.Result, gc.Equals, "local:quantal/wordpress-3")
-}
-
-func (s *applicationSuite) TestApplicationGetCharmURLOrigin(c *gc.C) {
-	ch := s.AddTestingCharm(c, "wordpress")
-	rev := ch.Revision()
-	// Technically this charm origin is impossible, a local
-	// charm cannot have a channel.  Done just for testing.
-	expectedOrigin := state.CharmOrigin{
-		Source:   "local",
-		Revision: &rev,
-		Channel: &state.Channel{
-			Track:  "latest",
-			Risk:   "stable",
-			Branch: "foo",
-		},
-		Platform: &state.Platform{
-			Architecture: "amd64",
-			OS:           "ubuntu",
-			Series:       "focal",
-		},
-	}
-	app := s.AddTestingApplicationWithOrigin(c, "wordpress", ch, &expectedOrigin)
-	result, err := s.applicationAPI.GetCharmURLOrigin(params.ApplicationGet{ApplicationName: "wordpress"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.URL, gc.Equals, "local:quantal/wordpress-3")
-
-	latest := "latest"
-	branch := "foo"
-
-	c.Assert(result.Origin, jc.DeepEquals, params.CharmOrigin{
-		Source:       "local",
-		Risk:         "stable",
-		Revision:     &rev,
-		Track:        &latest,
-		Branch:       &branch,
-		Architecture: "amd64",
-		OS:           "ubuntu",
-		Series:       "focal",
-		Channel:      "20.04/stable",
-		Base:         params.Base{Name: "ubuntu", Channel: "20.04/stable"},
-		InstanceKey:  charmhub.CreateInstanceKey(app.ApplicationTag(), s.Model.ModelTag()),
-	})
 }
 
 func (s *applicationSuite) TestApplicationSetCharm(c *gc.C) {
