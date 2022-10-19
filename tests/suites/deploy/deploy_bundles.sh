@@ -164,7 +164,7 @@ run_deploy_charmhub_bundle() {
 	juju deploy "${bundle}"
 
 	wait_for "juju-qa-test" "$(charm_channel "juju-qa-test" "2.0/stable")"
-	wait_for "juju-qa-test-focal" "$(charm_channel "juju-qa-test-focal" "candidate")"
+	wait_for "juju-qa-test-focal" "$(charm_channel "juju-qa-test-focal" "latest/candidate")"
 	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
 	wait_for "juju-qa-test-focal" "$(idle_condition "juju-qa-test-focal" 1)"
 	wait_for "ntp" "$(idle_subordinate_condition "ntp" "juju-qa-test")"
