@@ -90,32 +90,18 @@ func (s *usermanagerSuite) TestRemoveUser(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	args := params.AddUsers{
-		Users: []params.AddUser{{Username: "jjam", DisplayName: "Jimmy Jam", Password: "password"}},
-	}
-
-	result := new(params.AddUserResults)
-	results := params.AddUserResults{
-		[]params.AddUserResult{{Tag: "user-jjam"}},
-	}
-	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("AddUser", args, result).SetArg(2, results).Return(nil)
-
-	client := usermanager.NewClientFromCaller(mockFacadeCaller)
-	tag, _, err := client.AddUser("jjam", "Jimmy Jam", "password")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(tag.String(), gc.Equals, "user-jjam")
-
-	res := new(params.ErrorResults)
-	ress := params.ErrorResults{
+	result := new(params.ErrorResults)
+	results := params.ErrorResults{
 		make([]params.ErrorResult, 1),
 	}
 	arg := params.Entities{
-		[]params.Entity{{tag.String()}},
+		[]params.Entity{{"user-jjam"}},
 	}
-	mockFacadeCaller.EXPECT().FacadeCall("RemoveUser", arg, res).SetArg(2, ress).Return(nil)
+	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("RemoveUser", arg, result).SetArg(2, results).Return(nil)
+	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	// Delete the user.
-	err = client.RemoveUser(tag.Name())
+	err := client.RemoveUser("jjam")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -139,16 +125,6 @@ func (s *usermanagerSuite) TestDisableUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *usermanagerSuite) TestDisableUserBadName(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
-	client := usermanager.NewClientFromCaller(mockFacadeCaller)
-	err := client.DisableUser("not!good")
-	c.Assert(err, gc.ErrorMatches, `"not!good" is not a valid username`)
-}
-
 func (s *usermanagerSuite) TestEnableUser(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -162,16 +138,6 @@ func (s *usermanagerSuite) TestEnableUser(c *gc.C) {
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	err := client.EnableUser(user.Name())
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *usermanagerSuite) TestEnableUserBadName(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
-	client := usermanager.NewClientFromCaller(mockFacadeCaller)
-	err := client.EnableUser("not!good")
-	c.Assert(err, gc.ErrorMatches, `"not!good" is not a valid username`)
 }
 
 func (s *usermanagerSuite) TestCantRemoveAdminUser(c *gc.C) {
