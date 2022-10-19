@@ -8,6 +8,7 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/upgrades/upgradevalidation"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -25,7 +26,7 @@ var minClientVersions = map[int]version.Number{
 	3: version.MustParse("2.9.36"),
 }
 
-func checkClientVersion(userLogin bool, callerVersion, serverVersion version.Number) func(facadeName, methodName string) error {
+func checkClientVersion(userLogin bool, callerVersion version.Number) func(facadeName, methodName string) error {
 	return func(facadeName, methodName string) error {
 		serverVersion := jujuversion.Current
 		incompatibleClientError := &params.IncompatibleClientError{
@@ -48,8 +49,8 @@ func checkClientVersion(userLogin bool, callerVersion, serverVersion version.Num
 
 		if !userLogin {
 			// Only recent older agents can make api calls.
-			if minAgentVersion, ok := minAgentVersions[serverVersion.Major]; !ok || callerVersion.Compare(minAgentVersion) < 0 {
-				logger.Debugf("rejected agent api all %v.%v for agent version %v", facadeName, methodName, callerVersion)
+			if minAgentVersion, ok := upgradevalidation.MinAgentVersions[serverVersion.Major]; !ok || callerVersion.Compare(minAgentVersion) < 0 {
+				logger.Warningf("rejected agent api all %v.%v for agent version %v", facadeName, methodName, callerVersion)
 				return incompatibleClientError
 			}
 			return nil
@@ -73,12 +74,12 @@ func checkClientVersion(userLogin bool, callerVersion, serverVersion version.Num
 		}
 
 		// Check whitelisted client versions.
-		if minClientVersion, ok := minClientVersions[serverVersion.Major]; ok && callerVersion.Compare(minClientVersion) >= 0 {
+		if minClientVersion, ok := upgradevalidation.MinClientVersions[serverVersion.Major]; ok && callerVersion.Compare(minClientVersion) >= 0 {
 			return nil
 		}
 
 		// Check whitelisted server versions.
-		if minServerVersion, ok := minClientVersions[callerVersion.Major]; ok && serverVersion.Compare(minServerVersion) >= 0 {
+		if minServerVersion, ok := upgradevalidation.MinClientVersions[callerVersion.Major]; ok && serverVersion.Compare(minServerVersion) >= 0 {
 			return nil
 		}
 

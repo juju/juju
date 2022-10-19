@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/rpc/params"
 	coretools "github.com/juju/juju/tools"
+	"github.com/juju/juju/upgrades/upgradevalidation"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -277,8 +278,18 @@ func (c *upgradeJujuCommand) upgradeWithTargetVersion(
 	ctx *cmd.Context, modelUpgrader ModelUpgraderAPI, isControllerModel, dryRun bool,
 	modelType model.ModelType, targetVersion, agentVersion version.Number,
 ) (chosenVersion version.Number, err error) {
-	chosenVersion = targetVersion
 	// juju upgrade-controller --agent-version 3.x.x
+	chosenVersion = targetVersion
+
+	if targetVersion.Major == 3 {
+		// We enabled model upgrade from 2.9.33 to 3.0 before, but we decide to disable it now.
+		// To prevent a 2.9.33-2.9.35 controller from upgrading to 3.0, we have to do this
+		// check again here to use the newly updated support version matrix.
+		_, _, err := upgradevalidation.UpgradeToAllowed(agentVersion, targetVersion)
+		if err != nil {
+			return chosenVersion, errors.Trace(err)
+		}
+	}
 	_, err = c.notifyControllerUpgrade(ctx, modelUpgrader, targetVersion, dryRun)
 	if err == nil {
 		// All good!

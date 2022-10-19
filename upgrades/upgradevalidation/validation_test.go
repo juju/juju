@@ -174,7 +174,7 @@ func (s *upgradeValidationSuite) TestGetCheckTargetVersionForModel(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersion, map[int]version.Number{
+	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersions, map[int]version.Number{
 		3: version.MustParse("2.9.30"),
 	})
 
@@ -211,7 +211,7 @@ func (s *upgradeValidationSuite) TestGetCheckTargetVersionForModel(c *gc.C) {
 		version.MustParse("4.1.1"),
 		upgradevalidation.UpgradeToAllowed,
 	)("", nil, nil, model)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade, "4.1.1" is not a supported version`)
+	c.Assert(err, gc.ErrorMatches, `upgrade to "4.1.1" is not supported from "2.9.31"`)
 	c.Assert(blocker, gc.IsNil)
 }
 
