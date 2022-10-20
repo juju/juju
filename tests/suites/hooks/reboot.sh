@@ -86,7 +86,7 @@ run_reboot_monitor_state_cleanup() {
 	juju deploy mysql --channel=edge --force --series jammy
 	# Deploy mysql/rsyslog-forwarder-ha. The latter is a subordinate
 	juju deploy rsyslog-forwarder-ha
-	juju add-relation rsyslog-forwarder-ha mysql
+	juju integrate rsyslog-forwarder-ha mysql
 	wait_for "mysql" "$(idle_condition "mysql")"
 	wait_for "rsyslog-forwarder-ha" "$(idle_subordinate_condition "rsyslog-forwarder-ha" "mysql")"
 

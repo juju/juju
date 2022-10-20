@@ -19,7 +19,7 @@ Once bootstrapped, deploy the [MySQL][3] and MediaWiki charm:
 
 Add a relation between the two. Note: To avoid recieving "ambiguous relation" error, specify the "db" relation:
 
-    juju add-relation mysql mediawiki:db
+    juju integrate mysql mediawiki:db
 
 Expose the MediaWiki service
 
@@ -34,7 +34,7 @@ deploy memcached:
 
 then relate it to the mediawiki service
 
-    juju add-relation memcached mediawiki
+    juju integrate memcached mediawiki
 
 Memcached is recommended for environments with more than one unit deployed. Otherwise there is very little advantage gained by using memcached since 
 MediaWiki will already use whatever byte-code cache is specified in the charm's configuration.
@@ -45,13 +45,13 @@ If you're running MySQL with a slave set up you can attach MediaWiki to those sl
 do this first set up a slave relation with MySQL (If you've already done so skip to the next set of commands):
 
     juju deploy mysql mysql-slave
-    juju add-relation mysql mysql-slave
+    juju integrate mysql mysql-slave
 
 Going forward you can scale out MySQL by adding slaves via `juju add-unit mysql-slave`.
 
 Create a relation between the new slave services and MediaWiki:
 
-    juju add-relation mediawiki:slave mysql-slave
+    juju integrate mediawiki:slave mysql-slave
 
 ## Known Limitations and Issues
 

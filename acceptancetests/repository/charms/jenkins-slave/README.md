@@ -12,7 +12,7 @@ charm. This can be done as follows:
 
     juju deploy jenkins
     juju deploy -n 5 jenkins-slave
-    juju add-relation jenkins jenkins-slave
+    juju integrate jenkins jenkins-slave
 
 There are cases where you want to provision a specific machine that
 provides specific resources for tests, such as CPU architecture or

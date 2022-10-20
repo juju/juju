@@ -37,7 +37,7 @@ def prepare_dummy_env(client):
     client.deploy(charm_sink)
     token = get_random_string()
     client.set_config('dummy-source', {'token': token})
-    client.juju('add-relation', ('dummy-source', 'dummy-sink'))
+    client.juju('integrate', ('dummy-source', 'dummy-sink'))
     client.juju('expose', ('dummy-sink',))
     return token
 
@@ -123,7 +123,7 @@ def test_control_heterogeneous(bs_manager, other, upload_tools):
         juju_with_fallback(other, released, 'deploy',
                            (charm_path, 'sink2'))
         other.wait_for_started()
-        other.juju('add-relation', ('dummy-source', 'sink2'))
+        other.juju('integrate', ('dummy-source', 'sink2'))
         status = other.get_status()
         other.juju('expose', ('sink2',))
         status = other.get_status()
@@ -136,7 +136,7 @@ def test_control_heterogeneous(bs_manager, other, upload_tools):
                 break
         else:
             raise AssertionError('Sink2 not destroyed')
-        other.juju('add-relation', ('dummy-source', 'dummy-sink'))
+        other.juju('integrate', ('dummy-source', 'dummy-sink'))
         status = other.get_status()
         relations = status.get_applications()['dummy-sink']['relations']
         if not relations['source'] == ['dummy-source']:
