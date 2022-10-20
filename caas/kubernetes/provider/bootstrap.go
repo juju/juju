@@ -65,11 +65,13 @@ const (
 	mongoDBContainerName   = "mongodb"
 	apiServerContainerName = "api-server"
 
+	startupGraceTime = 300
+
 	apiServerStartupProbeInitialDelay = 3
 	apiServerStartupProbeTimeout      = 3
 	apiServerStartupProbePeriod       = 3
 	apiServerStartupProbeSuccess      = 1
-	apiServerStartupProbeFailure      = 5
+	apiServerStartupProbeFailure      = startupGraceTime / apiServerStartupProbePeriod
 
 	apiServerLivenessProbeInitialDelay = 1
 	apiServerLivenessProbeTimeout      = 3
@@ -1195,7 +1197,7 @@ func (c *controllerStack) controllerContainers(setupCmd, machineCmd, controllerI
 	// add container mongoDB.
 	// TODO(bootstrap): refactor mongo package to make it usable for IAAS and CAAS,
 	// then generate mongo config from EnsureServerParams.
-	probCmds := &core.ExecAction{
+	probeCmds := &core.ExecAction{
 		Command: []string{
 			"mongo",
 			fmt.Sprintf("--port=%d", c.portMongoDB),
@@ -1263,7 +1265,7 @@ func (c *controllerStack) controllerContainers(setupCmd, machineCmd, controllerI
 		},
 		ReadinessProbe: &core.Probe{
 			ProbeHandler: core.ProbeHandler{
-				Exec: probCmds,
+				Exec: probeCmds,
 			},
 			FailureThreshold:    3,
 			InitialDelaySeconds: 5,
@@ -1273,13 +1275,23 @@ func (c *controllerStack) controllerContainers(setupCmd, machineCmd, controllerI
 		},
 		LivenessProbe: &core.Probe{
 			ProbeHandler: core.ProbeHandler{
-				Exec: probCmds,
+				Exec: probeCmds,
 			},
 			FailureThreshold:    3,
 			InitialDelaySeconds: 30,
 			PeriodSeconds:       10,
 			SuccessThreshold:    1,
 			TimeoutSeconds:      5,
+		},
+		StartupProbe: &core.Probe{
+			ProbeHandler: core.ProbeHandler{
+				Exec: probeCmds,
+			},
+			FailureThreshold:    startupGraceTime / 5,
+			InitialDelaySeconds: 1,
+			PeriodSeconds:       5,
+			SuccessThreshold:    1,
+			TimeoutSeconds:      1,
 		},
 		VolumeMounts: []core.VolumeMount{
 			{
