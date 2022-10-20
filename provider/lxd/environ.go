@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/provider/common"
 )
 
-const bootstrapMessage = `To configure your system to better support LXD containers, please see: https://github.com/lxc/lxd/blob/master/doc/production-setup.md`
+const bootstrapMessage = `To configure your system to better support LXD containers, please see: https://github.com/lxc/lxd/blob/master/doc/reference/server_settings.md`
 
 type baseProvider interface {
 	// BootstrapEnv bootstraps a Juju environment.
