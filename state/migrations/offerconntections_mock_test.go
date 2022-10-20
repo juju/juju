@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	v3 "github.com/juju/description/v3"
+	v4 "github.com/juju/description/v4"
 )
 
 // MockMigrationOfferConnection is a mock of MigrationOfferConnection interface.
@@ -204,10 +204,10 @@ func (m *MockOfferConnectionModel) EXPECT() *MockOfferConnectionModelMockRecorde
 }
 
 // AddOfferConnection mocks base method.
-func (m *MockOfferConnectionModel) AddOfferConnection(arg0 v3.OfferConnectionArgs) v3.OfferConnection {
+func (m *MockOfferConnectionModel) AddOfferConnection(arg0 v4.OfferConnectionArgs) v4.OfferConnection {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddOfferConnection", arg0)
-	ret0, _ := ret[0].(v3.OfferConnection)
+	ret0, _ := ret[0].(v4.OfferConnection)
 	return ret0
 }
 
