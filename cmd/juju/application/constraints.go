@@ -29,7 +29,7 @@ Application constraints are combined with model constraints, set with ` +
 	"`juju \nset-model-constraints`" + `, for commands (such as 'deploy') that provision
 machines for applications. Where model and application constraints overlap, the
 application constraints take precedence.
-Constraints for a specific model can be viewed with ` + "`juju get-model-\nconstraints`" + `.
+Constraints for a specific model can be viewed with ` + "`juju model-\nconstraints`" + `.
 
 Examples:
     juju constraints mysql
@@ -38,7 +38,7 @@ Examples:
 See also: 
     set-constraints
     model-constraints
-    model-constraints`
+    set-model-constraints`
 
 var usageSetConstraintsSummary = `
 Sets machine constraints for an application.`[1:]
@@ -47,13 +47,13 @@ Sets machine constraints for an application.`[1:]
 // commands for ease in markdown.
 var usageSetConstraintsDetails = `
 Sets constraints for an application, which are used for all new machines 
-provisioned for that application. They can be viewed with `[1:] + "`juju get-\nconstraints`" + `.
+provisioned for that application. They can be viewed with `[1:] + "`juju constraints`" + `.
 By default, the model is the current model.
 Application constraints are combined with model constraints, set with ` +
 	"`juju \nset-model-constraints`" + `, for commands (such as 'juju deploy') that 
 provision machines for applications. Where model and application constraints
 overlap, the application constraints take precedence.
-Constraints for a specific model can be viewed with ` + "`juju get-model-\nconstraints`" + `.
+Constraints for a specific model can be viewed with ` + "`juju model-constraints`" + `.
 This command requires that the application to have at least one unit. To apply 
 constraints to
 the first unit set them at the model level or pass them as an argument
