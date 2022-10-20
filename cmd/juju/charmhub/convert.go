@@ -146,7 +146,7 @@ func channelSeries(platforms []corecharm.Platform) set.Strings {
 func channelBases(platforms []corecharm.Platform) set.Strings {
 	bases := set.NewStrings()
 	for _, v := range platforms {
-		bases.Add(fmt.Sprintf("%s:%s", v.OS, v.Channel))
+		bases.Add(fmt.Sprintf("%s@%s", v.OS, v.Channel))
 	}
 	return bases
 }

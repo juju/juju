@@ -5247,20 +5247,6 @@ func (s *ApplicationSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChange() // consume initial change set.
 
-	// Add a pending charm without an origin and associate it with the
-	// application. As it is lacking an origin, it should not trigger a
-	// change.
-	dummy1 := s.dummyCharm(c, "cs:quantal/dummy-1")
-	dummy1.SHA256 = ""      // indicates that we don't have the data in the blobstore yet.
-	dummy1.StoragePath = "" // indicates that we don't have the data in the blobstore yet.
-	ch1, err := s.State.AddCharmMetadata(dummy1)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysql.SetCharm(state.SetCharmConfig{
-		Charm: ch1,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertNoChange()
-
 	// Add a pending charm with an origin and associate it with the
 	// application. This should trigger a change.
 	dummy2 := s.dummyCharm(c, "cs:quantal/dummy-2")

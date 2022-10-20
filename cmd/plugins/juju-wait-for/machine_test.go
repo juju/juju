@@ -51,8 +51,8 @@ func (s *machineScopeSuite) TestGetIdentValue(c *gc.C) {
 		Expected:    query.NewString("focal"),
 	}, {
 		Field:       "base",
-		MachineInfo: &params.MachineInfo{Base: "ubuntu:20.04"},
-		Expected:    query.NewString("ubuntu:20.04"),
+		MachineInfo: &params.MachineInfo{Base: "ubuntu@20.04"},
+		Expected:    query.NewString("ubuntu@20.04"),
 	}, {
 		Field:       "container-type",
 		MachineInfo: &params.MachineInfo{ContainerType: "lxd"},
