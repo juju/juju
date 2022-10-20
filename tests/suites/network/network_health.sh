@@ -14,8 +14,8 @@ run_network_health() {
 	juju deploy 'juju-qa-network-health' network-health-focal --series focal
 	juju deploy 'juju-qa-network-health' network-health-jammy --series jammy
 
-	juju add-relation network-health-focal ubuntu-focal
-	juju add-relation network-health-jammy ubuntu-jammy
+	juju integrate network-health-focal ubuntu-focal
+	juju integrate network-health-jammy ubuntu-jammy
 
 	juju expose network-health-focal
 	juju expose network-health-jammy

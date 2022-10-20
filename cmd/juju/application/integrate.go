@@ -200,7 +200,7 @@ type addRelationCommand struct {
 func (c *addRelationCommand) Info() *cmd.Info {
 	addCmd := &cmd.Info{
 		Name:    "integrate",
-		Aliases: []string{"relate", "add-relation"},
+		Aliases: []string{"relate"},
 		Args:    "<application>[:<relation>] <application>[:<relation>]",
 		Purpose: "Integrate two applications.",
 		Doc:     integrateDoc,

@@ -82,7 +82,7 @@ run_model_migration_version() {
 
 	juju --show-log deploy easyrsa
 	juju --show-log deploy etcd
-	juju --show-log add-relation etcd easyrsa
+	juju --show-log integrate etcd easyrsa
 	juju --show-log add-unit -n 2 etcd
 
 	wait_for "active" '.applications["easyrsa"] | ."application-status".current'

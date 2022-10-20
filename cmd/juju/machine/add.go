@@ -141,7 +141,7 @@ Further reading:
 
 See also:
 	remove-machine
-	get-model-constraints
+	model-constraints
 	set-model-constraints
 `
 

@@ -32,13 +32,13 @@ application constraints take precedence.
 Constraints for a specific model can be viewed with ` + "`juju get-model-\nconstraints`" + `.
 
 Examples:
-    juju get-constraints mysql
-    juju get-constraints -m mymodel apache2
+    juju constraints mysql
+    juju constraints -m mymodel apache2
 
 See also: 
     set-constraints
-    get-model-constraints
-    set-model-constraints`
+    model-constraints
+    model-constraints`
 
 var usageSetConstraintsSummary = `
 Sets machine constraints for an application.`[1:]
@@ -64,8 +64,8 @@ Examples:
     juju set-constraints -m mymodel apache2 mem=8G arch=amd64
 
 See also: 
-    get-constraints
-    get-model-constraints
+    constraints
+    model-constraints
     set-model-constraints`
 
 // NewApplicationGetConstraintsCommand returns a command which gets application constraints.
@@ -103,7 +103,7 @@ type applicationGetConstraintsCommand struct {
 
 func (c *applicationGetConstraintsCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "get-constraints",
+		Name:    "constraints",
 		Args:    "<application>",
 		Purpose: usageGetConstraintsSummary,
 		Doc:     usageGetConstraintsDetails,
