@@ -1503,11 +1503,16 @@ func makeParamsCharmOrigin(origin *state.CharmOrigin) (params.CharmOrigin, error
 		retOrigin.Architecture = origin.Platform.Architecture
 		var base series.Base
 		if origin.Platform.Series != "" {
-			channel, err := series.SeriesVersion(origin.Platform.Series)
-			if err != nil {
-				return params.CharmOrigin{}, errors.Trace(err)
+			var err error
+			if origin.Platform.OS == "" {
+				base, err = series.GetBaseFromSeries(origin.Platform.Series)
+			} else {
+				var channel string
+				channel, err = series.SeriesVersion(origin.Platform.Series)
+				if err == nil {
+					base, err = series.ParseBase(origin.Platform.OS, channel)
+				}
 			}
-			base, err = series.ParseBase(origin.Platform.OS, channel)
 			if err != nil {
 				return params.CharmOrigin{}, errors.Trace(err)
 			}
