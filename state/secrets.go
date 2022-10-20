@@ -678,8 +678,6 @@ func (s *secretsStore) ListSecrets(filter SecretsFilter) ([]*secrets.SecretMetad
 	secretMetadataCollection, closer := s.st.db().GetCollection(secretMetadataC)
 	defer closer()
 
-	var docs []secretMetadataDoc
-
 	q := bson.D{}
 	if filter.URI != nil {
 		q = append(q, bson.DocElem{"_id", filter.URI.ID})
@@ -695,23 +693,22 @@ func (s *secretsStore) ListSecrets(filter SecretsFilter) ([]*secrets.SecretMetad
 	// We need to do the consumer processing below as the results are seeded
 	// from a different collection.
 	if len(q) > 0 || len(filter.ConsumerTags) == 0 {
+		var docs []secretMetadataDoc
 		err := secretMetadataCollection.Find(q).All(&docs)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-	}
-	result := make([]*secrets.SecretMetadata, len(docs))
-	for i, doc := range docs {
-		nextRotateTime, err := s.st.nextRotateTime(doc.DocID)
-		if err != nil {
-			return nil, errors.Trace(err)
+		result := make([]*secrets.SecretMetadata, len(docs))
+		for i, doc := range docs {
+			nextRotateTime, err := s.st.nextRotateTime(doc.DocID)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			result[i], err = s.toSecretMetadata(&doc, nextRotateTime)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 		}
-		result[i], err = s.toSecretMetadata(&doc, nextRotateTime)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	if len(filter.ConsumerTags) == 0 {
 		return result, nil
 	}
 	consumers := make([]string, len(filter.ConsumerTags))
@@ -722,12 +719,14 @@ func (s *secretsStore) ListSecrets(filter SecretsFilter) ([]*secrets.SecretMetad
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	docs = []secretMetadataDoc(nil)
+
+	var docs []secretMetadataDoc
 	q2 := bson.M{"_id": bson.M{"$in": consumedIds}}
 	err = secretMetadataCollection.Find(q2).All(&docs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	result := make([]*secrets.SecretMetadata, len(docs))
 	for _, doc := range docs {
 		nextRotateTime, err := s.st.nextRotateTime(doc.DocID)
 		if err != nil {
@@ -746,10 +745,12 @@ func (s *secretsStore) listConsumedSecrets(consumers []string) ([]string, error)
 	secretPermissionsCollection, closer := s.st.db().GetCollection(secretPermissionsC)
 	defer closer()
 	var docs []secretPermissionDoc
-	err := secretPermissionsCollection.Find(bson.D{
-		{"_id", bson.D{{"$regex", fmt.Sprintf(".*#(%s)", strings.Join(consumers, "|"))}}},
-		{"role", secrets.RoleView},
-	}).All(&docs)
+	err := secretPermissionsCollection.Find(bson.M{
+		"subject-tag": bson.M{
+			"$in": consumers,
+		},
+		"role": secrets.RoleView,
+	}).Select(bson.D{{"_id", 1}}).All(&docs)
 	if err != nil {
 		return nil, errors.Annotatef(err, "reading permissions for %q", consumers)
 	}
