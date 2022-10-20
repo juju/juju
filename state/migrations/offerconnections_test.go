@@ -5,7 +5,7 @@ package migrations
 
 import (
 	"github.com/golang/mock/gomock"
-	"github.com/juju/description/v3"
+	"github.com/juju/description/v4"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"

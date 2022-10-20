@@ -11,7 +11,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v9"
-	"github.com/juju/description/v3"
+	"github.com/juju/description/v4"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -469,7 +469,7 @@ func (s *MigrationImportSuite) TestMachinePortOps(c *gc.C) {
 	c.Assert(ops[0].Id, gc.Equals, "3")
 }
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/description_mock.go github.com/juju/description/v3 Machine,MachinePortRanges,UnitPortRanges
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/description_mock.go github.com/juju/description/v4 Machine,MachinePortRanges,UnitPortRanges
 func setupMockOpenedPortRanges(c *gc.C, mID string) (*gomock.Controller, *mocks.MockMachine) {
 	ctrl := gomock.NewController(c)
 	mockMachine := mocks.NewMockMachine(ctrl)
