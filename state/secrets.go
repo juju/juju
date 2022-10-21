@@ -678,6 +678,7 @@ func (s *secretsStore) ListSecrets(filter SecretsFilter) ([]*secrets.SecretMetad
 	secretMetadataCollection, closer := s.st.db().GetCollection(secretMetadataC)
 	defer closer()
 
+	var docs []secretMetadataDoc
 	q := bson.D{}
 	if filter.URI != nil {
 		q = append(q, bson.DocElem{"_id", filter.URI.ID})
@@ -693,22 +694,23 @@ func (s *secretsStore) ListSecrets(filter SecretsFilter) ([]*secrets.SecretMetad
 	// We need to do the consumer processing below as the results are seeded
 	// from a different collection.
 	if len(q) > 0 || len(filter.ConsumerTags) == 0 {
-		var docs []secretMetadataDoc
 		err := secretMetadataCollection.Find(q).All(&docs)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		result := make([]*secrets.SecretMetadata, len(docs))
-		for i, doc := range docs {
-			nextRotateTime, err := s.st.nextRotateTime(doc.DocID)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			result[i], err = s.toSecretMetadata(&doc, nextRotateTime)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
+	}
+	result := make([]*secrets.SecretMetadata, len(docs))
+	for i, doc := range docs {
+		nextRotateTime, err := s.st.nextRotateTime(doc.DocID)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
+		result[i], err = s.toSecretMetadata(&doc, nextRotateTime)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	if len(filter.ConsumerTags) == 0 {
 		return result, nil
 	}
 	consumers := make([]string, len(filter.ConsumerTags))
@@ -720,13 +722,12 @@ func (s *secretsStore) ListSecrets(filter SecretsFilter) ([]*secrets.SecretMetad
 		return nil, errors.Trace(err)
 	}
 
-	var docs []secretMetadataDoc
+	docs = []secretMetadataDoc(nil)
 	q2 := bson.M{"_id": bson.M{"$in": consumedIds}}
 	err = secretMetadataCollection.Find(q2).All(&docs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	result := make([]*secrets.SecretMetadata, len(docs))
 	for _, doc := range docs {
 		nextRotateTime, err := s.st.nextRotateTime(doc.DocID)
 		if err != nil {

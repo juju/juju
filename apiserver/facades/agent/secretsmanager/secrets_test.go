@@ -52,7 +52,7 @@ var _ = gc.Suite(&SecretsManagerSuite{})
 
 func (s *SecretsManagerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	
+
 	s.authTag = names.NewUnitTag("mariadb/0")
 }
 

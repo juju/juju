@@ -121,6 +121,8 @@ func StoreConfig(model Model, authTag names.Tag, leadershipChecker leadership.Ch
 			// Find secrets owned by the application.
 			readAppOwnedFilter.OwnerTags = append(readAppOwnedFilter.OwnerTags, authApp)
 		}
+		// Granted secrets can be consumed in application level for all units.
+		readFilter.ConsumerTags = append(readFilter.ConsumerTags, authApp)
 	case names.ApplicationTag:
 	default:
 		return nil, errors.NotSupportedf("login as %q", authTag)

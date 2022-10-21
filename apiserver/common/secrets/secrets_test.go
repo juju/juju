@@ -127,7 +127,7 @@ func (s *secretsSuite) TestStoreConfigLeaderUnit(c *gc.C) {
 			},
 		}).Return(owned, nil),
 		backend.EXPECT().ListSecrets(state.SecretsFilter{
-			ConsumerTags: []names.Tag{unitTag},
+			ConsumerTags: []names.Tag{unitTag, names.NewApplicationTag("gitlab")},
 		}).Return(read, nil),
 		p.EXPECT().StoreConfig(gomock.Any(), unitTag,
 			provider.SecretRevisions{"owned-1": set.NewInts(1)},
@@ -174,7 +174,7 @@ func (s *secretsSuite) TestStoreConfigNonLeaderUnit(c *gc.C) {
 			OwnerTags: []names.Tag{unitTag},
 		}).Return(unitOwned, nil),
 		backend.EXPECT().ListSecrets(state.SecretsFilter{
-			ConsumerTags: []names.Tag{unitTag},
+			ConsumerTags: []names.Tag{unitTag, names.NewApplicationTag("gitlab")},
 		}).Return(read, nil),
 		backend.EXPECT().ListSecrets(state.SecretsFilter{
 			OwnerTags: []names.Tag{names.NewApplicationTag("gitlab")},
