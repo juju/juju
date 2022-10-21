@@ -4,3 +4,8 @@ description: "This is a longer description."
 peers:
   self:
     interface: dummy
+series:
+  - xenial
+  - bionic
+  - focal
+  - jammy

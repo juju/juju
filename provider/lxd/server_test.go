@@ -37,9 +37,9 @@ func (s *serverSuite) TestParseAPIVersion(c *gc.C) {
 }
 
 func (s *serverSuite) TestValidateAPIVersion(c *gc.C) {
-	err := ValidateAPIVersion("5.2")
+	err := ValidateAPIVersion("5.0")
 	c.Check(err, jc.ErrorIsNil)
 
-	err = ValidateAPIVersion("5.1")
-	c.Check(err, gc.ErrorMatches, `LXD version has to be at least "5.2.0", but current version is only "5.1.0"`)
+	err = ValidateAPIVersion("4.0")
+	c.Check(err, gc.ErrorMatches, `LXD version has to be at least "5.0.0", but current version is only "4.0.0"`)
 }

@@ -47,6 +47,7 @@ TEST_NAMES="agents \
             cli \
             constraints \
             controller \
+            coslite \
             credential \
             ck \
             deploy \
@@ -60,6 +61,7 @@ TEST_NAMES="agents \
             model \
             network \
             ovs_maas \
+            refresh \
             relations \
             resources \
             sidecar \

@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
+	"github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	mgoutils "github.com/juju/juju/mongo/utils"
@@ -1851,19 +1852,22 @@ func checkSeriesForSetCharm(currentPlatform *Platform, charm *Charm, ForceBase b
 	if err != nil {
 		return errors.Trace(err)
 	}
+	charmSeries, err := corecharm.ComputedSeries(charm)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	if charm.URL().Series != "" {
 		// Allow series change when switching to charmhub charms.
 		// Account for legacy charms with "kubernetes" series in the URL.
-		if charm.URL().Schema != "ch" && charm.URL().Series != "kubernetes" && charm.URL().Series != curSeries {
+		if charm.URL().Schema != "ch" && charm.URL().Series != series.Kubernetes.String() && charm.URL().Series != curSeries {
 			return errors.Errorf("cannot change an application's series")
 		}
 	} else if !ForceBase {
 		supported := false
-		charmSeries, err := corecharm.ComputedSeries(charm)
-		if err != nil {
-			return errors.Trace(err)
-		}
 		for _, oneSeries := range charmSeries {
+			if oneSeries == series.Kubernetes.String() {
+				oneSeries = series.LegacyKubernetesSeries()
+			}
 			if oneSeries == curSeries {
 				supported = true
 				break
@@ -1880,19 +1884,14 @@ func checkSeriesForSetCharm(currentPlatform *Platform, charm *Charm, ForceBase b
 		// Even with forceBase=true, we do not allow a charm to be used which is for
 		// a different OS. This assumes the charm declares it has supported series which
 		// we can check for OS compatibility. Otherwise, we just accept the series supplied.
-		currentOS, err := series.GetOSFromSeries(curSeries)
-		if err != nil {
-			// We don't expect an error here but there's not much we can
-			// do to recover.
-			return err
-		}
+		currentOS := os.OSTypeForName(currentPlatform.OS)
 		supportedOS := false
-		supportedSeries, err := corecharm.ComputedSeries(charm)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		for _, chSeries := range supportedSeries {
-			charmSeriesOS, err := series.GetOSFromSeries(chSeries)
+		for _, oneSeries := range charmSeries {
+			if oneSeries == series.Kubernetes.String() {
+				supportedOS = true
+				break
+			}
+			charmSeriesOS, err := series.GetOSFromSeries(oneSeries)
 			if err != nil {
 				return nil
 			}
@@ -1901,7 +1900,7 @@ func checkSeriesForSetCharm(currentPlatform *Platform, charm *Charm, ForceBase b
 				break
 			}
 		}
-		if !supportedOS && len(supportedSeries) > 0 {
+		if !supportedOS && len(charmSeries) > 0 {
 			return errors.Errorf("OS %q not supported by charm", currentOS)
 		}
 	}

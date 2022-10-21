@@ -156,7 +156,7 @@ func (s UpgradeSeriesSuitePrepare) TestPrepare(c *gc.C) {
 	machine.EXPECT().CreateUpgradeSeriesLock([]string{"app/0"}, state.Base{OS: "ubuntu", Channel: "20.04"})
 	machine.EXPECT().Base().Return(state.UbuntuBase("18.04")).AnyTimes()
 	machine.EXPECT().Tag().Return(names.NewMachineTag("0"))
-	machine.EXPECT().SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareStarted, `started upgrade from "ubuntu:18.04" to "ubuntu:20.04"`)
+	machine.EXPECT().SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareStarted, `started upgrade from "ubuntu@18.04" to "ubuntu@20.04"`)
 
 	state := mocks.NewMockUpgradeSeriesState(ctrl)
 	state.EXPECT().MachineFromTag("machine-0").Return(machine, nil)
@@ -598,7 +598,7 @@ func (s CharmhubValidatorSuite) TestValidateApplicationsWithRefreshError(c *gc.C
 
 	validator := machinemanager.NewTestCharmhubSeriesValidator(client)
 	err := validator.ValidateApplications(applications, coreseries.MakeDefaultBase("ubuntu", "20.04"), false)
-	c.Assert(err, gc.ErrorMatches, `unable to locate application with base ubuntu:20.04: bad`)
+	c.Assert(err, gc.ErrorMatches, `unable to locate application with base ubuntu@20.04: bad`)
 }
 
 func (s CharmhubValidatorSuite) TestValidateApplicationsWithRefreshErrorAndForce(c *gc.C) {

@@ -5156,11 +5156,11 @@ wordpress/0*  active       idle   1        10.0.1.1
   logging/0   active       idle            10.0.1.1               
 
 Machine  State    Address   Inst id       Base          AZ          Message
-0        started  10.0.0.1  controller-0  ubuntu:12.10  us-east-1a  
-1        started  10.0.1.1  snowflake     ubuntu:12.10              
-2        started  10.0.2.1  controller-2  ubuntu:12.10              
-3        started  10.0.3.1  controller-3  ubuntu:12.10              I am number three
-4        error    10.0.3.1  controller-4  ubuntu:12.10              I am an error
+0        started  10.0.0.1  controller-0  ubuntu@12.10  us-east-1a  
+1        started  10.0.1.1  snowflake     ubuntu@12.10              
+2        started  10.0.2.1  controller-2  ubuntu@12.10              
+3        started  10.0.3.1  controller-3  ubuntu@12.10              I am number three
+4        error    10.0.3.1  controller-4  ubuntu@12.10              I am an error
 
 Offer         Application  Charm  Rev  Connected  Endpoint  Interface  Role
 hosted-mysql  mysql        mysql  1    1/1        server    mysql      provider

@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/gnuflag"
+
 	"github.com/juju/juju/api/client/application"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
@@ -31,7 +32,7 @@ Examples:
     juju suspend-relation 123 456 --message "reason for suspending"
 
 See also: 
-    add-relation
+    integrate
     offers
     remove-relation
     resume-relation`

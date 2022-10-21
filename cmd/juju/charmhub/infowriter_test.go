@@ -47,7 +47,7 @@ channels: |
   latest/stable:     1.0.3  2019-12-16  (16)  12MB  amd64  jammy, focal
   latest/candidate:  1.0.3  2019-12-16  (17)  12MB  amd64  jammy
   latest/beta:       1.0.3  2019-12-16  (17)  12MB  amd64  jammy
-  latest/edge:       1.0.3  2019-12-16  (18)  12MB  amd64  coolos:3.14
+  latest/edge:       1.0.3  2019-12-16  (18)  12MB  amd64  coolos@3.14
 `
 	c.Assert(obtained, gc.Equals, expected)
 }
@@ -150,7 +150,7 @@ channels: |
   latest/stable:     1.0.3  2019-12-16  (16)  12MB  jammy, focal
   latest/candidate:  1.0.3  2019-12-16  (17)  12MB  jammy
   latest/beta:       1.0.3  2019-12-16  (17)  12MB  jammy
-  latest/edge:       1.0.3  2019-12-16  (18)  12MB  coolos:3.14
+  latest/edge:       1.0.3  2019-12-16  (18)  12MB  coolos@3.14
 `
 	c.Assert(obtained, gc.Equals, expected)
 }

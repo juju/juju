@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	v3 "github.com/juju/description/v3"
+	v4 "github.com/juju/description/v4"
 )
 
 // MockMigrationExternalController is a mock of MigrationExternalController interface.
@@ -181,10 +181,10 @@ func (m *MockExternalControllerModel) EXPECT() *MockExternalControllerModelMockR
 }
 
 // AddExternalController mocks base method.
-func (m *MockExternalControllerModel) AddExternalController(arg0 v3.ExternalControllerArgs) v3.ExternalController {
+func (m *MockExternalControllerModel) AddExternalController(arg0 v4.ExternalControllerArgs) v4.ExternalController {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddExternalController", arg0)
-	ret0, _ := ret[0].(v3.ExternalController)
+	ret0, _ := ret[0].(v4.ExternalController)
 	return ret0
 }
 

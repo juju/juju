@@ -11,7 +11,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/dustin/go-humanize"
@@ -294,7 +293,7 @@ func newImage(md *imagedownloads.Metadata, imageDownloadURL string, pathfinder p
 
 	return &Image{
 		FilePath: filepath.Join(
-			baseDir, kvm, guestDir, backingFileName(md.Release, md.Arch)),
+			baseDir, kvm, guestDir, backingFileName(md.Version, md.Arch)),
 		tmpFile:  fh,
 		runCmd:   run,
 		progress: callback,
@@ -302,6 +301,5 @@ func newImage(md *imagedownloads.Metadata, imageDownloadURL string, pathfinder p
 }
 
 func backingFileName(version, arch string) string {
-	vers := strings.ReplaceAll(version, ".", "_")
-	return fmt.Sprintf("%s-%s-backing-file.qcow", vers, arch)
+	return fmt.Sprintf("%s-%s-backing-file.qcow", version, arch)
 }

@@ -30,5 +30,5 @@ func (s *cmdSetSeriesSuite) TestSetApplicationBase(c *gc.C) {
 
 	err = app.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(app.Base().String(), gc.Equals, "ubuntu:22.04/stable")
+	c.Assert(app.Base().String(), gc.Equals, "ubuntu@22.04/stable")
 }

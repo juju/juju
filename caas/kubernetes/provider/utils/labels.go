@@ -46,7 +46,7 @@ func IsLegacyModelLabels(namespace, model string, namespaceI core.NamespaceInter
 		return false, nil
 	}
 	if err != nil {
-		return true, errors.Annotatef(err, "unable to determine legacy status for namespace %s", namespace)
+		return true, errors.Annotatef(err, "unable to determine legacy status for namespace %q", namespace)
 	}
 
 	if !HasLabels(ns.Labels, LabelsForModel(model, false)) &&

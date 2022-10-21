@@ -277,7 +277,7 @@ func (s CharmhubValidatorSuite) TestValidateApplicationWithRefreshError(c *gc.C)
 		client: client,
 	}
 	err := validator.ValidateApplication(application, coreseries.MakeDefaultBase("ubuntu", "20.04"), false)
-	c.Assert(err, gc.ErrorMatches, `unable to locate application with base ubuntu:20.04: bad`)
+	c.Assert(err, gc.ErrorMatches, `unable to locate application with base ubuntu@20.04: bad`)
 }
 
 func (s CharmhubValidatorSuite) TestValidateApplicationWithRefreshErrorAndForce(c *gc.C) {
