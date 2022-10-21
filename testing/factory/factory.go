@@ -503,8 +503,8 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 		c.Assert(err, jc.ErrorIsNil)
 		params.CharmOrigin = &state.CharmOrigin{Platform: &state.Platform{
 			Architecture: params.Charm.URL().Architecture,
-			OS:      base.OS,
-			Channel: base.Channel.String(),
+			OS:           base.OS,
+			Channel:      base.Channel.String(),
 		}}
 	}
 

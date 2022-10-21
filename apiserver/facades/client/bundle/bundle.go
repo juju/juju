@@ -435,12 +435,12 @@ func (b *BundleAPI) bundleDataApplications(
 			return nil, nil, nil, errors.Errorf("missing charm origin data for %q", application)
 		}
 		var newApplication *charm.ApplicationSpec
-		platform, err := corecharm.ParsePlatform(application.CharmOrigin().Platform())
+		p, err := corecharm.ParsePlatformNormalize(application.CharmOrigin().Platform())
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("extracting charm origin from application description %w", err)
 		}
 
-		appSeries, err := series.GetSeriesFromChannel(platform.OS, platform.Channel)
+		appSeries, err := series.GetSeriesFromChannel(p.OS, p.Channel)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("extracting series from application description %w", err)
 		}
