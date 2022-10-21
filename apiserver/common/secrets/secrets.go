@@ -132,7 +132,7 @@ func StoreConfig(model Model, authTag names.Tag, leadershipChecker leadership.Ch
 	}
 	ownedRevisions := provider.SecretRevisions{}
 	for _, md := range owned {
-		ownedRevisions.Add(md.URI, md.Version)
+		ownedRevisions.Add(md.URI, md.LatestRevision)
 	}
 
 	read, err := backend.ListSecrets(readFilter)
@@ -141,7 +141,7 @@ func StoreConfig(model Model, authTag names.Tag, leadershipChecker leadership.Ch
 	}
 	readRevisions := provider.SecretRevisions{}
 	for _, md := range read {
-		readRevisions.Add(md.URI, md.Version)
+		readRevisions.Add(md.URI, md.LatestRevision)
 	}
 
 	if len(readAppOwnedFilter.OwnerTags) > 0 {
@@ -150,7 +150,7 @@ func StoreConfig(model Model, authTag names.Tag, leadershipChecker leadership.Ch
 			return nil, errors.Trace(err)
 		}
 		for _, md := range readAppOwned {
-			readRevisions.Add(md.URI, md.Version)
+			readRevisions.Add(md.URI, md.LatestRevision)
 		}
 	}
 
