@@ -23,7 +23,7 @@ Commands that can be disabled are grouped based on logical operations as follows
 
 "all" prevents:
     add-machine
-    add-relation
+    integrate
     add-unit
     add-ssh-key
     add-user

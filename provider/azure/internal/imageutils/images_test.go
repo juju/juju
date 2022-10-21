@@ -93,14 +93,14 @@ func (s *imageutilsSuite) TestSeriesImageStream(c *gc.C) {
 func (s *imageutilsSuite) TestSeriesImageNotFound(c *gc.C) {
 	s.mockSender.AppendResponse(mocks.NewResponseWithContent(`[]`))
 	image, err := imageutils.SeriesImage(s.callCtx, series.MakeDefaultBase("ubuntu", "22.04"), "released", "westus", s.client)
-	c.Assert(err, gc.ErrorMatches, "selecting SKU for ubuntu:22.04: Ubuntu SKUs for released stream not found")
+	c.Assert(err, gc.ErrorMatches, "selecting SKU for ubuntu@22.04: Ubuntu SKUs for released stream not found")
 	c.Assert(image, gc.IsNil)
 }
 
 func (s *imageutilsSuite) TestSeriesImageStreamNotFound(c *gc.C) {
 	s.mockSender.AppendResponse(mocks.NewResponseWithContent(`[{"name": "22_04-beta1"}]`))
 	_, err := imageutils.SeriesImage(s.callCtx, series.MakeDefaultBase("ubuntu", "22.04"), "whatever", "westus", s.client)
-	c.Assert(err, gc.ErrorMatches, "selecting SKU for ubuntu:22.04: Ubuntu SKUs for whatever stream not found")
+	c.Assert(err, gc.ErrorMatches, "selecting SKU for ubuntu@22.04: Ubuntu SKUs for whatever stream not found")
 }
 
 func (s *imageutilsSuite) TestSeriesImageStreamThrewCredentialError(c *gc.C) {

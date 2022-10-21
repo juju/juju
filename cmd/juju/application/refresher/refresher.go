@@ -12,7 +12,6 @@ import (
 	"github.com/juju/charmrepo/v7"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 
 	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/cmd/juju/application/store"
@@ -73,8 +72,6 @@ func NewRefresherFactory(deps RefresherDependencies) RefresherFactory {
 	return d
 }
 
-var logger = loggo.GetLogger("xxxxx")
-
 // Run executes over a series of refreshers using a given config. It will
 // execute each refresher if it's allowed, otherwise it will move on to the
 // next one.
@@ -83,7 +80,7 @@ var logger = loggo.GetLogger("xxxxx")
 // If no refresher matches the config or if each one is exhausted then it will
 // state that it was unable to refresh.
 func (d *factory) Run(cfg RefresherConfig) (*CharmID, error) {
-	for i, fn := range d.refreshers {
+	for _, fn := range d.refreshers {
 		// Failure to correctly setup a refresher will call all of the
 		// refreshers to fail.
 		refresh, err := fn(cfg)
@@ -99,7 +96,6 @@ func (d *factory) Run(cfg RefresherConfig) (*CharmID, error) {
 		}
 
 		charmID, err := refresh.Refresh()
-		logger.Criticalf("REFRESH %d: %+v", i, charmID)
 		// We've exhausted this refresh task, attempt another one.
 		if errors.Cause(err) == ErrExhausted {
 			continue
@@ -381,7 +377,6 @@ func (r *charmStoreRefresher) Allowed(cfg RefresherConfig) (bool, error) {
 // Bundles are not supported as there is no physical representation in Juju.
 func (r *charmStoreRefresher) Refresh() (*CharmID, error) {
 	newURL, origin, err := r.ResolveCharm()
-	logger.Criticalf("RES NEW %s: %+v", newURL, origin)
 	if errors.Is(err, ErrAlreadyUpToDate) {
 		// The charm itself is uptodate but we may need the
 		// URL, origin and macaroon (if there is one)
@@ -402,12 +397,10 @@ func (r *charmStoreRefresher) Refresh() (*CharmID, error) {
 	if !r.deployedBase.Channel.Empty() {
 		origin.Base = r.deployedBase
 	}
-	curl, csMac, res, err := store.AddCharmWithAuthorizationFromURL(r.charmAdder, r.authorizer, newURL, origin, r.force)
+	curl, csMac, _, err := store.AddCharmWithAuthorizationFromURL(r.charmAdder, r.authorizer, newURL, origin, r.force)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	logger.Criticalf("RES RES %s: %+v", newURL, res)
 
 	return &CharmID{
 		URL:      curl,

@@ -65,7 +65,7 @@ run_model_migration_version() {
 
 	# test against beta channel for devel
 	# TODO: change back to stable once 3.0 released.
-	channel="$major_minor/beta"
+	channel="$major_minor/candidate"
 
 	stable_version=$(snap info juju | yq ".channels[\"$channel\"]" | cut -d' ' -f1)
 	echo "stable_version ==> $stable_version"
@@ -82,7 +82,7 @@ run_model_migration_version() {
 
 	juju --show-log deploy easyrsa
 	juju --show-log deploy etcd
-	juju --show-log add-relation etcd easyrsa
+	juju --show-log integrate etcd easyrsa
 	juju --show-log add-unit -n 2 etcd
 
 	wait_for "active" '.applications["easyrsa"] | ."application-status".current'

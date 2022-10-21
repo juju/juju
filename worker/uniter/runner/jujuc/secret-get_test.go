@@ -247,6 +247,32 @@ func (s *SecretGetSuite) TestSecretGetMetadata(c *gc.C) {
 `[1:])
 }
 
+func (s *SecretGetSuite) TestSecretGetMetadataFailedNotFound(c *gc.C) {
+	hctx, _ := s.ContextSuite.NewHookContext()
+
+	com, err := jujuc.NewCommand(hctx, "secret-get")
+	c.Assert(err, jc.ErrorIsNil)
+	ctx := cmdtesting.Context(c)
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"secret:cd88u16ffbaql5kgmlh0", "--metadata"})
+	c.Assert(code, gc.Equals, 1)
+
+	c.Assert(bufferString(ctx.Stderr), gc.Matches, `ERROR secret "cd88u16ffbaql5kgmlh0" not found\n`)
+	c.Assert(bufferString(ctx.Stdout), gc.Equals, ``)
+}
+
+func (s *SecretGetSuite) TestSecretGetMetadataByLabelFailedNotFound(c *gc.C) {
+	hctx, _ := s.ContextSuite.NewHookContext()
+
+	com, err := jujuc.NewCommand(hctx, "secret-get")
+	c.Assert(err, jc.ErrorIsNil)
+	ctx := cmdtesting.Context(c)
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--metadata", "--label", "not-found-label"})
+	c.Assert(code, gc.Equals, 1)
+
+	c.Assert(bufferString(ctx.Stderr), gc.Matches, `ERROR secret "not-found-label" not found\n`)
+	c.Assert(bufferString(ctx.Stdout), gc.Equals, ``)
+}
+
 func (s *SecretGetSuite) TestSecretGetMetadataByLabel(c *gc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 

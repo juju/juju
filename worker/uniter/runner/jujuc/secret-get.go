@@ -145,7 +145,7 @@ func (c *secretGetCommand) getMetadata(ctx *cmd.Context) error {
 	}
 	var want string
 	if c.secretUri != nil {
-		want := c.secretUri.ID
+		want = c.secretUri.ID
 		if md, found := all[want]; found {
 			return print(want, md)
 		}

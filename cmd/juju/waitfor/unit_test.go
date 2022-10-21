@@ -35,8 +35,8 @@ func (s *unitScopeSuite) TestGetIdentValue(c *gc.C) {
 		Expected: query.NewString("app-name"),
 	}, {
 		Field:    "base",
-		UnitInfo: &params.UnitInfo{Base: "ubuntu:22.04"},
-		Expected: query.NewString("ubuntu:22.04"),
+		UnitInfo: &params.UnitInfo{Base: "ubuntu@22.04"},
+		Expected: query.NewString("ubuntu@22.04"),
 	}, {
 		Field:    "charm-url",
 		UnitInfo: &params.UnitInfo{CharmURL: "charm-url-value"},

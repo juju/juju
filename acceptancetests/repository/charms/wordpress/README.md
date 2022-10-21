@@ -15,7 +15,7 @@ Once bootstrapped, deploy the MySQL charm then this WordPress charm:
 
 Add a relation between the two of them
 
-    juju add-relation wordpress mysql
+    juju integrate wordpress mysql
 
 Expose the WordPress installation
 
@@ -28,7 +28,7 @@ If you're just looking to run a personal blog and want to save money you can run
     juju bootstrap
     juju deploy --to 0 wordpress
     juju deploy --to 0 mysql
-    juju add-relation wordpress mysql 
+    juju integrate wordpress mysql 
     juju expose wordpress
 
 This will run everything on one node, however we still have the flexibility to grow horizontally. If your blog gets more traffic and you need to scale:
@@ -46,7 +46,7 @@ You could theoretically then turn off php5-fpm on all of your servers and just h
 wouldn't be able to access the admin panel or any uncached pages - it's just a potential scenario).
 
     juju deploy memcached
-    juju add-relation memcached wordpress
+    juju integrate memcached wordpress
     
 This setup will also synchronize the flushing of cache across all WordPress nodes, making it ideal to avoid stale caches.
 
@@ -178,7 +178,7 @@ this writing only the NFS charm will work, but as more shared-fs charms come out
 interface those should all work as well. In this example we'll use NFS:
 
     juju deploy nfs
-    juju add-relation nfs wordpress:nfs
+    juju integrate nfs wordpress:nfs
 
 By doing so, everything in the wp-contents directory is moved to this NFS mount and then shared to all future WordPress units. It's strongly
 recommended that you first deploy the nfs mount, _then_ scale WordPress out. Failure to do so may result in data loss. Once nfs is deployed, 

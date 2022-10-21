@@ -102,6 +102,8 @@ func StoreConfig(model Model, authTag names.Tag, leadershipChecker leadership.Ch
 	readFilter := state.SecretsFilter{
 		ConsumerTags: []names.Tag{authTag},
 	}
+	// Find secrets owned by the application that should be readable for non leader units.
+	readAppOwnedFilter := state.SecretsFilter{}
 	switch t := authTag.(type) {
 	case names.UnitTag:
 		appName, _ := names.UnitApplication(t.Id())
@@ -114,8 +116,12 @@ func StoreConfig(model Model, authTag names.Tag, leadershipChecker leadership.Ch
 		if err == nil {
 			// Leader unit owns application level secrets.
 			ownedFilter.OwnerTags = append(ownedFilter.OwnerTags, authApp)
+		} else {
+			// Non leader units can read application level secrets.
+			// Find secrets owned by the application.
+			readAppOwnedFilter.OwnerTags = append(readAppOwnedFilter.OwnerTags, authApp)
 		}
-		// All units can read application level secrets.
+		// Granted secrets can be consumed in application level for all units.
 		readFilter.ConsumerTags = append(readFilter.ConsumerTags, authApp)
 	case names.ApplicationTag:
 	default:
@@ -128,7 +134,7 @@ func StoreConfig(model Model, authTag names.Tag, leadershipChecker leadership.Ch
 	}
 	ownedRevisions := provider.SecretRevisions{}
 	for _, md := range owned {
-		ownedRevisions.Add(md.URI, md.Version)
+		ownedRevisions.Add(md.URI, md.LatestRevision)
 	}
 
 	read, err := backend.ListSecrets(readFilter)
@@ -137,8 +143,19 @@ func StoreConfig(model Model, authTag names.Tag, leadershipChecker leadership.Ch
 	}
 	readRevisions := provider.SecretRevisions{}
 	for _, md := range read {
-		readRevisions.Add(md.URI, md.Version)
+		readRevisions.Add(md.URI, md.LatestRevision)
 	}
+
+	if len(readAppOwnedFilter.OwnerTags) > 0 {
+		readAppOwned, err := backend.ListSecrets(readAppOwnedFilter)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, md := range readAppOwned {
+			readRevisions.Add(md.URI, md.LatestRevision)
+		}
+	}
+
 	logger.Debugf("secrets for %v:\nowned: %v\nconsumed:%v", authTag.String(), ownedRevisions, readRevisions)
 	cfg, err := p.StoreConfig(ma, authTag, ownedRevisions, readRevisions)
 	return cfg, errors.Trace(err)

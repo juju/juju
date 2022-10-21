@@ -175,7 +175,7 @@ func (s *modelUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, d
 	ctrl, api := s.getModelUpgraderAPI(c)
 	defer ctrl.Finish()
 
-	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersion, map[int]version.Number{
+	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersions, map[int]version.Number{
 		3: version.MustParse("2.9.1"),
 	})
 
@@ -301,7 +301,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 	ctrl, api := s.getModelUpgraderAPI(c)
 	defer ctrl.Finish()
 
-	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersion, map[int]version.Number{
+	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersions, map[int]version.Number{
 		3: version.MustParse("2.9.2"),
 	})
 
@@ -374,7 +374,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 		ctrlState.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(map[string]int{"xenial": 2}, nil),
 		// - check LXD version.
 		serverFactory.EXPECT().RemoteServer(s.cloudSpec).Return(server, nil),
-		server.EXPECT().ServerVersion().Return("5.1"),
+		server.EXPECT().ServerVersion().Return("4.0"),
 		ctrlModel.EXPECT().Owner().Return(names.NewUserTag("admin")),
 		ctrlModel.EXPECT().Name().Return("controller"),
 
@@ -397,7 +397,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 		}, nil),
 		// - check LXD version.
 		serverFactory.EXPECT().RemoteServer(s.cloudSpec).Return(server, nil),
-		server.EXPECT().ServerVersion().Return("5.1"),
+		server.EXPECT().ServerVersion().Return("4.0"),
 		model1.EXPECT().Owner().Return(names.NewUserTag("admin")),
 		model1.EXPECT().Name().Return("model-1"),
 	)
@@ -417,20 +417,20 @@ cannot upgrade to "3.9.99" due to issues with these models:
 - mongo version has to be "4.4" at least, but current version is "4.3"
 - the model hosts deprecated windows machine(s): win10(1) win7(2)
 - the model hosts deprecated ubuntu machine(s): xenial(2)
-- LXD version has to be at least "5.2.0", but current version is only "5.1.0"
+- LXD version has to be at least "5.0.0", but current version is only "4.0.0"
 "admin/model-1":
 - current model ("2.9.0") has to be upgraded to "2.9.2" at least
 - model is under "exporting" mode, upgrade blocked
 - the model hosts deprecated windows machine(s): win10(1) win7(3)
 - the model hosts deprecated ubuntu machine(s): artful(1) cosmic(2) disco(3) eoan(4) groovy(5) hirsute(6) impish(7) precise(8) quantal(9) raring(10) saucy(11) trusty(12) utopic(13) vivid(14) wily(15) xenial(16) yakkety(17) zesty(18)
-- LXD version has to be at least "5.2.0", but current version is only "5.1.0"`[1:])
+- LXD version has to be at least "5.0.0", but current version is only "4.0.0"`[1:])
 }
 
 func (s *modelUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, dryRun bool) {
 	ctrl, api := s.getModelUpgraderAPI(c)
 	defer ctrl.Finish()
 
-	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersion, map[int]version.Number{
+	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersions, map[int]version.Number{
 		3: version.MustParse("2.9.1"),
 	})
 
@@ -512,7 +512,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 	ctrl, api := s.getModelUpgraderAPI(c)
 	defer ctrl.Finish()
 
-	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersion, map[int]version.Number{
+	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersions, map[int]version.Number{
 		3: version.MustParse("2.9.1"),
 	})
 
@@ -563,7 +563,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 		}, nil),
 		// - check LXD version.
 		serverFactory.EXPECT().RemoteServer(s.cloudSpec).Return(server, nil),
-		server.EXPECT().ServerVersion().Return("5.1"),
+		server.EXPECT().ServerVersion().Return("4.0"),
 		model.EXPECT().Owner().Return(names.NewUserTag("admin")),
 		model.EXPECT().Name().Return("model-1"),
 	)
@@ -580,7 +580,7 @@ cannot upgrade to "3.9.99" due to issues with these models:
 - unexpected upgrade series lock found
 - the model hosts deprecated windows machine(s): win10(1) win7(3)
 - the model hosts deprecated ubuntu machine(s): artful(1) cosmic(2) disco(3) eoan(4) groovy(5) hirsute(6) impish(7) precise(8) quantal(9) raring(10) saucy(11) trusty(12) utopic(13) vivid(14) wily(15) xenial(16) yakkety(17) zesty(18)
-- LXD version has to be at least "5.2.0", but current version is only "5.1.0"`[1:])
+- LXD version has to be at least "5.0.0", but current version is only "4.0.0"`[1:])
 }
 
 func (s *modelUpgradeSuite) TestAbortCurrentUpgrade(c *gc.C) {

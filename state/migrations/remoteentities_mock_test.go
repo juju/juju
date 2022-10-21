@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	v3 "github.com/juju/description/v3"
+	v4 "github.com/juju/description/v4"
 )
 
 // MockMigrationRemoteEntity is a mock of MigrationRemoteEntity interface.
@@ -138,10 +138,10 @@ func (m *MockRemoteEntitiesModel) EXPECT() *MockRemoteEntitiesModelMockRecorder 
 }
 
 // AddRemoteEntity mocks base method.
-func (m *MockRemoteEntitiesModel) AddRemoteEntity(arg0 v3.RemoteEntityArgs) v3.RemoteEntity {
+func (m *MockRemoteEntitiesModel) AddRemoteEntity(arg0 v4.RemoteEntityArgs) v4.RemoteEntity {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddRemoteEntity", arg0)
-	ret0, _ := ret[0].(v3.RemoteEntity)
+	ret0, _ := ret[0].(v4.RemoteEntity)
 	return ret0
 }
 

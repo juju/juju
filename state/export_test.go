@@ -28,7 +28,7 @@ import (
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/description/v3"
+	"github.com/juju/description/v4"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"

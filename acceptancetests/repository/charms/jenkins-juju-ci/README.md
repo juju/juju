@@ -12,5 +12,5 @@ charm. This can be done as follows:
     juju deploy jenkins
     juju deploy jenkins-slave
     juju deploy jenkins-juju-ci
-    juju add-relation jenkins jenkins-slave
-    juju add-relation jenkins-juju-ci jenkins-slave
+    juju integrate jenkins jenkins-slave
+    juju integrate jenkins-juju-ci jenkins-slave

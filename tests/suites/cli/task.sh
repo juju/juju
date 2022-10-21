@@ -18,6 +18,7 @@ test_cli() {
 	test_model_config
 	test_model_defaults
 	test_unregister
+	test_block_commands
 
 	destroy_controller "test-cli"
 }

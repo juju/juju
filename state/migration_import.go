@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
-	"github.com/juju/description/v3"
+	"github.com/juju/description/v4"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v3/bson"
@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state/cloudimagemetadata"
@@ -658,16 +659,17 @@ func (i *importer) makeMachineDoc(m description.Machine) (*machineDoc, error) {
 	}
 
 	machineTag := m.Tag()
-	base, err := ParseBase(m.Base())
+	base, err := series.ParseBaseFromString(m.Base())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	macBase := Base{OS: base.OS, Channel: base.Channel.String()}
 	return &machineDoc{
 		DocID:                    i.st.docID(id),
 		Id:                       id,
 		ModelUUID:                i.st.ModelUUID(),
 		Nonce:                    m.Nonce(),
-		Base:                     base.Normalise(),
+		Base:                     macBase.Normalise(),
 		ContainerType:            m.ContainerType(),
 		Principals:               nil, // Set during unit import.
 		Life:                     Alive,
