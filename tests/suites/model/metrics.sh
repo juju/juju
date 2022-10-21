@@ -8,14 +8,15 @@ run_model_metrics() {
 	file="${TEST_DIR}/test-${testname}.log"
 	ensure "${testname}" "${file}"
 
-	juju deploy ubuntu ubuntu
+	# deploy ubuntu with a different name, check that the metric send the charm name, not the application name.
+	juju deploy ubuntu app-one
 	juju deploy juju-qa-test
 	juju deploy ntp
-	juju relate ntp ubuntu
+	juju relate ntp app-one
 
 	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test" 1)"
-	wait_for "ubuntu" "$(idle_condition "ubuntu" 0)"
-	wait_for "ntp" "$(idle_subordinate_condition "ntp" "ubuntu" 0)"
+	wait_for "app-one" "$(idle_condition "app-one" 0)"
+	wait_for "ntp" "$(idle_subordinate_condition "ntp" "app-one" 0)"
 
 	juju relate ntp:juju-info juju-qa-test:juju-info
 	wait_for "ntp" "$(idle_subordinate_condition "ntp" "juju-qa-test" 1)"
