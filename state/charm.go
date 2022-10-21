@@ -107,12 +107,6 @@ func (b Base) String() string {
 	return fmt.Sprintf("%s@%s", b.OS, b.Channel)
 }
 
-// ParseBase parses a machine base string.
-func ParseBase(b string) (Base, error) {
-	parts := strings.Split(b, "@")
-	return Base{OS: parts[0], Channel: parts[1]}, nil
-}
-
 // UbuntuBase is used in tests.
 func UbuntuBase(channel string) Base {
 	return Base{OS: "ubuntu", Channel: channel + "/stable"}
