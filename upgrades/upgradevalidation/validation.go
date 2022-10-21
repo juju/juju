@@ -288,7 +288,7 @@ func checkMongoVersionForControllerModel(modelUUID string, pool StatePool, st St
 // For testing.
 var NewServerFactory = lxd.NewServerFactory
 
-var minLXDVersion = version.Number{Major: 5, Minor: 2}
+var minLXDVersion = version.Number{Major: 5, Minor: 0}
 
 func getCheckForLXDVersion(
 	cloudspec environscloudspec.CloudSpec,

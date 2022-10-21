@@ -110,7 +110,7 @@ func (s *SourcePrecheckSuite) TestTargetController3Failed(c *gc.C) {
 
 	// - check LXD version.
 	serverFactory.EXPECT().RemoteServer(cloudSpec).Return(server, nil)
-	server.EXPECT().ServerVersion().Return("5.1")
+	server.EXPECT().ServerVersion().Return("4.0")
 
 	err := migration.SourcePrecheck(
 		backend, version.MustParse("3.0.0"), allAlivePresence(), allAlivePresence(),
@@ -125,7 +125,7 @@ cannot migrate to controller ("3.0.0") due to issues:
 - unexpected upgrade series lock found
 - the model hosts deprecated windows machine(s): win10(1) win7(2)
 - the model hosts deprecated ubuntu machine(s): trusty(3) vivid(2) xenial(1)
-- LXD version has to be at least "5.2.0", but current version is only "5.1.0"`[1:])
+- LXD version has to be at least "5.0.0", but current version is only "4.0.0"`[1:])
 }
 
 func (*SourcePrecheckSuite) TestTargetController2Failed(c *gc.C) {
