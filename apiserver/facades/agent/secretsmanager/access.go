@@ -47,7 +47,6 @@ func (s *SecretsManagerAPI) canManage(uri *coresecrets.URI) (leadership.Token, e
 			// leader unit can manage app owned secret.
 			return s.leadershipToken()
 		}
-		return nil, apiservererrors.ErrPerm
 	case names.ApplicationTag:
 		// TODO(wallyworld) - remove auth tag kind check when podspec charms are gone.
 		if s.hasRole(uri, appTag, coresecrets.RoleManage) {
