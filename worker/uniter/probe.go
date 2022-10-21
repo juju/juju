@@ -26,16 +26,19 @@ func (p *Probe) HasStarted() bool {
 
 // SetHasStarted sets the has started state for this probe. Should be called
 // when the uniter has started its associated charm.
-func (p *Probe) SetHasStarted() {
+func (p *Probe) SetHasStarted(started bool) {
 	p.hasStartedLock.Lock()
 	defer p.hasStartedLock.Unlock()
-	p.hasStarted = true
+	p.hasStarted = started
 }
 
 // SupportedProbes implements probe.ProbeProvider interface
 func (p *Probe) SupportedProbes() probe.SupportedProbes {
 	return probe.SupportedProbes{
-		probe.ProbeStartup: probe.ProberFn(func() (bool, error) {
+		probe.ProbeLiveness: probe.ProberFn(func() (bool, error) {
+			return true, nil
+		}),
+		probe.ProbeReadiness: probe.ProberFn(func() (bool, error) {
 			return p.HasStarted(), nil
 		}),
 	}

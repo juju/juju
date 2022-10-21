@@ -53,11 +53,16 @@ import (
 var logger = loggo.GetLogger("juju.kubernetes.provider.application")
 
 const (
+	// containerProbeInitialDelay is the initial delay in seconds before the probe starts.
 	containerProbeInitialDelay = 30
-	containerProbeTimeout      = 1
-	containerProbePeriod       = 5
-	containerProbeSuccess      = 1
-	containerProbeFailure      = 1
+	// containerProbeTimeout is the timeout for the probe to complete in seconds.
+	containerProbeTimeout = 1
+	// containerProbePeriod is the number of seconds between each probe.
+	containerProbePeriod = 5
+	// containerProbeSuccess is the number of successful probes to mark the check as healthy.
+	containerProbeSuccess = 1
+	// containerProbeFailure is the number of failed probes to mark the check as unhealthy.
+	containerProbeFailure = 3
 )
 
 type app struct {

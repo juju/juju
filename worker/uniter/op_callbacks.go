@@ -68,7 +68,9 @@ func (opc *operationCallbacks) PrepareHook(hi hook.Info) (string, error) {
 func (opc *operationCallbacks) CommitHook(hi hook.Info) error {
 	switch {
 	case hi.Kind == hooks.Start:
-		opc.u.Probe.SetHasStarted()
+		opc.u.Probe.SetHasStarted(true)
+	case hi.Kind == hooks.Stop:
+		opc.u.Probe.SetHasStarted(false)
 	case hi.Kind.IsWorkload():
 	case hi.Kind.IsRelation():
 		return opc.u.relationStateTracker.CommitHook(hi)
