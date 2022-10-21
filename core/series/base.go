@@ -29,9 +29,23 @@ func ParseBase(os string, channel string) (Base, error) {
 	}
 	ch, err := ParseChannelNormalize(channel)
 	if err != nil {
-		return Base{}, errors.Annotatef(err, "parsing base %s:%s", os, channel)
+		return Base{}, errors.Annotatef(err, "parsing base %s@%s", os, channel)
 	}
 	return Base{OS: strings.ToLower(os), Channel: ch}, nil
+}
+
+// ParseBaseFromString takes a string containing os and channel separated
+// by @ and returns a base.
+func ParseBaseFromString(b string) (Base, error) {
+	parts := strings.Split(b, "@")
+	if len(parts) != 2 {
+		return Base{}, errors.New("expected base string to contain os and channel separated by '@'")
+	}
+	channel, err := ParseChannelNormalize(parts[1])
+	if err != nil {
+		return Base{}, errors.Trace(err)
+	}
+	return Base{OS: parts[0], Channel: channel}, nil
 }
 
 // MakeDefaultBase creates a base from an os and simple version string, eg "22.04".

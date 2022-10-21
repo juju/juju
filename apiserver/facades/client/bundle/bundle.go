@@ -435,14 +435,16 @@ func (b *BundleAPI) bundleDataApplications(
 			return nil, nil, nil, errors.Errorf("missing charm origin data for %q", application)
 		}
 		var newApplication *charm.ApplicationSpec
-		p, err := corecharm.ParsePlatformNormalize(application.CharmOrigin().Platform())
+		platform, err := corecharm.ParsePlatform(application.CharmOrigin().Platform())
 		if err != nil {
-			return nil, nil, nil, errors.Trace(err)
+			return nil, nil, nil, fmt.Errorf("extracting charm origin from application description %w", err)
 		}
-		appSeries, err := series.GetSeriesFromChannel(p.OS, p.Channel)
+
+		appSeries, err := series.GetSeriesFromChannel(platform.OS, platform.Channel)
 		if err != nil {
-			return nil, nil, nil, errors.Trace(err)
+			return nil, nil, nil, fmt.Errorf("extracting series from application description %w", err)
 		}
+
 		usedSeries.Add(appSeries)
 
 		endpointsWithSpaceNames, err := b.endpointBindings(application.EndpointBindings(), allSpacesInfoLookup, printEndpointBindingSpaceNames)
@@ -646,11 +648,11 @@ func (b *BundleAPI) bundleDataMachines(machines []description.Machine, machineId
 		if !machineIds.Contains(machine.Tag().Id()) {
 			continue
 		}
-		macBase, err := state.ParseBase(machine.Base())
+		macBase, err := series.ParseBaseFromString(machine.Base())
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}
-		macSeries, err := series.GetSeriesFromChannel(macBase.OS, macBase.Channel)
+		macSeries, err := series.GetSeriesFromBase(macBase)
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}
