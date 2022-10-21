@@ -969,7 +969,7 @@ func (b *CommitHookParamsBuilder) AddSecretCreates(creates []SecretCreateArg) {
 	for i, c := range creates {
 
 		var data secrets.SecretData
-		if c.Value != nil {
+		if !c.Value.IsEmpty() {
 			data = c.Value.EncodedValues()
 		}
 		if len(data) == 0 {
@@ -1003,7 +1003,7 @@ func (b *CommitHookParamsBuilder) AddSecretUpdates(updates []SecretUpsertArg) {
 	for i, u := range updates {
 
 		var data secrets.SecretData
-		if u.Value != nil {
+		if !u.Value.IsEmpty() {
 			data = u.Value.EncodedValues()
 		}
 		if len(data) == 0 {
