@@ -454,12 +454,18 @@ func (e *exporter) loadMachineBlockDevices() (map[string][]BlockDeviceInfo, erro
 }
 
 func (e *exporter) newMachine(exParent description.Machine, machine *Machine, instances map[string]instanceData, portsData map[string]*machinePortRanges, blockDevices map[string][]BlockDeviceInfo) (description.Machine, error) {
+	base, err := series.GetBaseFromSeries(machine.doc.Series)
+	if err != nil {
+		return nil, fmt.Errorf("converting series %q to base: %w", machine.doc.Series, err)
+	}
+
 	args := description.MachineArgs{
 		Id:            machine.MachineTag(),
 		Nonce:         machine.doc.Nonce,
 		PasswordHash:  machine.doc.PasswordHash,
 		Placement:     machine.doc.Placement,
 		Series:        machine.doc.Series,
+		Base:          base.String(),
 		ContainerType: machine.doc.ContainerType,
 	}
 
@@ -1625,7 +1631,6 @@ func (e *exporter) cloudimagemetadata() error {
 			Stream:          metadata.Stream,
 			Region:          metadata.Region,
 			Version:         metadata.Version,
-			Series:          metadata.Series,
 			Arch:            metadata.Arch,
 			VirtType:        metadata.VirtType,
 			RootStorageType: metadata.RootStorageType,
@@ -1930,10 +1935,10 @@ func (e *exporter) getAnnotations(key string) map[string]string {
 }
 
 func (e *exporter) getCharmOrigin(doc applicationDoc, defaultArch string) (description.CharmOriginArgs, error) {
-	// Everything should be migrated, but in the case that it's not, handle
-	// that case.
+	// This should never happen. There is an upgrade step that makes sure we
+	// have charm origin. Getting in this state "should" be impossible.
 	if doc.CharmOrigin == nil {
-		return deduceOrigin(doc.CharmURL)
+		return description.CharmOriginArgs{}, errors.New("application is missing charm origin")
 	}
 	origin := doc.CharmOrigin
 
@@ -1966,6 +1971,11 @@ func (e *exporter) getCharmOrigin(doc applicationDoc, defaultArch string) (descr
 			}
 			os = strings.ToLower(sys.String())
 		}
+		// Legacy k8s charms - assume ubuntu focal.
+		if origin.Platform.Series == "kubernetes" {
+			origin.Platform.OS = "ubuntu"
+			origin.Platform.Series = "focal"
+		}
 		// TODO(wallyworld) - we need to update description to support channel
 		// For now, the serialised string is the same regardless.
 		platform = corecharm.Platform{
@@ -1983,28 +1993,6 @@ func (e *exporter) getCharmOrigin(doc applicationDoc, defaultArch string) (descr
 		Channel:  channel.String(),
 		Platform: platform.String(),
 	}, nil
-}
-
-func deduceOrigin(cURL *string) (description.CharmOriginArgs, error) {
-	url, err := charm.ParseURL(*cURL)
-	if err != nil {
-		return description.CharmOriginArgs{}, errors.NewNotValid(err, "charm url")
-	}
-
-	switch url.Schema {
-	case "cs":
-		return description.CharmOriginArgs{
-			Source: corecharm.CharmStore.String(),
-		}, nil
-	case "local":
-		return description.CharmOriginArgs{
-			Source: corecharm.Local.String(),
-		}, nil
-	default:
-		return description.CharmOriginArgs{
-			Source: corecharm.CharmHub.String(),
-		}, nil
-	}
 }
 
 func (e *exporter) readAllSettings() error {

@@ -493,6 +493,16 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 		params.Password, err = utils.RandomPassword()
 		c.Assert(err, jc.ErrorIsNil)
 	}
+	if params.CharmOrigin == nil {
+		chSeries := params.Charm.URL().Series
+		base, err := coreseries.GetBaseFromSeries(chSeries)
+		c.Assert(err, jc.ErrorIsNil)
+		params.CharmOrigin = &state.CharmOrigin{Platform: &state.Platform{
+			Architecture: params.Charm.URL().Architecture,
+			OS:           base.Name,
+			Series:       chSeries,
+		}}
+	}
 
 	rSt := factory.st.Resources()
 

@@ -603,11 +603,18 @@ func (s *MigrationImportSuite) assertImportedApplication(
 
 	c.Assert(imported.ApplicationTag(), gc.Equals, exported.ApplicationTag())
 	c.Assert(imported.Series(), gc.Equals, exported.Series())
+	if exported.Series() == "kubernetes" {
+		origin := exported.CharmOrigin()
+		origin.Platform.OS = "ubuntu"
+		origin.Platform.Series = "focal"
+		c.Assert(imported.CharmOrigin(), jc.DeepEquals, origin)
+	} else {
+		c.Assert(imported.CharmOrigin(), jc.DeepEquals, exported.CharmOrigin())
+	}
 	c.Assert(imported.IsExposed(), gc.Equals, exported.IsExposed())
 	c.Assert(imported.ExposedEndpoints(), gc.DeepEquals, exported.ExposedEndpoints())
 	c.Assert(imported.MetricCredentials(), jc.DeepEquals, exported.MetricCredentials())
 	c.Assert(imported.PasswordValid(pwd), jc.IsTrue)
-	c.Assert(imported.CharmOrigin(), jc.DeepEquals, exported.CharmOrigin())
 
 	exportedCharmConfig, err := exported.CharmConfig(model.GenerationMaster)
 	c.Assert(err, jc.ErrorIsNil)
@@ -678,8 +685,13 @@ func (s *MigrationImportSuite) TestApplications(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) TestApplicationsUpdateSeriesNotPlatform(c *gc.C) {
-	// The application series should be quantal, the origin platform series should
-	// be focal.  After migration, the platform series should be quantal as well.
+	// In previous versions of Juju it's been possible that the application doc
+	// series get's out of sync with the platform series. While this has been
+	// fixed this test asserts that a hard decision is made should the case
+	// ever be come across.
+	// We should always use the platform series for applications now on import.
+	// This asserts this is the path we take.
+
 	cons := constraints.MustParse("arch=amd64 mem=8G root-disk-source=tralfamadore")
 	platform := &state.Platform{
 		Architecture: corearch.DefaultArchitecture,
@@ -705,73 +717,7 @@ func (s *MigrationImportSuite) TestApplicationsUpdateSeriesNotPlatform(c *gc.C) 
 	obtainedOrigin := obtainedApp.CharmOrigin()
 	c.Assert(obtainedOrigin, gc.NotNil)
 	c.Assert(obtainedOrigin.Platform, gc.NotNil)
-	c.Assert(obtainedOrigin.Platform.Series, gc.Equals, exportedApp.Series())
-}
-
-func (s *MigrationImportSuite) TestApplicationsWithMissingPlatform(c *gc.C) {
-	cons := constraints.MustParse("arch=amd64 mem=8G root-disk-source=tralfamadore")
-	testCharm, _, _ := s.setupSourceApplications(c, s.State, cons, nil, true)
-
-	allApplications, err := s.State.AllApplications()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(allApplications, gc.HasLen, 1)
-	exported := allApplications[0]
-
-	_, newSt := s.importModel(c, s.State)
-	// Manually copy across the charm from the old model
-	// as it's normally done later.
-	f := factory.NewFactory(newSt, s.StatePool)
-	f.MakeCharm(c, &factory.CharmParams{
-		Name:     "starsay", // it has resources
-		URL:      testCharm.String(),
-		Revision: strconv.Itoa(testCharm.Revision()),
-	})
-
-	importedApplications, err := newSt.AllApplications()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(importedApplications, gc.HasLen, 1)
-	imported := importedApplications[0]
-
-	expectedOrigin := exported.CharmOrigin()
-	expectedOrigin.Platform = &state.Platform{
-		Architecture: corearch.DefaultArchitecture,
-		Series:       "quantal",
-	}
-
-	c.Assert(imported.CharmOrigin(), jc.DeepEquals, expectedOrigin)
-}
-
-func (s *MigrationImportSuite) TestApplicationsWithMissingPlatformWithoutConstraint(c *gc.C) {
-	cons := constraints.MustParse("mem=8G root-disk-source=tralfamadore")
-	testCharm, _, _ := s.setupSourceApplications(c, s.State, cons, nil, true)
-
-	allApplications, err := s.State.AllApplications()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(allApplications, gc.HasLen, 1)
-	exported := allApplications[0]
-
-	_, newSt := s.importModel(c, s.State)
-	// Manually copy across the charm from the old model
-	// as it's normally done later.
-	f := factory.NewFactory(newSt, s.StatePool)
-	f.MakeCharm(c, &factory.CharmParams{
-		Name:     "starsay", // it has resources
-		URL:      testCharm.String(),
-		Revision: strconv.Itoa(testCharm.Revision()),
-	})
-
-	importedApplications, err := newSt.AllApplications()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(importedApplications, gc.HasLen, 1)
-	imported := importedApplications[0]
-
-	expectedOrigin := exported.CharmOrigin()
-	expectedOrigin.Platform = &state.Platform{
-		Architecture: corearch.DefaultArchitecture,
-		Series:       "quantal",
-	}
-
-	c.Assert(imported.CharmOrigin(), jc.DeepEquals, expectedOrigin)
+	c.Assert(obtainedOrigin.Platform.Series, gc.Equals, "focal")
 }
 
 func (s *MigrationImportSuite) TestApplicationStatus(c *gc.C) {
@@ -868,7 +814,11 @@ func (s *MigrationImportSuite) TestCAASApplicationStatus(c *gc.C) {
 	s.AddCleanup(func(_ *gc.C) { caasSt.Close() })
 
 	cons := constraints.MustParse("arch=amd64 mem=8G")
-	platform := &state.Platform{Architecture: corearch.DefaultArchitecture}
+	platform := &state.Platform{
+		Architecture: corearch.DefaultArchitecture,
+		OS:           "ubuntu",
+		Series:       "focal",
+	}
 	testCharm, application, _ := s.setupSourceApplications(c, caasSt, cons, platform, false)
 	ss, err := application.Status()
 	c.Assert(err, jc.ErrorIsNil)

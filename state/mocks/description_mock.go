@@ -89,6 +89,20 @@ func (mr *MockMachineMockRecorder) Annotations() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Annotations", reflect.TypeOf((*MockMachine)(nil).Annotations))
 }
 
+// Base mocks base method.
+func (m *MockMachine) Base() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Base")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Base indicates an expected call of Base.
+func (mr *MockMachineMockRecorder) Base() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Base", reflect.TypeOf((*MockMachine)(nil).Base))
+}
+
 // BlockDevices mocks base method.
 func (m *MockMachine) BlockDevices() []description.BlockDevice {
 	m.ctrl.T.Helper()
@@ -297,20 +311,6 @@ func (m *MockMachine) ProviderAddresses() []description.Address {
 func (mr *MockMachineMockRecorder) ProviderAddresses() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProviderAddresses", reflect.TypeOf((*MockMachine)(nil).ProviderAddresses))
-}
-
-// Series mocks base method.
-func (m *MockMachine) Series() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Series")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// Series indicates an expected call of Series.
-func (mr *MockMachineMockRecorder) Series() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Series", reflect.TypeOf((*MockMachine)(nil).Series))
 }
 
 // SetAddresses mocks base method.

@@ -278,7 +278,7 @@ var machineChange = cache.MachineChange{
 		"another": "foo",
 	},
 	Series:                   "bionic",
-	Base:                     "ubuntu:18.04",
+	Base:                     "ubuntu@18.04",
 	SupportedContainers:      []instance.ContainerType{},
 	SupportedContainersKnown: false,
 	HasVote:                  true,
