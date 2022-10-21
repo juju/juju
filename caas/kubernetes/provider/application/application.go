@@ -56,13 +56,18 @@ const (
 	unitContainerName = "charm"
 	charmVolumeName   = "charm-data"
 
-	containerAgentPebblePort   = "38812"
-	containerPebblePortStart   = 38813 // Arbitrary, but PEBBLE -> P38813 -> Port 38813
+	containerAgentPebblePort = "38812"
+	containerPebblePortStart = 38813 // Arbitrary, but PEBBLE -> P38813 -> Port 38813
+	// containerProbeInitialDelay is the initial delay in seconds before the probe starts.
 	containerProbeInitialDelay = 30
-	containerProbeTimeout      = 1
-	containerProbePeriod       = 5
-	containerProbeSuccess      = 1
-	containerProbeFailure      = 1
+	// containerProbeTimeout is the timeout for the probe to complete in seconds.
+	containerProbeTimeout = 1
+	// containerProbePeriod is the number of seconds between each probe.
+	containerProbePeriod = 5
+	// containerProbeSuccess is the number of successful probes to mark the check as healthy.
+	containerProbeSuccess = 1
+	// containerProbeFailure is the number of failed probes to mark the check as unhealthy.
+	containerProbeFailure = 3
 )
 
 type app struct {

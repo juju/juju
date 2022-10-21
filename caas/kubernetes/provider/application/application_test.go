@@ -525,7 +525,7 @@ func getPodSpec(c *gc.C) corev1.PodSpec {
 				TimeoutSeconds:      1,
 				PeriodSeconds:       5,
 				SuccessThreshold:    1,
-				FailureThreshold:    1,
+				FailureThreshold:    3,
 			},
 			ReadinessProbe: &corev1.Probe{
 				ProbeHandler: corev1.ProbeHandler{
@@ -538,7 +538,7 @@ func getPodSpec(c *gc.C) corev1.PodSpec {
 				TimeoutSeconds:      1,
 				PeriodSeconds:       5,
 				SuccessThreshold:    1,
-				FailureThreshold:    1,
+				FailureThreshold:    3,
 			},
 			VolumeMounts: []corev1.VolumeMount{
 				{
@@ -594,7 +594,7 @@ func getPodSpec(c *gc.C) corev1.PodSpec {
 				TimeoutSeconds:      1,
 				PeriodSeconds:       5,
 				SuccessThreshold:    1,
-				FailureThreshold:    1,
+				FailureThreshold:    3,
 			},
 			ReadinessProbe: &corev1.Probe{
 				ProbeHandler: corev1.ProbeHandler{
@@ -607,7 +607,7 @@ func getPodSpec(c *gc.C) corev1.PodSpec {
 				TimeoutSeconds:      1,
 				PeriodSeconds:       5,
 				SuccessThreshold:    1,
-				FailureThreshold:    1,
+				FailureThreshold:    3,
 			},
 			SecurityContext: &corev1.SecurityContext{
 				RunAsUser:  int64Ptr(0),
@@ -657,7 +657,7 @@ func getPodSpec(c *gc.C) corev1.PodSpec {
 				TimeoutSeconds:      1,
 				PeriodSeconds:       5,
 				SuccessThreshold:    1,
-				FailureThreshold:    1,
+				FailureThreshold:    3,
 			},
 			ReadinessProbe: &corev1.Probe{
 				ProbeHandler: corev1.ProbeHandler{
@@ -670,7 +670,7 @@ func getPodSpec(c *gc.C) corev1.PodSpec {
 				TimeoutSeconds:      1,
 				PeriodSeconds:       5,
 				SuccessThreshold:    1,
-				FailureThreshold:    1,
+				FailureThreshold:    3,
 			},
 			SecurityContext: &corev1.SecurityContext{
 				RunAsUser:  int64Ptr(0),
