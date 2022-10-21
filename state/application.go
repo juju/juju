@@ -987,7 +987,12 @@ func (a *Application) Endpoints() (eps []Endpoint, err error) {
 			})
 		}
 	}
+
 	meta := ch.Meta()
+	if meta == nil {
+		return nil, errors.Errorf("nil charm metadata for application %q", a.Name())
+	}
+
 	collect(charm.RolePeer, meta.Peers)
 	collect(charm.RoleProvider, meta.Provides)
 	collect(charm.RoleRequirer, meta.Requires)
