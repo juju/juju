@@ -5,6 +5,8 @@ package cloud_test
 
 import (
 	"fmt"
+	"reflect"
+	"sort"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
@@ -935,6 +937,18 @@ func (c cloudCredentialMatcher) Matches(x interface{}) bool {
 	if len(cred.Credentials) != len(c.arg.Credentials) {
 		return false
 	}
+	// sort both input and expected slices the same way to avoid ordering discrepancies when ranging.
+	sort.Slice(cred.Credentials, func(i, j int) bool { return cred.Credentials[i].Tag < cred.Credentials[j].Tag })
+	sort.Slice(c.arg.Credentials, func(i, j int) bool { return c.arg.Credentials[i].Tag < c.arg.Credentials[j].Tag })
+	for idx, taggedCred := range cred.Credentials {
+		if taggedCred.Tag != c.arg.Credentials[idx].Tag {
+			return false
+		}
+		if !reflect.DeepEqual(taggedCred.Credential, c.arg.Credentials[idx].Credential) {
+			return false
+		}
+	}
+
 	if cred.Force != c.arg.Force {
 		return false
 	}
