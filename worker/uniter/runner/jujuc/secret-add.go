@@ -119,8 +119,11 @@ func (c *secretUpsertCommand) Init(args []string) error {
 
 	var err error
 	c.data, err = secrets.CreateSecretData(args)
-	if err != nil || c.fileName == "" {
+	if err != nil {
 		return errors.Trace(err)
+	}
+	if c.fileName == "" {
+		return nil
 	}
 	dataFromFile, err := secrets.ReadSecretData(c.fileName)
 	if err != nil {

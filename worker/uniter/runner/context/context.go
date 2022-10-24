@@ -1431,7 +1431,7 @@ func (ctx *HookContext) doFlush(process string) error {
 	for i, u := range ctx.secretChanges.pendingUpdates {
 		// Juju checks that the current revision is stable when updating metadata so it's
 		// safe to increment here knowing the same value will be saved in Juju.
-		if u.Value == nil {
+		if u.Value.IsEmpty() {
 			pendingUpdates[i] = u.SecretUpsertArg
 			continue
 		}
