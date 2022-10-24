@@ -55,7 +55,12 @@ func (p kubernetesEnvironProvider) DetectCloud(name string) (cloud.Cloud, error)
 		return mk8sCloud, nil
 	}
 	if !errors.IsNotFound(err) && err != nil {
-		return cloud.Cloud{}, errors.Trace(err)
+		// return an error only if we are detecting microk8s cloud
+		// https://bugs.launchpad.net/juju/+bug/1937985
+		if name == k8s.K8sCloudMicrok8s {
+			return cloud.Cloud{}, errors.Trace(err)
+		}
+		return cloud.Cloud{}, nil
 	}
 
 	localKubeConfigClouds, err := localKubeConfigClouds()

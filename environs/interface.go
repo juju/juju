@@ -238,7 +238,7 @@ type CloudDetector interface {
 	// DetectCloud should be used in preference to DetectClouds
 	// when a specific cloud is identified, as this may be more
 	// efficient.
-	DetectCloud(name string) (cloud.Cloud, error)
+	DetectCloud(name string) (cloud.Cloud, bool)
 
 	// DetectClouds detects clouds from the environment. This may
 	// involve, for example, inspecting environment variables, or
