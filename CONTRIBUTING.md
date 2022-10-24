@@ -1,6 +1,16 @@
 Thanks for your interest in Juju! Contributions like yours make good projects
 great.
 
+# TL;DR
+- Bug reports should be filed on [Launchpad](https://bugs.launchpad.net/juju/+bugs),
+  not GitHub. Please check that your bug has not already been reported.
+- When opening a pull request:
+  - Check that your patch is [targeting the correct branch](#branches) -
+    if not, please rebase it.
+  - Please [sign the CLA](#contributor-licence-agreement) if you haven't already.
+  - Use the checklist on the [pull request template](./PULL_REQUEST_TEMPLATE.md#checklist)
+    to check you haven't forgotten anything.
+
 Contents
 ========
 
@@ -56,27 +66,19 @@ Go can be [installed](https://golang.org/doc/install#install) from the official 
 
 ## Build Juju and its dependencies
 
-### Download Juju source
+The easiest way to get the Juju source code is to clone the GitHub repository:
 
     git clone https://github.com/juju/juju.git
 
-Juju uses Go modules and does not depend on GOPATH, therefore you can check juju out anywhere.
-
-### Change to the Juju source code directory
-
-    cd juju
-
-### Install runtime dependencies
-
-    make install-dependencies
-
-### Compile
-
-    make build
-
-### Install
-
-    make install
+To build/install from source, `cd` into the root directory of the cloned repo,
+and use `make`.
+- `make go-build` will build the Juju binaries and put them in a
+  `_build` subdirectory.
+- `make go-install` will build the Juju binaries and install them globally
+  on your machine.
+- `make build` and `make install` are as above, but they will also regenerate
+  the facade schema. An up-to-date schema is always checked into the Juju repo,
+  so you shouldn't need to do this unless you make facade changes.
 
 Getting started
 ===============
@@ -156,16 +158,15 @@ Make sure your local copy and GitHub fork stay in sync with upstream:
 
 ```bash
 cd juju
-git pull upstream develop
-git push
+git pull upstream
 ```
 
 Dependency management
 =====================
 
 In the top-level directory of the Juju repo, there is a file,
-[go.mod](go.mod), that holds the revision ids of all the external
-projects that Juju depends on. That file is used to freeze the code in
+[go.mod](go.mod), that holds the versions of all the external
+Go modules that Juju depends on. That file is used to freeze the code in
 external repositories so that Juju is insulated from changes to those repos.
 
 go mod
@@ -177,7 +178,11 @@ you are building with the correct version - you don't need to do anything.
 Updating dependencies
 ---------------------
 
-To update a dependency, use `go get -u github.com/the/dependency`.
+To update a dependency, use
+```
+go get -u github.com/the/dependency
+go mod tidy
+```
 
 Code formatting
 ===============
@@ -224,32 +229,31 @@ As a project, Juju follows a specific workflow:
 
 Naturally, it is not so linear in practice. Each of these is elaborated below.
 
-Sync with upstream
-------------------
+Branches
+--------
 
-First check that the branch is on `develop`:
+Generally there are multiple versions of Juju in development concurrently,
+and so we keep a separate Git branch for each version. When submitting a
+patch, please make sure your changes are targeted to the correct branch.
 
-```bash
-git branch
-* develop
-  old_feature
+The currently active branches are:
+- `2.9` - bug fixes for Juju 2.9.x
+- `3.0` - bug fixes for Juju 3.0.x
+- `develop` - bug fixes and new features for Juju 3.1.x
+
+If a bug affects multiple Juju versions, please target the **lowest version**
+of Juju which is affected. All patches in earlier versions are eventually
+"merged through" to later versions.
+
+Creating a new branch
+---------------------
+
+All development should be done on a new branch, based on the correct branch
+determined above. Pull the latest version of this branch, then create and
+checkout a new branch for your changes - e.g. for a patch targeting `develop`:
 ```
-
-Then pull in the latest changes from upstream, assuming you have done the setup
-as above:
-
-```bash
 git pull upstream develop
-```
-
-Feature branches
-----------------
-
-All development should be done on feature branches based on a current copy of
-`develop`. So after pulling up your local repo, make a new branch for your work:
-
-```bash
-git checkout -b new_feature
+git checkout -b new_feature develop
 ```
 
 Testing
