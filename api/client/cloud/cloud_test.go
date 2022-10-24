@@ -811,20 +811,7 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsManyMatchingResults(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	args := params.UpdateCredentialArgs{
-		Force: false,
-	}
 	count := 2
-	for tag, credential := range createCredentials(count) {
-		args.Credentials = append(args.Credentials, params.TaggedCredential{
-			Tag: tag,
-			Credential: params.CloudCredential{
-				AuthType:   string(credential.AuthType()),
-				Attributes: credential.Attributes(),
-			},
-		})
-	}
-
 	res := new(params.UpdateCredentialResults)
 	results := params.UpdateCredentialResults{
 		Results: []params.UpdateCredentialResult{
@@ -832,7 +819,7 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsManyMatchingResults(c *gc.C) {
 			{},
 		}}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("UpdateCredentialsCheckModels", args, res).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall("UpdateCredentialsCheckModels", gomock.Any(), res).SetArg(2, results).Return(nil)
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	result, err := client.UpdateCloudsCredentials(createCredentials(count), false)
