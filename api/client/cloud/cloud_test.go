@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
+	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
@@ -811,7 +812,20 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsManyMatchingResults(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
+	args := params.UpdateCredentialArgs{
+		Force: false,
+	}
 	count := 2
+	for tag, credential := range createCredentials(count) {
+		args.Credentials = append(args.Credentials, params.TaggedCredential{
+			Tag: tag,
+			Credential: params.CloudCredential{
+				AuthType:   string(credential.AuthType()),
+				Attributes: credential.Attributes(),
+			},
+		})
+	}
+
 	res := new(params.UpdateCredentialResults)
 	results := params.UpdateCredentialResults{
 		Results: []params.UpdateCredentialResult{
@@ -819,7 +833,7 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsManyMatchingResults(c *gc.C) {
 			{},
 		}}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("UpdateCredentialsCheckModels", gomock.Any(), res).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall("UpdateCredentialsCheckModels", cloudCredentialMatcher{args}, res).SetArg(2, results).Return(nil)
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	result, err := client.UpdateCloudsCredentials(createCredentials(count), false)
@@ -907,4 +921,26 @@ func (s *cloudSuite) TestAddCloudsCredentials(c *gc.C) {
 	result, err := client.AddCloudsCredentials(createCredentials(1))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, []params.UpdateCredentialResult{{}})
+}
+
+type cloudCredentialMatcher struct {
+	arg params.UpdateCredentialArgs
+}
+
+func (c cloudCredentialMatcher) Matches(x interface{}) bool {
+	cred, ok := x.(params.UpdateCredentialArgs)
+	if !ok {
+		return false
+	}
+	if len(cred.Credentials) != len(c.arg.Credentials) {
+		return false
+	}
+	if cred.Force != c.arg.Force {
+		return false
+	}
+	return true
+}
+
+func (c cloudCredentialMatcher) String() string {
+	return pretty.Sprint(c.arg)
 }
