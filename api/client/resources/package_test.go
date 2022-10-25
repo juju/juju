@@ -31,3 +31,9 @@ type noopCloser struct {
 func (noopCloser) Close() error {
 	return nil
 }
+
+func NewClientFromCaller(caller base.FacadeCaller) *Client {
+	return &Client{
+		facade: caller,
+	}
+}
