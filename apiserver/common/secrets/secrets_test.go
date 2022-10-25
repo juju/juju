@@ -52,7 +52,7 @@ func (s *secretsSuite) TestProviderInfoForModel(c *gc.C) {
 	c.Assert(p.Type(), gc.Equals, "vault")
 }
 
-func (s *secretsSuite) TestProviderInfoForModelJujuDefault(c *gc.C) {
+func (s *secretsSuite) TestProviderInfoForModelJujuDefaultIAAS(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -64,15 +64,27 @@ func (s *secretsSuite) TestProviderInfoForModelJujuDefault(c *gc.C) {
 	gomock.InOrder(
 		model.EXPECT().Config().Return(cfg, nil),
 		model.EXPECT().Type().Return(state.ModelTypeIAAS),
-
-		model.EXPECT().Config().Return(cfg, nil),
-		model.EXPECT().Type().Return(state.ModelTypeCAAS),
 	)
 	p, _, err := secrets.ProviderInfoForModel(model)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(p.Type(), gc.Equals, "juju")
+}
 
-	p, _, err = secrets.ProviderInfoForModel(model)
+func (s *secretsSuite) TestProviderInfoForModelJujuDefaultCAAS(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	model := mocks.NewMockModel(ctrl)
+
+	cfg := coretesting.CustomModelConfig(c, coretesting.Attrs{
+		"secret-store": "",
+	})
+	gomock.InOrder(
+		model.EXPECT().Config().Return(cfg, nil),
+		model.EXPECT().Type().Return(state.ModelTypeCAAS),
+	)
+
+	p, _, err := secrets.ProviderInfoForModel(model)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(p.Type(), gc.Equals, "kubernetes")
 }
@@ -108,10 +120,10 @@ func (s *secretsSuite) TestStoreConfigLeaderUnit(c *gc.C) {
 	s.PatchValue(&secrets.GetStateBackEnd, func(secrets.Model) state.SecretsStore { return backend })
 
 	owned := []*coresecrets.SecretMetadata{
-		{URI: &coresecrets.URI{ID: "owned-1"}, LatestRevision: 1},
+		{URI: &coresecrets.URI{ID: "owned-1"}},
 	}
 	read := []*coresecrets.SecretMetadata{
-		{URI: &coresecrets.URI{ID: "read-1"}, LatestRevision: 2},
+		{URI: &coresecrets.URI{ID: "read-1"}},
 	}
 	gomock.InOrder(
 		model.EXPECT().Config().Return(coretesting.ModelConfig(c), nil),
@@ -126,12 +138,21 @@ func (s *secretsSuite) TestStoreConfigLeaderUnit(c *gc.C) {
 				unitTag, names.NewApplicationTag("gitlab"),
 			},
 		}).Return(owned, nil),
+		backend.EXPECT().ListSecretRevisions(&coresecrets.URI{ID: "owned-1"}).
+			Return([]*coresecrets.SecretRevisionMetadata{
+				{Revision: 1},
+				{Revision: 2},
+			}, nil),
 		backend.EXPECT().ListSecrets(state.SecretsFilter{
 			ConsumerTags: []names.Tag{unitTag, names.NewApplicationTag("gitlab")},
 		}).Return(read, nil),
+		backend.EXPECT().ListSecretRevisions(&coresecrets.URI{ID: "read-1"}).
+			Return([]*coresecrets.SecretRevisionMetadata{
+				{Revision: 1},
+			}, nil),
 		p.EXPECT().StoreConfig(gomock.Any(), unitTag,
-			provider.SecretRevisions{"owned-1": set.NewInts(1)},
-			provider.SecretRevisions{"read-1": set.NewInts(2)},
+			provider.SecretRevisions{"owned-1": set.NewInts(1, 2)},
+			provider.SecretRevisions{"read-1": set.NewInts(1)},
 		).Return(nil, nil),
 	)
 
@@ -154,13 +175,13 @@ func (s *secretsSuite) TestStoreConfigNonLeaderUnit(c *gc.C) {
 	s.PatchValue(&secrets.GetStateBackEnd, func(secrets.Model) state.SecretsStore { return backend })
 
 	unitOwned := []*coresecrets.SecretMetadata{
-		{URI: &coresecrets.URI{ID: "owned-1"}, LatestRevision: 1},
+		{URI: &coresecrets.URI{ID: "owned-1"}},
 	}
 	appOwned := []*coresecrets.SecretMetadata{
-		{URI: &coresecrets.URI{ID: "app-owned-1"}, LatestRevision: 1},
+		{URI: &coresecrets.URI{ID: "app-owned-1"}},
 	}
 	read := []*coresecrets.SecretMetadata{
-		{URI: &coresecrets.URI{ID: "read-1"}, LatestRevision: 2},
+		{URI: &coresecrets.URI{ID: "read-1"}},
 	}
 	gomock.InOrder(
 		model.EXPECT().Config().Return(coretesting.ModelConfig(c), nil),
@@ -173,15 +194,30 @@ func (s *secretsSuite) TestStoreConfigNonLeaderUnit(c *gc.C) {
 		backend.EXPECT().ListSecrets(state.SecretsFilter{
 			OwnerTags: []names.Tag{unitTag},
 		}).Return(unitOwned, nil),
+		backend.EXPECT().ListSecretRevisions(&coresecrets.URI{ID: "owned-1"}).
+			Return([]*coresecrets.SecretRevisionMetadata{
+				{Revision: 1},
+				{Revision: 2},
+			}, nil),
 		backend.EXPECT().ListSecrets(state.SecretsFilter{
 			ConsumerTags: []names.Tag{unitTag, names.NewApplicationTag("gitlab")},
 		}).Return(read, nil),
+		backend.EXPECT().ListSecretRevisions(&coresecrets.URI{ID: "read-1"}).
+			Return([]*coresecrets.SecretRevisionMetadata{
+				{Revision: 1},
+			}, nil),
 		backend.EXPECT().ListSecrets(state.SecretsFilter{
 			OwnerTags: []names.Tag{names.NewApplicationTag("gitlab")},
 		}).Return(appOwned, nil),
+		backend.EXPECT().ListSecretRevisions(&coresecrets.URI{ID: "app-owned-1"}).
+			Return([]*coresecrets.SecretRevisionMetadata{
+				{Revision: 1},
+				{Revision: 2},
+				{Revision: 3},
+			}, nil),
 		p.EXPECT().StoreConfig(gomock.Any(), unitTag,
-			provider.SecretRevisions{"owned-1": set.NewInts(1)},
-			provider.SecretRevisions{"read-1": set.NewInts(2), "app-owned-1": set.NewInts(1)},
+			provider.SecretRevisions{"owned-1": set.NewInts(1, 2)},
+			provider.SecretRevisions{"read-1": set.NewInts(1), "app-owned-1": set.NewInts(1, 2, 3)},
 		).Return(nil, nil),
 	)
 
@@ -203,10 +239,10 @@ func (s *secretsSuite) TestStoreConfigAppTagLogin(c *gc.C) {
 	s.PatchValue(&secrets.GetStateBackEnd, func(secrets.Model) state.SecretsStore { return backend })
 
 	owned := []*coresecrets.SecretMetadata{
-		{URI: &coresecrets.URI{ID: "owned-1"}, LatestRevision: 1},
+		{URI: &coresecrets.URI{ID: "owned-1"}},
 	}
 	read := []*coresecrets.SecretMetadata{
-		{URI: &coresecrets.URI{ID: "read-1"}, LatestRevision: 2},
+		{URI: &coresecrets.URI{ID: "read-1"}},
 	}
 	gomock.InOrder(
 		model.EXPECT().Config().Return(coretesting.ModelConfig(c), nil),
@@ -217,12 +253,21 @@ func (s *secretsSuite) TestStoreConfigAppTagLogin(c *gc.C) {
 		backend.EXPECT().ListSecrets(state.SecretsFilter{
 			OwnerTags: []names.Tag{appTag},
 		}).Return(owned, nil),
+		backend.EXPECT().ListSecretRevisions(&coresecrets.URI{ID: "owned-1"}).
+			Return([]*coresecrets.SecretRevisionMetadata{
+				{Revision: 1},
+				{Revision: 2},
+			}, nil),
 		backend.EXPECT().ListSecrets(state.SecretsFilter{
 			ConsumerTags: []names.Tag{appTag},
 		}).Return(read, nil),
+		backend.EXPECT().ListSecretRevisions(&coresecrets.URI{ID: "read-1"}).
+			Return([]*coresecrets.SecretRevisionMetadata{
+				{Revision: 1},
+			}, nil),
 		p.EXPECT().StoreConfig(gomock.Any(), appTag,
-			provider.SecretRevisions{"owned-1": set.NewInts(1)},
-			provider.SecretRevisions{"read-1": set.NewInts(2)},
+			provider.SecretRevisions{"owned-1": set.NewInts(1, 2)},
+			provider.SecretRevisions{"read-1": set.NewInts(1)},
 		).Return(nil, nil),
 	)
 
