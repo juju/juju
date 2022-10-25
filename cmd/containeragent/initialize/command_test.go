@@ -98,11 +98,11 @@ services:
             HTTP_PROBE_PORT: "65301"
         on-check-failure:
             liveness: shutdown
-            readiness: shutdown
+            readiness: ignore
 checks:
     liveness:
         override: replace
-        level: ready
+        level: alive
         period: 10s
         timeout: 3s
         threshold: 3

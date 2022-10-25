@@ -9,7 +9,6 @@ import (
 	"io"
 	"os"
 	"path"
-	"strings"
 	"time"
 
 	"github.com/canonical/pebble/plan"
@@ -218,11 +217,11 @@ func (c *initCommand) writeContainerAgentPebbleConfig() error {
 					path.Join(c.binDir, "containeragent"),
 					c.dataDir,
 					c.binDir,
-					strings.Join(extraArgs, " ")),
+					extraArgs),
 				Startup: plan.StartupEnabled,
 				OnCheckFailure: map[string]plan.ServiceAction{
 					"liveness":  onCheckFailureAction,
-					"readiness": onCheckFailureAction,
+					"readiness": plan.ActionIgnore,
 				},
 				Environment: map[string]string{
 					constants.EnvHTTPProbePort: constants.DefaultHTTPProbePort,
@@ -242,7 +241,7 @@ func (c *initCommand) writeContainerAgentPebbleConfig() error {
 			},
 			"liveness": {
 				Override:  plan.ReplaceOverride,
-				Level:     plan.ReadyLevel,
+				Level:     plan.AliveLevel,
 				Period:    plan.OptionalDuration{Value: 10 * time.Second, IsSet: true},
 				Timeout:   plan.OptionalDuration{Value: 3 * time.Second, IsSet: true},
 				Threshold: 3,
