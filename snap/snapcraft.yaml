@@ -36,7 +36,7 @@ apps:
     plugs:
       - network
       - network-bind
-      - ssh-public-keys
+      - ssh-keys
       - lxd
       # Needed so that juju can still use the real ~/.local/share/juju.
       - dot-local-share-juju
