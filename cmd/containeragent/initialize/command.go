@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/canonical/pebble/plan"
@@ -217,7 +218,7 @@ func (c *initCommand) writeContainerAgentPebbleConfig() error {
 					path.Join(c.binDir, "containeragent"),
 					c.dataDir,
 					c.binDir,
-					extraArgs),
+					strings.Join(extraArgs, " ")),
 				Startup: plan.StartupEnabled,
 				OnCheckFailure: map[string]plan.ServiceAction{
 					"liveness":  onCheckFailureAction,
