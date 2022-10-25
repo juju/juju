@@ -97,18 +97,33 @@ func (iw infoWriter) channels() string {
 				w.Println(formatRevision(latest, true))
 			case baseModeArches:
 				for i, r := range revisions {
+					args := []any{formatRevision(r, i == 0)}
 					arches := strings.Join(r.Arches, ", ")
-					w.Println(formatRevision(r, i == 0), arches)
+					if arches != "" {
+						args = append(args, arches)
+					}
+					w.Println(args...)
 				}
 			case baseModeBases:
 				latest := revisions[0]
+				args := []any{formatRevision(latest, true)}
 				bases := strings.Join(basesToSeries(latest.Bases), ", ")
-				w.Println(formatRevision(latest, true), bases)
+				if bases != "" {
+					args = append(args, bases)
+				}
+				w.Println(args...)
 			case baseModeBoth:
 				latest := revisions[0]
+				args := []any{formatRevision(latest, true)}
 				arches := strings.Join(latest.Arches, ", ")
+				if arches != "" {
+					args = append(args, arches)
+				}
 				bases := strings.Join(basesToSeries(latest.Bases), ", ")
-				w.Println(formatRevision(latest, true), arches, bases)
+				if bases != "" {
+					args = append(args, bases)
+				}
+				w.Println(args...)
 			}
 		}
 	}

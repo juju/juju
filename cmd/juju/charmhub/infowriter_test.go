@@ -202,7 +202,7 @@ config:
 func (s *printInfoSuite) TestBundleChannelClosed(c *gc.C) {
 	ir := getBundleInfoClosedTrack()
 	ctx := commandContextForTest(c)
-	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "never", baseModeNone, &ir)
+	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "never", baseModeBoth, &ir)
 	err := iw.Print()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -224,7 +224,7 @@ channels: |
 func (s *printInfoSuite) TestBundleChannelClosedWithUnicode(c *gc.C) {
 	ir := getBundleInfoClosedTrack()
 	ctx := commandContextForTest(c)
-	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "always", baseModeNone, &ir)
+	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "always", baseModeBoth, &ir)
 	err := iw.Print()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -246,7 +246,7 @@ channels: |
 func (s *printInfoSuite) TestBundlePrintInfo(c *gc.C) {
 	ir := getBundleInfoResponse()
 	ctx := commandContextForTest(c)
-	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "never", baseModeNone, &ir)
+	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "never", baseModeBoth, &ir)
 	err := iw.Print()
 	c.Assert(err, jc.ErrorIsNil)
 
