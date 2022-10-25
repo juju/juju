@@ -219,18 +219,13 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 	entitySHA := entity.Download.HashSHA256
 
 	path := c.archivePath
-	if c.archivePath == "" {
-		// Use the sha256 to create a unique path for every download. The
-		// consequence of this is that same sha binary blobs will overwrite
-		// each other. That should be ok, as the sha will match.
-		var short string
-		if len(entitySHA) >= 7 {
-			short = fmt.Sprintf("_%s", entitySHA[0:7])
-		}
-		path = fmt.Sprintf("%s%s.%s", entity.Name, short, entityType)
+	if path == "" {
+		// Use the revision number to create a unique path for every download.
+		path = fmt.Sprintf("%s_r%d.%s", entity.Name, entity.Revision, entityType)
 	}
 
-	cmdContext.Infof("Fetching %s %q using %q channel and base %q", entityType, entity.Name, normChannel, normBase)
+	cmdContext.Infof("Fetching %s %q revision %d using %q channel and base %q",
+		entityType, entity.Name, entity.Revision, normChannel, normBase)
 
 	resourceURL, err := url.Parse(entity.Download.URL)
 	if err != nil {
