@@ -407,5 +407,6 @@ func (s *upgradeValidationSuite) TestGetCheckForLXDVersionFailed(c *gc.C) {
 
 	blocker, err := upgradevalidation.GetCheckForLXDVersion(cloudSpec)("", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(blocker, gc.NotNil)
 	c.Assert(blocker.Error(), gc.Equals, `LXD version has to be at least "5.0.0", but current version is only "4.0.0"`)
 }
