@@ -181,16 +181,16 @@ func (c *initCommand) ContainerAgentPebbleConfig() error {
 		Services: map[string]*plan.Service{
 			"container-agent": {
 				Summary:  "Juju container agent",
-				Override: "replace",
+				Override: plan.ReplaceOverride,
 				Command: fmt.Sprintf("%s unit --data-dir %s --append-env \"PATH=$PATH:%s\" --show-log %s",
 					path.Join(c.binDir, "containeragent"),
 					c.dataDir,
 					c.binDir,
 					extraArgs),
-				Startup: "enabled",
+				Startup: plan.StartupEnabled,
 				OnCheckFailure: map[string]plan.ServiceAction{
-					"liveness":  "shutdown",
-					"readiness": "shutdown",
+					"liveness":  plan.ActionShutdown,
+					"readiness": plan.ActionIgnore,
 				},
 				Environment: map[string]string{
 					constants.EnvHTTPProbePort: constants.DefaultHTTPProbePort,
@@ -199,8 +199,8 @@ func (c *initCommand) ContainerAgentPebbleConfig() error {
 		},
 		Checks: map[string]*plan.Check{
 			"readiness": {
-				Override:  "replace",
-				Level:     "ready",
+				Override:  plan.ReplaceOverride,
+				Level:     plan.ReadyLevel,
 				Period:    plan.OptionalDuration{Value: 10 * time.Second, IsSet: true},
 				Timeout:   plan.OptionalDuration{Value: 3 * time.Second, IsSet: true},
 				Threshold: 3,
@@ -209,8 +209,8 @@ func (c *initCommand) ContainerAgentPebbleConfig() error {
 				},
 			},
 			"liveness": {
-				Override:  "replace",
-				Level:     "ready",
+				Override:  plan.ReplaceOverride,
+				Level:     plan.AliveLevel,
 				Period:    plan.OptionalDuration{Value: 10 * time.Second, IsSet: true},
 				Timeout:   plan.OptionalDuration{Value: 3 * time.Second, IsSet: true},
 				Threshold: 3,
