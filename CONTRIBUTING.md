@@ -74,8 +74,9 @@ To build/install from source, `cd` into the root directory of the cloned repo,
 and use `make`.
 - `make go-build` will build the Juju binaries and put them in a
   `_build` subdirectory.
-- `make go-install` will build the Juju binaries and install them globally
-  on your machine.
+- `make go-install` will build the Juju binaries and install them in your
+  [$GOBIN directory](https://pkg.go.dev/cmd/go#hdr-Compile_and_install_packages_and_dependencies)
+  (which defaults to `$GOPATH/bin` or `~/go/bin`).
 - `make build` and `make install` are as above, but they will also regenerate
   the facade schema. An up-to-date schema is always checked into the Juju repo,
   so you shouldn't need to do this unless you make facade changes.
