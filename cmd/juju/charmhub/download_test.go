@@ -89,6 +89,11 @@ func (s *downloadSuite) TestRun(c *gc.C) {
 	ctx := commandContextForTest(c)
 	err = command.Run(ctx)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Matches, "(?s)"+`
+Fetching charm "test" revision 123 using "stable" channel and base "amd64/ubuntu/22.04"
+Install the "test" charm with:
+    juju deploy ./test_.*\.charm
+`[1:])
 }
 
 func (s *downloadSuite) TestRunWithStdout(c *gc.C) {
@@ -222,6 +227,7 @@ func (s *downloadSuite) expectRefresh(charmHubURL string) {
 					HashSHA256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
 					URL:        charmHubURL,
 				},
+				Revision: 123,
 			},
 		}}, nil
 	})

@@ -230,7 +230,12 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 		path = fmt.Sprintf("%s%s.%s", entity.Name, short, entityType)
 	}
 
-	cmdContext.Infof("Fetching %s %q using %q channel and base %q", entityType, entity.Name, normChannel, normBase)
+	revisionStr := ""
+	if entity.Revision != 0 {
+		revisionStr = fmt.Sprintf(" revision %d", entity.Revision)
+	}
+	cmdContext.Infof("Fetching %s %q%s using %q channel and base %q",
+		entityType, entity.Name, revisionStr, normChannel, normBase)
 
 	resourceURL, err := url.Parse(entity.Download.URL)
 	if err != nil {
