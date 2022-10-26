@@ -22,6 +22,9 @@ description: |
 
   **Note**
   This snap needs to read any relevant locally stored cloud credentials in order to manage resources on your behalf in a specified cloud.
+  It also can read private ssh keys. The privileged interface auto connections include:
+   - lxd
+   - ssh-keys
 
 confinement: strict
 grade: devel
@@ -36,7 +39,7 @@ apps:
     plugs:
       - network
       - network-bind
-      - ssh-public-keys
+      - ssh-keys
       - lxd
       # Needed so that juju can still use the real ~/.local/share/juju.
       - dot-local-share-juju

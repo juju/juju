@@ -1,4 +1,4 @@
-# base_to_series conversts a base to a series.
+# base_to_series converts a base to a series.
 # eg "ubuntu@22.04" -> "jammy"
 # ```
 # base_to_series <base>
