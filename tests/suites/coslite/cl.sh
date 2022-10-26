@@ -17,7 +17,7 @@ run_deploy_coslite() {
 	echo "Check that all offer endpoints specified in the overlays exist"
 	wait_for 5 '[.offers[] | .endpoints] | length'
 
-	admin_passwd=$(juju run-action --wait grafana/0 get-admin-password --format json | jq '.["unit-grafana-0"]["results"]["admin-password"]')
+	admin_passwd=$(juju run --wait 5s grafana/0 get-admin-password --format json | jq '.["unit-grafana-0"]["results"]["admin-password"]')
 	if [ -z "$admin_passwd" ]; then
 		echo "expected to get admin password for grafana/0"
 		exit 1
@@ -26,19 +26,37 @@ run_deploy_coslite() {
 	# Assert the web dashboards are reachable
 	alertmanager_ip=$(juju status --format json | jq '.applications["alertmanager"]["units"]["alertmanager/0"].address' | tr -d '"')
 	echo "Check if alertmanager is ready to serve traffic"
-	curl -sS http://"$alertmanager_ip":9093/ready -o /dev/null
+	check_dashboard http://"$alertmanager_ip":9093 200
 	grafana_ip=$(juju status --format json | jq '.applications["grafana"]["units"]["grafana/0"].address' | tr -d '"')
 	echo "Check if grafana is ready to serve traffic"
-	curl -sS http://"$grafana_ip":3000/api/health -o /dev/null
+	check_dashboard http://"$grafana_ip":3000 200
 	prometheus_ip=$(juju status --format json | jq '.applications["prometheus"]["units"]["prometheus/0"].address' | tr -d '"')
 	echo "check if prometheus is ready to serve traffic"
-	curl -sS http://"$prometheus_ip":9090/ready -o /dev/null
+	check_dashboard http://"$prometheus_ip":9090 200
 	echo "cos lite tests passed"
 
 	# without --force grafana get stuck in a hook(removal) error state.
 	juju remove-application grafana --force
 
 	destroy_model "${model_name}"
+}
+
+check_dashboard() {
+	local url
+	url=${1}
+	code=${2}
+	attempt=1
+	while true; do
+		status_code=$(curl --write-out "%{http_code}" -L --silent --output /dev/null "${url}")
+		if [[ $status_code -eq $code ]]; then
+			echo "Ready to serve traffic"
+			break
+		else
+			echo "Failed to connect to application with status code ${status_code}"
+		fi
+		attempt=$((attempt + 1))
+		sleep 5
+	done
 }
 
 test_deploy_coslite() {
