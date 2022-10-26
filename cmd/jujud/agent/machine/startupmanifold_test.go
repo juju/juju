@@ -47,7 +47,7 @@ func (s *MachineStartupSuite) TestStartSuccess(c *gc.C) {
 	})
 	worker, err := s.manifold.Start(context)
 	c.Check(worker, gc.IsNil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, gc.ErrorMatches, "resource permanently unavailable")
 	c.Check(s.startCalled, jc.IsTrue)
 }
 

@@ -123,7 +123,10 @@ var (
 		// "host-key-reporter", not stable, exits when done
 		"log-sender",
 		"logging-config-updater",
+		"lxd-container-provisioner",
+		"kvm-container-provisioner",
 		"machine-action-runner",
+		//"machine-setup", exits when done
 		"machiner",
 		"proxy-config-updater",
 		"reboot-executor",
@@ -131,7 +134,6 @@ var (
 		"state-converter",
 		"storage-provisioner",
 		"upgrade-series",
-		"unconverted-api-workers",
 	}
 )
 
