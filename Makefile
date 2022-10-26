@@ -8,8 +8,8 @@ GOOS=$(shell go env GOOS)
 GOARCH=$(shell go env GOARCH)
 GOHOSTOS=$(shell go env GOHOSTOS)
 GOHOSTARCH=$(shell go env GOHOSTARCH)
-GO_MOD_VERSION=$(shell grep -P "^go \d+\.\d+" go.mod | cut -d ' ' -f 2)
-GO_INSTALLED_VERSION=$(shell go version | cut -d ' ' -f 3 | sed -e /go/s///)
+GO_MOD_VERSION=$(shell grep -P "^go" go.mod | awk '{print $$2}')
+GO_INSTALLED_VERSION=$(shell go version | awk '{print $$3}' | sed -e /.*go/s///)
 export CGO_ENABLED=0
 
 BUILD_DIR ?= $(PROJECT_DIR)/_build
@@ -349,7 +349,7 @@ ifeq ("$(GO_INSTALLED_VERSION)","")
 else
 ifeq ($(shell if [ "$(GO_INSTALLED_VERSION)" \< "$(GO_MOD_VERSION)" ]; then echo 1; fi),1)
 	$(warning "warning: version of go too low: use 'snap refresh go --channel=$(GO_MOD_VERSION)'")
-	$(error "error Installed go version $(GO_INSTALLED_VERSION) less than required go version $(GO_MOD_VERSION)")
+	$(error "error Installed go version '$(GO_INSTALLED_VERSION)' less than required go version '$(GO_MOD_VERSION)'")
 endif
 endif
 
