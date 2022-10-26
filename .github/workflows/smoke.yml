@@ -82,7 +82,7 @@ jobs:
         # manually grant permissions to juju
         sudo snap connect juju:lxd lxd
         sudo snap connect juju:dot-local-share-juju
-        sudo snap connect juju:ssh-public-keys
+        sudo snap connect juju:ssh-keys
         snap connections juju
 
     - name: Smoke Test
