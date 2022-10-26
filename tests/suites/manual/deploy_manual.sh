@@ -16,6 +16,7 @@ test_deploy_manual() {
 			;;
 		"aws" | "ec2")
 			export BOOTSTRAP_PROVIDER="manual"
+			unset BOOTSTRAP_REGION
 			run "run_deploy_manual_aws"
 			;;
 		*)
@@ -38,11 +39,13 @@ manual_deploy() {
 	file="${TEST_DIR}/test-${name}.log"
 
 	bootstrap "${cloud_name}" "test-${name}" "${file}"
+	juju switch controller
 
 	juju add-machine ssh:ubuntu@"${addr_m1}" >"${TEST_DIR}/add-machine-1.log" 2>&1
 	juju add-machine ssh:ubuntu@"${addr_m2}" >"${TEST_DIR}/add-machine-2.log" 2>&1
 
-	juju enable-ha >"${TEST_DIR}/enable-ha.log" 2>&1
+	juju enable-ha --to "1,2" >"${TEST_DIR}/enable-ha.log" 2>&1
+	wait_for "3" '[.machines[] | select(.["controller-member-status"] == "has-vote")] | length'
 
 	machine_base=$(juju machines --format=json | jq -r '.machines | .["0"] | (.base.name+":"+.base.channel)')
 	machine_series=$(base_to_series "${machine_base}")
@@ -54,7 +57,7 @@ manual_deploy() {
 
 	juju deploy ubuntu --to=0 --series="${machine_series}"
 
-	wait_for "ubuntu" "$(idle_condition "ubuntu" 0 0)"
+	wait_for "ubuntu" "$(idle_condition "ubuntu" 0)"
 
 	juju remove-application ubuntu
 
