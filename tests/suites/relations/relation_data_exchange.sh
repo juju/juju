@@ -13,7 +13,7 @@ run_relation_data_exchange() {
 	juju deploy mysql --channel=edge --force --series focal
 
 	echo "Establish relation"
-  	juju relate wordpress mysql
+	juju relate wordpress mysql
 
 	wait_for "wordpress" "$(idle_condition "wordpress" 1 0)"
 	wait_for "wordpress" "$(idle_condition "wordpress" 1 1)"
@@ -21,8 +21,8 @@ run_relation_data_exchange() {
 
 	echo "Get the leader unit name"
 	non_leader_wordpress_unit=$(juju status wordpress --format json | jq -r ".applications.wordpress.units | to_entries[] | select(.value.leader!=true) | .key")
-    wordpress_relation_id=$(juju exec --unit "wordpress/leader" 'relation-ids db')
-    mysql_relation_id=$(juju exec --unit "mysql/leader" 'relation-ids mysql')
+	wordpress_relation_id=$(juju exec --unit "wordpress/leader" 'relation-ids db')
+	mysql_relation_id=$(juju exec --unit "mysql/leader" 'relation-ids mysql')
 
 	echo "Block until the relation is joined; otherwise, the relation-set commands below will fail"
 	attempt=0
