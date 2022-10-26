@@ -22,7 +22,7 @@ run_relation_list_app() {
 	echo "Remove wordpress unit"
 	# the wordpress-mysql relation is still established but there are no units present in the wordpress side
 	juju remove-unit wordpress/0
-	sleep 5
+	wait_for null '.applications."wordpress".units."wordpress/0"'
 
 	echo "Check relation-list hook"
 	juju exec --unit mysql/0 "relation-list --app -r ${db_rel_id}" | check "wordpress"
