@@ -14,8 +14,6 @@ test_coslite() {
 	if [[ -n ${OPERATOR_IMAGE_ACCOUNT:-} ]]; then
 		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --config caas-image-repo=${OPERATOR_IMAGE_ACCOUNT}"
 	fi
-	# these need to be enabled before bootstrapping can commence.
-	microk8s enable dns hostpath-storage
 	bootstrap "test-coslite" "${file}"
 
 	case "${BOOTSTRAP_PROVIDER:-}" in

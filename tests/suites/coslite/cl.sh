@@ -9,7 +9,7 @@ run_deploy_coslite() {
 	ensure "${model_name}" "${file}"
 
 	overlay_path="./tests/suites/coslite/overlay"
-	juju deploy cos-lite --trust --channel=beta --overlay "${overlay_path}/offers-overlay.yaml" --overlay "${overlay_path}/storage-small-overlay.yaml"
+	juju deploy cos-lite --trust --channel=stable --overlay "${overlay_path}/offers-overlay.yaml" --overlay "${overlay_path}/storage-small-overlay.yaml"
 
 	echo "Wait for all unit agents to be in active condition"
 	wait_for 0 "$(not_idle_list)" 1800
@@ -17,7 +17,8 @@ run_deploy_coslite() {
 	echo "Check that all offer endpoints specified in the overlays exist"
 	wait_for 5 '[.offers[] | .endpoints] | length'
 
-	admin_passwd=$(juju run --wait 5s grafana/0 get-admin-password --format json | jq '.["unit-grafana-0"]["results"]["admin-password"]')
+	# run-action will change in 3.0
+	admin_passwd=$(juju run-action --wait grafana/0 get-admin-password --format json | jq '.["unit-grafana-0"]["results"]["admin-password"]')
 	if [ -z "$admin_passwd" ]; then
 		echo "expected to get admin password for grafana/0"
 		exit 1
@@ -51,8 +52,10 @@ check_dashboard() {
 		if [[ $status_code -eq $code ]]; then
 			echo "Ready to serve traffic"
 			break
-		else
-			echo "Failed to connect to application with status code ${status_code}"
+		fi
+		if [[ ${attempt} -ge 3 ]]; then
+			echo "Failed to connect to application after ${attempt} attempts with status code ${status_code}"
+			exit 1
 		fi
 		attempt=$((attempt + 1))
 		sleep 5
