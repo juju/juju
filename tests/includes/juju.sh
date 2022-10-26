@@ -276,6 +276,10 @@ pre_bootstrap() {
 		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --model-default agent-stream=build-${SHORT_GIT_COMMIT}"
 	fi
 
+	if [[ -n ${BOOTSTRAP_ARCH:-} ]]; then
+		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --bootstrap-constraints arch=${BOOTSTRAP_ARCH}"
+	fi
+
 	echo "BOOTSTRAP_ADDITIONAL_ARGS => ${BOOTSTRAP_ADDITIONAL_ARGS}"
 }
 
