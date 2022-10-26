@@ -1,3 +1,4 @@
+# Ensure that relation-list hook works correctly.
 run_relation_list_app() {
 	echo
 
@@ -6,36 +7,26 @@ run_relation_list_app() {
 
 	ensure "${model_name}" "${file}"
 
-	# Deploy 2 departer instances
-	juju deploy wordpress --force --series jammy
+	echo "Deploy 2 departer instances"
+	juju deploy wordpress --force --series bionic
 	# mysql charm does not have stable channel, so we use edge channel
-	juju deploy mysql --channel=edge --force --series jammy
+	juju deploy mysql --channel=edge --force --series focal
 	juju relate wordpress mysql
 	wait_for "wordpress" "$(idle_condition "wordpress" 1 0)"
 	wait_for "mysql" "$(idle_condition "mysql" 0 0)"
 
-	# Figure out the right relation IDs to use for our hook tool invocations
-	db_rel_id=$(juju exec --unit mysql/0 "relation-ids db" | cut -d':' -f2)
-	peer_rel_id=$(juju exec --unit mysql/0 "relation-ids cluster" | cut -d':' -f2)
+	echo "Figure out the right relation IDs to use for our hook tool invocations"
+	db_rel_id=$(juju exec --unit mysql/0 "relation-ids mysql" | cut -d':' -f2)
+	peer_rel_id=$(juju exec --unit mysql/0 "relation-ids database-peers" | cut -d':' -f2)
 
-	# Remove wordpress unit; the wordpress-mysql relation is still established
-	# but there are no units present in the wordpress side
+	echo "Remove wordpress unit"
+	# the wordpress-mysql relation is still established but there are no units present in the wordpress side
 	juju remove-unit wordpress/0
-	sleep 5
+	wait_for null '.applications."wordpress".units."wordpress/0"'
 
-	got=$(juju exec --unit mysql/0 "relation-list --app -r ${db_rel_id}")
-	if [ "${got}" != "wordpress" ]; then
-		# shellcheck disable=SC2046
-		echo $(red "expected running 'relation-list --app' on mysql unit for non-peer relation to return 'wordpress'; got ${got}")
-		exit 1
-	fi
-
-	got=$(juju exec --unit mysql/0 "relation-list --app -r ${peer_rel_id}")
-	if [ "${got}" != "mysql" ]; then
-		# shellcheck disable=SC2046
-		echo $(red "expected running 'relation-list --app' on mysql unit for peer relation to return 'mysql'; got ${got}")
-		exit 1
-	fi
+	echo "Check relation-list hook"
+	juju exec --unit mysql/0 "relation-list --app -r ${db_rel_id}" | check "wordpress"
+	juju exec --unit mysql/0 "relation-list --app -r ${peer_rel_id}" | check "mysql"
 
 	destroy_model "${model_name}"
 }
