@@ -8,6 +8,8 @@ GOOS=$(shell go env GOOS)
 GOARCH=$(shell go env GOARCH)
 GOHOSTOS=$(shell go env GOHOSTOS)
 GOHOSTARCH=$(shell go env GOHOSTARCH)
+GO_MOD_VERSION=$(shell grep -P "^go" go.mod | awk '{print $$2}')
+GO_INSTALLED_VERSION=$(shell go version | awk '{print $$3}' | sed -e /.*go/s///)
 export CGO_ENABLED=0
 
 BUILD_DIR ?= $(PROJECT_DIR)/_build
@@ -328,11 +330,17 @@ endif
 # PPA includes the required mongodb-server binaries.
 install-snap-dependencies:
 ## install-snap-dependencies: Install the supported snap dependencies
-ifeq ($(shell go version | grep -o "go1.18" || true),go1.18)
-	@echo Using installed go-1.18
+ifeq ($(shell if [ "$(GO_INSTALLED_VERSION)" \> "$(GO_MOD_VERSION)" -o "$(GO_INSTALLED_VERSION)" = "$(GO_MOD_VERSION)" ]; then echo 1; fi),1)
+	@echo 'Using installed go-$(GO_MOD_VERSION)'
+endif
+ifeq ("$(GO_INSTALLED_VERSION)","")
+	@echo 'Installing go-$(GO_MOD_VERSION) snap'
+	@sudo snap install go --channel=$(GO_MOD_VERSION)/stable --classic
 else
-	@echo Installing go-1.18 snap
-	@sudo snap install go --channel=1.18/stable --classic
+ifeq ($(shell if [ "$(GO_INSTALLED_VERSION)" \< "$(GO_MOD_VERSION)" ]; then echo 1; fi),1)
+	$(warning "warning: version of go too low: use 'snap refresh go --channel=$(GO_MOD_VERSION)'")
+	$(error "error Installed go version '$(GO_INSTALLED_VERSION)' less than required go version '$(GO_MOD_VERSION)'")
+endif
 endif
 
 WAIT_FOR_DPKG=sh -c '. "${PROJECT_DIR}/make_functions.sh"; wait_for_dpkg "$$@"' wait_for_dpkg
