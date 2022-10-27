@@ -265,9 +265,10 @@ func (c *AddCAASCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.project, "project", "", "project to which the cluster belongs")
 	f.StringVar(&c.credential, "credential", "", "the credential to use when accessing the cluster")
 	f.StringVar(&c.resourceGroup, "resource-group", "", "the Azure resource group of the AKS cluster")
-	f.BoolVar(&c.gke, "gke", false, "used when adding a GKE cluster")
-	f.BoolVar(&c.aks, "aks", false, "used when adding an AKS cluster")
-	f.BoolVar(&c.eks, "eks", false, "used when adding an EKS cluster")
+	// TODO(k8s) - support k8s tooling in strict snap
+	//f.BoolVar(&c.gke, "gke", false, "used when adding a GKE cluster")
+	//f.BoolVar(&c.aks, "aks", false, "used when adding an AKS cluster")
+	//f.BoolVar(&c.eks, "eks", false, "used when adding an EKS cluster")
 }
 
 func countTrue(items ...bool) (count int) {
