@@ -85,7 +85,7 @@ run_deploy_manual_aws() {
 
 	local addr_c addr_m1 addr_m2
 
-	echo "==> Creating machines in aws"
+	echo "===> Creating machines in aws"
 	launch_and_wait_addr_ec2 "${name}" "${controller}" "${instance_image_id}" "${subnet_id}" "${sg_id}" addr_c
 	launch_and_wait_addr_ec2 "${name}" "${model1}" "${instance_image_id}" "${subnet_id}" "${sg_id}" addr_m1
 	launch_and_wait_addr_ec2 "${name}" "${model2}" "${instance_image_id}" "${subnet_id}" "${sg_id}" addr_m2
