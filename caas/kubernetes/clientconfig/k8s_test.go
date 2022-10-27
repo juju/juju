@@ -9,17 +9,17 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	"github.com/juju/juju/cloud"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type k8sConfigSuite struct {
-	testing.IsolationSuite
+	coretesting.FakeJujuXDGDataHomeSuite
 	dir string
 }
 
@@ -164,7 +164,8 @@ users:
 )
 
 func (s *k8sConfigSuite) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
+	os.Unsetenv("HOME")
 	s.dir = c.MkDir()
 }
 
@@ -174,11 +175,15 @@ func (s *k8sConfigSuite) SetUpTest(c *gc.C) {
 // The caller must close and remove the returned file.
 func (s *k8sConfigSuite) writeTempKubeConfig(c *gc.C, filename string, data string) (*os.File, error) {
 	fullpath := filepath.Join(s.dir, filename)
-	err := os.WriteFile(fullpath, []byte(data), 0644)
+	err := os.MkdirAll(filepath.Dir(fullpath), 0755)
 	if err != nil {
 		c.Fatal(err.Error())
 	}
-	os.Setenv("KUBECONFIG", fullpath)
+	err = os.WriteFile(fullpath, []byte(data), 0644)
+	if err != nil {
+		c.Fatal(err.Error())
+	}
+	_ = os.Setenv("KUBECONFIG", fullpath)
 
 	f, err := os.Open(fullpath)
 	return f, err
@@ -236,6 +241,45 @@ func (s *k8sConfigSuite) TestGetSingleConfig(c *gc.C) {
 			Credentials: map[string]cloud.Credential{
 				"the-user": cred,
 			},
+		},
+	})
+}
+
+func (s *k8sConfigSuite) TestKubeConfigPathSnapHome(c *gc.C) {
+	f, err := s.writeTempKubeConfig(c, ".kube/config", singleConfigYAML)
+	defer f.Close()
+	c.Assert(err, jc.ErrorIsNil)
+	_ = os.Unsetenv("KUBECONFIG")
+	_ = os.Setenv("SNAP_REAL_HOME", s.dir)
+
+	c.Assert(clientconfig.GetKubeConfigPath(), gc.Equals, f.Name())
+}
+
+func (s *k8sConfigSuite) TestGetSingleConfigSnapHome(c *gc.C) {
+	cred := cloud.NewNamedCredential(
+		"the-user", cloud.UserPassAuthType,
+		map[string]string{"username": "theuser", "password": "thepassword"}, false)
+	f, err := s.writeTempKubeConfig(c, ".kube/config", singleConfigYAML)
+	defer f.Close()
+	c.Assert(err, jc.ErrorIsNil)
+	_ = os.Unsetenv("KUBECONFIG")
+	_ = os.Setenv("SNAP_REAL_HOME", s.dir)
+
+	cfg, err := clientconfig.NewK8sClientConfigFromReader("", nil, "", "", nil)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(cfg, jc.DeepEquals, &clientconfig.ClientConfig{
+		Type: "kubernetes",
+		Contexts: map[string]clientconfig.Context{
+			"the-context": {
+				CloudName:      "the-cluster",
+				CredentialName: "the-user"}},
+		CurrentContext: "the-context",
+		Clouds: map[string]clientconfig.CloudConfig{
+			"the-cluster": {
+				Endpoint:   "https://1.1.1.1:8888",
+				Attributes: map[string]interface{}{"CAData": "A"}}},
+		Credentials: map[string]cloud.Credential{
+			"the-user": cred,
 		},
 	})
 }
