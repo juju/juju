@@ -305,7 +305,7 @@ func (w *unixConfigure) ConfigureJuju() error {
 		// If the new juju proxies are used, the legacy proxies will not be set, and the
 		// /etc/juju-proxy.conf file will be empty.
 		`[ -e /etc/profile.d/juju-proxy.sh ] || ` +
-			`echo '\n# Added by juju\n[ -f "/etc/juju-proxy.conf" ] && . "/etc/juju-proxy.conf"\n' >> /etc/profile.d/juju-proxy.sh`)
+			`echo -e '\n# Added by juju\n[ -f "/etc/juju-proxy.conf" ] && . "/etc/juju-proxy.conf"\n' >> /etc/profile.d/juju-proxy.sh`)
 	if w.icfg.LegacyProxySettings.HasProxySet() {
 		exportedProxyEnv := w.icfg.LegacyProxySettings.AsScriptEnvironment()
 		w.conf.AddScripts(strings.Split(exportedProxyEnv, "\n")...)
