@@ -57,15 +57,16 @@ run_secrets_k8s() {
 	juju exec --unit nginx/0 -- secret-get --label=consumer_label_secret_owned_by_hello_0 | grep 'owned-by: hello/0'
 	juju exec --unit nginx/0 -- secret-get --label=consumer_label_secret_owned_by_hello | grep 'owned-by: hello-app'
 
-	# Check owner unit's k8s role rules.
+	# Check owner unit's k8s role rules to ensure we are using the k8s secret provider.
 	microk8s kubectl -n model-secrets-k8s get roles/unit-hello-0 -o json | jq ".rules[] | select( has(\"resourceNames\") ) | select( .resourceNames[] | contains(\"${secret_owned_by_hello_0}-1\") ) | .verbs[0] " | grep '*'
 	microk8s kubectl -n model-secrets-k8s get roles/unit-hello-0 -o json | jq ".rules[] | select( has(\"resourceNames\") ) | select( .resourceNames[] | contains(\"${secret_owned_by_hello}-1\") ) | .verbs[0] " | grep '*'
 
-	# Check consumer unit's k8s role rules.
+	# Check consumer unit's k8s role rules to ensure we are using the k8s secret provider.
 	microk8s kubectl -n model-secrets-k8s get roles/unit-nginx-0 -o json | jq ".rules[] | select( has(\"resourceNames\") ) | select( .resourceNames[] | contains(\"${secret_owned_by_hello_0}-1\") ) | .verbs[0] " | grep 'get'
 	microk8s kubectl -n model-secrets-k8s get roles/unit-nginx-0 -o json | jq ".rules[] | select( has(\"resourceNames\") ) | select( .resourceNames[] | contains(\"${secret_owned_by_hello}-1\") ) | .verbs[0] " | grep 'get'
 
 	# Is the data base64 encoded twice??!!
+	# Check secret content via k8s API to ensure we are using the k8s secret provider.
 	microk8s kubectl -n model-secrets-k8s get "secrets/${secret_owned_by_hello_0}-1" -o json | jq -r '.data["owned-by"]' | base64 -d | base64 -d | grep "hello/0"
 	microk8s kubectl -n model-secrets-k8s get "secrets/${secret_owned_by_hello}-1" -o json | jq -r '.data["owned-by"]' | base64 -d | base64 -d | grep "hello-app"
 

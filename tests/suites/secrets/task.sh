@@ -14,7 +14,7 @@ test_secrets() {
 	if [[ -n ${OPERATOR_IMAGE_ACCOUNT:-} ]]; then
 		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --config caas-image-repo=${OPERATOR_IMAGE_ACCOUNT}"
 	fi
-	# TODO: remove we do not need anymore.
+	# TODO: remove this we do not need it anymore.
 	export JUJU_DEV_FEATURE_FLAGS=developer-mode
 
 	bootstrap "test-secrets" "${file}"
