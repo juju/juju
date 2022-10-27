@@ -899,15 +899,6 @@ func (a *MachineAgent) setupContainerSupport(st api.Connection, logger machine.L
 	}
 	m := result[0].Machine
 
-	_, known, err := m.SupportedContainers()
-	if err != nil {
-		return err
-	}
-	if known {
-		logger.Debugf("container support for %s already known, skipping check", mTag)
-		return nil
-	}
-
 	var supportedContainers []instance.ContainerType
 	supportsContainers := container.ContainersSupported()
 	if supportsContainers {
