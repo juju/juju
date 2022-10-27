@@ -20,9 +20,10 @@ import (
 	workercommon "github.com/juju/juju/worker/common"
 )
 
+type GetContainerWatcherFunc func() (watcher.StringsWatcher, error)
+
 // ContainerProvisioningManifold creates a manifold that runs a
-// container provisioner. See the ContainerManifoldConfig type
-// for discussion about how this can/should evolve.
+// container provisioner.
 func ContainerProvisioningManifold(config ContainerManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
@@ -34,7 +35,7 @@ func ContainerProvisioningManifold(config ContainerManifoldConfig) dependency.Ma
 }
 
 // ContainerManifoldConfig defines a container provisioner's dependencies,
-// including how to setup the container system.
+// including how to initialise the container system.
 type ContainerManifoldConfig struct {
 	AgentName                    string
 	APICallerName                string
@@ -72,13 +73,13 @@ func (cfg ContainerManifoldConfig) start(context dependency.Context) (worker.Wor
 		return nil, errors.Trace(err)
 	}
 
-	cfg.Logger.Debugf("starting")
-
 	var a agent.Agent
 	if err := context.Get(cfg.AgentName, &a); err != nil {
 		return nil, errors.Trace(err)
 	}
 
+	// Check current config, has the machine-setup worker run
+	// to confirm supported container types.
 	agentConfig := a.CurrentConfig()
 	tag := agentConfig.Tag()
 	mTag, ok := tag.(names.MachineTag)
@@ -141,10 +142,11 @@ func (cfg ContainerManifoldConfig) start(context dependency.Context) (worker.Wor
 		Config:        agentConfig,
 		MachineLock:   cfg.MachineLock,
 		CredentialAPI: credentialAPI,
-		GetContainerWatcherFunc: func() (watcher.StringsWatcher, error) {
-			return m.WatchContainers(cfg.ContainerType)
-		},
 	})
 
-	return NewContainerWorker(cs)
+	getContainerWatcherFunc := func() (watcher.StringsWatcher, error) {
+		return m.WatchContainers(cfg.ContainerType)
+	}
+
+	return NewContainerSetupAndProvisioner(cs, getContainerWatcherFunc)
 }

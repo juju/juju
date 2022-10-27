@@ -19,17 +19,14 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	workercommon "github.com/juju/juju/worker/common"
 )
 
-type GetContainerWatcherFunc func() (watcher.StringsWatcher, error)
-
-// ContainerSetup is a StringsWatchHandler that is notified when containers
-// are created on the given machine. It will set up the machine to be able
-// to create containers and start a suitable provisioner.
+// ContainerSetup sets up the machine to be able to create containers
+// and start a suitable provisioner. Work is triggered by the
+// containerSetupAndProvisioner.
 type ContainerSetup struct {
 	logger        Logger
 	containerType instance.ContainerType
@@ -42,39 +39,36 @@ type ContainerSetup struct {
 
 	// The number of provisioners started. Once all necessary provisioners have
 	// been started, the container watcher can be stopped.
-	numberProvisioners      int32
-	credentialAPI           workercommon.CredentialAPI
-	getNetConfig            func(network.ConfigSource) ([]params.NetworkConfig, error)
-	getContainerWatcherFunc GetContainerWatcherFunc
+	numberProvisioners int32
+	credentialAPI      workercommon.CredentialAPI
+	getNetConfig       func(network.ConfigSource) ([]params.NetworkConfig, error)
 }
 
-// ContainerSetupParams are used to initialise a container setup handler.
+// ContainerSetupParams are used to initialise a container setup worker.
 type ContainerSetupParams struct {
-	Logger                  Logger
-	ContainerType           instance.ContainerType
-	Machine                 apiprovisioner.MachineProvisioner
-	MTag                    names.MachineTag
-	Provisioner             *apiprovisioner.State
-	Config                  agent.Config
-	MachineLock             machinelock.Lock
-	CredentialAPI           workercommon.CredentialAPI
-	GetContainerWatcherFunc GetContainerWatcherFunc
+	Logger        Logger
+	ContainerType instance.ContainerType
+	Machine       apiprovisioner.MachineProvisioner
+	MTag          names.MachineTag
+	Provisioner   *apiprovisioner.State
+	Config        agent.Config
+	MachineLock   machinelock.Lock
+	CredentialAPI workercommon.CredentialAPI
 }
 
 // NewContainerSetup returns a ContainerSetup to start the container
 // provisioner workers.
 func NewContainerSetup(params ContainerSetupParams) *ContainerSetup {
 	return &ContainerSetup{
-		logger:                  params.Logger,
-		machine:                 params.Machine,
-		mTag:                    params.MTag,
-		containerType:           params.ContainerType,
-		provisioner:             params.Provisioner,
-		config:                  params.Config,
-		machineLock:             params.MachineLock,
-		credentialAPI:           params.CredentialAPI,
-		getNetConfig:            common.GetObservedNetworkConfig,
-		getContainerWatcherFunc: params.GetContainerWatcherFunc,
+		logger:        params.Logger,
+		machine:       params.Machine,
+		mTag:          params.MTag,
+		containerType: params.ContainerType,
+		provisioner:   params.Provisioner,
+		config:        params.Config,
+		machineLock:   params.MachineLock,
+		credentialAPI: params.CredentialAPI,
+		getNetConfig:  common.GetObservedNetworkConfig,
 	}
 }
 
@@ -114,7 +108,7 @@ func (cs *ContainerSetup) initContainerDependencies(abort <-chan struct{}, manag
 		return errors.Annotate(err, "cannot discover observed network config")
 	}
 	if len(observedConfig) > 0 {
-		machineTag := cs.machine.MachineTag()
+		machineTag := cs.mTag
 		cs.logger.Tracef("updating observed network config for %q %s containers to %#v",
 			machineTag, cs.containerType, observedConfig)
 		if err := cs.provisioner.SetHostMachineNetworkConfig(machineTag, observedConfig); err != nil {
@@ -131,7 +125,7 @@ func (cs *ContainerSetup) observeNetwork() ([]params.NetworkConfig, error) {
 func (cs *ContainerSetup) acquireLock(abort <-chan struct{}, comment string) (func(), error) {
 	spec := machinelock.Spec{
 		Cancel:  abort,
-		Worker:  "provisioner",
+		Worker:  "container-provisioner",
 		Comment: comment,
 	}
 	return cs.machineLock.Acquire(spec)

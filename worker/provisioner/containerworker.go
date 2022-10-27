@@ -14,13 +14,13 @@ import (
 	"github.com/juju/juju/core/watcher"
 )
 
-// NewContainerWorker returna a ContainerWorker.
-func NewContainerWorker(cs *ContainerSetup) (worker.Worker, error) {
-	containerWatcher, err := cs.getContainerWatcherFunc()
+// NewContainerSetupAndProvisioner returna a containerSetupAndProvisioner.
+func NewContainerSetupAndProvisioner(cs *ContainerSetup, getContainerWatcherFunc GetContainerWatcherFunc) (worker.Worker, error) {
+	containerWatcher, err := getContainerWatcherFunc()
 	if err != nil {
 		return nil, err
 	}
-	w := &ContainerWorker{
+	w := &containerSetupAndProvisioner{
 		catacomb:         catacomb.Catacomb{},
 		containerWatcher: containerWatcher,
 		logger:           cs.logger,
@@ -37,10 +37,10 @@ func NewContainerWorker(cs *ContainerSetup) (worker.Worker, error) {
 	return w, nil
 }
 
-// ContainerWorker is a worker that waits for a container of type
+// containerSetupAndProvisioner is a worker that waits for a container of type
 // defined in its config to be found for deployment. Then initializes
-// the container system and starts a container provisioner.
-type ContainerWorker struct {
+// the container system and starts a container provisioner of that type.
+type containerSetupAndProvisioner struct {
 	catacomb catacomb.Catacomb
 
 	cs *ContainerSetup
@@ -53,10 +53,10 @@ type ContainerWorker struct {
 	mu sync.Mutex
 }
 
-func (w *ContainerWorker) work() error {
+func (w *containerSetupAndProvisioner) work() error {
 	// Wait for a container of w.ContainerType type to be
 	// found.
-	if err := w.containerWatcherLoop(); err != nil {
+	if err := w.waitForContainers(); err != nil {
 		return err
 	}
 	if err := w.checkDying(); err != nil {
@@ -97,8 +97,8 @@ func (w *ContainerWorker) work() error {
 	w.provisioner = provisioner
 	w.mu.Unlock()
 
-	// The provisioner is now doing all the work, sit and wait for
-	// it to be shutdown.
+	// The container provisioner is now doing all the work, sit and wait
+	// to be shutdown.
 	select {
 	case <-w.catacomb.Dying():
 		return w.catacomb.ErrDying()
@@ -107,7 +107,7 @@ func (w *ContainerWorker) work() error {
 
 // checkDying, returns an error if this worker's catacomb
 // is dying. Needed as the work is not done in a single work.
-func (w *ContainerWorker) checkDying() error {
+func (w *containerSetupAndProvisioner) checkDying() error {
 	select {
 	case <-w.catacomb.Dying():
 		return w.catacomb.ErrDying()
@@ -116,9 +116,9 @@ func (w *ContainerWorker) checkDying() error {
 	}
 }
 
-// containerWatcherLoop waits for a container of the type
+// waitForContainers waits for a container of the type
 // configured in this worker to be deployed and returns.
-func (w *ContainerWorker) containerWatcherLoop() error {
+func (w *containerSetupAndProvisioner) waitForContainers() error {
 	for {
 		select {
 		case <-w.catacomb.Dying():
@@ -136,17 +136,17 @@ func (w *ContainerWorker) containerWatcherLoop() error {
 }
 
 // Kill is part of the worker.Worker interface.
-func (w *ContainerWorker) Kill() {
+func (w *containerSetupAndProvisioner) Kill() {
 	w.catacomb.Kill(nil)
 }
 
 // Wait is part of the worker.Worker interface.
-func (w *ContainerWorker) Wait() error {
+func (w *containerSetupAndProvisioner) Wait() error {
 	return w.catacomb.Wait()
 }
 
 // Report provides information for the engine report.
-func (w *ContainerWorker) Report() map[string]interface{} {
+func (w *containerSetupAndProvisioner) Report() map[string]interface{} {
 	w.mu.Lock()
 
 	watcherName := fmt.Sprintf("%s-container-watcher", string(w.cs.containerType))

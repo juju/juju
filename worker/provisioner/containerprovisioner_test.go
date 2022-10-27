@@ -184,3 +184,9 @@ func (s *kvmProvisionerSuite) TestKVMProvisionerObservesConfigChangesWorkerCount
 	defer workertest.CleanKill(c, p)
 	s.assertProvisionerObservesConfigChangesWorkerCount(c, p, true)
 }
+
+type credentialAPIForTest struct{}
+
+func (*credentialAPIForTest) InvalidateModelCredential(reason string) error {
+	return nil
+}
