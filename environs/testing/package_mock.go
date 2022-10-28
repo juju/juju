@@ -578,11 +578,11 @@ func (m *MockCloudDetector) EXPECT() *MockCloudDetectorMockRecorder {
 }
 
 // DetectCloud mocks base method.
-func (m *MockCloudDetector) DetectCloud(arg0 string) (cloud.Cloud, bool) {
+func (m *MockCloudDetector) DetectCloud(arg0 string) (cloud.Cloud, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DetectCloud", arg0)
 	ret0, _ := ret[0].(cloud.Cloud)
-	ret1, _ := ret[1].(bool)
+	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
