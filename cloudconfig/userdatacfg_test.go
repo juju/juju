@@ -335,7 +335,7 @@ echo '.*"Stop all network interfaces.*' > '/etc/init/juju-clean-shutdown\.conf'
 install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'
 echo 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
 test -n "\$JUJU_PROGRESS_FD" \|\| \(exec \{JUJU_PROGRESS_FD\}>&2\) 2>/dev/null && exec \{JUJU_PROGRESS_FD\}>&2 \|\| JUJU_PROGRESS_FD=2
-\[ -e /etc/profile.d/juju-proxy.sh \] \|\| echo .* >> /etc/profile.d/juju-proxy.sh
+if \[ ! -e /etc/profile.d/juju-proxy.sh \]; then.* >> /etc/profile.d/juju-proxy.sh\\nfi\\n
 mkdir -p /var/lib/juju/locks
 \(id ubuntu &> /dev/null\) && chown ubuntu:ubuntu /var/lib/juju/locks
 mkdir -p /var/log/juju
@@ -379,7 +379,7 @@ echo '.*"Stop all network interfaces.*' > '/etc/init/juju-clean-shutdown\.conf'
 install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'
 echo 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
 test -n "\$JUJU_PROGRESS_FD" \|\| \(exec \{JUJU_PROGRESS_FD\}>&2\) 2>/dev/null && exec \{JUJU_PROGRESS_FD\}>&2 \|\| JUJU_PROGRESS_FD=2
-\[ -e /etc/profile.d/juju-proxy.sh \] \|\| echo .* >> /etc/profile.d/juju-proxy.sh
+if \[ ! -e /etc/profile.d/juju-proxy.sh \]; then.* >> /etc/profile.d/juju-proxy.sh\\nfi\\n
 mkdir -p /var/lib/juju/locks
 \(id ubuntu &> /dev/null\) && chown ubuntu:ubuntu /var/lib/juju/locks
 mkdir -p /var/log/juju
@@ -440,7 +440,7 @@ echo '.*"Stop all network interfaces on shutdown".*' > '/etc/init/juju-clean-shu
 install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'
 echo 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
 test -n "\$JUJU_PROGRESS_FD" \|\| \(exec \{JUJU_PROGRESS_FD\}>&2\) 2>/dev/null && exec \{JUJU_PROGRESS_FD\}>&2 \|\| JUJU_PROGRESS_FD=2
-\[ -e /etc/profile.d/juju-proxy.sh \] \|\| echo .* >> /etc/profile.d/juju-proxy.sh
+if \[ ! -e /etc/profile.d/juju-proxy.sh \]; then.* >> /etc/profile.d/juju-proxy.sh\\nfi\\n
 mkdir -p /var/lib/juju/locks
 \(id ubuntu &> /dev/null\) && chown ubuntu:ubuntu /var/lib/juju/locks
 mkdir -p /var/log/juju
@@ -1307,7 +1307,7 @@ func (s *cloudinitSuite) TestProxyWritten(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	cmds := cloudcfg.RunCmds()
-	first := `[ -e /etc/profile.d/juju-proxy.sh ] || echo -e '\n# Added by juju\n[ -f "/etc/juju-proxy.conf" ] && . "/etc/juju-proxy.conf"\n' >> /etc/profile.d/juju-proxy.sh`
+	first := cloudconfig.JujuProxyProfileScript
 	expected := []string{
 		`export http_proxy=http://user@10.0.0.1`,
 		`export HTTP_PROXY=http://user@10.0.0.1`,
