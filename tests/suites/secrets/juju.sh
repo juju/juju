@@ -65,13 +65,10 @@ run_secrets_juju() {
 	echo $(juju exec --unit etcd/0 -- secret-get "$secret_owned_by_easyrsa_0" 2>&1) | grep 'permission denied'
 
 	# secret-remove.
-	# TODO: enable once we fix: https://bugs.launchpad.net/juju/+bug/1994971.
-	# juju exec --unit easyrsa/0 -- secret-remove "$secret_owned_by_easyrsa_0"
-	# echo $(juju exec --unit easyrsa/0 -- secret-get "$secret_owned_by_easyrsa_0" 2>&1) | grep 'not found'
-
-	# TODO: enable once we fix: https://bugs.launchpad.net/juju/+bug/1994919.
-	# juju exec --unit easyrsa/0 -- secret-remove "$secret_owned_by_easyrsa"
-	# juju exec --unit easyrsa/0 -- secret-get "$secret_owned_by_easyrsa" | grep 'not found'
+	juju exec --unit easyrsa/0 -- secret-remove "$secret_owned_by_easyrsa_0"
+	echo $(juju exec --unit easyrsa/0 -- secret-get "$secret_owned_by_easyrsa_0" 2>&1) | grep 'not found'
+	juju exec --unit easyrsa/0 -- secret-remove "$secret_owned_by_easyrsa"
+	echo $(juju exec --unit easyrsa/0 -- secret-get "$secret_owned_by_easyrsa" 2>&1) | grep 'not found'
 
 	destroy_model "model-secrets-juju"
 }

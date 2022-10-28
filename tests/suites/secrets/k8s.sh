@@ -79,13 +79,10 @@ run_secrets_k8s() {
 	echo $(juju exec --unit nginx/0 -- secret-get "$secret_owned_by_hello_0" 2>&1) | grep 'permission denied'
 
 	# secret-remove.
-	# TODO: enable once we fix: https://bugs.launchpad.net/juju/+bug/1994971.
-	# juju exec --unit hello/0 -- secret-remove "$secret_owned_by_hello_0"
-	# echo $(juju exec --unit hello/0 -- secret-get "$secret_owned_by_hello_0" 2>&1) | grep 'not found'
-
-	# TODO: enable once we fix: https://bugs.launchpad.net/juju/+bug/1994919.
-	# juju exec --unit hello/0 -- secret-remove "$secret_owned_by_hello"
-	# juju exec --unit hello/0 -- secret-get "$secret_owned_by_hello" | grep 'not found'
+	juju exec --unit hello/0 -- secret-remove "$secret_owned_by_hello_0"
+	echo $(juju exec --unit hello/0 -- secret-get "$secret_owned_by_hello_0" 2>&1) | grep 'not found'
+	juju exec --unit hello/0 -- secret-remove "$secret_owned_by_hello"
+	echo $(juju exec --unit hello/0 -- secret-get "$secret_owned_by_hello" 2>&1) | grep 'not found'
 
 	destroy_model "model-secrets-k8s"
 }
