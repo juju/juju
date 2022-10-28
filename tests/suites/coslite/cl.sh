@@ -11,8 +11,9 @@ run_deploy_coslite() {
 	overlay_path="./tests/suites/coslite/overlay"
 	juju deploy cos-lite --trust --channel=stable --overlay "${overlay_path}/offers-overlay.yaml" --overlay "${overlay_path}/storage-small-overlay.yaml"
 
-	echo "Wait for all unit agents to be in active condition"
-	wait_for 0 "$(not_idle_list)" 1800
+	echo "Wait for all unit agents to be in idle condition"
+	juju status --format json | jq .
+	wait_for 0 "$(idle_list)" 1800
 
 	echo "Check that all offer endpoints specified in the overlays exist"
 	wait_for 5 '[.offers[] | .endpoints] | length'
@@ -43,7 +44,7 @@ run_deploy_coslite() {
 }
 
 check_dashboard() {
-	local url
+	local url code
 	url=${1}
 	code=${2}
 	attempt=1
