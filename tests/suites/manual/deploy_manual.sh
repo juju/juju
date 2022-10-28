@@ -11,12 +11,9 @@ test_deploy_manual() {
 
 		case "${BOOTSTRAP_PROVIDER:-}" in
 		"lxd" | "lxd-remote" | "localhost")
-			export BOOTSTRAP_PROVIDER="manual"
 			run "run_deploy_manual_lxd"
 			;;
 		"aws" | "ec2")
-			export BOOTSTRAP_PROVIDER="manual"
-			unset BOOTSTRAP_REGION
 			run "run_deploy_manual_aws"
 			;;
 		*)
@@ -38,6 +35,8 @@ manual_deploy() {
 
 	file="${TEST_DIR}/test-${name}.log"
 
+	export BOOTSTRAP_PROVIDER="manual"
+	unset BOOTSTRAP_REGION
 	bootstrap "${cloud_name}" "test-${name}" "${file}"
 	juju switch controller
 
