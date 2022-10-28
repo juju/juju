@@ -14,13 +14,13 @@ import (
 	"github.com/juju/juju/core/watcher"
 )
 
-// NewContainerSetupAndProvisioner returna a containerSetupAndProvisioner.
+// NewContainerSetupAndProvisioner returna a ContainerSetupAndProvisioner.
 func NewContainerSetupAndProvisioner(cs *ContainerSetup, getContainerWatcherFunc GetContainerWatcherFunc) (worker.Worker, error) {
 	containerWatcher, err := getContainerWatcherFunc()
 	if err != nil {
 		return nil, err
 	}
-	w := &containerSetupAndProvisioner{
+	w := &ContainerSetupAndProvisioner{
 		catacomb:         catacomb.Catacomb{},
 		containerWatcher: containerWatcher,
 		logger:           cs.logger,
@@ -37,10 +37,10 @@ func NewContainerSetupAndProvisioner(cs *ContainerSetup, getContainerWatcherFunc
 	return w, nil
 }
 
-// containerSetupAndProvisioner is a worker that waits for a container of type
+// ContainerSetupAndProvisioner is a worker that waits for a container of type
 // defined in its config to be found for deployment. Then initializes
 // the container system and starts a container provisioner of that type.
-type containerSetupAndProvisioner struct {
+type ContainerSetupAndProvisioner struct {
 	catacomb catacomb.Catacomb
 
 	cs *ContainerSetup
@@ -53,7 +53,7 @@ type containerSetupAndProvisioner struct {
 	mu sync.Mutex
 }
 
-func (w *containerSetupAndProvisioner) work() error {
+func (w *ContainerSetupAndProvisioner) work() error {
 	// Wait for a container of w.ContainerType type to be
 	// found.
 	if err := w.waitForContainers(); err != nil {
@@ -67,6 +67,7 @@ func (w *containerSetupAndProvisioner) work() error {
 	if err := worker.Stop(w.containerWatcher); err != nil {
 		return err
 	}
+	// For introspection Report
 	w.mu.Lock()
 	w.containerWatcher = nil
 	w.mu.Unlock()
@@ -107,7 +108,7 @@ func (w *containerSetupAndProvisioner) work() error {
 
 // checkDying, returns an error if this worker's catacomb
 // is dying. Needed as the work is not done in a single work.
-func (w *containerSetupAndProvisioner) checkDying() error {
+func (w *ContainerSetupAndProvisioner) checkDying() error {
 	select {
 	case <-w.catacomb.Dying():
 		return w.catacomb.ErrDying()
@@ -118,7 +119,7 @@ func (w *containerSetupAndProvisioner) checkDying() error {
 
 // waitForContainers waits for a container of the type
 // configured in this worker to be deployed and returns.
-func (w *containerSetupAndProvisioner) waitForContainers() error {
+func (w *ContainerSetupAndProvisioner) waitForContainers() error {
 	for {
 		select {
 		case <-w.catacomb.Dying():
@@ -136,37 +137,30 @@ func (w *containerSetupAndProvisioner) waitForContainers() error {
 }
 
 // Kill is part of the worker.Worker interface.
-func (w *containerSetupAndProvisioner) Kill() {
+func (w *ContainerSetupAndProvisioner) Kill() {
 	w.catacomb.Kill(nil)
 }
 
 // Wait is part of the worker.Worker interface.
-func (w *containerSetupAndProvisioner) Wait() error {
+func (w *ContainerSetupAndProvisioner) Wait() error {
 	return w.catacomb.Wait()
 }
 
 // Report provides information for the engine report.
-func (w *containerSetupAndProvisioner) Report() map[string]interface{} {
+func (w *ContainerSetupAndProvisioner) Report() map[string]interface{} {
 	w.mu.Lock()
 
-	watcherName := fmt.Sprintf("%s-container-watcher", string(w.cs.containerType))
-	var watcherMsg string
-	if w.containerWatcher == nil {
-		watcherMsg = fmt.Sprintf("found containers, watcher stopped")
-	} else {
-		watcherMsg = fmt.Sprintf("waiting for containers")
+	result := make(map[string]interface{}, 0)
+
+	if w.containerWatcher != nil {
+		watcherName := fmt.Sprintf("%s-container-watcher", string(w.cs.containerType))
+		result[watcherName] = fmt.Sprintf("waiting for containers")
 	}
-	provisionerName := fmt.Sprintf("%s-provisioner", string(w.cs.containerType))
-	var provisionerMsg string
-	if w.provisioner == nil {
-		provisionerMsg = fmt.Sprintf("not setup, nor running")
-	} else {
-		provisionerMsg = fmt.Sprintf("setup and running")
+	if w.provisioner != nil {
+		provisionerName := fmt.Sprintf("%s-provisioner", string(w.cs.containerType))
+		result[provisionerName] = fmt.Sprintf("setup and running")
 	}
-	result := map[string]interface{}{
-		watcherName:     watcherMsg,
-		provisionerName: provisionerMsg,
-	}
+
 	w.mu.Unlock()
 	return result
 }

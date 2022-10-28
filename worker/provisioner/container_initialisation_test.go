@@ -11,7 +11,7 @@ import (
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
-	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -24,11 +24,9 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
-	workermocks "github.com/juju/juju/worker/mocks"
 )
 
 type containerSetupSuite struct {
@@ -40,14 +38,9 @@ type containerSetupSuite struct {
 	initialiser  *testing.MockInitialiser
 	facadeCaller *apimocks.MockFacadeCaller
 	machine      *provisionermocks.MockMachineProvisioner
-	notifyWorker *workermocks.MockWorker
 	manager      *testing.MockManager
 
 	machineLock *fakeMachineLock
-
-	// The done channel is used by tests to indicate that
-	// the worker has accomplished the scenario and can be stopped.
-	done chan struct{}
 }
 
 func (s *containerSetupSuite) SetUpTest(c *gc.C) {
@@ -57,7 +50,6 @@ func (s *containerSetupSuite) SetUpTest(c *gc.C) {
 	s.controllerUUID = utils.MustNewUUID()
 
 	s.machineLock = &fakeMachineLock{}
-	s.done = make(chan struct{})
 }
 
 var _ = gc.Suite(&containerSetupSuite{})
@@ -117,6 +109,7 @@ func (s *containerSetupSuite) testInitialiseContainerProvisioner(c *gc.C, contai
 	c.Assert(err, jc.ErrorIsNil)
 	_, ok := p.(*containerProvisioner)
 	c.Assert(ok, jc.IsTrue)
+	workertest.CleanKill(c, p)
 }
 
 func (s *containerSetupSuite) TestContainerManagerConfigError(c *gc.C) {
@@ -206,7 +199,6 @@ func (s *containerSetupSuite) patch(c *gc.C) *gomock.Controller {
 
 	s.initialiser = testing.NewMockInitialiser(ctrl)
 	s.facadeCaller = apimocks.NewMockFacadeCaller(ctrl)
-	s.notifyWorker = workermocks.NewMockWorker(ctrl)
 	s.machine = provisionermocks.NewMockMachineProvisioner(ctrl)
 	s.manager = testing.NewMockManager(ctrl)
 
@@ -216,32 +208,7 @@ func (s *containerSetupSuite) patch(c *gc.C) *gomock.Controller {
 		return s.initialiser
 	})
 
-	//s.manager.EXPECT().ListContainers().Return(nil, nil).AnyTimes()
-
 	return ctrl
-}
-
-// notify returns a suite behaviour that will cause the upgrade-series watcher
-// to send a number of notifications equal to the supplied argument.
-// Once notifications have been consumed, we notify via the suite's channel.
-func (s *containerSetupSuite) notify(messages ...[]string) {
-	ch := make(chan []string)
-
-	go func() {
-		for _, m := range messages {
-			ch <- m
-		}
-		close(s.done)
-	}()
-
-	s.notifyWorker.EXPECT().Kill().AnyTimes()
-	s.notifyWorker.EXPECT().Wait().Return(nil).AnyTimes()
-
-	s.machine.EXPECT().WatchContainers(gomock.Any()).Return(
-		&fakeWatcher{
-			Worker: s.notifyWorker,
-			ch:     ch,
-		}, nil)
 }
 
 // expectContainerManagerConfig sets up expectations associated with
@@ -274,15 +241,6 @@ func (f *fakeMachineLock) Acquire(spec machinelock.Spec) (func(), error) {
 
 func (f *fakeMachineLock) Report(opts ...machinelock.ReportOption) (string, error) {
 	return "", nil
-}
-
-type fakeWatcher struct {
-	worker.Worker
-	ch <-chan []string
-}
-
-func (w *fakeWatcher) Changes() watcher.StringsChannel {
-	return w.ch
 }
 
 type noOpLogger struct {

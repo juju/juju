@@ -26,7 +26,7 @@ import (
 
 // ContainerSetup sets up the machine to be able to create containers
 // and start a suitable provisioner. Work is triggered by the
-// containerSetupAndProvisioner.
+// ContainerSetupAndProvisioner.
 type ContainerSetup struct {
 	logger        Logger
 	containerType instance.ContainerType
