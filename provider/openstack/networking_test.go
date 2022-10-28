@@ -322,7 +322,7 @@ func (s *networkingSuite) expectNeutronCalls(c *gc.C) *gomock.Controller {
 }
 
 func (s *networkingSuite) expectListSubnets() {
-	s.ecfg.EXPECT().network().Return("int-net")
+	s.ecfg.EXPECT().networks().Return([]string{"int-net"})
 
 	s.expectExternalNetwork()
 	s.neutron.EXPECT().ListNetworksV2(gomock.Any()).Return([]neutron.NetworkV2{

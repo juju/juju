@@ -539,16 +539,16 @@ func (mr *MockNetworkingEnvironConfigMockRecorder) externalNetwork() *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "externalNetwork", reflect.TypeOf((*MockNetworkingEnvironConfig)(nil).externalNetwork))
 }
 
-// network mocks base method.
-func (m *MockNetworkingEnvironConfig) network() string {
+// networks mocks base method.
+func (m *MockNetworkingEnvironConfig) networks() []string {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "network")
-	ret0, _ := ret[0].(string)
+	ret := m.ctrl.Call(m, "networks")
+	ret0, _ := ret[0].([]string)
 	return ret0
 }
 
-// network indicates an expected call of network.
-func (mr *MockNetworkingEnvironConfigMockRecorder) network() *gomock.Call {
+// networks indicates an expected call of networks.
+func (mr *MockNetworkingEnvironConfigMockRecorder) networks() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "network", reflect.TypeOf((*MockNetworkingEnvironConfig)(nil).network))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "networks", reflect.TypeOf((*MockNetworkingEnvironConfig)(nil).networks))
 }

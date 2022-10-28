@@ -81,7 +81,7 @@ func (t configTest) check(c *gc.C) {
 		c.Assert(ecfg.FirewallMode(), gc.Equals, t.firewallMode)
 	}
 	c.Assert(ecfg.useDefaultSecurityGroup(), gc.Equals, t.useDefaultSecurityGroup)
-	c.Assert(ecfg.network(), gc.Equals, t.network)
+	c.Assert(ecfg.networks()[0], gc.Equals, t.network)
 	c.Assert(ecfg.externalNetwork(), gc.Equals, t.externalNetwork)
 	// Default should be true
 	expectedHostnameVerification := true

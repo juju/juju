@@ -77,7 +77,7 @@ type NetworkingNeutron interface {
 // NetworkingEnvironConfig describes the environConfig methods needed for
 // Networking.
 type NetworkingEnvironConfig interface {
-	network() string
+	networks() []string
 	externalNetwork() string
 }
 

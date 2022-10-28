@@ -1539,7 +1539,7 @@ func (e *Environ) networksForModel() ([]nova.ServerNetworks, error) {
 		return nil, errors.Annotate(err, "getting initial networks")
 	}
 
-	usingNetwork := e.ecfg().network()
+	usingNetwork := e.ecfg().networks()[0]
 	networkID, err := e.networking.ResolveNetwork(usingNetwork, false)
 	if err != nil {
 		if usingNetwork == "" {

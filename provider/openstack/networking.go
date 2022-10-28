@@ -382,7 +382,7 @@ func makeSubnetInfo(neutron NetworkingNeutron, subnet neutron.SubnetV2) (corenet
 func (n *NeutronNetworking) Subnets(instId instance.Id, subnetIds []corenetwork.Id) ([]corenetwork.SubnetInfo, error) {
 	netIds := set.NewStrings()
 	neutron := n.neutron()
-	internalNet := n.ecfg().network()
+	internalNet := n.ecfg().networks()[0]
 	netId, err := resolveNeutronNetwork(neutron, internalNet, false)
 	if err != nil {
 		// Note: (jam 2018-05-23) We don't treat this as fatal because
