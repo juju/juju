@@ -78,10 +78,11 @@ active_condition() {
 	echo ".applications | select(.[\"$name\"] | .[\"application-status\"] | .current == \"active\") | keys[$app_index]"
 }
 
-# if an application is in error, we want to count it as an application which is not idle
-# not_idle_list lists all such applications.
-not_idle_list() {
-	echo '[.applications[] | select((.units[] | .["juju-status"].current != "idle") or (.units[] | .["workload-status"].current == "error"))] | length'
+# idle_list should be used where you expect an arbitrary number of applications' agent-status to be in idle state,
+# ideally applications in a bundle, this helps the tests to avoid being overly specific to a given no. of applications.
+# e.g wait_for 0 "$(idle_list)" 1800 you expect that all applications' agent-status to be idle hence the reason we negate.
+idle_list() {
+	echo "[.applications[] | select((.units[] | .[\"juju-status\"].current != \"idle\") and (.units[] | .[\"workload-status\"].current != \"error\"))] | length"
 }
 
 # workload_status gets the workload-status object for the unit - use
