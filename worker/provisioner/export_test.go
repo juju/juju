@@ -77,3 +77,10 @@ func SetupToStartMachine(p ProvisionerTask, machine apiprovisioner.MachineProvis
 func (cs *ContainerSetup) SetGetNetConfig(getNetConf func(network.ConfigSource) ([]params.NetworkConfig, error)) {
 	cs.getNetConfig = getNetConf
 }
+
+func SetGetNetConfigReturnNil(w *ContainerSetupAndProvisioner) {
+	w.cs.SetGetNetConfig(
+		func(_ network.ConfigSource) ([]params.NetworkConfig, error) {
+			return nil, nil
+		})
+}
