@@ -82,7 +82,7 @@ active_condition() {
 # ideally applications in a bundle, this helps the tests to avoid being overly specific to a given no. of applications.
 # e.g wait_for 0 "$(idle_list)" 1800 you expect that all applications' agent-status to be idle hence the reason we negate.
 idle_list() {
-	echo "[.applications[] | select((.units[] | .[\"juju-status\"].current != \"idle\") and (.units[] | .[\"workload-status\"].current != \"error\"))] | length"
+	echo '[.applications[] | select((.units[] | .["juju-status"].current != "idle") and (.units[] | .["workload-status"].current != "error"))] | length'
 }
 
 # workload_status gets the workload-status object for the unit - use
