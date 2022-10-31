@@ -6,7 +6,6 @@ on:
     paths:
       - '**.go'
       - 'go.mod'
-      - 'snap/**'
       - 'testcharms/**'
       - 'tests/main.sh'
       - 'tests/includes/**'
@@ -29,7 +28,6 @@ jobs:
       shell: bash
       run: |
         set -euxo pipefail
-        sudo snap install snapcraft --classic
         
         sudo apt-get remove lxd lxd-client
         if snap info lxd | grep "installed"; then
@@ -66,21 +64,13 @@ jobs:
         echo "GOPATH=$(go env GOPATH)" >> $GITHUB_ENV
         echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
 
-    - name: Build snap
+    - name: Install local Juju
       shell: bash
       run: |
-        set -euxo pipefail
-        snapcraft --use-lxd
-
-    - name: Install snap
-      shell: bash
-      run: |
-        set -euxo pipefail
-        sudo snap install *.snap --dangerous --classic
+        make go-install
 
     - name: Smoke Test
       shell: bash
       run: |
         cd tests
-        ./main.sh -v smoke
-
+        ./main.sh -v -s 'test_build' smoke
