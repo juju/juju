@@ -8,7 +8,7 @@ GOOS=$(shell go env GOOS)
 GOARCH=$(shell go env GOARCH)
 GOHOSTOS=$(shell go env GOHOSTOS)
 GOHOSTARCH=$(shell go env GOHOSTARCH)
-GO_MOD_VERSION=$(shell grep -P "^go" go.mod | awk '{print $$2}')
+GO_MOD_VERSION=$(shell grep "^go" go.mod | awk '{print $$2}')
 GO_INSTALLED_VERSION=$(shell go version | awk '{print $$3}' | sed -e /.*go/s///)
 export CGO_ENABLED=0
 
