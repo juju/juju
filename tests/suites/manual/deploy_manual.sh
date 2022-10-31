@@ -31,7 +31,7 @@ manual_deploy() {
 	addr_m1=${3}
 	addr_m2=${4}
 
-	juju add-cloud --client "${cloud_name}" "${TEST_DIR}/cloud_name.yaml" >"${TEST_DIR}/add-cloud.log" 2>&1
+	juju add-cloud --client "${cloud_name}" "${TEST_DIR}/cloud_name.yaml" 2>&1 | tee "${TEST_DIR}/add-cloud.log"
 
 	file="${TEST_DIR}/test-${name}.log"
 
@@ -40,10 +40,10 @@ manual_deploy() {
 	bootstrap "${cloud_name}" "test-${name}" "${file}"
 	juju switch controller
 
-	juju add-machine ssh:ubuntu@"${addr_m1}" >"${TEST_DIR}/add-machine-1.log" 2>&1
-	juju add-machine ssh:ubuntu@"${addr_m2}" >"${TEST_DIR}/add-machine-2.log" 2>&1
+	juju add-machine ssh:ubuntu@"${addr_m1}" 2>&1 | tee "${TEST_DIR}/add-machine-1.log"
+	juju add-machine ssh:ubuntu@"${addr_m2}" 2>&1 | tee "${TEST_DIR}/add-machine-2.log"
 
-	juju enable-ha --to "1,2" >"${TEST_DIR}/enable-ha.log" 2>&1
+	juju enable-ha --to "1,2" 2>&1 | tee "${TEST_DIR}/enable-ha.log"
 	wait_for "3" '[.machines[] | select(.["controller-member-status"] == "has-vote")] | length'
 
 	machine_series=$(juju machines --format=json | jq -r '.machines | .["0"] | .series')
