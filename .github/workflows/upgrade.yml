@@ -22,13 +22,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        snap_version: ["2.8/stable"]
         model_type: ["localhost", "microk8s"]
     env:
       CHARM_localhost: apache2
       CHARM_microk8s: elasticsearch-k8s
       DOCKER_REGISTRY: 10.152.183.69
       RUN_TEST: RUN
+      UPGRADE_FLAGS_localhost: --build-agent
+      UPGRADE_FLAGS_microk8s: --agent-stream=develop
 
     steps:
       - name: Install Dependencies
@@ -38,18 +39,8 @@ jobs:
           set -euxo pipefail
           sudo snap install snapcraft --classic
           sudo snap install yq
-          sudo snap install juju --classic --channel=${{ matrix.snap_version }}
-          
-          sudo apt-get remove lxd lxd-client
-          if snap info lxd | grep "installed"; then
-            sudo snap remove lxd --purge
-          fi
-          sudo snap install lxd --channel=4.0/candidate
-          
-          sudo lxd waitready
-          sudo lxd init --auto
-          sudo chmod a+wr /var/snap/lxd/common/lxd/unix.socket
-          lxc network set lxdbr0 ipv6.address none
+          sudo snap install juju --channel=3.0/stable
+          mkdir -p ~/.local/share
           echo "/snap/bin" >> $GITHUB_PATH
 
       - name: Checkout
@@ -61,14 +52,14 @@ jobs:
         run: |
           set -euxo pipefail
           
-          echo "::set-output name=go-version::$(grep '^go ' go.mod | awk '{print $2}')"
-          echo "::set-output name=base-juju-version::$(juju version | cut -d '-' -f 1)"
+          echo "go-version=$(grep '^go ' go.mod | awk '{print $2}')" >> $GITHUB_OUTPUT
+          echo "base-juju-version=$(juju version | cut -d '-' -f 1)" >> $GITHUB_OUTPUT
           upstreamJujuVersion=$(grep -r "const version =" version/version.go | sed -r 's/^const version = \"(.*)\"$/\1/')
-          echo "::set-output name=upstream-juju-version::${upstreamJujuVersion}"
+          echo "upstream-juju-version=${upstreamJujuVersion}" >> $GITHUB_OUTPUT
           currentStableChannel="$(echo $upstreamJujuVersion | cut -d'.' -f1,2)/stable"
           currentStableVersion=$(snap info juju | yq ".channels[\"$currentStableChannel\"]" | cut -d' ' -f1)
-          echo "::set-output name=current-stable-juju-version::$currentStableVersion"
-          echo "::set-output name=juju-db-version::4.0"
+          echo "current-stable-juju-version=$currentStableVersion" >> $GITHUB_OUTPUT
+          echo "juju-db-version=4.4" >> $GITHUB_OUTPUT
         id: vars
 
       - name: Set up Go
@@ -83,12 +74,32 @@ jobs:
           echo "GOPATH=$(go env GOPATH)" >> $GITHUB_ENV
           echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
 
+      - name: Setup LXD
+        if: env.RUN_TEST == 'RUN' && matrix.model_type == 'localhost'
+        shell: bash
+        run: |
+          sudo apt-get remove lxd lxd-client
+          if snap info lxd | grep "installed"; then
+            sudo snap refresh lxd --channel=latest/stable
+          else
+            sudo snap install lxd --channel=latest/stable
+          fi
+          
+          sudo lxd waitready
+          sudo lxd init --auto
+          sudo chmod a+wr /var/snap/lxd/common/lxd/unix.socket
+          lxc network set lxdbr0 ipv6.address none
+
       - name: Setup k8s
         if: env.RUN_TEST == 'RUN' && matrix.model_type == 'microk8s'
-        uses: balchua/microk8s-actions@v0.2.2
-        with:
-          channel: "1.23/stable"
-          addons: '["dns", "storage"]'
+        shell: bash
+        run: |
+          set -x
+          sudo snap install microk8s --channel=1.25-strict/stable
+          sudo usermod -a -G snap_microk8s $USER
+          newgrp snap_microk8s
+          sg snap_microk8s "microk8s status --wait-ready"
+          sudo microk8s enable dns hostpath-storage
 
       - name: Setup local caas registry
         if: env.RUN_TEST == 'RUN' && matrix.model_type == 'microk8s'
@@ -116,16 +127,16 @@ jobs:
             -out ~/certs/registry.crt -CAcreateserial -days 365 -sha256 -extfile .github/registry.ext
           
           # Deploy registry
-          sg microk8s "microk8s kubectl create -f .github/reg.yml"
+          sg snap_microk8s "microk8s kubectl create -f .github/reg.yml"
           
           # TODO:(jack-w-shaw) Figure out why we need this and do something nicer
           sudo microk8s refresh-certs --cert ca.crt
           sudo microk8s refresh-certs --cert server.crt
-          sg microk8s "microk8s status --wait-ready"
+          sg snap_microk8s "microk8s status --wait-ready"
           
           # Wait for registry
-          sg microk8s "microk8s kubectl wait --for condition=available deployment registry -n container-registry --timeout 180s" || true
-          sg microk8s "microk8s kubectl describe pod -n container-registry"
+          sg snap_microk8s "microk8s kubectl wait --for condition=available deployment registry -n container-registry --timeout 180s" || true
+          sg snap_microk8s "microk8s kubectl describe pod -n container-registry"
           curl https://${DOCKER_REGISTRY}/v2/
 
       - name: Mirror docker images required for juju bootstrap
@@ -133,6 +144,7 @@ jobs:
         env:
           BASE_JUJU_TAG: ${{ steps.vars.outputs.base-juju-version }}
           JUJU_DB_TAG: ${{ steps.vars.outputs.juju-db-version }}
+          CHARM_BASE: ubuntu-20.04
         run: |
           set -euxo pipefail
           
@@ -150,6 +162,10 @@ jobs:
           docker pull jujusolutions/juju-db:${JUJU_DB_TAG}
           docker tag jujusolutions/juju-db:${JUJU_DB_TAG} ${DOCKER_REGISTRY}/test-repo/juju-db:${JUJU_DB_TAG}
           docker push ${DOCKER_REGISTRY}/test-repo/juju-db:${JUJU_DB_TAG}
+          
+          docker pull jujusolutions/charm-base:${CHARM_BASE}
+          docker tag jujusolutions/charm-base:${CHARM_BASE} ${DOCKER_REGISTRY}/test-repo/charm-base:${CHARM_BASE}
+          docker push ${DOCKER_REGISTRY}/test-repo/charm-base:${CHARM_BASE}
 
       - name: Bootstrap Juju - localhost
         if: env.RUN_TEST == 'RUN' && matrix.model_type == 'localhost'
@@ -165,8 +181,6 @@ jobs:
 
       - name: Bootstrap Juju - microk8s
         if: env.RUN_TEST == 'RUN' && matrix.model_type == 'microk8s'
-        env:
-          JUJU_DB_TAG: ${{ steps.vars.outputs.juju-db-version }}
 
         # TODO: Enabling developer-mode is a bit of a hack to get this working for now.
         # Ideally, we would mock our own simplestream, similar to Jenkins, to select
@@ -174,7 +188,7 @@ jobs:
         run: |
           set -euxo pipefail
           
-          sg microk8s <<EOF
+          sg snap_microk8s <<EOF
             juju bootstrap microk8s c \
               --config caas-image-repo="${DOCKER_REGISTRY}/test-repo" \
               --config features="[developer-mode]"
@@ -183,20 +197,6 @@ jobs:
           
           juju status
           juju version
-
-      # The `wait-for` plugin is used after deploying an application
-      # This was added in Juju 2.9, so it's not installed by the 2.8 snap
-      # However we just need to install the `wait-for` binary ourselves,
-      # and then Juju 2.8 can use it (amazing!)
-      - name: Add `wait-for` plugin
-        shell: bash
-        run: |
-          # Download a stable version of Juju
-          curl -L -O https://github.com/juju/juju/archive/refs/tags/juju-2.9.29.tar.gz
-          tar -xf juju-2.9.29.tar.gz
-          cd juju-juju-2.9.29/
-          go install github.com/juju/juju/cmd/plugins/juju-wait-for
-          cd ..
 
       - name: Deploy some applications
         if: env.RUN_TEST == 'RUN'
@@ -213,19 +213,12 @@ jobs:
           
           .github/verify-${CHARM_${{ matrix.model_type }}}.sh 30
 
-      - name: Build snap
+      - name: Update Juju
         if: env.RUN_TEST == 'RUN'
         shell: bash
         run: |
-          set -euxo pipefail
-          snapcraft --use-lxd
-
-      - name: Install snap
-        if: env.RUN_TEST == 'RUN'
-        shell: bash
-        run: |
-          set -euxo pipefail
-          sudo snap install juju*.snap --dangerous --classic
+          sudo snap remove juju --purge
+          make go-install
 
       - name: Build jujud image
         if: env.RUN_TEST == 'RUN' && matrix.model_type == 'microk8s'
@@ -266,8 +259,8 @@ jobs:
           juju status
           juju version
 
-      - name: Test upgrade controller - localhost
-        if: env.RUN_TEST == 'RUN' && matrix.model_type == 'localhost'
+      - name: Test upgrade controller
+        if: env.RUN_TEST == 'RUN'
         shell: bash
         env:
           UPSTREAM_JUJU_TAG: ${{ steps.vars.outputs.upstream-juju-version }}
@@ -275,45 +268,11 @@ jobs:
         run: |
           set -euxo pipefail
           
-          # Upgrade to the latest stable.
-          juju upgrade-controller --debug
-          .github/verify-agent-version.sh $CURRENT_STABLE_JUJU_TAG
-          
-          make go-install
-          $GOPATH/bin/juju upgrade-controller --build-agent --debug
-          .github/verify-agent-version.sh "${UPSTREAM_JUJU_TAG}.1"
-          rm -rf $GOPATH/bin/juju*
-          
-          # Upgrade to local built snap version - upload snap jujud.
-          snap_version=$(juju version | cut -d '-' -f 1);
-          juju upgrade-controller --agent-version $snap_version
-          .github/verify-agent-version.sh "${UPSTREAM_JUJU_TAG}.2"
-          
-          PANIC=$(juju debug-log --replay --no-tail -m controller | grep "panic" || true)
-          if [ "$PANIC" != "" ]; then
-              echo "Panic found:"
-              juju debug-log --replay --no-tail -m controller
-              exit 1
+          OUTPUT=$(juju upgrade-controller --debug ${UPGRADE_FLAGS_${{ matrix.model_type }}})
+          if [[ $OUTPUT == 'no upgrades available' ]]; then
+            exit 1
           fi
-          
-          .github/verify-${CHARM_${{ matrix.model_type }}}.sh 30
-
-      - name: Test upgrade controller - microk8s
-        if: env.RUN_TEST == 'RUN' && matrix.model_type == 'microk8s'
-        shell: bash
-        env:
-          UPSTREAM_JUJU_TAG: ${{ steps.vars.outputs.upstream-juju-version }}
-          CURRENT_STABLE_JUJU_TAG: ${{ steps.vars.outputs.current-stable-juju-version }}
-        run: |
-          set -euxo pipefail
-          
-          # Upgrade to the latest stable.
-          juju upgrade-controller --debug
-          .github/verify-agent-version.sh $CURRENT_STABLE_JUJU_TAG
-          
-          # Upgrade to local built version.
-          juju upgrade-controller --agent-stream=develop --debug
-          .github/verify-agent-version.sh $UPSTREAM_JUJU_TAG
+          .github/verify-agent-version.sh ${UPSTREAM_JUJU_TAG}
           
           PANIC=$(juju debug-log --replay --no-tail -m controller | grep "panic" || true)
           if [ "$PANIC" != "" ]; then
@@ -371,5 +330,5 @@ jobs:
           juju version
           juju status
           
-          sg microk8s "microk8s kubectl get all -A" || true
+          sg snap_microk8s "microk8s kubectl get all -A" || true
           lxc ls || true
