@@ -54,11 +54,11 @@ func (s *containerSetupSuite) SetUpTest(c *gc.C) {
 
 var _ = gc.Suite(&containerSetupSuite{})
 
-func (s *containerSetupSuite) TestInitialiseContainersLXD(c *gc.C) {
+func (s *containerSetupSuite) TestInitialiseContainersKVM(c *gc.C) {
 	s.testInitialiseContainers(c, instance.KVM)
 }
 
-func (s *containerSetupSuite) TestInitialiseContainersKVM(c *gc.C) {
+func (s *containerSetupSuite) TestInitialiseContainersLXD(c *gc.C) {
 	s.testInitialiseContainers(c, instance.LXD)
 }
 
@@ -81,11 +81,11 @@ func (s *containerSetupSuite) testInitialiseContainers(c *gc.C, containerType in
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *containerSetupSuite) TestInitialiseContainerProvisionerLXD(c *gc.C) {
+func (s *containerSetupSuite) TestInitialiseContainerProvisionerKVM(c *gc.C) {
 	s.testInitialiseContainers(c, instance.KVM)
 }
 
-func (s *containerSetupSuite) TestInitialiseContainerProvisonerKVM(c *gc.C) {
+func (s *containerSetupSuite) TestInitialiseContainerProvisonerLXD(c *gc.C) {
 	s.testInitialiseContainers(c, instance.LXD)
 }
 

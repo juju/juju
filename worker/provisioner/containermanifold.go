@@ -93,7 +93,7 @@ func (cfg ContainerManifoldConfig) start(context dependency.Context) (worker.Wor
 	}
 	pr := apiprovisioner.NewState(apiCaller)
 
-	m, err := cfg.machineSupportsContainers(&containerShim{api: pr}, mTag)
+	machine, err := cfg.machineSupportsContainers(&containerShim{api: pr}, mTag)
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +106,7 @@ func (cfg ContainerManifoldConfig) start(context dependency.Context) (worker.Wor
 	cs := NewContainerSetup(ContainerSetupParams{
 		Logger:        cfg.Logger,
 		ContainerType: cfg.ContainerType,
-		MachineZone:   m,
+		MachineZone:   machine,
 		MTag:          mTag,
 		Provisioner:   pr,
 		Config:        agentConfig,
@@ -115,7 +115,7 @@ func (cfg ContainerManifoldConfig) start(context dependency.Context) (worker.Wor
 	})
 
 	getContainerWatcherFunc := func() (watcher.StringsWatcher, error) {
-		return m.WatchContainers(cfg.ContainerType)
+		return machine.WatchContainers(cfg.ContainerType)
 	}
 
 	return NewContainerSetupAndProvisioner(cs, getContainerWatcherFunc)
@@ -161,14 +161,11 @@ func (cfg ContainerManifoldConfig) machineSupportsContainers(pr ContainerMachine
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot load machine %s from state", mTag)
 	}
-	if len(result) != 1 {
-		return nil, errors.Errorf("expected 1 result, got %d", len(result))
-	}
-	if errors.IsNotFound(result[0].Err) || (result[0].Err == nil && result[0].Machine.Life() == life.Dead) {
+	if errors.Is(err, errors.NotFound) || (result[0].Err == nil && result[0].Machine.Life() == life.Dead) {
 		return nil, dependency.ErrUninstall
 	}
-	m := result[0].Machine
-	types, known, err := m.SupportedContainers()
+	machine := result[0].Machine
+	types, known, err := machine.SupportedContainers()
 	if err != nil {
 		return nil, errors.Annotatef(err, "retrieving supported container types")
 	}
@@ -187,8 +184,8 @@ func (cfg ContainerManifoldConfig) machineSupportsContainers(pr ContainerMachine
 		typeSet.Add(string(v))
 	}
 	if !typeSet.Contains(string(cfg.ContainerType)) {
-		cfg.Logger.Infof("%s does not support %s containers", mTag, string(cfg.ContainerType))
+		cfg.Logger.Infof("%s does not support %s container", mTag, string(cfg.ContainerType))
 		return nil, dependency.ErrUninstall
 	}
-	return m, nil
+	return machine, nil
 }
