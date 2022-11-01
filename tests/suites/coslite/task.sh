@@ -34,5 +34,6 @@ test_coslite() {
 
 	esac
 
-	destroy_controller "test-coslite"
+	# TODO(basebandit): remove KILL_CONTROLLER once model teardown has been fixed for k8s models.
+	export KILL_CONTROLLER=true
 }
