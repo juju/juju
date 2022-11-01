@@ -6,15 +6,16 @@ run_deploy_default_series() {
 
 	ensure "${model_name}" "${file}"
 
-	juju model-config default-series=bionic
+	juju model-config default-series=jammy
 	juju deploy ubuntu
 	juju deploy cs:ubuntu csubuntu
 
+  juju status --format=json | jq .
 	ubuntu_series=$(juju status --format=json | jq ".applications.ubuntu.series")
-	echo "$ubuntu_series" | check "bionic"
+	echo "$ubuntu_series" | check "jammy"
 
 	csubuntu_series=$(juju status --format=json | jq ".applications.csubuntu.series")
-	echo "$csubuntu_series" | check "bionic"
+	echo "$csubuntu_series" | check "jammy"
 
 	destroy_model "${model_name}"
 }
