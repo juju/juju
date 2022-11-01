@@ -175,6 +175,7 @@ func (s *containerWorkerSuite) setUpContainerWorker(c *gc.C) worker.Worker {
 		return s.stringsWatcher, nil
 	}
 	w, err := provisioner.NewContainerSetupAndProvisioner(cs, watcherFunc)
+	c.Assert(err, jc.ErrorIsNil)
 	csp, ok := w.(*provisioner.ContainerSetupAndProvisioner)
 	c.Assert(ok, jc.IsTrue)
 	provisioner.SetGetNetConfigReturnNil(csp)
