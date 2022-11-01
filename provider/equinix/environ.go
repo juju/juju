@@ -228,56 +228,16 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 }
 
 var (
-	configImmutableFields = []string{}
-	configFields          = func() schema.Fields {
+	configFields = func() schema.Fields {
 		fs, _, err := configSchema.ValidationSchema()
 		if err != nil {
 			panic(err)
 		}
 		return fs
 	}()
-)
-
-var (
 	configSchema   = environschema.Fields{}
 	configDefaults = schema.Defaults{}
 )
-
-func newConfig(cfg, old *config.Config) (*environConfig, error) {
-	// Ensure that the provided config is valid.
-	if err := config.Validate(cfg, old); err != nil {
-		return nil, errors.Trace(err)
-	}
-	attrs, err := cfg.ValidateUnknownAttrs(configFields, configDefaults)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	if old != nil {
-		// There's an old configuration. Validate it so that any
-		// default values are correctly coerced for when we check
-		// the old values later.
-		oldEcfg, err := newConfig(old, nil)
-		if err != nil {
-			return nil, errors.Annotatef(err, "invalid base config")
-		}
-		for _, attr := range configImmutableFields {
-			oldv, newv := oldEcfg.attrs[attr], attrs[attr]
-			if oldv != newv {
-				return nil, errors.Errorf(
-					"%s: cannot change from %v to %v",
-					attr, oldv, newv,
-				)
-			}
-		}
-	}
-
-	ecfg := &environConfig{
-		config: cfg,
-		attrs:  attrs,
-	}
-	return ecfg, nil
-}
 
 func (e *environ) configureInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (*instances.InstanceSpec, error) {
 	instanceTypes, err := e.InstanceTypes(ctx, constraints.Value{})
