@@ -6,16 +6,20 @@ run_deploy_default_series() {
 
 	ensure "${model_name}" "${file}"
 
+  # TODO(basebandit): remove model config default series once the discrepancy with charmhub api has been solved
 	juju model-config default-series=jammy
 	juju deploy ubuntu
 	juju deploy cs:ubuntu csubuntu
 
-  juju status --format=json | jq .
-	ubuntu_series=$(juju status --format=json | jq ".applications.ubuntu.series")
-	echo "$ubuntu_series" | check "jammy"
+	ubuntu_base_name=$(juju status --format=json | jq ".applications.ubuntu.base.name")
+	ubuntu_base_ch=$(juju status --format=json | jq ".applications.ubuntu.base.channel")
+	echo "$ubuntu_base_name" | check "ubuntu"
+	echo "$ubuntu_base_ch" | check "22.04"
 
-	csubuntu_series=$(juju status --format=json | jq ".applications.csubuntu.series")
-	echo "$csubuntu_series" | check "jammy"
+	csubuntu_base_name=$(juju status --format=json | jq ".applications.csubuntu.base.name")
+	csubuntu_base_ch=$(juju status --format=json | jq ".applications.csubuntu.base.channel")
+	echo "$csubuntu_base_name" | check "ubuntu"
+	echo "$csubuntu_base_ch" | check "22.04"
 
 	destroy_model "${model_name}"
 }
@@ -32,11 +36,15 @@ run_deploy_not_default_series() {
 	juju deploy ubuntu --series focal
 	juju deploy cs:ubuntu csubuntu --series focal
 
-	ubuntu_series=$(juju status --format=json | jq ".applications.ubuntu.series")
-	echo "$ubuntu_series" | check "focal"
+	ubuntu_base_name=$(juju status --format=json | jq ".applications.ubuntu.base.name")
+	ubuntu_base_ch=$(juju status --format=json | jq ".applications.ubuntu.base.channel")
+	echo "$ubuntu_base_name" | check "ubuntu"
+	echo "$ubuntu_base_ch" | check "20.04"
 
-	csubuntu_series=$(juju status --format=json | jq ".applications.csubuntu.series")
-	echo "$csubuntu_series" | check "focal"
+	csubuntu_base_name=$(juju status --format=json | jq ".applications.csubuntu.base.name")
+	csubuntu_base_ch=$(juju status --format=json | jq ".applications.csubuntu.base.channel")
+	echo "$csubuntu_base_name" | check "ubuntu"
+	echo "$csubuntu_base_ch" | check "20.04"
 
 	destroy_model "${model_name}"
 }
