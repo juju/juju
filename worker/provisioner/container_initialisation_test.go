@@ -146,7 +146,7 @@ func (s *containerSetupSuite) setUpContainerSetup(c *gc.C, containerType instanc
 	args := ContainerSetupParams{
 		Logger:        &noOpLogger{},
 		ContainerType: containerType,
-		Machine:       s.machine,
+		MachineZone:   s.machine,
 		MTag:          s.machine.MachineTag(),
 		Provisioner:   pState,
 		Config:        cfg,
@@ -184,7 +184,7 @@ func (s *containerSetupSuite) setUpInitialiseContainerProvisioner(c *gc.C, conta
 	return &ContainerSetup{
 		logger:        &noOpLogger{},
 		containerType: containerType,
-		machine:       s.machine,
+		machineZone:   s.machine,
 		mTag:          s.machine.MachineTag(),
 		provisioner:   pState,
 		config:        cfg,
@@ -244,17 +244,11 @@ func (f *fakeMachineLock) Report(opts ...machinelock.ReportOption) (string, erro
 }
 
 type noOpLogger struct {
-	c *gc.C
 }
 
-func (n noOpLogger) Criticalf(format string, values ...interface{}) {}
-func (noOpLogger) Errorf(format string, values ...interface{})      {}
-func (noOpLogger) Warningf(format string, values ...interface{})    {}
-func (n noOpLogger) Infof(format string, values ...interface{}) {
-	if n.c != nil {
-		n.c.Logf(format, values)
-	}
-}
-func (noOpLogger) Debugf(format string, values ...interface{}) {}
-func (noOpLogger) Tracef(format string, values ...interface{}) {}
-func (noOpLogger) IsTraceEnabled() bool                        { return false }
+func (noOpLogger) Errorf(format string, values ...interface{})   {}
+func (noOpLogger) Warningf(format string, values ...interface{}) {}
+func (noOpLogger) Infof(format string, values ...interface{})    {}
+func (noOpLogger) Debugf(format string, values ...interface{})   {}
+func (noOpLogger) Tracef(format string, values ...interface{})   {}
+func (noOpLogger) IsTraceEnabled() bool                          { return false }

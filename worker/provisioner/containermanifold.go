@@ -92,40 +92,10 @@ func (cfg ContainerManifoldConfig) start(context dependency.Context) (worker.Wor
 		return nil, errors.Trace(err)
 	}
 	pr := apiprovisioner.NewState(apiCaller)
-	result, err := pr.Machines(mTag)
+
+	m, err := cfg.machineSupportsContainers(&containerShim{api: pr}, mTag)
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot load machine %s from state", tag)
-	}
-	if len(result) != 1 {
-		return nil, errors.Errorf("expected 1 result, got %d", len(result))
-	}
-	if errors.IsNotFound(result[0].Err) || (result[0].Err == nil && result[0].Machine.Life() == life.Dead) {
-		return nil, dependency.ErrUninstall
-	}
-
-	m := result[0].Machine
-	types, known, err := m.SupportedContainers()
-	if err != nil {
-		return nil, errors.Annotatef(err, "retrieving supported container types")
-	}
-	if !known {
-		return nil, errors.Errorf("no container types determined")
-	}
-	if len(types) == 0 {
-		cfg.Logger.Infof("uninstalling no supported containers on %q", mTag)
-		return nil, dependency.ErrUninstall
-	}
-
-	cfg.Logger.Debugf("%s supported containers types set as %q", mTag, types)
-
-	typeSet := set.NewStrings()
-	for _, v := range types {
-		cfg.Logger.Debugf("adding %q", v)
-		typeSet.Add(string(v))
-	}
-	if !typeSet.Contains(string(cfg.ContainerType)) {
-		cfg.Logger.Infof("%s does not support %s containers", mTag, string(cfg.ContainerType))
-		return nil, dependency.ErrUninstall
+		return nil, err
 	}
 
 	credentialAPI, err := workercommon.NewCredentialInvalidatorFacade(apiCaller)
@@ -136,7 +106,7 @@ func (cfg ContainerManifoldConfig) start(context dependency.Context) (worker.Wor
 	cs := NewContainerSetup(ContainerSetupParams{
 		Logger:        cfg.Logger,
 		ContainerType: cfg.ContainerType,
-		Machine:       m,
+		MachineZone:   m,
 		MTag:          mTag,
 		Provisioner:   pr,
 		Config:        agentConfig,
@@ -149,4 +119,76 @@ func (cfg ContainerManifoldConfig) start(context dependency.Context) (worker.Wor
 	}
 
 	return NewContainerSetupAndProvisioner(cs, getContainerWatcherFunc)
+}
+
+type ContainerMachine interface {
+	AvailabilityZone() (string, error)
+	Life() life.Value
+	SupportedContainers() ([]instance.ContainerType, bool, error)
+	WatchContainers(ctype instance.ContainerType) (watcher.StringsWatcher, error)
+}
+
+type ContainerMachineGetter interface {
+	Machines(tags ...names.MachineTag) ([]ContainerMachineResult, error)
+}
+
+type ContainerMachineResult struct {
+	Machine ContainerMachine
+	Err     error
+}
+
+type containerShim struct {
+	api *apiprovisioner.State
+}
+
+func (s *containerShim) Machines(tags ...names.MachineTag) ([]ContainerMachineResult, error) {
+	result, err := s.api.Machines(tags...)
+	if err != nil {
+		return nil, err
+	}
+	newResult := make([]ContainerMachineResult, len(result))
+	for i, v := range result {
+		newResult[i] = ContainerMachineResult{
+			Machine: v.Machine,
+			Err:     v.Err,
+		}
+	}
+	return newResult, nil
+}
+
+func (cfg ContainerManifoldConfig) machineSupportsContainers(pr ContainerMachineGetter, mTag names.MachineTag) (ContainerMachine, error) {
+	result, err := pr.Machines(mTag)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot load machine %s from state", mTag)
+	}
+	if len(result) != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", len(result))
+	}
+	if errors.IsNotFound(result[0].Err) || (result[0].Err == nil && result[0].Machine.Life() == life.Dead) {
+		return nil, dependency.ErrUninstall
+	}
+	m := result[0].Machine
+	types, known, err := m.SupportedContainers()
+	if err != nil {
+		return nil, errors.Annotatef(err, "retrieving supported container types")
+	}
+	if !known {
+		return nil, errors.NotYetAvailablef("container types")
+	}
+	if len(types) == 0 {
+		cfg.Logger.Infof("uninstalling no supported containers on %q", mTag)
+		return nil, dependency.ErrUninstall
+	}
+
+	cfg.Logger.Debugf("%s supported containers types set as %q", mTag, types)
+
+	typeSet := set.NewStrings()
+	for _, v := range types {
+		typeSet.Add(string(v))
+	}
+	if !typeSet.Contains(string(cfg.ContainerType)) {
+		cfg.Logger.Infof("%s does not support %s containers", mTag, string(cfg.ContainerType))
+		return nil, dependency.ErrUninstall
+	}
+	return m, nil
 }

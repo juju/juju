@@ -161,7 +161,7 @@ func (s *containerWorkerSuite) setUpContainerWorker(c *gc.C) worker.Worker {
 	args := provisioner.ContainerSetupParams{
 		Logger:        noOpLogger{},
 		ContainerType: instance.LXD,
-		Machine:       s.machine,
+		MachineZone:   s.machine,
 		MTag:          s.machine.MachineTag(),
 		Provisioner:   pState,
 		Config:        cfg,
@@ -319,18 +319,11 @@ func (f *fakeMachineLock) Report(opts ...machinelock.ReportOption) (string, erro
 	return "", nil
 }
 
-type noOpLogger struct {
-	c *gc.C
-}
+type noOpLogger struct{}
 
-func (n noOpLogger) Criticalf(format string, values ...interface{}) {}
-func (noOpLogger) Errorf(format string, values ...interface{})      {}
-func (noOpLogger) Warningf(format string, values ...interface{})    {}
-func (n noOpLogger) Infof(format string, values ...interface{}) {
-	if n.c != nil {
-		n.c.Logf(format, values)
-	}
-}
-func (noOpLogger) Debugf(format string, values ...interface{}) {}
-func (noOpLogger) Tracef(format string, values ...interface{}) {}
-func (noOpLogger) IsTraceEnabled() bool                        { return false }
+func (noOpLogger) Errorf(format string, values ...interface{})   {}
+func (noOpLogger) Warningf(format string, values ...interface{}) {}
+func (noOpLogger) Infof(format string, values ...interface{})    {}
+func (noOpLogger) Debugf(format string, values ...interface{})   {}
+func (noOpLogger) Tracef(format string, values ...interface{})   {}
+func (noOpLogger) IsTraceEnabled() bool                          { return false }

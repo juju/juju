@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 )
 
-// NewContainerSetupAndProvisioner returna a ContainerSetupAndProvisioner.
+// NewContainerSetupAndProvisioner return a ContainerSetupAndProvisioner.
 func NewContainerSetupAndProvisioner(cs *ContainerSetup, getContainerWatcherFunc GetContainerWatcherFunc) (worker.Worker, error) {
 	containerWatcher, err := getContainerWatcherFunc()
 	if err != nil {

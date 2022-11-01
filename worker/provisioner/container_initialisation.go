@@ -31,8 +31,8 @@ type ContainerSetup struct {
 	logger        Logger
 	containerType instance.ContainerType
 	provisioner   *apiprovisioner.State
-	machine       apiprovisioner.MachineProvisioner
 	mTag          names.MachineTag
+	machineZone   broker.AvailabilityZoner
 	config        agent.Config
 	machineLock   machinelock.Lock
 	managerConfig container.ManagerConfig
@@ -48,8 +48,8 @@ type ContainerSetup struct {
 type ContainerSetupParams struct {
 	Logger        Logger
 	ContainerType instance.ContainerType
-	Machine       apiprovisioner.MachineProvisioner
 	MTag          names.MachineTag
+	MachineZone   broker.AvailabilityZoner
 	Provisioner   *apiprovisioner.State
 	Config        agent.Config
 	MachineLock   machinelock.Lock
@@ -61,8 +61,8 @@ type ContainerSetupParams struct {
 func NewContainerSetup(params ContainerSetupParams) *ContainerSetup {
 	return &ContainerSetup{
 		logger:        params.Logger,
-		machine:       params.Machine,
 		mTag:          params.MTag,
+		machineZone:   params.MachineZone,
 		containerType: params.ContainerType,
 		provisioner:   params.Provisioner,
 		config:        params.Config,
@@ -144,7 +144,7 @@ func (cs *ContainerSetup) initialiseContainerProvisioner() (Provisioner, error) 
 	if cs.managerConfig == nil {
 		return nil, errors.New("Programming error, manager config not setup")
 	}
-	managerConfigWithZones, err := broker.ConfigureAvailabilityZone(cs.managerConfig, cs.machine)
+	managerConfigWithZones, err := broker.ConfigureAvailabilityZone(cs.managerConfig, cs.machineZone)
 	if err != nil {
 		return nil, errors.Annotate(err, "configuring availability zones")
 	}

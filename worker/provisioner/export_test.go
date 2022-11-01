@@ -6,6 +6,7 @@ package provisioner
 import (
 	"sort"
 
+	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
 
 	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
@@ -83,4 +84,8 @@ func SetGetNetConfigReturnNil(w *ContainerSetupAndProvisioner) {
 		func(_ network.ConfigSource) ([]params.NetworkConfig, error) {
 			return nil, nil
 		})
+}
+
+func MachineSupportsContainers(cfg ContainerManifoldConfig, pr ContainerMachineGetter, mTag names.MachineTag) (ContainerMachine, error) {
+	return cfg.machineSupportsContainers(pr, mTag)
 }
