@@ -142,7 +142,7 @@ var getContainerInitialiser = func(ct instance.ContainerType, snapChannels map[s
 func (cs *ContainerSetup) initialiseContainerProvisioner() (Provisioner, error) {
 	cs.logger.Debugf("setup provisioner for %s containers", cs.containerType)
 	if cs.managerConfig == nil {
-		return nil, errors.New("Programming error, manager config not setup")
+		return nil, errors.NotValidf("Programming error, manager config not setup")
 	}
 	managerConfigWithZones, err := broker.ConfigureAvailabilityZone(cs.managerConfig, cs.machineZone)
 	if err != nil {

@@ -756,7 +756,7 @@ func (a *MachineAgent) machineStartup(apiConn api.Connection, logger machine.Log
 			return errors.Trace(err)
 		}
 		if result.Code != 0 {
-			return errors.New(fmt.Sprintf("cannot patch /etc/update-manager/release-upgrades: %s", result.Stderr))
+			return fmt.Errorf("cannot patch /etc/update-manager/release-upgrades: %s", result.Stderr)
 		}
 	}
 
@@ -894,7 +894,7 @@ func (a *MachineAgent) setupContainerSupport(st api.Connection, logger machine.L
 	if len(result) != 1 {
 		return errors.Errorf("expected 1 result, got %d", len(result))
 	}
-	if errors.IsNotFound(result[0].Err) || (result[0].Err == nil && result[0].Machine.Life() == life.Dead) {
+	if errors.Is(err, errors.NotFound) || (result[0].Err == nil && result[0].Machine.Life() == life.Dead) {
 		return jworker.ErrTerminateAgent
 	}
 	m := result[0].Machine
