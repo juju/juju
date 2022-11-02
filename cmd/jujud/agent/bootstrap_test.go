@@ -199,6 +199,49 @@ func (s *BootstrapSuite) TestLocalControllerCharm(c *gc.C) {
 	s.assertControllerApplication(c)
 }
 
+func stringp(v string) *string {
+	return &v
+}
+
+func (s *BootstrapSuite) TestControllerCharmConstraints(c *gc.C) {
+	if coreos.HostOS() != coreos.Ubuntu {
+		c.Skip("controller charm only supported on Ubuntu")
+	}
+
+	s.PatchValue(&osseries.HostSeries, func() (string, error) {
+		return "jammy", nil
+	})
+
+	s.bootstrapParams.BootstrapMachineConstraints = constraints.Value{
+		Arch: stringp("arm64"),
+	}
+	s.writeBootstrapParamsFile(c)
+	_, cmd, err := s.initBootstrapCommand(c, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var tw loggo.TestWriter
+	err = loggo.RegisterWriter("bootstrap-test", &tw)
+	c.Assert(err, jc.ErrorIsNil)
+	defer loggo.RemoveWriter("bootstrap-test")
+
+	err = cmd.Run(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
+		loggo.DEBUG,
+		`Successfully deployed local Juju controller charm`,
+	}})
+	s.assertControllerApplication(c)
+	st, closer := s.getSystemState(c)
+	defer closer()
+
+	app, err := st.Application("controller")
+	constraints, err := app.Constraints()
+	c.Assert(err, jc.ErrorIsNil)
+	consArch := constraints.Arch
+	c.Assert(consArch, gc.NotNil)
+	c.Assert(*consArch, gc.Equals, "arm64")
+}
+
 func (s *BootstrapSuite) TestStoreControllerCharm(c *gc.C) {
 	if coreos.HostOS() != coreos.Ubuntu {
 		c.Skip("controller charm only supported on Ubuntu")
