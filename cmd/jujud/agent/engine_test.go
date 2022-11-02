@@ -124,7 +124,6 @@ var (
 		"log-sender",
 		"logging-config-updater",
 		"lxd-container-provisioner",
-		"kvm-container-provisioner",
 		"machine-action-runner",
 		//"machine-setup", exits when done
 		"machiner",

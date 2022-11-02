@@ -1180,6 +1180,9 @@ func (s *MachineSuite) TestMachineWorkers(c *gc.C) {
 	// Wait for it to stabilise, running as normal.
 	matcher := agenttest.NewWorkerMatcher(c, tracker, a.Tag().String(),
 		append(alwaysMachineWorkers, notMigratingMachineWorkers...))
+	// kvm-container-provisioner only runs where the hardware the
+	// test is run on supports kvm. This is not optimal.
+	matcher.AddOptionalWorkers([]string{"kvm-container-provisioner"})
 	agenttest.WaitMatch(c, matcher.Check, coretesting.LongWait, s.BackingState.StartSync)
 }
 
