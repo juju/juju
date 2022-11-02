@@ -95,6 +95,25 @@ if [ ! -z "$has_juju_db_snap" ]; then
   snap remove --purge juju-db
 fi
 `
+	// We look to see if the proxy line is there already as
+	// the manual provider may have had it already.
+	// We write this file out whether we are using the legacy proxy
+	// or the juju proxy to deal with runtime changes. The proxy updater worker
+	// only modifies /etc/juju-proxy.conf, so if changes are written to that file
+	// we need to make sure the profile.d file exists to reflect these changes.
+	// If the new juju proxies are used, the legacy proxies will not be set, and the
+	// /etc/juju-proxy.conf file will be empty.
+	JujuProxyProfileScript = `
+if [ ! -e /etc/profile.d/juju-proxy.sh ]; then
+  (
+    echo
+    echo '# Added by juju'
+    echo
+    echo '[ -f /etc/juju-proxy.conf ] && . /etc/juju-proxy.conf'
+    echo
+  ) >> /etc/profile.d/juju-proxy.sh
+fi
+`
 )
 
 var (
@@ -295,17 +314,7 @@ func (w *unixConfigure) ConfigureJuju() error {
 
 	// Write out the normal proxy settings so that the settings are
 	// sourced by bash, and ssh through that.
-	w.conf.AddScripts(
-		// We look to see if the proxy line is there already as
-		// the manual provider may have had it already.
-		// We write this file out whether we are using the legacy proxy
-		// or the juju proxy to deal with runtime changes. The proxy updater worker
-		// only modifies /etc/juju-proxy.conf, so if changes are written to that file
-		// we need to make sure the profile.d file exists to reflect these changes.
-		// If the new juju proxies are used, the legacy proxies will not be set, and the
-		// /etc/juju-proxy.conf file will be empty.
-		`[ -e /etc/profile.d/juju-proxy.sh ] || ` +
-			`echo -e '\n# Added by juju\n[ -f "/etc/juju-proxy.conf" ] && . "/etc/juju-proxy.conf"\n' >> /etc/profile.d/juju-proxy.sh`)
+	w.conf.AddScripts(JujuProxyProfileScript)
 	if w.icfg.LegacyProxySettings.HasProxySet() {
 		exportedProxyEnv := w.icfg.LegacyProxySettings.AsScriptEnvironment()
 		w.conf.AddScripts(strings.Split(exportedProxyEnv, "\n")...)

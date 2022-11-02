@@ -1311,6 +1311,42 @@ func (s *WatcherSuite) TestExpireSecretRevisionsSignal(c *gc.C) {
 	c.Assert(snap.ExpiredSecretRevisions, gc.HasLen, 0)
 }
 
+func (s *WatcherSuite) TestDeleteSecretSignal(c *gc.C) {
+	s.signalAll()
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+
+	snap := s.watcher.Snapshot()
+	c.Assert(snap.ExpiredSecretRevisions, gc.HasLen, 0)
+
+	secretWatcher := s.secretsClient.secretsWatcher
+	select {
+	case secretWatcher.changes <- []string{"secret:9m4e2mr0ui3e8a215n4g"}:
+	case <-time.After(testing.ShortWait):
+		c.Fatalf("timed out waiting to signal secret channel")
+	}
+
+	// Need to synchronize here in case the goroutine receiving from the
+	// channel processes the first event but not the second (in which case the
+	// assertion at the bottom of this test sometimes failed).
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+
+	// Adding same event twice shouldn't re-add it.
+	select {
+	case secretWatcher.changes <- []string{"secret:9m4e2mr0ui3e8a215n4g"}:
+	case <-time.After(testing.ShortWait):
+		c.Fatalf("timed out waiting to signal secret channel")
+	}
+
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+
+	snap = s.watcher.Snapshot()
+	c.Assert(snap.DeletedSecrets, gc.DeepEquals, []string{"secret:9m4e2mr0ui3e8a215n4g"})
+
+	s.watcher.RemoveSecretsCompleted([]string{"secret:9m4e2mr0ui3e8a215n4g"})
+	snap = s.watcher.Snapshot()
+	c.Assert(snap.DeletedSecrets, gc.HasLen, 0)
+}
+
 func (s *WatcherSuite) TestLeaderRunsSecretTriggerWatchers(c *gc.C) {
 	s.leadership.claimTicket.result = false
 	s.signalAll()

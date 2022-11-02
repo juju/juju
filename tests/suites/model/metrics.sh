@@ -21,7 +21,7 @@ run_model_metrics() {
 	juju relate ntp:juju-info juju-qa-test:juju-info
 	wait_for "ntp" "$(idle_subordinate_condition "ntp" "juju-qa-test" 1)"
 
-	juju model-config -m controller logging-config="'<root>=INFO;#charmhub=TRACE'"
+	juju model-config -m controller logging-config="<root>=INFO;#charmhub=TRACE"
 
 	# Restarting the controller service causes the charmrevisionupdater worker to run.
 	juju ssh -m controller 0 -- sudo systemctl restart jujud-machine-0.service
@@ -64,7 +64,7 @@ run_empty_model_metrics() {
 	wait_for_machine_agent_status 0 "started"
 	wait_for_machine_agent_status 1 "started"
 	wait_for_machine_agent_status 2 "started"
-	juju model-config -m controller logging-config="'<root>=INFO;#charmhub=TRACE'"
+	juju model-config -m controller logging-config="<root>=INFO;#charmhub=TRACE"
 
 	# Restarting the controller service causes the charmrevisionupdater worker to run.
 	juju ssh -m controller 0 -- sudo systemctl restart jujud-machine-0.service
@@ -107,7 +107,7 @@ run_model_metrics_disabled() {
 	wait_for "ubuntu" "$(idle_condition "ubuntu" 0 0)"
 	wait_for "ubuntu" "$(idle_condition "ubuntu" 0 1)"
 	juju model-config disable-telemetry=true
-	juju model-config -m controller logging-config="'<root>=INFO;#charmhub=TRACE'"
+	juju model-config -m controller logging-config="<root>=INFO;#charmhub=TRACE"
 
 	# Restarting the controller service causes the charmrevisionupdater worker to run.
 	juju ssh -m controller 0 -- sudo systemctl restart jujud-machine-0.service
