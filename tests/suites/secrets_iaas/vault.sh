@@ -3,13 +3,18 @@ run_secrets_vault() {
 
 	prepare_vault
 
-	file="${TEST_DIR}/model-secrets-vault.txt"
-
 	juju add-model "model-secrets-vault" --config secret-store=vault --config secret-store-config="{\"endpoint\":\"$VAULT_ADDR\",\"token\": \"$VAULT_TOKEN\"}"
 
 	juju --show-log deploy easyrsa
-	wait_for "active" '.applications["easyrsa"] | ."application-status".current'
+	juju --show-log deploy etcd
+	juju --show-log integrate etcd easyrsa
+
 	wait_for "easyrsa" "$(idle_condition "easyrsa" 0)"
+	wait_for "active" '.applications["easyrsa"] | ."application-status".current'
+	wait_for "active" '.applications["etcd"] | ."application-status".current' 900
+	wait_for "etcd" "$(idle_condition "etcd" 1 0)"
+	wait_for "active" "$(workload_status "etcd" 0).current"
+	wait_for "easyrsa" '.applications["etcd"] | .relations.certificates[0]'
 
 	secret_owned_by_easyrsa_0=$(juju exec --unit easyrsa/0 -- secret-add --owner unit owned-by=easyrsa/0 | cut -d: -f2)
 	secret_owned_by_easyrsa=$(juju exec --unit easyrsa/0 -- secret-add owned-by=easyrsa-app | cut -d: -f2)
@@ -37,14 +42,6 @@ run_secrets_vault() {
 	# secret-get by label - metadata.
 	juju exec --unit easyrsa/0 -- secret-get --label=easyrsa_0 --metadata --format json | jq ".${secret_owned_by_easyrsa_0}.label" | grep easyrsa_0
 
-	juju --show-log deploy etcd
-	juju --show-log integrate etcd easyrsa
-
-	wait_for "active" '.applications["etcd"] | ."application-status".current' 900
-	wait_for "etcd" "$(idle_condition "etcd" 1 0)"
-	wait_for "active" "$(workload_status "etcd" 0).current"
-	wait_for "easyrsa" '.applications["etcd"] | .relations.certificates[0]'
-
 	relation_id=$(juju --show-log show-unit easyrsa/0 --format json | jq '."easyrsa/0"."relation-info"[0]."relation-id"')
 	juju exec --unit easyrsa/0 -- secret-grant "$secret_owned_by_easyrsa_0" -r "$relation_id"
 	juju exec --unit easyrsa/0 -- secret-grant "$secret_owned_by_easyrsa" -r "$relation_id"
@@ -64,28 +61,27 @@ run_secrets_vault() {
 	vault kv get -format json "${model_uuid}/${secret_owned_by_easyrsa}-1" | jq -r '.data."owned-by"' | base64 -d | grep "easyrsa-app"
 
 	# secret-revoke by relation ID.
-	juju exec --unit easyrsa/0 -- secret-revoke $secret_owned_by_easyrsa --relation "$relation_id"
-	echo $(juju exec --unit etcd/0 -- secret-get "$secret_owned_by_easyrsa" 2>&1) | grep 'permission denied'
+	juju exec --unit easyrsa/0 -- secret-revoke "$secret_owned_by_easyrsa" --relation "$relation_id"
+	check_contains "$(juju exec --unit etcd/0 -- secret-get "$secret_owned_by_easyrsa" 2>&1)" 'permission denied'
 
 	# secret-revoke by app name.
 	juju exec --unit easyrsa/0 -- secret-revoke "$secret_owned_by_easyrsa_0" --app etcd
-	echo $(juju exec --unit etcd/0 -- secret-get "$secret_owned_by_easyrsa_0" 2>&1) | grep 'permission denied'
+	check_contains "$(juju exec --unit etcd/0 -- secret-get "$secret_owned_by_easyrsa_0" 2>&1)" 'permission denied'
 
 	# secret-remove.
 	juju exec --unit easyrsa/0 -- secret-remove "$secret_owned_by_easyrsa_0"
-	echo $(juju exec --unit easyrsa/0 -- secret-get "$secret_owned_by_easyrsa_0" 2>&1) | grep 'not found'
+	check_contains "$(juju exec --unit easyrsa/0 -- secret-get "$secret_owned_by_easyrsa_0" 2>&1)" 'not found'
 	juju exec --unit easyrsa/0 -- secret-remove "$secret_owned_by_easyrsa"
-	echo $(juju exec --unit easyrsa/0 -- secret-get "$secret_owned_by_easyrsa" 2>&1) | grep 'not found'
+	check_contains "$(juju exec --unit easyrsa/0 -- secret-get "$secret_owned_by_easyrsa" 2>&1)" 'not found'
 
-	vault kv list -format json "$model_uuid" | jq '. | length'
-	vault kv list -format json "$model_uuid" | jq '. | length' | grep 0
+	vault kv list -format json "$model_uuid" | jq -r '. | length' | check 0
 
 	destroy_model "model-secrets-vault"
 	destroy_model "model-vault-provider"
 }
 
 prepare_vault() {
-	ensure "model-vault-provider" "${file}"
+	juju add-model "model-vault-provider"
 
 	if ! which "vault" >/dev/null 2>&1; then
 		sudo snap install vault
@@ -102,16 +98,13 @@ prepare_vault() {
 	wait_for "blocked" "$(workload_status vault 0).current"
 	vault_public_addr=$(juju status --format json | jq -r '.applications.vault.units."vault/0"."public-address"')
 	export VAULT_ADDR="http://${vault_public_addr}:8200"
-	echo "VAULT_ADDR => $VAULT_ADDR"
 	vault status || true
 	vault_init_output=$(vault operator init -key-shares=5 -key-threshold=3 -format json)
-	echo "vault_init_output => $vault_init_output"
-	vault_token=$(echo $vault_init_output | jq -r .root_token)
+	vault_token=$(echo "$vault_init_output" | jq -r .root_token)
 	export VAULT_TOKEN="$vault_token"
-	echo "VAULT_TOKEN => $VAULT_TOKEN"
-	unseal_key0=$(echo $vault_init_output | jq -r '.unseal_keys_b64[0]')
-	unseal_key1=$(echo $vault_init_output | jq -r '.unseal_keys_b64[1]')
-	unseal_key2=$(echo $vault_init_output | jq -r '.unseal_keys_b64[2]')
+	unseal_key0=$(echo "$vault_init_output" | jq -r '.unseal_keys_b64[0]')
+	unseal_key1=$(echo "$vault_init_output" | jq -r '.unseal_keys_b64[1]')
+	unseal_key2=$(echo "$vault_init_output" | jq -r '.unseal_keys_b64[2]')
 
 	vault operator unseal "$unseal_key0"
 	vault operator unseal "$unseal_key1"

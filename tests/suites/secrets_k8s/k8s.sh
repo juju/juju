@@ -1,7 +1,6 @@
-run_secrets_k8s() {
+run_secrets() {
 	echo
 
-	file="${TEST_DIR}/model-secrets-k8s.txt"
 	juju --show-log add-model "model-secrets-k8s" --config secret-store=kubernetes
 
 	juju --show-log deploy hello-kubecon hello
@@ -58,38 +57,38 @@ run_secrets_k8s() {
 	juju exec --unit nginx/0 -- secret-get --label=consumer_label_secret_owned_by_hello | grep 'owned-by: hello-app'
 
 	# Check owner unit's k8s role rules to ensure we are using the k8s secret provider.
-	microk8s kubectl -n model-secrets-k8s get roles/unit-hello-0 -o json | jq ".rules[] | select( has(\"resourceNames\") ) | select( .resourceNames[] | contains(\"${secret_owned_by_hello_0}-1\") ) | .verbs[0] " | grep '*'
-	microk8s kubectl -n model-secrets-k8s get roles/unit-hello-0 -o json | jq ".rules[] | select( has(\"resourceNames\") ) | select( .resourceNames[] | contains(\"${secret_owned_by_hello}-1\") ) | .verbs[0] " | grep '*'
+	microk8s kubectl -n model-secrets-k8s get roles/unit-hello-0 -o json | jq ".rules[] | select( has(\"resourceNames\") ) | select( .resourceNames[] | contains(\"${secret_owned_by_hello_0}-1\") ) | .verbs[0] " | grep -F '*'
+	microk8s kubectl -n model-secrets-k8s get roles/unit-hello-0 -o json | jq ".rules[] | select( has(\"resourceNames\") ) | select( .resourceNames[] | contains(\"${secret_owned_by_hello}-1\") ) | .verbs[0] " | grep -F '*'
 
 	# Check consumer unit's k8s role rules to ensure we are using the k8s secret provider.
 	microk8s kubectl -n model-secrets-k8s get roles/unit-nginx-0 -o json | jq ".rules[] | select( has(\"resourceNames\") ) | select( .resourceNames[] | contains(\"${secret_owned_by_hello_0}-1\") ) | .verbs[0] " | grep 'get'
 	microk8s kubectl -n model-secrets-k8s get roles/unit-nginx-0 -o json | jq ".rules[] | select( has(\"resourceNames\") ) | select( .resourceNames[] | contains(\"${secret_owned_by_hello}-1\") ) | .verbs[0] " | grep 'get'
 
-	# Is the data base64 encoded twice??!!
+	# TODO: this is a bug in the k8s secret provider. We should not need to do base64 encoding twice. Remove the 2nd decoding once the bug is fixed.
 	# Check secret content via k8s API to ensure we are using the k8s secret provider.
 	microk8s kubectl -n model-secrets-k8s get "secrets/${secret_owned_by_hello_0}-1" -o json | jq -r '.data["owned-by"]' | base64 -d | base64 -d | grep "hello/0"
 	microk8s kubectl -n model-secrets-k8s get "secrets/${secret_owned_by_hello}-1" -o json | jq -r '.data["owned-by"]' | base64 -d | base64 -d | grep "hello-app"
 
 	# secret-revoke by relation ID.
-	juju exec --unit hello/0 -- secret-revoke $secret_owned_by_hello --relation "$relation_id"
-	echo $(juju exec --unit nginx/0 -- secret-get "$secret_owned_by_hello" 2>&1) | grep 'permission denied'
+	juju exec --unit hello/0 -- secret-revoke "$secret_owned_by_hello" --relation "$relation_id"
+	check_contains "$(juju exec --unit nginx/0 -- secret-get "$secret_owned_by_hello" 2>&1)" 'permission denied'
 
 	# secret-revoke by app name.
 	juju exec --unit hello/0 -- secret-revoke "$secret_owned_by_hello_0" --app nginx
-	echo $(juju exec --unit nginx/0 -- secret-get "$secret_owned_by_hello_0" 2>&1) | grep 'permission denied'
+	check_contains "$(juju exec --unit nginx/0 -- secret-get "$secret_owned_by_hello_0" 2>&1)" 'permission denied'
 
 	# secret-remove.
 	juju exec --unit hello/0 -- secret-remove "$secret_owned_by_hello_0"
-	echo $(juju exec --unit hello/0 -- secret-get "$secret_owned_by_hello_0" 2>&1) | grep 'not found'
+	check_contains "$(juju exec --unit hello/0 -- secret-get "$secret_owned_by_hello_0" 2>&1)" 'not found'
 	juju exec --unit hello/0 -- secret-remove "$secret_owned_by_hello"
-	echo $(juju exec --unit hello/0 -- secret-get "$secret_owned_by_hello" 2>&1) | grep 'not found'
+	check_contains "$(juju exec --unit hello/0 -- secret-get "$secret_owned_by_hello" 2>&1)" 'not found'
 
 	destroy_model "model-secrets-k8s"
 }
 
-test_secrets_k8s() {
-	if [ "$(skip 'test_secrets_k8s')" ]; then
-		echo "==> TEST SKIPPED: test_secrets_k8s"
+test_secrets() {
+	if [ "$(skip 'test_secrets')" ]; then
+		echo "==> TEST SKIPPED: test_secrets"
 		return
 	fi
 
@@ -98,6 +97,6 @@ test_secrets_k8s() {
 
 		cd .. || exit
 
-		run "run_secrets_k8s"
+		run "run_secrets"
 	)
 }

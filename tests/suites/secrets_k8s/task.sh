@@ -1,6 +1,6 @@
-test_secrets() {
-	if [ "$(skip 'test_secrets')" ]; then
-		echo "==> TEST SKIPPED: secrets tests"
+test_secrets_k8s() {
+	if [ "$(skip 'test_secrets_k8s')" ]; then
+		echo "==> TEST SKIPPED: test_secrets_k8s tests"
 		return
 	fi
 
@@ -9,19 +9,18 @@ test_secrets() {
 	echo "==> Checking for dependencies"
 	check_dependencies juju
 
-	file="${TEST_DIR}/test-secrets.log"
+	file="${TEST_DIR}/test-secrets-k8s.log"
 
 	if [[ -n ${OPERATOR_IMAGE_ACCOUNT:-} ]]; then
 		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --config caas-image-repo=${OPERATOR_IMAGE_ACCOUNT}"
 	fi
-	# TODO: remove this we do not need it anymore.
+
+	# TODO: remove feature flag when secret is fully ready.
 	export JUJU_DEV_FEATURE_FLAGS=developer-mode
 
-	bootstrap "test-secrets" "${file}"
+	bootstrap "test-secrets-k8s" "${file}"
 
-	test_secrets_juju
-	test_secrets_k8s
-	test_secrets_vault
+	test_secrets
 
-	destroy_controller "test-secrets"
+	destroy_controller "test-secrets-k8s"
 }
