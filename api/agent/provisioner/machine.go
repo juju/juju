@@ -108,10 +108,6 @@ type MachineProvisioner interface {
 	// to the lifecycles of containers of the specified type on the machine.
 	WatchContainers(ctype instance.ContainerType) (watcher.StringsWatcher, error)
 
-	// WatchAllContainers returns a StringsWatcher that notifies of changes
-	// to the lifecycles of all containers on the machine.
-	WatchAllContainers() (watcher.StringsWatcher, error)
-
 	// SetSupportedContainers updates the list of containers supported by this machine.
 	SetSupportedContainers(containerTypes ...instance.ContainerType) error
 
@@ -467,29 +463,6 @@ func (m *Machine) WatchContainers(ctype instance.ContainerType) (watcher.Strings
 	args := params.WatchContainers{
 		Params: []params.WatchContainer{
 			{MachineTag: m.tag.String(), ContainerType: string(ctype)},
-		},
-	}
-	err := m.st.facade.FacadeCall("WatchContainers", args, &results)
-	if err != nil {
-		return nil, err
-	}
-	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	w := apiwatcher.NewStringsWatcher(m.st.facade.RawAPICaller(), result)
-	return w, nil
-}
-
-// WatchAllContainers implements MachineProvisioner.WatchAllContainers.
-func (m *Machine) WatchAllContainers() (watcher.StringsWatcher, error) {
-	var results params.StringsWatchResults
-	args := params.WatchContainers{
-		Params: []params.WatchContainer{
-			{MachineTag: m.tag.String()},
 		},
 	}
 	err := m.st.facade.FacadeCall("WatchContainers", args, &results)

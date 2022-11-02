@@ -569,6 +569,13 @@ func (s *MachineSuite) TestManageModelServesAPI(c *gc.C) {
 	})
 }
 
+type noOpLogger struct{}
+
+func (noOpLogger) Warningf(string, ...interface{})  {}
+func (noOpLogger) Criticalf(string, ...interface{}) {}
+func (noOpLogger) Debugf(string, ...interface{})    {}
+func (noOpLogger) Tracef(string, ...interface{})    {}
+
 func (s *MachineSuite) TestIAASControllerPatchUpdateManagerFile(c *gc.C) {
 	s.assertJobWithState(c, state.JobManageModel,
 		func() {
@@ -581,8 +588,8 @@ func (s *MachineSuite) TestIAASControllerPatchUpdateManagerFile(c *gc.C) {
 			c.Assert(ok, jc.IsTrue)
 			st, err := api.Open(apiInfo, fastDialOpts)
 			c.Assert(err, jc.ErrorIsNil)
-			defer st.Close()
-			_, err = a.startAPIWorkers(st)
+			defer func() { _ = st.Close() }()
+			err = a.machineStartup(st, noOpLogger{})
 			c.Assert(err, jc.ErrorIsNil)
 		},
 	)
@@ -600,8 +607,8 @@ func (s *MachineSuite) TestIAASControllerPatchUpdateManagerFileErrored(c *gc.C) 
 			c.Assert(ok, jc.IsTrue)
 			st, err := api.Open(apiInfo, fastDialOpts)
 			c.Assert(err, jc.ErrorIsNil)
-			defer st.Close()
-			_, err = a.startAPIWorkers(st)
+			defer func() { _ = st.Close() }()
+			err = a.machineStartup(st, noOpLogger{})
 			c.Assert(err, gc.ErrorMatches, `unknown error`)
 		},
 	)
@@ -619,8 +626,8 @@ func (s *MachineSuite) TestIAASControllerPatchUpdateManagerFileNonZeroExitCode(c
 			c.Assert(ok, jc.IsTrue)
 			st, err := api.Open(apiInfo, fastDialOpts)
 			c.Assert(err, jc.ErrorIsNil)
-			defer st.Close()
-			_, err = a.startAPIWorkers(st)
+			defer func() { _ = st.Close() }()
+			err = a.machineStartup(st, noOpLogger{})
 			c.Assert(err, gc.ErrorMatches, `cannot patch /etc/update-manager/release-upgrades: unknown error`)
 		},
 	)
@@ -1173,6 +1180,9 @@ func (s *MachineSuite) TestMachineWorkers(c *gc.C) {
 	// Wait for it to stabilise, running as normal.
 	matcher := agenttest.NewWorkerMatcher(c, tracker, a.Tag().String(),
 		append(alwaysMachineWorkers, notMigratingMachineWorkers...))
+	// kvm-container-provisioner only runs where the hardware the
+	// test is run on supports kvm. This is not optimal.
+	matcher.AddOptionalWorkers([]string{"kvm-container-provisioner"})
 	agenttest.WaitMatch(c, matcher.Check, coretesting.LongWait, s.BackingState.StartSync)
 }
 
