@@ -419,7 +419,7 @@ func (c *Client) DashboardConnectionInfo(factory ProxierFactory) (DashboardConne
 	}
 
 	if result.Error != nil {
-		return rval, result.Error
+		return rval, params.TranslateWellKnownError(result.Error)
 	}
 
 	if result.SSHConnection != nil {

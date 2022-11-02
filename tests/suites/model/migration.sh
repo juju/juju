@@ -63,9 +63,8 @@ run_model_migration_version() {
 	export JUJU_VERSION=$juju_version_without_build_number
 	major_minor=$(echo "$JUJU_VERSION" | cut -d'-' -f1 | cut -d'.' -f1,2)
 
-	# test against beta channel for devel
-	# TODO: change back to stable once 3.0 released.
-	channel="$major_minor/candidate"
+	# test against 3.0/stable channel for 3.0 and develop branch.
+	channel="$major_minor/stable"
 
 	stable_version=$(snap info juju | yq ".channels[\"$channel\"]" | cut -d' ' -f1)
 	echo "stable_version ==> $stable_version"

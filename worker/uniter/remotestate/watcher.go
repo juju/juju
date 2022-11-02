@@ -340,6 +340,15 @@ func (w *RemoteStateWatcher) ExpireRevisionCompleted(expiredRevision string) {
 	}
 }
 
+// RemoveSecretsCompleted is called when secrets have been deleted.
+func (w *RemoteStateWatcher) RemoveSecretsCompleted(uris []string) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	deleted := set.NewStrings(uris...)
+	currentDeleted := set.NewStrings(w.current.DeletedSecrets...)
+	w.current.DeletedSecrets = currentDeleted.Difference(deleted).Values()
+}
+
 func (w *RemoteStateWatcher) setUp(unitTag names.UnitTag) (err error) {
 	// TODO(axw) move this logic
 	defer func() {
@@ -987,6 +996,7 @@ func (w *RemoteStateWatcher) secretsChanged(secretURIs []string) error {
 		}
 	}
 	w.logger.Debugf("deleted secrets: %v", w.current.DeletedSecrets)
+	w.logger.Debugf("obsolete secrets: %v", w.current.ObsoleteSecretRevisions)
 	return nil
 }
 

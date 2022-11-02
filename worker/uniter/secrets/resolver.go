@@ -32,13 +32,16 @@ type secretsResolver struct {
 	secretsTracker   SecretStateTracker
 	rotatedSecrets   func(url string)
 	expiredRevisions func(rev string)
+	deletedSecrets   func(uris []string)
 }
 
 // NewSecretsResolver returns a new Resolver that returns operations
 // to rotate, expire, or run other secret related hooks.
-func NewSecretsResolver(logger Logger, secretsTracker SecretStateTracker, rotatedSecrets func(string), expiredRevisions func(string)) resolver.Resolver {
+func NewSecretsResolver(logger Logger, secretsTracker SecretStateTracker,
+	rotatedSecrets func(string), expiredRevisions func(string), deletedSecrets func([]string),
+) resolver.Resolver {
 	return &secretsResolver{logger: logger, secretsTracker: secretsTracker,
-		rotatedSecrets: rotatedSecrets, expiredRevisions: expiredRevisions}
+		rotatedSecrets: rotatedSecrets, expiredRevisions: expiredRevisions, deletedSecrets: deletedSecrets}
 }
 
 // NextOp is part of the resolver.Resolver interface.
@@ -77,7 +80,14 @@ func (s *secretsResolver) NextOp(
 		}
 	}
 	if len(remoteState.DeletedSecrets) > 0 {
-		return opFactory.NewNoOpSecretsRemoved(remoteState.DeletedSecrets)
+		op, err := opFactory.NewNoOpSecretsRemoved(remoteState.DeletedSecrets)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		opCompleted := func() {
+			s.deletedSecrets(remoteState.DeletedSecrets)
+		}
+		return &secretCompleter{op, opCompleted}, nil
 	}
 	for uri, revs := range remoteState.ObsoleteSecretRevisions {
 		s.logger.Debugf("%s: resolving obsolete %v", uri, revs)
