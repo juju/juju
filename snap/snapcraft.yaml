@@ -129,6 +129,14 @@ hooks:
   disconnect-plug-peers: {}
   post-refresh: {}
 
+slots:
+  juju-bin:
+    interface: content
+    content: juju
+    source:
+      read:
+        - $SNAP/bin
+
 plugs:
   peers:
     interface: content
