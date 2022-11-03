@@ -93,6 +93,10 @@ def main():
 		last_updated_map[bug.id] = last_updated
 
 		def handle_ancient():
+			# Expired check shouldn't be needed as searchTasks should filter
+			# those out, but play it safe.
+			if task.status == 'Expired':
+				return False
 			if last_updated < now - datetime.timedelta(days=365*5):
 				if task.milestone_link:
 					print(f'Ancient bug has milestone: {bug.web_link} {bug.title[:60]!r}: {task.milestone_link}')
@@ -127,7 +131,7 @@ def main():
 				if handle_ancient():
 					continue
 
-		if last_updated < now - datetime.timedelta(days=365*2):
+		if task.importance != 'Low' and last_updated < now - datetime.timedelta(days=365*2):
 			if task.milestone_link:
 				print(f'Old bug has milestone: {bug.web_link} {bug.title[:60]!r}: {task.milestone_link}')
 			olds.append(bug)
