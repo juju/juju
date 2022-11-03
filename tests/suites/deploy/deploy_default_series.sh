@@ -6,20 +6,19 @@ run_deploy_default_series() {
 
 	ensure "${model_name}" "${file}"
 
-  # TODO(basebandit): remove model config default series once the discrepancy with charmhub api has been solved
-	juju model-config default-series=jammy
+	juju model-config default-series=focal
 	juju deploy ubuntu
 	juju deploy cs:ubuntu csubuntu
 
 	ubuntu_base_name=$(juju status --format=json | jq ".applications.ubuntu.base.name")
 	ubuntu_base_ch=$(juju status --format=json | jq ".applications.ubuntu.base.channel")
 	echo "$ubuntu_base_name" | check "ubuntu"
-	echo "$ubuntu_base_ch" | check "22.04"
+	echo "$ubuntu_base_ch" | check "20.04"
 
 	csubuntu_base_name=$(juju status --format=json | jq ".applications.csubuntu.base.name")
 	csubuntu_base_ch=$(juju status --format=json | jq ".applications.csubuntu.base.channel")
 	echo "$csubuntu_base_name" | check "ubuntu"
-	echo "$csubuntu_base_ch" | check "22.04"
+	echo "$csubuntu_base_ch" | check "20.04"
 
 	destroy_model "${model_name}"
 }
@@ -32,19 +31,19 @@ run_deploy_not_default_series() {
 
 	ensure "${model_name}" "${file}"
 
-	juju model-config default-series=bionic
-	juju deploy ubuntu --series focal
-	juju deploy cs:ubuntu csubuntu --series focal
+	juju model-config default-series=focal
+	juju deploy ubuntu --series jammy
+	juju deploy cs:ubuntu csubuntu --series jammy
 
 	ubuntu_base_name=$(juju status --format=json | jq ".applications.ubuntu.base.name")
 	ubuntu_base_ch=$(juju status --format=json | jq ".applications.ubuntu.base.channel")
 	echo "$ubuntu_base_name" | check "ubuntu"
-	echo "$ubuntu_base_ch" | check "20.04"
+	echo "$ubuntu_base_ch" | check "22.04"
 
 	csubuntu_base_name=$(juju status --format=json | jq ".applications.csubuntu.base.name")
 	csubuntu_base_ch=$(juju status --format=json | jq ".applications.csubuntu.base.channel")
 	echo "$csubuntu_base_name" | check "ubuntu"
-	echo "$csubuntu_base_ch" | check "20.04"
+	echo "$csubuntu_base_ch" | check "22.04"
 
 	destroy_model "${model_name}"
 }
