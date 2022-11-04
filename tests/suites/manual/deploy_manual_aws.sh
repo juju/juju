@@ -37,9 +37,8 @@ run_deploy_manual_aws() {
 	vpc_id=$(echo "${OUT}" | jq -r '.VpcId' || true)
 	if [[ -z ${vpc_id} ]]; then
 		# VPC doesn't exist, create one along with all the required setup.
-		vpc_id=$(aws ec2 create-vpc --cidr-block 10.0.0.0/28 --query 'Vpc.VpcId' --output text)
+		vpc_id=$(aws ec2 create-vpc --cidr-block 10.0.0.0/28 --query 'Vpc.VpcId' --tag-specifications 'ResourceType=vpc,Tags=[{Key=Name,Value=manual-deploy}]' --output text)
 		aws ec2 wait vpc-available --vpc-ids "${vpc_id}"
-		aws ec2 create-tags --resources "${vpc_id}" --tags Key=Name,Value="manual-deploy"
 
 		aws ec2 modify-vpc-attribute --vpc-id "${vpc_id}" --enable-dns-support '{"Value":true}'
 		aws ec2 modify-vpc-attribute --vpc-id "${vpc_id}" --enable-dns-hostnames '{"Value":true}'
@@ -47,8 +46,7 @@ run_deploy_manual_aws() {
 		igw_id=$(aws ec2 create-internet-gateway --query 'InternetGateway.InternetGatewayId' --output text)
 		aws ec2 attach-internet-gateway --internet-gateway-id "${igw_id}" --vpc-id "${vpc_id}"
 
-		subnet_id=$(aws ec2 create-subnet --vpc-id "${vpc_id}" --cidr-block 10.0.0.0/28 --query 'Subnet.SubnetId' --output text)
-		aws ec2 create-tags --resources "${subnet_id}" --tags Key=Name,Value="manual-deploy"
+		subnet_id=$(aws ec2 create-subnet --vpc-id "${vpc_id}" --cidr-block 10.0.0.0/28 --query 'Subnet.SubnetId' --tag-specifications 'ResourceType=subnet,Tags=[{Key=Name,Value=manual-deploy}]' --output text)
 
 		routetable_id=$(aws ec2 create-route-table --vpc-id "${vpc_id}" --query 'RouteTable.RouteTableId' --output text)
 
