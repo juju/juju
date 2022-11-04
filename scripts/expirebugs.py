@@ -126,7 +126,8 @@ def main():
 			last_updated_map[bug.id] = last_updated
 
 			if last_updated != orig_last_updated:
-				print(f'Recomputed last_updated ignoring bot changes: {bug.web_link}')
+				if args.verbose:
+					print(f'Recomputed last_updated ignoring bot changes: {bug.web_link}')
 				# Need to do this again after we've recalculated last_updated
 				if handle_ancient():
 					continue
