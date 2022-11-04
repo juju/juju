@@ -12,11 +12,11 @@ run_relation_list_app() {
 
 	echo "Deploy 2 departer instances"
 	juju deploy ./testcharms/charms/dummy-sink
-  	juju deploy ./testcharms/charms/dummy-source
+	juju deploy ./testcharms/charms/dummy-source
 
 	echo "Establish relation"
-  	juju relate dummy-sink dummy-source
-  	juju config dummy-source token=becomegreen
+	juju relate dummy-sink dummy-source
+	juju config dummy-source token=becomegreen
 
 	wait_for "dummy-sink" "$(idle_condition "dummy-sink" 0 0)"
 	wait_for "dummy-source" "$(idle_condition "dummy-source" 1 0)"
