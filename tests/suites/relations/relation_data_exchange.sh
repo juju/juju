@@ -20,10 +20,10 @@ run_relation_data_exchange() {
 	wait_for "dummy-source" "$(idle_condition "dummy-source" 1 0)"
 
 	echo "Get the leader unit name"
-	non_leader_dummy_sink_unit=$(juju status dummy-sink --format json | jq -r ".applications.\"dummy-sink\".units | to_entries[] | select(.value.leader!=true) | .key")
+	non_leader_dummy_sink_unit=$(juju status dummy-sink --format json | jq -r '.applications."dummy-sink".units | to_entries[] | select(.value.leader!=true) | .key')
 	dummy_sink_relation_id=$(juju exec --unit "dummy-sink/leader" 'relation-ids source')
 	dummy_source_relation_id=$(juju exec --unit "dummy-source/leader" 'relation-ids sink')
-    # stop there
+	# stop there
 	echo "Block until the relation is joined; otherwise, the relation-set commands below will fail"
 	attempt=0
 	while true; do
