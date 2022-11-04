@@ -11,7 +11,7 @@ run_deploy_coslite() {
 	overlay_path="./tests/suites/coslite/overlay"
 	juju deploy cos-lite --trust --channel=stable
 	echo "Wait for all unit agents to be in idle condition"
-	wait_for 0 "$(idle_list)" 1800
+	wait_for 0 "$(not_idle_count) | length" 1800
 
 	# run-action will change in 3.0
 	admin_passwd=$(juju run-action --wait grafana/0 get-admin-password --format json | jq '.["unit-grafana-0"]["results"]["admin-password"]')
@@ -20,37 +20,43 @@ run_deploy_coslite() {
 		exit 1
 	fi
 
-	assert_dashboards
+  echo "check if prometheus is ready"
+	prometheus_url=$(get_proxied_unit_url "prometheus" 0)
+	check_ready "http://$prometheus_url/-/ready" 200
+
+	echo "check if catalogue is ready"
+	catalogue_url=$(get_proxied_unit_url "catalogue")
+	check_ready "http://$catalogue_url/" 200
+
+  echo "check if loki is ready"
+	loki_url=$(get_proxied_unit_url "loki" 0)
+	check_ready "http://$loki_url/ready" 200
+
+	alertmanager_url=$(get_proxied_unit_url "alertmanager")
+	echo "Check if alertmanager is ready"
+	check_ready "http://$alertmanager_url/-/ready" 200
+
+	# TODO(basebandit): Change this when Grafana is exposed over the ingress
+	grafana_ip=$(juju status --format json | jq -r '.applications["grafana"]["units"]["grafana/0"].address')
+	echo "Check if grafana dashboard is reachable"
+	check_ready "http://$grafana_ip:3000" 200
+
 	echo "cos lite tests passed"
 	# TODO(basebandit): enable destroy-model once model teardown has been fixed for k8s models.
 	#destroy_model "${model_name}"
 }
 
-assert_dashboards() {
-	# Assert the web dashboards are reachable
-	traefik_ip=$(juju status --format json | jq '.applications["traefik"]["units"]["traefik/0"].address' | tr -d '"')
-	get_proxied_unit_url "prometheus" 0
-	prometheus_url_path=$(get_proxied_unit_url "prometheus" 0 | awk -F / '{print "/"$NF}')
-	echo "check if prometheus is ready to serve traffic"
-	# Replace the external, metallb URL with the one of traefik, to skip a lot of routing 'fun' (avoids tests failing intermittently)
-	check_ready http://"$traefik_ip":80"$prometheus_url_path"/-/ready 200
-
-	echo "Check if alertmanager is ready to serve traffic"
-	alertmanager_ip=$(juju status --format json | jq '.applications["alertmanager"]["units"]["alertmanager/0"].address' | tr -d '"')
-	# TODO(basebandit): Change this when AM is exposed over the ingress
-	check_ready http://"$alertmanager_ip":9093 200
-
-	echo "Check if grafana is ready to serve traffic"
-	grafana_ip=$(juju status --format json | jq '.applications["grafana"]["units"]["grafana/0"].address' | tr -d '"')
-	check_ready http://"$grafana_ip":3000 200
-}
-
 get_proxied_unit_url() {
-	local unit unit_num
+	local unit unit_num path
 	unit=${1}
 	unit_num=${2}
-	proxied_endpoints=$(juju run-action --wait traefik/0 show-proxied-endpoints --format json | jq -r '.[] | .results["proxied-endpoints"]')
-	echo "$proxied_endpoints" | jq ".[\"$unit/$unit_num\"][\"url\"]" | tr -d '"'
+	if [ -n "$unit_num" ]; then
+		path=".[\"$unit/$unit_num\"][\"url\"]"
+	else
+		path=".[\"$unit\"][\"url\"]"
+	fi
+	proxied_endpoints=$(juju run-action --wait traefik/0 show-proxied-endpoints --format json | jq -r '.[] | .results["proxied-endpoints"]' | jq -r "$path")
+	echo "$proxied_endpoints"
 }
 
 check_ready() {
