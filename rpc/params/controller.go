@@ -144,7 +144,7 @@ type DashboardConnectionProxy struct {
 // DashboardConnectionSSHTunnel represents an ssh tunnel connection to the Juju
 // Dashboard
 type DashboardConnectionSSHTunnel struct {
-	Entity string `json:"entity"`
+	Entity string `json:"entity,omitempty"`
 	Host   string `json:"host"`
 	Port   string `json:"port"`
 }

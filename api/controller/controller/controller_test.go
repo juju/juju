@@ -419,8 +419,9 @@ func (s *Suite) TestDashboardConnectionInfo(c *gc.C) {
 			c.Assert(result, gc.FitsTypeOf, &params.DashboardConnectionInfo{})
 			*(result.(*params.DashboardConnectionInfo)) = params.DashboardConnectionInfo{
 				SSHConnection: &params.DashboardConnectionSSHTunnel{
-					Host: "10.1.1.1",
-					Port: "1234",
+					Entity: "dashboard/leader",
+					Host:   "10.1.1.1",
+					Port:   "1234",
 				},
 			}
 			return nil

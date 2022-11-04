@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -29,6 +30,7 @@ type baseDashboardSuite struct {
 	tunnelProxier *proxytesting.MockTunnelProxier
 	store         *jujuclient.MemStore
 	signalCh      chan os.Signal
+	sshCmd        cmd.Command
 }
 
 type mockControllerAPI struct {
@@ -172,4 +174,63 @@ func (s *dashboardSuite) TestDashboardError(c *gc.C) {
 	out, err := s.run(c, "--browser")
 	c.Assert(err, gc.ErrorMatches, `getting dashboard address for controller "kontroll": bad wolf`)
 	c.Assert(out, gc.Equals, "")
+}
+
+func (s *dashboardSuite) TestResolveSSHTarget(c *gc.C) {
+	s.controllerAPI = &mockControllerAPI{
+		info: controller.DashboardConnectionInfo{
+			SSHTunnel: &controller.DashboardConnectionSSHTunnel{
+				Entity: "dashboard/leader", // TODO: does it work in a different model?
+				Host:   "10.35.42.151",
+				Port:   "8080",
+			},
+		},
+	}
+
+	fakeSSHCmd := newFakeSSHCmd()
+	s.sshCmd = fakeSSHCmd
+
+	_, err := s.run(c)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(fakeSSHCmd.args[0], gc.Equals, "dashboard/leader")
+}
+
+func (s *dashboardSuite) TestResolveSSHTargetLegacy(c *gc.C) {
+	s.controllerAPI = &mockControllerAPI{
+		info: controller.DashboardConnectionInfo{
+			SSHTunnel: &controller.DashboardConnectionSSHTunnel{
+				Host: "10.35.42.151",
+				Port: "8080",
+			},
+		},
+	}
+
+	fakeSSHCmd := newFakeSSHCmd()
+	s.sshCmd = fakeSSHCmd
+
+	_, err := s.run(c)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(fakeSSHCmd.args[0], gc.Equals, "ubuntu@10.35.42.151")
+}
+
+func newFakeSSHCmd() fakeCmd {
+	return fakeCmd{&cmd.CommandBase{}, []string{}}
+}
+
+type fakeCmd struct {
+	*cmd.CommandBase
+	args []string
+}
+
+func (f *fakeCmd) Info() *cmd.Info {
+	return &cmd.Info{}
+}
+
+func (f *fakeCmd) Init(args []string) error {
+	f.args = args
+	return nil
+}
+
+func (f *fakeCmd) Run(ctx *cmd.Context) error {
+	return nil
 }
