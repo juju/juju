@@ -398,8 +398,9 @@ type DashboardConnectionInfo struct {
 }
 
 type DashboardConnectionSSHTunnel struct {
-	Host string
-	Port string
+	Entity string
+	Host   string
+	Port   string
 }
 
 // ProxierFactory is an interface type representing a factory that can make a
@@ -424,8 +425,9 @@ func (c *Client) DashboardConnectionInfo(factory ProxierFactory) (DashboardConne
 
 	if result.SSHConnection != nil {
 		rval.SSHTunnel = &DashboardConnectionSSHTunnel{
-			Host: result.SSHConnection.Host,
-			Port: result.SSHConnection.Port,
+			Entity: result.SSHConnection.Entity,
+			Host:   result.SSHConnection.Host,
+			Port:   result.SSHConnection.Port,
 		}
 		return rval, nil
 	}

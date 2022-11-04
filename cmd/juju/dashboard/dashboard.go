@@ -210,9 +210,15 @@ func tunnelSSHRunner(
 	localPort int,
 	sshCommand cmd.Command,
 ) connectionRunner {
+	target := tunnel.Entity
+	if target == "" {
+		// Backwards compatibility with 3.0.0 controllers that only provide IP address
+		target = "ubuntu@" + tunnel.Host
+	}
+
 	return func(ctx context.Context, callBack urlCallBack) error {
 		if err := sshCommand.Init([]string{
-			"ubuntu@" + tunnel.Host,
+			target,
 			"-N",
 			"-L",
 			fmt.Sprintf("%d:%s:%s", localPort, tunnel.Host, tunnel.Port),

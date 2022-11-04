@@ -182,24 +182,31 @@ func (c *ControllerAPI) MongoVersion() (params.StringResult, error) {
 // dashboardConnectionInforForCAAS returns a dashboard connection for a Juju
 // dashboard deployed on CAAS.
 func (c *ControllerAPI) dashboardConnectionInfoForCAAS(
-	model *state.Model,
+	m *state.Model,
 	applicationName string,
 ) (*params.DashboardConnectionProxy, error) {
-	configGetter := stateenvirons.EnvironConfigGetter{Model: model}
-	environ, err := common.EnvironFuncForModel(model, configGetter)()
+	configGetter := stateenvirons.EnvironConfigGetter{Model: m}
+	environ, err := common.EnvironFuncForModel(m, configGetter)()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	caasBroker, ok := environ.(caas.Broker)
 	if !ok {
-		return nil, errors.New("cannot get cass environ for model")
+		return nil, errors.New("cannot get CAAS environ for model")
 	}
 
-	// TODO: (tlm) We are hardcoding port 80 here because the kubernetes
-	// dashboard charm doesn't have any config that we can look at to work out
-	// what it is. A bug has been raised here: https://github.com/canonical-web-and-design/juju-dashboard-charm/issues/15
-	proxier, err := caasBroker.ProxyToApplication(applicationName, "80")
+	dashboardApp, err := c.state.Application(applicationName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	cfg, err := dashboardApp.CharmConfig(model.GenerationMaster)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	port, ok := cfg["port"]
+
+	proxier, err := caasBroker.ProxyToApplication(applicationName, fmt.Sprint(port))
 	if err != nil {
 		return nil, err
 	}
@@ -232,8 +239,9 @@ func (c *ControllerAPI) dashboardConnectionInfoForIAAS(
 	}
 
 	return &params.DashboardConnectionSSHTunnel{
-		Host: fmt.Sprintf("%s", addr),
-		Port: fmt.Sprintf("%d", port),
+		Entity: fmt.Sprintf("%s/leader", appName),
+		Host:   fmt.Sprintf("%s", addr),
+		Port:   fmt.Sprintf("%d", port),
 	}, nil
 }
 
@@ -290,7 +298,7 @@ func (c *ControllerAPI) DashboardConnectionInfo() (params.DashboardConnectionInf
 			return rval, err
 		}
 
-		return rval, errors.NotFoundf("no dashboard found")
+		return rval, errors.NotFoundf("dashboard")
 	}
 	conInfo, err := getDashboardInfo()
 
