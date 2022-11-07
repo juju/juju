@@ -89,7 +89,7 @@ require (
 	github.com/juju/version/v2 v2.0.1
 	github.com/juju/viddy v0.0.0-beta5
 	github.com/juju/webbrowser v1.0.0
-	github.com/juju/worker/v3 v3.0.1
+	github.com/juju/worker/v3 v3.1.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kr/pretty v0.3.1-0.20220829230305-3cd153a126da
 	github.com/lxc/lxd v0.0.0-20220816180258-7e0418163fa9
@@ -260,8 +260,8 @@ require (
 	go.opencensus.io v0.23.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
-	golang.org/x/term v0.0.0-20220526004731-065cf7ba2467 // indirect
-	golang.org/x/text v0.3.7 // indirect
+	golang.org/x/term v0.1.0 // indirect
+	golang.org/x/text v0.4.0 // indirect
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20220720214146-176da50484ac // indirect
