@@ -138,7 +138,7 @@ func NewSSHCommand(
 	hostChecker jujussh.ReachableChecker,
 	isTerminal func(interface{}) bool,
 	retryStrategy retry.CallArgs,
-) cmd.Command {
+) modelcmd.ModelCommand {
 	c := &sshCommand{
 		hostChecker:   hostChecker,
 		isTerminal:    isTerminal,
@@ -158,7 +158,7 @@ type sshCommand struct {
 	modelType model.ModelType
 	modelcmd.ModelCommandBase
 
-	sshMachine
+	SSHMachine
 	sshContainer
 
 	provider sshProvider
@@ -171,7 +171,7 @@ type sshCommand struct {
 }
 
 func (c *sshCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.sshMachine.SetFlags(f)
+	c.SSHMachine.SetFlags(f)
 	c.sshContainer.SetFlags(f)
 	f.Var(&c.pty, "pty", "Enable pseudo-tty allocation")
 }
@@ -195,12 +195,23 @@ func (c *sshCommand) Init(args []string) (err error) {
 	if c.modelType == model.CAAS {
 		c.provider = &c.sshContainer
 	} else {
-		c.provider = &c.sshMachine
+		c.provider = &c.SSHMachine
 	}
 	c.provider.setTarget(args[0])
 	c.provider.setArgs(args[1:])
 	c.provider.setHostChecker(c.hostChecker)
 	c.provider.setRetryStrategy(c.retryStrategy)
+
+	fmt.Printf(`
+
+cmd/juju/ssh/ssh.go
+
+args: %#v
+
+c.ModelCommandBase: %#v
+
+`, args, c.ModelCommandBase)
+
 	return nil
 }
 

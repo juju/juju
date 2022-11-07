@@ -15,6 +15,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/webbrowser"
+	"github.com/kr/pretty"
 
 	"github.com/juju/juju/api/controller/controller"
 	jujucmd "github.com/juju/juju/cmd"
@@ -51,7 +52,7 @@ type dashboardCommand struct {
 	newAPIFunc func() (ControllerAPI, bool, error)
 
 	port           int
-	embeddedSSHCmd cmd.Command
+	embeddedSSHCmd modelcmd.ModelCommand
 	signalCh       chan os.Signal
 }
 
@@ -208,38 +209,53 @@ func (c *dashboardCommand) Run(ctx *cmd.Context) error {
 func tunnelSSHRunner(
 	tunnel controller.DashboardConnectionSSHTunnel,
 	localPort int,
-	sshCommand cmd.Command,
+	sshCommand modelcmd.ModelCommand,
+	// sshProvider ssh.SSHMachine,
 ) connectionRunner {
 
-	var target []string
+	pretty.Println(tunnel)
+
+	target := []string{}
+
+	// TODO: this doesn't work. how to set model on the model command base????
+	//if tunnel.Model != "" {
+	//	target = append(target, "-m", tunnel.Model)
+	//}
+
 	if tunnel.Entity == "" {
 		// Backwards compatibility with 3.0.0 controllers that only provide IP address
-		target = []string{"ubuntu@" + tunnel.Host}
+		target = append(target, "ubuntu@"+tunnel.Host)
 	} else {
-		target = []string{tunnel.Entity}
-		if tunnel.Model != "" {
-			target = append(target, "-m", tunnel.Model)
-		}
+		target = append(target, tunnel.Entity)
 	}
 
 	args := append(target,
 		"-N",
 		"-L",
 		fmt.Sprintf("%d:%s:%s", localPort, tunnel.Host, tunnel.Port))
+	fmt.Println(args)
 
 	return func(ctx context.Context, callBack urlCallBack) error {
+		//target := tunnel.Entity
+		//if target == "" {
+		//	target = "ubuntu@" + tunnel.Host
+		//}
+		//sshProvider.setTarget(target)
+
+		err := sshCommand.SetModelIdentifier(tunnel.Model, true)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
 		if err := sshCommand.Init(args); err != nil {
 			return errors.Trace(err)
 		}
 
 		callBack(fmt.Sprintf("http://localhost:%d", localPort))
 
-		// TODO(tlm)
-		// How we call the embeddedSSHCmd is a little wrong here. We need to
-		// support passing a context onto the sub command so that everything can
-		// shutdown cleanly.
 		// TODO(wallyworld) - extract the core ssh machinery and use directly.
-		cmdCtx, _ := cmd.DefaultContext()
+		defCtx, err := cmd.DefaultContext()
+		cmdCtx := defCtx.With(ctx)
 		return sshCommand.Run(cmdCtx)
 	}
 }
