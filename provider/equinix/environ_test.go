@@ -46,6 +46,7 @@ func (s *environProviderSuite) SetUpSuite(c *gc.C) {
 func (s *environProviderSuite) TearDownSuite(c *gc.C) {
 	s.IsolationSuite.TearDownSuite(c)
 }
+
 func (s *environProviderSuite) TearDownTest(c *gc.C) {
 	s.IsolationSuite.TearDownTest(c)
 }
@@ -267,6 +268,7 @@ func NewPackngoCreateDeviceMatcher(hostname, itype, metro, os, projectID string)
 func (m *packngoCreateDeviceMatcher) String() string {
 	return ""
 }
+
 func (m *packngoCreateDeviceMatcher) Matches(x interface{}) bool {
 	req, ok := x.(*packngo.DeviceCreateRequest)
 	if !ok {
@@ -384,7 +386,7 @@ func (s *environProviderSuite) TestStartInstance(c *gc.C) {
 				"on_demand",
 				"spot_market",
 			},
-			Class: "c3.small.x86",
+			Class: "g2.large.x86",
 			AvailableInMetros: []packngo.Metro{
 				{
 					ID:      "108b2cfb-246b-45e3-885a-bf3e82fce1a0",
@@ -427,6 +429,87 @@ func (s *environProviderSuite) TestStartInstance(c *gc.C) {
 				"spot_market",
 			},
 			Class: "c3.small.x86",
+			AvailableInMetros: []packngo.Metro{
+				{
+					ID:      "108b2cfb-246b-45e3-885a-bf3e82fce1a0",
+					Name:    "Amsterdam",
+					Code:    "am",
+					Country: "NL",
+				},
+			},
+		},
+		{
+			ID:          "18e285e0-1872-11ea-8d71-362b9e155667",
+			Slug:        "c3.large.arm",
+			Name:        "c3.large.arm",
+			Description: "c3.large.arm",
+			Line:        "baremetal",
+			Legacy:      true,
+			Specs: &packngo.Specs{
+				Cpus: []*packngo.Cpus{
+					{
+						Count: 1,
+						Type:  "Ampere Altra Q80-30 80-core processor @ 2.8GHz",
+					},
+				},
+				Memory: &packngo.Memory{
+					Total: "32GB",
+				},
+				Drives: []*packngo.Drives{
+					{
+						Count: 2,
+						Size:  "960GB",
+						Type:  "NVME",
+					},
+				},
+			},
+			Pricing: &packngo.Pricing{
+				Hour: 2,
+			},
+			DeploymentTypes: []string{
+				"on_demand",
+				"spot_market",
+			},
+			Class: "c3.large.arm",
+			AvailableInMetros: []packngo.Metro{
+				{
+					ID:      "108b2cfb-246b-45e3-885a-bf3e82fce1a0",
+					Name:    "Amsterdam",
+					Code:    "am",
+					Country: "NL",
+				},
+			},
+		},
+		{
+			ID:          "351c618b-760f-45c5-b45d-7044111a6a31",
+			Slug:        "nope.large.x86",
+			Name:        "nope.large.x86",
+			Description: "Tests that without on_demand this plan will not be returned",
+			Line:        "baremetal",
+			Legacy:      true,
+			Specs: &packngo.Specs{
+				Cpus: []*packngo.Cpus{
+					{
+						Count: 1,
+						Type:  "Intel(R) Xeon(R) E-2278G CPU @ 3.40GHz",
+					},
+				},
+				Memory: &packngo.Memory{
+					Total: "32GB",
+				},
+				Drives: []*packngo.Drives{
+					{
+						Count: 2,
+						Size:  "480GB",
+						Type:  "ssd",
+					},
+				},
+			},
+			Pricing: &packngo.Pricing{
+				Hour: 1.20,
+			},
+			DeploymentTypes: []string{},
+			Class:           "nope.small.x86",
 			AvailableInMetros: []packngo.Metro{
 				{
 					ID:      "108b2cfb-246b-45e3-885a-bf3e82fce1a0",

@@ -6,6 +6,7 @@ package equinix
 import (
 	"fmt"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -25,6 +26,7 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
+	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
@@ -226,58 +228,18 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 }
 
 var (
-	configImmutableFields = []string{}
-	configFields          = func() schema.Fields {
+	configFields = func() schema.Fields {
 		fs, _, err := configSchema.ValidationSchema()
 		if err != nil {
 			panic(err)
 		}
 		return fs
 	}()
-)
-
-var (
 	configSchema   = environschema.Fields{}
 	configDefaults = schema.Defaults{}
 )
 
-func newConfig(cfg, old *config.Config) (*environConfig, error) {
-	// Ensure that the provided config is valid.
-	if err := config.Validate(cfg, old); err != nil {
-		return nil, errors.Trace(err)
-	}
-	attrs, err := cfg.ValidateUnknownAttrs(configFields, configDefaults)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	if old != nil {
-		// There's an old configuration. Validate it so that any
-		// default values are correctly coerced for when we check
-		// the old values later.
-		oldEcfg, err := newConfig(old, nil)
-		if err != nil {
-			return nil, errors.Annotatef(err, "invalid base config")
-		}
-		for _, attr := range configImmutableFields {
-			oldv, newv := oldEcfg.attrs[attr], attrs[attr]
-			if oldv != newv {
-				return nil, errors.Errorf(
-					"%s: cannot change from %v to %v",
-					attr, oldv, newv,
-				)
-			}
-		}
-	}
-
-	ecfg := &environConfig{
-		config: cfg,
-		attrs:  attrs,
-	}
-	return ecfg, nil
-}
-
-func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (result *environs.StartInstanceResult, resultErr error) {
+func (e *environ) configureInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (*instances.InstanceSpec, error) {
 	instanceTypes, err := e.InstanceTypes(ctx, constraints.Value{})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -302,18 +264,50 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		return nil, errors.Trace(err)
 	}
 
-	if err := e.finishInstanceConfig(&args, spec); err != nil {
-		return nil, errors.Trace(err)
-	}
+	return spec, nil
+}
 
+func getCloudConfig(args environs.StartInstanceParams) (cloudinit.CloudConfig, error) {
 	cloudCfg, err := cloudinit.New(args.InstanceConfig.Series)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	cloudCfg.AddPackage("iptables-persistent")
+
+	// Set a default INPUT policy of drop, permitting ssh
+	acceptInputPort := "iptables -A INPUT -p tcp --dport %d -j ACCEPT"
+	iptablesDefault := []string{
+		"iptables -A INPUT -m conntrack --ctstate INVALID -j DROP",
+		"iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT",
+		"iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED -j ACCEPT",
+		"iptables -A INPUT -p icmp -j ACCEPT",
+		"iptables -A INPUT -i lo -j ACCEPT",
+		"iptables -A OUTPUT -o lo -j ACCEPT",
+		"iptables -P INPUT ! -i lo -s 127.0.0.0/8 -j REJECT",
+		fmt.Sprintf("iptables -A OUTPUT -p tcp --sport %d -m conntrack --ctstate ESTABLISHED -j ACCEPT", commands.SSHPort),
+		fmt.Sprintf(acceptInputPort, commands.SSHPort),
+	}
+	if args.InstanceConfig.IsController() {
+		for _, port := range []int{
+			args.InstanceConfig.ControllerConfig.APIPort(),
+			args.InstanceConfig.ControllerConfig.StatePort(),
+			args.InstanceConfig.ControllerConfig.ControllerAPIPort(),
+		} {
+			if port != 0 {
+				iptablesDefault = append(iptablesDefault, fmt.Sprintf(acceptInputPort, port))
+			}
+		}
+	}
+	iptablesDefault = append(iptablesDefault, "iptables -A INPUT -j DROP")
+
 	cloudCfg.AddScripts(
-		// This is a dummy script injected into packet images that
+		// This is a dummy script injected into Equinix Metal images that
 		// confuses the init system detection logic used by juju.
 		"rm -f /sbin/initctl",
+	)
+
+	cloudCfg.AddScripts(
+		iptablesDefault...,
 	)
 
 	// Install additional dependencies that are present in ubuntu images
@@ -372,7 +366,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	cloudCfg.AddScripts(`cat << 'EOF' >> /root/juju-fixups.sh
 #!/bin/bash
 
-curl -vs http://metadata.packet.net/metadata 2>/dev/null |
+curl -vs https://metadata.platformequinix.com/metadata 2>/dev/null |
 jq -r '.network.addresses | .[] | select(.public == false) | [.gateway, .parent_block.network, .parent_block.cidr] | @tsv' |
 awk '{print $1" "$2" "$3}' |
 while read -r gw net cidr; do
@@ -403,9 +397,25 @@ while true; do
     exit 0
 done
 EOF`,
-		"(crontab -l 2>/dev/null; echo '@reboot bash /root/juju-fixups.sh') | crontab -",
-		"sh /root/juju-fixups.sh &", // the fixup script includes a polling section so it must be daemonized.
+		"sh /root/juju-fixups.sh &", // the fixup script is run once and persisted through iptables-persistent
 	)
+	return cloudCfg, nil
+}
+
+func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (result *environs.StartInstanceResult, resultErr error) {
+	spec, err := e.configureInstance(ctx, args)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if err := e.finishInstanceConfig(&args, spec); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	cloudCfg, err := getCloudConfig(args)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	userdata, err := providerinit.ComposeUserData(args.InstanceConfig, cloudCfg, EquinixRenderer{})
 	if err != nil {
@@ -458,7 +468,7 @@ EOF`,
 				continue
 			}
 
-			// Packet requires us to request at least a /31 for IPV4
+			// Equinix Metal requires us to request at least a /31 for IPV4
 			// addresses and a /127 for IPV6 ones.
 			cidrSize := 31
 			if net.AddressFamily != 4 {
@@ -506,9 +516,8 @@ EOF`,
 
 	inst := newInstance(d, e)
 
-	arch = getArchitectureFromPlan(d.Plan.Name)
-
-	return &environs.StartInstanceResult{
+	arch := getArchitectureFromPlan(d.Plan.Name)
+	r := &environs.StartInstanceResult{
 		Instance: inst,
 		Hardware: &instance.HardwareCharacteristics{
 			Arch: &arch,
@@ -516,7 +525,9 @@ EOF`,
 			// RootDisk: &instanceSpec.InstanceType.RootDisk,
 			CpuCores: &spec.InstanceType.CpuCores,
 		},
-	}, nil
+	}
+
+	return r, nil
 }
 
 func (e *environ) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
@@ -626,7 +637,7 @@ func (e *environ) supportedInstanceTypes() ([]instances.InstanceType, error) {
 nextPlan:
 	for _, plan := range plans {
 		if !validPlan(plan, e.cloud.Region) {
-			logger.Tracef("Plan %s not valid in facility %s", plan.Name, e.cloud.Region)
+			logger.Tracef("Plan %s not valid in metro %s", plan.Name, e.cloud.Region)
 			continue
 		}
 
@@ -641,16 +652,38 @@ nextPlan:
 
 		}
 
+		on_demand := false
+		for _, d := range plan.DeploymentTypes {
+			if d == "on_demand" {
+				on_demand = true
+			}
+		}
+		if !on_demand {
+			continue
+		}
+
 		mem, err := parseMemValue(plan.Specs.Memory.Total)
 		if err != nil {
 			continue
 		}
 
+		// Some plans have CPU cores in the type field, e.g. "24-core".
+		// When available, multiply count by cores.
+		cores := uint64(plan.Specs.Cpus[0].Count)
+		re := regexp.MustCompile(`(\d+)[ -]core`)
+		coresMatch := re.FindStringSubmatch(plan.Specs.Cpus[0].Type)
+		if len(coresMatch) > 1 {
+			n, err := strconv.Atoi(coresMatch[1])
+			if err != nil {
+				return nil, errors.Annotate(err, "invalid cores value")
+			}
+			cores = cores * uint64(n)
+		}
 		instTypes = append(instTypes,
 			instances.InstanceType{
 				Id:       plan.ID,
 				Name:     plan.Name,
-				CpuCores: uint64(plan.Specs.Cpus[0].Count),
+				CpuCores: cores,
 				Mem:      mem,
 				Arch:     instArch,
 				// Scale per hour costs so they can be represented as an integer for sorting purposes.
@@ -672,6 +705,7 @@ func validPlan(plan packngo.Plan, region string) bool {
 		len(plan.Specs.Cpus) == 0 || plan.Specs.Cpus[0].Count == 0 {
 		return false
 	}
+
 	for _, a := range plan.AvailableInMetros {
 		// some plans are not available in-region
 		if a.Code != region {
