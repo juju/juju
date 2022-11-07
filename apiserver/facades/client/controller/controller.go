@@ -205,6 +205,9 @@ func (c *ControllerAPI) dashboardConnectionInfoForCAAS(
 		return nil, errors.Trace(err)
 	}
 	port, ok := cfg["port"]
+	if !ok {
+		return nil, errors.NotFoundf("dashboard port in charm config")
+	}
 
 	proxier, err := caasBroker.ProxyToApplication(applicationName, fmt.Sprint(port))
 	if err != nil {
@@ -238,7 +241,15 @@ func (c *ControllerAPI) dashboardConnectionInfoForIAAS(
 		return nil, errors.NotFoundf("dashboard port in charm config")
 	}
 
+	model, err := c.state.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	modelName := model.Name()
+	controllerName := c.state.ControllerTag()
+
 	return &params.DashboardConnectionSSHTunnel{
+		Model:  fmt.Sprintf("%s:%s", controllerName, modelName),
 		Entity: fmt.Sprintf("%s/leader", appName),
 		Host:   fmt.Sprintf("%s", addr),
 		Port:   fmt.Sprintf("%d", port),

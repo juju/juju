@@ -398,6 +398,7 @@ type DashboardConnectionInfo struct {
 }
 
 type DashboardConnectionSSHTunnel struct {
+	Model  string
 	Entity string
 	Host   string
 	Port   string
@@ -425,6 +426,7 @@ func (c *Client) DashboardConnectionInfo(factory ProxierFactory) (DashboardConne
 
 	if result.SSHConnection != nil {
 		rval.SSHTunnel = &DashboardConnectionSSHTunnel{
+			Model:  result.SSHConnection.Model,
 			Entity: result.SSHConnection.Entity,
 			Host:   result.SSHConnection.Host,
 			Port:   result.SSHConnection.Port,

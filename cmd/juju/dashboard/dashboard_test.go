@@ -177,44 +177,43 @@ func (s *dashboardSuite) TestDashboardError(c *gc.C) {
 }
 
 func (s *dashboardSuite) TestResolveSSHTarget(c *gc.C) {
-	s.controllerAPI = &mockControllerAPI{
-		info: controller.DashboardConnectionInfo{
-			SSHTunnel: &controller.DashboardConnectionSSHTunnel{
-				Entity: "dashboard/leader", // TODO: does it work in a different model?
-				Host:   "10.35.42.151",
-				Port:   "8080",
-			},
+	s.testResolveSSHTarget(c,
+		&controller.DashboardConnectionSSHTunnel{
+			Entity: "dashboard/leader", // TODO: does it work in a different model?
+			Host:   "10.35.42.151",
+			Port:   "8080",
 		},
-	}
-
-	fakeSSHCmd := newFakeSSHCmd()
-	s.sshCmd = fakeSSHCmd
-
-	_, err := s.run(c)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(fakeSSHCmd.args[0], gc.Equals, "dashboard/leader")
+		"dashboard/leader")
 }
 
 func (s *dashboardSuite) TestResolveSSHTargetLegacy(c *gc.C) {
+	s.testResolveSSHTarget(c,
+		&controller.DashboardConnectionSSHTunnel{
+			Host: "10.35.42.151",
+			Port: "8080",
+		},
+		"ubuntu@10.35.42.151")
+}
+
+func (s *dashboardSuite) testResolveSSHTarget(
+	c *gc.C, sshTunnel *controller.DashboardConnectionSSHTunnel, target string) {
+
 	s.controllerAPI = &mockControllerAPI{
 		info: controller.DashboardConnectionInfo{
-			SSHTunnel: &controller.DashboardConnectionSSHTunnel{
-				Host: "10.35.42.151",
-				Port: "8080",
-			},
+			SSHTunnel: sshTunnel,
 		},
 	}
-
 	fakeSSHCmd := newFakeSSHCmd()
 	s.sshCmd = fakeSSHCmd
 
 	_, err := s.run(c)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(fakeSSHCmd.args[0], gc.Equals, "ubuntu@10.35.42.151")
+	c.Assert(len(fakeSSHCmd.args), jc.GreaterThan, 0)
+	c.Check(fakeSSHCmd.args[0], gc.Equals, target)
 }
 
-func newFakeSSHCmd() fakeCmd {
-	return fakeCmd{&cmd.CommandBase{}, []string{}}
+func newFakeSSHCmd() *fakeCmd {
+	return &fakeCmd{&cmd.CommandBase{}, []string{}}
 }
 
 type fakeCmd struct {
