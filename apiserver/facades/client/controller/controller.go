@@ -246,7 +246,11 @@ func (c *ControllerAPI) dashboardConnectionInfoForIAAS(
 		return nil, errors.Trace(err)
 	}
 	modelName := model.Name()
-	controllerName := c.state.ControllerTag()
+	ctrCfg, err := c.state.ControllerConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	controllerName := ctrCfg.ControllerName()
 
 	return &params.DashboardConnectionSSHTunnel{
 		Model:  fmt.Sprintf("%s:%s", controllerName, modelName),

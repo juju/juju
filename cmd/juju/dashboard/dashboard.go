@@ -218,9 +218,9 @@ func tunnelSSHRunner(
 	target := []string{}
 
 	// TODO: this doesn't work. how to set model on the model command base????
-	//if tunnel.Model != "" {
-	//	target = append(target, "-m", tunnel.Model)
-	//}
+	if tunnel.Model != "" {
+		target = append(target, "-m", tunnel.Model)
+	}
 
 	if tunnel.Entity == "" {
 		// Backwards compatibility with 3.0.0 controllers that only provide IP address
@@ -242,10 +242,20 @@ func tunnelSSHRunner(
 		//}
 		//sshProvider.setTarget(target)
 
-		err := sshCommand.SetModelIdentifier(tunnel.Model, true)
+		//err := sshCommand.SetModelIdentifier(tunnel.Model, true)
+		//if err != nil {
+		//	return errors.Trace(err)
+		//}
+
+		f := &gnuflag.FlagSet{}
+		sshCommand.SetFlags(f)
+		pretty.Println(f)
+		// TODO: why doesn't this parse the -m flag?
+		err := f.Parse(false, args)
 		if err != nil {
 			return errors.Trace(err)
 		}
+		fmt.Println(args)
 
 		if err := sshCommand.Init(args); err != nil {
 			return errors.Trace(err)
