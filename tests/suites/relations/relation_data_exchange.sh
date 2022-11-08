@@ -64,7 +64,7 @@ run_relation_data_exchange() {
 	juju exec --unit "dummy-sink/leader" "relation-get --app -r ${dummy_sink_relation_id} origin dummy-sink" | check "dummy-sink"
 	juju exec --unit 'dummy-source/0' "relation-get --app -r ${dummy_source_relation_id} origin dummy-source" | check "dummy-source"
 
-	echo "Check 3: ensure that non-leader units are not allowed to read their own application databag for non-peer relations"
+	echo "Check 2: ensure that non-leader units are not allowed to read their own application databag for non-peer relations"
 	juju exec --unit "${non_leader_dummy_sink_unit}" "relation-get --app -r ${dummy_sink_relation_id} origin dummy-sink" 2>&1 || echo "PERMISSION DENIED" | check "PERMISSION DENIED"
 
 	destroy_model "${model_name}"
