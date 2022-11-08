@@ -228,6 +228,9 @@ func (c *ControllerAPI) dashboardConnectionInfoForIAAS(
 		return nil, errors.NotFoundf("dashboard address in relation data")
 	}
 
+	// TODO: support cross-model relations
+	// If the dashboard app is in a different model, this will try to look in
+	// the controller model, returning `application "dashboard" not found`
 	dashboardApp, err := c.state.Application(appName)
 	if err != nil {
 		return nil, errors.Trace(err)

@@ -126,7 +126,7 @@ type scpCommand struct {
 
 	modelType model.ModelType
 
-	SSHMachine
+	sshMachine
 	sshContainer
 
 	provider sshProvider
@@ -137,7 +137,7 @@ type scpCommand struct {
 }
 
 func (c *scpCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.SSHMachine.SetFlags(f)
+	c.sshMachine.SetFlags(f)
 	c.sshContainer.SetFlags(f)
 }
 
@@ -160,7 +160,7 @@ func (c *scpCommand) Init(args []string) (err error) {
 	if c.modelType == model.CAAS {
 		c.provider = &c.sshContainer
 	} else {
-		c.provider = &c.SSHMachine
+		c.provider = &c.sshMachine
 	}
 
 	c.provider.setArgs(args)

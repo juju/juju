@@ -158,7 +158,7 @@ type sshCommand struct {
 	modelType model.ModelType
 	modelcmd.ModelCommandBase
 
-	SSHMachine
+	sshMachine
 	sshContainer
 
 	provider sshProvider
@@ -171,7 +171,7 @@ type sshCommand struct {
 }
 
 func (c *sshCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.SSHMachine.SetFlags(f)
+	c.sshMachine.SetFlags(f)
 	c.sshContainer.SetFlags(f)
 	f.Var(&c.pty, "pty", "Enable pseudo-tty allocation")
 }
@@ -195,7 +195,7 @@ func (c *sshCommand) Init(args []string) (err error) {
 	if c.modelType == model.CAAS {
 		c.provider = &c.sshContainer
 	} else {
-		c.provider = &c.SSHMachine
+		c.provider = &c.sshMachine
 	}
 	c.provider.setTarget(args[0])
 	c.provider.setArgs(args[1:])

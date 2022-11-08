@@ -52,7 +52,7 @@ type dashboardCommand struct {
 	newAPIFunc func() (ControllerAPI, bool, error)
 
 	port           int
-	embeddedSSHCmd modelcmd.ModelCommand
+	embeddedSSHCmd cmd.Command
 	signalCh       chan os.Signal
 }
 
@@ -209,8 +209,7 @@ func (c *dashboardCommand) Run(ctx *cmd.Context) error {
 func tunnelSSHRunner(
 	tunnel controller.DashboardConnectionSSHTunnel,
 	localPort int,
-	sshCommand modelcmd.ModelCommand,
-	// sshProvider ssh.SSHMachine,
+	sshCommand cmd.Command,
 ) connectionRunner {
 
 	pretty.Println(tunnel)
