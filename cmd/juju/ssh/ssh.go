@@ -138,7 +138,7 @@ func NewSSHCommand(
 	hostChecker jujussh.ReachableChecker,
 	isTerminal func(interface{}) bool,
 	retryStrategy retry.CallArgs,
-) modelcmd.ModelCommand {
+) cmd.Command {
 	c := &sshCommand{
 		hostChecker:   hostChecker,
 		isTerminal:    isTerminal,
@@ -201,17 +201,6 @@ func (c *sshCommand) Init(args []string) (err error) {
 	c.provider.setArgs(args[1:])
 	c.provider.setHostChecker(c.hostChecker)
 	c.provider.setRetryStrategy(c.retryStrategy)
-
-	fmt.Printf(`
-
-cmd/juju/ssh/ssh.go
-
-args: %#v
-
-c.ModelCommandBase: %#v
-
-`, args, c.ModelCommandBase)
-
 	return nil
 }
 

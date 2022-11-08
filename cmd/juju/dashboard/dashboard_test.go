@@ -12,14 +12,13 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/webbrowser"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/controller/controller"
 	"github.com/juju/juju/cmd/juju/dashboard"
-	"github.com/juju/juju/cmd/juju/ssh"
-	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 	proxytesting "github.com/juju/juju/proxy/testing"
 	"github.com/juju/juju/testing"
@@ -50,7 +49,7 @@ func (m *mockControllerAPI) Close() error {
 
 // run executes the dashboard command passing the given args.
 func (s *baseDashboardSuite) run(c *gc.C, args ...string) (string, error) {
-	ctx, err := cmdtesting.RunCommand(c, dashboard.NewDashboardCommandForTest(s.store, s.controllerAPI, s.signalCh), args...)
+	ctx, err := cmdtesting.RunCommand(c, dashboard.NewDashboardCommandForTest(s.store, s.controllerAPI, s.signalCh, s.sshCmd), args...)
 	return strings.Trim(cmdtesting.Stderr(ctx), "\n"), err
 }
 
@@ -181,11 +180,13 @@ func (s *dashboardSuite) TestDashboardError(c *gc.C) {
 func (s *dashboardSuite) TestResolveSSHTarget(c *gc.C) {
 	s.testResolveSSHTarget(c,
 		&controller.DashboardConnectionSSHTunnel{
-			Entity: "dashboard/leader", // TODO: does it work in a different model?
+			Model:  "c:controller",
+			Entity: "dashboard/leader",
 			Host:   "10.35.42.151",
 			Port:   "8080",
 		},
-		"dashboard/leader")
+		"c:controller",
+		[]string{"dashboard/leader", "-N", "-L", "31666:10.35.42.151:8080"})
 }
 
 func (s *dashboardSuite) TestResolveSSHTargetLegacy(c *gc.C) {
@@ -194,11 +195,12 @@ func (s *dashboardSuite) TestResolveSSHTargetLegacy(c *gc.C) {
 			Host: "10.35.42.151",
 			Port: "8080",
 		},
-		"ubuntu@10.35.42.151")
+		"",
+		[]string{"ubuntu@10.35.42.151", "-N", "-L", "31666:10.35.42.151:8080"})
 }
 
 func (s *dashboardSuite) testResolveSSHTarget(
-	c *gc.C, sshTunnel *controller.DashboardConnectionSSHTunnel, target string) {
+	c *gc.C, sshTunnel *controller.DashboardConnectionSSHTunnel, model string, args []string) {
 
 	s.controllerAPI = &mockControllerAPI{
 		info: controller.DashboardConnectionInfo{
@@ -210,44 +212,40 @@ func (s *dashboardSuite) testResolveSSHTarget(
 
 	_, err := s.run(c)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(fakeSSHCmd.args), jc.GreaterThan, 0)
-	c.Check(fakeSSHCmd.args[0], gc.Equals, target)
+	c.Check(fakeSSHCmd.model, gc.Equals, model)
+	c.Check(fakeSSHCmd.args, gc.DeepEquals, args)
 }
 
-func newFakeSSHCmd() *fakeCmd {
-	return &fakeCmd{&cmd.CommandBase{}, []string{}}
+func newFakeSSHCmd() *fakeSSHCmd {
+	return &fakeSSHCmd{}
 }
 
-type fakeCmd struct {
-	*cmd.CommandBase
-	args []string
+type fakeSSHCmd struct {
+	model string
+	args  []string
 }
 
-func (f *fakeCmd) Info() *cmd.Info {
-	return &cmd.Info{}
+func (c *fakeSSHCmd) IsSuperCommand() bool {
+	panic("method shouldn't be called")
 }
 
-func (f *fakeCmd) Init(args []string) error {
-	f.args = args
+func (c *fakeSSHCmd) Info() *cmd.Info {
+	panic("method shouldn't be called")
+}
+
+func (c *fakeSSHCmd) SetFlags(f *gnuflag.FlagSet) {
+	f.StringVar(&c.model, "m", "", "")
+}
+
+func (c *fakeSSHCmd) Init(args []string) error {
+	c.args = args
 	return nil
 }
 
-func (f *fakeCmd) Run(ctx *cmd.Context) error {
+func (c *fakeSSHCmd) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-func (s *dashboardSuite) TestFoo(c *gc.C) {
-	s.controllerAPI = &mockControllerAPI{
-		info: controller.DashboardConnectionInfo{
-			SSHTunnel: &controller.DashboardConnectionSSHTunnel{
-				Model:  "c:controller",
-				Entity: "d/leader",
-				Host:   "10.120.49.124",
-				Port:   "8080",
-			},
-		},
-	}
-	sshCmd := ssh.NewSSHCommand(nil, nil, ssh.DefaultSSHRetryStrategy).(modelcmd.ModelCommand)
-	cmdtesting.RunCommand(c, dashboard.NewDashboardCommandForTestWithSSHCmd(s.store, s.controllerAPI, s.signalCh, sshCmd))
-	//return strings.Trim(cmdtesting.Stderr(ctx), "\n"), err
+func (c *fakeSSHCmd) AllowInterspersedFlags() bool {
+	panic("method shouldn't be called")
 }

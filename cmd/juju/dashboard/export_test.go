@@ -17,18 +17,7 @@ var (
 	WebbrowserOpen = &webbrowserOpen
 )
 
-func NewDashboardCommandForTest(store jujuclient.ClientStore, api ControllerAPI, signalCh chan os.Signal) cmd.Command {
-	d := &dashboardCommand{
-		newAPIFunc: func() (ControllerAPI, bool, error) {
-			return api, false, nil
-		},
-		signalCh: signalCh,
-	}
-	d.SetClientStore(store)
-	return modelcmd.Wrap(d)
-}
-
-func NewDashboardCommandForTestWithSSHCmd(store jujuclient.ClientStore, api ControllerAPI, signalCh chan os.Signal, sshCmd modelcmd.ModelCommand) cmd.Command {
+func NewDashboardCommandForTest(store jujuclient.ClientStore, api ControllerAPI, signalCh chan os.Signal, sshCmd cmd.Command) cmd.Command {
 	d := &dashboardCommand{
 		newAPIFunc: func() (ControllerAPI, bool, error) {
 			return api, false, nil

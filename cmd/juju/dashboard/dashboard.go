@@ -15,7 +15,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/webbrowser"
-	"github.com/kr/pretty"
 
 	"github.com/juju/juju/api/controller/controller"
 	jujucmd "github.com/juju/juju/cmd"
@@ -212,43 +211,23 @@ func tunnelSSHRunner(
 	sshCommand cmd.Command,
 ) connectionRunner {
 
-	pretty.Println(tunnel)
-
 	args := []string{}
-
 	if tunnel.Entity == "" || tunnel.Model == "" {
 		// Backwards compatibility with 3.0.0 controllers that only provide IP address
 		args = append(args, "ubuntu@"+tunnel.Host)
 	} else {
 		args = append(args, "-m", tunnel.Model, tunnel.Entity)
 	}
-
 	args = append(args, "-N", "-L",
 		fmt.Sprintf("%d:%s:%s", localPort, tunnel.Host, tunnel.Port))
-	fmt.Println(args)
 
 	return func(ctx context.Context, callBack urlCallBack) error {
-		//target := tunnel.Entity
-		//if target == "" {
-		//	target = "ubuntu@" + tunnel.Host
-		//}
-		//sshProvider.setTarget(target)
-
-		//err := sshCommand.SetModelIdentifier(tunnel.Model, true)
-		//if err != nil {
-		//	return errors.Trace(err)
-		//}
-
 		f := &gnuflag.FlagSet{}
 		sshCommand.SetFlags(f)
-		pretty.Println(f)
-		// TODO: why doesn't this parse the -m flag?
 		err := f.Parse(false, args)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		fmt.Println(args)
-		fmt.Println(f.Args())
 
 		if err := sshCommand.Init(f.Args()); err != nil {
 			return errors.Trace(err)
@@ -258,6 +237,9 @@ func tunnelSSHRunner(
 
 		// TODO(wallyworld) - extract the core ssh machinery and use directly.
 		defCtx, err := cmd.DefaultContext()
+		if err != nil {
+			return errors.Trace(err)
+		}
 		cmdCtx := defCtx.With(ctx)
 		return sshCommand.Run(cmdCtx)
 	}
