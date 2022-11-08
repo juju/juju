@@ -215,23 +215,16 @@ func tunnelSSHRunner(
 
 	pretty.Println(tunnel)
 
-	target := []string{}
+	args := []string{}
 
-	// TODO: this doesn't work. how to set model on the model command base????
-	if tunnel.Model != "" {
-		target = append(target, "-m", tunnel.Model)
-	}
-
-	if tunnel.Entity == "" {
+	if tunnel.Entity == "" || tunnel.Model == "" {
 		// Backwards compatibility with 3.0.0 controllers that only provide IP address
-		target = append(target, "ubuntu@"+tunnel.Host)
+		args = append(args, "ubuntu@"+tunnel.Host)
 	} else {
-		target = append(target, tunnel.Entity)
+		args = append(args, "-m", tunnel.Model, tunnel.Entity)
 	}
 
-	args := append(target,
-		"-N",
-		"-L",
+	args = append(args, "-N", "-L",
 		fmt.Sprintf("%d:%s:%s", localPort, tunnel.Host, tunnel.Port))
 	fmt.Println(args)
 
@@ -256,8 +249,9 @@ func tunnelSSHRunner(
 			return errors.Trace(err)
 		}
 		fmt.Println(args)
+		fmt.Println(f.Args())
 
-		if err := sshCommand.Init(args); err != nil {
+		if err := sshCommand.Init(f.Args()); err != nil {
 			return errors.Trace(err)
 		}
 

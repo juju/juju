@@ -18,6 +18,8 @@ import (
 
 	"github.com/juju/juju/api/controller/controller"
 	"github.com/juju/juju/cmd/juju/dashboard"
+	"github.com/juju/juju/cmd/juju/ssh"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 	proxytesting "github.com/juju/juju/proxy/testing"
 	"github.com/juju/juju/testing"
@@ -232,4 +234,20 @@ func (f *fakeCmd) Init(args []string) error {
 
 func (f *fakeCmd) Run(ctx *cmd.Context) error {
 	return nil
+}
+
+func (s *dashboardSuite) TestFoo(c *gc.C) {
+	s.controllerAPI = &mockControllerAPI{
+		info: controller.DashboardConnectionInfo{
+			SSHTunnel: &controller.DashboardConnectionSSHTunnel{
+				Model:  "c:controller",
+				Entity: "d/leader",
+				Host:   "10.120.49.124",
+				Port:   "8080",
+			},
+		},
+	}
+	sshCmd := ssh.NewSSHCommand(nil, nil, ssh.DefaultSSHRetryStrategy).(modelcmd.ModelCommand)
+	cmdtesting.RunCommand(c, dashboard.NewDashboardCommandForTestWithSSHCmd(s.store, s.controllerAPI, s.signalCh, sshCmd))
+	//return strings.Trim(cmdtesting.Stderr(ctx), "\n"), err
 }
