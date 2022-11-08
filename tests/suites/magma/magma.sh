@@ -11,10 +11,11 @@ run_deploy_magma() {
 
 	echo "Deploy Magma project"
 	overlay_path="./tests/suites/magma/overlay/overlay.yaml"
-	juju deploy magma-orc8r --overlay "${overlay_path}" --trust --channel=edge
+	juju deploy magma-orc8r --overlay "${overlay_path}" --trust --channel=beta
 
 	echo "Check all Magma project components have ACTIVE status"
-	wait_for 34 '[.applications[] | select(."application-status".current == "active")] | length' 1800
+	# Magical number 34 means that all 34 apps from the magma bundle has the same status
+	wait_for 34 '[.applications[] | select(."application-status".current == "active")] | length' 3600
 
 	echo "Get cert file and request password for it"
 	juju scp --container="magma-orc8r-certifier" orc8r-certifier/0:/var/opt/magma/certs/admin_operator.pfx "${TEST_DIR}/admin_operator.pfx"
@@ -30,7 +31,6 @@ run_deploy_magma() {
 	admin_username=$(juju run-action nms-magmalte/leader get-master-admin-credentials --wait --format=json | jq -r '."unit-nms-magmalte-0".results."admin-username"')
 	echo "${admin_username}" | check "admin@juju.com"
 
-	destroy_model "${model_name}"
 }
 
 test_deploy_magma() {
