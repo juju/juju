@@ -18461,7 +18461,13 @@
                 "DashboardConnectionSSHTunnel": {
                     "type": "object",
                     "properties": {
+                        "entity": {
+                            "type": "string"
+                        },
                         "host": {
+                            "type": "string"
+                        },
+                        "model": {
                             "type": "string"
                         },
                         "port": {
