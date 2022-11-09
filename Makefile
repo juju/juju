@@ -291,7 +291,7 @@ ${SIMPLESTREAMS_DIR}/tools/released/juju-${JUJU_VERSION}-%.tgz: phony_explicit j
 
 .PHONY: simplestreams
 simplestreams: juju juju-metadata ${SIMPLESTREAMS_TARGETS}
-	@juju metadata generate-agent-binaries -d ${SIMPLESTREAMS_DIR} --clean --prevent-fallback ;
+	@juju metadata generate-agents -d ${SIMPLESTREAMS_DIR} --clean --prevent-fallback ;
 	@echo "\nRun export JUJU_METADATA_SOURCE=\"${SIMPLESTREAMS_DIR}\" "
 
 
