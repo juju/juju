@@ -52,8 +52,8 @@ var DefaultBaseURL = streamsAgentURL
 // metadata for a tools tarball by finding alternative release names to create
 // metadata for.
 var toolsReleaseAltMapping = map[string][]string{
-	"linux":  []string{"ubuntu", "centos", "genericlinux"},
-	"darwin": []string{"osx"},
+	"linux":  {"ubuntu", "centos", "genericlinux"},
+	"darwin": {"osx"},
 }
 
 const (

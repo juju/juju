@@ -1,4 +1,4 @@
-#
+
 # Makefile for juju-core.
 #
 PROJECT_DIR := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
@@ -11,9 +11,13 @@ GOHOSTARCH=$(shell go env GOHOSTARCH)
 GO_MOD_VERSION=$(shell grep "^go" go.mod | awk '{print $$2}')
 GO_INSTALLED_VERSION=$(shell go version | awk '{print $$3}' | sed -e /.*go/s///)
 
+# Build number passed in must be a monotonic int representing
+# the build.
+JUJU_BUILD_NUMBER ?=
+
 # JUJU_VERSION is the JUJU version currently being represented in this
 # repository.
-JUJU_VERSION=$(shell go run version/helper/main.go)
+JUJU_VERSION=$(shell go run -ldflags "-X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER)" version/helper/main.go)
 
 # BUILD_DIR is the directory relative to this project where we place build
 # artifacts created
@@ -68,9 +72,6 @@ BUILD_TAGS ?=
 # GIT_COMMIT the current git commit of this repository
 GIT_COMMIT ?= $(shell git -C $(PROJECT_DIR) rev-parse HEAD 2>/dev/null)
 
-# Build number passed in must be a monotonic int representing
-# the build.
-JUJU_BUILD_NUMBER ?=
 
 # Build flag passed to go -mod defaults to readonly to support go workspaces.
 # CI should set this to vendor

@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"github.com/juju/juju/cmd/constants"
 	"os"
 	"path"
 	"sort"
@@ -895,9 +896,9 @@ See `[1:] + "`juju kill-controller`" + `.`)
 		}
 	}()
 
-	if c.MetadataSource == "" {
-		c.MetadataSource = os.Getenv("JUJU_METADATA_SOURCE")
-		ctx.Infof("Using metadata source %s", c.MetadataSource)
+	if envMetadataSrc := os.Getenv(constants.EnvJujuMetadataSource); c.MetadataSource == "" && envMetadataSrc != "" {
+		c.MetadataSource = envMetadataSrc
+		ctx.Infof("Using metadata source %q", c.MetadataSource)
 	}
 
 	// If --metadata-source is specified, override the default tools metadata source so
