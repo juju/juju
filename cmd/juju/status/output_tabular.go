@@ -31,6 +31,7 @@ const (
 	ellipsis            = "..."
 	iaasMaxVersionWidth = 15
 	caasMaxVersionWidth = 30
+	maxMessageLength    = 50
 )
 
 // FormatTabular writes a tabular summary of machines, applications, and
@@ -69,7 +70,7 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	}
 	if message != "" {
 		header = append(header, "Notes")
-		values = append(values, message)
+		values = append(values, truncateMessage(message))
 	}
 
 	// The first set of headers don't use outputHeaders because it adds the blank line.
@@ -212,7 +213,7 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 		}
 		w.Print(exposed)
 
-		w.Println(app.StatusInfo.Message)
+		w.Println(truncateMessage(app.StatusInfo.Message))
 		for un, u := range app.Units {
 			units[un] = u
 			if u.MeterStatus != nil {
@@ -245,7 +246,7 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 			w.Println(
 				u.Address,
 				strings.Join(u.OpenedPorts, ","),
-				message,
+				truncateMessage(message),
 			)
 			return
 		}
@@ -253,7 +254,7 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 			u.Machine,
 			u.PublicAddress,
 			strings.Join(u.OpenedPorts, ","),
-			message,
+			truncateMessage(message),
 		)
 	}
 
@@ -281,7 +282,7 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 		w.Print("model")
 		outputColor := fromMeterStatusColor(fs.Model.MeterStatus.Color)
 		w.PrintColor(outputColor, fs.Model.MeterStatus.Color)
-		w.PrintColor(outputColor, fs.Model.MeterStatus.Message)
+		w.PrintColor(outputColor, truncateMessage(fs.Model.MeterStatus.Message))
 		w.Println()
 	}
 	for _, name := range naturalsort.Sort(stringKeysFromMap(units)) {
@@ -290,7 +291,7 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 			w.Print(name)
 			outputColor := fromMeterStatusColor(u.MeterStatus.Color)
 			w.PrintColor(outputColor, u.MeterStatus.Color)
-			w.PrintColor(outputColor, u.MeterStatus.Message)
+			w.PrintColor(outputColor, truncateMessage(u.MeterStatus.Message))
 			w.Println()
 		}
 	}
@@ -350,7 +351,7 @@ func printRelations(tw *ansiterm.TabWriter, relations []relationStatus) {
 		if r.Status != string(relation.Joined) {
 			w.PrintColor(cmdcrossmodel.RelationStatusColor(relation.Status(r.Status)), r.Status)
 			if r.Message != "" {
-				w.Print(" - " + r.Message)
+				w.Print(" - " + truncateMessage(r.Message))
 			}
 		}
 		w.Println()
@@ -444,7 +445,7 @@ func printMachine(w output.Wrapper, m machineStatus) {
 
 	w.Print(m.Id)
 	w.PrintStatus(status)
-	w.Println(m.DNSName, m.machineName(), m.Series, az, message)
+	w.Println(m.DNSName, m.machineName(), m.Series, az, truncateMessage(message))
 
 	for _, name := range naturalsort.Sort(stringKeysFromMap(m.Containers)) {
 		printMachine(w, m.Containers[name])
@@ -507,4 +508,12 @@ func agentDoing(agentStatus statusInfoContents) string {
 		return match[1]
 	}
 	return ""
+}
+
+// truncateMessage truncates the given message if it is too long.
+func truncateMessage(msg string) string {
+	if len(msg) > maxMessageLength {
+		return msg[:maxMessageLength-len(ellipsis)] + ellipsis
+	}
+	return msg
 }
