@@ -895,6 +895,11 @@ See `[1:] + "`juju kill-controller`" + `.`)
 		}
 	}()
 
+	if c.MetadataSource == "" {
+		c.MetadataSource = os.Getenv("JUJU_METADATA_SOURCE")
+		ctx.Infof("Using metadata source %s", c.MetadataSource)
+	}
+
 	// If --metadata-source is specified, override the default tools metadata source so
 	// SyncTools can use it, and also upload any image metadata.
 	if c.MetadataSource != "" {
