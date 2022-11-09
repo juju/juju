@@ -10,7 +10,7 @@ last updated and produces a report. If --update is specified, it performs an
 | Category | Filter                                             | Action
 | -------- | -------------------------------------------------- | -----------------------
 | Ancient  | last updated >5y ago                               | set status to 'Expired'
-| Old      | else last updated >2y ago                          | set importance to 'Low'
+| Old      | else last updated >2y ago and not 'Low'/'Wishlist' | set importance to 'Low'
 | Aging    | else last updated >60d ago and importance 'Medium' | set importance to 'Low'
 | High     | importance 'High' or 'Critical'                    | no action
 | Other    | everything else                                    | no action
@@ -132,7 +132,7 @@ def main():
 				if handle_ancient():
 					continue
 
-		if task.importance != 'Low' and last_updated < now - datetime.timedelta(days=365*2):
+		if task.importance not in ['Low', 'Wishlist'] and last_updated < now - datetime.timedelta(days=365*2):
 			if task.milestone_link:
 				print(f'Old bug has milestone: {bug.web_link} {bug.title[:60]!r}: {task.milestone_link}')
 			olds.append(bug)
