@@ -5,7 +5,6 @@ package commands
 
 import (
 	"bytes"
-	"github.com/juju/juju/cmd/constants"
 	"io"
 	"os"
 
@@ -16,6 +15,7 @@ import (
 	"github.com/juju/version/v2"
 
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/constants"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/filestorage"
