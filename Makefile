@@ -10,18 +10,41 @@ GOHOSTOS=$(shell go env GOHOSTOS)
 GOHOSTARCH=$(shell go env GOHOSTARCH)
 GO_MOD_VERSION=$(shell grep "^go" go.mod | awk '{print $$2}')
 GO_INSTALLED_VERSION=$(shell go version | awk '{print $$3}' | sed -e /.*go/s///)
-export CGO_ENABLED=0
 
+# JUJU_VERSION is the JUJU version currently being represented in this
+# repository.
+JUJU_VERSION=$(shell go run version/helper/main.go)
+
+# BUILD_DIR is the directory relative to this project where we place build
+# artifacts created
+# by this Makefile
 BUILD_DIR ?= $(PROJECT_DIR)/_build
+
 BIN_DIR = ${BUILD_DIR}/${GOOS}_${GOARCH}/bin
+
+# SIMPLESTREAMS_DIR is the directory where we place simple streams archives for
+# built juju binaries.
+SIMPLESTREAMS_DIR ?= ${BUILD_DIR}/simplestreams
 
 # TEST_PACKAGE_LIST is the path to a file that is a newline delimited list of
 # packages to test. This file must be sorted.
 TEST_PACKAGE_LIST ?=
 
+# Explicitly tell GO that we don't want CGO in our builds
+export CGO_ENABLED=0
+
+# bin_platform_path calculates the bin directory path for build artifacts for
+# the list of Go style platforms passed to this macro. For example
+# linux/amd64 linux/arm64
+bin_platform_path = $(addprefix ${BUILD_DIR}/, $(addsuffix /bin, $(subst /,_,${1})))
+
 # bin_platform_paths takes a juju binary to be built and the platform that it
 # is to be built for and returns a list of paths for that binary to be output.
 bin_platform_paths = $(addprefix ${BUILD_DIR}/, $(addsuffix /bin/${1}, $(subst /,_,${2})))
+
+# simplestream_paths takes a list of Go style platforms to calculate the
+# paths to their respective simplestreams tool archives.
+simplestream_paths = $(addprefix ${SIMPLESTREAMS_DIR}/, $(addprefix tools/released/juju-${JUJU_VERSION}-, $(addsuffix .tgz,$(subst /,-,${1}))))
 
 # CLIENT_PACKAGE_PLATFORMS defines a white space seperated list of platforms
 # to build the Juju client binaries for. Platforms are defined as GO style
@@ -37,6 +60,25 @@ AGENT_PACKAGE_PLATFORMS ?= $(GOOS)/$(GOARCH)
 # to build the Juju OCI images for. Platforms are defined as GO style
 # OS_ARCH.
 OCI_IMAGE_PLATFORMS ?= linux/$(GOARCH)
+
+# Build tags passed to go install/build.
+# Example: BUILD_TAGS="minimal provider_kubernetes"
+BUILD_TAGS ?=
+
+# GIT_COMMIT the current git commit of this repository
+GIT_COMMIT ?= $(shell git -C $(PROJECT_DIR) rev-parse HEAD 2>/dev/null)
+
+# Build number passed in must be a monotonic int representing
+# the build.
+JUJU_BUILD_NUMBER ?=
+
+# Build flag passed to go -mod defaults to readonly to support go workspaces.
+# CI should set this to vendor
+JUJU_GOMOD_MODE ?= readonly
+
+# If .git directory is missing, we are building out of an archive, otherwise report
+# if the tree that is checked out is dirty (modified) or clean.
+GIT_TREE_STATE = $(if $(shell git -C $(PROJECT_DIR) rev-parse --is-inside-work-tree 2>/dev/null | grep -e 'true'),$(if $(shell git -C $(PROJECT_DIR) status --porcelain),dirty,clean),archive)
 
 # BUILD_AGENT_TARGETS is a list of make targets the get built that fall under
 # the category of Juju agents. These targets are also the ones we are more then
@@ -58,6 +100,14 @@ define BUILD_CLIENT_TARGETS
 	$(call bin_platform_paths,juju,${CLIENT_PACKAGE_PLATFORMS}) \
 	$(call bin_platform_paths,juju-metadata,${CLIENT_PACKAGE_PLATFORMS}) \
 	$(call bin_platform_paths,juju-wait-for,${CLIENT_PACKAGE_PLATFORMS})
+endef
+
+# SIMPLESTREAMS_TARGETS is a list of make targets that get built when a
+# user asks for simplestreams to be built. Because simplestreams are mainly
+# mainly concerned with that of packaging juju agent binaries we work off of
+# the Go style platforms.
+define SIMPLESTREAMS_TARGETS
+	$(call simplestream_paths,${AGENT_PACKAGE_PLATFORMS})
 endef
 
 # INSTALL_TARGETS is a list of make targets that get installed when make
@@ -103,23 +153,6 @@ endif
 ifeq ($(VERBOSE_CHECK), 1)
 	CHECK_ARGS = -v
 endif
-
-GIT_COMMIT ?= $(shell git -C $(PROJECT_DIR) rev-parse HEAD 2>/dev/null)
-# If .git directory is missing, we are building out of an archive, otherwise report
-# if the tree that is checked out is dirty (modified) or clean.
-GIT_TREE_STATE = $(if $(shell git -C $(PROJECT_DIR) rev-parse --is-inside-work-tree 2>/dev/null | grep -e 'true'),$(if $(shell git -C $(PROJECT_DIR) status --porcelain),dirty,clean),archive)
-
-# Build tags passed to go install/build.
-# Example: BUILD_TAGS="minimal provider_kubernetes"
-BUILD_TAGS ?=
-
-# Build number passed in must be a monotonic int representing
-# the build.
-JUJU_BUILD_NUMBER ?=
-
-# Build flag passed to go -mod
-# CI should set this to vendor
-JUJU_GOMOD_MODE ?= mod
 
 # Compile with debug flags if requested.
 ifeq ($(DEBUG_JUJU), 1)
@@ -250,6 +283,17 @@ ${BUILD_DIR}/%/bin/pebble: PACKAGE = github.com/canonical/pebble/cmd/pebble
 ${BUILD_DIR}/%/bin/pebble: phony_explicit
 # build for pebble
 	$(run_go_build)
+
+${SIMPLESTREAMS_DIR}/tools/released/juju-${JUJU_VERSION}-%.tgz: phony_explicit juju $(BUILD_AGENT_TARGETS)
+	@echo "Packaging simplestream tools for juju ${JUJU_VERSION} on $*"
+	@mkdir -p ${SIMPLESTREAMS_DIR}/tools/released
+	@tar czf "$@" -C $(call bin_platform_path,$(subst -,/,$*)) .
+
+.PHONY: simplestreams
+simplestreams: juju juju-metadata ${SIMPLESTREAMS_TARGETS}
+	@juju metadata generate-agent-binaries -d ${SIMPLESTREAMS_DIR} --clean --prevent-fallback ;
+	@echo "\nRun export JUJU_METADATA_SOURCE=\"${SIMPLESTREAMS_DIR}\" "
+
 
 .PHONY: build
 build: rebuild-schema go-build
