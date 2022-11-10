@@ -1857,7 +1857,7 @@ func (st *State) addMachineWithPlacement(unit *Unit, data *placementData) (*Mach
 	}
 }
 
-// Application returns a application state by name.
+// Application returns an application state by name.
 func (st *State) Application(name string) (_ *Application, err error) {
 	applications, closer := st.db().GetCollection(applicationsC)
 	defer closer()

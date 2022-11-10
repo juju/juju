@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/proxy"
 )
@@ -143,8 +144,10 @@ type DashboardConnectionProxy struct {
 // DashboardConnectionSSHTunnel represents an ssh tunnel connection to the Juju
 // Dashboard
 type DashboardConnectionSSHTunnel struct {
-	Host string `json:"host"`
-	Port string `json:"port"`
+	Model  string `json:"model,omitempty"`
+	Entity string `json:"entity,omitempty"`
+	Host   string `json:"host"`
+	Port   string `json:"port"`
 }
 
 // DashboardConnectionInfo holds the information necassery
