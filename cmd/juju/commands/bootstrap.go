@@ -898,7 +898,7 @@ See `[1:] + "`juju kill-controller`" + `.`)
 
 	if envMetadataSrc := os.Getenv(constants.EnvJujuMetadataSource); c.MetadataSource == "" && envMetadataSrc != "" {
 		c.MetadataSource = envMetadataSrc
-		ctx.Infof("Using metadata source %q", c.MetadataSource)
+		ctx.Infof("Using metadata source directory %q", c.MetadataSource)
 	}
 
 	// If --metadata-source is specified, override the default tools metadata source so

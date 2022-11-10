@@ -20,6 +20,15 @@ streams repository created for a given set of Go style os/arch pairs. For this
 example we would like a simple stream of our development changes that have
 artifacts for `linux/amd64` and `linux/arm64`.
 
+The juju build system is going place artifacts in a simplestream directory. You
+can optionally specify where you would like this directory to be by exporting
+`JUJU_METADATA_SOURCE` in your environment or simply let the build system choose
+for you.
+
+```bash
+export JUJU_METADATA_SOURCE=<local_simplestreams_path>
+```
+
 This is created by running:
 ```bash
 AGENT_PACKAGE_PLATFORMS="linux/amd64 linux/arm64" make simplestreams
@@ -33,6 +42,9 @@ automatically find this local simple streams repository. Example output:
 ```bash
 export JUJU_METADATA_SOURCE="...."
 ```
+
+You can ignore the above export requirement if you have previously done this in
+a previous step.
 
 You can now bootstrap using this simple streams repository using the usual:
 ```bash
@@ -54,6 +66,9 @@ JUJU_BUILD_NUMBER=1 AGENT_PACKAGE_PLATFORMS="linux/amd64 linux/arm64" make simpl
 
 **Note:** A key way to tell if this has worked is by looking at the output of
 the command to confirm the new version is being used.
+
+You will also be prompted to export the `JUJU_METADATA_SOURCE` again. This step
+can safely be ignored if previously done from a previous step.
 
 Next we need to get these new version artifacts on to the juju controller that
 we want to upgrade.

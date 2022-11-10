@@ -20,15 +20,14 @@ JUJU_BUILD_NUMBER ?=
 JUJU_VERSION=$(shell go run -ldflags "-X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER)" version/helper/main.go)
 
 # BUILD_DIR is the directory relative to this project where we place build
-# artifacts created
-# by this Makefile
+# artifacts created by this Makefile.
 BUILD_DIR ?= $(PROJECT_DIR)/_build
 
 BIN_DIR = ${BUILD_DIR}/${GOOS}_${GOARCH}/bin
 
-# SIMPLESTREAMS_DIR is the directory where we place simple streams archives for
-# built juju binaries.
-SIMPLESTREAMS_DIR ?= ${BUILD_DIR}/simplestreams
+# JUJU_METADATA_SOURCE is the directory where we place simple streams archives
+# for built juju binaries.
+JUJU_METADATA_SOURCE ?= ${BUILD_DIR}/simplestreams
 
 # TEST_PACKAGE_LIST is the path to a file that is a newline delimited list of
 # packages to test. This file must be sorted.
@@ -40,15 +39,15 @@ export CGO_ENABLED=0
 # bin_platform_path calculates the bin directory path for build artifacts for
 # the list of Go style platforms passed to this macro. For example
 # linux/amd64 linux/arm64
-bin_platform_path = $(addprefix ${BUILD_DIR}/, $(addsuffix /bin, $(subst /,_,${1})))
+bin_platform_paths = $(addprefix ${BUILD_DIR}/, $(addsuffix /bin, $(subst /,_,${1})))
 
-# bin_platform_paths takes a juju binary to be built and the platform that it
+# tool_platform_paths takes a juju binary to be built and the platform that it
 # is to be built for and returns a list of paths for that binary to be output.
-bin_platform_paths = $(addprefix ${BUILD_DIR}/, $(addsuffix /bin/${1}, $(subst /,_,${2})))
+tool_platform_paths = $(addsuffix /${1},$(call bin_platform_paths,${2}))
 
 # simplestream_paths takes a list of Go style platforms to calculate the
-# paths to their respective simplestreams tool archives.
-simplestream_paths = $(addprefix ${SIMPLESTREAMS_DIR}/, $(addprefix tools/released/juju-${JUJU_VERSION}-, $(addsuffix .tgz,$(subst /,-,${1}))))
+# paths to their respective simplestreams agent binary archives.
+simplestream_paths = $(addprefix ${JUJU_METADATA_SOURCE}/, $(addprefix tools/released/juju-${JUJU_VERSION}-, $(addsuffix .tgz,$(subst /,-,${1}))))
 
 # CLIENT_PACKAGE_PLATFORMS defines a white space seperated list of platforms
 # to build the Juju client binaries for. Platforms are defined as GO style
@@ -88,19 +87,19 @@ GIT_TREE_STATE = $(if $(shell git -C $(PROJECT_DIR) rev-parse --is-inside-work-t
 # - We filter pebble here for only linux builds as that is only what it will
 #   compile for at the moment.
 define BUILD_AGENT_TARGETS
-	$(call bin_platform_paths,jujuc,${AGENT_PACKAGE_PLATFORMS}) \
-	$(call bin_platform_paths,jujud,${AGENT_PACKAGE_PLATFORMS}) \
-	$(call bin_platform_paths,containeragent,$(filter-out windows%,${AGENT_PACKAGE_PLATFORMS})) \
-	$(call bin_platform_paths,pebble,$(filter linux%,${AGENT_PACKAGE_PLATFORMS}))
+	$(call tool_platform_paths,jujuc,${AGENT_PACKAGE_PLATFORMS}) \
+	$(call tool_platform_paths,jujud,${AGENT_PACKAGE_PLATFORMS}) \
+	$(call tool_platform_paths,containeragent,$(filter-out windows%,${AGENT_PACKAGE_PLATFORMS})) \
+	$(call tool_platform_paths,pebble,$(filter linux%,${AGENT_PACKAGE_PLATFORMS}))
 endef
 
 # BUILD_CLIENT_TARGETS is a list of make targets that get built that fall under
 # the category of Juju clients. These targets are also less likely to be cross
 # compiled
 define BUILD_CLIENT_TARGETS
-	$(call bin_platform_paths,juju,${CLIENT_PACKAGE_PLATFORMS}) \
-	$(call bin_platform_paths,juju-metadata,${CLIENT_PACKAGE_PLATFORMS}) \
-	$(call bin_platform_paths,juju-wait-for,${CLIENT_PACKAGE_PLATFORMS})
+	$(call tool_platform_paths,juju,${CLIENT_PACKAGE_PLATFORMS}) \
+	$(call tool_platform_paths,juju-metadata,${CLIENT_PACKAGE_PLATFORMS}) \
+	$(call tool_platform_paths,juju-wait-for,${CLIENT_PACKAGE_PLATFORMS})
 endef
 
 # SIMPLESTREAMS_TARGETS is a list of make targets that get built when a
@@ -285,16 +284,15 @@ ${BUILD_DIR}/%/bin/pebble: phony_explicit
 # build for pebble
 	$(run_go_build)
 
-${SIMPLESTREAMS_DIR}/tools/released/juju-${JUJU_VERSION}-%.tgz: phony_explicit juju $(BUILD_AGENT_TARGETS)
+${JUJU_METADATA_SOURCE}/tools/released/juju-${JUJU_VERSION}-%.tgz: phony_explicit juju $(BUILD_AGENT_TARGETS)
 	@echo "Packaging simplestream tools for juju ${JUJU_VERSION} on $*"
-	@mkdir -p ${SIMPLESTREAMS_DIR}/tools/released
-	@tar czf "$@" -C $(call bin_platform_path,$(subst -,/,$*)) .
+	@mkdir -p ${JUJU_METADATA_SOURCE}/tools/released
+	@tar czf "$@" -C $(call bin_platform_paths,$(subst -,/,$*)) .
 
 .PHONY: simplestreams
 simplestreams: juju juju-metadata ${SIMPLESTREAMS_TARGETS}
-	@juju metadata generate-agents -d ${SIMPLESTREAMS_DIR} --clean --prevent-fallback ;
-	@echo "\nRun export JUJU_METADATA_SOURCE=\"${SIMPLESTREAMS_DIR}\" "
-
+	@juju metadata generate-agents -d ${JUJU_METADATA_SOURCE} --clean --prevent-fallback ;
+	@echo "\nRun export JUJU_METADATA_SOURCE=\"${JUJU_METADATA_SOURCE}\" if not defined in your env"
 
 .PHONY: build
 build: rebuild-schema go-build

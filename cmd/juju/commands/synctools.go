@@ -119,7 +119,7 @@ func (c *syncAgentBinaryCommand) Run(ctx *cmd.Context) (resultErr error) {
 
 	if envMetadataSrc := os.Getenv(constants.EnvJujuMetadataSource); c.source == "" && envMetadataSrc != "" {
 		c.source = envMetadataSrc
-		ctx.Infof("Using local simple stream source %q", c.source)
+		ctx.Infof("Using local simple stream source directory %q", c.source)
 	}
 
 	sctx := &sync.SyncContext{
