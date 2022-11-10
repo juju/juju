@@ -437,9 +437,12 @@ func (api *ProvisionerAPI) subnetsAndZonesForSpace(machineID string, spaceName s
 
 		zones := subnet.AvailabilityZones
 		if len(zones) == 0 {
-			// For most providers we expect availability zones but Azure
-			// uses Availability Sets instead. So in that case we accept
-			// an empty map.
+			// For most providers we expect availability zones, however:
+			// - Azure uses Availability Sets.
+			// - OpenStack networks have availability zone *hints*.
+			// For these cases we allow empty map entries.
+			// TODO (manadart 2022-11-10): Bring this condition under testing
+			// when we cut machine handling over to Dqlite.
 			m, err := api.st.Model()
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -448,7 +451,7 @@ func (api *ProvisionerAPI) subnetsAndZonesForSpace(machineID string, spaceName s
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			if cfg.Type() != azure.ProviderType {
+			if cfg.Type() != azure.ProviderType && cfg.Type() != "openstack" {
 				logger.Warningf(warningPrefix + "no availability zone(s) set")
 				continue
 			}
