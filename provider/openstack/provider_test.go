@@ -993,7 +993,53 @@ func (s *providerUnitTests) TestNetworksForInstanceWithNoMatchingAZ(c *gc.C) {
 	}
 
 	_, err := envWithNetworking(mockNetworking).networksForInstance(siParams, netCfg)
-	c.Assert(err, gc.ErrorMatches, "getting subnets in zone \"us-east-az\": subnets in AZ \"us-east-az\" not found")
+	c.Assert(err, gc.ErrorMatches, "determining subnets in zone \"us-east-az\": subnets in AZ \"us-east-az\" not found")
+}
+
+func (s *providerUnitTests) TestNetworksForInstanceNoSubnetAZsStillConsidered(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockNetworking := NewMockNetworking(ctrl)
+	mockNetworking.EXPECT().ResolveNetwork("network-id-foo", false).Return("network-id-foo", nil)
+	mockNetworking.EXPECT().CreatePort("", "network-id-foo", network.Id("subnet-foo")).Return(
+		&neutron.PortV2{
+			FixedIPs: []neutron.PortFixedIPsV2{{
+				IPAddress: "10.10.10.1",
+				SubnetID:  "subnet-id",
+			}},
+			Id:         "port-id",
+			MACAddress: "mac-address",
+		}, nil)
+	expectDefaultNetworks(mockNetworking)
+
+	netCfg := NewMockNetworkingConfig(ctrl)
+	netCfg.EXPECT().AddNetworkConfig(network.InterfaceInfos{{
+		InterfaceName: "eth0",
+		MACAddress:    "mac-address",
+		Addresses:     network.NewMachineAddresses([]string{"10.10.10.1"}).AsProviderAddresses(),
+		ConfigType:    network.ConfigDHCP,
+		Origin:        network.OriginProvider,
+	}}).Return(nil)
+
+	siParams := environs.StartInstanceParams{
+		AvailabilityZone: "eu-west-az",
+		SubnetsToZones: []map[network.Id][]string{{
+			"subnet-foo":     {},
+			"subnet-with-az": {"some-non-matching-zone"},
+		}},
+	}
+
+	result, err := envWithNetworking(mockNetworking).networksForInstance(siParams, netCfg)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, []nova.ServerNetworks{
+		{
+			NetworkId: "network-id-foo",
+			FixedIp:   "",
+			PortId:    "port-id",
+		},
+	})
 }
 
 func envWithNetworking(net Networking) *Environ {
