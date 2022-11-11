@@ -98,7 +98,7 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/mittwald/vaultgo v0.1.1
 	github.com/oracle/oci-go-sdk/v47 v47.1.0
-	github.com/packethost/packngo v0.19.0
+	github.com/packethost/packngo v0.28.1
 	github.com/pkg/sftp v1.13.5
 	github.com/prometheus/client_golang v1.7.1
 	github.com/prometheus/client_model v0.2.0
