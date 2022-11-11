@@ -152,16 +152,12 @@ func (s *containerSetupSuite) setUpContainerSetup(c *gc.C, containerType instanc
 		Config:        cfg,
 		MachineLock:   s.machineLock,
 		CredentialAPI: &credentialAPIForTest{},
+		GetNetConfig: func(_ network.ConfigSource) ([]params.NetworkConfig, error) {
+			return nil, nil
+		},
 	}
 
-	// Stub out network config getter.
-	cs := NewContainerSetup(args)
-	cs.SetGetNetConfig(
-		func(_ network.ConfigSource) ([]params.NetworkConfig, error) {
-			return nil, nil
-		})
-
-	return cs
+	return NewContainerSetup(args)
 }
 
 func (s *containerSetupSuite) setUpInitialiseContainerProvisioner(c *gc.C, containerType instance.ContainerType) *ContainerSetup {
