@@ -5,8 +5,6 @@ package jujuc
 
 import (
 	"fmt"
-	"os"
-	"strings"
 	"time"
 
 	"github.com/juju/cmd/v3"
@@ -120,25 +118,6 @@ func (c *secretUpsertCommand) Init(args []string) error {
 	}
 	if c.owner != "application" && c.owner != "unit" {
 		return errors.NotValidf("secret owner %q", c.owner)
-	}
-
-	// Process keys where content is to come from a file.
-	const fromFile = "#file"
-	for i, arg := range args {
-		idx := strings.Index(arg, "=")
-		if idx <= 0 {
-			continue
-		}
-		possibleKey := arg[0:idx]
-		if !strings.HasSuffix(possibleKey, fromFile) {
-			continue
-		}
-		key := strings.TrimSuffix(possibleKey, fromFile)
-		content, err := os.ReadFile(arg[idx+1:])
-		if err != nil {
-			return errors.Annotatef(err, "reading content for secret key %q", key)
-		}
-		args[i] = fmt.Sprintf("%s=%s", key, content)
 	}
 
 	var err error

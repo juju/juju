@@ -193,36 +193,3 @@ func (s *SecretAddSuite) TestAddSecretFromFile(c *gc.C) {
 	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "UnitName"}, {FuncName: "CreateSecret", Args: []interface{}{args}}})
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, "secret:9m4e2mr0ui3e8a215n4g\n")
 }
-
-func (s *SecretAddSuite) TestAddSecretKeyFromFile(c *gc.C) {
-	data := `
-      -----BEGIN CERTIFICATE-----
-      MIIFYjCCA0qgAwIBAgIQKaPND9YggIG6+jOcgmpk3DANBgkqhkiG9w0BAQsFADAz
-      MRwwGgYDVQQKExNsaW51eGNvbnRhaW5lcnMub3JnMRMwEQYDVQQDDAp0aW1AZWx3
-      -----END CERTIFICATE-----`[1:]
-
-	dir := c.MkDir()
-	fileName := filepath.Join(dir, "secret-data.bin")
-	err := os.WriteFile(fileName, []byte(data), os.FileMode(0644))
-	c.Assert(err, jc.ErrorIsNil)
-
-	hctx, _ := s.ContextSuite.NewHookContext()
-	com, err := jujuc.NewCommand(hctx, "secret-add")
-	c.Assert(err, jc.ErrorIsNil)
-	ctx := cmdtesting.Context(c)
-	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"key1=value1", "key2#file=" + fileName})
-
-	c.Assert(code, gc.Equals, 0)
-	val := coresecrets.NewSecretValue(map[string]string{
-		"key1": "dmFsdWUx",
-		"key2": `ICAgICAgLS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCiAgICAgIE1JSUZZakNDQTBxZ0F3SUJBZ0lRS2FQTkQ5WWdnSUc2K2pPY2dtcGszREFOQmdrcWhraUc5dzBCQVFzRkFEQXoKICAgICAgTVJ3d0dnWURWUVFLRXhOc2FXNTFlR052Ym5SaGFXNWxjbk11YjNKbk1STXdFUVlEVlFRRERBcDBhVzFBWld4MwogICAgICAtLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0t`,
-	})
-	args := &jujuc.SecretCreateArgs{
-		SecretUpdateArgs: jujuc.SecretUpdateArgs{
-			Value: val,
-		},
-		OwnerTag: names.NewApplicationTag("u"),
-	}
-	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "UnitName"}, {FuncName: "CreateSecret", Args: []interface{}{args}}})
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, "secret:9m4e2mr0ui3e8a215n4g\n")
-}
