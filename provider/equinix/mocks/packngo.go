@@ -416,6 +416,37 @@ func (mr *MockProjectIPServiceMockRecorder) AvailableAddresses(arg0, arg1 interf
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AvailableAddresses", reflect.TypeOf((*MockProjectIPService)(nil).AvailableAddresses), arg0, arg1)
 }
 
+// Create mocks base method.
+func (m *MockProjectIPService) Create(arg0 string, arg1 *packngo.IPReservationCreateRequest) (*packngo.IPAddressReservation, *packngo.Response, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Create", arg0, arg1)
+	ret0, _ := ret[0].(*packngo.IPAddressReservation)
+	ret1, _ := ret[1].(*packngo.Response)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// Create indicates an expected call of Create.
+func (mr *MockProjectIPServiceMockRecorder) Create(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockProjectIPService)(nil).Create), arg0, arg1)
+}
+
+// Delete mocks base method.
+func (m *MockProjectIPService) Delete(arg0 string) (*packngo.Response, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Delete", arg0)
+	ret0, _ := ret[0].(*packngo.Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Delete indicates an expected call of Delete.
+func (mr *MockProjectIPServiceMockRecorder) Delete(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockProjectIPService)(nil).Delete), arg0)
+}
+
 // Get mocks base method.
 func (m *MockProjectIPService) Get(arg0 string, arg1 *packngo.GetOptions) (*packngo.IPAddressReservation, *packngo.Response, error) {
 	m.ctrl.T.Helper()
@@ -464,7 +495,7 @@ func (mr *MockProjectIPServiceMockRecorder) Remove(arg0 interface{}) *gomock.Cal
 }
 
 // Request mocks base method.
-func (m *MockProjectIPService) Request(arg0 string, arg1 *packngo.IPReservationRequest) (*packngo.IPAddressReservation, *packngo.Response, error) {
+func (m *MockProjectIPService) Request(arg0 string, arg1 *packngo.IPReservationCreateRequest) (*packngo.IPAddressReservation, *packngo.Response, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Request", arg0, arg1)
 	ret0, _ := ret[0].(*packngo.IPAddressReservation)
@@ -477,4 +508,20 @@ func (m *MockProjectIPService) Request(arg0 string, arg1 *packngo.IPReservationR
 func (mr *MockProjectIPServiceMockRecorder) Request(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Request", reflect.TypeOf((*MockProjectIPService)(nil).Request), arg0, arg1)
+}
+
+// Update mocks base method.
+func (m *MockProjectIPService) Update(arg0 string, arg1 *packngo.IPAddressUpdateRequest, arg2 *packngo.GetOptions) (*packngo.IPAddressReservation, *packngo.Response, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Update", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*packngo.IPAddressReservation)
+	ret1, _ := ret[1].(*packngo.Response)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// Update indicates an expected call of Update.
+func (mr *MockProjectIPServiceMockRecorder) Update(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockProjectIPService)(nil).Update), arg0, arg1, arg2)
 }
