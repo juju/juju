@@ -267,6 +267,19 @@ func (e *environ) configureInstance(ctx context.ProviderCallContext, args enviro
 	return spec, nil
 }
 
+const (
+	defaultIPTablesCommands = `iptables -A INPUT -m conntrack --ctstate INVALID -j DROP
+iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED -j ACCEPT
+iptables -A INPUT -p icmp -j ACCEPT
+iptables -A INPUT -i lo -j ACCEPT
+iptables -A OUTPUT -o lo -j ACCEPT
+iptables -P INPUT ! -i lo -s 127.0.0.0/8 -j REJECT
+iptables -A OUTPUT -p tcp --sport %d -m conntrack --ctstate ESTABLISHED -j ACCEPT`
+
+	acceptInputPort = `iptables -A INPUT -p tcp --dport %d -j ACCEPT`
+)
+
 func getCloudConfig(args environs.StartInstanceParams) (cloudinit.CloudConfig, error) {
 	cloudCfg, err := cloudinit.New(args.InstanceConfig.Base.OS)
 	if err != nil {
@@ -275,18 +288,8 @@ func getCloudConfig(args environs.StartInstanceParams) (cloudinit.CloudConfig, e
 	cloudCfg.AddPackage("iptables-persistent")
 
 	// Set a default INPUT policy of drop, permitting ssh
-	acceptInputPort := "iptables -A INPUT -p tcp --dport %d -j ACCEPT"
-	iptablesDefault := []string{
-		"iptables -A INPUT -m conntrack --ctstate INVALID -j DROP",
-		"iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT",
-		"iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED -j ACCEPT",
-		"iptables -A INPUT -p icmp -j ACCEPT",
-		"iptables -A INPUT -i lo -j ACCEPT",
-		"iptables -A OUTPUT -o lo -j ACCEPT",
-		"iptables -P INPUT ! -i lo -s 127.0.0.0/8 -j REJECT",
-		fmt.Sprintf("iptables -A OUTPUT -p tcp --sport %d -m conntrack --ctstate ESTABLISHED -j ACCEPT", ssh.SSHPort),
-		fmt.Sprintf(acceptInputPort, ssh.SSHPort),
-	}
+	iptablesDefault := strings.Split(fmt.Sprintf(defaultIPTablesCommands, ssh.SSHPort), "\n")
+	iptablesDefault = append(iptablesDefault, fmt.Sprintf(acceptInputPort, ssh.SSHPort))
 	if args.InstanceConfig.IsController() {
 		for _, port := range []int{
 			args.InstanceConfig.ControllerConfig.APIPort(),
