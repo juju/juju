@@ -235,6 +235,7 @@ func (s *BootstrapSuite) TestControllerCharmConstraints(c *gc.C) {
 	defer closer()
 
 	app, err := st.Application("controller")
+	c.Assert(err, jc.ErrorIsNil)
 	constraints, err := app.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	consArch := constraints.Arch
