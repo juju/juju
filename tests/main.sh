@@ -55,6 +55,7 @@ TEST_NAMES="agents \
             expose_ec2 \
             hooks \
             hooktools \
+			kubeflow \
             machine \
             magma \
             manual \
