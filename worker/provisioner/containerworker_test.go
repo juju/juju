@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machinelock"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
@@ -167,6 +168,9 @@ func (s *containerWorkerSuite) setUpContainerWorker(c *gc.C) worker.Worker {
 		Config:        cfg,
 		MachineLock:   s.machineLock,
 		CredentialAPI: &credentialAPIForTest{},
+		GetNetConfig: func(_ network.ConfigSource) ([]params.NetworkConfig, error) {
+			return nil, nil
+		},
 	}
 	cs := provisioner.NewContainerSetup(args)
 
@@ -176,9 +180,6 @@ func (s *containerWorkerSuite) setUpContainerWorker(c *gc.C) worker.Worker {
 	}
 	w, err := provisioner.NewContainerSetupAndProvisioner(cs, watcherFunc)
 	c.Assert(err, jc.ErrorIsNil)
-	csp, ok := w.(*provisioner.ContainerSetupAndProvisioner)
-	c.Assert(ok, jc.IsTrue)
-	provisioner.SetGetNetConfigReturnNil(csp)
 
 	return w
 }
