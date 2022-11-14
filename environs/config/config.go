@@ -472,6 +472,9 @@ const (
 
 	// DefaultActionResultsSize is the default size of the action results.
 	DefaultActionResultsSize = "5G"
+
+	// DefaultLxdSnapChannel is the default lxd snap channel to install on host vms.
+	DefaultLxdSnapChannel = "5.0/stable"
 )
 
 var defaultConfigValues = map[string]interface{}{
@@ -522,7 +525,7 @@ var defaultConfigValues = map[string]interface{}{
 	CloudInitUserDataKey:            "",
 	ContainerInheritPropertiesKey:   "",
 	BackupDirKey:                    "",
-	LXDSnapChannel:                  "latest/stable",
+	LXDSnapChannel:                  DefaultLxdSnapChannel,
 
 	CharmHubURLKey: charmhub.CharmHubServerURL,
 

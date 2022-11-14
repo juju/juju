@@ -1898,7 +1898,7 @@ func (s *withImageMetadataSuite) TestContainerManagerConfigImageMetadata(c *gc.C
 		container.ConfigModelUUID:           coretesting.ModelTag.Id(),
 		config.ContainerImageStreamKey:      "daily",
 		config.ContainerImageMetadataURLKey: "https://images.linuxcontainers.org/",
-		config.LXDSnapChannel:               "latest/stable",
+		config.LXDSnapChannel:               "5.0/stable",
 	})
 }
 
