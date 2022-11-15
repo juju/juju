@@ -4,8 +4,12 @@ ARG TARGETARCH
 ARG BUILDOS
 
 # Add the syslog user for audit logging.
-RUN useradd --system -M syslog
-RUN usermod -s /usr/sbin/nologin syslog
+RUN useradd --system -M -s /usr/sbin/nologin syslog
+
+# Create a user under which jujud can run
+RUN useradd --system -M -s /usr/sbin/nologin jujud && \
+    mkdir -p /var/lib/juju && \
+    chown -R jujud:jujud /var/lib/juju
 
 # Some Python dependencies.
 RUN apt-get update \
@@ -31,10 +35,12 @@ RUN mkdir -p /tmp/wheelhouse
 COPY docker-staging/requirements.txt /tmp/wheelhouse/requirements.txt
 RUN pip3 install -r /tmp/wheelhouse/requirements.txt
 
-WORKDIR /var/lib/juju
 COPY ${TARGETOS}_${TARGETARCH}/bin/jujud /opt/
 COPY ${TARGETOS}_${TARGETARCH}/bin/jujuc /opt/
 COPY ${TARGETOS}_${TARGETARCH}/bin/containeragent /opt/
 COPY ${TARGETOS}_${TARGETARCH}/bin/pebble /opt/
+
+USER jujud
+WORKDIR /var/lib/juju
 
 ENTRYPOINT ["sh", "-c"]
