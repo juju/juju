@@ -39,16 +39,29 @@ func (p *Proxier) Host() string {
 }
 
 func NewProxier(config ProxierConfig) *Proxier {
-	return &Proxier{
-		config: config,
-		restConfig: rest.Config{
-			BearerToken: config.ServiceAccountToken,
-			Host:        config.APIHost,
-			TLSClientConfig: rest.TLSClientConfig{
-				CAData: []byte(config.CAData),
-			},
-		},
+	p := &Proxier{config: config}
+	p.updateRESTConfig()
+	return p
+}
+
+// Insecure sets the proxy to be insecure.
+func (p *Proxier) Insecure() {
+	p.config.CAData = ""
+	p.updateRESTConfig()
+}
+
+func (p *Proxier) updateRESTConfig() {
+	restConfig := rest.Config{
+		BearerToken:     p.config.ServiceAccountToken,
+		Host:            p.config.APIHost,
+		TLSClientConfig: rest.TLSClientConfig{},
 	}
+	if p.config.CAData != "" {
+		restConfig.TLSClientConfig.CAData = []byte(p.config.CAData)
+	} else {
+		restConfig.TLSClientConfig.Insecure = true
+	}
+	p.restConfig = restConfig
 }
 
 func NewProxierConfig() *ProxierConfig {
@@ -106,10 +119,10 @@ func (p *Proxier) Start() (err error) {
 	err = p.tunnel.ForwardPort()
 	urlErr, ok := errors.Cause(err).(*url.Error)
 	if !ok {
-		return err
+		return errors.Trace(err)
 	}
 	if _, ok = urlErr.Err.(*net.OpError); !ok {
-		return err
+		return errors.Trace(err)
 	}
 	return proxyerrors.NewProxyConnectError(err, p.Type())
 }
