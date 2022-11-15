@@ -11,7 +11,7 @@ run_deploy_coslite() {
 	juju deploy cos-lite --trust --channel=stable
 	juju config traefik external_hostname=test-coslite.com
 	echo "Wait for all unit agents to be in idle condition"
-	wait_for 0 "$(not_idle_count) | length" 1800
+	wait_for 0 "$(not_idle_list) | length" 1800
 
 	# run-action will change in 3.0
 	admin_passwd=$(juju run-action --wait grafana/0 get-admin-password --format json | jq '.["unit-grafana-0"]["results"]["admin-password"]')
