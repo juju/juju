@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
-	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/broker"
 	"github.com/juju/juju/container/kvm"
@@ -54,6 +53,7 @@ type ContainerSetupParams struct {
 	Config        agent.Config
 	MachineLock   machinelock.Lock
 	CredentialAPI workercommon.CredentialAPI
+	GetNetConfig  func(network.ConfigSource) ([]params.NetworkConfig, error)
 }
 
 // NewContainerSetup returns a ContainerSetup to start the container
@@ -68,7 +68,7 @@ func NewContainerSetup(params ContainerSetupParams) *ContainerSetup {
 		config:        params.Config,
 		machineLock:   params.MachineLock,
 		credentialAPI: params.CredentialAPI,
-		getNetConfig:  common.GetObservedNetworkConfig,
+		getNetConfig:  params.GetNetConfig,
 	}
 }
 

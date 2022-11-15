@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/agent"
 	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
 	"github.com/juju/juju/api/base"
+	commonapi "github.com/juju/juju/api/common"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machinelock"
@@ -112,6 +113,7 @@ func (cfg ContainerManifoldConfig) start(context dependency.Context) (worker.Wor
 		Config:        agentConfig,
 		MachineLock:   cfg.MachineLock,
 		CredentialAPI: credentialAPI,
+		GetNetConfig:  commonapi.GetObservedNetworkConfig,
 	})
 
 	getContainerWatcherFunc := func() (watcher.StringsWatcher, error) {
