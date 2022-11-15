@@ -53,4 +53,8 @@ type SecretKeyLoginResponsePayload struct {
 
 	// ControllerUUID is the UUID of the Juju controller.
 	ControllerUUID string `json:"controller-uuid"`
+
+	// ProxyConfig is a config around a real proxier interface that should
+	// be used to connect to the controller.
+	ProxyConfig *Proxy `json:"proxy-config"`
 }
