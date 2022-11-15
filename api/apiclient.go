@@ -600,7 +600,6 @@ func (c *dialResult) Close() error {
 type dialOpts struct {
 	DialOpts
 	sniHostName string
-	deadline    time.Time
 	// certPool holds a cert pool containing the CACert
 	// if there is one.
 	certPool *x509.CertPool

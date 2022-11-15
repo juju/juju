@@ -14,10 +14,16 @@ import (
 	"github.com/juju/names/v4"
 	"golang.org/x/crypto/nacl/secretbox"
 	"gopkg.in/macaroon.v2"
+	// "gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/charmstore"
+	"github.com/juju/juju/environs"
+	// "github.com/juju/juju/jujuclient"
+	// "github.com/juju/juju/proxy/factory"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 )
 
 const (
@@ -190,6 +196,28 @@ func (h *registerUserHandler) getSecretKeyLoginResponsePayload(
 	payload := params.SecretKeyLoginResponsePayload{
 		CACert:         caCert,
 		ControllerUUID: st.ControllerUUID(),
+	}
+
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	configGetter := stateenvirons.EnvironConfigGetter{Model: model}
+	environ, err := common.EnvironFuncForModel(model, configGetter)()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if conInfo, ok := environ.(environs.ConnectorInfo); ok {
+		proxier, err := conInfo.ConnectionProxyInfo()
+		if err != nil && !errors.Is(err, errors.NotFound) {
+			return nil, errors.Trace(err)
+		}
+		if err == nil {
+			if payload.ProxyConfig, err = params.NewProxy(proxier); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
 	}
 	return &payload, nil
 }

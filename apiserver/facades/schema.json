@@ -21255,6 +21255,28 @@
                         "results"
                     ]
                 },
+                "Proxy": {
+                    "type": "object",
+                    "properties": {
+                        "config": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "config",
+                        "type"
+                    ]
+                },
                 "RemoveBlocksArgs": {
                     "type": "object",
                     "properties": {
