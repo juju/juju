@@ -539,7 +539,7 @@ func (c *registerCommand) getParameters(ctx *cmd.Context) (*registrationParams, 
 
 func (c *registerCommand) secretKeyLogin(
 	controllerDetails jujuclient.ControllerDetails, request params.SecretKeyLoginRequest, controllerName string,
-) (*params.SecretKeyLoginResponse, error) {
+) (_ *params.SecretKeyLoginResponse, err error) {
 	cookieJar, err := c.CookieJar(c.store, controllerName)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting API context")

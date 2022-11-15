@@ -10,11 +10,6 @@ import (
 	"github.com/juju/juju/proxy"
 )
 
-const (
-	proxyConfConfigKey = "config"
-	proxyConfTypeKey   = "type"
-)
-
 var (
 	NewProxierFactory = proxy.NewDefaultFactory
 )
@@ -28,10 +23,19 @@ type ProxyConfWrapper struct {
 // MarshalYAML implements marshalling method for yaml. This is so we can make
 // sure the proxier type is outputted with the config for later ingestion
 func (p *ProxyConfWrapper) MarshalYAML() (interface{}, error) {
-	return map[string]interface{}{
-		proxyConfTypeKey:   p.Proxier.Type(),
-		proxyConfConfigKey: p.Proxier,
+	return proxyConfMarshaler{
+		Type: p.Proxier.Type(), Config: p.Proxier,
 	}, nil
+}
+
+type proxyConfMarshaler struct {
+	Type   string         `yaml:"type"`
+	Config yaml.Marshaler `yaml:"config"`
+}
+
+type proxyConfUnmarshaler struct {
+	Type   string                 `yaml:"type"`
+	Config map[string]interface{} `yaml:"config"`
 }
 
 // UnmarshalYAML ingests a previously outputted proxy config. It uses the proxy
@@ -42,29 +46,14 @@ func (p *ProxyConfWrapper) UnmarshalYAML(unmarshal func(interface{}) error) erro
 		return errors.Annotate(err, "building proxy factory for config")
 	}
 
-	proxyConf := struct {
-		Type   string    `yaml:"type"`
-		Config yaml.Node `yaml:"config"`
-	}{}
-
-	err = unmarshal(&proxyConf)
+	var pc proxyConfUnmarshaler
+	err = unmarshal(&pc)
 	if err != nil {
 		return errors.Annotate(err, "unmarshalling raw proxy config")
 	}
-
-	maker, err := factory.MakerForTypeKey(proxyConf.Type)
+	p.Proxier, err = factory.ProxierFromConfig(pc.Type, pc.Config)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "cannot make proxier for type %s", pc.Type)
 	}
-
-	if err = proxyConf.Config.Decode(maker.Config()); err != nil {
-		return errors.Annotatef(err, "decoding config for proxy of type %s", proxyConf.Type)
-	}
-
-	p.Proxier, err = maker.Make()
-	if err != nil {
-		return errors.Annotatef(err, "making proxier for type %s", proxyConf.Type)
-	}
-
 	return nil
 }
