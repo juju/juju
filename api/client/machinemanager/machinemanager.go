@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 )
@@ -159,12 +160,16 @@ func (c *Client) RetryProvisioning(all bool, machines ...names.MachineTag) ([]pa
 // place for a given machine and as such the machine is guarded against
 // operations that would impede, fail, or interfere with the upgrade process.
 func (client *Client) UpgradeSeriesPrepare(machineName, series string, force bool) error {
-	args := params.UpdateSeriesArg{
+	base, err := coreseries.GetBaseFromSeries(series)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	args := params.UpdateChannelArg{
 		Entity: params.Entity{
 			Tag: names.NewMachineTag(machineName).String(),
 		},
-		Series: series,
-		Force:  force,
+		Channel: base.Channel.String(),
+		Force:   force,
 	}
 	var result params.ErrorResult
 	if err := client.facade.FacadeCall("UpgradeSeriesPrepare", args, &result); err != nil {
@@ -180,7 +185,7 @@ func (client *Client) UpgradeSeriesPrepare(machineName, series string, force boo
 // UpgradeSeriesComplete notifies the controller that a given machine has
 // successfully completed the managed series upgrade process.
 func (client *Client) UpgradeSeriesComplete(machineName string) error {
-	args := params.UpdateSeriesArg{
+	args := params.UpdateChannelArg{
 		Entity: params.Entity{Tag: names.NewMachineTag(machineName).String()},
 	}
 	result := new(params.ErrorResult)
@@ -196,16 +201,20 @@ func (client *Client) UpgradeSeriesComplete(machineName string) error {
 }
 
 func (client *Client) UpgradeSeriesValidate(machineName, series string) ([]string, error) {
-	args := params.UpdateSeriesArgs{
-		Args: []params.UpdateSeriesArg{
+	base, err := coreseries.GetBaseFromSeries(series)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	args := params.UpdateChannelArgs{
+		Args: []params.UpdateChannelArg{
 			{
-				Entity: params.Entity{Tag: names.NewMachineTag(machineName).String()},
-				Series: series,
+				Entity:  params.Entity{Tag: names.NewMachineTag(machineName).String()},
+				Channel: base.Channel.String(),
 			},
 		},
 	}
 	results := new(params.UpgradeSeriesUnitsResults)
-	err := client.facade.FacadeCall("UpgradeSeriesValidate", args, results)
+	err = client.facade.FacadeCall("UpgradeSeriesValidate", args, results)
 	if err != nil {
 		return nil, err
 	}

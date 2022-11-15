@@ -5,7 +5,7 @@ package caas
 
 import (
 	"bytes"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -45,7 +45,7 @@ func (s *eksSuite) TestGetKubeConfig(c *gc.C) {
 		tool:          "eksctl",
 		CommandRunner: mockRunner,
 	}
-	err = ioutil.WriteFile(configFile, []byte("data"), 0644)
+	err = os.WriteFile(configFile, []byte("data"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
 	gomock.InOrder(
@@ -67,7 +67,7 @@ func (s *eksSuite) TestGetKubeConfig(c *gc.C) {
 	defer rdr.Close()
 
 	c.Assert(clusterName, gc.Equals, "mycluster.ap-southeast-2.eksctl.io")
-	data, err := ioutil.ReadAll(rdr)
+	data, err := io.ReadAll(rdr)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.DeepEquals, "data")
 }
@@ -104,7 +104,7 @@ func (s *eksSuite) TestInteractiveParam(c *gc.C) {
 	ctx := &cmd.Context{
 		Dir:    c.MkDir(),
 		Stdout: out,
-		Stderr: ioutil.Discard,
+		Stderr: io.Discard,
 		Stdin:  stdin,
 	}
 	expected := `
@@ -147,7 +147,7 @@ func (s *eksSuite) TestInteractiveParamNoClusterFound(c *gc.C) {
 	ctx := &cmd.Context{
 		Dir:    c.MkDir(),
 		Stdout: out,
-		Stderr: ioutil.Discard,
+		Stderr: io.Discard,
 		Stdin:  stdin,
 	}
 	expected := `
@@ -195,7 +195,7 @@ func (s *eksSuite) TestInteractiveParamMultiClustersLegacyCLI(c *gc.C) {
 	ctx := &cmd.Context{
 		Dir:    c.MkDir(),
 		Stdout: out,
-		Stderr: ioutil.Discard,
+		Stderr: io.Discard,
 		Stdin:  stdin,
 	}
 	expected := `
@@ -262,7 +262,7 @@ func (s *eksSuite) TestInteractiveParamMultiClusters(c *gc.C) {
 	ctx := &cmd.Context{
 		Dir:    c.MkDir(),
 		Stdout: out,
-		Stderr: ioutil.Discard,
+		Stderr: io.Discard,
 		Stdin:  stdin,
 	}
 	expected := `

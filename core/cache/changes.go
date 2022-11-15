@@ -150,7 +150,7 @@ type UnitChange struct {
 	ModelUUID                string
 	Name                     string
 	Application              string
-	Series                   string
+	Base                     string
 	Annotations              map[string]string
 	CharmURL                 string
 	Life                     life.Value
@@ -232,7 +232,7 @@ type MachineChange struct {
 	Life                     life.Value
 	Annotations              map[string]string
 	Config                   map[string]interface{}
-	Series                   string
+	Base                     string
 	ContainerType            string
 	IsManual                 bool
 	SupportedContainers      []instance.ContainerType

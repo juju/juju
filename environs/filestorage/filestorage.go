@@ -6,7 +6,6 @@ package filestorage
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
@@ -156,7 +155,7 @@ func (f *fileStorageWriter) Put(name string, r io.Reader, length int64) error {
 	}
 	defer os.Remove(tmpdir)
 	// Write to a temporary file first, and then move (atomically).
-	file, err := ioutil.TempFile(tmpdir, "juju-filestorage-")
+	file, err := os.CreateTemp(tmpdir, "juju-filestorage-")
 	if err != nil {
 		return err
 	}

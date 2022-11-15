@@ -90,7 +90,7 @@ func (s *upgradeSeriesSuite) TestSetMachineStatus(c *gc.C) {
 func (s *upgradeSeriesSuite) TestCurrentSeries(c *gc.C) {
 	defer s.arrangeTest(c).Finish()
 
-	s.machine.EXPECT().Series().Return("xenial")
+	s.machine.EXPECT().Base().Return(state.UbuntuBase("16.04")).AnyTimes()
 
 	results, err := s.api.CurrentSeries(s.entityArgs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -157,13 +157,13 @@ func (s *upgradeSeriesSuite) TestFinishUpgradeSeriesUpgraded(c *gc.C) {
 	defer s.arrangeTest(c).Finish()
 
 	exp := s.machine.EXPECT()
-	exp.Series().Return("jammy")
-	exp.UpdateMachineSeries("focal").Return(nil)
+	exp.Base().Return(state.UbuntuBase("22.04"))
+	exp.UpdateMachineSeries(state.UbuntuBase("20.04")).Return(nil)
 	exp.RemoveUpgradeSeriesLock().Return(nil)
 
 	entity := params.Entity{Tag: s.machineTag.String()}
-	args := params.UpdateSeriesArgs{
-		Args: []params.UpdateSeriesArg{{Entity: entity, Series: "focal"}},
+	args := params.UpdateChannelArgs{
+		Args: []params.UpdateChannelArg{{Entity: entity, Channel: "20.04"}},
 	}
 
 	results, err := s.api.FinishUpgradeSeries(args)
@@ -177,12 +177,12 @@ func (s *upgradeSeriesSuite) TestFinishUpgradeSeriesNotUpgraded(c *gc.C) {
 	defer s.arrangeTest(c).Finish()
 
 	exp := s.machine.EXPECT()
-	exp.Series().Return("jammy")
+	exp.Base().Return(state.UbuntuBase("22.04"))
 	exp.RemoveUpgradeSeriesLock().Return(nil)
 
 	entity := params.Entity{Tag: s.machineTag.String()}
-	args := params.UpdateSeriesArgs{
-		Args: []params.UpdateSeriesArg{{Entity: entity, Series: "jammy"}},
+	args := params.UpdateChannelArgs{
+		Args: []params.UpdateChannelArg{{Entity: entity, Channel: "22.04"}},
 	}
 
 	results, err := s.api.FinishUpgradeSeries(args)

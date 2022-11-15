@@ -14,6 +14,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/leadership"
+	coresecrets "github.com/juju/juju/core/secrets"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -57,4 +58,8 @@ func NewTestAPI(
 		providerGetter:    providerGetter,
 		clock:             clock,
 	}, nil
+}
+
+func (s *SecretsManagerAPI) CanManage(uri *coresecrets.URI) (leadership.Token, error) {
+	return s.canManage(uri)
 }

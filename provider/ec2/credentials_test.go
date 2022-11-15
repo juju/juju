@@ -4,7 +4,6 @@
 package ec2_test
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -92,7 +91,7 @@ func (s *credentialsSuite) assertDetectCredentialsKnownLocation(c *gc.C, dir str
 aws_access_key_id=aws-key-id
 aws_secret_access_key=aws-secret-access-key
 `[1:]
-	err = ioutil.WriteFile(path, []byte(credData), 0600)
+	err = os.WriteFile(path, []byte(credData), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
 	path = filepath.Join(location, "config")
@@ -100,7 +99,7 @@ aws_secret_access_key=aws-secret-access-key
 [default]
 region=region
 `[1:]
-	err = ioutil.WriteFile(path, []byte(regionData), 0600)
+	err = os.WriteFile(path, []byte(regionData), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure any env vars are ignored.

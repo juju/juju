@@ -10,7 +10,7 @@ import (
 
 // StartParams is a simple parameter struct for Container.Start.
 type StartParams struct {
-	Series            string
+	Version           string
 	Arch              string
 	Stream            string
 	UserDataFile      string

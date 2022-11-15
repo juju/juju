@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -272,7 +272,7 @@ func (r *RegisterMeteredCharm) registerMetrics(modelUUID, charmURL, applicationN
 	defer response.Body.Close()
 
 	if response.StatusCode == http.StatusOK {
-		b, err := ioutil.ReadAll(response.Body)
+		b, err := io.ReadAll(response.Body)
 		if err != nil {
 			return nil, errors.Annotatef(err, "failed to read the response")
 		}

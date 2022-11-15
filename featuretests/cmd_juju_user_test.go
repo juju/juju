@@ -160,7 +160,7 @@ func (s *UserSuite) TestRemoveUserLongForm(c *gc.C) {
 }
 
 func (s *UserSuite) TestUserList(c *gc.C) {
-	ctx, err := s.RunUserCommand(c, "", "list-users")
+	ctx, err := s.RunUserCommand(c, "", "users")
 	c.Assert(err, jc.ErrorIsNil)
 	periodPattern := `(just now|\d+ \S+ ago)`
 	expected := fmt.Sprintf(`

@@ -6,7 +6,7 @@ package cloud
 import (
 	stdcontext "context"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"sort"
 	"strings"
 
@@ -481,7 +481,7 @@ func (c *AddCloudCommand) runInteractive(ctxt *cmd.Context) (*jujucloud.Cloud, e
 	// VerifyCertFile will return true if the schema format type "cert-filename" is used
 	// and the value is readable and a valid cert file.
 	pollster.VerifyCertFile = func(s string) (bool, string, error) {
-		out, err := ioutil.ReadFile(s)
+		out, err := os.ReadFile(s)
 		if err != nil {
 			return false, "Can't validate CA Certificate file: " + err.Error(), nil
 		}
@@ -534,7 +534,7 @@ func addCertificate(data []byte) (string, []byte, error) {
 	}
 	filename := name.(string)
 	if ok && filename != "" {
-		out, err := ioutil.ReadFile(filename)
+		out, err := os.ReadFile(filename)
 		if err != nil {
 			return filename, nil, err
 		}

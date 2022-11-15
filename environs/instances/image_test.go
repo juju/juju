@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	coretesting "github.com/juju/juju/testing"
@@ -30,7 +31,7 @@ var jsonImagesContent = `
  "content_id": "com.ubuntu.cloud:released:aws",
  "products": {
    "com.ubuntu.cloud:server:12.04:amd64": {
-     "release": "precise",
+     "release": "12.04",
      "version": "12.04",
      "arch": "amd64",
      "versions": {
@@ -91,7 +92,7 @@ var jsonImagesContent = `
      }
    },
    "com.ubuntu.cloud:server:12.04:arm64": {
-     "release": "precise",
+     "release": "12.04",
      "version": "12.04",
      "arch": "arm64",
      "versions": {
@@ -122,7 +123,7 @@ var jsonImagesContent = `
      }
    },
    "com.ubuntu.cloud:server:12.04:i386": {
-     "release": "precise",
+     "release": "12.04",
      "version": "12.04",
      "arch": "i386",
      "versions": {
@@ -147,7 +148,7 @@ var jsonImagesContent = `
      }
    },
    "com.ubuntu.cloud:server:12.04:ppc64el": {
-     "release": "precise",
+     "release": "12.04",
      "version": "12.04",
      "arch": "ppc64el",
      "versions": {
@@ -172,7 +173,7 @@ var jsonImagesContent = `
      }
    },
    "com.ubuntu.cloud.daily:server:12.04:amd64": {
-     "release": "precise",
+     "release": "12.04",
      "version": "12.04",
      "arch": "amd64",
      "versions": {
@@ -302,7 +303,7 @@ var findInstanceSpecTests = []instanceSpecTestParams{
 	{
 		desc:   "no image exists in metadata",
 		region: "invalid-region",
-		err:    `no metadata for "precise" images in invalid-region with arch amd64`,
+		err:    `no metadata for "ubuntu@12.04" images in invalid-region with arch amd64`,
 	},
 	{
 		desc:          "no valid instance types",
@@ -314,7 +315,7 @@ var findInstanceSpecTests = []instanceSpecTestParams{
 		desc:          "no compatible instance types",
 		region:        "arm-only",
 		instanceTypes: []InstanceType{{Id: "1", Name: "it-1", Arch: "amd64", Mem: 2048}},
-		err:           `no "precise" images in arm-only matching instance types \[it-1\]`,
+		err:           `no "ubuntu@12.04" images in arm-only matching instance types \[it-1\]`,
 	},
 }
 
@@ -324,7 +325,7 @@ func (s *imageSuite) TestFindInstanceSpec(c *gc.C) {
 		t.init()
 		cons, err := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 			CloudSpec: simplestreams.CloudSpec{t.region, "ep"},
-			Releases:  []string{"precise"},
+			Releases:  []string{"12.04"},
 			Stream:    t.stream,
 		})
 		c.Assert(err, jc.ErrorIsNil)
@@ -347,7 +348,7 @@ func (s *imageSuite) TestFindInstanceSpec(c *gc.C) {
 		}
 		imageCons := constraints.MustParse(t.constraints)
 		spec, err := FindInstanceSpec(images, &InstanceConstraint{
-			Series:      "precise",
+			Base:        series.MakeDefaultBase("ubuntu", "12.04"),
 			Region:      t.region,
 			Arch:        t.arch,
 			Constraints: imageCons,
@@ -455,17 +456,17 @@ func (*imageSuite) TestImageMetadataToImagesMaintainsOrdering(c *gc.C) {
 func (*imageSuite) TestInstanceConstraintString(c *gc.C) {
 	imageCons := constraints.MustParse("mem=4G")
 	ic := &InstanceConstraint{
-		Series:      "precise",
+		Base:        series.MakeDefaultBase("ubuntu", "12.04"),
 		Region:      "region",
 		Arch:        "amd64",
 		Constraints: imageCons,
 	}
 	c.Assert(
 		ic.String(), gc.Equals,
-		"{region: region, series: precise, arch: amd64, constraints: mem=4096M, storage: []}")
+		"{region: region, base: ubuntu@12.04, arch: amd64, constraints: mem=4096M, storage: []}")
 
 	ic.Storage = []string{"ebs", "ssd"}
 	c.Assert(
 		ic.String(), gc.Equals,
-		"{region: region, series: precise, arch: amd64, constraints: mem=4096M, storage: [ebs ssd]}")
+		"{region: region, base: ubuntu@12.04, arch: amd64, constraints: mem=4096M, storage: [ebs ssd]}")
 }

@@ -5,7 +5,7 @@ package charmstore
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"strings"
 
 	"github.com/juju/charm/v9"
@@ -190,7 +190,7 @@ func (s *ClientSuite) TestListResourcesAPI2ResourcesFailure(c *gc.C) {
 func (s *ClientSuite) TestDownloadResource(c *gc.C) {
 	fp, err := resource.GenerateFingerprint(strings.NewReader("data"))
 	c.Assert(err, jc.ErrorIsNil)
-	rc := ioutil.NopCloser(strings.NewReader("data"))
+	rc := io.NopCloser(strings.NewReader("data"))
 	s.wrapper.ReturnGetResource = csclient.ResourceData{
 		ReadCloser: rc,
 		Hash:       fp.String(),
@@ -217,7 +217,7 @@ func (s *ClientSuite) TestDownloadResource(c *gc.C) {
 func (s *ClientSuite) TestGetResourceDockerType(c *gc.C) {
 	fp, err := resource.GenerateFingerprint(strings.NewReader("data"))
 	c.Assert(err, jc.ErrorIsNil)
-	rc := ioutil.NopCloser(strings.NewReader("data"))
+	rc := io.NopCloser(strings.NewReader("data"))
 	s.wrapper.ReturnGetResource = csclient.ResourceData{
 		ReadCloser: rc,
 		Hash:       fp.String(),

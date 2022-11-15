@@ -37,7 +37,6 @@ import (
 	registrymocks "github.com/juju/juju/docker/registry/mocks"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
@@ -117,17 +116,6 @@ func (s *serverSuite) assertModelVersion(c *gc.C, st *state.State, expectedVersi
 	c.Assert(found, jc.IsTrue)
 	c.Assert(agentStream, gc.Equals, expectedStream)
 
-}
-
-type mockEnviron struct {
-	environs.Environ
-	validateCloudEndpointCalled bool
-	err                         error
-}
-
-func (m *mockEnviron) ValidateCloudEndpoint(context.ProviderCallContext) error {
-	m.validateCloudEndpointCalled = true
-	return m.err
 }
 
 type clientSuite struct {
@@ -247,7 +235,7 @@ func (s *clientSuite) TestClientWatchAllReadPermission(c *gc.C) {
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
 	// A very simple end-to-end test, because
 	// all the logic is tested elsewhere.
-	m, err := s.State.AddMachine("quantal", state.JobManageModel)
+	m, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetProvisioned("i-0", "", agent.BootstrapNonce, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -290,7 +278,7 @@ func (s *clientSuite) TestClientWatchAllReadPermission(c *gc.C) {
 				Current: status.Pending,
 			},
 			Life:                    life.Alive,
-			Series:                  "quantal",
+			Base:                    "ubuntu@12.10",
 			Jobs:                    []model.MachineJob{state.JobManageModel.ToParams()},
 			Addresses:               []params.Address{},
 			HardwareCharacteristics: &instance.HardwareCharacteristics{},
@@ -334,7 +322,7 @@ func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 	loggo.GetLogger("juju.state.allwatcher").SetLogLevel(loggo.TRACE)
 	// A very simple end-to-end test, because
 	// all the logic is tested elsewhere.
-	m, err := s.State.AddMachine("quantal", state.JobManageModel)
+	m, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetProvisioned("i-0", "", agent.BootstrapNonce, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -386,7 +374,7 @@ func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 				Current: status.Pending,
 			},
 			Life:                    life.Alive,
-			Series:                  "quantal",
+			Base:                    "ubuntu@12.10",
 			Jobs:                    []model.MachineJob{state.JobManageModel.ToParams()},
 			Addresses:               []params.Address{},
 			HardwareCharacteristics: &instance.HardwareCharacteristics{},

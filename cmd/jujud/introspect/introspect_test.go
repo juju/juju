@@ -8,7 +8,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -180,7 +180,7 @@ func (s *IntrospectCommandSuite) TestListen(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer resp.Body.Close()
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(body), gc.Equals, "hello")
 }

@@ -7,7 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"regexp"
 	"strings"
 
@@ -51,7 +51,7 @@ func ReadSecretData(f string) (SecretData, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	data, err := ioutil.ReadFile(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

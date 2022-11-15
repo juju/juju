@@ -208,9 +208,9 @@ func (s *upgradeSeriesSuite) TestFinishUpgradeSeries(c *gc.C) {
 
 	fCaller := mocks.NewMockFacadeCaller(ctrl)
 
-	args := params.UpdateSeriesArgs{
-		Args: []params.UpdateSeriesArg{
-			{Series: "xenial", Entity: s.args.Entities[0]},
+	args := params.UpdateChannelArgs{
+		Args: []params.UpdateChannelArg{
+			{Channel: "16.04", Entity: s.args.Entities[0]},
 		},
 	}
 	resultSource := params.ErrorResults{Results: []params.ErrorResult{{}}}

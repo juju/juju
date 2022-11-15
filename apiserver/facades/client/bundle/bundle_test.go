@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/charm/v9"
 	"github.com/juju/charm/v9/resource"
-	"github.com/juju/description/v3"
+	"github.com/juju/description/v4"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -706,7 +706,6 @@ func (s *bundleSuite) minimalApplicationArgsWithCharmConfig(modelType string, ch
 	s.st.Spaces[network.AlphaSpaceId] = network.AlphaSpaceName
 	result := description.ApplicationArgs{
 		Tag:                  names.NewApplicationTag("ubuntu"),
-		Series:               "focal",
 		Type:                 modelType,
 		CharmURL:             "ch:ubuntu",
 		Channel:              "stable",
@@ -765,6 +764,7 @@ func (s *bundleSuite) TestExportBundleWithApplication(c *gc.C) {
 		CloudRegion: "some-region"})
 
 	app := s.st.model.AddApplication(s.minimalApplicationArgs(description.IAAS))
+	app.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
 	app.SetStatus(minimalStatusArgs())
 
 	u := app.AddUnit(minimalUnitArgs(app.Type()))
@@ -803,6 +803,7 @@ func (s *bundleSuite) TestExportBundleWithApplicationResources(c *gc.C) {
 		CloudRegion: "some-region"})
 
 	app := s.st.model.AddApplication(s.minimalApplicationArgs(description.IAAS))
+	app.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
 	app.SetStatus(minimalStatusArgs())
 
 	res := app.AddResource(description.ResourceArgs{Name: "foo-file"})
@@ -872,6 +873,7 @@ func (s *bundleSuite) TestExportBundleWithApplicationStorage(c *gc.C) {
 		},
 	}
 	app := s.st.model.AddApplication(args)
+	app.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
 	app.SetStatus(minimalStatusArgs())
 
 	u := app.AddUnit(minimalUnitArgs(app.Type()))
@@ -919,6 +921,7 @@ func (s *bundleSuite) TestExportBundleWithTrustedApplication(c *gc.C) {
 	}
 
 	app := s.st.model.AddApplication(appArgs)
+	app.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
 	app.SetStatus(minimalStatusArgs())
 
 	u := app.AddUnit(minimalUnitArgs(app.Type()))
@@ -958,6 +961,7 @@ func (s *bundleSuite) TestExportBundleWithApplicationOffers(c *gc.C) {
 		CloudRegion: "some-region"})
 
 	app := s.st.model.AddApplication(s.minimalApplicationArgs(description.IAAS))
+	app.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
 	app.SetStatus(minimalStatusArgs())
 	u := app.AddUnit(minimalUnitArgs(app.Type()))
 	u.SetAgentStatus(minimalStatusArgs())
@@ -986,6 +990,7 @@ func (s *bundleSuite) TestExportBundleWithApplicationOffers(c *gc.C) {
 	app2Args := s.minimalApplicationArgs(description.IAAS)
 	app2Args.Tag = names.NewApplicationTag("foo")
 	app2 := s.st.model.AddApplication(app2Args)
+	app2.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
 	app2.SetStatus(minimalStatusArgs())
 
 	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
@@ -1076,6 +1081,7 @@ HaXavAO1UPl2BczwaU2O2MDcXSE21Jw1cDCas2jc90X/iBEBM50xXTwAtNmJ84mg
 UGNmDMvj8tUYI7+SvffHrTBwBPvcGeXa7XP4Au+GoJUN0jHspCeik/04KwanRCmu
 -----END RSA PRIVATE KEY-----`,
 	}))
+	app.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
 	app.SetStatus(minimalStatusArgs())
 	u := app.AddUnit(minimalUnitArgs(app.Type()))
 	u.SetAgentStatus(minimalStatusArgs())
@@ -1134,6 +1140,7 @@ UGNmDMvj8tUYI7+SvffHrTBwBPvcGeXa7XP4Au+GoJUN0jHspCeik/04KwanRCmu
 	app2Args := s.minimalApplicationArgs(description.IAAS)
 	app2Args.Tag = names.NewApplicationTag("foo")
 	app2 := s.st.model.AddApplication(app2Args)
+	app2.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
 	app2.SetStatus(minimalStatusArgs())
 
 	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
@@ -1254,6 +1261,7 @@ func (s *bundleSuite) TestExportBundleWithSaas(c *gc.C) {
 		CloudRegion: "some-region"})
 
 	app := s.st.model.AddApplication(s.minimalApplicationArgs(description.IAAS))
+	app.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
 	app.SetStatus(minimalStatusArgs())
 
 	remoteApp := s.st.model.AddRemoteApplication(description.RemoteApplicationArgs{
@@ -1293,11 +1301,6 @@ applications:
 }
 
 func (s *bundleSuite) addApplicationToModel(model description.Model, name string, numUnits int) string {
-	series := "focal"
-	if model.Type() == "caas" {
-		series = "kubernetes"
-	}
-
 	var charmURL string
 	var channel string
 
@@ -1316,15 +1319,15 @@ func (s *bundleSuite) addApplicationToModel(model description.Model, name string
 		Tag:                names.NewApplicationTag(name),
 		CharmURL:           charmURL,
 		Channel:            channel,
-		Series:             series,
 		CharmConfig:        map[string]interface{}{},
 		LeadershipSettings: map[string]interface{}{},
 	})
+	application.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
 	application.SetStatus(minimalStatusArgs())
 	for i := 0; i < numUnits; i++ {
 		machine := model.AddMachine(description.MachineArgs{
-			Id:     names.NewMachineTag(fmt.Sprint(i)),
-			Series: series,
+			Id:   names.NewMachineTag(fmt.Sprint(i)),
+			Base: "ubuntu@20.04",
 		})
 		unit := application.AddUnit(description.UnitArgs{
 			Tag:     names.NewUnitTag(fmt.Sprintf("%s/%d", name, i)),
@@ -1418,15 +1421,15 @@ relations:
 func (s *bundleSuite) TestExportBundleModelWithCharmDefaults(c *gc.C) {
 	model := s.newModel("iaas", "wordpress", "mysql")
 	model.SetStatus(description.StatusArgs{Value: "available"})
-	model.AddApplication(description.ApplicationArgs{
+	app := model.AddApplication(description.ApplicationArgs{
 		Tag:      names.NewApplicationTag("mariadb"),
-		Series:   "focal",
 		CharmURL: "ch:mariadb",
 		CharmConfig: map[string]interface{}{
 			"mem": 200,
 			"foo": "baz",
 		},
 	})
+	app.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
 
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{IncludeCharmDefaults: true})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1549,7 +1552,6 @@ func (s *bundleSuite) TestExportBundleSubordinateApplication(c *gc.C) {
 	s.st.Spaces["2"] = "some-space"
 	application := s.st.model.AddApplication(description.ApplicationArgs{
 		Tag:                  names.NewApplicationTag("magic"),
-		Series:               "bionic",
 		Subordinate:          true,
 		CharmURL:             "cs:magic",
 		Channel:              "stable",
@@ -1574,6 +1576,7 @@ func (s *bundleSuite) TestExportBundleSubordinateApplication(c *gc.C) {
 		PasswordHash:       "passwordhash",
 		PodSpec:            "podspec",
 	})
+	application.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/18.04/stable"})
 	application.SetStatus(minimalStatusArgs())
 
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
@@ -1610,11 +1613,11 @@ func (s *bundleSuite) setupExportBundleEndpointBindingsPrinted(all, oneOff strin
 		"rel-name": all,
 		"another":  all,
 	}
-	_ = s.st.model.AddApplication(args)
+	app := s.st.model.AddApplication(args)
+	app.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
 
-	_ = s.st.model.AddApplication(description.ApplicationArgs{
+	app = s.st.model.AddApplication(description.ApplicationArgs{
 		Tag:                  names.NewApplicationTag("magic"),
-		Series:               "bionic",
 		Subordinate:          true,
 		CharmURL:             "cs:magic",
 		Channel:              "stable",
@@ -1629,6 +1632,7 @@ func (s *bundleSuite) setupExportBundleEndpointBindingsPrinted(all, oneOff strin
 			"config key": "config value",
 		},
 	})
+	app.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/18.04/stable"})
 }
 
 func (s *bundleSuite) TestExportBundleNoEndpointBindingsPrinted(c *gc.C) {
@@ -1691,7 +1695,6 @@ func (s *bundleSuite) TestExportBundleSubordinateApplicationAndMachine(c *gc.C) 
 
 	application := s.st.model.AddApplication(description.ApplicationArgs{
 		Tag:         names.NewApplicationTag("magic"),
-		Series:      "zesty",
 		Subordinate: true,
 		CharmURL:    "cs:zesty/magic",
 		Channel:     "stable",
@@ -1700,6 +1703,7 @@ func (s *bundleSuite) TestExportBundleSubordinateApplicationAndMachine(c *gc.C) 
 			"key": "value",
 		},
 	})
+	application.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/17.04/stable"})
 	application.SetStatus(minimalStatusArgs())
 
 	s.addMinimalMachineWithConstraints(s.st.model, "0")
@@ -1727,7 +1731,7 @@ func (s *bundleSuite) addMinimalMachineWithConstraints(model description.Model, 
 		Id:           names.NewMachineTag(id),
 		Nonce:        "a-nonce",
 		PasswordHash: "some-hash",
-		Series:       "focal",
+		Base:         "ubuntu@20.04",
 		Jobs:         []string{"host-units"},
 	})
 	args := description.ConstraintsArgs{
@@ -1794,7 +1798,7 @@ func (s *bundleSuite) addMinimalMachineWithAnnotations(model description.Model, 
 		Id:           names.NewMachineTag(id),
 		Nonce:        "a-nonce",
 		PasswordHash: "some-hash",
-		Series:       "focal",
+		Base:         "ubuntu@20.04",
 		Jobs:         []string{"host-units"},
 	})
 	m.SetAnnotations(map[string]string{
@@ -1857,13 +1861,13 @@ func (s *bundleSuite) TestExportBundleWithContainers(c *gc.C) {
 	application0 := s.st.model.AddApplication(description.ApplicationArgs{
 		Tag:      names.NewApplicationTag("wordpress"),
 		CharmURL: "cs:wordpress",
-		Series:   "focal",
 	})
+	application0.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
 	application0.SetStatus(minimalStatusArgs())
 
 	m0 := s.st.model.AddMachine(description.MachineArgs{
-		Id:     names.NewMachineTag("0"),
-		Series: "focal",
+		Id:   names.NewMachineTag("0"),
+		Base: "ubuntu@20.04",
 	})
 	args := description.ConstraintsArgs{
 		Architecture: "amd64",
@@ -1880,13 +1884,13 @@ func (s *bundleSuite) TestExportBundleWithContainers(c *gc.C) {
 	application1 := s.st.model.AddApplication(description.ApplicationArgs{
 		Tag:      names.NewApplicationTag("mysql"),
 		CharmURL: "cs:mysql",
-		Series:   "focal",
 	})
+	application1.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
 	application1.SetStatus(minimalStatusArgs())
 
 	m1 := s.st.model.AddMachine(description.MachineArgs{
-		Id:     names.NewMachineTag("1"),
-		Series: "focal",
+		Id:   names.NewMachineTag("1"),
+		Base: "ubuntu@20.04",
 	})
 	args = description.ConstraintsArgs{
 		Architecture: "amd64",
@@ -1938,30 +1942,30 @@ func (s *bundleSuite) TestMixedSeries(c *gc.C) {
 
 	application := s.st.model.AddApplication(description.ApplicationArgs{
 		Tag:      names.NewApplicationTag("magic"),
-		Series:   "bionic",
 		CharmURL: "cs:magic",
 	})
+	application.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/18.04/stable"})
 	application.AddUnit(description.UnitArgs{
 		Tag:     names.NewUnitTag("magic/0"),
 		Machine: names.NewMachineTag("0"),
 	})
 	s.st.model.AddMachine(description.MachineArgs{
-		Id:     names.NewMachineTag("0"),
-		Series: "bionic",
+		Id:   names.NewMachineTag("0"),
+		Base: "ubuntu@18.04",
 	})
 
 	application = s.st.model.AddApplication(description.ApplicationArgs{
 		Tag:      names.NewApplicationTag("mojo"),
-		Series:   "jammy",
 		CharmURL: "ch:mojo",
 	})
+	application.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/22.04/stable"})
 	application.AddUnit(description.UnitArgs{
 		Tag:     names.NewUnitTag("mojo/0"),
 		Machine: names.NewMachineTag("1"),
 	})
 	s.st.model.AddMachine(description.MachineArgs{
-		Id:     names.NewMachineTag("1"),
-		Series: "jammy",
+		Id:   names.NewMachineTag("1"),
+		Base: "ubuntu@22.04",
 	})
 
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
@@ -2002,30 +2006,30 @@ func (s *bundleSuite) TestMixedSeriesNoDefaultSeries(c *gc.C) {
 
 	application := s.st.model.AddApplication(description.ApplicationArgs{
 		Tag:      names.NewApplicationTag("magic"),
-		Series:   "focal",
 		CharmURL: "ch:magic",
 	})
+	application.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
 	application.AddUnit(description.UnitArgs{
 		Tag:     names.NewUnitTag("magic/0"),
 		Machine: names.NewMachineTag("0"),
 	})
 	s.st.model.AddMachine(description.MachineArgs{
-		Id:     names.NewMachineTag("0"),
-		Series: "focal",
+		Id:   names.NewMachineTag("0"),
+		Base: "ubuntu@20.04",
 	})
 
 	application = s.st.model.AddApplication(description.ApplicationArgs{
 		Tag:      names.NewApplicationTag("mojo"),
-		Series:   "jammy",
 		CharmURL: "ch:mojo",
 	})
+	application.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/22.04/stable"})
 	application.AddUnit(description.UnitArgs{
 		Tag:     names.NewUnitTag("mojo/0"),
 		Machine: names.NewMachineTag("1"),
 	})
 	s.st.model.AddMachine(description.MachineArgs{
-		Id:     names.NewMachineTag("1"),
-		Series: "jammy",
+		Id:   names.NewMachineTag("1"),
+		Base: "ubuntu@22.04",
 	})
 
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
@@ -2283,7 +2287,6 @@ applications:
 
 		application := s.st.model.AddApplication(description.ApplicationArgs{
 			Tag:                  names.NewApplicationTag("magic"),
-			Series:               "focal",
 			CharmURL:             "cs:focal/magic",
 			Channel:              "stable",
 			CharmModifiedVersion: 1,
@@ -2295,6 +2298,7 @@ applications:
 				"rabbit": "0",
 			},
 		})
+		application.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
 		application.SetStatus(minimalStatusArgs())
 
 		result, err := s.facade.ExportBundle(params.ExportBundleParams{})

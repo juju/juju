@@ -4,7 +4,6 @@
 package jujuclient_test
 
 import (
-	"io/ioutil"
 	"os"
 
 	"github.com/juju/errors"
@@ -163,7 +162,7 @@ func (s *ModelsSuite) TestUpdateModelEmptyModels(c *gc.C) {
 	// This test exists to exercise a bug caused by the
 	// presence of a file with an empty "models" field,
 	// that would lead to a panic.
-	err := ioutil.WriteFile(jujuclient.JujuModelsPath(), []byte(`
+	err := os.WriteFile(jujuclient.JujuModelsPath(), []byte(`
 controllers:
   ctrl:
     models:

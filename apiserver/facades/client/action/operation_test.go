@@ -16,7 +16,6 @@ import (
 
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/client/action"
-	"github.com/juju/juju/apiserver/facades/client/action/mocks"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -339,12 +338,11 @@ func (s *operationSuite) TestOperations(c *gc.C) {
 }
 
 type enqueueSuite struct {
-	wordpressAction *mocks.MockAction
-	mysqlAction     *mocks.MockAction
-	actionReceiver  *mocks.MockActionReceiver
-	authorizer      *facademocks.MockAuthorizer
-	model           *mocks.MockModel
-	state           *mocks.MockState
+	action.MockBaseSuite
+
+	wordpressAction *action.MockAction
+	mysqlAction     *action.MockAction
+	model           *action.MockModel
 
 	modelTag         names.ModelTag
 	wordpressUnitTag names.UnitTag
@@ -371,7 +369,7 @@ func (s *enqueueSuite) TestEnqueueOperation(c *gc.C) {
 	s.expectWordpressActionResult()
 	s.expectMysqlActionResult()
 
-	api := s.getAPI(c)
+	api := s.NewActionAPI(c)
 
 	expectedName := "fakeaction"
 	f := false
@@ -415,10 +413,10 @@ func (s *enqueueSuite) TestEnqueueOperationFail(c *gc.C) {
 	leaders := map[string]string{
 		"test": "test/1",
 	}
-	s.state.EXPECT().ApplicationLeaders().Return(leaders, nil)
+	s.Leadership.EXPECT().Leaders().Return(leaders, nil)
 	s.model.EXPECT().FailOperationEnqueuing("1", "error(s) enqueueing action(s): database txn failure not found, could not determine leader for \"mysql\"", 1)
 
-	api := s.getAPI(c)
+	api := s.NewActionAPI(c)
 
 	f := false
 	arg := params.Actions{
@@ -457,11 +455,11 @@ func (s *enqueueSuite) TestEnqueueOperationLeadership(c *gc.C) {
 		"test":  "test/1",
 		appName: s.mysqlUnitTag.Id(),
 	}
-	s.state.EXPECT().ApplicationLeaders().Return(leaders, nil)
+	s.Leadership.EXPECT().Leaders().Return(leaders, nil)
 	s.expectWordpressActionResult()
 	s.expectMysqlActionResult()
 
-	api := s.getAPI(c)
+	api := s.NewActionAPI(c)
 
 	expectedName := "fakeaction"
 	f := false
@@ -496,20 +494,21 @@ func (s *enqueueSuite) TestEnqueueOperationLeadership(c *gc.C) {
 
 func (s *enqueueSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.authorizer = facademocks.NewMockAuthorizer(ctrl)
-	s.authorizer.EXPECT().HasPermission(gomock.Any(), gomock.Any()).Return(true, nil).AnyTimes()
-	s.authorizer.EXPECT().AuthClient().Return(true)
+	s.Authorizer = facademocks.NewMockAuthorizer(ctrl)
+	s.Authorizer.EXPECT().HasPermission(gomock.Any(), gomock.Any()).Return(true, nil).AnyTimes()
+	s.Authorizer.EXPECT().AuthClient().Return(true)
 
-	s.model = mocks.NewMockModel(ctrl)
-	s.model.EXPECT().ModelTag().Return(s.modelTag)
+	s.model = action.NewMockModel(ctrl)
+	s.model.EXPECT().ModelTag().Return(s.modelTag).MinTimes(1)
 
-	s.state = mocks.NewMockState(ctrl)
-	s.state.EXPECT().Model().Return(s.model, nil)
+	s.State = action.NewMockState(ctrl)
+	s.State.EXPECT().Model().Return(s.model, nil)
 
-	s.actionReceiver = mocks.NewMockActionReceiver(ctrl)
+	s.ActionReceiver = action.NewMockActionReceiver(ctrl)
+	s.Leadership = action.NewMockReader(ctrl)
 
-	s.wordpressAction = mocks.NewMockAction(ctrl)
-	s.mysqlAction = mocks.NewMockAction(ctrl)
+	s.wordpressAction = action.NewMockAction(ctrl)
+	s.mysqlAction = action.NewMockAction(ctrl)
 
 	return ctrl
 }
@@ -517,7 +516,7 @@ func (s *enqueueSuite) setupMocks(c *gc.C) *gomock.Controller {
 func (s *enqueueSuite) expectWordpressActionResult() {
 	f := false
 	s.model.EXPECT().AddAction(gomock.Any(), "1", "fakeaction", map[string]interface{}{}, &f, &s.executionGroup).Return(s.wordpressAction, nil)
-	s.actionReceiver.EXPECT().Tag().Return(s.wordpressUnitTag)
+	s.ActionReceiver.EXPECT().Tag().Return(s.wordpressUnitTag)
 	aExp := s.wordpressAction.EXPECT()
 	aExp.ActionTag().Return(names.NewActionTag("2"))
 	aExp.Status().Return(state.ActionRunning)
@@ -535,7 +534,7 @@ func (s *enqueueSuite) expectWordpressActionResult() {
 func (s *enqueueSuite) expectMysqlActionResult() {
 	t := true
 	s.model.EXPECT().AddAction(gomock.Any(), "1", "fakeaction", map[string]interface{}{}, &t, &s.executionGroup).Return(s.mysqlAction, nil)
-	s.actionReceiver.EXPECT().Tag().Return(s.mysqlUnitTag)
+	s.ActionReceiver.EXPECT().Tag().Return(s.mysqlUnitTag)
 	aExp := s.mysqlAction.EXPECT()
 	aExp.ActionTag().Return(names.NewActionTag("3"))
 	aExp.Status().Return(state.ActionRunning)
@@ -548,16 +547,4 @@ func (s *enqueueSuite) expectMysqlActionResult() {
 	aExp.Enqueued().Return(time.Now())
 	aExp.Parallel().Return(t)
 	aExp.ExecutionGroup().Return(s.executionGroup)
-}
-
-func (s *enqueueSuite) getAPI(c *gc.C) *action.ActionAPI {
-	api, err := action.NewActionAPIForMockTest(s.state, nil, s.authorizer, s.tagToActionReceiverFn)
-	c.Assert(err, gc.IsNil)
-	return api
-}
-
-func (s *enqueueSuite) tagToActionReceiverFn(_ func(names.Tag) (state.Entity, error)) func(tag string) (state.ActionReceiver, error) {
-	return func(tag string) (state.ActionReceiver, error) {
-		return s.actionReceiver, nil
-	}
 }

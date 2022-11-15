@@ -6,7 +6,6 @@ package tools_test
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
@@ -162,7 +161,7 @@ func (t *ToolsSuite) TestReadToolsErrors(c *gc.C) {
 	err = os.MkdirAll(dir, agenttools.DirPerm)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = ioutil.WriteFile(filepath.Join(dir, agenttools.ToolsFile), []byte(" \t\n"), 0644)
+	err = os.WriteFile(filepath.Join(dir, agenttools.ToolsFile), []byte(" \t\n"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
 	testTools, err = agenttools.ReadTools(t.dataDir, vers)
@@ -248,7 +247,7 @@ func assertFileContents(c *gc.C, dir, file, contents string, mode os.FileMode) {
 	info, err := os.Stat(file)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.Mode()&(os.ModeType|mode), gc.Equals, mode)
-	data, err := ioutil.ReadFile(file)
+	data, err := os.ReadFile(file)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, contents)
 }

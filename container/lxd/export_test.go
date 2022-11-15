@@ -15,7 +15,7 @@ import (
 
 var (
 	NewNICDevice        = newNICDevice
-	SeriesRemoteAliases = seriesRemoteAliases
+	BaseRemoteAliases   = baseRemoteAliases
 	ErrIPV6NotSupported = errIPV6NotSupported
 )
 

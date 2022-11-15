@@ -12,13 +12,15 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/model"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/state"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.upgradeseries")
 
-// API serves methods required by the machine agent upgrade-series worker.
+// API serves methods required by the machine agent upgrade-machine worker.
 type API struct {
 	*common.UpgradeSeriesAPI
 
@@ -60,7 +62,7 @@ func NewUpgradeSeriesAPI(
 	}, nil
 }
 
-// MachineStatus gets the current upgrade-series status of a machine.
+// MachineStatus gets the current upgrade-machine status of a machine.
 func (a *API) MachineStatus(args params.Entities) (params.UpgradeSeriesStatusResults, error) {
 	result := params.UpgradeSeriesStatusResults{}
 
@@ -88,7 +90,7 @@ func (a *API) MachineStatus(args params.Entities) (params.UpgradeSeriesStatusRes
 	return result, nil
 }
 
-// SetMachineStatus sets the current upgrade-series status of a machine.
+// SetMachineStatus sets the current upgrade-machine status of a machine.
 func (a *API) SetMachineStatus(args params.UpgradeSeriesStatusParams) (params.ErrorResults, error) {
 	result := params.ErrorResults{}
 
@@ -116,7 +118,7 @@ func (a *API) SetMachineStatus(args params.UpgradeSeriesStatusParams) (params.Er
 
 // CurrentSeries returns what Juju thinks the current series of the machine is.
 // Note that a machine could have been upgraded out-of-band by running
-// do-release-upgrade outside of the upgrade-series workflow,
+// do-release-upgrade outside of the upgrade-machine workflow,
 // making this value incorrect.
 func (a *API) CurrentSeries(args params.Entities) (params.StringResults, error) {
 	result := params.StringResults{}
@@ -133,7 +135,12 @@ func (a *API) CurrentSeries(args params.Entities) (params.StringResults, error) 
 			results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		results[i].Result = machine.Series()
+		series, err := coreseries.GetSeriesFromChannel(machine.Base().OS, machine.Base().Channel)
+		if err != nil {
+			results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		results[i].Result = series
 	}
 
 	result.Results = results
@@ -196,8 +203,8 @@ func (a *API) StartUnitCompletion(args params.UpgradeSeriesStartUnitCompletionPa
 // FinishUpgradeSeries is the last action in the upgrade workflow and is
 // called after all machine and unit statuses are "completed".
 // It updates the machine series to reflect the completed upgrade, then
-// removes the upgrade-series lock.
-func (a *API) FinishUpgradeSeries(args params.UpdateSeriesArgs) (params.ErrorResults, error) {
+// removes the upgrade-machine lock.
+func (a *API) FinishUpgradeSeries(args params.UpdateChannelArgs) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
@@ -217,11 +224,15 @@ func (a *API) FinishUpgradeSeries(args params.UpdateSeriesArgs) (params.ErrorRes
 		// Only update if they differ, because calling UpgradeSeriesTarget
 		// cascades through units and subordinates to verify series support,
 		// which we might as well skip unless an update is required.
-		ms := machine.Series()
-		if arg.Series == ms {
-			logger.Debugf("%q series is unchanged from %q", arg.Entity.Tag, ms)
+		mBase := machine.Base()
+		var argBase state.Base
+		if arg.Channel != "" {
+			argBase = state.Base{OS: mBase.OS, Channel: arg.Channel}.Normalise()
+		}
+		if argBase.String() == mBase.String() {
+			logger.Debugf("%q base is unchanged from %q", arg.Entity.Tag, mBase.DisplayString())
 		} else {
-			if err := machine.UpdateMachineSeries(arg.Series); err != nil {
+			if err := machine.UpdateMachineSeries(argBase); err != nil {
 				result.Results[i].Error = apiservererrors.ServerError(err)
 				continue
 			}
@@ -237,7 +248,7 @@ func (a *API) FinishUpgradeSeries(args params.UpdateSeriesArgs) (params.ErrorRes
 }
 
 // UnitsPrepared returns the units running on this machine that have completed
-// their upgrade-series preparation, and are ready to be stopped and have their
+// their upgrade-machine preparation, and are ready to be stopped and have their
 // unit agent services converted for the target series.
 func (a *API) UnitsPrepared(args params.Entities) (params.EntitiesResults, error) {
 	result, err := a.unitsInState(args, model.UpgradeSeriesPrepareCompleted)
@@ -245,7 +256,7 @@ func (a *API) UnitsPrepared(args params.Entities) (params.EntitiesResults, error
 }
 
 // UnitsCompleted returns the units running on this machine that have completed
-// the upgrade-series workflow and are in their normal running state.
+// the upgrade-machine workflow and are in their normal running state.
 func (a *API) UnitsCompleted(args params.Entities) (params.EntitiesResults, error) {
 	result, err := a.unitsInState(args, model.UpgradeSeriesCompleted)
 	return result, errors.Trace(err)

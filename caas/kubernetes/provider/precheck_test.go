@@ -8,6 +8,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 )
@@ -30,7 +31,7 @@ func (s *PrecheckSuite) TestSuccess(c *gc.C) {
 	defer ctrl.Finish()
 
 	err := s.broker.PrecheckInstance(context.NewEmptyCloudCallContext(), environs.PrecheckInstanceParams{
-		Series:      "kubernetes",
+		Base:        series.MakeDefaultBase("ubuntu", "22.04"),
 		Constraints: constraints.MustParse("mem=4G"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -43,7 +44,7 @@ func (s *PrecheckSuite) TestWrongSeries(c *gc.C) {
 	defer ctrl.Finish()
 
 	err := s.broker.PrecheckInstance(context.NewEmptyCloudCallContext(), environs.PrecheckInstanceParams{
-		Series: "quantal",
+		Base: series.MakeDefaultBase("ubuntu", "22.04"),
 	})
 	c.Assert(err, gc.ErrorMatches, `series "quantal" not valid`)
 }
@@ -53,7 +54,7 @@ func (s *PrecheckSuite) TestUnsupportedConstraints(c *gc.C) {
 	defer ctrl.Finish()
 
 	err := s.broker.PrecheckInstance(context.NewEmptyCloudCallContext(), environs.PrecheckInstanceParams{
-		Series:      "kubernetes",
+		Base:        series.MakeDefaultBase("ubuntu", "22.04"),
 		Constraints: constraints.MustParse("instance-type=foo"),
 	})
 	c.Assert(err, gc.ErrorMatches, `constraints instance-type not supported`)
@@ -64,7 +65,7 @@ func (s *PrecheckSuite) TestPlacementNotAllowed(c *gc.C) {
 	defer ctrl.Finish()
 
 	err := s.broker.PrecheckInstance(context.NewEmptyCloudCallContext(), environs.PrecheckInstanceParams{
-		Series:    "kubernetes",
+		Base:      series.MakeDefaultBase("ubuntu", "22.04"),
 		Placement: "a",
 	})
 	c.Assert(err, gc.ErrorMatches, `placement directive "a" not valid`)
@@ -75,12 +76,12 @@ func (s *PrecheckSuite) TestInvalidConstraints(c *gc.C) {
 	defer ctrl.Finish()
 
 	err := s.broker.PrecheckInstance(context.NewEmptyCloudCallContext(), environs.PrecheckInstanceParams{
-		Series:      "kubernetes",
+		Base:        series.MakeDefaultBase("ubuntu", "22.04"),
 		Constraints: constraints.MustParse("tags=foo"),
 	})
 	c.Assert(err, gc.ErrorMatches, `invalid node affinity constraints: foo`)
 	err = s.broker.PrecheckInstance(context.NewEmptyCloudCallContext(), environs.PrecheckInstanceParams{
-		Series:      "kubernetes",
+		Base:        series.MakeDefaultBase("ubuntu", "22.04"),
 		Constraints: constraints.MustParse("tags=^=bar"),
 	})
 	c.Assert(err, gc.ErrorMatches, `invalid node affinity constraints: \^=bar`)

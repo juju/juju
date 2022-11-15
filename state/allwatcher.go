@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state/watcher"
@@ -338,11 +339,15 @@ func (m *backingMachine) updated(ctx *allWatcherContext) error {
 
 	}
 	isManual := isManualMachine(m.Id, m.Nonce, providerType)
+	base, err := series.ParseBase(m.Base.OS, m.Base.Channel)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	info := &multiwatcher.MachineInfo{
 		ModelUUID:                m.ModelUUID,
 		ID:                       m.Id,
 		Life:                     life.Value(m.Life.String()),
-		Series:                   m.Series,
+		Base:                     base.DisplayString(),
 		ContainerType:            m.ContainerType,
 		IsManual:                 isManual,
 		Jobs:                     paramsJobsFromJobs(m.Jobs),
@@ -510,11 +515,15 @@ func (u *backingUnit) updateAgentVersion(info *multiwatcher.UnitInfo) {
 
 func (u *backingUnit) updated(ctx *allWatcherContext) error {
 	allWatcherLogger.Tracef(`unit "%s:%s" updated`, ctx.modelUUID, ctx.id)
+	base, err := series.ParseBase(u.Base.OS, u.Base.Channel)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	info := &multiwatcher.UnitInfo{
 		ModelUUID:   u.ModelUUID,
 		Name:        u.Name,
 		Application: u.Application,
-		Series:      u.Series,
+		Base:        base.DisplayString(),
 		Life:        life.Value(u.Life.String()),
 		MachineID:   u.MachineId,
 		Principal:   u.Principal,

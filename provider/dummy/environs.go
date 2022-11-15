@@ -56,6 +56,7 @@ import (
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/raft/queue"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -70,7 +71,6 @@ import (
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
-	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/lease"
 	"github.com/juju/juju/worker/modelcache"
@@ -111,7 +111,6 @@ func SampleConfig() testing.Attrs {
 		"firewall-mode":             config.FwInstance,
 		"ssl-hostname-verification": true,
 		"development":               false,
-		"default-series":            jujuversion.DefaultSupportedLTS(),
 		"default-space":             "",
 		"secret":                    "pork",
 		"controller":                true,
@@ -825,12 +824,10 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 
 	// Create an instance for the bootstrap node.
 	logger.Infof("creating bootstrap instance")
-	series := config.PreferredSeries(e.Config())
 	i := &dummyInstance{
 		id:           BootstrapInstanceId,
 		addresses:    network.NewMachineAddresses([]string{"localhost"}).AsProviderAddresses(),
 		machineId:    agent.BootstrapControllerId,
-		series:       series,
 		firewallMode: e.Config().FirewallMode(),
 		state:        estate,
 		controller:   true,
@@ -1053,7 +1050,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 
 	bsResult := &environs.BootstrapResult{
 		Arch:                    arch,
-		Series:                  series,
+		Base:                    series.MakeDefaultBase("ubuntu", "22.04"),
 		CloudBootstrapFinalizer: finalize,
 	}
 	return bsResult, nil
@@ -1064,10 +1061,7 @@ type noopSysLogger struct{}
 func (noopSysLogger) Log([]corelogger.LogRecord) error { return nil }
 
 func leaseManager(controllerUUID string, st *state.State) (*lease.Manager, error) {
-	target := st.LeaseNotifyTarget(
-		loggo.GetLogger("juju.state.raftlease"),
-	)
-	dummyStore := newLeaseStore(clock.WallClock, target, st.LeaseTrapdoorFunc())
+	dummyStore := newLeaseStore(clock.WallClock)
 	return lease.NewManager(lease.ManagerConfig{
 		Secretary:            lease.SecretaryFinder(controllerUUID),
 		Store:                dummyStore,
@@ -1224,7 +1218,6 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		id:           instance.Id(idString),
 		addresses:    addrs,
 		machineId:    machineId,
-		series:       args.InstanceConfig.Series,
 		firewallMode: e.Config().FirewallMode(),
 		state:        estate,
 	}
@@ -1776,7 +1769,6 @@ type dummyInstance struct {
 	id           instance.Id
 	status       string
 	machineId    string
-	series       string
 	firewallMode string
 	controller   bool
 

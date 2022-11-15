@@ -262,7 +262,7 @@ func (r relationShim) ReplaceApplicationSettings(appName string, values map[stri
 type successfulToken struct{}
 
 // Check is all of the lease.Token interface.
-func (t successfulToken) Check(attempt int, key interface{}) error {
+func (t successfulToken) Check() error {
 	return nil
 }
 

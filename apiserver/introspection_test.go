@@ -4,7 +4,7 @@
 package apiserver_test
 
 import (
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	jc "github.com/juju/testing/checkers"
@@ -56,7 +56,7 @@ func (s *introspectionSuite) testAccess(c *gc.C, tag, password string) {
 	})
 	defer resp.Body.Close()
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
-	content, err := ioutil.ReadAll(resp.Body)
+	content, err := io.ReadAll(resp.Body)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(content), gc.Equals, "gazing")
 }

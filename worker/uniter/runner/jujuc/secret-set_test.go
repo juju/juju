@@ -4,7 +4,6 @@
 package jujuc_test
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
@@ -141,7 +140,7 @@ func (s *SecretUpdateSuite) TestUpdateSecretFromFile(c *gc.C) {
 
 	dir := c.MkDir()
 	fileName := filepath.Join(dir, "secret.yaml")
-	err := ioutil.WriteFile(fileName, []byte(data), os.FileMode(0644))
+	err := os.WriteFile(fileName, []byte(data), os.FileMode(0644))
 	c.Assert(err, jc.ErrorIsNil)
 
 	hctx, _ := s.ContextSuite.NewHookContext()

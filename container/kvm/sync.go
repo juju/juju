@@ -7,7 +7,6 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path"
@@ -17,19 +16,15 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/environs/imagedownloads"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 )
 
-// BIOSFType is the file type we want to fetch and use for kvm instances which
-// boot using a legacy BIOS boot loader.
-const BIOSFType = "disk1.img"
-
-// UEFIFType is the file type we want to fetch and use for kvm instances which
-// boot using UEFI. In our case this is ARM64.
-const UEFIFType = "uefi1.img"
+// DiskImageType is the file type we want to fetch and use for kvm instances.
+const DiskImageType = "disk1.img"
 
 // Oner gets the one matching item from simplestreams.
 type Oner interface {
@@ -38,9 +33,9 @@ type Oner interface {
 
 // syncParams conveys the information necessary for calling imagedownloads.One.
 type syncParams struct {
-	fetcher                     imagemetadata.SimplestreamsFetcher
-	arch, series, stream, fType string
-	srcFunc                     func() simplestreams.DataSource
+	fetcher                      imagemetadata.SimplestreamsFetcher
+	arch, version, stream, fType string
+	srcFunc                      func() simplestreams.DataSource
 }
 
 // One implements Oner.
@@ -48,16 +43,16 @@ func (p syncParams) One() (*imagedownloads.Metadata, error) {
 	if err := p.exists(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return imagedownloads.One(p.fetcher, p.arch, p.series, p.stream, p.fType, p.srcFunc)
+	return imagedownloads.One(p.fetcher, p.arch, p.version, p.stream, p.fType, p.srcFunc)
 }
 
 func (p syncParams) exists() error {
-	fName := backingFileName(p.series, p.arch)
+	fName := backingFileName(p.version, p.arch)
 	baseDir := paths.DataDir(paths.CurrentOS())
 	imagePath := filepath.Join(baseDir, kvm, guestDir, fName)
 
 	if _, err := os.Stat(imagePath); err == nil {
-		return errors.AlreadyExistsf("%q %q image for exists at %q", p.series, p.arch, imagePath)
+		return errors.AlreadyExistsf("%q %q image for exists at %q", p.version, p.arch, imagePath)
 	}
 	return nil
 }
@@ -291,21 +286,20 @@ func newImage(md *imagedownloads.Metadata, imageDownloadURL string, pathfinder p
 	baseDir := pathfinder(paths.CurrentOS())
 
 	// Closing this is deferred in Image.write.
-	fh, err := ioutil.TempFile("", fmt.Sprintf("juju-kvm-%s-", path.Base(dlURL.String())))
+	fh, err := os.CreateTemp("", fmt.Sprintf("juju-kvm-%s-", path.Base(dlURL.String())))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	return &Image{
 		FilePath: filepath.Join(
-			baseDir, kvm, guestDir, backingFileName(md.Release, md.Arch)),
+			baseDir, kvm, guestDir, backingFileName(md.Version, md.Arch)),
 		tmpFile:  fh,
 		runCmd:   run,
 		progress: callback,
 	}, nil
 }
 
-func backingFileName(series, arch string) string {
-	// TODO(ro) validate series and arch to be sure they are in the right order.
-	return fmt.Sprintf("%s-%s-backing-file.qcow", series, arch)
+func backingFileName(version, arch string) string {
+	return fmt.Sprintf("%s-%s-backing-file.qcow", version, arch)
 }

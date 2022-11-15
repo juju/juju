@@ -5,7 +5,6 @@ package deployer
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
@@ -216,7 +215,8 @@ func (s *deployerSuite) TestCharmStoreSeriesOverride(c *gc.C) {
 	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy charm: %s", ch.String()))
 
 	charmStoreDeployer := deployer.(*repositoryCharm)
-	c.Assert(charmStoreDeployer.series, gc.Equals, "bionic")
+	c.Assert(charmStoreDeployer.id.Origin.Base.OS, gc.Equals, "ubuntu")
+	c.Assert(charmStoreDeployer.id.Origin.Base.Channel.String(), gc.Equals, "18.04/stable")
 }
 
 func (s *deployerSuite) TestGetDeployerLocalBundle(c *gc.C) {
@@ -455,9 +455,9 @@ func (s *deployerSuite) TestMaybeReadLocalCharmErrorWithoutApplicationName(c *gc
 func (s *deployerSuite) makeBundleDir(c *gc.C, content string) string {
 	bundlePath := filepath.Join(c.MkDir(), "example")
 	c.Assert(os.Mkdir(bundlePath, 0777), jc.ErrorIsNil)
-	err := ioutil.WriteFile(filepath.Join(bundlePath, "bundle.yaml"), []byte(content), 0644)
+	err := os.WriteFile(filepath.Join(bundlePath, "bundle.yaml"), []byte(content), 0644)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(filepath.Join(bundlePath, "README.md"), []byte("README"), 0644)
+	err = os.WriteFile(filepath.Join(bundlePath, "README.md"), []byte("README"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	return bundlePath
 }

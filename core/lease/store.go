@@ -70,36 +70,14 @@ type Key struct {
 	Lease     string
 }
 
-// Info holds substrate-independent information about a lease; and a substrate-
-// specific trapdoor func.
+// Info holds substrate-independent information about a lease.
 type Info struct {
-
 	// Holder is the name of the current leaseholder.
 	Holder string
 
 	// Expiry is the latest time at which it's possible the lease might still
 	// be valid. Attempting to expire the lease before this time will fail.
 	Expiry time.Time
-
-	// Trapdoor exposes the originating Store's persistence substrate, if the
-	// substrate exposes any such capability. It's useful specifically for
-	// integrating mgo/txn-based components: which thus get a mechanism for
-	// extracting assertion operations they can use to gate other substrate
-	// changes on lease state.
-	Trapdoor Trapdoor
-}
-
-// Trapdoor allows a store to use pre-agreed special knowledge to communicate
-// with a Store substrate by passing a key with suitable properties.
-type Trapdoor func(attempt int, key interface{}) error
-
-// LockedTrapdoor is a Trapdoor suitable for use by substrates that don't want
-// or need to expose their internals.
-func LockedTrapdoor(attempt int, key interface{}) error {
-	if key != nil {
-		return errors.New("lease substrate not accessible")
-	}
-	return nil
 }
 
 // Request describes a lease request.

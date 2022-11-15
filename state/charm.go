@@ -19,6 +19,7 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/mongo"
 	mongoutils "github.com/juju/juju/mongo/utils"
 	stateerrors "github.com/juju/juju/state/errors"
@@ -60,11 +61,67 @@ type Channel struct {
 	Branch string `bson:"branch,omitempty"`
 }
 
+// Base identifies the base os the charm was installed on.
+type Base struct {
+	OS      string `bson:"os"`
+	Channel string `bson:"channel"`
+}
+
+// Normalise ensures the channel always has a risk.
+func (b Base) Normalise() Base {
+	if strings.Contains(b.Channel, "/") {
+		return b
+	}
+	nb := b
+	nb.Channel = b.Channel + "/stable"
+	return nb
+}
+
+func (b Base) compatibleWith(other Base) bool {
+	if b.OS != other.OS {
+		return false
+	}
+	c1, err := series.ParseChannel(b.Channel)
+	if err != nil {
+		return false
+	}
+	c2, err := series.ParseChannel(other.Channel)
+	if err != nil {
+		return false
+	}
+	return c1 == c2
+}
+
+// DisplayString prints the base without the rask component.
+func (b Base) DisplayString() string {
+	if b.OS == "" || b.Channel == "" {
+		return ""
+	}
+	return fmt.Sprintf("%s@%s", b.OS, strings.Split(b.Channel, "/")[0])
+}
+
+func (b Base) String() string {
+	if b.OS == "" || b.Channel == "" {
+		return ""
+	}
+	return fmt.Sprintf("%s@%s", b.OS, b.Channel)
+}
+
+// UbuntuBase is used in tests.
+func UbuntuBase(channel string) Base {
+	return Base{OS: "ubuntu", Channel: channel + "/stable"}
+}
+
+// DefaultLTSBase is used in tests.
+func DefaultLTSBase() Base {
+	return Base{OS: "ubuntu", Channel: jujuversion.DefaultSupportedLTSBase().Channel.String()}
+}
+
 // Platform identifies the platform the charm was installed on.
 type Platform struct {
 	Architecture string `bson:"architecture,omitempty"`
-	OS           string `bson:"os,omitempty"`
-	Series       string `bson:"series,omitempty"`
+	OS           string `bson:"os"`
+	Channel      string `bson:"channel"`
 }
 
 // CharmOrigin holds the original source of a charm. Information about where the
@@ -79,7 +136,7 @@ type CharmOrigin struct {
 	Hash     string    `bson:"hash"`
 	Revision *int      `bson:"revision,omitempty"`
 	Channel  *Channel  `bson:"channel,omitempty"`
-	Platform *Platform `bson:"platform,omitempty"`
+	Platform *Platform `bson:"platform"`
 }
 
 // AsCoreCharmOrigin converts a state Origin type into a core/charm.Origin.
@@ -104,7 +161,7 @@ func (o CharmOrigin) AsCoreCharmOrigin() corecharm.Origin {
 		origin.Platform = corecharm.Platform{
 			Architecture: o.Platform.Architecture,
 			OS:           o.Platform.OS,
-			Series:       o.Platform.Series,
+			Channel:      o.Platform.Channel,
 		}
 	}
 
@@ -615,6 +672,9 @@ func (c *Charm) globalKey() string {
 
 // String returns a string representation of the charm's URL.
 func (c *Charm) String() string {
+	if c.doc.URL == nil {
+		return ""
+	}
 	return *c.doc.URL
 }
 

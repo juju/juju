@@ -8,6 +8,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	commoncharm "github.com/juju/juju/api/common/charm"
+	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/series"
 )
 
 type originSuite struct{}
@@ -41,4 +43,31 @@ func (originSuite) TestCoreChannelWithEmptyTrack(c *gc.C) {
 func (originSuite) TestCoreChannelThatIsEmpty(c *gc.C) {
 	origin := commoncharm.Origin{}
 	c.Assert(origin.CharmChannel(), gc.DeepEquals, charm.Channel{})
+}
+
+func (originSuite) TestConvertToCoreCharmOrigin(c *gc.C) {
+	track := "latest"
+	origin := commoncharm.Origin{
+		Source:       "charm-hub",
+		ID:           "foobar",
+		Track:        &track,
+		Risk:         "stable",
+		Branch:       nil,
+		Architecture: "amd64",
+		Base:         series.MakeDefaultBase("ubuntu", "20.04"),
+	}
+
+	c.Assert(origin.CoreCharmOrigin(), gc.DeepEquals, corecharm.Origin{
+		Source: "charm-hub",
+		ID:     "foobar",
+		Channel: &charm.Channel{
+			Track: "latest",
+			Risk:  "stable",
+		},
+		Platform: corecharm.Platform{
+			Architecture: "amd64",
+			OS:           "ubuntu",
+			Channel:      "20.04",
+		},
+	})
 }

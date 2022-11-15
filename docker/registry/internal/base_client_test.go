@@ -5,7 +5,7 @@ package internal_test
 
 import (
 	"encoding/base64"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 
@@ -59,7 +59,7 @@ func (s *baseSuite) getRegistry(c *gc.C) (*internal.BaseClient, *gomock.Controll
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusUnauthorized,
-					Body:       ioutil.NopCloser(nil),
+					Body:       io.NopCloser(nil),
 					Header: http.Header{
 						http.CanonicalHeaderKey("WWW-Authenticate"): []string{
 							`Bearer realm="https://auth.example.com/token",service="registry.example.com",scope="repository:jujuqa/jujud-operator:pull"`,
@@ -79,7 +79,7 @@ func (s *baseSuite) getRegistry(c *gc.C) (*internal.BaseClient, *gomock.Controll
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusOK,
-					Body:       ioutil.NopCloser(strings.NewReader(`{"token": "jwt-token", "access_token": "jwt-token","expires_in": 300}`)),
+					Body:       io.NopCloser(strings.NewReader(`{"token": "jwt-token", "access_token": "jwt-token","expires_in": 300}`)),
 				}, nil
 			},
 		),
@@ -89,7 +89,7 @@ func (s *baseSuite) getRegistry(c *gc.C) (*internal.BaseClient, *gomock.Controll
 				c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer " + `jwt-token`}})
 				c.Assert(req.Method, gc.Equals, `GET`)
 				c.Assert(req.URL.String(), gc.Equals, `https://example.com/v2`)
-				return &http.Response{StatusCode: http.StatusOK, Body: ioutil.NopCloser(nil)}, nil
+				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(nil)}, nil
 			},
 		),
 	)

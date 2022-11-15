@@ -66,7 +66,7 @@ func (s *AddRelationSuite) TestAddRelationSuccess(c *gc.C) {
 }
 
 func (s *AddRelationSuite) TestAddRelationFail(c *gc.C) {
-	msg := "fail add-relation call at API"
+	msg := "fail integrate call at API"
 	s.mockAPI.SetErrors(errors.New(msg))
 	err := s.runAddRelation(c, "application1", "application2")
 	c.Assert(err, gc.ErrorMatches, msg)

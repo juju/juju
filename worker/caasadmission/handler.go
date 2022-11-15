@@ -6,7 +6,7 @@ package caasadmission
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 
@@ -55,7 +55,7 @@ func admissionHandler(logger Logger, rbacMapper RBACMapper, legacyLabels bool) h
 	codecFactory := serializer.NewCodecFactory(runtime.NewScheme())
 
 	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-		data, err := ioutil.ReadAll(req.Body)
+		data, err := io.ReadAll(req.Body)
 		if err != nil {
 			logger.Errorf("digesting admission request body: %v", err)
 			http.Error(res, fmt.Sprintf("%s: reading request body",

@@ -1,6 +1,0 @@
-options:
-  # Will be tokens for each storage type.
-  data-token:
-    type: string
-    default: ''
-    description: Token used to prove data stored is persistent

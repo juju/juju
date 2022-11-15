@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/workerpool"
@@ -72,9 +73,9 @@ type DistributionGroupFinder interface {
 // provisioned instances.
 type ToolsFinder interface {
 	// FindTools returns a list of tools matching the specified
-	// version, series, and architecture. If arch is empty, the
+	// version, os, and architecture. If arch is empty, the
 	// implementation is expected to use a well documented default.
-	FindTools(version version.Number, series string, arch string) (coretools.List, error)
+	FindTools(version version.Number, os string, arch string) (coretools.List, error)
 }
 
 func NewProvisionerTask(
@@ -770,12 +771,16 @@ func (task *provisionerTask) constructInstanceConfig(
 	}
 
 	nonce := fmt.Sprintf("%s:%s", task.hostTag, uuid)
+	base, err := series.ParseBase(pInfo.Base.Name, pInfo.Base.Channel)
+	if err != nil {
+		return nil, errors.Annotatef(err, "parsing machine base %q", pInfo.Base)
+	}
 	instanceConfig, err := instancecfg.NewInstanceConfig(
 		names.NewControllerTag(controller.Config(pInfo.ControllerConfig).ControllerUUID()),
 		machine.Id(),
 		nonce,
 		task.imageStream,
-		pInfo.Series,
+		base,
 		apiInfo,
 	)
 	if err != nil {
@@ -1480,7 +1485,7 @@ func (task *provisionerTask) setupToStartMachine(machine apiprovisioner.MachineP
 		agentArch = *pInfo.Constraints.Arch
 	}
 
-	possibleTools, err := task.toolsFinder.FindTools(*version, pInfo.Series, agentArch)
+	possibleTools, err := task.toolsFinder.FindTools(*version, pInfo.Base.Name, agentArch)
 	if err != nil {
 		return environs.StartInstanceParams{}, errors.Annotatef(err, "finding agent binaries for machine %q", machine)
 	}

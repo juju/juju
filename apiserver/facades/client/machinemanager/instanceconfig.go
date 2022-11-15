@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/controller/authentication"
 	"github.com/juju/juju/core/network"
-	coreseries "github.com/juju/juju/core/series"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/binarystorage"
@@ -71,7 +71,7 @@ func InstanceConfig(ctrlSt ControllerBackend, st InstanceConfigBackend, machineI
 		Number:       agentVersion,
 		MajorVersion: -1,
 		MinorVersion: -1,
-		OSType:       coreseries.DefaultOSTypeNameFromSeries(machine.Series()),
+		OSType:       machine.Base().OS,
 		Arch:         *hc.Arch,
 	})
 	if err != nil {
@@ -110,8 +110,12 @@ func InstanceConfig(ctrlSt ControllerBackend, st InstanceConfigBackend, machineI
 		return nil, errors.Annotate(err, "setting up machine authentication")
 	}
 
+	base, err := series.ParseBase(machine.Base().OS, machine.Base().Channel)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting machine base")
+	}
 	icfg, err := instancecfg.NewInstanceConfig(ctrlSt.ControllerTag(), machineId, nonce, modelConfig.ImageStream(),
-		machine.Series(), apiInfo,
+		base, apiInfo,
 	)
 	if err != nil {
 		return nil, errors.Annotate(err, "initializing instance config")

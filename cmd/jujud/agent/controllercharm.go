@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
@@ -26,18 +25,18 @@ import (
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
-	coreos "github.com/juju/juju/core/os"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/state"
 	statestorage "github.com/juju/juju/state/storage"
+	jujuversion "github.com/juju/juju/version"
 )
 
 const controllerCharmURL = "ch:juju-controller"
 
-func (c *BootstrapCommand) deployControllerCharm(st *state.State, cons constraints.Value, charmPath, charmRisk string, isCAAS bool, unitPassword string) (resultErr error) {
+func (c *BootstrapCommand) deployControllerCharm(st *state.State, cons constraints.Value, charmPath string, channel charm.Channel, isCAAS bool, unitPassword string) (resultErr error) {
 	arch := corearch.DefaultArchitecture
-	series := coreseries.LatestLTS()
+	base := jujuversion.DefaultSupportedLTSBase()
 	if cons.HasArch() {
 		arch = *cons.Arch
 	}
@@ -71,7 +70,10 @@ func (c *BootstrapCommand) deployControllerCharm(st *state.State, cons constrain
 				resultErr = controllerUnit.AssignToMachine(m)
 			}
 		}()
-		series = m.Series()
+		base, err = coreseries.ParseBase(m.Base().OS, m.Base().Channel)
+		if err != nil {
+			return errors.Trace(err)
+		}
 		pa, err := m.PublicAddress()
 		if err != nil && !network.IsNoAddressError(err) {
 			return errors.Trace(err)
@@ -83,20 +85,25 @@ func (c *BootstrapCommand) deployControllerCharm(st *state.State, cons constrain
 
 	// First try using a local charm specified at bootstrap time.
 	source := "local"
-	curl, origin, err := populateLocalControllerCharm(st, c.DataDir(), series, arch)
+	curl, origin, err := populateLocalControllerCharm(st, c.DataDir(), arch, base)
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Annotate(err, "deploying local controller charm")
 	}
 	// If no local charm, use the one from charmhub.
 	if err != nil {
 		source = "store"
-		if curl, origin, err = populateStoreControllerCharm(st, charmPath, charmRisk, series, arch); err != nil {
+		if curl, origin, err = populateStoreControllerCharm(st, charmPath, channel, arch, base); err != nil {
 			return errors.Annotate(err, "deploying charmhub controller charm")
 		}
 	}
+	// Always for the controller charm to use the same base as the controller.
+	// This avoids the situation where we cannot deploy a slightly stale
+	// controller charm onto a newer machine at bootstrap.
+	origin.Platform.OS = base.OS
+	origin.Platform.Channel = base.Channel.String()
 
 	// Once the charm is added, set up the controller application.
-	if controllerUnit, err = addControllerApplication(st, curl, *origin, controllerAddress, series); err != nil {
+	if controllerUnit, err = addControllerApplication(st, curl, *origin, controllerAddress); err != nil {
 		return errors.Annotate(err, "cannot add controller application")
 	}
 
@@ -129,7 +136,7 @@ var (
 )
 
 // populateStoreControllerCharm downloads and stores the controller charm from charmhub.
-func populateStoreControllerCharm(st *state.State, charmPath, charmRisk, series, arch string) (*charm.URL, *corecharm.Origin, error) {
+func populateStoreControllerCharm(st *state.State, charmPath string, channel charm.Channel, arch string, base coreseries.Base) (*charm.URL, *corecharm.Origin, error) {
 	model, err := st.Model()
 	if err != nil {
 		return nil, nil, err
@@ -154,7 +161,6 @@ func populateStoreControllerCharm(st *state.State, charmPath, charmRisk, series,
 	} else {
 		curl = charm.MustParseURL(charmPath)
 	}
-	channel, err := charm.ParseChannelNormalize(charmRisk)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -163,8 +169,8 @@ func populateStoreControllerCharm(st *state.State, charmPath, charmRisk, series,
 		Channel: &channel,
 		Platform: corecharm.Platform{
 			Architecture: arch,
-			OS:           strings.ToLower(coreos.Ubuntu.String()),
-			Series:       series,
+			OS:           base.OS,
+			Channel:      base.Channel.Track,
 		},
 	}
 
@@ -218,7 +224,7 @@ func (st *stateShim) UpdateUploadedCharm(info state.CharmInfo) (services.Uploade
 }
 
 // populateLocalControllerCharm downloads and stores a local controller charm archive.
-func populateLocalControllerCharm(st *state.State, dataDir, series, arch string) (*charm.URL, *corecharm.Origin, error) {
+func populateLocalControllerCharm(st *state.State, dataDir, arch string, base coreseries.Base) (*charm.URL, *corecharm.Origin, error) {
 	controllerCharmPath := filepath.Join(dataDir, "charms", bootstrap.ControllerCharmArchive)
 	_, err := os.Stat(controllerCharmPath)
 	if os.IsNotExist(err) {
@@ -228,7 +234,7 @@ func populateLocalControllerCharm(st *state.State, dataDir, series, arch string)
 		return nil, nil, errors.Trace(err)
 	}
 
-	curl, err := addLocalControllerCharm(st, series, controllerCharmPath)
+	curl, err := addLocalControllerCharm(st, base, controllerCharmPath)
 	if err != nil {
 		return nil, nil, errors.Annotatef(err, "cannot store controller charm at %q", controllerCharmPath)
 	}
@@ -238,15 +244,15 @@ func populateLocalControllerCharm(st *state.State, dataDir, series, arch string)
 		Type:   "charm",
 		Platform: corecharm.Platform{
 			Architecture: arch,
-			OS:           "ubuntu",
-			Series:       series,
+			OS:           base.OS,
+			Channel:      base.Channel.String(),
 		},
 	}
 	return curl, &origin, nil
 }
 
 // addLocalControllerCharm adds the specified local charm to the controller.
-func addLocalControllerCharm(st *state.State, series, charmFileName string) (*charm.URL, error) {
+func addLocalControllerCharm(st *state.State, base coreseries.Base, charmFileName string) (*charm.URL, error) {
 	archive, err := charm.ReadCharmArchive(charmFileName)
 	if err != nil {
 		return nil, errors.Errorf("invalid charm archive: %v", err)
@@ -257,6 +263,10 @@ func addLocalControllerCharm(st *state.State, series, charmFileName string) (*ch
 		return nil, errors.Errorf("unexpected controller charm name %q", name)
 	}
 
+	series, err := coreseries.GetSeriesFromBase(base)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	// Reserve a charm URL for it in state.
 	curl := &charm.URL{
 		Schema:   charm.Local.String(),
@@ -279,7 +289,7 @@ func addLocalControllerCharm(st *state.State, series, charmFileName string) (*ch
 }
 
 // addControllerApplication deploys and configures the controller application.
-func addControllerApplication(st *state.State, curl *charm.URL, origin corecharm.Origin, address, series string) (*state.Unit, error) {
+func addControllerApplication(st *state.State, curl *charm.URL, origin corecharm.Origin, address string) (*state.Unit, error) {
 	ch, err := st.Charm(curl)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -312,11 +322,15 @@ func addControllerApplication(st *state.State, curl *charm.URL, origin corecharm
 		return nil, errors.Trace(err)
 	}
 
+	stateOrigin, err := application.StateCharmOrigin(origin)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	logger.Criticalf("ADD APP WITH PLATFORM: %+v", *stateOrigin.Platform)
 	app, err := st.AddApplication(state.AddApplicationArgs{
 		Name:              bootstrap.ControllerApplicationName,
-		Series:            series,
 		Charm:             ch,
-		CharmOrigin:       application.StateCharmOrigin(origin),
+		CharmOrigin:       stateOrigin,
 		CharmConfig:       cfg,
 		ApplicationConfig: appCfg,
 		NumUnits:          1,

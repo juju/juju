@@ -16,6 +16,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -220,7 +221,11 @@ func (c *validateImageMetadataCommand) createLookupParams(context *cmd.Context) 
 	}
 
 	if c.series != "" {
-		params.Release = c.series
+		version, err := series.SeriesVersion(c.series)
+		if err != nil {
+			return nil, err
+		}
+		params.Release = version
 	}
 	if c.region != "" {
 		params.Region = c.region

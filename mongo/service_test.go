@@ -5,7 +5,7 @@ package mongo_test
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -50,7 +50,7 @@ func (s *serviceSuite) TestNewConfSnap(c *gc.C) {
 	err := mongo.WriteConfig(confArgs, confFile)
 	c.Assert(err, jc.ErrorIsNil)
 
-	contents, err := ioutil.ReadFile(confFile)
+	contents, err := os.ReadFile(confFile)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := fmt.Sprintf(`
 # WARNING

@@ -6,7 +6,6 @@ package simplestreams
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 
 	"golang.org/x/crypto/openpgp"
 	"golang.org/x/crypto/openpgp/clearsign"
@@ -32,7 +31,7 @@ func Encode(r io.Reader, armoredPrivateKey, passphrase string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	metadata, err := ioutil.ReadAll(r)
+	metadata, err := io.ReadAll(r)
 	if err != nil {
 		return nil, err
 	}

@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/paths"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/provider/openstack"
@@ -118,18 +119,18 @@ func (s *CloudInitSuite) TestFinishInstanceConfigNonDefault(c *gc.C) {
 }
 
 func (s *CloudInitSuite) TestUserData(c *gc.C) {
-	s.testUserData(c, "jammy", false)
+	s.testUserData(c, coreseries.MakeDefaultBase("ubuntu", "22.04"), false)
 }
 
 func (s *CloudInitSuite) TestControllerUserData(c *gc.C) {
-	s.testUserData(c, "jammy", true)
+	s.testUserData(c, coreseries.MakeDefaultBase("ubuntu", "22.04"), true)
 }
 
-func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
+func (*CloudInitSuite) testUserData(c *gc.C, base coreseries.Base, bootstrap bool) {
 	// Use actual series paths instead of local defaults
-	logDir := paths.LogDir(paths.SeriesToOS(series))
-	metricsSpoolDir := paths.MetricsSpoolDir(paths.SeriesToOS(series))
-	dataDir := paths.DataDir(paths.SeriesToOS(series))
+	logDir := paths.LogDir(paths.OSType(base.OS))
+	metricsSpoolDir := paths.MetricsSpoolDir(paths.OSType(base.OS))
+	dataDir := paths.DataDir(paths.OSType(base.OS))
 	toolsList := tools.List{
 		&tools.Tools{
 			URL:     "http://tools.testing/tools/released/juju.tgz",
@@ -147,7 +148,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
 		ControllerTag: testing.ControllerTag,
 		MachineId:     "10",
 		MachineNonce:  "5432",
-		Series:        series,
+		Base:          base,
 		APIInfo: &api.Info{
 			Addrs:    []string{"127.0.0.1:1234"},
 			Password: "pw2",
@@ -186,7 +187,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
 	}
 	script1 := "script1"
 	script2 := "script2"
-	cloudcfg, err := cloudinit.New(series)
+	cloudcfg, err := cloudinit.New(base.OS)
 	c.Assert(err, jc.ErrorIsNil)
 	cloudcfg.AddRunCmd(script1)
 	cloudcfg.AddRunCmd(script2)
@@ -230,8 +231,8 @@ func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
 						"floppy", "netdev", "plugdev",
 						"sudo", "video"},
 					"shell":               "/bin/bash",
-					"sudo":                []interface{}{"ALL=(ALL) NOPASSWD:ALL"},
-					"ssh-authorized-keys": []interface{}{"wheredidileavemykeys"},
+					"sudo":                "ALL=(ALL) NOPASSWD:ALL",
+					"ssh_authorized_keys": []interface{}{"wheredidileavemykeys"},
 				},
 			},
 		}

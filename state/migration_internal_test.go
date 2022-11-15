@@ -214,13 +214,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 
 	// THIS SET WILL BE REMOVED WHEN MIGRATIONS ARE COMPLETE
 	todoCollections := set.NewStrings(
-		// uncategorised
 		dockerResourcesC,
-		// TODO(raftlease)
-		// This collection shouldn't be migrated, but we need to make
-		// sure the leader units' leases are claimed in the target
-		// controller when leases are managed in raft.
-		leaseHoldersC,
 	)
 
 	modelCollections := set.NewStrings()
@@ -332,6 +326,7 @@ func (s *MigrationSuite) TestMachineDocFields(c *gc.C) {
 	)
 	migrated := set.NewStrings(
 		"Addresses",
+		"Base",
 		"ContainerType",
 		"Jobs",
 		"MachineAddresses",
@@ -344,7 +339,6 @@ func (s *MigrationSuite) TestMachineDocFields(c *gc.C) {
 		"PreferredPrivateAddress",
 		"PreferredPublicAddress",
 		"Principals",
-		"Series",
 		"SupportedContainers",
 		"SupportedContainersKnown",
 		"Tools",
@@ -400,7 +394,6 @@ func (s *MigrationSuite) TestApplicationDocFields(c *gc.C) {
 	)
 	migrated := set.NewStrings(
 		"Name",
-		"Series",
 		"Subordinate",
 		"CharmURL",
 		"Channel",
@@ -429,8 +422,8 @@ func (s *MigrationSuite) TestUnitDocFields(c *gc.C) {
 		"Application",
 		// Resolved is not migrated as we check that all is good before we start.
 		"Resolved",
-		// Series and CharmURL also come from the application.
-		"Series",
+		// Base and CharmURL also come from the application.
+		"Base",
 		"CharmURL",
 	)
 	migrated := set.NewStrings(

@@ -5,21 +5,27 @@ package initialize
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path"
+	"strings"
+	"time"
 
+	"github.com/canonical/pebble/plan"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 	"golang.org/x/sync/errgroup"
+	"gopkg.in/yaml.v3"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/agent/caasapplication"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/constants"
 	"github.com/juju/juju/cmd/containeragent/utils"
 	"github.com/juju/juju/worker/apicaller"
 )
@@ -34,8 +40,17 @@ type initCommand struct {
 	fileReaderWriter utils.FileReaderWriter
 	environment      utils.Environment
 
-	dataDir string
-	binDir  string
+	// charmModifiedVersion holds just that and is used for generating the
+	// pebble service to run the container agent.
+	charmModifiedVersion string
+
+	// containerAgentPebbleDir holds the path to the pebble config dir used on
+	// the container agent.
+	containerAgentPebbleDir string
+
+	dataDir      string
+	binDir       string
+	isController bool
 }
 
 // ApplicationAPI provides methods for unit introduction.
@@ -56,8 +71,11 @@ func New() cmd.Command {
 
 // SetFlags implements Command.
 func (c *initCommand) SetFlags(f *gnuflag.FlagSet) {
+	f.StringVar(&c.containerAgentPebbleDir, "containeragent-pebble-dir", "", "directory for container agent pebble config")
+	f.StringVar(&c.charmModifiedVersion, "charm-modified-version", "", "charm modified version for update hook")
 	f.StringVar(&c.dataDir, "data-dir", "", "directory for juju data")
 	f.StringVar(&c.binDir, "bin-dir", "", "copy juju binaries to this directory")
+	f.BoolVar(&c.isController, "controller", false, "set when the charm is colocated with the controller")
 }
 
 // Info returns a description of the command.
@@ -80,6 +98,9 @@ func (c *initCommand) getApplicationAPI() (ApplicationAPI, error) {
 }
 
 func (c *initCommand) Init(args []string) error {
+	if c.containerAgentPebbleDir == "" {
+		return errors.NotValidf("--containeragent-pebble-dir")
+	}
 	if c.dataDir == "" {
 		return errors.NotValidf("--data-dir")
 	}
@@ -93,6 +114,9 @@ func (c *initCommand) Run(ctx *cmd.Context) (err error) {
 	ctx.Infof("starting containeragent init command")
 
 	defer func() {
+		if err == nil {
+			err = c.writeContainerAgentPebbleConfig()
+		}
 		if err == nil {
 			err = c.copyBinaries()
 		}
@@ -129,13 +153,14 @@ func (c *initCommand) Run(ctx *cmd.Context) (err error) {
 		return errors.Trace(err)
 	}
 
-	if err = c.fileReaderWriter.MkdirAll(c.binDir, 0755); err != nil {
-		return errors.Trace(err)
-	}
 	return nil
 }
 
 func (c *initCommand) copyBinaries() error {
+	if err := c.fileReaderWriter.MkdirAll(c.binDir, 0755); err != nil {
+		return errors.Trace(err)
+	}
+
 	eg, _ := errgroup.WithContext(context.Background())
 	doCopy := func(src string, dst string) {
 		eg.Go(func() error {
@@ -158,10 +183,92 @@ func (c *initCommand) copyBinaries() error {
 			return nil
 		})
 	}
+
 	doCopy("/opt/pebble", path.Join(c.binDir, "pebble"))
 	doCopy("/opt/containeragent", path.Join(c.binDir, "containeragent"))
 	doCopy("/opt/jujuc", path.Join(c.binDir, "jujuc"))
 	return eg.Wait()
+}
+
+// writeContainerAgentPebbleConfig is responsible for generating the container agent
+// pebble service configuration.
+func (c *initCommand) writeContainerAgentPebbleConfig() error {
+	extraArgs := []string{}
+	// If we actually have the charmModifiedVersion let's add it the args.
+	if c.charmModifiedVersion != "" {
+		extraArgs = append(extraArgs, "--charm-modified-version", c.charmModifiedVersion)
+	}
+
+	if c.isController {
+		extraArgs = append(extraArgs, "--controller")
+	}
+
+	onCheckFailureAction := plan.ActionShutdown
+	if c.isController {
+		onCheckFailureAction = plan.ActionRestart
+	}
+
+	containerAgentLayer := plan.Layer{
+		Summary: "Juju container agent service",
+		Services: map[string]*plan.Service{
+			"container-agent": {
+				Summary:  "Juju container agent",
+				Override: plan.ReplaceOverride,
+				Command: fmt.Sprintf("%s unit --data-dir %s --append-env \"PATH=$PATH:%s\" --show-log %s",
+					path.Join(c.binDir, "containeragent"),
+					c.dataDir,
+					c.binDir,
+					strings.Join(extraArgs, " ")),
+				Startup: plan.StartupEnabled,
+				OnCheckFailure: map[string]plan.ServiceAction{
+					"liveness":  onCheckFailureAction,
+					"readiness": plan.ActionIgnore,
+				},
+				Environment: map[string]string{
+					constants.EnvHTTPProbePort: constants.DefaultHTTPProbePort,
+				},
+			},
+		},
+		Checks: map[string]*plan.Check{
+			"readiness": {
+				Override:  plan.ReplaceOverride,
+				Level:     plan.ReadyLevel,
+				Period:    plan.OptionalDuration{Value: 10 * time.Second, IsSet: true},
+				Timeout:   plan.OptionalDuration{Value: 3 * time.Second, IsSet: true},
+				Threshold: 3,
+				HTTP: &plan.HTTPCheck{
+					URL: fmt.Sprintf("http://localhost:%s/readiness", constants.DefaultHTTPProbePort),
+				},
+			},
+			"liveness": {
+				Override:  plan.ReplaceOverride,
+				Level:     plan.AliveLevel,
+				Period:    plan.OptionalDuration{Value: 10 * time.Second, IsSet: true},
+				Timeout:   plan.OptionalDuration{Value: 3 * time.Second, IsSet: true},
+				Threshold: 3,
+				HTTP: &plan.HTTPCheck{
+					URL: fmt.Sprintf("http://localhost:%s/liveness", constants.DefaultHTTPProbePort),
+				},
+			},
+		},
+	}
+
+	layerDir := path.Join(c.containerAgentPebbleDir, "layers")
+	if err := c.fileReaderWriter.MkdirAll(layerDir, 0555); err != nil {
+		return fmt.Errorf("making pebble container agent layer dir at %q: %w", layerDir, err)
+	}
+
+	p := path.Join(layerDir, "001-container-agent.yaml")
+
+	rawConfig, err := yaml.Marshal(&containerAgentLayer)
+	if err != nil {
+		return fmt.Errorf("making pebble container agent layer yaml: %w", err)
+	}
+
+	if err := c.fileReaderWriter.WriteFile(p, rawConfig, 0444); err != nil {
+		return fmt.Errorf("writing container agent pebble configuration to %q: %w", p, err)
+	}
+	return nil
 }
 
 func (c *initCommand) CurrentConfig() agent.Config {

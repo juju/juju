@@ -1,24 +1,13 @@
+description: description
+maintainer: juju-qa@lists.canonical.com
 name: dummy-storage-lp
-maintainer:
-  - Christopher Lee <chris.lee@canonical.com>
-  - Burton Swan <burton.swan@canonical.com>
-  - Evanson Mwangi <evanson.wainaina@canonical.com>
-summary: Dummy charm that utilises storage.
-description: This dummy-storage-fs charm is used for testing charm storage.
-categories:
-  - misc
 series:
-  - trusty
-  - xenial
-  - artful
-  - bionic
-  - eoan
-  - focal
-  - jammy
-
+- jammy
+- focal
+- bionic
 storage:
   disks:
-    type: block
     multiple:
       range: 0-10
-
+    type: block
+summary: Test charm for storage

@@ -75,9 +75,7 @@ var arm64DomainStr = `
         <gic version="host"></gic>
         <acpi></acpi>
     </features>
-    <cpu mode="custom" match="exact">
-        <model fallback="allow">cortex-a53</model>
-    </cpu>
+    <cpu mode="host-passthrough" check="none"></cpu>
     <devices>
         <disk device="disk" type="file">
             <driver type="qcow2" name="qemu"></driver>

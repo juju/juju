@@ -130,9 +130,8 @@ func (s *CrossSuite) testChecks(c *gc.C, lease1, lease2 corelease.Key) {
 	fix := Fixture{
 		leases: map[corelease.Key]corelease.Info{
 			lease1: {
-				Holder:   "sgt-howie",
-				Expiry:   offset(time.Second),
-				Trapdoor: corelease.LockedTrapdoor,
+				Holder: "sgt-howie",
+				Expiry: offset(time.Second),
 			},
 		},
 	}
@@ -143,10 +142,10 @@ func (s *CrossSuite) testChecks(c *gc.C, lease1, lease2 corelease.Key) {
 		c.Assert(err, jc.ErrorIsNil)
 
 		t1 := checker1.Token(lease1.Lease, "sgt-howie")
-		c.Assert(t1.Check(0, nil), gc.Equals, nil)
+		c.Assert(t1.Check(), gc.Equals, nil)
 
 		t2 := checker2.Token(lease2.Lease, "sgt-howie")
-		err = t2.Check(0, nil)
+		err = t2.Check()
 		c.Assert(errors.Cause(err), gc.Equals, corelease.ErrNotHeld)
 	})
 }

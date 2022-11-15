@@ -8,17 +8,18 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	jujupackaging "github.com/juju/juju/packaging"
 	"github.com/juju/packaging/v2/commands"
 	"github.com/juju/packaging/v2/config"
 	"github.com/juju/utils/v3/shell"
 	"github.com/juju/utils/v3/ssh"
+
+	jujupackaging "github.com/juju/juju/packaging"
 )
 
 // cloudConfig represents a set of cloud-init configuration options.
 type cloudConfig struct {
-	// series is the series for which this cloudConfig is made for.
-	series string
+	// osName is the os for which this cloudConfig is made for.
+	osName string
 
 	// paccmder is a map containing PackageCommander instances for all
 	// package managers supported by a particular target.
@@ -90,9 +91,9 @@ func (cfg *cloudConfig) getPackagingConfigurer(mgrName jujupackaging.PackageMana
 	return cfg.pacconfer[mgrName]
 }
 
-// GetSeries is defined on the CloudConfig interface.
-func (cfg *cloudConfig) GetSeries() string {
-	return cfg.series
+// GetOS is defined on the CloudConfig interface.
+func (cfg *cloudConfig) GetOS() string {
+	return cfg.osName
 }
 
 // SetAttr is defined on the CloudConfig interface.
@@ -131,9 +132,9 @@ func (cfg *cloudConfig) AddUser(user *User) {
 		newUser["shell"] = user.Shell
 	}
 	if user.SSHAuthorizedKeys != "" {
-		newUser["ssh-authorized-keys"] = annotateKeys(user.SSHAuthorizedKeys)
+		newUser["ssh_authorized_keys"] = annotateKeys(user.SSHAuthorizedKeys)
 	}
-	if user.Sudo != nil {
+	if user.Sudo != "" {
 		newUser["sudo"] = user.Sudo
 	}
 	cfg.SetAttr("users", append(users, newUser))
@@ -396,10 +397,4 @@ func (cfg *cloudConfig) AddRunBinaryFile(filename string, data []byte, mode uint
 // ShellRenderer is defined on the RenderConfig interface.
 func (cfg *cloudConfig) ShellRenderer() shell.Renderer {
 	return cfg.renderer
-}
-
-// RequiresCloudArchiveCloudTools is defined on the AdvancedPackagingConfig
-// interface.
-func (cfg *cloudConfig) RequiresCloudArchiveCloudTools() bool {
-	return config.SeriesRequiresCloudArchiveTools(cfg.series)
 }

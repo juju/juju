@@ -5,7 +5,6 @@ package network_test
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -43,7 +42,7 @@ func (*dnsSuite) TestParseResolvConfNotReadablePath(c *gc.C) {
 
 func makeResolvConf(c *gc.C, content string, perms os.FileMode) string {
 	fakeConfPath := filepath.Join(c.MkDir(), "fake")
-	err := ioutil.WriteFile(fakeConfPath, []byte(content), perms)
+	err := os.WriteFile(fakeConfPath, []byte(content), perms)
 	c.Check(err, jc.ErrorIsNil)
 	return fakeConfPath
 }

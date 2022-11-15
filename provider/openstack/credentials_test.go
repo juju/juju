@@ -4,7 +4,7 @@
 package openstack_test
 
 import (
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"runtime"
 
@@ -174,7 +174,7 @@ OS_REGION_NAME=region
 OS_PROJECT_DOMAIN_NAME=project-domain
 `[1:]
 	novarc := filepath.Join(dir, ".novarc")
-	err = ioutil.WriteFile(novarc, []byte(content), 0600)
+	err = os.WriteFile(novarc, []byte(content), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 	credentials, err := s.provider.DetectCredentials("")
 	c.Assert(err, jc.ErrorIsNil)

@@ -41,7 +41,7 @@ func (s *metadataSuite) TestAsJSONBuffer(c *gc.C) {
 		`"Machine":"0",`+
 		`"Hostname":"myhost",`+
 		`"Version":"1.21-alpha3",`+
-		`"Series":"jammy",`+
+		`"Base":"ubuntu@22.04",`+
 		`"ControllerUUID":"",`+
 		`"HANodes":0,`+
 		`"ControllerMachineID":"",`+
@@ -56,7 +56,7 @@ func (s *metadataSuite) createTestMetadata(c *gc.C) *backups.Metadata {
 		Machine:  "0",
 		Hostname: "myhost",
 		Version:  version.MustParse("1.21-alpha3"),
-		Series:   "jammy",
+		Base:     "ubuntu@22.04",
 	}
 	meta.Started = time.Date(2014, time.Month(9), 9, 11, 59, 34, 0, time.UTC)
 
@@ -99,7 +99,7 @@ func (s *metadataSuite) TestAsJSONBufferV1NonHA(c *gc.C) {
 		`"Machine":"0",`+
 		`"Hostname":"myhost",`+
 		`"Version":"1.21-alpha3",`+
-		`"Series":"jammy",`+
+		`"Base":"ubuntu@22.04",`+
 		`"ControllerUUID":"controller-uuid",`+
 		`"HANodes":0,`+
 		`"ControllerMachineID":"10",`+
@@ -131,7 +131,7 @@ func (s *metadataSuite) TestAsJSONBufferV1HA(c *gc.C) {
 		`"Machine":"0",`+
 		`"Hostname":"myhost",`+
 		`"Version":"1.21-alpha3",`+
-		`"Series":"jammy",`+
+		`"Base":"ubuntu@22.04",`+
 		`"ControllerUUID":"controller-uuid",`+
 		`"HANodes":3,`+
 		`"ControllerMachineID":"10",`+

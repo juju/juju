@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"crypto/sha512"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"sort"
 	"time"
 
@@ -333,7 +333,7 @@ func (s *ResourcesSuite) TestOpenResource(c *gc.C) {
 	spam.Timestamp = r.Timestamp
 	c.Assert(r, jc.DeepEquals, spam)
 
-	resData, err := ioutil.ReadAll(rdr)
+	resData, err := io.ReadAll(rdr)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(resData), gc.Equals, data)
 

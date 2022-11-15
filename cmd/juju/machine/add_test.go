@@ -165,24 +165,24 @@ func (s *AddMachineSuite) TestSSHPlacementError(c *gc.C) {
 }
 
 func (s *AddMachineSuite) TestParamsPassedOn(c *gc.C) {
-	_, err := s.run(c, "--constraints", "mem=8G", "--series=special", "zone=nz")
+	_, err := s.run(c, "--constraints", "mem=8G", "--series=jammy", "zone=nz")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.fakeAddMachine.args, gc.HasLen, 1)
 
 	param := s.fakeAddMachine.args[0]
 
 	c.Assert(param.Placement.String(), gc.Equals, "fake-uuid:zone=nz")
-	c.Assert(param.Series, gc.Equals, "special")
+	c.Assert(param.Base, jc.DeepEquals, &params.Base{Name: "ubuntu", Channel: "22.04/stable"})
 	c.Assert(param.Constraints.String(), gc.Equals, "mem=8192M")
 }
 
 func (s *AddMachineSuite) TestParamsPassedOnNTimes(c *gc.C) {
-	_, err := s.run(c, "-n", "3", "--constraints", "mem=8G", "--series=special")
+	_, err := s.run(c, "-n", "3", "--constraints", "mem=8G", "--series=jammy")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.fakeAddMachine.args, gc.HasLen, 3)
 
 	param := s.fakeAddMachine.args[0]
-	c.Assert(param.Series, gc.Equals, "special")
+	c.Assert(param.Base, jc.DeepEquals, &params.Base{Name: "ubuntu", Channel: "22.04/stable"})
 
 	c.Assert(param.Constraints.String(), gc.Equals, "mem=8192M")
 	c.Assert(param, jc.DeepEquals, s.fakeAddMachine.args[1])
@@ -223,10 +223,6 @@ type fakeAddMachineAPI struct {
 	addError         error
 	addModelGetError error
 	providerType     string
-}
-
-func (f *fakeAddMachineAPI) BestAPIVersion() int {
-	return 7
 }
 
 func (f *fakeAddMachineAPI) Close() error {

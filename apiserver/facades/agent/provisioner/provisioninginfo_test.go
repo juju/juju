@@ -37,7 +37,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 
 	cons := constraints.MustParse("cores=123 mem=8G")
 	template := state.MachineTemplate{
-		Series:      "quantal",
+		Base:        state.UbuntuBase("12.10"),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: cons,
 		Placement:   "valid",
@@ -61,7 +61,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 		Results: []params.ProvisioningInfoResult{
 			{Result: &params.ProvisioningInfo{
 				ControllerConfig: controllerCfg,
-				Series:           "quantal",
+				Base:             params.Base{Name: "ubuntu", Channel: "12.10/stable"},
 				Jobs:             []model.MachineJob{model.JobHostUnits},
 				Tags: map[string]string{
 					tags.JujuController: coretesting.ControllerTag.Id(),
@@ -72,7 +72,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 			}},
 			{Result: &params.ProvisioningInfo{
 				ControllerConfig: controllerCfg,
-				Series:           "quantal",
+				Base:             params.Base{Name: "ubuntu", Channel: "12.10/stable"},
 				Constraints:      template.Constraints,
 				Placement:        template.Placement,
 				Jobs:             []model.MachineJob{model.JobHostUnits},
@@ -132,7 +132,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoRootDiskVolume(c *gc.C) {
 	_, err := pm.Create("static-pool", "static", map[string]interface{}{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 	template := state.MachineTemplate{
-		Series:      "quantal",
+		Base:        state.UbuntuBase("12.10"),
 		Constraints: constraints.MustParse("root-disk-source=static-pool"),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 	}
@@ -158,7 +158,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithMultiplePositiveSpaceCo
 
 	cons := constraints.MustParse("cores=123 mem=8G spaces=space1,space2")
 	template := state.MachineTemplate{
-		Series:      "quantal",
+		Base:        state.UbuntuBase("12.10"),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: cons,
 		Placement:   "valid",
@@ -177,7 +177,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithMultiplePositiveSpaceCo
 
 	expected := &params.ProvisioningInfo{
 		ControllerConfig: s.ControllerConfig,
-		Series:           "quantal",
+		Base:             params.Base{Name: "ubuntu", Channel: "12.10/stable"},
 		Constraints:      template.Constraints,
 		Placement:        template.Placement,
 		Jobs:             []model.MachineJob{model.JobHostUnits},
@@ -225,8 +225,8 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindings(c *gc.
 	})
 
 	wordpressMachine, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -253,7 +253,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindings(c *gc.
 		Results: []params.ProvisioningInfoResult{{
 			Result: &params.ProvisioningInfo{
 				ControllerConfig: controllerCfg,
-				Series:           "quantal",
+				Base:             params.Base{Name: "ubuntu", Channel: "12.10/stable"},
 				Jobs:             []model.MachineJob{model.JobHostUnits},
 				Tags: map[string]string{
 					tags.JujuController:    coretesting.ControllerTag.Id(),
@@ -299,8 +299,8 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindingsAndNoAl
 	s.addSpacesAndSubnets(c)
 
 	wordpressMachine, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -347,7 +347,7 @@ func (s *withoutControllerSuite) TestConflictingNegativeConstraintWithBindingErr
 
 	cons := constraints.MustParse("spaces=^space1")
 	wordpressMachine, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series:      "quantal",
+		Base:        state.UbuntuBase("12.10"),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: cons,
 	})
@@ -405,12 +405,12 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithUnsuitableSpacesConstra
 	consEmptySpace := constraints.MustParse("cores=123 mem=8G spaces=empty")
 	consMissingSpace := constraints.MustParse("cores=123 mem=8G spaces=missing")
 	templates := []state.MachineTemplate{{
-		Series:      "quantal",
+		Base:        state.UbuntuBase("12.10"),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: consEmptySpace,
 		Placement:   "valid",
 	}, {
-		Series:      "quantal",
+		Base:        state.UbuntuBase("12.10"),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: consMissingSpace,
 		Placement:   "valid",
@@ -439,8 +439,8 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithUnsuitableSpacesConstra
 
 func (s *withoutControllerSuite) TestProvisioningInfoWithLXDProfile(c *gc.C) {
 	profileMachine, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -467,7 +467,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithLXDProfile(c *gc.C) {
 		Results: []params.ProvisioningInfoResult{{
 			Result: &params.ProvisioningInfo{
 				ControllerConfig: controllerCfg,
-				Series:           "quantal",
+				Base:             params.Base{Name: "ubuntu", Channel: "12.10/stable"},
 				Jobs:             []model.MachineJob{model.JobHostUnits},
 				Tags: map[string]string{
 					tags.JujuController:    coretesting.ControllerTag.Id(),
@@ -488,7 +488,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithLXDProfile(c *gc.C) {
 
 func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 	template := state.MachineTemplate{
-		Series:    "quantal",
+		Base:      state.UbuntuBase("12.10"),
 		Jobs:      []state.MachineJob{state.JobHostUnits},
 		Placement: "valid",
 		Volumes: []state.HostVolumeParams{
@@ -510,7 +510,7 @@ func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 		Results: []params.ProvisioningInfoResult{
 			{Result: &params.ProvisioningInfo{
 				ControllerConfig: controllerCfg,
-				Series:           "quantal",
+				Base:             params.Base{Name: "ubuntu", Channel: "12.10/stable"},
 				Constraints:      template.Constraints,
 				Placement:        template.Placement,
 				Jobs:             []model.MachineJob{model.JobHostUnits},
@@ -544,8 +544,8 @@ func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 
 func (s *withoutControllerSuite) TestStorageProviderVolumes(c *gc.C) {
 	template := state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 		Volumes: []state.HostVolumeParams{
 			{Volume: state.VolumeParams{Size: 1000, Pool: "modelscoped"}},
 			{Volume: state.VolumeParams{Size: 1000, Pool: "modelscoped"}},
@@ -603,8 +603,8 @@ func (s *withoutControllerSuite) TestProviderInfoCloudInitUserData(c *gc.C) {
 	err := s.Model.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	template := state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 	}
 	m, err := s.State.AddOneMachine(template)
 	c.Assert(err, jc.ErrorIsNil)
@@ -664,7 +664,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 		Results: []params.ProvisioningInfoResult{
 			{Result: &params.ProvisioningInfo{
 				ControllerConfig: controllerCfg,
-				Series:           "quantal",
+				Base:             params.Base{Name: "ubuntu", Channel: "12.10/stable"},
 				Jobs:             []model.MachineJob{model.JobHostUnits},
 				Tags: map[string]string{
 					tags.JujuController: coretesting.ControllerTag.Id(),

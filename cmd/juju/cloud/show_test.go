@@ -4,7 +4,7 @@
 package cloud_test
 
 import (
-	"io/ioutil"
+	"os"
 	"strings"
 
 	"github.com/juju/cmd/v3/cmdtesting"
@@ -239,7 +239,7 @@ clouds:
       bootstrap-timeout: 1800
       use-default-secgroup: true
 `[1:]
-	err := ioutil.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(data), 0600)
+	err := os.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(data), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewShowCloudCommand(), "homestack", "--client")
 	c.Assert(err, jc.ErrorIsNil)
@@ -302,7 +302,7 @@ clouds:
       london:
         bootstrap-timeout: 1800
 `[1:]
-	err := ioutil.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(data), 0600)
+	err := os.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(data), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewShowCloudCommand(), "homestack", "--include-config", "--client")
 	c.Assert(err, jc.ErrorIsNil)
@@ -393,7 +393,7 @@ ca-credentials:
 `[1:]
 
 func (s *showSuite) TestShowWithCACertificate(c *gc.C) {
-	err := ioutil.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(yamlWithCert), 0600)
+	err := os.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(yamlWithCert), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewShowCloudCommand(), "homestack", "--client")
 	c.Assert(err, jc.ErrorIsNil)

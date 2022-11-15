@@ -113,7 +113,7 @@ var unitChange = cache.UnitChange{
 	ModelUUID:                "model-uuid",
 	Name:                     "application-name/0",
 	Application:              "application-name",
-	Series:                   "bionic",
+	Base:                     "ubuntu@18.04",
 	Life:                     life.Alive,
 	CharmURL:                 "www.charm-url.com-1",
 	PublicAddress:            "",

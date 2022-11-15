@@ -43,7 +43,7 @@ Show a space by name:
 
 See also:
 	add-space
-	list-spaces
+	spaces
 	reload-spaces
 	rename-space
 	remove-space

@@ -5,7 +5,7 @@ package backups
 
 import (
 	"context"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 
@@ -39,7 +39,7 @@ func (s *downloadSuite) TestDownload(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = rdr.Close() }()
 
-	data, err := ioutil.ReadAll(rdr)
+	data, err := io.ReadAll(rdr)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, "success")
 }

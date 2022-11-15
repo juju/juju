@@ -33,19 +33,19 @@ func (s *versionSuite) TestUpgradeToAllowed(c *gc.C) {
 			from:    "2.8.0",
 			to:      "3.0.0",
 			allowed: false,
-			minVers: "2.9.33",
+			minVers: "2.9.36",
 			patch:   true,
 		}, {
-			from:    "2.9.33",
+			from:    "2.9.65",
 			to:      "3.0.0",
 			allowed: true,
-			minVers: "2.9.33",
+			minVers: "2.9.36",
 			patch:   true,
 		}, {
-			from:    "2.9.34",
+			from:    "2.9.37",
 			to:      "3.0.0",
 			allowed: true,
-			minVers: "2.9.33",
+			minVers: "2.9.36",
 			patch:   true,
 		}, {
 			from:    "2.9.0",
@@ -53,7 +53,7 @@ func (s *versionSuite) TestUpgradeToAllowed(c *gc.C) {
 			allowed: false,
 			minVers: "0.0.0",
 			patch:   true,
-			err:     `cannot upgrade, "4.0.0" is not a supported version`,
+			err:     `upgrade to \"4.0.0\" is not supported from \"2.9.0\"`,
 		}, {
 			from:    "3.0.0",
 			to:      "2.0.0",
@@ -70,8 +70,8 @@ func (s *versionSuite) TestUpgradeToAllowed(c *gc.C) {
 func (s *versionSuite) assertUpgradeToAllowed(c *gc.C, i int, t versionCheckTC) {
 	c.Logf("testing %d", i)
 	if t.patch {
-		restore := jujutesting.PatchValue(&upgradevalidation.MinMajorUpgradeVersion, map[int]version.Number{
-			3: version.MustParse("2.9.33"),
+		restore := jujutesting.PatchValue(&upgradevalidation.MinMajorUpgradeVersions, map[int]version.Number{
+			3: version.MustParse("2.9.36"),
 		})
 		defer restore()
 	}
@@ -95,24 +95,24 @@ func (s *versionSuite) TestMigrateToAllowed(c *gc.C) {
 			from:    "2.8.0",
 			to:      "3.0.0",
 			allowed: false,
-			minVers: "2.9.32",
+			minVers: "2.9.36",
 		}, {
-			from:    "2.9.32",
+			from:    "2.9.36",
 			to:      "3.0.0",
 			allowed: true,
-			minVers: "2.9.32",
+			minVers: "2.9.36",
 		}, {
-			from:    "2.9.34",
+			from:    "2.9.37",
 			to:      "3.0.0",
 			allowed: true,
-			minVers: "2.9.32",
+			minVers: "2.9.36",
 		},
 		{
 			from:    "2.9.0",
 			to:      "4.0.0",
 			allowed: false,
 			minVers: "0.0.0",
-			err:     `cannot migrate, "4.0.0" is not a supported version`,
+			err:     `migrate to \"4.0.0\" is not supported from \"2.9.0\"`,
 		},
 		{
 			from:    "3.0.0",

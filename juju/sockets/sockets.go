@@ -7,7 +7,6 @@ package sockets
 import (
 	"crypto/tls"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/rpc"
 	"os"
@@ -73,10 +72,10 @@ func innerListen(soc Socket) (listener net.Listener, err error) {
 	// We first create the socket in a temporary directory as a subdirectory of
 	// the target dir so we know we can get the permissions correct and still
 	// rename the socket into the correct place.
-	// ioutil.TempDir creates the temporary directory as 0700 so it starts with
+	// os.MkdirTemp creates the temporary directory as 0700 so it starts with
 	// the right perms as well.
 	socketDir := filepath.Dir(soc.Address)
-	tempdir, err := ioutil.TempDir(socketDir, "")
+	tempdir, err := os.MkdirTemp(socketDir, "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

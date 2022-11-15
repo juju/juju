@@ -36,6 +36,7 @@ import (
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/caas/kubernetes/provider/pebble"
 	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	"github.com/juju/juju/caas/kubernetes/provider/storage"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
@@ -52,18 +53,16 @@ import (
 var logger = loggo.GetLogger("juju.kubernetes.provider.application")
 
 const (
-	charmVolumeName              = "charm-data"
-	agentProbeInitialDelay int32 = 30
-	agentProbePeriod       int32 = 10
-	agentProbeSuccess      int32 = 1
-	agentProbeFailure      int32 = 2
-
-	containerPebblePortStart   = 38813 // Arbitrary, but PEBBLE -> P38813 -> Port 38813
+	// containerProbeInitialDelay is the initial delay in seconds before the probe starts.
 	containerProbeInitialDelay = 30
-	containerProbeTimeout      = 1
-	containerProbePeriod       = 5
-	containerProbeSuccess      = 1
-	containerProbeFailure      = 1
+	// containerProbeTimeout is the timeout for the probe to complete in seconds.
+	containerProbeTimeout = 1
+	// containerProbePeriod is the number of seconds between each probe.
+	containerProbePeriod = 5
+	// containerProbeSuccess is the number of successful probes to mark the check as healthy.
+	containerProbeSuccess = 1
+	// containerProbeFailure is the number of failed probes to mark the check as unhealthy.
+	containerProbeFailure = 3
 )
 
 type app struct {
@@ -1171,7 +1170,7 @@ func (a *app) Units() ([]caas.Unit, error) {
 		// Gather info about how filesystems are attached/mounted to the pod.
 		// The mount name represents the filesystem tag name used by Juju.
 		for _, volMount := range p.Spec.Containers[0].VolumeMounts {
-			if volMount.Name == charmVolumeName {
+			if volMount.Name == constants.CharmVolumeName {
 				continue
 			}
 			vol, ok := volumesByName[volMount.Name]
@@ -1231,7 +1230,7 @@ func (a *app) Units() ([]caas.Unit, error) {
 func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec, error) {
 	jujuDataDir := paths.DataDir(paths.OSUnixLike)
 
-	containerNames := []string(nil)
+	containerNames := config.ExistingContainers
 	containers := []caas.ContainerConfig(nil)
 	for _, v := range config.Containers {
 		containerNames = append(containerNames, v.Name)
@@ -1263,13 +1262,11 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		ImagePullPolicy: corev1.PullIfNotPresent,
 		Image:           config.CharmBaseImagePath,
 		WorkingDir:      jujuDataDir,
-		Command:         []string{"/charm/bin/containeragent"},
+		Command:         []string{"/charm/bin/pebble"},
 		Args: []string{
-			"unit",
-			"--data-dir", jujuDataDir,
-			"--charm-modified-version", strconv.Itoa(config.CharmModifiedVersion),
-			"--append-env", "PATH=$PATH:/charm/bin",
-			"--show-log",
+			"run",
+			"--http", fmt.Sprintf(":%s", pebble.CharmHealthCheckPort),
+			"--verbose",
 		},
 		Env: env,
 		SecurityContext: &corev1.SecurityContext{
@@ -1277,55 +1274,40 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			RunAsGroup: pointer.Int64Ptr(0),
 		},
 		LivenessProbe: &corev1.Probe{
-			ProbeHandler: corev1.ProbeHandler{
-				HTTPGet: &corev1.HTTPGetAction{
-					Path: constants.AgentHTTPPathLiveness,
-					Port: intstr.Parse(constants.AgentHTTPProbePort),
-				},
-			},
-			InitialDelaySeconds: agentProbeInitialDelay,
-			PeriodSeconds:       agentProbePeriod,
-			SuccessThreshold:    agentProbeSuccess,
-			FailureThreshold:    agentProbeFailure,
+			ProbeHandler:        pebble.LivenessHandler(pebble.CharmHealthCheckPort),
+			InitialDelaySeconds: containerProbeInitialDelay,
+			TimeoutSeconds:      containerProbeTimeout,
+			PeriodSeconds:       containerProbePeriod,
+			SuccessThreshold:    containerProbeSuccess,
+			FailureThreshold:    containerProbeFailure,
 		},
 		ReadinessProbe: &corev1.Probe{
-			ProbeHandler: corev1.ProbeHandler{
-				HTTPGet: &corev1.HTTPGetAction{
-					Path: constants.AgentHTTPPathReadiness,
-					Port: intstr.Parse(constants.AgentHTTPProbePort),
-				},
-			},
-			InitialDelaySeconds: agentProbeInitialDelay,
-			PeriodSeconds:       agentProbePeriod,
-			SuccessThreshold:    agentProbeSuccess,
-			FailureThreshold:    agentProbeFailure,
-		},
-		StartupProbe: &corev1.Probe{
-			ProbeHandler: corev1.ProbeHandler{
-				HTTPGet: &corev1.HTTPGetAction{
-					Path: constants.AgentHTTPPathStartup,
-					Port: intstr.Parse(constants.AgentHTTPProbePort),
-				},
-			},
-			InitialDelaySeconds: agentProbeInitialDelay,
-			PeriodSeconds:       agentProbePeriod,
-			SuccessThreshold:    agentProbeSuccess,
-			FailureThreshold:    agentProbeFailure,
+			ProbeHandler:        pebble.ReadinessHandler(pebble.CharmHealthCheckPort),
+			InitialDelaySeconds: containerProbeInitialDelay,
+			TimeoutSeconds:      containerProbeTimeout,
+			PeriodSeconds:       containerProbePeriod,
+			SuccessThreshold:    containerProbeSuccess,
+			FailureThreshold:    containerProbeFailure,
 		},
 		VolumeMounts: []corev1.VolumeMount{
 			{
-				Name:      charmVolumeName,
+				Name:      constants.CharmVolumeName,
+				MountPath: constants.DefaultPebbleDir,
+				SubPath:   "containeragent/pebble",
+			},
+			{
+				Name:      constants.CharmVolumeName,
 				MountPath: "/charm/bin",
 				SubPath:   "charm/bin",
 				ReadOnly:  true,
 			},
 			{
-				Name:      charmVolumeName,
+				Name:      constants.CharmVolumeName,
 				MountPath: jujuDataDir,
 				SubPath:   strings.TrimPrefix(jujuDataDir, "/"),
 			},
 			{
-				Name:      charmVolumeName,
+				Name:      constants.CharmVolumeName,
 				MountPath: "/charm/containers",
 				SubPath:   "charm/containers",
 			},
@@ -1349,7 +1331,7 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 				"run",
 				"--create-dirs",
 				"--hold",
-				"--http", fmt.Sprintf(":%d", containerPebblePortStart+i),
+				"--http", fmt.Sprintf(":%s", pebble.WorkloadHealthCheckPort(i)),
 				"--verbose",
 			},
 			Env: []corev1.EnvVar{{
@@ -1360,12 +1342,7 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 				Value: "/charm/container/pebble.socket",
 			}},
 			LivenessProbe: &corev1.Probe{
-				ProbeHandler: corev1.ProbeHandler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/v1/health?level=alive",
-						Port: intstr.FromInt(containerPebblePortStart + i),
-					},
-				},
+				ProbeHandler:        pebble.LivenessHandler(pebble.WorkloadHealthCheckPort(i)),
 				InitialDelaySeconds: containerProbeInitialDelay,
 				TimeoutSeconds:      containerProbeTimeout,
 				PeriodSeconds:       containerProbePeriod,
@@ -1373,12 +1350,7 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 				FailureThreshold:    containerProbeFailure,
 			},
 			ReadinessProbe: &corev1.Probe{
-				ProbeHandler: corev1.ProbeHandler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/v1/health?level=ready",
-						Port: intstr.FromInt(containerPebblePortStart + i),
-					},
-				},
+				ProbeHandler:        pebble.ReadinessHandler(pebble.WorkloadHealthCheckPort(i)),
 				InitialDelaySeconds: containerProbeInitialDelay,
 				TimeoutSeconds:      containerProbeTimeout,
 				PeriodSeconds:       containerProbePeriod,
@@ -1392,13 +1364,13 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			},
 			VolumeMounts: []corev1.VolumeMount{
 				{
-					Name:      charmVolumeName,
+					Name:      constants.CharmVolumeName,
 					MountPath: "/charm/bin/pebble",
 					SubPath:   "charm/bin/pebble",
 					ReadOnly:  true,
 				},
 				{
-					Name:      charmVolumeName,
+					Name:      constants.CharmVolumeName,
 					MountPath: "/charm/container",
 					SubPath:   fmt.Sprintf("charm/containers/%s", v.Name),
 				},
@@ -1423,7 +1395,13 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			Image:           config.AgentImagePath,
 			WorkingDir:      jujuDataDir,
 			Command:         []string{"/opt/containeragent"},
-			Args:            []string{"init", "--data-dir", jujuDataDir, "--bin-dir", "/charm/bin"},
+			Args: []string{
+				"init",
+				"--containeragent-pebble-dir", "/containeragent/pebble",
+				"--charm-modified-version", strconv.Itoa(config.CharmModifiedVersion),
+				"--data-dir", jujuDataDir,
+				"--bin-dir", "/charm/bin",
+			},
 			Env: []corev1.EnvVar{
 				{
 					Name:  constants.EnvJujuContainerNames,
@@ -1457,18 +1435,23 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			},
 			VolumeMounts: []corev1.VolumeMount{
 				{
-					Name:      charmVolumeName,
+					Name:      constants.CharmVolumeName,
 					MountPath: jujuDataDir,
 					SubPath:   strings.TrimPrefix(jujuDataDir, "/"),
 				},
 				{
-					Name:      charmVolumeName,
+					Name:      constants.CharmVolumeName,
+					MountPath: "/containeragent/pebble",
+					SubPath:   "containeragent/pebble",
+				},
+				{
+					Name:      constants.CharmVolumeName,
 					MountPath: "/charm/bin",
 					SubPath:   "charm/bin",
 				},
 				// DO we need this in init container????
 				{
-					Name:      charmVolumeName,
+					Name:      constants.CharmVolumeName,
 					MountPath: "/charm/containers",
 					SubPath:   "charm/containers",
 				},
@@ -1477,7 +1460,7 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		Containers: containerSpecs,
 		Volumes: []corev1.Volume{
 			{
-				Name: charmVolumeName,
+				Name: constants.CharmVolumeName,
 				VolumeSource: corev1.VolumeSource{
 					EmptyDir: &corev1.EmptyDirVolumeSource{},
 				},

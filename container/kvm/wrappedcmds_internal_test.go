@@ -5,7 +5,7 @@ package kvm
 
 import (
 	"errors"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/juju/testing"
@@ -26,7 +26,7 @@ func (libvirtInternalSuite) TestWriteMetadata(c *gc.C) {
 
 	err := writeMetadata(d)
 	c.Check(err, jc.ErrorIsNil)
-	b, err := ioutil.ReadFile(filepath.Join(d, metadata))
+	b, err := os.ReadFile(filepath.Join(d, metadata))
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(string(b), gc.Matches, `{"instance-id": ".*-.*-.*-.*"}`)
 }

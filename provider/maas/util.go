@@ -54,7 +54,7 @@ var _MAASInstanceFilename = path.Join(maasDataDir, "MAASmachine.txt")
 // "machine info" file containing the hostname of a machine.
 // That command is destined to be used by cloudinit.
 func (info *machineInfo) cloudinitRunCmd(cloudcfg cloudinit.CloudConfig) (string, error) {
-	dataDir := paths.DataDir(paths.SeriesToOS(cloudcfg.GetSeries()))
+	dataDir := paths.DataDir(paths.OSType(cloudcfg.GetOS()))
 	yaml, err := goyaml.Marshal(info)
 	if err != nil {
 		return "", errors.Trace(err)

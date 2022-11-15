@@ -9,8 +9,11 @@ import (
 	"time"
 
 	jujuclock "github.com/juju/clock"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/retry"
+	authenticationv1 "k8s.io/api/authentication/v1"
 	core "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -593,4 +596,170 @@ func (k *kubernetesClient) listClusterRoleBindings(selector k8slabels.Selector) 
 		return nil, errors.NotFoundf("cluster role binding with selector %q", selector)
 	}
 	return cRBList.Items, nil
+}
+
+// TODO: make this configurable.
+var expiresInSeconds = int64(60 * 10)
+
+// EnsureSecretAccessToken ensures the RBAC resources created and updated for the provided resource name.
+func (k *kubernetesClient) EnsureSecretAccessToken(tag names.Tag, owned, read, removed []string) (string, error) {
+	appName := tag.Id()
+	if tag.Kind() == names.UnitTagKind {
+		appName, _ = names.UnitApplication(tag.Id())
+	}
+	labels := utils.LabelsForApp(appName, k.IsLegacyLabels())
+
+	objMeta := v1.ObjectMeta{
+		Name:      tag.String(),
+		Labels:    labels,
+		Namespace: k.namespace,
+	}
+
+	sa := &core.ServiceAccount{
+		ObjectMeta:                   objMeta,
+		AutomountServiceAccountToken: boolPtr(true),
+	}
+	_, _, err := k.ensureServiceAccount(sa)
+	if err != nil {
+		return "", errors.Annotatef(err, "cannot ensure service account %q", sa.GetName())
+	}
+
+	role, err := k.ensureRoleForSecretAccessToken(objMeta, owned, read, removed)
+	if err != nil {
+		return "", errors.Annotatef(err, "cannot ensure role %q", role.GetName())
+	}
+
+	roleBinding := &rbacv1.RoleBinding{
+		ObjectMeta: objMeta,
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "Role",
+			Name:     role.Name,
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      "ServiceAccount",
+				Name:      sa.Name,
+				Namespace: sa.Namespace,
+			},
+		},
+	}
+
+	_, _, err = k.ensureRoleBinding(roleBinding)
+	if err != nil {
+		return "", errors.Annotatef(err, "cannot ensure role binding %q", roleBinding.Name)
+	}
+	treq := &authenticationv1.TokenRequest{
+		Spec: authenticationv1.TokenRequestSpec{
+			ExpirationSeconds: &expiresInSeconds,
+		},
+	}
+	tr, err := k.client().CoreV1().ServiceAccounts(k.namespace).CreateToken(context.TODO(), sa.Name, treq, v1.CreateOptions{})
+	if err != nil {
+		return "", errors.Annotatef(err, "cannot request a token for %q", sa.Name)
+	}
+	return tr.Status.Token, nil
+}
+
+func (k *kubernetesClient) ensureRoleForSecretAccessToken(objMeta v1.ObjectMeta, owned, read, removed []string) (*rbacv1.Role, error) {
+	role, err := k.getRole(objMeta.Name)
+	if errors.Is(err, errors.NotFound) {
+		return k.createRole(
+			&rbacv1.Role{
+				ObjectMeta: objMeta,
+				Rules:      rulesForSecretAccess(k.namespace, nil, owned, read, removed),
+			},
+		)
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	role.Rules = rulesForSecretAccess(k.namespace, role.Rules, owned, read, removed)
+	return k.updateRole(role)
+}
+
+func cleanRules(existing []rbacv1.PolicyRule, shouldRemove func(string) bool) []rbacv1.PolicyRule {
+	if len(existing) == 0 {
+		return nil
+	}
+
+	i := 0
+	for _, r := range existing {
+		if len(r.ResourceNames) == 1 && shouldRemove(r.ResourceNames[0]) {
+			continue
+		}
+		existing[i] = r
+		i++
+	}
+	return existing[:i]
+}
+
+func rulesForSecretAccess(namespace string, existing []rbacv1.PolicyRule, owned, read, removed []string) []rbacv1.PolicyRule {
+	if len(existing) == 0 {
+		existing = []rbacv1.PolicyRule{
+			{
+				APIGroups:     []string{rbacv1.APIGroupAll},
+				Resources:     []string{"namespaces"},
+				Verbs:         []string{"get", "list"},
+				ResourceNames: []string{namespace},
+			},
+			{
+				APIGroups: []string{rbacv1.APIGroupAll},
+				Resources: []string{"secrets"},
+				Verbs: []string{
+					"create",
+					"patch", // TODO: we really should only allow "create" but not patch  but currently we uses .Apply() which requres patch!!!
+				},
+			},
+		}
+	}
+
+	ownedIDs := set.NewStrings(owned...)
+	readIDs := set.NewStrings(read...)
+	removedIDs := set.NewStrings(removed...)
+
+	existing = cleanRules(existing,
+		func(s string) bool {
+			return ownedIDs.Contains(s) || readIDs.Contains(s) || removedIDs.Contains(s)
+		},
+	)
+
+	for _, rName := range owned {
+		if removedIDs.Contains(rName) {
+			continue
+		}
+		existing = append(existing, rbacv1.PolicyRule{
+			APIGroups:     []string{rbacv1.APIGroupAll},
+			Resources:     []string{"secrets"},
+			Verbs:         []string{rbacv1.VerbAll},
+			ResourceNames: []string{rName},
+		})
+	}
+	for _, rName := range read {
+		if removedIDs.Contains(rName) {
+			continue
+		}
+		existing = append(existing, rbacv1.PolicyRule{
+			APIGroups:     []string{rbacv1.APIGroupAll},
+			Resources:     []string{"secrets"},
+			Verbs:         []string{"get"},
+			ResourceNames: []string{rName},
+		})
+	}
+	return existing
+}
+
+// RemoveSecretAccessToken removes the RBAC resources for the provided resource name.
+func (k *kubernetesClient) RemoveSecretAccessToken(unit names.Tag) error {
+	name := unit.String()
+	if err := k.deleteRoleBinding(name, ""); err != nil {
+		logger.Warningf("cannot delete service account %q", name)
+	}
+	if err := k.deleteRole(name, ""); err != nil {
+		logger.Warningf("cannot delete service account %q", name)
+	}
+	if err := k.deleteServiceAccount(name, ""); err != nil {
+		logger.Warningf("cannot delete service account %q", name)
+	}
+	return nil
 }

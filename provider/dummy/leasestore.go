@@ -11,17 +11,14 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/lease"
-	"github.com/juju/juju/core/raftlease"
 )
 
 // leaseStore implements lease.Store as simply as possible for use in
 // the dummy provider. Heavily cribbed from raftlease.FSM.
 type leaseStore struct {
-	mu       sync.Mutex
-	clock    clock.Clock
-	entries  map[lease.Key]*entry
-	trapdoor raftlease.TrapdoorFunc
-	target   raftlease.NotifyTarget
+	mu      sync.Mutex
+	clock   clock.Clock
+	entries map[lease.Key]*entry
 }
 
 // entry holds the details of a lease.
@@ -37,12 +34,10 @@ type entry struct {
 	duration time.Duration
 }
 
-func newLeaseStore(clock clock.Clock, target raftlease.NotifyTarget, trapdoor raftlease.TrapdoorFunc) *leaseStore {
+func newLeaseStore(clock clock.Clock) *leaseStore {
 	return &leaseStore{
-		clock:    clock,
-		entries:  make(map[lease.Key]*entry),
-		target:   target,
-		trapdoor: trapdoor,
+		clock:   clock,
+		entries: make(map[lease.Key]*entry),
 	}
 }
 
@@ -58,7 +53,6 @@ func (s *leaseStore) ClaimLease(key lease.Key, req lease.Request, _ <-chan struc
 		start:    s.clock.Now(),
 		duration: req.Duration,
 	}
-	_ = s.target.Claimed(key, req.Holder)
 	return nil
 }
 
@@ -88,7 +82,7 @@ func (s *leaseStore) ExtendLease(key lease.Key, req lease.Request, _ <-chan stru
 }
 
 // RevokeLease is part of lease.Store.
-func (s *leaseStore) RevokeLease(key lease.Key, holder string, stop <-chan struct{}) error {
+func (s *leaseStore) RevokeLease(key lease.Key, _ string, _ <-chan struct{}) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	_, found := s.entries[key]
@@ -96,10 +90,6 @@ func (s *leaseStore) RevokeLease(key lease.Key, holder string, stop <-chan struc
 		return lease.ErrInvalid
 	}
 	delete(s.entries, key)
-	_ = s.target.Expiries([]raftlease.Expired{{
-		Key:    key,
-		Holder: holder,
-	}})
 	return nil
 }
 
@@ -123,9 +113,8 @@ func (s *leaseStore) Leases(keys ...lease.Key) map[lease.Key]lease.Info {
 		}
 
 		results[key] = lease.Info{
-			Holder:   entry.holder,
-			Expiry:   entry.start.Add(entry.duration),
-			Trapdoor: s.trapdoor(key, entry.holder),
+			Holder: entry.holder,
+			Expiry: entry.start.Add(entry.duration),
 		}
 	}
 	return results
@@ -147,12 +136,12 @@ func (s *leaseStore) LeaseGroup(namespace, modelUUID string) map[lease.Key]lease
 }
 
 // PinLease is part of lease.Store.
-func (s *leaseStore) PinLease(key lease.Key, entity string, _ <-chan struct{}) error {
+func (s *leaseStore) PinLease(lease.Key, string, <-chan struct{}) error {
 	return errors.NotImplementedf("lease pinning")
 }
 
 // UnpinLease is part of lease.Store.
-func (s *leaseStore) UnpinLease(key lease.Key, entity string, _ <-chan struct{}) error {
+func (s *leaseStore) UnpinLease(lease.Key, string, <-chan struct{}) error {
 	return errors.NotImplementedf("lease unpinning")
 }
 

@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -81,7 +80,7 @@ func (s *clientSuite) TestUploadToolsOtherModel(c *gc.C) {
 				"series":        []string{""},
 			})
 			defer r.Body.Close()
-			obtainedTools, err := ioutil.ReadAll(r.Body)
+			obtainedTools, err := io.ReadAll(r.Body)
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(obtainedTools, gc.DeepEquals, expectedTools)
 		},

@@ -19,23 +19,6 @@ import (
 // (below).
 var stateUpgradeOperations = func() []Operation {
 	steps := []Operation{
-		upgradeToVersion{version.MustParse("2.9.5"), stateStepsFor295()},
-		upgradeToVersion{version.MustParse("2.9.6"), stateStepsFor296()},
-		upgradeToVersion{version.MustParse("2.9.9"), stateStepsFor299()},
-		upgradeToVersion{version.MustParse("2.9.10"), stateStepsFor2910()},
-		upgradeToVersion{version.MustParse("2.9.12"), stateStepsFor2912()},
-		upgradeToVersion{version.MustParse("2.9.15"), stateStepsFor2915()},
-		upgradeToVersion{version.MustParse("2.9.17"), stateStepsFor2917()},
-		upgradeToVersion{version.MustParse("2.9.19"), stateStepsFor2919()},
-		upgradeToVersion{version.MustParse("2.9.20"), stateStepsFor2920()},
-		upgradeToVersion{version.MustParse("2.9.22"), stateStepsFor2922()},
-		upgradeToVersion{version.MustParse("2.9.24"), stateStepsFor2924()},
-		upgradeToVersion{version.MustParse("2.9.26"), stateStepsFor2926()},
-		upgradeToVersion{version.MustParse("2.9.29"), stateStepsFor2929()},
-		upgradeToVersion{version.MustParse("2.9.30"), stateStepsFor2930()},
-		upgradeToVersion{version.MustParse("2.9.32"), stateStepsFor2932()},
-		upgradeToVersion{version.MustParse("2.9.33"), stateStepsFor2933()},
-		upgradeToVersion{version.MustParse("2.9.34"), stateStepsFor2934()},
 		upgradeToVersion{version.MustParse("3.0.0"), stateStepsFor30()},
 	}
 	return steps

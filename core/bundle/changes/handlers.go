@@ -14,6 +14,7 @@ import (
 	"github.com/juju/naturalsort"
 
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/series"
 )
 
 type resolver struct {
@@ -47,6 +48,10 @@ func (r *resolver) handleApplications() (map[string]string, error) {
 	var change Change
 	for _, name := range names {
 		application := applications[name]
+		// Legacy k8s charms - assume ubuntu focal.
+		if application.Series == kubernetes {
+			application.Series = series.LegacyKubernetesSeries()
+		}
 		existingApp := existing.GetApplication(name)
 		series, err := getSeries(application, defaultSeries)
 		if err != nil {
@@ -1261,9 +1266,12 @@ func getSeries(application *charm.ApplicationSpec, defaultSeries string) (string
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	series := charmURL.Series
-	if series != "" {
-		return series, nil
+	if charmURL.Series != "" {
+		// Legacy k8s charms - assume ubuntu focal.
+		if charmURL.Series == kubernetes {
+			return series.LegacyKubernetesSeries(), nil
+		}
+		return charmURL.Series, nil
 	}
 	return defaultSeries, nil
 }

@@ -23,6 +23,7 @@ import (
 
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/utils/proxy"
@@ -34,7 +35,7 @@ import (
 // Server defines an interface of all localized methods that the environment
 // and provider utilizes.
 type Server interface {
-	FindImage(string, string, []lxd.ServerSpec, bool, environs.StatusCallbackFunc) (lxd.SourcedImage, error)
+	FindImage(series.Base, string, []lxd.ServerSpec, bool, environs.StatusCallbackFunc) (lxd.SourcedImage, error)
 	GetServer() (server *lxdapi.Server, ETag string, err error)
 	ServerVersion() string
 	GetConnectionInfo() (info *lxdclient.ConnectionInfo, err error)
@@ -390,7 +391,7 @@ func parseAPIVersion(s string) (version.Number, error) {
 }
 
 // minLXDVersion defines the min version of LXD we support.
-var minLXDVersion = version.Number{Major: 5, Minor: 2}
+var minLXDVersion = version.Number{Major: 5, Minor: 0}
 
 // ValidateAPIVersion validates the LXD version.
 func ValidateAPIVersion(version string) error {

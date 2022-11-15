@@ -4,8 +4,6 @@
 package action_test
 
 import (
-	"time"
-
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -39,12 +37,12 @@ func (s *runSuite) SetUpTest(c *gc.C) {
 	auth := apiservertesting.FakeAuthorizer{
 		Tag: s.AdminUserTag(c),
 	}
-	s.client, err = action.NewActionAPI(s.State, nil, auth)
+	s.client, err = action.NewActionAPI(s.State, nil, auth, action.FakeLeadership{})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *runSuite) addMachine(c *gc.C) *state.Machine {
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	return machine
 }
@@ -55,107 +53,6 @@ func (s *runSuite) addUnit(c *gc.C, application *state.Application) *state.Unit 
 	err = unit.AssignToNewMachine()
 	c.Assert(err, jc.ErrorIsNil)
 	return unit
-}
-
-func (s *runSuite) TestGetAllUnitNames(c *gc.C) {
-	charm := s.AddTestingCharm(c, "dummy")
-	magic, err := s.State.AddApplication(state.AddApplicationArgs{Name: "magic", Charm: charm})
-	c.Assert(err, jc.ErrorIsNil)
-	s.addUnit(c, magic)
-	s.addUnit(c, magic)
-
-	// Ensure magic/1 is the leader.
-	claimer, err := s.LeaseManager.Claimer("application-leadership", s.State.ModelUUID())
-	c.Assert(err, jc.ErrorIsNil)
-	err = claimer.Claim("magic", "magic/1", time.Minute)
-	c.Assert(err, jc.ErrorIsNil)
-
-	notAssigned, err := s.State.AddApplication(state.AddApplicationArgs{Name: "not-assigned", Charm: charm})
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = notAssigned.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = s.State.AddApplication(state.AddApplicationArgs{Name: "no-units", Charm: charm})
-	c.Assert(err, jc.ErrorIsNil)
-
-	wordpress, err := s.State.AddApplication(state.AddApplicationArgs{Name: "wordpress", Charm: s.AddTestingCharm(c, "wordpress")})
-	c.Assert(err, jc.ErrorIsNil)
-	wordpress0 := s.addUnit(c, wordpress)
-	_, err = s.State.AddApplication(state.AddApplicationArgs{Name: "logging", Charm: s.AddTestingCharm(c, "logging")})
-	c.Assert(err, jc.ErrorIsNil)
-
-	eps, err := s.State.InferEndpoints("logging", "wordpress")
-	c.Assert(err, jc.ErrorIsNil)
-	rel, err := s.State.AddRelation(eps...)
-	c.Assert(err, jc.ErrorIsNil)
-	ru, err := rel.Unit(wordpress0)
-	c.Assert(err, jc.ErrorIsNil)
-	err = ru.EnterScope(nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	for i, test := range []struct {
-		message      string
-		expected     []string
-		units        []string
-		applications []string
-		error        string
-	}{{
-		message: "no units, expected nil slice",
-	}, {
-		message:      "asking for an empty string application",
-		applications: []string{""},
-		error:        `"" is not a valid application name`,
-	}, {
-		message: "asking for an empty string unit",
-		units:   []string{""},
-		error:   `invalid unit name ""`,
-	}, {
-		message:      "asking for a application that isn't there",
-		applications: []string{"foo"},
-		error:        `application "foo" not found`,
-	}, {
-		message:      "application with no units is not really an error",
-		applications: []string{"no-units"},
-	}, {
-		message:      "A application with units",
-		applications: []string{"magic"},
-		expected:     []string{"magic/0", "magic/1"},
-	}, {
-		message:  "Asking for just a unit",
-		units:    []string{"magic/0"},
-		expected: []string{"magic/0"},
-	}, {
-		message:  "Asking for just a subordinate unit",
-		units:    []string{"logging/0"},
-		expected: []string{"logging/0"},
-	}, {
-		message:      "Asking for a unit, and the application",
-		applications: []string{"magic"},
-		units:        []string{"magic/0"},
-		expected:     []string{"magic/0", "magic/1"},
-	}, {
-		message:  "Asking for an application leader unit",
-		units:    []string{"magic/leader"},
-		expected: []string{"magic/1"},
-	}, {
-		message: "Asking for an application leader unit of an unknown application",
-		units:   []string{"foo/leader"},
-		error:   `could not determine leader for "foo"`,
-	}} {
-		c.Logf("%v: %s", i, test.message)
-		shim := action.StateShimForTest(s.State)
-		result, err := action.GetAllUnitNames(shim, test.units, test.applications)
-		if test.error == "" {
-			c.Check(err, jc.ErrorIsNil)
-			var units []string
-			for _, unit := range result {
-				units = append(units, unit.Id())
-			}
-			c.Check(units, jc.SameContents, test.expected)
-		} else {
-			c.Check(err, gc.ErrorMatches, test.error)
-		}
-	}
 }
 
 func (s *runSuite) AssertBlocked(c *gc.C, err error, msg string) {
@@ -210,7 +107,10 @@ func (s *runSuite) TestRunMachineAndApplication(c *gc.C) {
 	s.addMachine(c)
 
 	charm := s.AddTestingCharm(c, "dummy")
-	magic, err := s.State.AddApplication(state.AddApplicationArgs{Name: "magic", Charm: charm})
+	magic, err := s.State.AddApplication(state.AddApplicationArgs{
+		Name: "magic", Charm: charm,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "20.04/stable"}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.addUnit(c, magic)
 	s.addUnit(c, magic)
@@ -258,7 +158,10 @@ func (s *runSuite) TestRunApplicationWorkload(c *gc.C) {
 	s.addMachine(c)
 
 	charm := s.AddTestingCharm(c, "dummy")
-	magic, err := s.State.AddApplication(state.AddApplicationArgs{Name: "magic", Charm: charm})
+	magic, err := s.State.AddApplication(state.AddApplicationArgs{
+		Name: "magic", Charm: charm,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "20.04/stable"}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.addUnit(c, magic)
 	s.addUnit(c, magic)
@@ -339,13 +242,13 @@ func (s *runSuite) TestRunRequiresAdmin(c *gc.C) {
 		Tag:         alpha,
 		HasWriteTag: alpha,
 	}
-	client, err := action.NewActionAPI(s.State, nil, auth)
+	client, err := action.NewActionAPI(s.State, nil, auth, action.FakeLeadership{})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = client.Run(params.RunParams{})
 	c.Assert(errors.Cause(err), gc.Equals, apiservererrors.ErrPerm)
 
 	auth.AdminTag = alpha
-	client, err = action.NewActionAPI(s.State, nil, auth)
+	client, err = action.NewActionAPI(s.State, nil, auth, action.FakeLeadership{})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = client.Run(params.RunParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -357,13 +260,13 @@ func (s *runSuite) TestRunOnAllMachinesRequiresAdmin(c *gc.C) {
 		Tag:         alpha,
 		HasWriteTag: alpha,
 	}
-	client, err := action.NewActionAPI(s.State, nil, auth)
+	client, err := action.NewActionAPI(s.State, nil, auth, action.FakeLeadership{})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = client.RunOnAllMachines(params.RunParams{})
 	c.Assert(errors.Cause(err), gc.Equals, apiservererrors.ErrPerm)
 
 	auth.AdminTag = alpha
-	client, err = action.NewActionAPI(s.State, nil, auth)
+	client, err = action.NewActionAPI(s.State, nil, auth, action.FakeLeadership{})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = client.RunOnAllMachines(params.RunParams{})
 	c.Assert(err, jc.ErrorIsNil)

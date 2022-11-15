@@ -52,17 +52,14 @@ func (s platformSuite) TestParsePlatform(c *gc.C) {
 		Value:       "////",
 		ExpectedErr: `platform is malformed and has too many components "////"`,
 	}, {
+		Name:        "architecture and channel, no os name",
+		Value:       "amd64/18.04",
+		ExpectedErr: `channel without os name in platform "amd64/18.04" not valid`,
+	}, {
 		Name:  "architecture",
 		Value: "amd64",
 		Expected: charm.Platform{
 			Architecture: "amd64",
-		},
-	}, {
-		Name:  "architecture and series",
-		Value: "amd64/series",
-		Expected: charm.Platform{
-			Architecture: "amd64",
-			Series:       "series",
 		},
 	}, {
 		Name:  "architecture, os and series",
@@ -70,7 +67,7 @@ func (s platformSuite) TestParsePlatform(c *gc.C) {
 		Expected: charm.Platform{
 			Architecture: "amd64",
 			OS:           "os",
-			Series:       "series",
+			Channel:      "series",
 		},
 	}, {
 		Name:  "architecture, os, version and risk",
@@ -78,7 +75,7 @@ func (s platformSuite) TestParsePlatform(c *gc.C) {
 		Expected: charm.Platform{
 			Architecture: "amd64",
 			OS:           "os",
-			Series:       "version/risk",
+			Channel:      "version/risk",
 		},
 	}, {
 		Name:  "architecture, unknown os and series",
@@ -86,7 +83,7 @@ func (s platformSuite) TestParsePlatform(c *gc.C) {
 		Expected: charm.Platform{
 			Architecture: "amd64",
 			OS:           "",
-			Series:       "series",
+			Channel:      "series",
 		},
 	}, {
 		Name:  "architecture, unknown os and unknown series",
@@ -94,7 +91,7 @@ func (s platformSuite) TestParsePlatform(c *gc.C) {
 		Expected: charm.Platform{
 			Architecture: "amd64",
 			OS:           "",
-			Series:       "",
+			Channel:      "",
 		},
 	}, {
 		Name:  "architecture and unknown series",
@@ -102,7 +99,7 @@ func (s platformSuite) TestParsePlatform(c *gc.C) {
 		Expected: charm.Platform{
 			Architecture: "amd64",
 			OS:           "",
-			Series:       "",
+			Channel:      "",
 		},
 	}}
 	for k, test := range tests {
@@ -126,10 +123,6 @@ func (s platformSuite) TestString(c *gc.C) {
 		Name:     "architecture",
 		Value:    "amd64",
 		Expected: "amd64",
-	}, {
-		Name:     "architecture and series",
-		Value:    "amd64/series",
-		Expected: "amd64/series",
 	}, {
 		Name:     "architecture, os and series",
 		Value:    "amd64/os/series",
@@ -175,68 +168,6 @@ func (*channelTrackSuite) TestChannelTrack(c *gc.C) {
 		c.Logf("test %d - %s", i, test.channel)
 		got, err := charm.ChannelTrack(test.channel)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(got, gc.Equals, test.result)
-	}
-}
-
-type computeBaseChannelSuite struct {
-	testing.IsolationSuite
-}
-
-var _ = gc.Suite(&computeBaseChannelSuite{})
-
-func (*computeBaseChannelSuite) TestComputeBaseChannel(c *gc.C) {
-	tests := []struct {
-		platform charm.Platform
-		result   string
-	}{{
-		platform: charm.Platform{OS: "centos", Series: "centos7"},
-		result:   "7",
-	}, {
-		platform: charm.Platform{OS: "centos", Series: "centos8"},
-		result:   "8",
-	}, {
-		platform: charm.Platform{OS: "ubuntu", Series: "20.04"},
-		result:   "20.04",
-	}, {
-		platform: charm.Platform{OS: "ubuntu", Series: "focal"},
-		result:   "20.04",
-	}}
-
-	for i, test := range tests {
-		c.Logf("test %d - %s", i, test.platform)
-		got := charm.ComputeBaseChannel(test.platform).Series
-		c.Assert(got, gc.Equals, test.result)
-	}
-}
-
-type normalisePlatformSeriesSuite struct {
-	testing.IsolationSuite
-}
-
-var _ = gc.Suite(&normalisePlatformSeriesSuite{})
-
-func (*normalisePlatformSeriesSuite) TestComputeBaseChannel(c *gc.C) {
-	tests := []struct {
-		platform charm.Platform
-		result   string
-	}{{
-		platform: charm.Platform{OS: "centos", Series: "centos7"},
-		result:   "centos7",
-	}, {
-		platform: charm.Platform{OS: "centos", Series: "7"},
-		result:   "centos7",
-	}, {
-		platform: charm.Platform{OS: "ubuntu", Series: "20.04"},
-		result:   "20.04",
-	}, {
-		platform: charm.Platform{OS: "ubuntu", Series: "focal"},
-		result:   "focal",
-	}}
-
-	for i, test := range tests {
-		c.Logf("test %d - %s", i, test.platform)
-		got := charm.NormalisePlatformSeries(test.platform).Series
 		c.Assert(got, gc.Equals, test.result)
 	}
 }

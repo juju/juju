@@ -51,7 +51,6 @@ func ParseMetadataListFromParams(p params.CloudImageMetadataList, cfg *config.Co
 				Stream:          metadata.Stream,
 				Region:          metadata.Region,
 				Version:         metadata.Version,
-				Series:          metadata.Series,
 				Arch:            metadata.Arch,
 				VirtType:        metadata.VirtType,
 				RootStorageType: metadata.RootStorageType,

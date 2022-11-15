@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math"
 	"net"
 	"net/http"
@@ -56,8 +56,8 @@ import (
 )
 
 const (
-	clientFacadeVersion           = 5
-	machineManagerFacadeVersion   = 7
+	clientFacadeVersion           = 6
+	machineManagerFacadeVersion   = 9
 	userManagerFacadeVersion      = 3
 	sshClientFacadeVersion        = 4
 	pingerFacadeVersion           = 1
@@ -1588,7 +1588,7 @@ func (t errorTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 			Request:    req,
 			StatusCode: http.StatusNotFound,
 			Header:     http.Header{"Content-Type": {"application/text"}},
-			Body:       ioutil.NopCloser(bytes.NewReader([]byte(""))),
+			Body:       io.NopCloser(bytes.NewReader([]byte(""))),
 		}, nil
 	}
 	return t.fallback.RoundTrip(req)

@@ -13,6 +13,7 @@ import (
 	apiresources "github.com/juju/juju/api/client/resources"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/facades/client/charms"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmstore"
 	corecharm "github.com/juju/juju/core/charm"
@@ -44,7 +45,7 @@ type API struct {
 	factory func(*charm.URL) (NewCharmRepository, error)
 }
 
-// NewFacadeV2 creates a public API facade for resources. It is
+// NewFacade creates a public API facade for resources. It is
 // used for API registration.
 func NewFacade(ctx facade.Context) (*API, error) {
 	authorizer := ctx.Auth()
@@ -169,7 +170,12 @@ func (a *API) AddPendingResources(args params.AddPendingResourcesArgsV2) (params
 	}
 	applicationID := tag.Id()
 
-	ids, err := a.addPendingResources(applicationID, args.URL, convertParamsOrigin(args.CharmOrigin), args.Resources)
+	requestedOrigin, err := charms.ConvertParamsOrigin(args.CharmOrigin)
+	if err != nil {
+		result.Error = apiservererrors.ServerError(err)
+		return result, nil
+	}
+	ids, err := a.addPendingResources(applicationID, args.URL, requestedOrigin, args.Resources)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result, nil
@@ -246,29 +252,5 @@ func errorResult(err error) params.ResourcesResult {
 		ErrorResult: params.ErrorResult{
 			Error: apiservererrors.ServerError(err),
 		},
-	}
-}
-
-func convertParamsOrigin(origin params.CharmOrigin) corecharm.Origin {
-	var track string
-	if origin.Track != nil {
-		track = *origin.Track
-	}
-	return corecharm.Origin{
-		Source:   corecharm.Source(origin.Source),
-		Type:     origin.Type,
-		ID:       origin.ID,
-		Hash:     origin.Hash,
-		Revision: origin.Revision,
-		Channel: &charm.Channel{
-			Track: track,
-			Risk:  charm.Risk(origin.Risk),
-		},
-		Platform: corecharm.Platform{
-			Architecture: origin.Architecture,
-			OS:           origin.OS,
-			Series:       origin.Series,
-		},
-		InstanceKey: origin.InstanceKey,
 	}
 }

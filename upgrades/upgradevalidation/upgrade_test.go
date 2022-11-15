@@ -25,7 +25,7 @@ func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju3(c *gc.C
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersion, map[int]version.Number{
+	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersions, map[int]version.Number{
 		3: version.MustParse("2.9.1"),
 	})
 
@@ -75,31 +75,8 @@ func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju3(c *gc.C
 		// - check mongo version;
 		statePool.EXPECT().MongoVersion().Return("4.4", nil),
 		// - check if the model has win machines;
-		ctrlState.EXPECT().MachineCountForSeries(
-			"win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
-			"win2016", "win2016hv", "win2019", "win7", "win8", "win81", "win10",
-		).Return(nil, nil),
-		ctrlState.EXPECT().MachineCountForSeries(
-			"artful",
-			"bionic",
-			"cosmic",
-			"disco",
-			"eoan",
-			"groovy",
-			"hirsute",
-			"impish",
-			"precise",
-			"quantal",
-			"raring",
-			"saucy",
-			"trusty",
-			"utopic",
-			"vivid",
-			"wily",
-			"xenial",
-			"yakkety",
-			"zesty",
-		).Return(nil, nil),
+		ctrlState.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(nil, nil),
+		ctrlState.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(nil, nil),
 		// - check LXD version.
 		serverFactory.EXPECT().RemoteServer(cloudSpec).Return(server, nil),
 		server.EXPECT().ServerVersion().Return("5.2"),
@@ -110,31 +87,8 @@ func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju3(c *gc.C
 		//  - check if model migration is ongoing;
 		model1.EXPECT().MigrationMode().Return(state.MigrationModeNone),
 		// - check if the model has win machines;
-		state1.EXPECT().MachineCountForSeries(
-			"win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
-			"win2016", "win2016hv", "win2019", "win7", "win8", "win81", "win10",
-		).Return(nil, nil),
-		state1.EXPECT().MachineCountForSeries(
-			"artful",
-			"bionic",
-			"cosmic",
-			"disco",
-			"eoan",
-			"groovy",
-			"hirsute",
-			"impish",
-			"precise",
-			"quantal",
-			"raring",
-			"saucy",
-			"trusty",
-			"utopic",
-			"vivid",
-			"wily",
-			"xenial",
-			"yakkety",
-			"zesty",
-		).Return(nil, nil),
+		state1.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(nil, nil),
+		state1.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(nil, nil),
 		// - check LXD version.
 		serverFactory.EXPECT().RemoteServer(cloudSpec).Return(server, nil),
 		server.EXPECT().ServerVersion().Return("5.2"),
@@ -158,7 +112,7 @@ func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju2(c *gc.C
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersion, map[int]version.Number{
+	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersions, map[int]version.Number{
 		3: version.MustParse("2.9.1"),
 	})
 
@@ -222,7 +176,7 @@ func (s *upgradeValidationSuite) TestValidatorsForModelUpgradeJuju3(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersion, map[int]version.Number{
+	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersions, map[int]version.Number{
 		3: version.MustParse("2.9.1"),
 	})
 
@@ -244,31 +198,8 @@ func (s *upgradeValidationSuite) TestValidatorsForModelUpgradeJuju3(c *gc.C) {
 		// - check no upgrade series in process.
 		state.EXPECT().HasUpgradeSeriesLocks().Return(false, nil),
 		// - check if the model has win machines.
-		state.EXPECT().MachineCountForSeries(
-			"win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
-			"win2016", "win2016hv", "win2019", "win7", "win8", "win81", "win10",
-		).Return(nil, nil),
-		state.EXPECT().MachineCountForSeries(
-			"artful",
-			"bionic",
-			"cosmic",
-			"disco",
-			"eoan",
-			"groovy",
-			"hirsute",
-			"impish",
-			"precise",
-			"quantal",
-			"raring",
-			"saucy",
-			"trusty",
-			"utopic",
-			"vivid",
-			"wily",
-			"xenial",
-			"yakkety",
-			"zesty",
-		).Return(nil, nil),
+		state.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(nil, nil),
+		state.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(nil, nil),
 		// - check LXD version.
 		serverFactory.EXPECT().RemoteServer(cloudSpec).Return(server, nil),
 		server.EXPECT().ServerVersion().Return("5.2"),
@@ -286,7 +217,7 @@ func (s *upgradeValidationSuite) TestValidatorsForModelUpgradeJuju2(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersion, map[int]version.Number{
+	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersions, map[int]version.Number{
 		3: version.MustParse("2.9.1"),
 	})
 

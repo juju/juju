@@ -4,7 +4,6 @@
 package mongo_test
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -85,7 +84,7 @@ func (s *OSSearchToolsSuite) TestGetCommandOutputValid(c *gc.C) {
 func (s *OSSearchToolsSuite) TestGetCommandOutputExitNonzero(c *gc.C) {
 	dir := c.MkDir()
 	path := filepath.Join(dir, "failing")
-	err := ioutil.WriteFile(path, []byte(`#!/bin/bash --norc
+	err := os.WriteFile(path, []byte(`#!/bin/bash --norc
 echo "hello $1"
 exit 1
 `), 0755)
@@ -99,7 +98,7 @@ exit 1
 func (s *OSSearchToolsSuite) TestGetCommandOutputNonExecutable(c *gc.C) {
 	dir := c.MkDir()
 	path := filepath.Join(dir, "failing")
-	err := ioutil.WriteFile(path, []byte(`#!/bin/bash --norc
+	err := os.WriteFile(path, []byte(`#!/bin/bash --norc
 echo "shouldn't happen $1"
 `), 0644)
 	c.Assert(err, jc.ErrorIsNil)

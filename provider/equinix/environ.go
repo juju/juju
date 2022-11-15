@@ -293,7 +293,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		instanceTypes.InstanceTypes,
 		&instances.InstanceConstraint{
 			Region:      e.cloud.Region,
-			Series:      args.InstanceConfig.Series,
+			Base:        args.InstanceConfig.Base,
 			Arch:        arch,
 			Constraints: args.Constraints,
 		},
@@ -306,7 +306,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		return nil, errors.Trace(err)
 	}
 
-	cloudCfg, err := cloudinit.New(args.InstanceConfig.Series)
+	cloudCfg, err := cloudinit.New(args.InstanceConfig.Base.OS)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -322,7 +322,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	// NOTE(achilleasa): this is a hack and is only meant to be used
 	// temporarily; we must ensure that equinix mirrors the official
 	// ubuntu cloud images.
-	if _, err := series.UbuntuSeriesVersion(args.InstanceConfig.Series); err == nil {
+	if _, err := series.GetSeriesFromBase(args.InstanceConfig.Base); err == nil {
 		cloudCfg.AddScripts(
 			"apt-get update",
 			"DEBIAN_FRONTEND=noninteractive apt-get --option=Dpkg::Options::=--force-confdef --option=Dpkg::Options::=--force-confold --option=Dpkg::Options::=--force-unsafe-io --assume-yes --quiet install dmidecode snapd",
@@ -334,7 +334,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	// references the juju-assigned hostname before localhost. Otherwise,
 	// running 'hostname -f' would return localhost whereas 'hostname'
 	// returns the juju-assigned host (see LP1956538).
-	if _, err := series.UbuntuSeriesVersion(args.InstanceConfig.Series); err == nil {
+	if _, err := series.GetSeriesFromBase(args.InstanceConfig.Base); err == nil {
 		cloudCfg.AddScripts(
 			`sed -i -e "/127\.0\.0\.1/c\127\.0\.0\.1 $(hostname) localhost" /etc/hosts`,
 		)
@@ -796,21 +796,10 @@ func waitDeviceActive(ctx context.ProviderCallContext, c *packngo.Client, id str
 
 // Helper function to get supported OS version
 func isDistroSupported(os packngo.OS, ic *instances.InstanceConstraint) bool {
-	switch os.Distro {
-	case "ubuntu":
-		series, err := series.VersionSeries(os.Version)
-		if err != nil || ic.Series != series {
-			return false
-		}
-	case "centos":
-		series, err := series.CentOSVersionSeries(os.Version)
-		if err != nil || ic.Series != series {
-			return false
-		}
-	default:
+	base, err := series.ParseBase(os.Distro, os.Version)
+	if err != nil || !ic.Base.IsCompatible(base) {
 		return false
 	}
-
 	return true
 }
 

@@ -4,6 +4,8 @@
 package deployer
 
 import (
+	"bytes"
+
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v9"
 	charmresource "github.com/juju/charm/v9/resource"
@@ -22,6 +24,7 @@ import (
 	"github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/cmd/juju/application/deployer/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -71,7 +74,7 @@ func (s *charmSuite) TestRepositoryCharmDeployDryRun(c *gc.C) {
 	defer ctrl.Finish()
 	s.resolver = mocks.NewMockResolver(ctrl)
 	s.expectResolveChannel()
-	s.expectDeployerAPIModelGet(c)
+	s.expectDeployerAPIModelGet(c, "")
 
 	dCharm := s.newDeployCharm()
 	dCharm.dryRun = true
@@ -86,6 +89,45 @@ func (s *charmSuite) TestRepositoryCharmDeployDryRun(c *gc.C) {
 
 	err := repoCharm.PrepareAndDeploy(s.ctx, s.deployerAPI, s.resolver, nil)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *charmSuite) TestRepositoryCharmDeployDryRunDefaultSeriesForce(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.resolver = mocks.NewMockResolver(ctrl)
+	s.expectResolveChannel()
+	s.expectDeployerAPIModelGet(c, "jammy")
+
+	dCharm := s.newDeployCharm()
+	dCharm.dryRun = true
+	dCharm.force = true
+	dCharm.validateCharmSeriesWithName = func(series, name string, imageStream string) error {
+		return nil
+	}
+	repoCharm := &repositoryCharm{
+		deployCharm:      *dCharm,
+		userRequestedURL: s.url,
+		clock:            clock.WallClock,
+	}
+
+	stdOut := mocks.NewMockWriter(ctrl)
+	stdErr := mocks.NewMockWriter(ctrl)
+	output := bytes.NewBuffer([]byte{})
+	logOutput := func(p []byte) {
+		c.Logf("%q", p)
+		output.Write(p)
+	}
+	stdOut.EXPECT().Write(gomock.Any()).Return(0, nil).AnyTimes().Do(logOutput)
+	stdErr.EXPECT().Write(gomock.Any()).Return(0, nil).AnyTimes().Do(logOutput)
+
+	ctx := &cmd.Context{
+		Stderr: stdErr,
+		Stdout: stdOut,
+	}
+
+	err := repoCharm.PrepareAndDeploy(ctx, s.deployerAPI, s.resolver, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(output.String(), gc.Equals, "\"testme\" from  charm \"testme\", revision -1 on ubuntu@22.04 would be deployed\n")
 }
 
 func (s *charmSuite) newDeployCharm() *deployCharm {
@@ -104,12 +146,11 @@ func (s *charmSuite) newDeployCharm() *deployCharm {
 		},
 		id: application.CharmID{
 			URL:    s.url,
-			Origin: commoncharm.Origin{},
+			Origin: commoncharm.Origin{Base: series.MakeDefaultBase("ubuntu", "20.04")},
 		},
 		flagSet:  &gnuflag.FlagSet{},
 		model:    s.modelCommand,
 		numUnits: 0,
-		series:   "focal",
 		steps:    []DeployStep{},
 	}
 }
@@ -137,10 +178,12 @@ func (s *charmSuite) expectResolveChannel() {
 		}).AnyTimes()
 }
 
-func (s *charmSuite) expectDeployerAPIModelGet(c *gc.C) {
+func (s *charmSuite) expectDeployerAPIModelGet(c *gc.C, defaultSeries string) {
 	cfg, err := config.New(true, minimalModelConfig())
 	c.Assert(err, jc.ErrorIsNil)
-	s.deployerAPI.EXPECT().ModelGet().Return(cfg.AllAttrs(), nil)
+	attrs := cfg.AllAttrs()
+	attrs["default-series"] = defaultSeries
+	s.deployerAPI.EXPECT().ModelGet().Return(attrs, nil)
 }
 
 func minimalModelConfig() map[string]interface{} {

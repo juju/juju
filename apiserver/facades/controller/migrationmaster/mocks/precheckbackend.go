@@ -188,23 +188,23 @@ func (mr *MockPrecheckBackendMockRecorder) IsUpgrading() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsUpgrading", reflect.TypeOf((*MockPrecheckBackend)(nil).IsUpgrading))
 }
 
-// MachineCountForSeries mocks base method.
-func (m *MockPrecheckBackend) MachineCountForSeries(arg0 ...string) (map[string]int, error) {
+// MachineCountForBase mocks base method.
+func (m *MockPrecheckBackend) MachineCountForBase(arg0 ...state.Base) (map[string]int, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{}
 	for _, a := range arg0 {
 		varargs = append(varargs, a)
 	}
-	ret := m.ctrl.Call(m, "MachineCountForSeries", varargs...)
+	ret := m.ctrl.Call(m, "MachineCountForBase", varargs...)
 	ret0, _ := ret[0].(map[string]int)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// MachineCountForSeries indicates an expected call of MachineCountForSeries.
-func (mr *MockPrecheckBackendMockRecorder) MachineCountForSeries(arg0 ...interface{}) *gomock.Call {
+// MachineCountForBase indicates an expected call of MachineCountForBase.
+func (mr *MockPrecheckBackendMockRecorder) MachineCountForBase(arg0 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MachineCountForSeries", reflect.TypeOf((*MockPrecheckBackend)(nil).MachineCountForSeries), arg0...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MachineCountForBase", reflect.TypeOf((*MockPrecheckBackend)(nil).MachineCountForBase), arg0...)
 }
 
 // Model mocks base method.

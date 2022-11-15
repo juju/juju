@@ -455,7 +455,7 @@ func (s *serverIntegrationSuite) TestRemoteServerWithUnSupportedAPIVersion(c *gc
 
 	gomock.InOrder(
 		server.EXPECT().StorageSupported().Return(false),
-		server.EXPECT().ServerVersion().Return("5.1"),
+		server.EXPECT().ServerVersion().Return("4.0"),
 	)
 
 	creds := cloud.NewCredential("any", map[string]string{
@@ -467,7 +467,7 @@ func (s *serverIntegrationSuite) TestRemoteServerWithUnSupportedAPIVersion(c *gc
 		Endpoint:   "https://10.0.0.9:8443",
 		Credential: &creds,
 	})
-	c.Assert(errors.Cause(err).Error(), gc.Equals, `LXD version has to be at least "5.2.0", but current version is only "5.1.0"`)
+	c.Assert(errors.Cause(err).Error(), gc.Equals, `LXD version has to be at least "5.0.0", but current version is only "4.0.0"`)
 }
 
 func (s *serverIntegrationSuite) TestIsSupportedAPIVersion(c *gc.C) {
@@ -484,11 +484,11 @@ func (s *serverIntegrationSuite) TestIsSupportedAPIVersion(c *gc.C) {
 			output: `major version number  a not valid`,
 		},
 		{
-			input:  "5.1",
-			output: `LXD version has to be at least "5.2.0", but current version is only "5.1.0"`,
+			input:  "4.0",
+			output: `LXD version has to be at least "5.0.0", but current version is only "4.0.0"`,
 		},
 		{
-			input:  "5.2",
+			input:  "5.0",
 			output: "",
 		},
 	} {

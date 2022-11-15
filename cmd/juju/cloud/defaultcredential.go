@@ -65,7 +65,7 @@ func NewSetDefaultCredentialCommand() cmd.Command {
 func (c *setDefaultCredentialCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "default-credential",
-		Aliases: []string{"set-default-credential"},
+		Aliases: []string{"set-default-credentials"},
 		Args:    "<cloud name> [<credential name>]",
 		Purpose: usageSetDefaultCredentialSummary,
 		Doc:     usageSetDefaultCredentialDetails,

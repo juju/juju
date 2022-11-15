@@ -6,7 +6,7 @@ package resources_test
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"reflect"
 	"strings"
@@ -27,6 +27,7 @@ import (
 	httpmocks "github.com/juju/juju/api/http/mocks"
 	coreresources "github.com/juju/juju/core/resources"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -87,13 +88,13 @@ func (m reqMatcher) Matches(x interface{}) bool {
 		return false
 	}
 	obtainedCopy := *obtained
-	obtainedBody, err := ioutil.ReadAll(obtainedCopy.Body)
+	obtainedBody, err := io.ReadAll(obtainedCopy.Body)
 	m.c.Assert(err, jc.ErrorIsNil)
 	obtainedCopy.Body = nil
 	obtainedCopy.GetBody = nil
 
 	reqCopy := *m.req
-	reqBody, err := ioutil.ReadAll(reqCopy.Body)
+	reqBody, err := io.ReadAll(reqCopy.Body)
 	m.c.Assert(err, jc.ErrorIsNil)
 	reqCopy.Body = nil
 	reqCopy.GetBody = nil
@@ -146,7 +147,7 @@ func (s *UploadSuite) TestAddPendingResources(c *gc.C) {
 			Source:       "charm-hub",
 			ID:           "id",
 			Risk:         "stable",
-			OS:           "ubuntu",
+			Base:         params.Base{Name: "ubuntu", Channel: "22.04/stable"},
 			Architecture: "arm64",
 		},
 		Resources: []params.CharmResource{apiResult.Resources[0].CharmResource},
@@ -169,7 +170,7 @@ func (s *UploadSuite) TestAddPendingResources(c *gc.C) {
 				Source:       apicharm.OriginCharmHub,
 				ID:           "id",
 				Risk:         "stable",
-				OS:           "ubuntu",
+				Base:         series.MakeDefaultBase("ubuntu", "22.04"),
 				Architecture: "arm64",
 			},
 		},

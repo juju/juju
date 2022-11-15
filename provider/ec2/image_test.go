@@ -4,8 +4,6 @@
 package ec2
 
 import (
-	"fmt"
-
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -112,7 +110,7 @@ var testInstanceTypes = []instances.InstanceType{{
 
 var findInstanceSpecTests = []struct {
 	// LTS-dependent requires new or updated entries upon a new LTS release.
-	series  string
+	version string
 	arch    string
 	cons    string
 	itype   string
@@ -120,96 +118,96 @@ var findInstanceSpecTests = []struct {
 	storage []string
 }{
 	{
-		series: "bionic",
-		arch:   "amd64",
-		itype:  "t3a.micro",
-		image:  "ami-00001133",
+		version: "18.04",
+		arch:    "amd64",
+		itype:   "t3a.micro",
+		image:   "ami-00001133",
 	}, {
-		series: "bionic",
-		arch:   "amd64",
-		cons:   "cores=4",
-		itype:  "t3a.xlarge",
-		image:  "ami-00001133",
+		version: "18.04",
+		arch:    "amd64",
+		cons:    "cores=4",
+		itype:   "t3a.xlarge",
+		image:   "ami-00001133",
 	}, {
-		series: "focal",
-		arch:   "arm64",
-		cons:   "cores=4",
-		itype:  "a1.xlarge",
-		image:  "ami-02004133",
+		version: "20.04",
+		arch:    "arm64",
+		cons:    "cores=4",
+		itype:   "a1.xlarge",
+		image:   "ami-02004133",
 	}, {
-		series: "bionic",
-		arch:   "amd64",
-		cons:   "mem=10G",
-		itype:  "r5a.large",
-		image:  "ami-00001133",
+		version: "18.04",
+		arch:    "amd64",
+		cons:    "mem=10G",
+		itype:   "r5a.large",
+		image:   "ami-00001133",
 	}, {
-		series: "bionic",
-		arch:   "amd64",
-		cons:   "mem=",
-		itype:  "t3a.nano",
-		image:  "ami-00001133",
+		version: "18.04",
+		arch:    "amd64",
+		cons:    "mem=",
+		itype:   "t3a.nano",
+		image:   "ami-00001133",
 	}, {
-		series: "bionic",
-		arch:   "amd64",
-		cons:   "cpu-power=",
-		itype:  "t3a.micro",
-		image:  "ami-00001133",
+		version: "18.04",
+		arch:    "amd64",
+		cons:    "cpu-power=",
+		itype:   "t3a.micro",
+		image:   "ami-00001133",
 	}, {
-		series: "bionic",
-		arch:   "amd64",
-		cons:   "cpu-power=800",
-		itype:  "c4.large",
-		image:  "ami-00001133",
+		version: "18.04",
+		arch:    "amd64",
+		cons:    "cpu-power=800",
+		itype:   "c4.large",
+		image:   "ami-00001133",
 	}, {
-		series: "bionic",
-		arch:   "amd64",
-		cons:   "instance-type=m1.medium cpu-power=100",
-		itype:  "m1.medium",
-		image:  "ami-00001135",
+		version: "18.04",
+		arch:    "amd64",
+		cons:    "instance-type=m1.medium cpu-power=100",
+		itype:   "m1.medium",
+		image:   "ami-00001135",
 	}, {
-		series: "bionic",
-		arch:   "amd64",
-		cons:   "mem=2G root-disk=16384M",
-		itype:  "t3a.small",
-		image:  "ami-00001133",
+		version: "18.04",
+		arch:    "amd64",
+		cons:    "mem=2G root-disk=16384M",
+		itype:   "t3a.small",
+		image:   "ami-00001133",
 	}, {
-		series:  "bionic",
+		version: "18.04",
 		arch:    "amd64",
 		cons:    "mem=4G root-disk=16384M",
 		itype:   "t3a.medium",
 		storage: []string{"ssd", "ebs"},
 		image:   "ami-00001133",
 	}, {
-		series:  "bionic",
+		version: "18.04",
 		arch:    "amd64",
 		cons:    "mem=4G root-disk=16384M",
 		itype:   "t3a.medium",
 		storage: []string{"ebs", "ssd"},
 		image:   "ami-00001139",
 	}, {
-		series:  "bionic",
+		version: "18.04",
 		arch:    "amd64",
 		cons:    "mem=4G root-disk=16384M",
 		itype:   "t3a.medium",
 		storage: []string{"ebs"},
 		image:   "ami-00001139",
 	}, {
-		series: "jammy",
-		arch:   "amd64",
-		itype:  "t3a.micro",
-		image:  "ami-02204133",
+		version: "22.04",
+		arch:    "amd64",
+		itype:   "t3a.micro",
+		image:   "ami-02204133",
 	}, {
-		series: "focal",
-		arch:   "amd64",
-		cons:   "arch=amd64",
-		itype:  "t3a.micro",
-		image:  "ami-02004133",
+		version: "20.04",
+		arch:    "amd64",
+		cons:    "arch=amd64",
+		itype:   "t3a.micro",
+		image:   "ami-02004133",
 	}, {
-		series: "focal",
-		arch:   "amd64",
-		cons:   "instance-type=cc2.8xlarge",
-		itype:  "cc2.8xlarge",
-		image:  "ami-02004133",
+		version: "20.04",
+		arch:    "amd64",
+		cons:    "instance-type=cc2.8xlarge",
+		itype:   "cc2.8xlarge",
+		image:   "ami-02004133",
 	},
 }
 
@@ -217,7 +215,7 @@ func (s *specSuite) TestFindInstanceSpec(c *gc.C) {
 	size := len(findInstanceSpecTests)
 	for i, test := range findInstanceSpecTests {
 		c.Logf("\ntest %d of %d: %q; %q; %q; %q; %q; %v", i+1, size,
-			test.series, test.arch, test.cons, test.itype, test.image,
+			test.version, test.arch, test.cons, test.itype, test.image,
 			test.storage)
 		stor := test.storage
 		if len(stor) == 0 {
@@ -227,15 +225,16 @@ func (s *specSuite) TestFindInstanceSpec(c *gc.C) {
 		// arches and series; the provisioner and bootstrap
 		// code will do this.
 		imageMetadata := filterImageMetadata(
-			c, TestImageMetadata, test.series, test.arch,
+			c, TestImageMetadata, test.version, test.arch,
 		)
+		base := series.MakeDefaultBase("ubuntu", test.version)
 		spec, err := findInstanceSpec(
 			false, // non-controller
 			imageMetadata,
 			testInstanceTypes,
 			&instances.InstanceConstraint{
 				Region:      "test",
-				Series:      test.series,
+				Base:        base,
 				Arch:        test.arch,
 				Constraints: constraints.MustParse(test.cons),
 				Storage:     stor,
@@ -249,7 +248,7 @@ func (s *specSuite) TestFindInstanceSpec(c *gc.C) {
 func (s *specSuite) TestFindInstanceSpecNotSetCpuPowerWhenInstanceTypeSet(c *gc.C) {
 	instanceConstraint := &instances.InstanceConstraint{
 		Region:      "test",
-		Series:      version.DefaultSupportedLTS(),
+		Base:        version.DefaultSupportedLTSBase(),
 		Constraints: constraints.MustParse("instance-type=t2.medium"),
 	}
 
@@ -266,25 +265,25 @@ func (s *specSuite) TestFindInstanceSpecNotSetCpuPowerWhenInstanceTypeSet(c *gc.
 }
 
 var findInstanceSpecErrorTests = []struct {
-	series string
-	arch   string
-	cons   string
-	err    string
+	base series.Base
+	arch string
+	cons string
+	err  string
 }{
 	{
-		series: version.DefaultSupportedLTS(),
-		arch:   "arm",
-		err:    fmt.Sprintf(`no metadata for "%s" images in test with arch arm`, version.DefaultSupportedLTS()),
+		base: version.DefaultSupportedLTSBase(),
+		arch: "arm",
+		err:  `no metadata for "ubuntu@22.04" images in test with arch arm`,
 	}, {
-		series: "raring",
-		arch:   "amd64",
-		cons:   "mem=4G",
-		err:    `no metadata for \"raring\" images in test with arch amd64`,
+		base: series.MakeDefaultBase("ubuntu", "15.04"),
+		arch: "amd64",
+		cons: "mem=4G",
+		err:  `no metadata for \"ubuntu@15.04\" images in test with arch amd64`,
 	}, {
-		series: version.DefaultSupportedLTS(),
-		arch:   "amd64",
-		cons:   "instance-type=m1.small mem=4G",
-		err:    `no instance types in test matching constraints "arch=amd64 instance-type=m1.small mem=4096M"`,
+		base: version.DefaultSupportedLTSBase(),
+		arch: "amd64",
+		cons: "instance-type=m1.small mem=4G",
+		err:  `no instance types in test matching constraints "arch=amd64 instance-type=m1.small mem=4096M"`,
 	},
 }
 
@@ -295,7 +294,7 @@ func (s *specSuite) TestFindInstanceSpecErrors(c *gc.C) {
 		// arches and series; the provisioner and bootstrap
 		// code will do this.
 		imageMetadata := filterImageMetadata(
-			c, TestImageMetadata, t.series, t.arch,
+			c, TestImageMetadata, t.base.Channel.Track, t.arch,
 		)
 		_, err := findInstanceSpec(
 			false, // non-controller
@@ -303,7 +302,7 @@ func (s *specSuite) TestFindInstanceSpecErrors(c *gc.C) {
 			testInstanceTypes,
 			&instances.InstanceConstraint{
 				Region:      "test",
-				Series:      t.series,
+				Base:        t.base,
 				Arch:        t.arch,
 				Constraints: constraints.MustParse(t.cons),
 			})
@@ -314,13 +313,11 @@ func (s *specSuite) TestFindInstanceSpecErrors(c *gc.C) {
 func filterImageMetadata(
 	c *gc.C,
 	in []*imagemetadata.ImageMetadata,
-	filterSeries string, filterArch string,
+	filterVersion string, filterArch string,
 ) []*imagemetadata.ImageMetadata {
 	var imageMetadata []*imagemetadata.ImageMetadata
 	for _, im := range in {
-		version, err := series.SeriesVersion(filterSeries)
-		c.Assert(err, jc.ErrorIsNil)
-		if im.Version != version {
+		if im.Version != filterVersion {
 			continue
 		}
 		if im.Arch == filterArch {

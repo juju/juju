@@ -4,7 +4,6 @@
 package secrets_test
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -14,10 +13,7 @@ import (
 	"github.com/juju/juju/core/secrets"
 )
 
-type CreateSecretSuite struct {
-	base64Foo []byte
-	base64Bar []byte
-}
+type CreateSecretSuite struct{}
 
 var _ = gc.Suite(&CreateSecretSuite{})
 
@@ -48,7 +44,7 @@ func (s *CreateSecretSuite) TestYAMLFile(c *gc.C) {
 
 	dir := c.MkDir()
 	fileName := filepath.Join(dir, "secret.yaml")
-	err := ioutil.WriteFile(fileName, []byte(data), os.FileMode(0644))
+	err := os.WriteFile(fileName, []byte(data), os.FileMode(0644))
 	c.Assert(err, jc.ErrorIsNil)
 
 	attrs, err := secrets.ReadSecretData(fileName)
@@ -68,7 +64,7 @@ func (s *CreateSecretSuite) TestJSONFile(c *gc.C) {
 
 	dir := c.MkDir()
 	fileName := filepath.Join(dir, "secret.json")
-	err := ioutil.WriteFile(fileName, []byte(data), os.FileMode(0644))
+	err := os.WriteFile(fileName, []byte(data), os.FileMode(0644))
 	c.Assert(err, jc.ErrorIsNil)
 
 	attrs, err := secrets.ReadSecretData(fileName)

@@ -31,6 +31,10 @@ const (
 	// AgentHTTPPathStartup is the path used for startup probes on the agent
 	AgentHTTPPathStartup = "/startup"
 
+	// DefaultPebbleDir is the default directory Pebble considers when starting
+	// up.
+	DefaultPebbleDir = "/var/lib/pebble/default"
+
 	// JujuExecServerSocketPort is the port used by juju run callbacks.
 	JujuExecServerSocketPort = 30666
 
@@ -56,6 +60,9 @@ const (
 
 	// ControllerServiceFQDNTemplate is the FQDN of the controller service using the cluster DNS.
 	ControllerServiceFQDNTemplate = "controller-service.controller-%s.svc.cluster.local"
+
+	// CharmVolumeName is the name of the k8s volume where shared charm data is stored.
+	CharmVolumeName = "charm-data"
 )
 
 // DefaultPropagationPolicy returns the default propagation policy.

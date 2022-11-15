@@ -4,7 +4,6 @@
 package unit
 
 import (
-	"io/ioutil"
 	"os"
 	"path"
 	"runtime"
@@ -30,6 +29,7 @@ import (
 	"github.com/juju/juju/api/base"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/constants"
 	"github.com/juju/juju/cmd/containeragent/utils"
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
@@ -134,7 +134,7 @@ func (c *containerUnitAgent) ensureAgentConf(dataDir string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := ioutil.WriteFile(configPath, configBytes, 0644); err != nil {
+	if err := os.WriteFile(configPath, configBytes, 0644); err != nil {
 		return errors.Annotate(err, "writing agent config file")
 	}
 
@@ -227,12 +227,12 @@ func (c *containerUnitAgent) ensureToolSymlinks(srcPath, dataDir string, unitTag
 		path.Join(toolsDir, jnames.ContainerAgent),
 		jujuRun, jujuIntrospect,
 	} {
-		if err = c.fileReaderWriter.Symlink(path.Join(srcPath, jnames.ContainerAgent), link); err != nil {
+		if err = c.fileReaderWriter.Symlink(path.Join(srcPath, jnames.ContainerAgent), link); err != nil && !errors.Is(err, os.ErrExist) {
 			return errors.Annotatef(err, "ensuring symlink %q", link)
 		}
 	}
 
-	if err = c.fileReaderWriter.Symlink(path.Join(srcPath, jnames.Jujuc), path.Join(toolsDir, jnames.Jujuc)); err != nil {
+	if err = c.fileReaderWriter.Symlink(path.Join(srcPath, jnames.Jujuc), path.Join(toolsDir, jnames.Jujuc)); err != nil && !errors.Is(err, os.ErrExist) {
 		return errors.Annotatef(err, "ensuring symlink %q", jnames.Jujuc)
 	}
 	return nil
@@ -270,9 +270,9 @@ func (c *containerUnitAgent) ChangeConfig(mutate agent.ConfigMutator) error {
 
 // Workers returns a dependency.Engine running the k8s unit agent's responsibilities.
 func (c *containerUnitAgent) workers() (worker.Worker, error) {
-	probePort := os.Getenv(k8sconstants.EnvAgentHTTPProbePort)
+	probePort := os.Getenv(constants.EnvHTTPProbePort)
 	if probePort == "" {
-		return nil, errors.NotValidf("env %s missing", k8sconstants.EnvAgentHTTPProbePort)
+		probePort = constants.DefaultHTTPProbePort
 	}
 
 	updateAgentConfLogging := func(loggingConfig string) error {
@@ -297,6 +297,7 @@ func (c *containerUnitAgent) workers() (worker.Worker, error) {
 		PrometheusRegisterer:    c.prometheusRegistry,
 		UpdateLoggerConfig:      updateAgentConfLogging,
 		PreviousAgentVersion:    agentConfig.UpgradedToVersion(),
+		ProbeAddress:            "localhost",
 		ProbePort:               probePort,
 		MachineLock:             c.machineLock,
 		Clock:                   c.clk,

@@ -29,7 +29,7 @@ var _ = gc.Suite(&WhoAmITestSuite{})
 func (s *WhoAmITestSuite) TestEmptyStore(c *gc.C) {
 	s.expectedOutput = `
 There is no current controller.
-Run juju list-controllers to see available controllers.
+Run juju controllers to see available controllers.
 `[1:]
 
 	s.store = jujuclient.NewMemStore()
@@ -39,7 +39,7 @@ Run juju list-controllers to see available controllers.
 func (s *WhoAmITestSuite) TestNoCurrentController(c *gc.C) {
 	s.expectedOutput = `
 There is no current controller.
-Run juju list-controllers to see available controllers.
+Run juju controllers to see available controllers.
 `[1:]
 
 	s.store = &jujuclient.MemStore{

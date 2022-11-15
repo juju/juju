@@ -52,13 +52,13 @@ func WorkloadSeries(now time.Time, requestedSeries, imageStream string) (set.Str
 	return set.NewStrings(supported.workloadSeries(false)...), nil
 }
 
-// AllWorkloadSeries returns all the workload series (supported or not).
-func AllWorkloadSeries(requestedSeries, imageStream string) (set.Strings, error) {
+// AllWorkloadVersions returns all the workload versions (supported or not).
+func AllWorkloadVersions(requestedSeries, imageStream string) (set.Strings, error) {
 	supported, err := seriesForTypes(UbuntuDistroInfo, time.Now(), requestedSeries, imageStream)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return set.NewStrings(supported.workloadSeries(true)...), nil
+	return set.NewStrings(supported.workloadVersions(true)...), nil
 }
 
 // AllWorkloadOSTypes returns all the workload os types (supported or not).
@@ -193,19 +193,6 @@ func composeSeriesVersions() {
 	}
 }
 
-// CentOSVersionSeries validates that the supplied series (eg: centos7)
-// is supported.
-func CentOSVersionSeries(version string) (string, error) {
-	if version == "" {
-		return "", errors.Trace(unknownVersionSeriesError(""))
-	}
-	if ser, ok := centosSeries[SeriesName(version)]; ok {
-		return ser.Version, nil
-	}
-	return "", errors.Trace(unknownVersionSeriesError(""))
-
-}
-
 // SeriesVersion returns the version for the specified series.
 func SeriesVersion(series string) (string, error) {
 	if series == "" {
@@ -224,23 +211,6 @@ func SeriesVersion(series string) (string, error) {
 	}
 
 	return "", errors.Trace(unknownSeriesVersionError(series))
-}
-
-// VersionSeries returns the series (e.g.trusty) for the specified version (e.g. 14.04).
-func VersionSeries(version string) (string, error) {
-	if version == "" {
-		return "", errors.Trace(unknownVersionSeriesError(""))
-	}
-	seriesVersionsMutex.Lock()
-	defer seriesVersionsMutex.Unlock()
-	if ser, ok := versionSeries[version]; ok {
-		return ser, nil
-	}
-	updateSeriesVersionsOnce()
-	if ser, ok := versionSeries[version]; ok {
-		return ser, nil
-	}
-	return "", errors.Trace(unknownVersionSeriesError(version))
 }
 
 // UbuntuSeriesVersion returns the ubuntu version for the specified series.
@@ -263,7 +233,7 @@ func UbuntuSeriesVersion(series string) (string, error) {
 	return "", errors.Trace(unknownSeriesVersionError(series))
 }
 
-// UbuntuVersions returns the ubuntu versions as a map..
+// UbuntuVersions returns the ubuntu versions as a map.
 func UbuntuVersions(supported, esmSupported *bool) map[string]string {
 	return ubuntuVersions(supported, esmSupported, ubuntuSeries)
 }

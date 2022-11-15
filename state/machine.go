@@ -102,8 +102,8 @@ type machineDoc struct {
 	DocID          string `bson:"_id"`
 	Id             string `bson:"machineid"`
 	ModelUUID      string `bson:"model-uuid"`
+	Base           Base   `bson:"base"`
 	Nonce          string
-	Series         string
 	ContainerType  string
 	Principals     []string
 	Life           Life
@@ -167,9 +167,9 @@ func (m *Machine) Principals() []string {
 	return m.doc.Principals
 }
 
-// Series returns the operating system series running on the machine.
-func (m *Machine) Series() string {
-	return m.doc.Series
+// Base returns the os base running on the machine.
+func (m *Machine) Base() Base {
+	return m.doc.Base
 }
 
 // ContainerType returns the type of container hosting this machine.
@@ -2178,16 +2178,16 @@ func (m *Machine) RunningActions() ([]Action, error) {
 	return m.st.matchingActionsRunning(m)
 }
 
-// UpdateMachineSeries updates the series for the Machine.
-func (m *Machine) UpdateMachineSeries(series string) error {
+// UpdateMachineSeries updates the base for the Machine.
+func (m *Machine) UpdateMachineSeries(base Base) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := m.Refresh(); err != nil {
 				return nil, errors.Trace(err)
 			}
 		}
-		// Exit early if the Machine series doesn't need to change.
-		if m.Series() == series {
+		// Exit early if the Machine base doesn't need to change.
+		if m.Base().String() == base.String() {
 			return nil, jujutxn.ErrNoOperations
 		}
 
@@ -2200,7 +2200,7 @@ func (m *Machine) UpdateMachineSeries(series string) error {
 			C:      machinesC,
 			Id:     m.doc.DocID,
 			Assert: bson.D{{"life", Alive}, {"principals", m.Principals()}},
-			Update: bson.D{{"$set", bson.D{{"series", series}}}},
+			Update: bson.D{{"$set", bson.D{{"base", base}}}},
 		}}
 		for _, unit := range units {
 			ops = append(ops, txn.Op{
@@ -2209,7 +2209,8 @@ func (m *Machine) UpdateMachineSeries(series string) error {
 				Assert: bson.D{{"life", Alive},
 					{"charmurl", unit.CharmURL()},
 					{"subordinates", unit.SubordinateNames()}},
-				Update: bson.D{{"$set", bson.D{{"series", series}}}},
+				Update: bson.D{{"$set",
+					bson.D{{"base", base}}}},
 			})
 		}
 

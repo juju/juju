@@ -55,7 +55,7 @@ func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *unitUpgraderSuite) addMachineApplicationCharmAndUnit(c *gc.C, appName string) (*state.Machine, *state.Application, *state.Charm, *state.Unit) {
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	arch := arch.DefaultArchitecture

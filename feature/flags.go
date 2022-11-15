@@ -33,10 +33,3 @@ const Generations = "generations"
 
 // RawK8sSpec indicates that it's allowed to set k8s spec using raw yaml format.
 const RawK8sSpec = "raw-k8s-spec"
-
-// SecretStores enables automatic use of external secrets stores.
-const SecretStores = "secret-stores"
-
-// RaftAPILeases will switch all lease store management transport, currently
-// handled by Pubsub to facade API interaction.
-const RaftAPILeases = "raft-api-leases"

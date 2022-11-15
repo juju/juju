@@ -4,7 +4,8 @@
 package juju
 
 import (
-	"github.com/juju/juju/core/secrets"
+	"github.com/juju/names/v4"
+
 	"github.com/juju/juju/secrets/provider"
 )
 
@@ -15,10 +16,15 @@ const (
 
 // NewProvider returns a Juju secrets provider.
 func NewProvider() provider.SecretStoreProvider {
-	return jujuProvider{}
+	return jujuProvider{Store}
 }
 
 type jujuProvider struct {
+	name string
+}
+
+func (p jujuProvider) Type() string {
+	return p.name
 }
 
 // Initialise is not used.
@@ -32,13 +38,15 @@ func (p jujuProvider) CleanupModel(m provider.Model) error {
 }
 
 // CleanupSecrets is not used.
-func (p jujuProvider) CleanupSecrets(m provider.Model, removed []*secrets.URI) error {
+func (p jujuProvider) CleanupSecrets(m provider.Model, tag names.Tag, removed provider.SecretRevisions) error {
 	return nil
 }
 
 // StoreConfig returns nil config params since the Juju store saves
 // secret content to the Juju database.
-func (p jujuProvider) StoreConfig(m provider.Model, admin bool, owned []*secrets.URI, read []*secrets.URI) (*provider.StoreConfig, error) {
+func (p jujuProvider) StoreConfig(
+	m provider.Model, tag names.Tag, owned provider.SecretRevisions, read provider.SecretRevisions,
+) (*provider.StoreConfig, error) {
 	return &provider.StoreConfig{StoreType: Store}, nil
 }
 

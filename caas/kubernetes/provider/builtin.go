@@ -6,7 +6,6 @@ package provider
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -113,7 +112,8 @@ func getLocalMicroK8sConfig(cmdRunner CommandRunner, getKubeConfigDir func() (st
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	content, err := ioutil.ReadFile(clientConfigPath)
+	logger.Tracef("reading kubeconfig %q", clientConfigPath)
+	content, err := os.ReadFile(clientConfigPath)
 	if os.IsNotExist(err) {
 		return nil, errors.Annotatef(notSupportErr, "%q does not exist", clientConfigPath)
 	}

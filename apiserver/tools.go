@@ -9,7 +9,6 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -308,7 +307,7 @@ func (h *toolsDownloadHandler) fetchAndCacheTools(
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		msg := fmt.Sprintf("bad HTTP response: %v", resp.Status)
-		if body, err := ioutil.ReadAll(resp.Body); err == nil {
+		if body, err := io.ReadAll(resp.Body); err == nil {
 			msg += fmt.Sprintf(" (%s)", bytes.TrimSpace(body))
 		}
 		return errors.New(msg)
@@ -372,16 +371,6 @@ func (h *toolsUploadHandler) processPost(r *http.Request, st *state.State) (*too
 	}
 
 	logger.Debugf("request to upload agent binaries: %s", toolsVersion)
-	// TODO(juju4) - drop this compatibility with series params
-	// If the binary is for a workload series, convert the release to an OS type name.
-	allSeries, err := coreseries.AllWorkloadSeries("", "")
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if allSeries.Contains(toolsVersion.Release) {
-		toolsVersion.Release = coreseries.DefaultOSTypeNameFromSeries(toolsVersion.Release)
-	}
-
 	toolsVersions := []version.Binary{toolsVersion}
 	serverRoot := h.getServerRoot(r, query, st)
 	return h.handleUpload(r.Body, toolsVersions, serverRoot, st)
@@ -453,7 +442,7 @@ func (c *cleanupCloser) Close() error {
 }
 
 func tmpCacheAndHash(r io.Reader) (data io.ReadCloser, sha256hex string, size int64, err error) {
-	tmpFile, err := ioutil.TempFile("", "jujutools*")
+	tmpFile, err := os.CreateTemp("", "jujutools*")
 	tmpFilename := tmpFile.Name()
 	cleanup := func() {
 		_ = tmpFile.Close()

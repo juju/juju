@@ -36,7 +36,7 @@ See also:
     unregister
     revoke
     show-user
-    list-users
+    users
     switch-user
     disable-user
     enable-user

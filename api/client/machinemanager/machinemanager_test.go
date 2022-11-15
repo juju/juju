@@ -34,22 +34,14 @@ func (s *MachinemanagerSuite) TestAddMachines(c *gc.C) {
 	}
 
 	machines := []params.AddMachineParams{{
-		Series: "jammy",
-		Disks:  []storage.Constraints{{Pool: "loop", Size: 1}},
+		Base:  &params.Base{Name: "ubuntu", Channel: "22.04"},
+		Disks: []storage.Constraints{{Pool: "loop", Size: 1}},
 	}, {
-		Series: "focal",
+		Base: &params.Base{Name: "ubuntu", Channel: "20.04"},
 	}}
 
 	args := params.AddMachines{
-		MachineParams: []params.AddMachineParams{
-			{
-				Series: "jammy",
-				Disks:  []storage.Constraints{{Pool: "loop", Size: 1}},
-			},
-			{
-				Series: "focal",
-			},
-		},
+		MachineParams: machines,
 	}
 	res := new(params.AddMachinesResults)
 	results := params.AddMachinesResults{
@@ -69,13 +61,13 @@ func (s *MachinemanagerSuite) TestAddMachinesClientError(c *gc.C) {
 	defer ctrl.Finish()
 
 	args := params.AddMachines{
-		MachineParams: []params.AddMachineParams{{Series: "focal"}},
+		MachineParams: []params.AddMachineParams{{}},
 	}
 	res := new(params.AddMachinesResults)
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	st := machinemanager.NewClientFromCaller(mockFacadeCaller)
 	mockFacadeCaller.EXPECT().FacadeCall("AddMachines", args, res).Return(errors.New("blargh"))
-	_, err := st.AddMachines([]params.AddMachineParams{{Series: "focal"}})
+	_, err := st.AddMachines([]params.AddMachineParams{{}})
 	c.Check(err, gc.ErrorMatches, "blargh")
 }
 
@@ -88,7 +80,7 @@ func (s *MachinemanagerSuite) TestAddMachinesServerError(c *gc.C) {
 	}}
 
 	machines := []params.AddMachineParams{{
-		Series: "jammy",
+		Base: &params.Base{Name: "ubuntu", Channel: "22.04"},
 	}}
 	args := params.AddMachines{
 		MachineParams: machines,
@@ -111,7 +103,7 @@ func (s *MachinemanagerSuite) TestAddMachinesResultCountInvalid(c *gc.C) {
 
 	for _, n := range []int{0, 2} {
 		machines := []params.AddMachineParams{{
-			Series: "jammy",
+			Base: &params.Base{Name: "ubuntu", Channel: "22.04"},
 		}}
 		args := params.AddMachines{
 			MachineParams: machines,

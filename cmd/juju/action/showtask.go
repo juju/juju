@@ -63,7 +63,7 @@ Examples:
 
 See also:
     run
-    list-operations
+    operations
     show-operation
 `
 const defaultTaskWait = -1 * time.Second

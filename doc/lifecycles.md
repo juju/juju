@@ -71,7 +71,7 @@ Units
   * While a principal unit is Alive, it can be assigned to a machine.
   * While a principal unit is Alive, it can enter the scopes of Alive
     relations, which may cause the creation of subordinate units; so,
-    indirectly, `juju add-relation` can also cause the creation of units.
+    indirectly, `juju integrate` can also cause the creation of units.
   * A unit can become Dying at any time, but may not become Dead while any unit
     subordinate to it exists, or while the unit is in scope for any relation.
   * A principal unit can become Dying in one of two ways:
@@ -124,7 +124,7 @@ Applications
 Relations
 ---------
 
-  * A relation is created with `juju add-relation`. No two relations with the
+  * A relation is created with `juju integrate`. No two relations with the
     same canonical name can exist. (The canonical relation name form is
     "<requirer-endpoint> <provider-endpoint>", where each endpoint takes the
     form "<application-name>:<charm-relation-name>".)

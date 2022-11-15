@@ -106,7 +106,7 @@ func (s *StateSuite) TestAddRelationWithMaxLimit(c *gc.C) {
 	eps, err = s.State.InferEndpoints("wordpress", "mariadb")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRelation(eps...)
-	c.Assert(err, jc.Satisfies, errors.IsQuotaLimitExceeded, gc.Commentf("expected second add-relation attempt to fail due to the limit:1 entry in the wordpress charm's metadata.yaml"))
+	c.Assert(err, jc.Satisfies, errors.IsQuotaLimitExceeded, gc.Commentf("expected second AddRelation attempt to fail due to the limit:1 entry in the wordpress charm's metadata.yaml"))
 }
 
 func (s *RelationSuite) TestRetrieveSuccess(c *gc.C) {
@@ -1046,35 +1046,9 @@ func (s *RelationSuite) TestUpdateApplicationSettingsNotLeader(c *gc.C) {
 			"rendezvouse": "rendezvous",
 		},
 	)
-	c.Assert(err, gc.ErrorMatches, `relation "wordpress:db mysql:server" application "mysql": prerequisites failed: not the leader`)
+	c.Assert(err, gc.ErrorMatches,
+		`relation "wordpress:db mysql:server" application "mysql": checking leadership continuity: not the leader`)
 
-	settingsMap, err := relation.ApplicationSettings("mysql")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settingsMap, gc.HasLen, 0)
-}
-
-func (s *RelationSuite) TestUpdateApplicationSettingsRace(c *gc.C) {
-	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
-	eps, err := s.State.InferEndpoints("mysql", "wordpress")
-	c.Assert(err, jc.ErrorIsNil)
-	relation, err := s.State.AddRelation(eps...)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// raceToken indicates it holds leadership but yields txn.Ops that
-	// fail assertion to simulate a race in the DB, then fails on the
-	// second attempt indicating that leadership was lost.
-	var token raceToken
-	err = relation.UpdateApplicationSettings(
-		"mysql",
-		&token,
-		map[string]interface{}{
-			"rendezvouse": "rendezvous",
-		},
-	)
-	c.Assert(err, gc.ErrorMatches, `relation "wordpress:db mysql:server" application "mysql": prerequisites failed: too late`)
-
-	c.Assert(token.checkedOnce, gc.Equals, true)
 	settingsMap, err := relation.ApplicationSettings("mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settingsMap, gc.HasLen, 0)

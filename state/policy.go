@@ -8,6 +8,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -52,7 +53,7 @@ type Policy interface {
 // precheckInstance calls the state's assigned policy, if non-nil, to obtain
 // a Prechecker, and calls PrecheckInstance if a non-nil Prechecker is returned.
 func (st *State) precheckInstance(
-	series string,
+	base Base,
 	cons constraints.Value,
 	placement string,
 	volumeAttachments []storage.VolumeAttachmentParams,
@@ -69,10 +70,14 @@ func (st *State) precheckInstance(
 	if prechecker == nil {
 		return errors.New("policy returned nil prechecker without an error")
 	}
+	mBase, err := series.ParseBase(base.OS, base.Channel)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	return prechecker.PrecheckInstance(
 		context.CallContext(st),
 		environs.PrecheckInstanceParams{
-			Series:            series,
+			Base:              mBase,
 			Constraints:       cons,
 			Placement:         placement,
 			VolumeAttachments: volumeAttachments,

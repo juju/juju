@@ -6,7 +6,7 @@ package secrets
 import (
 	"bytes"
 	"encoding/base64"
-	"io/ioutil"
+	"io"
 	"strings"
 
 	"github.com/juju/errors"
@@ -33,6 +33,9 @@ type SecretValue interface {
 	// KeyValue returns the specified secret value for the key.
 	// If the key has a #base64 suffix, the returned value is base64 encoded.
 	KeyValue(string) (string, error)
+
+	// IsEmpty checks if the value is empty.
+	IsEmpty() bool
 }
 
 type secretValue struct {
@@ -61,6 +64,11 @@ func NewSecretBytes(data map[string][]byte) SecretValue {
 		dataCopy[k] = append([]byte(nil), v...)
 	}
 	return &secretValue{data: dataCopy}
+}
+
+// IsEmpty checks if the value is empty.
+func (v secretValue) IsEmpty() bool {
+	return len(v.data) == 0
 }
 
 // EncodedValues implements SecretValue.
@@ -101,7 +109,7 @@ func (v *secretValue) KeyValue(key string) (string, error) {
 		return string(val), nil
 	}
 	b64 := base64.NewDecoder(base64.StdEncoding, bytes.NewReader(val))
-	result, err := ioutil.ReadAll(b64)
+	result, err := io.ReadAll(b64)
 	if err != nil {
 		return "", errors.Trace(err)
 	}

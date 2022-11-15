@@ -95,8 +95,7 @@ Examples:
     juju run sleeper/0 pause --string-args time=1000
 
 See also:
-    list-operations
-    list-tasks
+    operations
     show-operation
     show-task
 `

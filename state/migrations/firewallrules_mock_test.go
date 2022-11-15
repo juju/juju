@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	v3 "github.com/juju/description/v3"
+	v4 "github.com/juju/description/v4"
 	firewall "github.com/juju/juju/core/network/firewall"
 )
 
@@ -139,10 +139,10 @@ func (m *MockFirewallRulesModel) EXPECT() *MockFirewallRulesModelMockRecorder {
 }
 
 // AddFirewallRule mocks base method.
-func (m *MockFirewallRulesModel) AddFirewallRule(arg0 v3.FirewallRuleArgs) v3.FirewallRule {
+func (m *MockFirewallRulesModel) AddFirewallRule(arg0 v4.FirewallRuleArgs) v4.FirewallRule {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddFirewallRule", arg0)
-	ret0, _ := ret[0].(v3.FirewallRule)
+	ret0, _ := ret[0].(v4.FirewallRule)
 	return ret0
 }
 

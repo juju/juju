@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
-	"github.com/juju/description/v3"
+	"github.com/juju/description/v4"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v3/bson"
@@ -22,7 +22,6 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/container"
@@ -30,7 +29,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/core/permission"
-	coreseries "github.com/juju/juju/core/series"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state/cloudimagemetadata"
@@ -70,7 +69,7 @@ func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err
 	}
 
 	// Create the model.
-	cfg, err := config.New(config.NoDefaults, model.Config())
+	cfg, err := modelConfig(model.Config())
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -244,6 +243,31 @@ func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err
 
 	logger.Debugf("import success")
 	return dbModel, newSt, nil
+}
+
+// modelConfig creates a config for the model being imported.
+// If the tools version is before 2.9.35, the default-series
+// value is cleared. This matches an upgrade step for 2.9.35
+// as well. Ensuring that the default-series value is set by
+// the user rather than a hold over from an old juju set value.
+// Related to using the default-series value in the same way
+// as a series flag at deploy.
+func modelConfig(attrs map[string]interface{}) (*config.Config, error) {
+	v, ok := attrs["agent-version"].(string)
+	if !ok {
+		return nil, errors.New("model config missing agent-version")
+	}
+	toolsVersion, err := version.Parse(v)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// Using MustParse as the value parsed will never change.
+	newer := version.MustParse("2.9.35")
+	if comp := toolsVersion.Compare(newer); comp >= 0 {
+		return config.New(config.NoDefaults, attrs)
+	}
+	attrs["default-series"] = ""
+	return config.New(config.NoDefaults, attrs)
 }
 
 // ImportStateMigration defines a migration for importing various entities from
@@ -635,12 +659,17 @@ func (i *importer) makeMachineDoc(m description.Machine) (*machineDoc, error) {
 	}
 
 	machineTag := m.Tag()
+	base, err := series.ParseBaseFromString(m.Base())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	macBase := Base{OS: base.OS, Channel: base.Channel.String()}
 	return &machineDoc{
 		DocID:                    i.st.docID(id),
 		Id:                       id,
 		ModelUUID:                i.st.ModelUUID(),
 		Nonce:                    m.Nonce(),
-		Series:                   m.Series(),
+		Base:                     macBase.Normalise(),
 		ContainerType:            m.ContainerType(),
 		Principals:               nil, // Set during unit import.
 		Life:                     Alive,
@@ -722,15 +751,6 @@ func (i *importer) makeTools(t description.AgentTools) (*tools.Tools, error) {
 		URL:     t.URL(),
 		SHA256:  t.SHA256(),
 		Size:    t.Size(),
-	}
-	// Older versions of Juju recorded the agent binaries for a series.
-	// We now use os type instead.
-	allSeries, err := coreseries.AllWorkloadSeries("", "")
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if allSeries.Contains(result.Version.Release) {
-		result.Version.Release = coreseries.DefaultOSTypeNameFromSeries(result.Version.Release)
 	}
 	return result, nil
 }
@@ -1269,7 +1289,7 @@ func (i *importer) importUnitPayloads(unit *Unit, payloadInfo []description.Payl
 func (i *importer) makeApplicationDoc(a description.Application) (*applicationDoc, error) {
 	units := a.Units()
 
-	origin, err := i.makeCharmOrigin(a, units)
+	origin, err := i.makeCharmOrigin(a)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1292,12 +1312,11 @@ func (i *importer) makeApplicationDoc(a description.Application) (*applicationDo
 	cURL := a.CharmURL()
 	return &applicationDoc{
 		Name:                 a.Name(),
-		Series:               a.Series(),
 		Subordinate:          a.Subordinate(),
 		CharmURL:             &cURL,
 		Channel:              a.Channel(),
 		CharmModifiedVersion: a.CharmModifiedVersion(),
-		CharmOrigin:          origin,
+		CharmOrigin:          *origin,
 		ForceCharm:           a.ForceCharm(),
 		PasswordHash:         a.PasswordHash(),
 		Life:                 Alive,
@@ -1349,16 +1368,13 @@ func (i *importer) loadInstanceHardwareFromUnits(units []description.Unit) ([]in
 	return hwChars, nil
 }
 
-func (i *importer) makeCharmOrigin(a description.Application, units []description.Unit) (*CharmOrigin, error) {
+func (i *importer) makeCharmOrigin(a description.Application) (*CharmOrigin, error) {
 	curl, err := charm.ParseURL(a.CharmURL())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	co := a.CharmOrigin()
-	if co == nil {
-		return i.deduceCharmOrigin(a, curl, units)
-	}
 	rev := co.Revision()
 
 	var channel *Channel
@@ -1381,28 +1397,14 @@ func (i *importer) makeCharmOrigin(a description.Application, units []descriptio
 		_, channel = getApplicationSourceChannel(a, curl)
 	}
 
-	var platform *Platform
-	if serialized := co.Platform(); serialized != "" {
-		p, err := corecharm.ParsePlatformNormalize(serialized)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		// Fix the case where `juju set-series` was called before the change to
-		// set the series in the origin's platform as well.
-		// Assumes that UpdateApplicationSeries will not change operating systems.
-		series := p.Series
-		if series != a.Series() {
-			series = a.Series()
-		}
-		platform = &Platform{
-			Architecture: p.Architecture,
-			OS:           p.OS,
-			Series:       series,
-		}
-	} else {
-		// Attempt to fallback to the application charm URL and then the
-		// application constraints.
-		platform = i.getApplicationPlatform(a, curl, units)
+	p, err := corecharm.ParsePlatformNormalize(co.Platform())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	platform := &Platform{
+		Architecture: p.Architecture,
+		OS:           p.OS,
+		Channel:      p.Channel,
 	}
 
 	// We can hardcode type to charm as we never store bundles in state.
@@ -1414,29 +1416,6 @@ func (i *importer) makeCharmOrigin(a description.Application, units []descriptio
 		Revision: &rev,
 		Channel:  channel,
 		Platform: platform,
-	}, nil
-}
-
-func (i *importer) deduceCharmOrigin(a description.Application, url *charm.URL, units []description.Unit) (*CharmOrigin, error) {
-	if url == nil {
-		return &CharmOrigin{}, errors.NotValidf("charm url")
-	}
-
-	var t string
-	switch url.Series {
-	case "bundle":
-		t = "bundle"
-	default:
-		t = "charm"
-	}
-
-	source, channel := getApplicationSourceChannel(a, url)
-	return &CharmOrigin{
-		Type:     t,
-		Source:   source.String(),
-		Revision: &url.Revision,
-		Channel:  channel,
-		Platform: i.getApplicationPlatform(a, url, units),
 	}, nil
 }
 
@@ -1475,64 +1454,6 @@ func getApplicationSourceChannel(a description.Application, url *charm.URL) (cor
 		Risk:   string(norm.Risk),
 		Branch: norm.Branch,
 	}
-}
-
-// Attempt to locate the architecture, if it's found in the URL then use
-// that, otherwise fallback to the arch constraint.
-func (i *importer) getApplicationPlatform(a description.Application, url *charm.URL, units []description.Unit) *Platform {
-	var platform *Platform
-	if url != nil && url.Architecture != "" {
-		platform = &Platform{
-			Architecture: url.Architecture,
-			Series:       url.Series,
-		}
-	} else if arc := getApplicationArchConstraint(a); arc != "" {
-		platform = &Platform{
-			Architecture: arc,
-			Series:       a.Series(),
-		}
-	}
-
-	if platform == nil || platform.Architecture == "" {
-		// If we can't find an instance hardware based on the units, then just
-		// return the platform.
-		hardwareCharacteristics, err := i.loadInstanceHardwareFromUnits(units)
-		if err != nil {
-			return platform
-		}
-
-		// Attempting to find the right architecture is quite difficult,
-		// especially if we're in a heterogenous deployment. In that case we'll
-		// most likely guess wrong, so we now use the fact that just select
-		// the first available as that's what they most probably started with.
-		var arch string
-		for _, hw := range hardwareCharacteristics {
-			if hw.Arch == nil {
-				continue
-			}
-			arch = *hw.Arch
-			continue
-		}
-
-		if platform == nil {
-			platform = &Platform{}
-		}
-		platform.Architecture = arch
-		platform.Series = a.Series()
-	}
-
-	return platform
-}
-
-func getApplicationArchConstraint(a description.Application) string {
-	cons := a.Constraints()
-	if cons == nil {
-		return ""
-	}
-	if arch := cons.Architecture(); arch != "" {
-		return arch
-	}
-	return arch.DefaultArchitecture
 }
 
 func (i *importer) relationCount(application string) int {
@@ -1594,10 +1515,15 @@ func (i *importer) makeUnitDoc(s description.Application, u description.Unit) (*
 		return nil, errors.Trace(err)
 	}
 
+	p, err := corecharm.ParsePlatformNormalize(s.CharmOrigin().Platform())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	base := Base{OS: p.OS, Channel: p.Channel}.Normalise()
 	return &unitDoc{
 		Name:                   u.Name(),
 		Application:            s.Name(),
-		Series:                 s.Series(),
+		Base:                   base,
 		CharmURL:               &charmURL,
 		Principal:              u.Principal().Id(),
 		Subordinates:           subordinates,
@@ -2138,7 +2064,6 @@ func (i *importer) cloudimagemetadata() error {
 				Stream:          image.Stream(),
 				Region:          image.Region(),
 				Version:         image.Version(),
-				Series:          image.Series(),
 				Arch:            image.Arch(),
 				RootStorageType: image.RootStorageType(),
 				RootStorageSize: rootStoragePtr,

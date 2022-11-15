@@ -42,4 +42,23 @@ cp /opt/jujud %[1]s/jujud
 
 %[2]s
 `[1:]
+
+	// APIServerStartUpSh is the start script for the "api-server" container
+	// in the controller pod (Pebble running jujud).
+	APIServerStartUpSh = `
+export JUJU_DATA_DIR=%[1]s
+export JUJU_TOOLS_DIR=$JUJU_DATA_DIR/tools
+
+mkdir -p $JUJU_TOOLS_DIR
+cp /opt/jujud $JUJU_TOOLS_DIR/jujud
+
+%[2]s
+
+mkdir -p /var/lib/pebble/default/layers
+cat > /var/lib/pebble/default/layers/001-jujud.yaml <<EOF
+%[3]s
+EOF
+
+/opt/pebble run --http :%[4]s --verbose
+`[1:]
 )

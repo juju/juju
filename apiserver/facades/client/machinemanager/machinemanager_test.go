@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
@@ -122,16 +121,16 @@ func (s *AddMachineManagerSuite) TestAddMachines(c *gc.C) {
 	apiParams := make([]params.AddMachineParams, 2)
 	for i := range apiParams {
 		apiParams[i] = params.AddMachineParams{
-			Series: "jammy",
-			Jobs:   []model.MachineJob{model.JobHostUnits},
+			Base: &params.Base{Name: "ubuntu", Channel: "22.04"},
+			Jobs: []model.MachineJob{model.JobHostUnits},
 		}
 	}
 	apiParams[0].Disks = []storage.Constraints{{Size: 1, Count: 2}, {Size: 2, Count: 1}}
 	apiParams[1].Disks = []storage.Constraints{{Size: 1, Count: 2, Pool: "three"}}
 
 	s.st.EXPECT().AddOneMachine(state.MachineTemplate{
-		Series: "jammy",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("22.04"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 		Volumes: []state.HostVolumeParams{
 			{
 				Volume:     state.VolumeParams{Pool: "", Size: 1},
@@ -148,8 +147,8 @@ func (s *AddMachineManagerSuite) TestAddMachines(c *gc.C) {
 		},
 	}).Return(&state.Machine{}, nil)
 	s.st.EXPECT().AddOneMachine(state.MachineTemplate{
-		Series: "jammy",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("22.04"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 		Volumes: []state.HostVolumeParams{
 			{
 				Volume:     state.VolumeParams{Pool: "three", Size: 1},
@@ -176,14 +175,14 @@ func (s *AddMachineManagerSuite) TestAddMachinesUnSupportedSeries(c *gc.C) {
 			Jobs: []model.MachineJob{model.JobHostUnits},
 		}
 	}
-	apiParams[0].Series = "jammy"
-	apiParams[1].Series = "bionic"
+	apiParams[0].Base = &params.Base{Name: "ubuntu", Channel: "22.04"}
+	apiParams[1].Base = &params.Base{Name: "ubuntu", Channel: "18.04"}
 	apiParams[0].Disks = []storage.Constraints{{Size: 1, Count: 2}, {Size: 2, Count: 1}}
 	apiParams[1].Disks = []storage.Constraints{{Size: 1, Count: 2, Pool: "three"}}
 
 	s.st.EXPECT().AddOneMachine(state.MachineTemplate{
-		Series: "jammy",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("22.04"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 		Volumes: []state.HostVolumeParams{
 			{
 				Volume:     state.VolumeParams{Pool: "", Size: 1},
@@ -214,7 +213,7 @@ func (s *AddMachineManagerSuite) TestAddMachinesStateError(c *gc.C) {
 
 	results, err := s.api.AddMachines(params.AddMachines{
 		MachineParams: []params.AddMachineParams{{
-			Series: "jammy",
+			Base: &params.Base{Name: "ubuntu", Channel: "22.04"},
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -694,7 +693,7 @@ func (s *ProvisioningMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 
 func (s *ProvisioningMachineManagerSuite) expectProvisioningMachine(ctrl *gomock.Controller, arch *string) *mocks.MockMachine {
 	machine := mocks.NewMockMachine(ctrl)
-	machine.EXPECT().Series().Return("focal").AnyTimes()
+	machine.EXPECT().Base().Return(state.Base{OS: "ubuntu", Channel: "20.04/stable"}).AnyTimes()
 	machine.EXPECT().Tag().Return(names.NewMachineTag("0")).AnyTimes()
 	machine.EXPECT().HardwareCharacteristics().Return(&instance.HardwareCharacteristics{Arch: arch}, nil)
 	if arch != nil {
@@ -873,10 +872,10 @@ func (s *ProvisioningMachineManagerSuite) TestRetryProvisioningAll(c *gc.C) {
 
 type UpgradeSeriesMachineManagerSuite struct{}
 
-func (s *UpgradeSeriesMachineManagerSuite) expectValidateMachine(ctrl *gomock.Controller, series string, isManager, isLockedForSeriesUpgrade bool) *mocks.MockMachine {
+func (s *UpgradeSeriesMachineManagerSuite) expectValidateMachine(ctrl *gomock.Controller, os, channel string, isManager, isLockedForSeriesUpgrade bool) *mocks.MockMachine {
 	machine := mocks.NewMockMachine(ctrl)
 	machine.EXPECT().Tag().Return(names.NewMachineTag("0")).AnyTimes()
-	machine.EXPECT().Series().Return(series).AnyTimes()
+	machine.EXPECT().Base().Return(state.Base{OS: os, Channel: channel + "/stable"}).AnyTimes()
 	machine.EXPECT().Id().Return("0").AnyTimes()
 
 	machine.EXPECT().IsManager().Return(isManager)
@@ -959,7 +958,7 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateOK(c
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	machine0 := s.expectValidateMachine(ctrl, "focal", false, false)
+	machine0 := s.expectValidateMachine(ctrl, "ubuntu", "20.04", false, false)
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
 	machine0.EXPECT().ApplicationNames().Return([]string{"foo"}, nil)
@@ -972,10 +971,10 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateOK(c
 		s.expectValidateUnit(ctrl, "foo/2", status.Idle, status.Idle),
 	}, nil)
 
-	args := params.UpdateSeriesArgs{
-		Args: []params.UpdateSeriesArg{{
-			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
-			Series: "jammy",
+	args := params.UpdateChannelArgs{
+		Args: []params.UpdateChannelArg{{
+			Entity:  params.Entity{Tag: names.NewMachineTag("0").String()},
+			Channel: "22.04",
 		}},
 	}
 	results, err := s.api.UpgradeSeriesValidate(args)
@@ -990,11 +989,11 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateIsCo
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	machine0 := s.expectValidateMachine(ctrl, "focal", true, false)
+	machine0 := s.expectValidateMachine(ctrl, "ubuntu", "20.04", true, false)
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
-	args := params.UpdateSeriesArgs{
-		Args: []params.UpdateSeriesArg{{
+	args := params.UpdateChannelArgs{
+		Args: []params.UpdateChannelArg{{
 			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
 		}},
 	}
@@ -1009,11 +1008,11 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateIsLo
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	machine0 := s.expectValidateMachine(ctrl, "focal", false, true)
+	machine0 := s.expectValidateMachine(ctrl, "ubuntu", "20.04", false, true)
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
-	args := params.UpdateSeriesArgs{
-		Args: []params.UpdateSeriesArg{{
+	args := params.UpdateChannelArgs{
+		Args: []params.UpdateChannelArg{{
 			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
 		}},
 	}
@@ -1024,108 +1023,88 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateIsLo
 		`upgrade series lock found for "0"; series upgrade is in the "not started" state`)
 }
 
-func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateNoSeriesError(c *gc.C) {
+func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateNoChannelError(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	machine0 := s.expectValidateMachine(ctrl, "focal", false, false)
+	machine0 := s.expectValidateMachine(ctrl, "ubuntu", "20.04", false, false)
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
-	args := params.UpdateSeriesArgs{
-		Args: []params.UpdateSeriesArg{{
+	args := params.UpdateChannelArgs{
+		Args: []params.UpdateChannelArg{{
 			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
 		}},
 	}
 	results, err := s.api.UpgradeSeriesValidate(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(results.Results[0].Error, gc.ErrorMatches, "series missing from args")
+	c.Assert(results.Results[0].Error, gc.ErrorMatches, "channel missing from args")
 }
 
 func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateNotFromUbuntuError(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	machine0 := s.expectValidateMachine(ctrl, "centos7", false, false)
+	machine0 := s.expectValidateMachine(ctrl, "centos", "7", false, false)
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
-	args := params.UpdateSeriesArgs{
-		Args: []params.UpdateSeriesArg{{
-			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
-			Series: "bionic",
+	args := params.UpdateChannelArgs{
+		Args: []params.UpdateChannelArg{{
+			Entity:  params.Entity{Tag: names.NewMachineTag("0").String()},
+			Channel: "18.04",
 		}},
 	}
 
 	results, err := s.api.UpgradeSeriesValidate(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results[0].Error, gc.ErrorMatches,
-		"machine-0 is running CentOS and is not valid for Ubuntu series upgrade")
-}
-
-func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateNotToUbuntuError(c *gc.C) {
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
-
-	machine0 := s.expectValidateMachine(ctrl, "focal", false, false)
-	s.st.EXPECT().Machine("0").Return(machine0, nil)
-
-	args := params.UpdateSeriesArgs{
-		Args: []params.UpdateSeriesArg{{
-			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
-			Series: "centos7",
-		}},
-	}
-
-	results, err := s.api.UpgradeSeriesValidate(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results[0].Error, gc.ErrorMatches,
-		`series "centos7" is from OS "CentOS" and is not a valid upgrade target`)
+		"machine-0 is running centos and is not valid for Ubuntu series upgrade")
 }
 
 func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateAlreadyRunningSeriesError(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	machine0 := s.expectValidateMachine(ctrl, "focal", false, false)
+	machine0 := s.expectValidateMachine(ctrl, "ubuntu", "20.04", false, false)
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
-	args := params.UpdateSeriesArgs{
-		Args: []params.UpdateSeriesArg{{
-			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
-			Series: "focal",
+	args := params.UpdateChannelArgs{
+		Args: []params.UpdateChannelArg{{
+			Entity:  params.Entity{Tag: names.NewMachineTag("0").String()},
+			Channel: "20.04",
 		}},
 	}
 
 	results, err := s.api.UpgradeSeriesValidate(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results[0].Error, gc.ErrorMatches, "machine-0 is already running series focal")
+	c.Assert(results.Results[0].Error, gc.ErrorMatches, "machine-0 is already running base ubuntu@20.04")
 }
 
 func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateOlderSeriesError(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	machine0 := s.expectValidateMachine(ctrl, "focal", false, false)
+	machine0 := s.expectValidateMachine(ctrl, "ubuntu", "20.04", false, false)
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
-	args := params.UpdateSeriesArgs{
-		Args: []params.UpdateSeriesArg{{
-			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
-			Series: "bionic",
+	args := params.UpdateChannelArgs{
+		Args: []params.UpdateChannelArg{{
+			Entity:  params.Entity{Tag: names.NewMachineTag("0").String()},
+			Channel: "18.04",
 		}},
 	}
 
 	results, err := s.api.UpgradeSeriesValidate(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results[0].Error, gc.ErrorMatches,
-		"machine machine-0 is running focal which is a newer series than bionic.")
+		"machine machine-0 is running ubuntu@20.04 which is a newer base than ubuntu@18.04.")
 }
 
 func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateUnitNotIdleError(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	machine0 := s.expectValidateMachine(ctrl, "focal", false, false)
+	machine0 := s.expectValidateMachine(ctrl, "ubuntu", "20.04", false, false)
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
 	machine0.EXPECT().ApplicationNames().Return([]string{"foo"}, nil)
@@ -1137,10 +1116,10 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateUnit
 		mocks.NewMockUnit(ctrl),
 	}, nil)
 
-	args := params.UpdateSeriesArgs{
-		Args: []params.UpdateSeriesArg{{
-			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
-			Series: "jammy",
+	args := params.UpdateChannelArgs{
+		Args: []params.UpdateChannelArg{{
+			Entity:  params.Entity{Tag: names.NewMachineTag("0").String()},
+			Channel: "22.04",
 		}},
 	}
 	results, err := s.api.UpgradeSeriesValidate(args)
@@ -1153,7 +1132,7 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateUnit
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	machine0 := s.expectValidateMachine(ctrl, "focal", false, false)
+	machine0 := s.expectValidateMachine(ctrl, "ubuntu", "20.04", false, false)
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
 	machine0.EXPECT().ApplicationNames().Return([]string{"foo"}, nil)
@@ -1165,10 +1144,10 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateUnit
 		mocks.NewMockUnit(ctrl),
 	}, nil)
 
-	args := params.UpdateSeriesArgs{
-		Args: []params.UpdateSeriesArg{{
-			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
-			Series: "jammy",
+	args := params.UpdateChannelArgs{
+		Args: []params.UpdateChannelArg{{
+			Entity:  params.Entity{Tag: names.NewMachineTag("0").String()},
+			Channel: "22.04",
 		}},
 	}
 	results, err := s.api.UpgradeSeriesValidate(args)
@@ -1217,7 +1196,7 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) setup(c *gc.C) *gomock.Control
 }
 
 func (s *UpgradeSeriesPrepareMachineManagerSuite) expectPrepareMachine(ctrl *gomock.Controller, upgradeSeriesErr error) *mocks.MockMachine {
-	machine := s.expectValidateMachine(ctrl, "focal", false, false)
+	machine := s.expectValidateMachine(ctrl, "ubuntu", "20.04", false, false)
 
 	machine.EXPECT().Units().Return([]machinemanager.Unit{
 		s.expectPrepareUnit(ctrl, "foo/0"),
@@ -1225,7 +1204,7 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) expectPrepareMachine(ctrl *gom
 		s.expectPrepareUnit(ctrl, "foo/2"),
 	}, nil)
 
-	machine.EXPECT().CreateUpgradeSeriesLock([]string{"foo/0", "foo/1", "foo/2"}, "jammy")
+	machine.EXPECT().CreateUpgradeSeriesLock([]string{"foo/0", "foo/1", "foo/2"}, state.Base{OS: "ubuntu", Channel: "22.04"})
 
 	machine.EXPECT().ApplicationNames().Return([]string{"foo"}, nil)
 	app := s.expectValidateApplicationOnMachine(ctrl)
@@ -1233,7 +1212,7 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) expectPrepareMachine(ctrl *gom
 
 	machine.EXPECT().SetUpgradeSeriesStatus(
 		model.UpgradeSeriesPrepareStarted,
-		"started upgrade series from \"focal\" to \"jammy\"",
+		"started upgrade from \"ubuntu@20.04\" to \"ubuntu@22.04\"",
 	).Return(upgradeSeriesErr)
 
 	if upgradeSeriesErr != nil {
@@ -1259,10 +1238,10 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepare(c *gc
 
 	machineTag := names.NewMachineTag("0")
 	result, err := s.api.UpgradeSeriesPrepare(
-		params.UpdateSeriesArg{
+		params.UpdateChannelArg{
 			Entity: params.Entity{
 				Tag: machineTag.String()},
-			Series: "jammy",
+			Channel: "22.04",
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1276,10 +1255,10 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepareMachin
 
 	machineTag := names.NewMachineTag("76")
 	result, err := s.api.UpgradeSeriesPrepare(
-		params.UpdateSeriesArg{
+		params.UpdateChannelArg{
 			Entity: params.Entity{
 				Tag: machineTag.String()},
-			Series: "focal",
+			Channel: "20.04",
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1289,10 +1268,10 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepareMachin
 func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepareNotMachineTag(c *gc.C) {
 	unitTag := names.NewUnitTag("mysql/0")
 	result, err := s.api.UpgradeSeriesPrepare(
-		params.UpdateSeriesArg{
+		params.UpdateChannelArg{
 			Entity: params.Entity{
 				Tag: unitTag.String()},
-			Series: "focal",
+			Channel: "20.04",
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1321,10 +1300,10 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPreparePermis
 	s.setAPIUser(c, user)
 	machineTag := names.NewMachineTag("0")
 	_, err := s.api.UpgradeSeriesPrepare(
-		params.UpdateSeriesArg{
+		params.UpdateChannelArg{
 			Entity: params.Entity{
 				Tag: machineTag.String()},
-			Series: "jammy",
+			Channel: "22.04",
 		},
 	)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
@@ -1332,7 +1311,7 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPreparePermis
 
 func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepareNoSeries(c *gc.C) {
 	result, err := s.api.UpgradeSeriesPrepare(
-		params.UpdateSeriesArg{
+		params.UpdateChannelArg{
 			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
 		},
 	)
@@ -1340,7 +1319,7 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepareNoSeri
 	c.Assert(result, jc.DeepEquals, params.ErrorResult{
 		Error: &params.Error{
 			Code:    params.CodeBadRequest,
-			Message: `series missing from args`,
+			Message: `channel missing from args`,
 		},
 	})
 }
@@ -1353,16 +1332,16 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepareIncomp
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
 	result, err := s.api.UpgradeSeriesPrepare(
-		params.UpdateSeriesArg{
-			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
-			Series: "jammy",
-			Force:  false,
+		params.UpdateChannelArg{
+			Entity:  params.Entity{Tag: names.NewMachineTag("0").String()},
+			Channel: "22.04",
+			Force:   false,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.ErrorResult{
 		Error: &params.Error{
-			Code:    params.CodeIncompatibleSeries,
+			Code:    params.CodeIncompatibleBase,
 			Message: "series \"jammy\" not supported by charm \"TestCharm\", supported series are: yakkety, zesty",
 		},
 	})
@@ -1420,51 +1399,28 @@ func (s *UpgradeSeriesCompleteMachineManagerSuite) TestUpgradeSeriesComplete(c *
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
 	_, err := s.api.UpgradeSeriesComplete(
-		params.UpdateSeriesArg{
+		params.UpdateChannelArg{
 			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-var _ = gc.Suite(&IsSeriesLessThanMachineManagerSuite{})
+var _ = gc.Suite(&IsBaseLessThanMachineManagerSuite{})
 
-type IsSeriesLessThanMachineManagerSuite struct{}
+type IsBaseLessThanMachineManagerSuite struct{}
 
-// TestIsSeriesLessThan tests a validation method which is not very complicated
+// TestIsBaseLessThan tests a validation method which is not very complicated
 // but complex enough to warrant being exported from an export test package for
 // testing.
-func (s *IsSeriesLessThanMachineManagerSuite) TestIsSeriesLessThan(c *gc.C) {
-	workloadSeries, err := series.AllWorkloadSeries("", "")
+func (s *IsBaseLessThanMachineManagerSuite) TestIsBaseLessThan(c *gc.C) {
+	workloadVersions, err := series.AllWorkloadVersions("", "")
 	c.Assert(err, jc.ErrorIsNil)
-	ss := workloadSeries.Values()
-
-	// Group series by OS and check the list for
-	// each OS separately.
-	seriesByOS := make(map[os.OSType][]string)
-	for _, ser := range ss {
-		seriesOS, err := series.GetOSFromSeries(ser)
-		c.Assert(err, jc.ErrorIsNil)
-		seriesList := seriesByOS[seriesOS]
-		seriesList = append(seriesList, ser)
-		seriesByOS[seriesOS] = seriesList
-	}
-
-	for seriesOS, seriesList := range seriesByOS {
-		c.Logf("checking series for %v", seriesOS)
-		s.assertSeriesLessThan(c, seriesList)
-	}
+	vers := workloadVersions.Values()
+	s.assertSeriesLessThan(c, "ubuntu", vers)
 }
 
-func (s *IsSeriesLessThanMachineManagerSuite) assertSeriesLessThan(c *gc.C, seriesList []string) {
-	// get the series versions
-	vs := make([]string, 0, len(seriesList))
-	for _, ser := range seriesList {
-		ver, err := series.SeriesVersion(ser)
-		c.Assert(err, jc.ErrorIsNil)
-		vs = append(vs, ver)
-	}
-
+func (s *IsBaseLessThanMachineManagerSuite) assertSeriesLessThan(c *gc.C, os string, vs []string) {
 	// sort the values, so the lexicographical order is determined
 	sort.Slice(vs, func(i, j int) bool {
 		v1 := vs[i]
@@ -1487,13 +1443,14 @@ func (s *IsSeriesLessThanMachineManagerSuite) assertSeriesLessThan(c *gc.C, seri
 		}
 
 		// get the series for the specified version
-		s1, err := series.VersionSeries(vs[i])
+		os = strings.ToLower(os)
+		b1, err := series.ParseBase(os, vs[i])
 		c.Assert(err, jc.ErrorIsNil)
-		s2, err := series.VersionSeries(vs[i+1])
+		b2, err := series.ParseBase(os, vs[i+1])
 		c.Assert(err, jc.ErrorIsNil)
 
-		isLessThan, err := machinemanager.IsSeriesLessThan(s1, s2)
+		isLessThan, err := machinemanager.IsBaseLessThan(b1, b2)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(isLessThan, jc.IsTrue)
+		c.Assert(isLessThan, jc.IsTrue, gc.Commentf("%q < %q", b1, b2))
 	}
 }

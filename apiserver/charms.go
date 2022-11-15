@@ -9,7 +9,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"io"
-	"io/ioutil"
 	"mime"
 	"net/http"
 	"os"
@@ -348,7 +347,7 @@ func (h *charmsHandler) processUploadedArchive(path string) error {
 
 	// There is one or more subdirs, so we need extract it to a temp
 	// dir and then read it as a charm dir.
-	tempDir, err := ioutil.TempDir("", "charm-extract")
+	tempDir, err := os.MkdirTemp("", "charm-extract")
 	if err != nil {
 		return errors.Annotate(err, "cannot create temp directory")
 	}
@@ -407,7 +406,7 @@ func (d byDepth) Less(i, j int) bool { return depth(d[i]) < depth(d[j]) }
 // then uploads it to storage, and finally updates the state.
 func RepackageAndUploadCharm(st *state.State, archive *charm.CharmArchive, curl *charm.URL) error {
 	// Create a temp dir to contain the extracted charm dir.
-	tempDir, err := ioutil.TempDir("", "charm-download")
+	tempDir, err := os.MkdirTemp("", "charm-download")
 	if err != nil {
 		return errors.Annotate(err, "cannot create temp directory")
 	}
@@ -579,7 +578,7 @@ func sendBundleContent(
 }
 
 func writeCharmToTempFile(r io.Reader) (string, error) {
-	tempFile, err := ioutil.TempFile("", "charm")
+	tempFile, err := os.CreateTemp("", "charm")
 	if err != nil {
 		return "", errors.Annotate(err, "creating temp file")
 	}

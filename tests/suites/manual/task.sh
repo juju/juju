@@ -4,6 +4,11 @@ test_manual() {
 		return
 	fi
 
+	if [[ ${BOOTSTRAP_PROVIDER:-} == "aws" ]]; then
+		# Ensure that the aws cli and juju both use the same aws region
+		export AWS_DEFAULT_REGION="${BOOTSTRAP_REGION}"
+	fi
+
 	set_verbosity
 
 	echo "==> Checking for dependencies"

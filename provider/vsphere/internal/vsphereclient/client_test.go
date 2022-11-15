@@ -6,7 +6,6 @@ package vsphereclient
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -539,7 +538,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 		var buf bytes.Buffer
 		io.Copy(&buf, r.Body)
 		rcopy := *r
-		rcopy.Body = ioutil.NopCloser(&buf)
+		rcopy.Body = io.NopCloser(&buf)
 		s.uploadRequests = append(s.uploadRequests, &rcopy)
 		if s.onImageUpload != nil {
 			s.onImageUpload(r)

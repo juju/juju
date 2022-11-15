@@ -99,7 +99,6 @@ func (s *applicationSuite) TestDeploy(c *gc.C) {
 				CharmURL:         "cs:trusty/a-charm-1",
 				CharmOrigin:      &params.CharmOrigin{Source: "charm-store"},
 				ApplicationName:  "applicationA",
-				Series:           "series",
 				NumUnits:         1,
 				ConfigYAML:       "configYAML",
 				Config:           map[string]string{"foo": "bar"},
@@ -124,7 +123,6 @@ func (s *applicationSuite) TestDeploy(c *gc.C) {
 			Source: apicharm.OriginCharmStore,
 		},
 		ApplicationName:  "applicationA",
-		Series:           "series",
 		NumUnits:         1,
 		ConfigYAML:       "configYAML",
 		Config:           map[string]string{"foo": "bar"},
@@ -154,7 +152,6 @@ func (s *applicationSuite) TestDeployAlreadyExists(c *gc.C) {
 				CharmURL:         "cs:trusty/a-charm-1",
 				CharmOrigin:      &params.CharmOrigin{Source: "charm-store"},
 				ApplicationName:  "applicationA",
-				Series:           "series",
 				NumUnits:         1,
 				ConfigYAML:       "configYAML",
 				Config:           map[string]string{"foo": "bar"},
@@ -179,7 +176,6 @@ func (s *applicationSuite) TestDeployAlreadyExists(c *gc.C) {
 			Source: apicharm.OriginCharmStore,
 		},
 		ApplicationName:  "applicationA",
-		Series:           "series",
 		NumUnits:         1,
 		ConfigYAML:       "configYAML",
 		Config:           map[string]string{"foo": "bar"},
@@ -299,7 +295,7 @@ func (s *applicationSuite) TestSetCharm(c *gc.C) {
 		},
 		ConfigSettingsYAML: "yaml",
 		Force:              true,
-		ForceSeries:        true,
+		ForceBase:          true,
 		ForceUnits:         true,
 		StorageConstraints: map[string]params.StorageConstraints{
 			"a": {Pool: "radiant"},
@@ -308,6 +304,17 @@ func (s *applicationSuite) TestSetCharm(c *gc.C) {
 		},
 		Generation: newBranchName,
 	}
+
+	c.Assert(args.ConfigSettingsYAML, gc.Equals, "yaml")
+	c.Assert(args.Force, gc.Equals, true)
+	c.Assert(args.ForceBase, gc.Equals, true)
+	c.Assert(args.ForceUnits, gc.Equals, true)
+	c.Assert(args.StorageConstraints, jc.DeepEquals, map[string]params.StorageConstraints{
+		"a": {Pool: "radiant"},
+		"b": {Count: toUint64Ptr(123)},
+		"c": {Size: toUint64Ptr(123)},
+	})
+
 	cfg := application.SetCharmConfig{
 		ApplicationName: "application",
 		CharmID: application.CharmID{
@@ -323,7 +330,7 @@ func (s *applicationSuite) TestSetCharm(c *gc.C) {
 		},
 		ConfigSettingsYAML: "yaml",
 		Force:              true,
-		ForceSeries:        true,
+		ForceBase:          true,
 		ForceUnits:         true,
 		StorageConstraints: map[string]storage.Constraints{
 			"a": {Pool: "radiant"},
@@ -1186,7 +1193,7 @@ func (s *applicationSuite) TestApplicationsInfo(c *gc.C) {
 			{Result: &params.ApplicationResult{
 				Tag:       "application-bar",
 				Charm:     "charm-bar",
-				Series:    "bionic",
+				Base:      params.Base{Name: "ubuntu", Channel: "12.10"},
 				Channel:   "development",
 				Principal: true,
 				EndpointBindings: map[string]string{
@@ -1213,7 +1220,7 @@ func (s *applicationSuite) TestApplicationsInfo(c *gc.C) {
 		{Result: &params.ApplicationResult{
 			Tag:       "application-bar",
 			Charm:     "charm-bar",
-			Series:    "bionic",
+			Base:      params.Base{Name: "ubuntu", Channel: "12.10"},
 			Channel:   "development",
 			Principal: true,
 			EndpointBindings: map[string]string{

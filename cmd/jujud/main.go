@@ -8,7 +8,6 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -122,7 +121,7 @@ func getSocket() (sockets.Socket, error) {
 	if err != nil {
 		return sockets.Socket{}, err
 	}
-	caCert, err := ioutil.ReadFile(caCertFile)
+	caCert, err := os.ReadFile(caCertFile)
 	if err != nil {
 		return sockets.Socket{}, errors.Annotatef(err, "reading %s", caCertFile)
 	}
@@ -178,7 +177,7 @@ func hookToolMain(commandName string, ctx *cmd.Context, args []string) (code int
 	var resp exec.ExecResponse
 	err = client.Call("Jujuc.Main", req, &resp)
 	if err != nil && err.Error() == jujuc.ErrNoStdin.Error() {
-		req.Stdin, err = ioutil.ReadAll(os.Stdin)
+		req.Stdin, err = io.ReadAll(os.Stdin)
 		if err != nil {
 			err = errors.Annotate(err, "cannot read stdin")
 			return
@@ -259,7 +258,7 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 
 	jujud.Register(agentcmd.NewBootstrapCommand())
 	jujud.Register(agentcmd.NewCAASUnitInitCommand())
-	jujud.Register(agentcmd.NewModelCommand())
+	jujud.Register(agentcmd.NewModelCommand(bufferedLogger))
 
 	// TODO(katco-): AgentConf type is doing too much. The
 	// MachineAgent type has called out the separate concerns; the

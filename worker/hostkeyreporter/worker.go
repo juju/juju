@@ -4,7 +4,6 @@
 package hostkeyreporter
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -100,7 +99,7 @@ func (w *hostkeyreporter) readSSHKeys() ([]string, error) {
 	}
 	keys := make([]string, 0, len(filenames))
 	for _, filename := range filenames {
-		key, err := ioutil.ReadFile(filename)
+		key, err := os.ReadFile(filename)
 		if err != nil {
 			logger.Debugf("unable to read SSH host key (skipping): %v", err)
 			continue

@@ -8,7 +8,6 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -64,10 +63,10 @@ func GetMockBuildTools(c *gc.C) sync.BuildAgentTarballFunc {
 		tgz, checksum := coretesting.TarGz(
 			coretesting.NewTarFile(names.Jujud, 0777, "jujud contents "+vers.String()))
 
-		toolsDir, err := ioutil.TempDir("", "juju-tools-"+stream)
+		toolsDir, err := os.MkdirTemp("", "juju-tools-"+stream)
 		c.Assert(err, jc.ErrorIsNil)
 		name := "name"
-		_ = ioutil.WriteFile(filepath.Join(toolsDir, name), tgz, 0777)
+		_ = os.WriteFile(filepath.Join(toolsDir, name), tgz, 0777)
 
 		return &sync.BuiltAgent{
 			Dir:         toolsDir,
@@ -100,7 +99,7 @@ func makeTools(c *gc.C, metadataDir, stream string, versionStrings []string, wit
 		}
 		path := filepath.Join(toolsDir, fmt.Sprintf("juju-%s.tgz", binary))
 		data := binary.String()
-		err = ioutil.WriteFile(path, []byte(data), 0644)
+		err = os.WriteFile(path, []byte(data), 0644)
 		c.Assert(err, jc.ErrorIsNil)
 		tool := &coretools.Tools{
 			Version: binary,
@@ -164,7 +163,7 @@ func ParseMetadataFromStorage(c *gc.C, stor storage.StorageReader, stream string
 	r, err := stor.Get(path.Join("tools", toolsIndexMetadata.ProductsFilePath))
 	defer func() { _ = r.Close() }()
 	c.Assert(err, jc.ErrorIsNil)
-	data, err := ioutil.ReadAll(r)
+	data, err := io.ReadAll(r)
 	c.Assert(err, jc.ErrorIsNil)
 
 	url, err := source.URL(toolsIndexMetadata.ProductsFilePath)
@@ -200,7 +199,7 @@ func ParseMetadataFromStorage(c *gc.C, stor storage.StorageReader, stream string
 		r, err = stor.Get(path.Join("tools", simplestreams.UnsignedMirror("v1")))
 		c.Assert(err, jc.ErrorIsNil)
 		defer r.Close()
-		data, err = ioutil.ReadAll(r)
+		data, err = io.ReadAll(r)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(string(data), jc.Contains, `"mirrors":`)
 		c.Assert(string(data), jc.Contains, tools.ToolsContentId(stream))
@@ -305,7 +304,7 @@ func UploadToDirectory(c *gc.C, dir string, streamVersions StreamVersions) map[s
 		if err := os.MkdirAll(dir, 0755); err != nil && !os.IsExist(err) {
 			c.Assert(err, jc.ErrorIsNil)
 		}
-		err := ioutil.WriteFile(path, object.data, 0644)
+		err := os.WriteFile(path, object.data, 0644)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	return allUploaded

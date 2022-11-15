@@ -121,7 +121,7 @@ func (s *secretsSuite) TestDeleteJujuSecret(c *gc.C) {
 
 func (s *secretsSuite) TestSaveJujuSecret(c *gc.C) {
 	uri := secrets.NewURI()
-	providerId, err := s.broker.SaveJujuSecret(context.Background(), uri, 666,
+	providerId, err := s.broker.SaveJujuSecret(context.Background(), uri.ID+"-666",
 		secrets.NewSecretValue(map[string]string{
 			"foo": "bar",
 		}),

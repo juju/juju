@@ -24,7 +24,7 @@ func (suite *HelpToolSuite) SetUpTest(c *gc.C) {
 
 func (suite *HelpToolSuite) TestHelpToolHelp(c *gc.C) {
 	output := badrun(c, 0, "help", "help-tool")
-	c.Assert(output, gc.Equals, `Usage: juju hook-tool [tool]
+	c.Assert(output, gc.Equals, `Usage: juju help-tool [tool]
 
 Summary:
 Show help on a Juju charm hook tool.
@@ -101,9 +101,7 @@ Examples:
 
     For help on a specific tool, supply the name of that tool, for example:
 
-        juju hook-tool unit-get
-
-Aliases: help-tool, hook-tools
+        juju help-tool unit-get
 `)
 }
 

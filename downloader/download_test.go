@@ -4,7 +4,6 @@
 package downloader_test
 
 import (
-	"io/ioutil"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -158,13 +157,13 @@ func (s *DownloadSuite) TestAbort(c *gc.C) {
 }
 
 func assertFileContents(c *gc.C, filename, expect string) {
-	got, err := ioutil.ReadFile(filename)
+	got, err := os.ReadFile(filename)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(got), gc.Equals, expect)
 }
 
 func checkDirEmpty(c *gc.C, dir string) {
-	files, err := ioutil.ReadDir(dir)
+	files, err := os.ReadDir(dir)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(files, gc.HasLen, 0)
 }

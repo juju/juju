@@ -80,6 +80,8 @@ func (s *ManifoldsSuite) TestManifoldNamesColocatedController(c *gc.C) {
 		"agent",
 		"api-config-watcher",
 		"api-caller",
+		"caas-prober",
+		"probe-http-server",
 		"uniter",
 		"log-sender",
 

@@ -5,7 +5,7 @@ package jujuc_test
 
 import (
 	"bytes"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/juju/cmd/v3"
@@ -140,7 +140,7 @@ func (s *rawK8sSpecSetSuite) initCommand(c *gc.C, hctx jujuc.Context, yaml strin
 		ctx.Stdin = bytes.NewBufferString(yaml)
 	} else if filename != "" {
 		filename = filepath.Join(c.MkDir(), filename)
-		err := ioutil.WriteFile(filename, []byte(yaml), 0644)
+		err := os.WriteFile(filename, []byte(yaml), 0644)
 		c.Assert(err, jc.ErrorIsNil)
 		args = append(args, "--file", filename)
 	}

@@ -119,14 +119,8 @@ func (s *upgradeValidationSuite) TestCheckNoWinMachinesForModel(c *gc.C) {
 
 	state := mocks.NewMockState(ctrl)
 	gomock.InOrder(
-		state.EXPECT().MachineCountForSeries(
-			"win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
-			"win2016", "win2016hv", "win2019", "win7", "win8", "win81", "win10",
-		).Return(nil, nil),
-		state.EXPECT().MachineCountForSeries(
-			"win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
-			"win2016", "win2016hv", "win2019", "win7", "win8", "win81", "win10",
-		).Return(map[string]int{"win10": 1, "win7": 2}, nil),
+		state.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(nil, nil),
+		state.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(map[string]int{"win10": 1, "win7": 2}, nil),
 	)
 
 	blocker, err := upgradevalidation.CheckNoWinMachinesForModel("", nil, state, nil)
@@ -144,27 +138,7 @@ func (s *upgradeValidationSuite) TestCheckForDeprecatedUbuntuSeriesForModel(c *g
 
 	state := mocks.NewMockState(ctrl)
 	gomock.InOrder(
-		state.EXPECT().MachineCountForSeries(
-			"artful",
-			"bionic",
-			"cosmic",
-			"disco",
-			"eoan",
-			"groovy",
-			"hirsute",
-			"impish",
-			"precise",
-			"quantal",
-			"raring",
-			"saucy",
-			"trusty",
-			"utopic",
-			"vivid",
-			"wily",
-			"xenial",
-			"yakkety",
-			"zesty",
-		).Return(map[string]int{"xenial": 1, "vivid": 2, "trusty": 3}, nil),
+		state.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(map[string]int{"xenial": 1, "vivid": 2, "trusty": 3}, nil),
 	)
 
 	blocker, err := upgradevalidation.CheckForDeprecatedUbuntuSeriesForModel("", nil, state, nil)
@@ -200,7 +174,7 @@ func (s *upgradeValidationSuite) TestGetCheckTargetVersionForModel(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersion, map[int]version.Number{
+	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersions, map[int]version.Number{
 		3: version.MustParse("2.9.30"),
 	})
 
@@ -237,7 +211,7 @@ func (s *upgradeValidationSuite) TestGetCheckTargetVersionForModel(c *gc.C) {
 		version.MustParse("4.1.1"),
 		upgradevalidation.UpgradeToAllowed,
 	)("", nil, nil, model)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade, "4.1.1" is not a supported version`)
+	c.Assert(err, gc.ErrorMatches, `upgrade to "4.1.1" is not supported from "2.9.31"`)
 	c.Assert(blocker, gc.IsNil)
 }
 
@@ -428,10 +402,11 @@ func (s *upgradeValidationSuite) TestGetCheckForLXDVersionFailed(c *gc.C) {
 	cloudSpec := environscloudspec.CloudSpec{Type: "lxd"}
 	gomock.InOrder(
 		serverFactory.EXPECT().RemoteServer(cloudSpec).Return(server, nil),
-		server.EXPECT().ServerVersion().Return("5.1"),
+		server.EXPECT().ServerVersion().Return("4.0"),
 	)
 
 	blocker, err := upgradevalidation.GetCheckForLXDVersion(cloudSpec)("", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blocker.Error(), gc.Equals, `LXD version has to be at least "5.2.0", but current version is only "5.1.0"`)
+	c.Assert(blocker, gc.NotNil)
+	c.Assert(blocker.Error(), gc.Equals, `LXD version has to be at least "5.0.0", but current version is only "4.0.0"`)
 }

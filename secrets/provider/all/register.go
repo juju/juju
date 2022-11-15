@@ -11,7 +11,7 @@ import (
 )
 
 func init() {
-	provider.Register(juju.Store, juju.NewProvider())
-	provider.Register(kubernetes.Store, kubernetes.NewProvider())
-	provider.Register(vault.Store, vault.NewProvider())
+	provider.Register(juju.NewProvider())
+	provider.Register(kubernetes.NewProvider())
+	provider.Register(vault.NewProvider())
 }

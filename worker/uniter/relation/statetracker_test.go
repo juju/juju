@@ -4,7 +4,6 @@
 package relation_test
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
@@ -344,7 +343,7 @@ func (s *syncScopesSuite) setupCharmDir(c *gc.C) {
 	s.charmDir = filepath.Join(c.MkDir(), "charm")
 	err := os.MkdirAll(s.charmDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(filepath.Join(s.charmDir, "metadata.yaml"), []byte(minimalMetadata), 0755)
+	err = os.WriteFile(filepath.Join(s.charmDir, "metadata.yaml"), []byte(minimalMetadata), 0755)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

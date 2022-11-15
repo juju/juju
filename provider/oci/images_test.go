@@ -12,6 +12,7 @@ import (
 	ociCore "github.com/oracle/oci-go-sdk/v47/core"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/provider/oci"
 	ocitesting "github.com/juju/juju/provider/oci/testing"
 	jujutesting "github.com/juju/juju/testing"
@@ -165,7 +166,7 @@ func (s *imagesSuite) TestNewInstanceImage(c *gc.C) {
 	imgType, err := oci.NewInstanceImage(image, &s.testCompartment)
 	c.Assert(err, gc.IsNil)
 	c.Check(imgType.ImageType, gc.Equals, oci.ImageTypeGeneric)
-	c.Check(imgType.Series, gc.Equals, "jammy")
+	c.Check(imgType.Base.DisplayString(), gc.Equals, "ubuntu@22.04")
 	c.Check(imgType.CompartmentId, gc.NotNil)
 	c.Check(*imgType.CompartmentId, gc.Equals, s.testCompartment)
 	c.Check(imgType.Id, gc.Equals, s.testImageID)
@@ -235,17 +236,18 @@ func (s *imagesSuite) TestRefreshImageCache(c *gc.C) {
 	c.Check(imgCache.ImageMap(), gc.HasLen, 2)
 
 	imageMap := imgCache.ImageMap()
-	c.Check(imageMap["jammy"], gc.HasLen, 2)
-	c.Check(imageMap["centos7"], gc.HasLen, 1)
+	jammy := series.MakeDefaultBase("ubuntu", "22.04")
+	c.Check(imageMap[jammy], gc.HasLen, 2)
+	c.Check(imageMap[series.MakeDefaultBase("centos", "7")], gc.HasLen, 1)
 
 	timeStamp, _ := time.Parse("2006.01.02", "2018.01.12")
 
 	// Check that the first image in the array is the newest one
-	c.Assert(imageMap["jammy"][0].Version.TimeStamp, gc.Equals, timeStamp)
+	c.Assert(imageMap[jammy][0].Version.TimeStamp, gc.Equals, timeStamp)
 
 	// Check that InstanceTypes are set
-	c.Assert(imageMap["jammy"][0].InstanceTypes, gc.HasLen, 2)
-	c.Assert(imageMap["centos7"][0].InstanceTypes, gc.HasLen, 1)
+	c.Assert(imageMap[jammy][0].InstanceTypes, gc.HasLen, 2)
+	c.Assert(imageMap[series.MakeDefaultBase("centos", "7")][0].InstanceTypes, gc.HasLen, 1)
 }
 
 func (s *imagesSuite) TestRefreshImageCacheFetchFromCache(c *gc.C) {
@@ -326,7 +328,8 @@ func (s *imagesSuite) TestRefreshImageCacheWithInvalidImage(c *gc.C) {
 	c.Check(imgCache.ImageMap(), gc.HasLen, 1)
 	imageMap := imgCache.ImageMap()
 
-	c.Check(imageMap["jammy"][0].Id, gc.Equals, "fakeUbuntu1")
+	jammy := series.MakeDefaultBase("ubuntu", "22.04")
+	c.Check(imageMap[jammy][0].Id, gc.Equals, "fakeUbuntu1")
 }
 
 func (s *imagesSuite) TestImageMetadataFromCache(c *gc.C) {
@@ -342,19 +345,20 @@ func (s *imagesSuite) TestImageMetadataFromCache(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	cache := &oci.ImageCache{}
-	images := map[string][]oci.InstanceImage{
-		"jammy": {
+	jammy := series.MakeDefaultBase("ubuntu", "22.04")
+	images := map[series.Base][]oci.InstanceImage{
+		jammy: {
 			imgType,
 		},
 	}
 	cache.SetImages(images)
-	metadata := cache.ImageMetadata("jammy", "")
+	metadata := cache.ImageMetadata(jammy, "")
 	c.Assert(metadata, gc.HasLen, 1)
 	// generic images default to ImageTypeVM
 	c.Assert(metadata[0].VirtType, gc.Equals, string(oci.ImageTypeVM))
 
 	// explicitly set ImageTypeBM on generic images
-	metadata = cache.ImageMetadata("jammy", string(oci.ImageTypeBM))
+	metadata = cache.ImageMetadata(jammy, string(oci.ImageTypeBM))
 	c.Assert(metadata, gc.HasLen, 1)
 	c.Assert(metadata[0].VirtType, gc.Equals, string(oci.ImageTypeBM))
 }
@@ -372,19 +376,20 @@ func (s *imagesSuite) TestImageMetadataSpecificImageType(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	cache := &oci.ImageCache{}
-	images := map[string][]oci.InstanceImage{
-		"jammy": {
+	jammy := series.MakeDefaultBase("ubuntu", "22.04")
+	images := map[series.Base][]oci.InstanceImage{
+		jammy: {
 			imgType,
 		},
 	}
 	cache.SetImages(images)
-	metadata := cache.ImageMetadata("jammy", "")
+	metadata := cache.ImageMetadata(jammy, "")
 	c.Assert(metadata, gc.HasLen, 1)
 	// generic images default to ImageTypeVM
 	c.Assert(metadata[0].VirtType, gc.Equals, string(oci.ImageTypeGPU))
 
 	// explicitly set ImageTypeBM on generic images
-	metadata = cache.ImageMetadata("jammy", string(oci.ImageTypeBM))
+	metadata = cache.ImageMetadata(jammy, string(oci.ImageTypeBM))
 	c.Assert(metadata, gc.HasLen, 1)
 	c.Assert(metadata[0].VirtType, gc.Equals, string(oci.ImageTypeGPU))
 }

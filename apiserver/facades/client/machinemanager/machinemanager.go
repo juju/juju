@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/series"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	environscontext "github.com/juju/juju/environs/context"
@@ -81,9 +81,9 @@ type MachineManagerAPI struct {
 	callContext environscontext.ProviderCallContext
 }
 
-// NewFacadeV7 create a new server-side MachineManager API facade. This
+// NewFacadeV8 create a new server-side MachineManager API facade. This
 // is used for facade registration.
-func NewFacadeV7(ctx facade.Context) (*MachineManagerAPI, error) {
+func NewFacadeV8(ctx facade.Context) (*MachineManagerAPI, error) {
 	st := ctx.State()
 	model, err := st.Model()
 	if err != nil {
@@ -166,6 +166,7 @@ func NewMachineManagerAPI(
 }
 
 // AddMachines adds new machines with the supplied parameters.
+// The args will contain Base info.
 func (mm *MachineManagerAPI) AddMachines(args params.AddMachines) (params.AddMachinesResults, error) {
 	results := params.AddMachinesResults{
 		Machines: make([]params.AddMachinesResult, len(args.MachineParams)),
@@ -186,7 +187,7 @@ func (mm *MachineManagerAPI) AddMachines(args params.AddMachines) (params.AddMac
 	return results, nil
 }
 
-var supportedJujuSeries = series.WorkloadSeries
+var supportedJujuSeries = coreseries.WorkloadSeries
 
 func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Machine, error) {
 	if p.ParentId != "" && p.ContainerType == "" {
@@ -215,7 +216,8 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 		p.Addrs = nil
 	}
 
-	if p.Series == "" {
+	var base coreseries.Base
+	if p.Base == nil {
 		model, err := mm.st.Model()
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -224,14 +226,25 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		p.Series = config.PreferredSeries(conf)
+		base = config.PreferredBase(conf)
+	} else {
+		var err error
+		base, err = coreseries.ParseBase(p.Base.Name, p.Base.Channel)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
-	supportedSeries, err := supportedJujuSeries(time.Now(), p.Series, "")
+	// TODO(wallyworld) - I think we can remove this check
+	series, err := coreseries.GetSeriesFromBase(base)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if !supportedSeries.Contains(p.Series) {
-		return nil, errors.NotSupportedf("series %q", p.Series)
+	supportedSeries, err := supportedJujuSeries(time.Now(), series, "")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if !supportedSeries.Contains(series) {
+		return nil, errors.NotSupportedf("series %q", series)
 	}
 
 	var placementDirective string
@@ -278,7 +291,7 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 		return nil, errors.Trace(err)
 	}
 	template := state.MachineTemplate{
-		Series:                  p.Series,
+		Base:                    state.Base{OS: base.OS, Channel: base.Channel.String()},
 		Constraints:             p.Constraints,
 		Volumes:                 volumes,
 		InstanceId:              p.InstanceId,
@@ -600,14 +613,14 @@ func (mm *MachineManagerAPI) classifyDetachedStorage(units []Unit) (destroyed, d
 // If they do, a list of the machine's current units is returned for use in
 // soliciting user confirmation of the command.
 func (mm *MachineManagerAPI) UpgradeSeriesValidate(
-	args params.UpdateSeriesArgs,
+	args params.UpdateChannelArgs,
 ) (params.UpgradeSeriesUnitsResults, error) {
 	entities := make([]ValidationEntity, len(args.Args))
 	for i, arg := range args.Args {
 		entities[i] = ValidationEntity{
-			Tag:    arg.Entity.Tag,
-			Series: arg.Series,
-			Force:  arg.Force,
+			Tag:     arg.Entity.Tag,
+			Channel: arg.Channel,
+			Force:   arg.Force,
 		}
 	}
 
@@ -630,15 +643,14 @@ func (mm *MachineManagerAPI) UpgradeSeriesValidate(
 }
 
 // UpgradeSeriesPrepare prepares a machine for a OS series upgrade.
-func (mm *MachineManagerAPI) UpgradeSeriesPrepare(arg params.UpdateSeriesArg) (params.ErrorResult, error) {
+func (mm *MachineManagerAPI) UpgradeSeriesPrepare(arg params.UpdateChannelArg) (params.ErrorResult, error) {
 	if err := mm.authorizer.CanWrite(); err != nil {
 		return params.ErrorResult{}, err
 	}
 	if err := mm.check.ChangeAllowed(); err != nil {
 		return params.ErrorResult{}, err
 	}
-	err := mm.upgradeSeriesAPI.Prepare(arg.Entity.Tag, arg.Series, arg.Force)
-	if err != nil {
+	if err := mm.upgradeSeriesAPI.Prepare(arg.Entity.Tag, arg.Channel, arg.Force); err != nil {
 		return params.ErrorResult{Error: apiservererrors.ServerError(err)}, nil
 	}
 	return params.ErrorResult{}, nil
@@ -646,7 +658,7 @@ func (mm *MachineManagerAPI) UpgradeSeriesPrepare(arg params.UpdateSeriesArg) (p
 
 // UpgradeSeriesComplete marks a machine as having completed a managed series
 // upgrade.
-func (mm *MachineManagerAPI) UpgradeSeriesComplete(arg params.UpdateSeriesArg) (params.ErrorResult, error) {
+func (mm *MachineManagerAPI) UpgradeSeriesComplete(arg params.UpdateChannelArg) (params.ErrorResult, error) {
 	if err := mm.authorizer.CanWrite(); err != nil {
 		return params.ErrorResult{}, err
 	}
@@ -746,26 +758,18 @@ func (mm *MachineManagerAPI) machineFromTag(tag string) (Machine, error) {
 	return machine, nil
 }
 
-// isSeriesLessThan returns a bool indicating whether the first argument's
+// isBaseLessThan returns a bool indicating whether the first argument's
 // version is lexicographically less than the second argument's, thus indicating
 // that the series represents an older version of the operating system. The
 // output is only valid for Ubuntu series.
-func isSeriesLessThan(series1, series2 string) (bool, error) {
-	version1, err := series.SeriesVersion(series1)
-	if err != nil {
-		return false, err
-	}
-	version2, err := series.SeriesVersion(series2)
-	if err != nil {
-		return false, err
-	}
+func isBaseLessThan(base1, base2 coreseries.Base) (bool, error) {
 	// Versions may be numeric.
-	vers1Int, err1 := strconv.Atoi(version1)
-	vers2Int, err2 := strconv.Atoi(version2)
+	vers1Int, err1 := strconv.Atoi(base1.Channel.Track)
+	vers2Int, err2 := strconv.Atoi(base2.Channel.Track)
 	if err1 == nil && err2 == nil {
 		return vers2Int > vers1Int, nil
 	}
-	return version2 > version1, nil
+	return base2.Channel.Track > base1.Channel.Track, nil
 }
 
 // ModelAuthorizer defines if a given operation can be performed based on a

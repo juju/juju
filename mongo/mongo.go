@@ -7,7 +7,6 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
@@ -405,7 +404,7 @@ func mongoSnapService(dataDir, configDir, snapChannel string) (MongoSnapService,
 
 	// If we're installing a local snap, then provide an absolute path
 	// as a snap <name>. snap install <name> will then do the Right Thing (TM).
-	files, err := ioutil.ReadDir(path.Join(dataDir, "snap"))
+	files, err := os.ReadDir(path.Join(dataDir, "snap"))
 	if err == nil {
 		for _, fullFileName := range files {
 			_, fileName := path.Split(fullFileName.Name())

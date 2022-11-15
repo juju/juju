@@ -56,7 +56,7 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	var err error
-	s.machine, err = s.State.AddMachine("quantal", state.JobManageModel)
+	s.machine, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
@@ -156,7 +156,7 @@ func (s *provisionerSuite) TestGetSetStatusWithData(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestMachinesWithTransientErrors(c *gc.C) {
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now()
 	sInfo := status.StatusInfo{
@@ -183,7 +183,7 @@ func (s *provisionerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 
 func (s *provisionerSuite) TestEnsureDeadAndRemove(c *gc.C) {
 	// Create a fresh machine to test the complete scenario.
-	otherMachine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	otherMachine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(otherMachine.Life(), gc.Equals, state.Alive)
 
@@ -221,7 +221,7 @@ func (s *provisionerSuite) TestEnsureDeadAndRemove(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestMarkForRemoval(c *gc.C) {
-	machine, err := s.State.AddMachine("xenial", state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("22.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	apiMachine := s.assertGetOneMachine(c, machine.MachineTag())
@@ -242,7 +242,7 @@ func (s *provisionerSuite) TestMarkForRemoval(c *gc.C) {
 
 func (s *provisionerSuite) TestRefreshAndLife(c *gc.C) {
 	// Create a fresh machine to test the complete scenario.
-	otherMachine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	otherMachine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(otherMachine.Life(), gc.Equals, state.Alive)
 
@@ -265,8 +265,8 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 
 	// Create a fresh machine, since machine 0 is already provisioned.
 	template := state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 		Volumes: []state.HostVolumeParams{{
 			Volume: state.VolumeParams{
 				Pool: "loop-pool",
@@ -343,8 +343,8 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 func (s *provisionerSuite) TestAvailabilityZone(c *gc.C) {
 	// Create a fresh machine, since machine 0 is already provisioned.
 	template := state.MachineTemplate{
-		Series: "xenial",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("16.04"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 	}
 	notProvisionedMachine, err := s.State.AddOneMachine(template)
 	c.Assert(err, jc.ErrorIsNil)
@@ -372,8 +372,8 @@ func (s *provisionerSuite) TestAvailabilityZone(c *gc.C) {
 func (s *provisionerSuite) TestSetInstanceInfoProfiles(c *gc.C) {
 	// Create a fresh machine, since machine 0 is already provisioned.
 	template := state.MachineTemplate{
-		Series: "xenial",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("16.04"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 	}
 	notProvisionedMachine, err := s.State.AddOneMachine(template)
 	c.Assert(err, jc.ErrorIsNil)
@@ -429,7 +429,7 @@ func (s *provisionerSuite) TestDistributionGroup(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.DeepEquals, []instance.Id{"i-manager"})
 
-	machine1, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine1, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	apiMachine = s.assertGetOneMachine(c, machine1.MachineTag())
 	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
@@ -454,7 +454,7 @@ func (s *provisionerSuite) TestDistributionGroup(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestDistributionGroupMachineNotFound(c *gc.C) {
-	stateMachine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	stateMachine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	apiMachine := s.assertGetOneMachine(c, stateMachine.MachineTag())
 	err = apiMachine.EnsureDead()
@@ -474,7 +474,7 @@ func (s *provisionerSuite) TestDistributionGroupByMachineId(c *gc.C) {
 		{MachineIds: nil, Err: nil},
 	})
 
-	machine1, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine1, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	unit, err := wordpress.AddUnit(state.AddUnitParams{})
@@ -493,7 +493,7 @@ func (s *provisionerSuite) TestDistributionGroupByMachineId(c *gc.C) {
 		{MachineIds: nil, Err: nil},
 	})
 
-	machine2, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine2, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	unit2, err := wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -515,7 +515,7 @@ func (s *provisionerSuite) TestDistributionGroupByMachineId(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestDistributionGroupByMachineIdNotFound(c *gc.C) {
-	stateMachine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	stateMachine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	machineTag := stateMachine.MachineTag()
 	apiMachine := s.assertGetOneMachine(c, machineTag)
@@ -547,7 +547,7 @@ func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
 
 	cons := constraints.MustParse("cores=12 mem=8G spaces=^space1,space2")
 	template := state.MachineTemplate{
-		Series:      "quantal",
+		Base:        state.UbuntuBase("12.10"),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Placement:   "valid",
 		Constraints: cons,
@@ -557,7 +557,7 @@ func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
 	apiMachine := s.assertGetOneMachine(c, machine.MachineTag())
 	provisioningInfo, err := apiMachine.ProvisioningInfo()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(provisioningInfo.Series, gc.Equals, template.Series)
+	c.Assert(provisioningInfo.Base, jc.DeepEquals, params.Base{Name: "ubuntu", Channel: "12.10/stable"})
 	c.Assert(provisioningInfo.Placement, gc.Equals, template.Placement)
 	c.Assert(provisioningInfo.Constraints, jc.DeepEquals, template.Constraints)
 
@@ -571,7 +571,7 @@ func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestProvisioningInfoMachineNotFound(c *gc.C) {
-	stateMachine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	stateMachine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	apiMachine := s.assertGetOneMachine(c, stateMachine.MachineTag())
 	err = apiMachine.EnsureDead()
@@ -589,8 +589,8 @@ func (s *provisionerSuite) TestWatchContainers(c *gc.C) {
 
 	// Add one LXD container.
 	template := state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
@@ -650,9 +650,9 @@ func (s *provisionerSuite) TestWatchModelMachines(c *gc.C) {
 	wc.AssertChange(s.machine.Id())
 
 	// Add another 2 machines make sure they are detected.
-	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	_, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	otherMachine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	otherMachine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("1", "2")
 
@@ -663,8 +663,8 @@ func (s *provisionerSuite) TestWatchModelMachines(c *gc.C) {
 
 	// Add a container and make sure it's not detected.
 	template := state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 	}
 	_, err = s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
@@ -786,7 +786,7 @@ func (s *provisionerSuite) testFindTools(c *gc.C, matchArch bool, apiError, logi
 		}
 		return apiError
 	})
-	apiList, err := s.provisioner.FindTools(jujuversion.Current, "xenial", a)
+	apiList, err := s.provisioner.FindTools(jujuversion.Current, "ubuntu", a)
 	c.Assert(called, jc.IsTrue)
 	if apiError != nil {
 		c.Assert(err, gc.Equals, apiError)
@@ -827,8 +827,8 @@ func (s *provisionerSuite) TestHostChangesForContainer(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	containerTemplate := state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 	}
 	machine, err := s.State.AddMachineInsideMachine(containerTemplate, s.machine.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)

@@ -8,7 +8,6 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
@@ -360,7 +359,7 @@ func (s *builderSuite) TestDeployDeploymentTypeMismatchFailed(c *gc.C) {
 func objBody(c *gc.C, object interface{}) io.ReadCloser {
 	output, err := json.MarshalIndent(object, "", "")
 	c.Assert(err, jc.ErrorIsNil)
-	return ioutil.NopCloser(bytes.NewReader(output))
+	return io.NopCloser(bytes.NewReader(output))
 }
 
 func (s *builderSuite) fakeRequest(
@@ -391,7 +390,7 @@ func (s *builderSuite) fakeRequest(
 		reqBody, err := req.GetBody()
 		c.Assert(err, jc.ErrorIsNil)
 		defer reqBody.Close()
-		reqBodyData, err := ioutil.ReadAll(reqBody)
+		reqBodyData, err := io.ReadAll(reqBody)
 		c.Assert(err, jc.ErrorIsNil)
 		reqObj, err := runtime.Decode(unstructured.UnstructuredJSONScheme, reqBodyData)
 		c.Assert(err, jc.ErrorIsNil)
