@@ -55,8 +55,8 @@ func (s *registrationSuite) assertRegisterNoProxy(c *gc.C, hasProxy bool) {
 		"service":               "controller-service",
 		"service-account-token": "token====",
 	}
-	environ := apiserver.NewMockConnectorInfo(ctrl)
-	proxier := apiserver.NewMockProxier(ctrl)
+	environ := NewMockConnectorInfo(ctrl)
+	proxier := NewMockProxier(ctrl)
 	s.PatchValue(&apiserver.GetConnectorInfoer, func(stateenvirons.Model) (environs.ConnectorInfo, error) {
 		if hasProxy {
 			return environ, nil
