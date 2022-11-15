@@ -9,7 +9,7 @@ run_deploy_coslite() {
 	ensure "${model_name}" "${file}"
 
 	juju deploy cos-lite --trust --channel=stable
-  juju config traefik external_hostname=test-coslite.com
+	juju config traefik external_hostname=test-coslite.com
 	echo "Wait for all unit agents to be in idle condition"
 	wait_for 0 "$(not_idle_count) | length" 1800
 
@@ -20,16 +20,16 @@ run_deploy_coslite() {
 		exit 1
 	fi
 
-  echo "check if alertmanager is ready"
-  alertmanager_ip=$(juju status --format=json | jq -r ".applications.alertmanager.units.\"alertmanager/0\".address")
-  check_ready "http://$alertmanager_ip:9093" 200
+	echo "check if alertmanager is ready"
+	alertmanager_ip=$(juju status --format=json | jq -r '.applications.alertmanager.units."alertmanager/0".address')
+	check_ready "http://$alertmanager_ip:9093" 200
 
-  echo "check if grafana is ready"
-  grafana_ip=$(juju status --format=json | jq -r ".applications.grafana.units.\"grafana/0\".address")
-  check_ready "http://$grafana_ip:3000" 200
+	echo "check if grafana is ready"
+	grafana_ip=$(juju status --format=json | jq -r '.applications.grafana.units."grafana/0".address')
+	check_ready "http://$grafana_ip:3000" 200
 
-  echo "check if prometheus is ready"
-  prometheus_ip=$(juju status --format=json | jq -r ".applications.prometheus.units.\"prometheus/0\".address")
+	echo "check if prometheus is ready"
+	prometheus_ip=$(juju status --format=json | jq -r '.applications.prometheus.units."prometheus/0".address')
 	check_ready "http://$prometheus_ip:9090" 200
 
 	echo "cos lite tests passed"
