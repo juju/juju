@@ -570,9 +570,15 @@ func (c *registerCommand) secretKeyLogin(
 		return nil, errors.Trace(err)
 	}
 	apiAddr := conn.Addr()
-	if err := conn.Close(); err != nil {
-		return nil, errors.Trace(err)
-	}
+	defer func() {
+		if closeErr := conn.Close(); closeErr != nil {
+			if err == nil {
+				err = closeErr
+			} else {
+				logger.Warningf("error closing API connection: %v", closeErr)
+			}
+		}
+	}()
 
 	// Using the address we connected to above, perform the request.
 	// A success response will include a macaroon cookie that we can
