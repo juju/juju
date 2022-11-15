@@ -36,4 +36,5 @@ test_coslite() {
 
 	# TODO(basebandit): remove KILL_CONTROLLER once model teardown has been fixed for k8s models.
 	export KILL_CONTROLLER=true
+	destroy_controller "test-coslite"
 }
