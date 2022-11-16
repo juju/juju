@@ -417,12 +417,12 @@ func (s *SecretsManagerAPI) getSecretContent(arg params.GetSecretContentArg) (*s
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
 	}
-	update := arg.Update ||
+	refresh := arg.Refresh ||
 		err != nil // Not found, so need to create one.
 	peek := arg.Peek
 
-	// Use the latest revision as the current one if --update or --peek.
-	if update || peek {
+	// Use the latest revision as the current one if --refresh or --peek.
+	if refresh || peek {
 		md, err := s.secretsBackend.GetSecret(uri)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -434,7 +434,7 @@ func (s *SecretsManagerAPI) getSecretContent(arg params.GetSecretContentArg) (*s
 		}
 		consumer.CurrentRevision = md.LatestRevision
 	}
-	if update || possibleUpdateLabel {
+	if refresh || possibleUpdateLabel {
 		if arg.Label != "" {
 			consumer.Label = arg.Label
 		}

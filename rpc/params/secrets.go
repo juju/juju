@@ -111,10 +111,10 @@ type GetSecretContentArgs struct {
 
 // GetSecretContentArg holds the args for getting a secret value.
 type GetSecretContentArg struct {
-	URI    string `json:"uri"`
-	Label  string `json:"label,omitempty"`
-	Update bool   `json:"update,omitempty"`
-	Peek   bool   `json:"peek,omitempty"`
+	URI     string `json:"uri"`
+	Label   string `json:"label,omitempty"`
+	Refresh bool   `json:"refresh,omitempty"`
+	Peek    bool   `json:"peek,omitempty"`
 }
 
 // SecretContentResults holds secret value results.

@@ -81,7 +81,8 @@ Currently available charm hook tools are:
     relation-set             set relation settings
     resource-get             get the path to the locally cached resource file
     secret-add               add a new secret
-    secret-get               get the value of a secret
+    secret-get               get the content of a secret
+    secret-info-get          get a secret's metadata info
     secret-grant             grant access to a secret
     secret-ids               print secret ids
     secret-remove            remove a existing secret
@@ -140,6 +141,7 @@ var expectedCommands = []string{
 	"resource-get",
 	"secret-add",
 	"secret-get",
+	"secret-info-get",
 	"secret-grant",
 	"secret-ids",
 	"secret-remove",

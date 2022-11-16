@@ -81,13 +81,14 @@ func constructCommandCreator(name string, newCmd functionCmdCreator) creator {
 }
 
 var secretCommands = map[string]creator{
-	"secret-add":    NewSecretAddCommand,
-	"secret-set":    NewSecretSetCommand,
-	"secret-remove": NewSecretRemoveCommand,
-	"secret-get":    NewSecretGetCommand,
-	"secret-grant":  NewSecretGrantCommand,
-	"secret-revoke": NewSecretRevokeCommand,
-	"secret-ids":    NewSecretIdsCommand,
+	"secret-add":      NewSecretAddCommand,
+	"secret-set":      NewSecretSetCommand,
+	"secret-remove":   NewSecretRemoveCommand,
+	"secret-get":      NewSecretGetCommand,
+	"secret-info-get": NewSecretInfoGetCommand,
+	"secret-grant":    NewSecretGrantCommand,
+	"secret-revoke":   NewSecretRevokeCommand,
+	"secret-ids":      NewSecretIdsCommand,
 }
 
 var storageCommands = map[string]creator{

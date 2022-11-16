@@ -30,15 +30,15 @@ run_secrets_juju() {
 	juju exec --unit easyrsa/0 -- secret-get "$secret_owned_by_easyrsa" | grep 'owned-by: easyrsa-app'
 
 	# secret-get by URI - metadata.
-	juju exec --unit easyrsa/0 -- secret-get "$secret_owned_by_easyrsa_0" --metadata --format json | jq ".${secret_owned_by_easyrsa_0}.owner" | grep unit
-	juju exec --unit easyrsa/0 -- secret-get "$secret_owned_by_easyrsa" --metadata --format json | jq ".${secret_owned_by_easyrsa}.owner" | grep application
+	juju exec --unit easyrsa/0 -- secret-info-get "$secret_owned_by_easyrsa_0" --format json | jq ".${secret_owned_by_easyrsa_0}.owner" | grep unit
+	juju exec --unit easyrsa/0 -- secret-info-get "$secret_owned_by_easyrsa" --format json | jq ".${secret_owned_by_easyrsa}.owner" | grep application
 
 	# secret-get by label or consumer label - content.
 	juju exec --unit easyrsa/0 -- secret-get --label=easyrsa_0 | grep 'owned-by: easyrsa/0'
 	juju exec --unit easyrsa/0 -- secret-get --label=easyrsa-app | grep 'owned-by: easyrsa-app'
 
 	# secret-get by label - metadata.
-	juju exec --unit easyrsa/0 -- secret-get --label=easyrsa_0 --metadata --format json | jq ".${secret_owned_by_easyrsa_0}.label" | grep easyrsa_0
+	juju exec --unit easyrsa/0 -- secret-info-get --label=easyrsa_0 --format json | jq ".${secret_owned_by_easyrsa_0}.label" | grep easyrsa_0
 
 	relation_id=$(juju --show-log show-unit easyrsa/0 --format json | jq '."easyrsa/0"."relation-info"[0]."relation-id"')
 	juju exec --unit easyrsa/0 -- secret-grant "$secret_owned_by_easyrsa_0" -r "$relation_id"

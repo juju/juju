@@ -38985,7 +38985,7 @@
                         "peek": {
                             "type": "boolean"
                         },
-                        "update": {
+                        "refresh": {
                             "type": "boolean"
                         },
                         "uri": {
@@ -46083,7 +46083,7 @@
                         "peek": {
                             "type": "boolean"
                         },
-                        "update": {
+                        "refresh": {
                             "type": "boolean"
                         },
                         "uri": {
