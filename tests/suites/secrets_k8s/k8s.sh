@@ -23,15 +23,15 @@ run_secrets() {
 	juju exec --unit hello/0 -- secret-get "$secret_owned_by_hello" | grep 'owned-by: hello-app'
 
 	# secret-get by URI - metadata.
-	juju exec --unit hello/0 -- secret-get "$secret_owned_by_hello_0" --metadata --format json | jq ".${secret_owned_by_hello_0}.owner" | grep unit
-	juju exec --unit hello/0 -- secret-get "$secret_owned_by_hello" --metadata --format json | jq ".${secret_owned_by_hello}.owner" | grep application
+	juju exec --unit hello/0 -- secret-info-get "$secret_owned_by_hello_0" --format json | jq ".${secret_owned_by_hello_0}.owner" | grep unit
+	juju exec --unit hello/0 -- secret-info-get "$secret_owned_by_hello" --format json | jq ".${secret_owned_by_hello}.owner" | grep application
 
 	# secret-get by label or consumer label - content.
 	juju exec --unit hello/0 -- secret-get --label=hello_0 | grep 'owned-by: hello/0'
 	juju exec --unit hello/0 -- secret-get --label=hello-app | grep 'owned-by: hello-app'
 
 	# secret-get by label - metadata.
-	juju exec --unit hello/0 -- secret-get --label=hello_0 --metadata --format json | jq ".${secret_owned_by_hello_0}.label" | grep hello_0
+	juju exec --unit hello/0 -- secret-info-get --label=hello_0 --format json | jq ".${secret_owned_by_hello_0}.label" | grep hello_0
 
 	juju --show-log deploy nginx-ingress-integrator nginx
 	juju --show-log integrate nginx hello

@@ -72,11 +72,11 @@ func (c *Client) CreateSecretURIs(count int) ([]*coresecrets.URI, error) {
 }
 
 // GetContentInfo returns info about the content of a secret.
-func (c *Client) GetContentInfo(uri *coresecrets.URI, label string, update, peek bool) (*secrets.ContentParams, error) {
+func (c *Client) GetContentInfo(uri *coresecrets.URI, label string, refresh, peek bool) (*secrets.ContentParams, error) {
 	arg := params.GetSecretContentArg{
-		Label:  label,
-		Update: update,
-		Peek:   peek,
+		Label:   label,
+		Refresh: refresh,
+		Peek:    peek,
 	}
 	if uri != nil {
 		arg.URI = uri.String()
