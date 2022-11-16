@@ -3,42 +3,57 @@
 run_deploy_coslite() {
 	echo
 
-	local model_name file overlay_path admin_passwd alertmanager_ip grafana_ip prometheus_ip
+	local model_name file admin_passwd alertmanager_ip grafana_ip prometheus_ip
 	model_name="deploy-coslite"
 	file="${TEST_DIR}/${model_name}.log"
 	ensure "${model_name}" "${file}"
 
-	overlay_path="./tests/suites/coslite/overlay"
-	juju deploy cos-lite --trust --channel=beta --overlay "${overlay_path}/offers-overlay.yaml" --overlay "${overlay_path}/storage-small-overlay.yaml"
+	juju deploy cos-lite --trust --channel=stable
+	juju config traefik external_hostname=test-coslite.com
+	echo "Wait for all unit agents to be in idle condition"
+	wait_for 0 "$(not_idle_list) | length" 1800
 
-	echo "Wait for all unit agents to be in active condition"
-	wait_for 0 "$(not_idle_list)" 1800
-
-	echo "Check that all offer endpoints specified in the overlays exist"
-	wait_for 5 '[.offers[] | .endpoints] | length'
-
+	# run-action will change in 3.0
 	admin_passwd=$(juju run-action --wait grafana/0 get-admin-password --format json | jq '.["unit-grafana-0"]["results"]["admin-password"]')
 	if [ -z "$admin_passwd" ]; then
 		echo "expected to get admin password for grafana/0"
 		exit 1
 	fi
 
-	# Assert the web dashboards are reachable
-	alertmanager_ip=$(juju status --format json | jq '.applications["alertmanager"]["units"]["alertmanager/0"].address' | tr -d '"')
-	echo "Check if alertmanager is ready to serve traffic"
-	curl -sS http://"$alertmanager_ip":9093/ready -o /dev/null
-	grafana_ip=$(juju status --format json | jq '.applications["grafana"]["units"]["grafana/0"].address' | tr -d '"')
-	echo "Check if grafana is ready to serve traffic"
-	curl -sS http://"$grafana_ip":3000/api/health -o /dev/null
-	prometheus_ip=$(juju status --format json | jq '.applications["prometheus"]["units"]["prometheus/0"].address' | tr -d '"')
-	echo "check if prometheus is ready to serve traffic"
-	curl -sS http://"$prometheus_ip":9090/ready -o /dev/null
+	echo "check if alertmanager is ready"
+	alertmanager_ip=$(juju status --format=json | jq -r '.applications.alertmanager.units."alertmanager/0".address')
+	check_ready "http://$alertmanager_ip:9093" 200
+
+	echo "check if grafana is ready"
+	grafana_ip=$(juju status --format=json | jq -r '.applications.grafana.units."grafana/0".address')
+	check_ready "http://$grafana_ip:3000" 200
+
+	echo "check if prometheus is ready"
+	prometheus_ip=$(juju status --format=json | jq -r '.applications.prometheus.units."prometheus/0".address')
+	check_ready "http://$prometheus_ip:9090" 200
+
 	echo "cos lite tests passed"
+}
 
-	# without --force grafana get stuck in a hook(removal) error state.
-	juju remove-application grafana --force
-
-	destroy_model "${model_name}"
+# Check that curl request return needed code
+check_ready() {
+	local url code
+	url=${1}
+	code=${2}
+	attempt=1
+	while true; do
+		status_code=$(curl --write-out "%{http_code}" -L --silent --output /dev/null "${url}")
+		if [[ $status_code -eq $code ]]; then
+			echo "Ready to serve traffic"
+			break
+		fi
+		if [[ ${attempt} -ge 3 ]]; then
+			echo "Failed to connect to ${url} after ${attempt} attempts with status code ${status_code}"
+			exit 1
+		fi
+		attempt=$((attempt + 1))
+		sleep 5
+	done
 }
 
 test_deploy_coslite() {
