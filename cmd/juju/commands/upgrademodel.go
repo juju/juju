@@ -281,7 +281,7 @@ func (c *upgradeJujuCommand) upgradeWithTargetVersion(
 	// juju upgrade-controller --agent-version 3.x.x
 	chosenVersion = targetVersion
 
-	if targetVersion.Major == 3 {
+	if isControllerModel && targetVersion.Major == 3 {
 		// We enabled model upgrade from 2.9.33 to 3.0 before, but we decide to disable it now.
 		// To prevent a 2.9.33-2.9.35 controller from upgrading to 3.0, we have to do this
 		// check again here to use the newly updated support version matrix.
