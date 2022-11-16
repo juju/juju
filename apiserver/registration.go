@@ -183,8 +183,8 @@ func getConnectorInfoer(model stateenvirons.Model) (environs.ConnectorInfo, erro
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if conInfo, ok := environ.(environs.ConnectorInfo); ok {
-		return conInfo, nil
+	if connInfo, ok := environ.(environs.ConnectorInfo); ok {
+		return connInfo, nil
 	}
 	return nil, errors.NotSupportedf("environ %q", environ.Config().Type())
 }
@@ -214,14 +214,14 @@ func (h *registerUserHandler) getSecretKeyLoginResponsePayload(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	conInfo, err := GetConnectorInfoer(model)
+	connInfo, err := GetConnectorInfoer(model)
 	if errors.Is(err, errors.NotSupported) { // Not all providers support this.
 		return &payload, nil
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	proxier, err := conInfo.ConnectionProxyInfo()
+	proxier, err := connInfo.ConnectionProxyInfo()
 	if errors.Is(err, errors.NotFound) {
 		return &payload, nil
 	}
