@@ -82,9 +82,9 @@ Currently available charm hook tools are:
     resource-get             get the path to the locally cached resource file
     secret-add               add a new secret
     secret-get               get the content of a secret
-    secret-info-get          get a secret's metadata info
     secret-grant             grant access to a secret
     secret-ids               print secret ids
+    secret-info-get          get a secret's metadata info
     secret-remove            remove a existing secret
     secret-revoke            revoke access to a secret
     secret-set               update an existing secret
@@ -141,9 +141,9 @@ var expectedCommands = []string{
 	"resource-get",
 	"secret-add",
 	"secret-get",
-	"secret-info-get",
 	"secret-grant",
 	"secret-ids",
+	"secret-info-get",
 	"secret-remove",
 	"secret-revoke",
 	"secret-set",
