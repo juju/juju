@@ -89,7 +89,7 @@ func (s *UserAddCommandSuite) TestAddUserWithUsername(c *gc.C) {
 	expected := `
 User "foobar" added
 Please send this command to foobar:
-    juju register MEQTBmZvb2JhcjAPEw0wLjEuMi4zOjEyMzQ1BCBYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWBMHdGVzdGluZwAA
+    juju register MEYTBmZvb2JhcjAPEw0wLjEuMi4zOjEyMzQ1BCBYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWBMHdGVzdGluZxMA
 
 "foobar" has not been granted access to any models. You can use "juju grant" to grant access.
 `[1:]
@@ -105,7 +105,7 @@ func (s *UserAddCommandSuite) TestAddUserWithUsernameAndDisplayname(c *gc.C) {
 	expected := `
 User "Foo Bar (foobar)" added
 Please send this command to foobar:
-    juju register MEQTBmZvb2JhcjAPEw0wLjEuMi4zOjEyMzQ1BCBYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWBMHdGVzdGluZwAA
+    juju register MEYTBmZvb2JhcjAPEw0wLjEuMi4zOjEyMzQ1BCBYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWBMHdGVzdGluZxMA
 
 "Foo Bar (foobar)" has not been granted access to any models. You can use "juju grant" to grant access.
 `[1:]
