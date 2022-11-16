@@ -11,9 +11,17 @@ import (
 	proxyfactory "github.com/juju/juju/proxy/factory"
 )
 
-var (
-	NewProxierFactory = proxyfactory.NewDefaultFactory
-)
+// For testing purposes.
+var NewProxierFactory = newProxierFactory
+
+func newProxierFactory() (ProxyFactory, error) {
+	return proxyfactory.NewDefaultFactory()
+}
+
+// ProxyFactory defines the interface for a factory that can create a proxy.
+type ProxyFactory interface {
+	ProxierFromConfig(string, map[string]interface{}) (proxy.Proxier, error)
+}
 
 // ProxyConfWrapper is wrapper around proxier interfaces so that they can be
 // serialized to json correctly.
