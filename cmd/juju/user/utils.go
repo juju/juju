@@ -10,11 +10,16 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 )
 
-func generateUserControllerAccessToken(command modelcmd.ControllerCommandBase, username string, secretKey []byte) (string, error) {
+// ControllerCommand defines a subset methods of the modelcmd.ControllerCommandBase that the generateUserControllerAccessToken function uses.
+type ControllerCommand interface {
+	ControllerName() (string, error)
+	ClientStore() jujuclient.ClientStore
+}
+
+func generateUserControllerAccessToken(command ControllerCommand, username string, secretKey []byte) (string, error) {
 	controllerName, err := command.ControllerName()
 	if err != nil {
 		return "", errors.Trace(err)
