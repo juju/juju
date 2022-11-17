@@ -47,6 +47,10 @@ func (mp *MockProxier) Start() error {
 	return mp.StartFn()
 }
 
+func (mp *MockProxier) MarshalYAML() (interface{}, error) { return nil, nil }
+
+func (mp *MockProxier) Insecure() {}
+
 func (mp *MockProxier) Stop() {
 	if mp.StopFn != nil {
 		mp.StopFn()

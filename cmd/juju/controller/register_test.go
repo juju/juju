@@ -93,7 +93,13 @@ func (s *RegisterSuite) TestInit(c *gc.C) {
 }
 
 func (s *RegisterSuite) TestRegister(c *gc.C) {
-	s.testRegisterSuccess(c, nil, "")
+	s.testRegisterSuccess(c, nil, "", false)
+	c.Assert(s.listModelsControllerName, gc.Equals, "controller-name")
+	c.Assert(s.listModelsUserName, gc.Equals, "bob")
+}
+
+func (s *RegisterSuite) TestRegisterWithProxy(c *gc.C) {
+	s.testRegisterSuccess(c, nil, "", true)
 	c.Assert(s.listModelsControllerName, gc.Equals, "controller-name")
 	c.Assert(s.listModelsUserName, gc.Equals, "bob")
 }
@@ -119,7 +125,7 @@ Welcome, bob. You are now logged into "controller-name".
 
 Current model set to "carol/theoneandonly".
 `[1:])
-	s.testRegisterSuccess(c, prompter, "")
+	s.testRegisterSuccess(c, prompter, "", false)
 	c.Assert(
 		s.store.Models["controller-name"].CurrentModel,
 		gc.Equals, "carol/theoneandonly",
@@ -157,7 +163,7 @@ one of them:
   - juju switch model2
 `[1:])
 	defer prompter.CheckDone()
-	s.testRegisterSuccess(c, prompter, "")
+	s.testRegisterSuccess(c, prompter, "", false)
 
 	// When there are multiple models, no current model will be set.
 	// Instead, the command will output the list of models and inform
@@ -171,19 +177,41 @@ one of them:
 // default prompter will be used.
 // If controllerName is non-empty, that name will be expected
 // to be the name of the registered controller.
-func (s *RegisterSuite) testRegisterSuccess(c *gc.C, stdio io.ReadWriter, controllerName string) {
-	srv := s.mockServer(c)
-	s.httpHandler = srv
-
+func (s *RegisterSuite) testRegisterSuccess(c *gc.C, stdio io.ReadWriter, controllerName string, withProxy bool) {
 	if controllerName == "" {
 		controllerName = "controller-name"
 	}
 
-	registrationData := s.encodeRegistrationData(c, jujuclient.RegistrationInfo{
+	var proxy *params.Proxy
+	registrationInfo := jujuclient.RegistrationInfo{
 		User:           "bob",
 		SecretKey:      mockSecretKey,
 		ControllerName: "controller-name",
-	})
+	}
+	rawConfig := map[string]interface{}{
+		"api-host":              "https://127.0.0.1:16443",
+		"ca-cert":               "cert====",
+		"namespace":             "controller-controller-name",
+		"remote-port":           "17070",
+		"service":               "controller-service",
+		"service-account-token": "token====",
+	}
+	if withProxy {
+		proxy = &params.Proxy{Type: "kubernetes-port-forward", Config: rawConfig}
+		registrationInfo.ProxyConfig = `
+type: kubernetes-port-forward
+config:
+    api-host: https://127.0.0.1:443
+    namespace: controller-controller-name
+    remote-port: "17070"
+    service: controller-service
+    service-account-token: token====
+`[1:]
+	}
+	srv := s.mockServer(c, proxy)
+	s.httpHandler = srv
+
+	registrationData := s.encodeRegistrationData(c, registrationInfo)
 	c.Logf("registration data: %q", registrationData)
 	if stdio == nil {
 		prompter := cmdtesting.NewSeqPrompter(c, "»", `
@@ -212,7 +240,7 @@ Welcome, bob. You are now logged into "controller-name".
 	c.Assert(request.User, jc.DeepEquals, "user-bob")
 	c.Assert(request.Nonce, gc.HasLen, 24)
 	requestPayloadPlaintext, err := json.Marshal(params.SecretKeyLoginRequestPayload{
-		"hunter2",
+		Password: "hunter2",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedCiphertext := s.seal(c, requestPayloadPlaintext, mockSecretKey, request.Nonce)
@@ -224,11 +252,15 @@ Welcome, bob. You are now logged into "controller-name".
 
 	controller, err := s.store.ControllerByName(controllerName)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controller, jc.DeepEquals, &jujuclient.ControllerDetails{
-		ControllerUUID: mockControllerUUID,
-		APIEndpoints:   []string{s.apiConnection.addr},
-		CACert:         testing.CACert,
-	})
+	c.Assert(controller.ControllerUUID, gc.Equals, mockControllerUUID)
+	c.Assert(controller.APIEndpoints, jc.DeepEquals, []string{s.apiConnection.addr})
+	c.Assert(controller.CACert, jc.DeepEquals, testing.CACert)
+	if withProxy {
+		c.Assert(controller.Proxy.Proxier.Type(), gc.Equals, "kubernetes-port-forward")
+		rcfg, err := controller.Proxy.Proxier.RawConfig()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(rcfg, jc.DeepEquals, rawConfig)
+	}
 	account, err := s.store.AccountDetails(controllerName)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(account, jc.DeepEquals, &jujuclient.AccountDetails{
@@ -246,7 +278,7 @@ func (s *RegisterSuite) TestRegisterInvalidRegistrationData(c *gc.C) {
 }
 
 func (s *RegisterSuite) TestRegisterEmptyControllerName(c *gc.C) {
-	srv := s.mockServer(c)
+	srv := s.mockServer(c, nil)
 	s.httpHandler = srv
 	registrationData := s.encodeRegistrationData(c, jujuclient.RegistrationInfo{
 		User:      "bob",
@@ -289,7 +321,7 @@ Initial password successfully set for bob.
 
 Welcome, bob. You are now logged into "other-name".
 `[1:]+noModelsText)
-	s.testRegisterSuccess(c, prompter, "other-name")
+	s.testRegisterSuccess(c, prompter, "other-name", false)
 	prompter.AssertDone()
 }
 
@@ -317,7 +349,7 @@ func (s *RegisterSuite) TestControllerUUIDExists(c *gc.C) {
 		ControllerName: "controller-name",
 	})
 
-	srv := s.mockServer(c)
+	srv := s.mockServer(c, nil)
 	s.httpHandler = srv
 
 	prompter := cmdtesting.NewSeqPrompter(c, "»", `
@@ -374,7 +406,7 @@ Welcome, bob. You are now logged into "other-name".
 Current model set to "bob/model-name".
 `[1:])
 	defer prompter.CheckDone()
-	s.testRegisterSuccess(c, prompter, "other-name")
+	s.testRegisterSuccess(c, prompter, "other-name", false)
 }
 
 func (s *RegisterSuite) TestRegisterEmptyPassword(c *gc.C) {
@@ -588,12 +620,13 @@ var mockSecretKey = []byte(strings.Repeat("X", 32))
 //
 // Each time a call is made, the requests and requestBodies fields in
 // the returned mockServer instance are appended with the request details.
-func (s *RegisterSuite) mockServer(c *gc.C) *mockServer {
+func (s *RegisterSuite) mockServer(c *gc.C, proxy *params.Proxy) *mockServer {
 	respNonce := []byte(strings.Repeat("X", 24))
 
 	responsePayloadPlaintext, err := json.Marshal(params.SecretKeyLoginResponsePayload{
 		CACert:         testing.CACert,
 		ControllerUUID: mockControllerUUID,
+		ProxyConfig:    proxy,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	response, err := json.Marshal(params.SecretKeyLoginResponse{

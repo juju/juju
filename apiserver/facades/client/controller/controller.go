@@ -184,7 +184,7 @@ func (c *ControllerAPI) MongoVersion() (params.StringResult, error) {
 func (c *ControllerAPI) dashboardConnectionInfoForCAAS(
 	m *state.Model,
 	applicationName string,
-) (*params.DashboardConnectionProxy, error) {
+) (*params.Proxy, error) {
 	configGetter := stateenvirons.EnvironConfigGetter{Model: m}
 	environ, err := common.EnvironFuncForModel(m, configGetter)()
 	if err != nil {
@@ -214,7 +214,7 @@ func (c *ControllerAPI) dashboardConnectionInfoForCAAS(
 		return nil, err
 	}
 
-	return params.NewDashboardConnectionProxy(proxier)
+	return params.NewProxy(proxier)
 }
 
 // dashboardConnectionInforForIAAS returns a dashboard connection for a Juju

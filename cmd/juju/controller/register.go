@@ -26,6 +26,7 @@ import (
 	"github.com/juju/names/v4"
 	"golang.org/x/crypto/nacl/secretbox"
 	"golang.org/x/crypto/ssh/terminal"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -36,6 +37,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/proxy/factory"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -260,6 +262,18 @@ func (c *registerCommand) publicControllerDetails(host, controllerName string) (
 		}, nil
 }
 
+func getProxier(proxyConfig params.Proxy) (*jujuclient.ProxyConfWrapper, error) {
+	f, err := factory.NewDefaultFactory()
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot create default proxy factory")
+	}
+	proxier, err := f.ProxierFromConfig(proxyConfig.Type, proxyConfig.Config)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &jujuclient.ProxyConfWrapper{Proxier: proxier}, nil
+}
+
 // nonPublicControllerDetails returns controller and account details to be registered with
 // respect to the given registration parameters.
 func (c *registerCommand) nonPublicControllerDetails(ctx *cmd.Context, registrationParams *registrationParams, controllerName string) (jujuclient.ControllerDetails, jujuclient.AccountDetails, error) {
@@ -269,10 +283,22 @@ func (c *registerCommand) nonPublicControllerDetails(ctx *cmd.Context, registrat
 	// During registration we must set a new password. This has to be done
 	// atomically with the clearing of the secret key.
 	payloadBytes, err := json.Marshal(params.SecretKeyLoginRequestPayload{
-		registrationParams.newPassword,
+		Password: registrationParams.newPassword,
 	})
 	if err != nil {
 		return errRet(errors.Trace(err))
+	}
+
+	controllerDetails := jujuclient.ControllerDetails{
+		APIEndpoints: registrationParams.controllerAddrs,
+	}
+
+	if registrationParams.proxyConfig != "" {
+		var proxy jujuclient.ProxyConfWrapper
+		if err := yaml.Unmarshal([]byte(registrationParams.proxyConfig), &proxy); err != nil {
+			return errRet(errors.Trace(err))
+		}
+		controllerDetails.Proxy = &proxy
 	}
 
 	// Make the registration call. If this is successful, the client's
@@ -288,7 +314,7 @@ func (c *registerCommand) nonPublicControllerDetails(ctx *cmd.Context, registrat
 			&registrationParams.key,
 		),
 	}
-	resp, err := c.secretKeyLogin(registrationParams.controllerAddrs, req, controllerName)
+	resp, err := c.secretKeyLogin(controllerDetails, req, controllerName)
 	if err != nil {
 		// If we got here and got an error, the registration token supplied
 		// will be expired.
@@ -314,6 +340,15 @@ func (c *registerCommand) nonPublicControllerDetails(ctx *cmd.Context, registrat
 	if err := json.Unmarshal(payloadBytes, &responsePayload); err != nil {
 		return errRet(errors.Annotate(err, "unmarshalling response payload"))
 	}
+	controllerDetails.ControllerUUID = responsePayload.ControllerUUID
+	controllerDetails.CACert = responsePayload.CACert
+
+	if responsePayload.ProxyConfig != nil {
+		if controllerDetails.Proxy, err = getProxier(*responsePayload.ProxyConfig); err != nil {
+			return errRet(errors.Annotate(err, "creating proxier from config"))
+		}
+	}
+
 	user := registrationParams.userTag.Id()
 	ctx.Infof("Initial password successfully set for %s.", friendlyUserName(user))
 	// If we get to here, then we have a cached macaroon for the registered
@@ -323,14 +358,10 @@ func (c *registerCommand) nonPublicControllerDetails(ctx *cmd.Context, registrat
 			logger.Errorf("failed to clear macaroon: %v", err)
 		}
 	}
-	return jujuclient.ControllerDetails{
-			APIEndpoints:   registrationParams.controllerAddrs,
-			ControllerUUID: responsePayload.ControllerUUID,
-			CACert:         responsePayload.CACert,
-		}, jujuclient.AccountDetails{
-			User:            user,
-			LastKnownAccess: string(permission.LoginAccess),
-		}, nil
+	return controllerDetails, jujuclient.AccountDetails{
+		User:            user,
+		LastKnownAccess: string(permission.LoginAccess),
+	}, nil
 }
 
 // updateController prompts for a controller name and updates the
@@ -428,6 +459,7 @@ type registrationParams struct {
 	key                   [32]byte
 	nonce                 [24]byte
 	newPassword           string
+	proxyConfig           string
 }
 
 // getParameters gets all of the parameters required for registering, prompting
@@ -454,6 +486,7 @@ func (c *registerCommand) getParameters(ctx *cmd.Context) (*registrationParams, 
 	}
 
 	params.controllerAddrs = info.Addrs
+	params.proxyConfig = info.ProxyConfig
 	params.userTag = names.NewUserTag(info.User)
 	if len(info.SecretKey) != len(params.key) {
 		return nil, errors.NotValidf("secret key")
@@ -476,7 +509,9 @@ func (c *registerCommand) getParameters(ctx *cmd.Context) (*registrationParams, 
 	return &params, nil
 }
 
-func (c *registerCommand) secretKeyLogin(addrs []string, request params.SecretKeyLoginRequest, controllerName string) (*params.SecretKeyLoginResponse, error) {
+func (c *registerCommand) secretKeyLogin(
+	controllerDetails jujuclient.ControllerDetails, request params.SecretKeyLoginRequest, controllerName string,
+) (_ *params.SecretKeyLoginResponse, err error) {
 	cookieJar, err := c.CookieJar(c.store, controllerName)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting API context")
@@ -495,17 +530,27 @@ func (c *registerCommand) secretKeyLogin(addrs []string, request params.SecretKe
 	// we can verify the server's identity.
 	opts := api.DefaultDialOpts()
 	opts.InsecureSkipVerify = true
-	conn, err := c.apiOpen(&api.Info{
-		Addrs:     addrs,
+	apiInfo := &api.Info{
+		Addrs:     controllerDetails.APIEndpoints,
 		SkipLogin: true,
-	}, opts)
+	}
+	if controllerDetails.Proxy != nil {
+		apiInfo.Proxier = controllerDetails.Proxy.Proxier
+	}
+	conn, err := c.apiOpen(apiInfo, opts)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	apiAddr := conn.Addr()
-	if err := conn.Close(); err != nil {
-		return nil, errors.Trace(err)
-	}
+	defer func() {
+		if closeErr := conn.Close(); closeErr != nil {
+			if err == nil {
+				err = closeErr
+			} else {
+				logger.Warningf("error closing API connection: %v", closeErr)
+			}
+		}
+	}()
 
 	// Using the address we connected to above, perform the request.
 	// A success response will include a macaroon cookie that we can

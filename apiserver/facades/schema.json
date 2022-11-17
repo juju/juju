@@ -18424,7 +18424,7 @@
                             "$ref": "#/definitions/Error"
                         },
                         "proxy-connection": {
-                            "$ref": "#/definitions/DashboardConnectionProxy"
+                            "$ref": "#/definitions/Proxy"
                         },
                         "ssh-connection": {
                             "$ref": "#/definitions/DashboardConnectionSSHTunnel"
@@ -18434,28 +18434,6 @@
                     "required": [
                         "proxy-connection",
                         "ssh-connection"
-                    ]
-                },
-                "DashboardConnectionProxy": {
-                    "type": "object",
-                    "properties": {
-                        "config": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        },
-                        "type": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "config",
-                        "type"
                     ]
                 },
                 "DashboardConnectionSSHTunnel": {
@@ -19060,6 +19038,28 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "Proxy": {
+                    "type": "object",
+                    "properties": {
+                        "config": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "config",
+                        "type"
                     ]
                 },
                 "RemoveBlocksArgs": {
