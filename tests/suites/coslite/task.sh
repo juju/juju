@@ -20,7 +20,8 @@ test_coslite() {
 	"k8s")
 		# disable metallb then enable it with a new set of out ipaddr
 		microk8s disable metallb
-		microk8s enable metallb:10.1.1.1-10.1.1.1
+		IPADDR=$(ip -4 -j route get 2.2.2.2 | jq -r '.[] | .prefsrc')
+    microk8s enable metallb:$IPADDR-$IPADDR
 		microk8s kubectl rollout status deployments/hostpath-provisioner -n kube-system -w
 		microk8s kubectl rollout status deployments/coredns -n kube-system -w
 		microk8s kubectl rollout status daemonset.apps/speaker -n metallb-system -w
