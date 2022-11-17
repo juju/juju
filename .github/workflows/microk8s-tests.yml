@@ -43,7 +43,7 @@ jobs:
         echo "GOPATH=$(go env GOPATH)" >> $GITHUB_ENV
         echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
 
-    - uses: balchua/microk8s-actions@d346061adaf14b4b113aad2ba1d6e3c5da408ef8 # v0.3.0
+    - uses: balchua/microk8s-actions@607dc38f1d8605ab60663a7b20ac2e4d7b404962 # v0.3.1
       with:
         channel: '${{ matrix.microk8s }}'
         # enable now to give microk8s more time to settle down.
