@@ -35,6 +35,7 @@ const (
 	ellipsis            = "..."
 	iaasMaxVersionWidth = 15
 	caasMaxVersionWidth = 30
+	maxMessageLength    = 50
 )
 
 // FormatTabular writes a tabular summary of machines, applications, and
@@ -73,7 +74,7 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	}
 	if message != "" {
 		header = append(header, "Notes")
-		values = append(values, message)
+		values = append(values, truncateMessage(message))
 	}
 	// The first set of headers don't use outputHeaders because it adds the blank line.
 	w := startSection(tw, true, header...)
@@ -231,7 +232,7 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 			w.Print("no")
 		}
 
-		w.PrintColorNoTab(output.EmphasisHighlight.Gray, app.StatusInfo.Message)
+		w.PrintColorNoTab(output.EmphasisHighlight.Gray, truncateMessage(app.StatusInfo.Message))
 		w.Println()
 		for un, u := range app.Units {
 			units[un] = u
@@ -265,14 +266,14 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 		if fs.Model.Type == caasModelType {
 			w.PrintColor(output.InfoHighlight, u.Address)
 			printPorts(w, u.OpenedPorts)
-			w.PrintColorNoTab(output.EmphasisHighlight.Gray, message)
+			w.PrintColorNoTab(output.EmphasisHighlight.Gray, truncateMessage(message))
 			w.Println()
 			return
 		}
 		w.Print(u.Machine)
 		w.PrintColor(output.InfoHighlight, u.PublicAddress)
 		printPorts(w, u.OpenedPorts)
-		w.PrintColorNoTab(output.EmphasisHighlight.Gray, message)
+		w.PrintColorNoTab(output.EmphasisHighlight.Gray, truncateMessage(message))
 		w.Println()
 	}
 
@@ -300,7 +301,7 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 		w.Print("model")
 		outputColor := fromMeterStatusColor(fs.Model.MeterStatus.Color)
 		w.PrintColor(outputColor, fs.Model.MeterStatus.Color)
-		w.PrintColor(outputColor, fs.Model.MeterStatus.Message)
+		w.PrintColor(outputColor, truncateMessage(fs.Model.MeterStatus.Message))
 		w.Println()
 	}
 	for _, name := range naturalsort.Sort(stringKeysFromMap(units)) {
@@ -309,7 +310,7 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 			w.Print(name)
 			outputColor := fromMeterStatusColor(u.MeterStatus.Color)
 			w.PrintColor(outputColor, u.MeterStatus.Color)
-			w.PrintColor(outputColor, u.MeterStatus.Message)
+			w.PrintColor(outputColor, truncateMessage(u.MeterStatus.Message))
 			w.Println()
 		}
 	}
@@ -518,7 +519,7 @@ func printRelations(tw *ansiterm.TabWriter, relations []relationStatus) {
 		w.Print(r.Interface, r.Type)
 		if r.Status != string(relation.Joined) {
 			w.PrintColor(cmdcrossmodel.RelationStatusColor(relation.Status(r.Status)), r.Status)
-			w.PrintColorNoTab(output.EmphasisHighlight.Gray, r.Message)
+			w.PrintColorNoTab(output.EmphasisHighlight.Gray, truncateMessage(r.Message))
 		}
 		w.Println()
 	}
@@ -621,7 +622,7 @@ func printMachine(w *output.Wrapper, m machineStatus) {
 	}
 	w.Print(m.machineName(), baseStr, az)
 	if message != "" { //some unit tests were failing because of the printed empty string .
-		w.PrintColorNoTab(output.EmphasisHighlight.Gray, message)
+		w.PrintColorNoTab(output.EmphasisHighlight.Gray, truncateMessage(message))
 	}
 	w.Println()
 
@@ -686,4 +687,12 @@ func agentDoing(agentStatus statusInfoContents) string {
 		return match[1]
 	}
 	return ""
+}
+
+// truncateMessage truncates the given message if it is too long.
+func truncateMessage(msg string) string {
+	if len(msg) > maxMessageLength {
+		return msg[:maxMessageLength-len(ellipsis)] + ellipsis
+	}
+	return msg
 }

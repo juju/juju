@@ -52,7 +52,6 @@ jobs:
         run: |
           set -euxo pipefail
           
-          echo "go-version=$(grep '^go ' go.mod | awk '{print $2}')" >> $GITHUB_OUTPUT
           echo "base-juju-version=$(juju version | cut -d '-' -f 1)" >> $GITHUB_OUTPUT
           upstreamJujuVersion=$(grep -r "const version =" version/version.go | sed -r 's/^const version = \"(.*)\"$/\1/')
           echo "upstream-juju-version=${upstreamJujuVersion}" >> $GITHUB_OUTPUT
@@ -66,7 +65,7 @@ jobs:
         if: env.RUN_TEST == 'RUN'
         uses: actions/setup-go@v3
         with:
-          go-version: ${{ steps.vars.outputs.go-version }}
+          go-version-file: 'go.mod'
 
       - name: setup env
         shell: bash
@@ -92,14 +91,10 @@ jobs:
 
       - name: Setup k8s
         if: env.RUN_TEST == 'RUN' && matrix.model_type == 'microk8s'
-        shell: bash
-        run: |
-          set -x
-          sudo snap install microk8s --channel=1.25-strict/stable
-          sudo usermod -a -G snap_microk8s $USER
-          newgrp snap_microk8s
-          sg snap_microk8s "microk8s status --wait-ready"
-          sudo microk8s enable dns hostpath-storage
+        uses: balchua/microk8s-actions@v0.3.1
+        with:
+          channel: "1.23/stable"
+          addons: '["dns", "storage"]'
 
       - name: Setup local caas registry
         if: env.RUN_TEST == 'RUN' && matrix.model_type == 'microk8s'
