@@ -33,7 +33,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/os"
-	jujuseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -488,7 +487,7 @@ func (env *azureEnviron) StartInstance(ctx context.ProviderCallContext, args env
 			instanceTypes,
 			&instances.InstanceConstraint{
 				Region:      env.location,
-				Series:      args.InstanceConfig.Series,
+				Base:        args.InstanceConfig.Base,
 				Arch:        arch,
 				Constraints: args.Constraints,
 			},
@@ -1076,11 +1075,11 @@ func newOSProfile(
 		CustomData:   to.Ptr(string(customData)),
 	}
 
-	seriesOS, err := jujuseries.GetOSFromSeries(instanceConfig.Series)
+	instOS := os.OSTypeForName(instanceConfig.Base.OS)
 	if err != nil {
 		return nil, os.Unknown, errors.Trace(err)
 	}
-	switch seriesOS {
+	switch instOS {
 	case os.Ubuntu, os.CentOS:
 		// SSH keys are handled by custom data, but must also be
 		// specified in order to forego providing a password, and
@@ -1110,9 +1109,9 @@ func newOSProfile(
 			SSH:                           &armcompute.SSHConfiguration{PublicKeys: publicKeys},
 		}
 	default:
-		return nil, os.Unknown, errors.NotSupportedf("%s", seriesOS)
+		return nil, os.Unknown, errors.NotSupportedf("%s", instOS)
 	}
-	return osProfile, seriesOS, nil
+	return osProfile, instOS, nil
 }
 
 // StopInstances is specified in the InstanceBroker interface.

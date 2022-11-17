@@ -5,7 +5,7 @@ package jujuc_test
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/juju/cmd/v3"
@@ -96,7 +96,7 @@ func (s *storageGetSuite) TestOutputPath(c *gc.C) {
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
-	content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "some-file"))
+	content, err := os.ReadFile(filepath.Join(ctx.Dir, "some-file"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	var out map[string]interface{}

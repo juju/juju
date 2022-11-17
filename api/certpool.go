@@ -5,7 +5,6 @@ package api
 
 import (
 	"crypto/x509"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -64,7 +63,7 @@ func processCertDir(pool *x509.CertPool) (count int) {
 	}
 
 	for _, match := range matches {
-		data, err := ioutil.ReadFile(match)
+		data, err := os.ReadFile(match)
 		if err != nil {
 			logger.Infof("error reading %q: %v", match, err)
 			continue

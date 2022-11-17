@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
 )
@@ -73,9 +74,6 @@ type DeployArgs struct {
 
 	// ApplicationName is the name to give the application.
 	ApplicationName string
-
-	// Series to be used for the machine.
-	Series string
 
 	// NumUnits is the number of units to deploy.
 	NumUnits int
@@ -155,7 +153,6 @@ func (c *Client) Deploy(args DeployArgs) error {
 	deployArgs := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName:  args.ApplicationName,
-			Series:           args.Series,
 			CharmURL:         args.CharmID.URL.String(),
 			CharmOrigin:      &origin,
 			Channel:          origin.Risk,
@@ -216,7 +213,8 @@ func (c *Client) GetCharmURLOrigin(branchName, applicationName string) (*charm.U
 	if err != nil {
 		return nil, apicharm.Origin{}, errors.Trace(err)
 	}
-	return curl, apicharm.APICharmOrigin(result.Origin), nil
+	origin, err := apicharm.APICharmOrigin(result.Origin)
+	return curl, origin, err
 }
 
 // GetConfig returns the charm configuration settings for each of the
@@ -280,15 +278,15 @@ type SetCharmConfig struct {
 
 	// Force forces the use of the charm in the following scenarios:
 	// overriding a lxd profile upgrade.
-	// In the future, we should deprecate ForceSeries and ForceUnits and just
+	// In the future, we should deprecate ForceBase and ForceUnits and just
 	// use Force for all instances.
-	// TODO (stickupkid): deprecate ForceSeries and ForceUnits in favour of
+	// TODO (stickupkid): deprecate ForceBase and ForceUnits in favour of
 	// just using Force.
 	Force bool
 
-	// ForceSeries forces the use of the charm even if it doesn't match the
+	// ForceBase forces the use of the charm even if it doesn't match the
 	// series of the unit.
-	ForceSeries bool
+	ForceBase bool
 
 	// ForceUnits forces the upgrade on units in an error state.
 	ForceUnits bool
@@ -340,7 +338,7 @@ func (c *Client) SetCharm(branchName string, cfg SetCharmConfig) error {
 		ConfigSettings:     cfg.ConfigSettings,
 		ConfigSettingsYAML: cfg.ConfigSettingsYAML,
 		Force:              cfg.Force,
-		ForceSeries:        cfg.ForceSeries,
+		ForceBase:          cfg.ForceBase,
 		ForceUnits:         cfg.ForceUnits,
 		ResourceIDs:        cfg.ResourceIDs,
 		StorageConstraints: storageConstraints,
@@ -350,18 +348,22 @@ func (c *Client) SetCharm(branchName string, cfg SetCharmConfig) error {
 	return c.facade.FacadeCall("SetCharm", args, nil)
 }
 
-// UpdateApplicationSeries updates the application series in the db.
-func (c *Client) UpdateApplicationSeries(appName, series string, force bool) error {
-	args := params.UpdateSeriesArgs{
-		Args: []params.UpdateSeriesArg{{
-			Entity: params.Entity{Tag: names.NewApplicationTag(appName).String()},
-			Force:  force,
-			Series: series,
+// UpdateApplicationBase updates the application base in the db.
+func (c *Client) UpdateApplicationBase(appName, series string, force bool) error {
+	base, err := coreseries.GetBaseFromSeries(series)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	args := params.UpdateChannelArgs{
+		Args: []params.UpdateChannelArg{{
+			Entity:  params.Entity{Tag: names.NewApplicationTag(appName).String()},
+			Force:   force,
+			Channel: base.Channel.Track,
 		}},
 	}
 
 	results := new(params.ErrorResults)
-	err := c.facade.FacadeCall("UpdateApplicationSeries", args, results)
+	err = c.facade.FacadeCall("UpdateApplicationBase", args, results)
 	if err != nil {
 		return errors.Trace(err)
 	}

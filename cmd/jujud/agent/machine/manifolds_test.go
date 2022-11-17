@@ -680,7 +680,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"central-hub",
 		"clock",
 		"is-controller-flag",
-		"state",
 		"state-config-watcher",
 	},
 
@@ -1248,7 +1247,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"central-hub",
 		"clock",
 		"is-controller-flag",
-		"state",
 		"state-config-watcher",
 	},
 

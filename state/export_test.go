@@ -5,7 +5,7 @@ package state
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strconv"
 	"time" // Only used for time types.
@@ -14,7 +14,6 @@ import (
 	charmrepotesting "github.com/juju/charmrepo/v7/testing"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
-	"github.com/juju/description/v3"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v3"
@@ -29,10 +28,13 @@ import (
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/description/v4"
+
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/secrets"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/utils"
@@ -59,7 +61,6 @@ const (
 
 var (
 	BinarystorageNew              = &binarystorageNew
-	ImageStorageNewStorage        = &imageStorageNewStorage
 	MachineIdLessThan             = machineIdLessThan
 	CombineMeterStatus            = combineMeterStatus
 	ApplicationGlobalKey          = applicationGlobalKey
@@ -274,12 +275,15 @@ func AddTestingApplication(c *gc.C, st *State, name string, ch *Charm) *Applicat
 	})
 }
 
-func AddTestingApplicationForSeries(c *gc.C, st *State, series, name string, ch *Charm) *Application {
+func AddTestingApplicationForBase(c *gc.C, st *State, base Base, name string, ch *Charm) *Application {
 	return addTestingApplication(c, addTestingApplicationParams{
-		st:     st,
-		series: series,
-		name:   name,
-		ch:     ch,
+		st: st,
+		origin: &CharmOrigin{Platform: &Platform{
+			OS:      base.OS,
+			Channel: base.Channel,
+		}},
+		name: name,
+		ch:   ch,
 	})
 }
 
@@ -293,10 +297,21 @@ func AddTestingApplicationWithNumUnits(c *gc.C, st *State, numUnits int, name st
 }
 
 func AddTestingApplicationWithStorage(c *gc.C, st *State, name string, ch *Charm, storage map[string]StorageConstraints) *Application {
+	series := ch.URL().Series
+	if series == "kubernetes" {
+		series = "focal"
+	}
+	base, err := coreseries.GetBaseFromSeries(series)
+	c.Assert(err, jc.ErrorIsNil)
+	origin := &CharmOrigin{Platform: &Platform{
+		OS:      base.OS,
+		Channel: base.Channel.String(),
+	}}
 	return addTestingApplication(c, addTestingApplicationParams{
 		st:      st,
 		name:    name,
 		ch:      ch,
+		origin:  origin,
 		storage: storage,
 	})
 }
@@ -320,23 +335,31 @@ func AddTestingApplicationWithBindings(c *gc.C, st *State, name string, ch *Char
 }
 
 type addTestingApplicationParams struct {
-	st           *State
-	series, name string
-	ch           *Charm
-	origin       *CharmOrigin
-	bindings     map[string]string
-	storage      map[string]StorageConstraints
-	devices      map[string]DeviceConstraints
-	numUnits     int
+	st       *State
+	name     string
+	ch       *Charm
+	origin   *CharmOrigin
+	bindings map[string]string
+	storage  map[string]StorageConstraints
+	devices  map[string]DeviceConstraints
+	numUnits int
 }
 
 func addTestingApplication(c *gc.C, params addTestingApplicationParams) *Application {
 	c.Assert(params.ch, gc.NotNil)
+	origin := params.origin
+	if origin == nil {
+		base, err := coreseries.GetBaseFromSeries(params.ch.URL().Series)
+		c.Assert(err, jc.ErrorIsNil)
+		origin = &CharmOrigin{Platform: &Platform{
+			OS:      base.OS,
+			Channel: base.Channel.String(),
+		}}
+	}
 	app, err := params.st.AddApplication(AddApplicationArgs{
 		Name:             params.name,
-		Series:           params.series,
 		Charm:            params.ch,
-		CharmOrigin:      params.origin,
+		CharmOrigin:      origin,
 		EndpointBindings: params.bindings,
 		Storage:          params.storage,
 		Devices:          params.devices,
@@ -356,11 +379,11 @@ bases:
   channel: "18.04"
 `
 			manifestYAML := filepath.Join(path, "manifest.yaml")
-			err := ioutil.WriteFile(manifestYAML, []byte(manifestContent), 0644)
+			err := os.WriteFile(manifestYAML, []byte(manifestContent), 0644)
 			c.Assert(err, jc.ErrorIsNil)
 		}
 		config := filepath.Join(path, filename)
-		err := ioutil.WriteFile(config, []byte(content), 0644)
+		err := os.WriteFile(config, []byte(content), 0644)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	ch, err := charm.ReadCharmDir(path)

@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	envcontext "github.com/juju/juju/environs/context"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -83,8 +84,8 @@ func (s *environSuite) TestConfig(c *gc.C) {
 
 func (s *environSuite) TestBootstrapOkay(c *gc.C) {
 	s.Common.BootstrapResult = &environs.BootstrapResult{
-		Arch:   "amd64",
-		Series: "jammy",
+		Arch: "amd64",
+		Base: series.MakeDefaultBase("ubuntu", "22.04"),
 		CloudBootstrapFinalizer: func(environs.BootstrapContext, *instancecfg.InstanceConfig, environs.BootstrapDialOpts) error {
 			return nil
 		},
@@ -99,12 +100,12 @@ func (s *environSuite) TestBootstrapOkay(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(result.Arch, gc.Equals, "amd64")
-	c.Check(result.Series, gc.Equals, "jammy")
+	c.Check(result.Base.DisplayString(), gc.Equals, "ubuntu@22.04")
 	// We don't check bsFinalizer because functions cannot be compared.
 	c.Check(result.CloudBootstrapFinalizer, gc.NotNil)
 
 	out := cmdtesting.Stderr(ctx)
-	c.Assert(out, gc.Equals, "To configure your system to better support LXD containers, please see: https://github.com/lxc/lxd/blob/master/doc/production-setup.md\n")
+	c.Assert(out, gc.Equals, "To configure your system to better support LXD containers, please see: https://linuxcontainers.org/lxd/docs/master/explanation/performance_tuning/\n")
 }
 
 func (s *environSuite) TestBootstrapAPI(c *gc.C) {

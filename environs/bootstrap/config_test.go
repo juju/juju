@@ -4,7 +4,7 @@
 package bootstrap_test
 
 import (
-	"io/ioutil"
+	"os"
 	"time"
 
 	gitjujutesting "github.com/juju/testing"
@@ -71,7 +71,7 @@ func (*ConfigSuite) TestConfigValuesSpecified(c *gc.C) {
 
 func (s *ConfigSuite) addFiles(c *gc.C, files ...gitjujutesting.TestFile) {
 	for _, f := range files {
-		err := ioutil.WriteFile(osenv.JujuXDGDataHomePath(f.Name), []byte(f.Data), 0666)
+		err := os.WriteFile(osenv.JujuXDGDataHomePath(f.Name), []byte(f.Data), 0666)
 		c.Assert(err, gc.IsNil)
 	}
 }

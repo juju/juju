@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -23,6 +24,7 @@ type ActionAPI struct {
 	resources  facade.Resources
 	authorizer facade.Authorizer
 	check      *common.BlockChecker
+	leadership leadership.Reader
 
 	tagToActionReceiverFn TagToActionReceiverFunc
 }
@@ -34,12 +36,22 @@ type APIv7 struct {
 	*ActionAPI
 }
 
-func newActionAPI(st State, resources facade.Resources, authorizer facade.Authorizer) (*ActionAPI, error) {
+func newActionAPI(
+	st State,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
+	getLeadershipReader func(string) (leadership.Reader, error),
+) (*ActionAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
 
 	m, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	leaders, err := getLeadershipReader(m.ModelTag().Id())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -50,6 +62,7 @@ func newActionAPI(st State, resources facade.Resources, authorizer facade.Author
 		resources:             resources,
 		authorizer:            authorizer,
 		check:                 common.NewBlockChecker(st),
+		leadership:            leaders,
 		tagToActionReceiverFn: common.TagToActionReceiverFn,
 	}, nil
 }

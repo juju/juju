@@ -4,7 +4,7 @@
 package backups_test
 
 import (
-	"io/ioutil"
+	"io"
 	"os"
 
 	"github.com/juju/testing"
@@ -69,7 +69,7 @@ func (s *workspaceSuiteV0) TestOpenBundledFile(c *gc.C) {
 	file, err := ws.OpenBundledFile("var/lib/juju/system-identity")
 	c.Assert(err, jc.ErrorIsNil)
 
-	data, err := ioutil.ReadAll(file)
+	data, err := io.ReadAll(file)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(data), gc.Equals, "<an ssh key goes here>")
 }

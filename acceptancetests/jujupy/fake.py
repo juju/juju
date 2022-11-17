@@ -908,7 +908,7 @@ class FakeBackend:
                 return (0, CommandTime(command, args))
             if command == 'remove-application':
                 model_state.destroy_service(*args)
-            if command == 'add-relation':
+            if command == 'integrate':
                 if args[0] == 'dummy-source':
                     model_state.relations[args[1]] = {'source': [args[0]]}
             if command == 'expose':
@@ -1050,7 +1050,7 @@ class FakeBackend:
                 self.controller_state.add_user_perms(username, permissions)
                 register_string = get_user_register_command_info(username)
                 return info_string + register_string
-            if command == 'show-status':
+            if command == 'status':
                 status_dict = model_state.get_status_dict()
                 # Parsing JSON is much faster than parsing YAML, and JSON is a
                 # subset of YAML, so emit JSON.

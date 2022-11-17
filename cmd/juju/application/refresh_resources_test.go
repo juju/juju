@@ -5,7 +5,7 @@ package application
 
 import (
 	"bytes"
-	"io/ioutil"
+	"os"
 	"path"
 	"runtime"
 	"strings"
@@ -76,7 +76,7 @@ resources:
 `
 
 	myriakPath := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "riak")
-	err := ioutil.WriteFile(path.Join(myriakPath.Path, "metadata.yaml"), []byte(riakResourceMeta), 0644)
+	err := os.WriteFile(path.Join(myriakPath.Path, "metadata.yaml"), []byte(riakResourceMeta), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
 	data := []byte("some-data")
@@ -84,7 +84,7 @@ resources:
 	c.Assert(err, jc.ErrorIsNil)
 
 	resourceFile := path.Join(c.MkDir(), "data.lib")
-	err = ioutil.WriteFile(resourceFile, data, 0644)
+	err = os.WriteFile(resourceFile, data, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = cmdtesting.RunCommand(c, NewRefreshCommand(),

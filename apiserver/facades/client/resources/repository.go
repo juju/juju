@@ -31,7 +31,7 @@ type CharmID struct {
 	// URL is the url of the charm.
 	URL *charm.URL
 
-	// Origin holds the original source of a charm, including it's channel.
+	// Origin holds the original source of a charm, including its channel.
 	Origin corecharm.Origin
 
 	// Metadata is optional extra information about a particular model's
@@ -186,7 +186,7 @@ func configsByID(curl *charm.URL, origin corecharm.Origin, name string, revision
 		refBase = charmhub.RefreshBase{
 			Architecture: origin.Platform.Architecture,
 			Name:         origin.Platform.OS,
-			Channel:      origin.Platform.Series,
+			Channel:      origin.Platform.Channel,
 		}
 	)
 	// Get all the resources for everything and just find out which one matches.
@@ -232,7 +232,7 @@ func configsByName(curl *charm.URL, origin corecharm.Origin, name string, revisi
 		refBase := charmhub.RefreshBase{
 			Architecture: origin.Platform.Architecture,
 			Name:         origin.Platform.OS,
-			Channel:      origin.Platform.Series,
+			Channel:      origin.Platform.Channel,
 		}
 		cfg, err := charmhub.DownloadOneFromChannelByName(charmName, sChan, refBase)
 		if err != nil {
@@ -263,7 +263,7 @@ func configsByName(curl *charm.URL, origin corecharm.Origin, name string, revisi
 	return configs, nil
 }
 
-// ResolveResources, looks at the provided, charmhub and backend (already
+// ResolveResources looks at the provided charmhub and backend (already
 // downloaded) resources to determine which to use. Provided (uploaded) take
 // precedence. If charmhub has a newer resource than the back end, use that.
 func (ch *charmHubClient) ResolveResources(resources []charmresource.Resource, id CharmID) ([]charmresource.Resource, error) {
@@ -322,7 +322,7 @@ func (ch *charmHubClient) listResources(id CharmID) (map[string]charmresource.Re
 	refBase := charmhub.RefreshBase{
 		Architecture: origin.Platform.Architecture,
 		Name:         origin.Platform.OS,
-		Channel:      origin.Platform.Series,
+		Channel:      origin.Platform.Channel,
 	}
 	var cfg charmhub.RefreshConfig
 	var err error

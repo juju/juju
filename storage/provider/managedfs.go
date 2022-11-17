@@ -6,7 +6,6 @@ package provider
 import (
 	"bufio"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -282,7 +281,7 @@ func ensureFstabEntry(etcDir, devicePath, UUID, mountPoint, entry string) error 
 		defer f.Close()
 	}
 
-	newFsTab, err := ioutil.TempFile(etcDir, "juju-fstab-")
+	newFsTab, err := os.CreateTemp(etcDir, "juju-fstab-")
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -399,7 +398,7 @@ func removeFstabEntry(etcDir string, mountPoint string) error {
 	scanner := bufio.NewScanner(f)
 
 	// Use a tempfile in /etc and rename when done.
-	newFsTab, err := ioutil.TempFile(etcDir, "juju-fstab-")
+	newFsTab, err := os.CreateTemp(etcDir, "juju-fstab-")
 	if err != nil {
 		return errors.Trace(err)
 	}

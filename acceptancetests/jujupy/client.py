@@ -651,7 +651,7 @@ class ModelClient:
             if container_type in cls.supported_container_types:
                 return container_type
 
-    _show_status = 'show-status'
+    _show_status = 'status'
     _show_controller = 'show-controller'
 
     @classmethod
@@ -1476,7 +1476,7 @@ class ModelClient:
             args = args + ('--path', charm_path)
         if resvision is not None:
             args = args + ('--revision', resvision)
-        self.juju('upgrade-charm', args)
+        self.juju('refresh', args)
 
     def remove_application(self, service):
         self.juju('remove-application', (service,))

@@ -5,7 +5,6 @@
 package agent
 
 import (
-	"io/ioutil"
 	"os"
 
 	"github.com/juju/names/v4"
@@ -54,7 +53,7 @@ func (s *identitySuite) TestWriteSystemIdentityFile(c *gc.C) {
 	err = WriteSystemIdentityFile(conf)
 	c.Assert(err, jc.ErrorIsNil)
 
-	contents, err := ioutil.ReadFile(conf.SystemIdentityPath())
+	contents, err := os.ReadFile(conf.SystemIdentityPath())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(contents), gc.Equals, servingInfo.SystemIdentity)
 

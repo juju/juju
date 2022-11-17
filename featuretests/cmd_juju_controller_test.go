@@ -74,7 +74,7 @@ func (s *cmdControllerSuite) createModelNormalUser(c *gc.C, modelname string, is
 }
 
 func (s *cmdControllerSuite) TestControllerListCommand(c *gc.C) {
-	context := s.run(c, "list-controllers")
+	context := s.run(c, "controllers")
 	expectedOutput := `
 Use --refresh option with this command to see the latest information.
 
@@ -86,7 +86,7 @@ kontroll*   controller  admin  superuser  dummy/dummy-region       1      -   - 
 
 func (s *cmdControllerSuite) TestCreateModelAdminUser(c *gc.C) {
 	s.createModelAdminUser(c, "new-model", false)
-	context := s.run(c, "list-models")
+	context := s.run(c, "models")
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
 		"Controller: kontroll\n"+
 		"\n"+
@@ -97,7 +97,7 @@ func (s *cmdControllerSuite) TestCreateModelAdminUser(c *gc.C) {
 
 func (s *cmdControllerSuite) TestAddModelNormalUser(c *gc.C) {
 	s.createModelNormalUser(c, "new-model", false)
-	context := s.run(c, "list-models", "--all")
+	context := s.run(c, "models", "--all")
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
 		"Controller: kontroll\n"+
 		"\n"+
@@ -108,7 +108,7 @@ func (s *cmdControllerSuite) TestAddModelNormalUser(c *gc.C) {
 
 func (s *cmdControllerSuite) TestListModelsExactTimeFlag(c *gc.C) {
 	s.createModelNormalUser(c, "new-model", false)
-	context := s.run(c, "list-models", "--exact-time")
+	context := s.run(c, "models", "--exact-time")
 	c.Assert(cmdtesting.Stdout(context), gc.Matches, ""+
 		"Controller: kontroll\n"+
 		"\n"+
@@ -120,7 +120,7 @@ func (s *cmdControllerSuite) TestListModelsYAML(c *gc.C) {
 	s.Factory.MakeMachine(c, nil)
 	two := uint64(2)
 	s.Factory.MakeMachine(c, &factory.MachineParams{Characteristics: &instance.HardwareCharacteristics{CpuCores: &two}})
-	context := s.run(c, "list-models", "--format=yaml")
+	context := s.run(c, "models", "--format=yaml")
 	expectedOutput := `
 models:
 - name: admin/controller
@@ -202,7 +202,7 @@ func (s *cmdControllerSuite) TestListModelsYAMLWithExactTime(c *gc.C) {
 	s.Factory.MakeMachine(c, nil)
 	two := uint64(2)
 	s.Factory.MakeMachine(c, &factory.MachineParams{Characteristics: &instance.HardwareCharacteristics{CpuCores: &two}})
-	context := s.run(c, "list-models", "--exact-time", "--format=yaml")
+	context := s.run(c, "models", "--exact-time", "--format=yaml")
 	expectedOutput := `
 models:
 - name: admin/controller
@@ -253,7 +253,7 @@ func (s *cmdControllerSuite) TestListDeadModels(c *gc.C) {
 
 	// Dead models still show up in the list. It's a lie to pretend they
 	// don't exist, and they will go away quickly.
-	context := s.run(c, "list-models")
+	context := s.run(c, "models")
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
 		"Controller: kontroll\n"+
 		"\n"+

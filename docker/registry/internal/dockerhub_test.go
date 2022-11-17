@@ -5,7 +5,7 @@ package internal_test
 
 import (
 	"encoding/base64"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 
@@ -58,7 +58,7 @@ func (s *dockerhubSuite) getRegistry(c *gc.C) (registry.Registry, *gomock.Contro
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusUnauthorized,
-					Body:       ioutil.NopCloser(nil),
+					Body:       io.NopCloser(nil),
 					Header: http.Header{
 						http.CanonicalHeaderKey("WWW-Authenticate"): []string{
 							`Bearer realm="https://auth.docker.io/token",service="registry.docker.io",scope="repository:jujuqa/jujud-operator:pull"`,
@@ -78,7 +78,7 @@ func (s *dockerhubSuite) getRegistry(c *gc.C) (registry.Registry, *gomock.Contro
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusOK,
-					Body:       ioutil.NopCloser(strings.NewReader(`{"token": "jwt-token", "access_token": "jwt-token","expires_in": 300}`)),
+					Body:       io.NopCloser(strings.NewReader(`{"token": "jwt-token", "access_token": "jwt-token","expires_in": 300}`)),
 				}, nil
 			},
 		),
@@ -88,7 +88,7 @@ func (s *dockerhubSuite) getRegistry(c *gc.C) (registry.Registry, *gomock.Contro
 				c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer " + `jwt-token`}})
 				c.Assert(req.Method, gc.Equals, `GET`)
 				c.Assert(req.URL.String(), gc.Equals, `https://index.docker.io/v2`)
-				return &http.Response{StatusCode: http.StatusOK, Body: ioutil.NopCloser(nil)}, nil
+				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(nil)}, nil
 			},
 		),
 	)
@@ -133,7 +133,7 @@ func (s *dockerhubSuite) TestTagsPublicRegistry(c *gc.C) {
 			return &http.Response{
 				Request:    req,
 				StatusCode: http.StatusUnauthorized,
-				Body:       ioutil.NopCloser(nil),
+				Body:       io.NopCloser(nil),
 				Header: http.Header{
 					http.CanonicalHeaderKey("WWW-Authenticate"): []string{
 						`Bearer realm="https://auth.docker.io/token",service="registry.docker.io",scope="repository:jujuqa/jujud-operator:pull"`,
@@ -150,7 +150,7 @@ func (s *dockerhubSuite) TestTagsPublicRegistry(c *gc.C) {
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusOK,
-					Body:       ioutil.NopCloser(strings.NewReader(`{"token": "jwt-token", "access_token": "jwt-token","expires_in": 300}`)),
+					Body:       io.NopCloser(strings.NewReader(`{"token": "jwt-token", "access_token": "jwt-token","expires_in": 300}`)),
 				}, nil
 			},
 		),
@@ -162,7 +162,7 @@ func (s *dockerhubSuite) TestTagsPublicRegistry(c *gc.C) {
 			resps := &http.Response{
 				Request:    req,
 				StatusCode: http.StatusOK,
-				Body:       ioutil.NopCloser(strings.NewReader(data)),
+				Body:       io.NopCloser(strings.NewReader(data)),
 			}
 			return resps, nil
 		}),
@@ -194,7 +194,7 @@ func (s *dockerhubSuite) TestTagsPrivateRegistry(c *gc.C) {
 			return &http.Response{
 				Request:    req,
 				StatusCode: http.StatusUnauthorized,
-				Body:       ioutil.NopCloser(nil),
+				Body:       io.NopCloser(nil),
 				Header: http.Header{
 					http.CanonicalHeaderKey("WWW-Authenticate"): []string{
 						`Bearer realm="https://auth.docker.io/token",service="registry.docker.io",scope="repository:jujuqa/jujud-operator:pull"`,
@@ -211,7 +211,7 @@ func (s *dockerhubSuite) TestTagsPrivateRegistry(c *gc.C) {
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusOK,
-					Body:       ioutil.NopCloser(strings.NewReader(`{"token": "jwt-token", "access_token": "jwt-token","expires_in": 300}`)),
+					Body:       io.NopCloser(strings.NewReader(`{"token": "jwt-token", "access_token": "jwt-token","expires_in": 300}`)),
 				}, nil
 			},
 		),
@@ -223,7 +223,7 @@ func (s *dockerhubSuite) TestTagsPrivateRegistry(c *gc.C) {
 			resps := &http.Response{
 				Request:    req,
 				StatusCode: http.StatusOK,
-				Body:       ioutil.NopCloser(strings.NewReader(data)),
+				Body:       io.NopCloser(strings.NewReader(data)),
 			}
 			return resps, nil
 		}),
@@ -254,7 +254,7 @@ func (s *dockerhubSuite) TestTagsErrorResponse(c *gc.C) {
 			return &http.Response{
 				Request:    req,
 				StatusCode: http.StatusUnauthorized,
-				Body:       ioutil.NopCloser(nil),
+				Body:       io.NopCloser(nil),
 				Header: http.Header{
 					http.CanonicalHeaderKey("WWW-Authenticate"): []string{
 						`Bearer realm="https://auth.docker.io/token",service="registry.docker.io",scope="repository:jujuqa/jujud-operator:pull"`,
@@ -271,7 +271,7 @@ func (s *dockerhubSuite) TestTagsErrorResponse(c *gc.C) {
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusOK,
-					Body:       ioutil.NopCloser(strings.NewReader(`{"token": "jwt-token", "access_token": "jwt-token","expires_in": 300}`)),
+					Body:       io.NopCloser(strings.NewReader(`{"token": "jwt-token", "access_token": "jwt-token","expires_in": 300}`)),
 				}, nil
 			},
 		),
@@ -282,7 +282,7 @@ func (s *dockerhubSuite) TestTagsErrorResponse(c *gc.C) {
 			resps := &http.Response{
 				Request:    req,
 				StatusCode: http.StatusForbidden,
-				Body:       ioutil.NopCloser(strings.NewReader(data)),
+				Body:       io.NopCloser(strings.NewReader(data)),
 			}
 			return resps, nil
 		}),

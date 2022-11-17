@@ -5,7 +5,7 @@ package kvm_test
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"sync"
 
@@ -77,7 +77,7 @@ func (s *KVMSuite) createRunningContainer(c *gc.C, name string) kvm.Container {
 	}}
 	net := container.BridgeNetworkConfig(0, nics)
 	c.Assert(kvmContainer.Start(kvm.StartParams{
-		Series:       "quantal",
+		Version:      "12.10",
 		Arch:         arch.HostArch(),
 		UserDataFile: "userdata.txt",
 		Network:      net}), gc.IsNil)
@@ -192,7 +192,7 @@ func (s *KVMSuite) TestCreateContainerUsesSetImageMetadataURL(c *gc.C) {
 func (s *KVMSuite) TestImageAcquisitionUsesSimpleStream(c *gc.C) {
 
 	startParams := kvm.StartParams{
-		Series:           "mocked-series",
+		Version:          "mocked-version",
 		Arch:             "mocked-arch",
 		Stream:           "released",
 		ImageDownloadURL: "mocked-url",
@@ -205,7 +205,7 @@ func (s *KVMSuite) TestImageAcquisitionUsesSimpleStream(c *gc.C) {
 	expectedArgs := fmt.Sprintf(
 		"synchronise images for %s %s %s %s",
 		startParams.Arch,
-		startParams.Series,
+		startParams.Version,
 		startParams.Stream,
 		startParams.ImageDownloadURL,
 	)
@@ -354,7 +354,7 @@ func (s *KVMSuite) TestIsKVMSupportedBinaryErrorsOut(c *gc.C) {
 
 	// Create mocked binary which returns an error and give the test access.
 	tmpDir := c.MkDir()
-	err := ioutil.WriteFile(filepath.Join(tmpDir, "kvm-ok"), []byte("#!/bin/bash\nexit 127"), 0777)
+	err := os.WriteFile(filepath.Join(tmpDir, "kvm-ok"), []byte("#!/bin/bash\nexit 127"), 0777)
 	c.Assert(err, jc.ErrorIsNil)
 	s.PatchValue(kvm.KVMPath, tmpDir)
 
@@ -370,7 +370,7 @@ func (s *KVMSuite) TestIsKVMSupportedNoPath(c *gc.C) {
 	// developers without kvm-ok.
 	s.PatchEnvironment("PATH", "")
 	tmpDir := c.MkDir()
-	err := ioutil.WriteFile(filepath.Join(tmpDir, "kvm-ok"), []byte("#!/bin/bash"), 0777)
+	err := os.WriteFile(filepath.Join(tmpDir, "kvm-ok"), []byte("#!/bin/bash"), 0777)
 	c.Assert(err, jc.ErrorIsNil)
 	s.PatchValue(kvm.KVMPath, tmpDir)
 
@@ -384,7 +384,7 @@ func (s *KVMSuite) TestIsKVMSupportedOnlyPath(c *gc.C) {
 	// Create a mocked binary so that this test does not fail for
 	// developers without kvm-ok.
 	tmpDir := c.MkDir()
-	err := ioutil.WriteFile(filepath.Join(tmpDir, "kvm-ok"), []byte("#!/bin/bash"), 0777)
+	err := os.WriteFile(filepath.Join(tmpDir, "kvm-ok"), []byte("#!/bin/bash"), 0777)
 	c.Check(err, jc.ErrorIsNil)
 	s.PatchEnvironment("PATH", tmpDir)
 

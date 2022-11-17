@@ -147,7 +147,7 @@ var ctests = []struct {
 			map[string]any{
 				"name":        "auser",
 				"lock_passwd": true,
-				"ssh-authorized-keys": []string{
+				"ssh_authorized_keys": []string{
 					fmt.Sprintf("%s Juju:user@host", sshtesting.ValidKeyOne.Key),
 					fmt.Sprintf("%s Juju:another@host", sshtesting.ValidKeyTwo.Key),
 				},
@@ -190,10 +190,10 @@ var ctests = []struct {
 				"lock_passwd": true,
 				"groups":      []string{"agroup", "bgroup"},
 				"shell":       "/bin/sh",
-				"ssh-authorized-keys": []string{
+				"ssh_authorized_keys": []string{
 					sshtesting.ValidKeyOne.Key + " Juju:sshkey",
 				},
-				"sudo": []string{"ALL=(ALL) ALL"},
+				"sudo": "ALL=(ALL) ALL",
 			},
 		},
 	},
@@ -203,7 +203,7 @@ var ctests = []struct {
 			Groups:            []string{"agroup", "bgroup"},
 			Shell:             "/bin/sh",
 			SSHAuthorizedKeys: sshtesting.ValidKeyOne.Key + "\n",
-			Sudo:              []string{"ALL=(ALL) ALL"},
+			Sudo:              "ALL=(ALL) ALL",
 		})
 		return nil
 	},
@@ -499,7 +499,7 @@ var ctests = []struct {
 func (S) TestOutput(c *gc.C) {
 	for i, t := range ctests {
 		c.Logf("test %d: %s", i, t.name)
-		cfg, err := cloudinit.New("precise")
+		cfg, err := cloudinit.New("ubuntu")
 		c.Assert(err, jc.ErrorIsNil)
 		err = t.setOption(cfg)
 		c.Assert(err, jc.ErrorIsNil)
@@ -515,7 +515,7 @@ func (S) TestOutput(c *gc.C) {
 }
 
 func (S) TestRunCmds(c *gc.C) {
-	cfg, err := cloudinit.New("precise")
+	cfg, err := cloudinit.New("ubuntu")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.RunCmds(), gc.HasLen, 0)
 	cfg.AddScripts("a", "b")
@@ -526,7 +526,7 @@ func (S) TestRunCmds(c *gc.C) {
 }
 
 func (S) TestPackages(c *gc.C) {
-	cfg, err := cloudinit.New("precise")
+	cfg, err := cloudinit.New("ubuntu")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.Packages(), gc.HasLen, 0)
 	cfg.AddPackage("a b c")
@@ -554,7 +554,7 @@ func (S) TestSetOutput(c *gc.C) {
 	},
 	}
 
-	cfg, err := cloudinit.New("jammy")
+	cfg, err := cloudinit.New("ubuntu")
 	c.Assert(err, jc.ErrorIsNil)
 	stdout, stderr := cfg.Output(cloudinit.OutAll)
 	c.Assert(stdout, gc.Equals, "")

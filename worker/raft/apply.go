@@ -57,23 +57,21 @@ type ApplierMetrics interface {
 
 // Applier applies a new operation against a raft instance.
 type Applier struct {
-	raft         Raft
-	notifyTarget raftlease.NotifyTarget
-	metrics      ApplierMetrics
-	clock        clock.Clock
-	logger       Logger
+	raft    Raft
+	metrics ApplierMetrics
+	clock   clock.Clock
+	logger  Logger
 }
 
 // NewApplier creates a new Applier.
 func NewApplier(
-	raft Raft, target raftlease.NotifyTarget, metrics ApplierMetrics, clock clock.Clock, logger Logger,
+	raft Raft, metrics ApplierMetrics, clock clock.Clock, logger Logger,
 ) LeaseApplier {
 	return &Applier{
-		raft:         raft,
-		notifyTarget: target,
-		metrics:      metrics,
-		clock:        clock,
-		logger:       logger,
+		raft:    raft,
+		metrics: metrics,
+		clock:   clock,
+		logger:  logger,
 	}
 }
 
@@ -130,13 +128,6 @@ func (a *Applier) applyOperation(i int, op queue.OutOperation, applyTimeout time
 		if err = fsmResponse.Error(); err != nil {
 			op.Done(err)
 			return
-		}
-
-		// If the notify fails here, just ignore it and log the error,
-		// so that the operator can at least see the issues when
-		// inspecting the controller logs.
-		if err := fsmResponse.Notify(a.notifyTarget); err != nil {
-			a.logger.Errorf("failed to notify: %v", err)
 		}
 
 		op.Done(nil)

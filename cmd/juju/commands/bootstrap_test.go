@@ -8,7 +8,6 @@ import (
 	stdcontext "context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -698,7 +697,7 @@ func (s *BootstrapSuite) TestBootstrapDefaultConfigStripsProcessedAttributes(c *
 	})
 
 	fakeSSHFile := filepath.Join(c.MkDir(), "ssh")
-	err := ioutil.WriteFile(fakeSSHFile, []byte("ssh-key"), 0600)
+	err := os.WriteFile(fakeSSHFile, []byte("ssh-key"), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 	cmdtesting.RunCommand(
 		c, s.newBootstrapCommand(),
@@ -743,7 +742,7 @@ func (s *BootstrapSuite) TestBootstrapDefaultConfigStripsInheritedAttributes(c *
 	})
 
 	fakeSSHFile := filepath.Join(c.MkDir(), "ssh")
-	err := ioutil.WriteFile(fakeSSHFile, []byte("ssh-key"), 0600)
+	err := os.WriteFile(fakeSSHFile, []byte("ssh-key"), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 	cmdtesting.RunCommand(
 		c, s.newBootstrapCommand(),
@@ -1220,7 +1219,7 @@ func createImageMetadata(c *gc.C) (string, []*imagemetadata.ImageMetadata) {
 	sourceStor, err := filestorage.NewFileStorageWriter(sourceDir)
 	c.Assert(err, jc.ErrorIsNil)
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	err = imagemetadata.MergeAndWriteMetadata(ss, "jammy", im, cloudSpec, sourceStor)
+	err = imagemetadata.MergeAndWriteMetadata(ss, "22.04", im, cloudSpec, sourceStor)
 	c.Assert(err, jc.ErrorIsNil)
 	return sourceDir, im
 }
@@ -1610,7 +1609,7 @@ func (s *BootstrapSuite) TestBootstrapProviderFileCredential(c *gc.C) {
 	dummyProvider, err := environs.Provider("dummy")
 	c.Assert(err, jc.ErrorIsNil)
 
-	tmpFile, err := ioutil.TempFile("", "juju-bootstrap-test")
+	tmpFile, err := os.CreateTemp("", "juju-bootstrap-test")
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
 		tmpFile.Close()
@@ -1619,7 +1618,7 @@ func (s *BootstrapSuite) TestBootstrapProviderFileCredential(c *gc.C) {
 	}()
 
 	contents := []byte("{something: special}\n")
-	err = ioutil.WriteFile(tmpFile.Name(), contents, 0644)
+	err = os.WriteFile(tmpFile.Name(), contents, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
 	unfinalizedCredential := cloud.NewEmptyCredential()
@@ -1826,7 +1825,7 @@ func (s *BootstrapSuite) TestBootstrapProviderCaseInsensitiveRegionCheck(c *gc.C
 func (s *BootstrapSuite) TestBootstrapConfigFile(c *gc.C) {
 	tmpdir := c.MkDir()
 	configFile := filepath.Join(tmpdir, "config.yaml")
-	err := ioutil.WriteFile(configFile, []byte("controller: not-a-bool\n"), 0644)
+	err := os.WriteFile(configFile, []byte("controller: not-a-bool\n"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.patchVersionAndSeries(c, "jammy")
@@ -1840,12 +1839,12 @@ func (s *BootstrapSuite) TestBootstrapConfigFile(c *gc.C) {
 func (s *BootstrapSuite) TestBootstrapMultipleConfigFiles(c *gc.C) {
 	tmpdir := c.MkDir()
 	configFile1 := filepath.Join(tmpdir, "config-1.yaml")
-	err := ioutil.WriteFile(configFile1, []byte(
+	err := os.WriteFile(configFile1, []byte(
 		"controller: not-a-bool\nbroken: Bootstrap\n",
 	), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	configFile2 := filepath.Join(tmpdir, "config-2.yaml")
-	err = ioutil.WriteFile(configFile2, []byte(
+	err = os.WriteFile(configFile2, []byte(
 		"controller: false\n",
 	), 0644)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1869,7 +1868,7 @@ func (s *BootstrapSuite) TestBootstrapMultipleConfigFiles(c *gc.C) {
 func (s *BootstrapSuite) TestBootstrapConfigFileAndAdHoc(c *gc.C) {
 	tmpdir := c.MkDir()
 	configFile := filepath.Join(tmpdir, "config.yaml")
-	err := ioutil.WriteFile(configFile, []byte("controller: not-a-bool\n"), 0644)
+	err := os.WriteFile(configFile, []byte("controller: not-a-bool\n"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.setupAutoUploadTest(c, "1.8.3", "jammy")
@@ -2141,9 +2140,9 @@ func (s *BootstrapSuite) TestBootstrapWithLocalControllerCharm(c *gc.C) {
 	}
 }
 
-func (s *BootstrapSuite) TestBootstrapInvalidControllerCharmRisk(c *gc.C) {
-	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "--controller-charm-risk", "foo")
-	c.Assert(err, gc.ErrorMatches, `controller charm risk "foo" not valid`)
+func (s *BootstrapSuite) TestBootstrapInvalidControllerCharmChannel(c *gc.C) {
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "--controller-charm-channel", "3.0/foo")
+	c.Assert(err, gc.ErrorMatches, `controller charm channel "3.0/foo" not valid`)
 }
 
 func (s *BootstrapSuite) TestBootstrapSetsControllerOnBase(c *gc.C) {
@@ -2245,7 +2244,7 @@ func createToolsSource(c *gc.C, versions []version.Binary) string {
 // resetJujuXDGDataHome restores an new, clean Juju home environment without tools.
 func resetJujuXDGDataHome(c *gc.C) {
 	cloudsPath := cloud.JujuPersonalCloudsPath()
-	err := ioutil.WriteFile(cloudsPath, []byte(`
+	err := os.WriteFile(cloudsPath, []byte(`
 clouds:
     dummy-cloud:
         type: dummy

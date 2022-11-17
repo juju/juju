@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/core/os"
-	"github.com/juju/juju/core/series"
 )
 
 const (
@@ -60,11 +59,7 @@ type UserdataConfig interface {
 func NewUserdataConfig(icfg *instancecfg.InstanceConfig, conf cloudinit.CloudConfig) (UserdataConfig, error) {
 	// TODO(ericsnow) bug #1426217
 	// Protect icfg and conf better.
-	operatingSystem, err := series.GetOSFromSeries(icfg.Series)
-	if err != nil {
-		return nil, err
-	}
-
+	operatingSystem := os.OSTypeForName(icfg.Base.OS)
 	base := baseConfigure{
 		tag:  names.NewMachineTag(icfg.MachineId),
 		icfg: icfg,
@@ -80,7 +75,7 @@ func NewUserdataConfig(icfg *instancecfg.InstanceConfig, conf cloudinit.CloudCon
 	case os.OpenSUSE:
 		return &unixConfigure{base}, nil
 	default:
-		return nil, errors.NotSupportedf("OS %s", icfg.Series)
+		return nil, errors.NotSupportedf("OS %s", icfg.Base.OS)
 	}
 }
 
@@ -141,9 +136,8 @@ func (c *baseConfigure) addMachineAgentToBoot() error {
 // It may make sense in the future to add a "juju" user instead across
 // all distributions.
 func SetUbuntuUser(conf cloudinit.CloudConfig, authorizedKeys string) {
-	targetSeries := conf.GetSeries()
+	targetOS := os.OSTypeForName(conf.GetOS())
 	var groups []string
-	targetOS, _ := series.GetOSFromSeries(targetSeries)
 	switch targetOS {
 	case os.Ubuntu:
 		groups = UbuntuGroups
@@ -156,7 +150,7 @@ func SetUbuntuUser(conf cloudinit.CloudConfig, authorizedKeys string) {
 		Name:              "ubuntu",
 		Groups:            groups,
 		Shell:             "/bin/bash",
-		Sudo:              []string{"ALL=(ALL) NOPASSWD:ALL"},
+		Sudo:              "ALL=(ALL) NOPASSWD:ALL",
 		SSHAuthorizedKeys: authorizedKeys,
 	})
 

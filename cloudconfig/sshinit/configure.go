@@ -37,8 +37,8 @@ type ConfigureParams struct {
 	// for realtime feedback.
 	ProgressWriter io.Writer
 
-	// Series is the series of the machine on which the script will be carried out
-	Series string
+	// OS is the os of the machine on which the script will be carried out
+	OS string
 }
 
 // RunConfigureScript connects to the specified host over

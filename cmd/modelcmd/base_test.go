@@ -4,7 +4,7 @@
 package modelcmd_test
 
 import (
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -67,7 +67,7 @@ func (s *BaseCommandSuite) assertUnknownModel(c *gc.C, baseCmd *modelcmd.ModelCo
 	}
 	baseCmd.SetClientStore(s.store)
 	baseCmd.SetAPIOpen(apiOpen)
-	modelcmd.InitContexts(&cmd.Context{Stderr: ioutil.Discard}, baseCmd)
+	modelcmd.InitContexts(&cmd.Context{Stderr: io.Discard}, baseCmd)
 	modelcmd.SetRunStarted(baseCmd)
 	baseCmd.SetModelIdentifier("foo:admin/badmodel", false)
 	conn, err := baseCmd.NewAPIRoot()
@@ -129,7 +129,7 @@ func (s *BaseCommandSuite) TestMigratedModelErrorHandling(c *gc.C) {
 	baseCmd := new(modelcmd.ModelCommandBase)
 	baseCmd.SetClientStore(s.store)
 	baseCmd.SetAPIOpen(apiOpen)
-	modelcmd.InitContexts(&cmd.Context{Stderr: ioutil.Discard}, baseCmd)
+	modelcmd.InitContexts(&cmd.Context{Stderr: io.Discard}, baseCmd)
 	modelcmd.SetRunStarted(baseCmd)
 
 	c.Assert(baseCmd.SetModelIdentifier("foo:admin/badmodel", false), jc.ErrorIsNil)

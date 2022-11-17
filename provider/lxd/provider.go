@@ -5,7 +5,6 @@ package lxd
 
 import (
 	stdcontext "context"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -412,7 +411,7 @@ func (p *environProvider) ConfigDefaults() schema.Defaults {
 type lxcConfigReader struct{}
 
 func (lxcConfigReader) ReadConfig(path string) (LXCConfig, error) {
-	configFile, err := ioutil.ReadFile(path)
+	configFile, err := os.ReadFile(path)
 	if err != nil {
 		if cause := errors.Cause(err); os.IsNotExist(cause) {
 			return LXCConfig{}, nil
@@ -429,6 +428,6 @@ func (lxcConfigReader) ReadConfig(path string) (LXCConfig, error) {
 }
 
 func (lxcConfigReader) ReadCert(path string) ([]byte, error) {
-	certFile, err := ioutil.ReadFile(path)
+	certFile, err := os.ReadFile(path)
 	return certFile, errors.Trace(err)
 }

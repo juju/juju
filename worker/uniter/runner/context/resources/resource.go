@@ -6,7 +6,6 @@ package resources
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 
 	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/errors"
@@ -40,7 +39,7 @@ func OpenResource(name string, client OpenedResourceClient) (*OpenedResource, er
 		info.Path = "content.yaml"
 		// Image data is stored as json but we need to convert to YAMl
 		// as that's what the charm expects.
-		data, err := ioutil.ReadAll(reader)
+		data, err := io.ReadAll(reader)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

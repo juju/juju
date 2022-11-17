@@ -25,7 +25,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/os/v2/series"
 	"github.com/juju/utils/v3"
 	"github.com/juju/utils/v3/arch"
 	"gopkg.in/yaml.v2"
@@ -56,17 +55,12 @@ var (
 	// first part is the opaque identifier we don't care about
 	// then the hostname, and lastly the status.
 	machineListPattern = regexp.MustCompile(`(?m)^\s+\d+\s+(?P<hostname>[-\w]+)\s+(?P<status>.+)\s*$`)
-
-	// Overridden by tests.
-	getHostSeries = func() (string, error) {
-		return series.HostSeries()
-	}
 )
 
 // CreateMachineParams Implements libvirt.domainParams.
 type CreateMachineParams struct {
 	Hostname          string
-	Series            string
+	Version           string
 	UserDataFile      string
 	NetworkConfigData string
 	Memory            uint64
@@ -204,13 +198,13 @@ func CreateMachine(params CreateMachineParams) error {
 
 	out, err := params.runCmdAsRoot("", virsh, "define", domainPath)
 	if err != nil {
-		return errors.Annotatef(err, "failed to defined the domain for %q from %s", params.Host(), domainPath)
+		return errors.Annotatef(err, "failed to define the domain for %q from %s:%s", params.Host(), domainPath, out)
 	}
 	logger.Debugf("created domain: %s", out)
 
 	out, err = params.runCmdAsRoot("", virsh, "start", params.Host())
 	if err != nil {
-		return errors.Annotatef(err, "failed to start domain %q", params.Host())
+		return errors.Annotatef(err, "failed to start domain %q:%s", params.Host(), out)
 	}
 	logger.Debugf("started domain: %s", out)
 
@@ -459,23 +453,16 @@ func writeRootDisk(params CreateMachineParams) (string, error) {
 	imgPath := filepath.Join(guestBase, fmt.Sprintf("%s.qcow", params.Host()))
 	backingPath := filepath.Join(
 		guestBase,
-		backingFileName(params.Series, params.Arch()))
+		backingFileName(params.Version, params.Arch()))
 
 	cmdArgs := []string{
 		"create",
 		"-b", backingPath,
 	}
 
-	// On focal+ we must explicitly specify the format of the backing image
-	// as well (see LP1883575).
-	needsBackingImgFormat, err := mustSpecifyBackingImageFormat()
-	if err != nil {
-		return "", errors.Trace(err)
-	} else if needsBackingImgFormat {
-		// Contrary to their extension, the backing files fetched via
-		// simple stream are raw and not qcow2 images.
-		cmdArgs = append(cmdArgs, "-F", "raw")
-	}
+	// Contrary to their extension, the backing files fetched via
+	// simple stream are raw and not qcow2 images.
+	cmdArgs = append(cmdArgs, "-F", "raw")
 
 	cmdArgs = append(cmdArgs,
 		"-f", "qcow2",
@@ -490,23 +477,6 @@ func writeRootDisk(params CreateMachineParams) (string, error) {
 	}
 
 	return imgPath, nil
-}
-
-// mustSpecifyBackingImageFormat returns true if the qemu-img command on the
-// host requests the backing image format to be explicitly provided as an
-// argument.
-func mustSpecifyBackingImageFormat() (bool, error) {
-	series, err := getHostSeries()
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-
-	switch series {
-	case "bionic":
-		return false, nil
-	default: // focal+
-		return true, nil
-	}
 }
 
 // pool info parses and returns the output of `virsh pool-info <poolname>`.

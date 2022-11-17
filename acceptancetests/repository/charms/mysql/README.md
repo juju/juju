@@ -32,7 +32,7 @@ To deploy a slave:
     juju deploy mysql mysql-slave
 
     # add master to slave relation
-    juju add-relation mysql:master mysql-slave:slave
+    juju integrate mysql:master mysql-slave:slave
 
 Any changes to the master are reflected on the slave.
 

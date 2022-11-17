@@ -407,15 +407,14 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 		}
 		if charm.CharmHub.Matches(url.Schema) {
 			// Although we've resolved the charm URL, we actually don't want the
-			// whole URL (architecture, series and revision), only the name is
+			// whole URL (architecture, channel and revision), only the name is
 			// verified that it exists.
 			url = &charm.URL{
 				Schema:   charm.CharmHub.String(),
 				Name:     url.Name,
 				Revision: -1,
 			}
-			origin = origin.WithSeries("")
-			origin.OS = ""
+			origin = origin.WithBase(nil)
 		}
 
 		h.ctx.Infof(formatLocatedText(ch, origin))
@@ -710,7 +709,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 	switch {
 	case url.Series == "bundle" || resolvedOrigin.Type == "bundle":
 		return errors.Errorf("expected charm, got bundle %q %v", ch.Name, resolvedOrigin)
-	case resolvedOrigin.Series == "":
+	case resolvedOrigin.Base.Channel.Empty():
 		modelCfg, workloadSeries, err := seriesSelectorRequirements(h.deployAPI, h.clock, url)
 		if err != nil {
 			return errors.Trace(err)
@@ -725,14 +724,20 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		}
 
 		// Get the series to use.
-		resolvedOrigin.Series, err = selector.charmSeries()
+		chSeries, err := selector.charmSeries()
 		if err != nil {
 			return errors.Trace(err)
 		}
 		if url.Schema != charm.CharmStore.String() {
-			url = url.WithSeries(resolvedOrigin.Series)
+			url = url.WithSeries(chSeries)
 		}
-		logger.Tracef("Using series %s from %v to deploy %v", resolvedOrigin.Series, supportedSeries, url)
+		// TODO(juju3) - use os/channel, not series
+		base, err := series.GetBaseFromSeries(chSeries)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		resolvedOrigin.Base = base
+		logger.Tracef("Using channel %s from %v to deploy %v", resolvedOrigin.Base.String(), supportedSeries, url)
 	}
 
 	var macaroon *macaroon.Macaroon
@@ -934,7 +939,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 	// Only Kubernetes bundles send the unit count and placement with the deploy API call.
 	numUnits := 0
 	var placement []*instance.Placement
-	if h.data.Type == "kubernetes" {
+	if h.data.Type == series.Kubernetes.String() {
 		numUnits = p.NumUnits
 	}
 
@@ -951,7 +956,12 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		if err != nil {
 			return errors.Trace(err)
 		}
-		origin.Series = selectedSeries
+		// TODO(juju3) - use os/channel, not series
+		base, err := series.GetBaseFromSeries(selectedSeries)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		origin.Base = base
 	case charm.CharmStore.Matches(chID.URL.Schema):
 		// Figure out what series we need to deploy with. For CharmHub charms,
 		// this was determined when addcharm was called.
@@ -977,7 +987,6 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		CharmOrigin:      origin,
 		Cons:             cons,
 		ApplicationName:  p.Application,
-		Series:           origin.Series,
 		NumUnits:         numUnits,
 		Placement:        placement,
 		ConfigYAML:       configYAML,
@@ -1142,9 +1151,21 @@ func (h *bundleHandler) addMachine(change *bundlechanges.AddMachineChange) error
 		// This should never happen, as the bundle is already verified.
 		return errors.Annotate(err, "invalid constraints for machine")
 	}
+	var base *params.Base
+	if p.Series != "" {
+		info, err := series.GetBaseFromSeries(p.Series)
+		if err != nil {
+			return errors.NotValidf("machine series %q", p.Series)
+		}
+		p.Series = ""
+		base = &params.Base{
+			Name:    info.OS,
+			Channel: info.Channel.String(),
+		}
+	}
 	machineParams := params.AddMachineParams{
 		Constraints: cons,
-		Series:      p.Series,
+		Base:        base,
 		Jobs:        []model.MachineJob{model.JobHostUnits},
 	}
 	if ct := p.ContainerType; ct != "" {

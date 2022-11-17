@@ -4,7 +4,7 @@
 package testing
 
 import (
-	"io/ioutil"
+	"os"
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
@@ -24,7 +25,8 @@ import (
 func MockMachineConfig(machineId string) (*instancecfg.InstanceConfig, error) {
 
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	instanceConfig, err := instancecfg.NewInstanceConfig(testing.ControllerTag, machineId, "fake-nonce", imagemetadata.ReleasedStream, "quantal", apiInfo)
+	instanceConfig, err := instancecfg.NewInstanceConfig(testing.ControllerTag, machineId, "fake-nonce",
+		imagemetadata.ReleasedStream, series.MakeDefaultBase("ubuntu", "22.04"), apiInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +69,7 @@ func CreateContainerWithMachineAndNetworkAndStorageConfig(
 ) instances.Instance {
 	callback := func(settableStatus status.Status, info string, data map[string]interface{}) error { return nil }
 	inst, hardware, err := manager.CreateContainer(
-		instanceConfig, constraints.Value{}, "bionic", networkConfig, storageConfig, callback)
+		instanceConfig, constraints.Value{}, series.MakeDefaultBase("ubuntu", "18.04"), networkConfig, storageConfig, callback)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hardware, gc.NotNil)
 	c.Assert(hardware.String(), gc.Not(gc.Equals), "")
@@ -76,7 +78,7 @@ func CreateContainerWithMachineAndNetworkAndStorageConfig(
 
 func AssertCloudInit(c *gc.C, filename string) []byte {
 	c.Assert(filename, jc.IsNonEmptyFile)
-	data, err := ioutil.ReadFile(filename)
+	data, err := os.ReadFile(filename)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), jc.HasPrefix, "#cloud-config\n")
 	return data

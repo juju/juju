@@ -5,7 +5,7 @@ package provider_test
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/juju/names/v4"
@@ -125,7 +125,7 @@ const testMountPoint = "/in/the/place"
 
 func (s *managedfsSuite) TestAttachFilesystems(c *gc.C) {
 	nonRelatedFstabEntry := "/dev/foo /mount/point stuff"
-	err := ioutil.WriteFile(filepath.Join(s.fakeEtcDir, "fstab"), []byte(nonRelatedFstabEntry), 0644)
+	err := os.WriteFile(filepath.Join(s.fakeEtcDir, "fstab"), []byte(nonRelatedFstabEntry), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
 	mtabEntry := fmt.Sprintf("/dev/sda1 %s other relatime 0 0", testMountPoint)
@@ -135,7 +135,7 @@ func (s *managedfsSuite) TestAttachFilesystems(c *gc.C) {
 
 func (s *managedfsSuite) TestAttachFilesystemsMissingMtab(c *gc.C) {
 	nonRelatedFstabEntry := "/dev/foo /mount/point stuff\n"
-	err := ioutil.WriteFile(filepath.Join(s.fakeEtcDir, "fstab"), []byte(nonRelatedFstabEntry), 0644)
+	err := os.WriteFile(filepath.Join(s.fakeEtcDir, "fstab"), []byte(nonRelatedFstabEntry), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.testAttachFilesystems(c, false, false, "", "", nonRelatedFstabEntry)
@@ -143,7 +143,7 @@ func (s *managedfsSuite) TestAttachFilesystemsMissingMtab(c *gc.C) {
 
 func (s *managedfsSuite) TestAttachFilesystemsExistingFstabEntry(c *gc.C) {
 	existingFstabEntry := fmt.Sprintf("/dev/sda1 %s existing mtab stuff\n", testMountPoint)
-	err := ioutil.WriteFile(filepath.Join(s.fakeEtcDir, "fstab"), []byte(existingFstabEntry), 0644)
+	err := os.WriteFile(filepath.Join(s.fakeEtcDir, "fstab"), []byte(existingFstabEntry), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
 	mtabEntry := fmt.Sprintf("/dev/sda1 %s other mtab stuff", testMountPoint)
@@ -152,7 +152,7 @@ func (s *managedfsSuite) TestAttachFilesystemsExistingFstabEntry(c *gc.C) {
 
 func (s *managedfsSuite) TestAttachFilesystemsUpdateExistingFstabEntryWithUUID(c *gc.C) {
 	existingFstabEntry := fmt.Sprintf("/dev/sda1 %s existing mtab stuff\n", testMountPoint)
-	err := ioutil.WriteFile(filepath.Join(s.fakeEtcDir, "fstab"), []byte(existingFstabEntry), 0644)
+	err := os.WriteFile(filepath.Join(s.fakeEtcDir, "fstab"), []byte(existingFstabEntry), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedFstabEntry := fmt.Sprintf("# %s was on /dev/sda1 during installation\nUUID=deadbeaf %s other mtab,nofail stuff\n", testMountPoint, testMountPoint)
@@ -177,7 +177,7 @@ func (s *managedfsSuite) testAttachFilesystems(c *gc.C, readOnly, reattach bool,
 	cmd = s.commands.expect("df", "--output=source", testMountPoint)
 
 	if mtab != "" {
-		err := ioutil.WriteFile(filepath.Join(s.fakeEtcDir, "mtab"), []byte(mtab), 0644)
+		err := os.WriteFile(filepath.Join(s.fakeEtcDir, "mtab"), []byte(mtab), 0644)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -227,7 +227,7 @@ func (s *managedfsSuite) testAttachFilesystems(c *gc.C, readOnly, reattach bool,
 	}})
 
 	if fstab != "" {
-		data, err := ioutil.ReadFile(filepath.Join(s.fakeEtcDir, "fstab"))
+		data, err := os.ReadFile(filepath.Join(s.fakeEtcDir, "fstab"))
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(string(data), gc.Equals, fstab)
 	}
@@ -236,7 +236,7 @@ func (s *managedfsSuite) testAttachFilesystems(c *gc.C, readOnly, reattach bool,
 func (s *managedfsSuite) TestDetachFilesystems(c *gc.C) {
 	nonRelatedFstabEntry := "/dev/foo /mount/point stuff\n"
 	fstabEntry := fmt.Sprintf("%s %s other mtab stuff", "/dev/sda1", testMountPoint)
-	err := ioutil.WriteFile(filepath.Join(s.fakeEtcDir, "fstab"), []byte(nonRelatedFstabEntry+fstabEntry), 0644)
+	err := os.WriteFile(filepath.Join(s.fakeEtcDir, "fstab"), []byte(nonRelatedFstabEntry+fstabEntry), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	source := s.initSource(c)
 	testDetachFilesystems(c, s.commands, source, s.callCtx, true, s.fakeEtcDir, nonRelatedFstabEntry)

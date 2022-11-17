@@ -5,7 +5,6 @@ package application
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -92,9 +91,9 @@ func (s *BundleDeployCharmStoreSuite) DeployBundleYAMLWithOutput(c *gc.C, conten
 func (s *BundleDeployCharmStoreSuite) makeBundleDir(c *gc.C, content string) string {
 	bundlePath := filepath.Join(c.MkDir(), "example")
 	c.Assert(os.Mkdir(bundlePath, 0777), jc.ErrorIsNil)
-	err := ioutil.WriteFile(filepath.Join(bundlePath, "bundle.yaml"), []byte(content), 0644)
+	err := os.WriteFile(filepath.Join(bundlePath, "bundle.yaml"), []byte(content), 0644)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(filepath.Join(bundlePath, "README.md"), []byte("README"), 0644)
+	err = os.WriteFile(filepath.Join(bundlePath, "README.md"), []byte("README"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return bundlePath
@@ -206,7 +205,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalPath(c *gc.C) {
                 series: xenial
                 num_units: 1
     `
-	err := ioutil.WriteFile(path, []byte(data), 0644)
+	err := os.WriteFile(path, []byte(data), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.runDeploy(c, path)
 	c.Assert(err, jc.ErrorIsNil)
@@ -240,7 +239,7 @@ func (s *BundleDeployCharmStoreSuite) assertDeployBundleLocalPathInvalidSeriesWi
                 charm: ./dummy
                 num_units: 1
     `
-	err := ioutil.WriteFile(path, []byte(data), 0644)
+	err := os.WriteFile(path, []byte(data), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	args := []string{path}
 	if force {
@@ -277,7 +276,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalResources(c *gc.C) {
 	dir := s.makeBundleDir(c, data)
 	testcharms.RepoWithSeries("bionic").ClonedDir(dir, "dummy-resource")
 	c.Assert(
-		ioutil.WriteFile(filepath.Join(dir, "dummy-resource.zip"), []byte("zip file"), 0644),
+		os.WriteFile(filepath.Join(dir, "dummy-resource.zip"), []byte("zip file"), 0644),
 		jc.ErrorIsNil)
 	err := s.runDeploy(c, dir)
 	c.Assert(err, jc.ErrorIsNil)
@@ -480,7 +479,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentWithBundleO
 	configDir := c.MkDir()
 	configFile := filepath.Join(configDir, "config.yaml")
 	c.Assert(
-		ioutil.WriteFile(
+		os.WriteFile(
 			configFile, []byte(`
                 applications:
                     wordpress:
@@ -489,7 +488,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentWithBundleO
             `), 0644),
 		jc.ErrorIsNil)
 	c.Assert(
-		ioutil.WriteFile(
+		os.WriteFile(
 			filepath.Join(configDir, "title"), []byte("magic bundle config"), 0644),
 		jc.ErrorIsNil)
 
@@ -531,7 +530,7 @@ applications:
     charm: ./dummy
 `
 	c.Assert(
-		ioutil.WriteFile(bundleFile, []byte(bundleContent), 0644),
+		os.WriteFile(bundleFile, []byte(bundleContent), 0644),
 		jc.ErrorIsNil)
 
 	err := s.runDeploy(c, bundleFile)

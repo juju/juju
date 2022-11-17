@@ -135,7 +135,7 @@ func (s *ShowSuite) createTestApplicationInfo(name string, suffix string) *param
 	return &params.ApplicationResult{
 		Tag:         fmt.Sprintf("application-%v", app),
 		Charm:       fmt.Sprintf("charm-%v", app),
-		Series:      "quantal",
+		Base:        params.Base{Name: "ubuntu", Channel: "12.10"},
 		Channel:     "development",
 		Constraints: constraints.MustParse("arch=amd64 mem=4G cores=1 root-disk=8G"),
 		Principal:   true,
@@ -171,7 +171,7 @@ func (s *ShowSuite) TestShow(c *gc.C) {
 		stdout: `
 wordpress:
   charm: charm-wordpress
-  series: quantal
+  base: ubuntu@12.10
   channel: development
   constraints:
     arch: amd64
@@ -203,7 +203,7 @@ func (s *ShowSuite) TestShowJSON(c *gc.C) {
 	}
 	s.assertRunShow(c, showTest{
 		args:   []string{"wordpress", "--format", "json"},
-		stdout: "{\"wordpress\":{\"charm\":\"charm-wordpress\",\"series\":\"quantal\",\"channel\":\"development\",\"constraints\":{\"arch\":\"amd64\",\"cores\":1,\"mem\":4096,\"root-disk\":8192},\"principal\":true,\"exposed\":false,\"exposed-endpoints\":{\"\":{\"expose-to-cidrs\":[\"192.168.0.0/24\"]},\"website\":{\"expose-to-spaces\":[\"non-euclidean-geometry\"]}},\"remote\":false,\"life\":\"alive\",\"endpoint-bindings\":{\"juju-info\":\"myspace\"}}}\n",
+		stdout: "{\"wordpress\":{\"charm\":\"charm-wordpress\",\"base\":\"ubuntu@12.10\",\"channel\":\"development\",\"constraints\":{\"arch\":\"amd64\",\"cores\":1,\"mem\":4096,\"root-disk\":8192},\"principal\":true,\"exposed\":false,\"exposed-endpoints\":{\"\":{\"expose-to-cidrs\":[\"192.168.0.0/24\"]},\"website\":{\"expose-to-spaces\":[\"non-euclidean-geometry\"]}},\"remote\":false,\"life\":\"alive\",\"endpoint-bindings\":{\"juju-info\":\"myspace\"}}}\n",
 	})
 }
 
@@ -232,7 +232,7 @@ func (s *ShowSuite) TestShowMany(c *gc.C) {
 		stdout: `
 logging:
   charm: charm-logging
-  series: quantal
+  base: ubuntu@12.10
   channel: development
   constraints:
     arch: amd64
@@ -247,7 +247,7 @@ logging:
     juju-info: myspace
 wordpress:
   charm: charm-wordpress
-  series: quantal
+  base: ubuntu@12.10
   channel: development
   constraints:
     arch: amd64

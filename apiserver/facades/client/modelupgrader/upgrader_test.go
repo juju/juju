@@ -38,6 +38,42 @@ import (
 	upgradevalidationmocks "github.com/juju/juju/upgrades/upgradevalidation/mocks"
 )
 
+var winVersions = []string{
+	"win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
+	"win2016", "win2016hv", "win2019", "win7", "win8", "win81", "win10",
+}
+
+var ubuntuVersions = []string{
+	"12.04",
+	"12.10",
+	"13.04",
+	"13.10",
+	"14.04",
+	"14.10",
+	"15.04",
+	"15.10",
+	"16.04",
+	"16.10",
+	"17.04",
+	"17.10",
+	"18.04",
+	"18.10",
+	"19.04",
+	"19.10",
+	"20.10",
+	"21.04",
+	"21.10",
+	"22.10",
+}
+
+func makeBases(os string, vers []string) []state.Base {
+	bases := make([]state.Base, len(vers))
+	for i, vers := range vers {
+		bases[i] = state.Base{OS: os, Channel: vers}
+	}
+	return bases
+}
+
 type modelUpgradeSuite struct {
 	jujutesting.IsolationSuite
 
@@ -139,7 +175,7 @@ func (s *modelUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, d
 	ctrl, api := s.getModelUpgraderAPI(c)
 	defer ctrl.Finish()
 
-	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersion, map[int]version.Number{
+	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersions, map[int]version.Number{
 		3: version.MustParse("2.9.1"),
 	})
 
@@ -207,32 +243,9 @@ func (s *modelUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, d
 		// - check mongo version;
 		s.statePool.EXPECT().MongoVersion().Return("4.4", nil),
 		// - check if the model has win machines;
-		ctrlState.EXPECT().MachineCountForSeries(
-			"win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
-			"win2016", "win2016hv", "win2019", "win7", "win8", "win81", "win10",
-		).Return(nil, nil),
+		ctrlState.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(nil, nil),
 		// - check if the model has deprecated ubuntu machines;
-		ctrlState.EXPECT().MachineCountForSeries(
-			"artful",
-			"bionic",
-			"cosmic",
-			"disco",
-			"eoan",
-			"groovy",
-			"hirsute",
-			"impish",
-			"precise",
-			"quantal",
-			"raring",
-			"saucy",
-			"trusty",
-			"utopic",
-			"vivid",
-			"wily",
-			"xenial",
-			"yakkety",
-			"zesty",
-		).Return(nil, nil),
+		ctrlState.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(nil, nil),
 		// - check LXD version.
 		serverFactory.EXPECT().RemoteServer(s.cloudSpec).Return(server, nil),
 		server.EXPECT().ServerVersion().Return("5.2"),
@@ -247,32 +260,9 @@ func (s *modelUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, d
 		//  - check if model migration is ongoing;
 		model1.EXPECT().MigrationMode().Return(state.MigrationModeNone),
 		// - check if the model has win machines;
-		state1.EXPECT().MachineCountForSeries(
-			"win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
-			"win2016", "win2016hv", "win2019", "win7", "win8", "win81", "win10",
-		).Return(nil, nil),
+		state1.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(nil, nil),
 		// - check if the model has deprecated ubuntu machines;
-		state1.EXPECT().MachineCountForSeries(
-			"artful",
-			"bionic",
-			"cosmic",
-			"disco",
-			"eoan",
-			"groovy",
-			"hirsute",
-			"impish",
-			"precise",
-			"quantal",
-			"raring",
-			"saucy",
-			"trusty",
-			"utopic",
-			"vivid",
-			"wily",
-			"xenial",
-			"yakkety",
-			"zesty",
-		).Return(nil, nil),
+		state1.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(nil, nil),
 		// - check LXD version.
 		serverFactory.EXPECT().RemoteServer(s.cloudSpec).Return(server, nil),
 		server.EXPECT().ServerVersion().Return("5.2"),
@@ -311,7 +301,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 	ctrl, api := s.getModelUpgraderAPI(c)
 	defer ctrl.Finish()
 
-	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersion, map[int]version.Number{
+	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersions, map[int]version.Number{
 		3: version.MustParse("2.9.2"),
 	})
 
@@ -379,35 +369,12 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 		// - check mongo version;
 		s.statePool.EXPECT().MongoVersion().Return("4.3", nil),
 		// - check if the model has win machines;
-		ctrlState.EXPECT().MachineCountForSeries(
-			"win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
-			"win2016", "win2016hv", "win2019", "win7", "win8", "win81", "win10",
-		).Return(map[string]int{"win10": 1, "win7": 2}, nil),
+		ctrlState.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(map[string]int{"win10": 1, "win7": 2}, nil),
 		// - check if the model has deprecated ubuntu machines;
-		ctrlState.EXPECT().MachineCountForSeries(
-			"artful",
-			"bionic",
-			"cosmic",
-			"disco",
-			"eoan",
-			"groovy",
-			"hirsute",
-			"impish",
-			"precise",
-			"quantal",
-			"raring",
-			"saucy",
-			"trusty",
-			"utopic",
-			"vivid",
-			"wily",
-			"xenial",
-			"yakkety",
-			"zesty",
-		).Return(map[string]int{"xenial": 2}, nil),
+		ctrlState.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(map[string]int{"xenial": 2}, nil),
 		// - check LXD version.
 		serverFactory.EXPECT().RemoteServer(s.cloudSpec).Return(server, nil),
-		server.EXPECT().ServerVersion().Return("5.1"),
+		server.EXPECT().ServerVersion().Return("4.0"),
 		ctrlModel.EXPECT().Owner().Return(names.NewUserTag("admin")),
 		ctrlModel.EXPECT().Name().Return("controller"),
 
@@ -420,32 +387,9 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 		//  - check if model migration is ongoing;
 		model1.EXPECT().MigrationMode().Return(state.MigrationModeExporting),
 		// - check if the model has win machines;
-		state1.EXPECT().MachineCountForSeries(
-			"win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
-			"win2016", "win2016hv", "win2019", "win7", "win8", "win81", "win10",
-		).Return(map[string]int{"win10": 1, "win7": 3}, nil),
+		state1.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(map[string]int{"win10": 1, "win7": 3}, nil),
 		// - check if the model has deprecated ubuntu machines;
-		state1.EXPECT().MachineCountForSeries(
-			"artful",
-			"bionic",
-			"cosmic",
-			"disco",
-			"eoan",
-			"groovy",
-			"hirsute",
-			"impish",
-			"precise",
-			"quantal",
-			"raring",
-			"saucy",
-			"trusty",
-			"utopic",
-			"vivid",
-			"wily",
-			"xenial",
-			"yakkety",
-			"zesty",
-		).Return(map[string]int{
+		state1.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(map[string]int{
 			"artful": 1, "cosmic": 2, "disco": 3, "eoan": 4, "groovy": 5,
 			"hirsute": 6, "impish": 7, "precise": 8, "quantal": 9, "raring": 10,
 			"saucy": 11, "trusty": 12, "utopic": 13, "vivid": 14, "wily": 15,
@@ -453,7 +397,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 		}, nil),
 		// - check LXD version.
 		serverFactory.EXPECT().RemoteServer(s.cloudSpec).Return(server, nil),
-		server.EXPECT().ServerVersion().Return("5.1"),
+		server.EXPECT().ServerVersion().Return("4.0"),
 		model1.EXPECT().Owner().Return(names.NewUserTag("admin")),
 		model1.EXPECT().Name().Return("model-1"),
 	)
@@ -473,20 +417,20 @@ cannot upgrade to "3.9.99" due to issues with these models:
 - mongo version has to be "4.4" at least, but current version is "4.3"
 - the model hosts deprecated windows machine(s): win10(1) win7(2)
 - the model hosts deprecated ubuntu machine(s): xenial(2)
-- LXD version has to be at least "5.2.0", but current version is only "5.1.0"
+- LXD version has to be at least "5.0.0", but current version is only "4.0.0"
 "admin/model-1":
 - current model ("2.9.0") has to be upgraded to "2.9.2" at least
 - model is under "exporting" mode, upgrade blocked
 - the model hosts deprecated windows machine(s): win10(1) win7(3)
 - the model hosts deprecated ubuntu machine(s): artful(1) cosmic(2) disco(3) eoan(4) groovy(5) hirsute(6) impish(7) precise(8) quantal(9) raring(10) saucy(11) trusty(12) utopic(13) vivid(14) wily(15) xenial(16) yakkety(17) zesty(18)
-- LXD version has to be at least "5.2.0", but current version is only "5.1.0"`[1:])
+- LXD version has to be at least "5.0.0", but current version is only "4.0.0"`[1:])
 }
 
 func (s *modelUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, dryRun bool) {
 	ctrl, api := s.getModelUpgraderAPI(c)
 	defer ctrl.Finish()
 
-	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersion, map[int]version.Number{
+	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersions, map[int]version.Number{
 		3: version.MustParse("2.9.1"),
 	})
 
@@ -528,32 +472,9 @@ func (s *modelUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, dryRun bool) {
 		st.EXPECT().HasUpgradeSeriesLocks().Return(false, nil),
 
 		// - check if the model has win machines;
-		st.EXPECT().MachineCountForSeries(
-			"win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
-			"win2016", "win2016hv", "win2019", "win7", "win8", "win81", "win10",
-		).Return(nil, nil),
+		st.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(nil, nil),
 		// - check if the model has deprecated ubuntu machines;
-		st.EXPECT().MachineCountForSeries(
-			"artful",
-			"bionic",
-			"cosmic",
-			"disco",
-			"eoan",
-			"groovy",
-			"hirsute",
-			"impish",
-			"precise",
-			"quantal",
-			"raring",
-			"saucy",
-			"trusty",
-			"utopic",
-			"vivid",
-			"wily",
-			"xenial",
-			"yakkety",
-			"zesty",
-		).Return(nil, nil),
+		st.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(nil, nil),
 		// - check LXD version.
 		serverFactory.EXPECT().RemoteServer(s.cloudSpec).Return(server, nil),
 		server.EXPECT().ServerVersion().Return("5.2"),
@@ -591,7 +512,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 	ctrl, api := s.getModelUpgraderAPI(c)
 	defer ctrl.Finish()
 
-	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersion, map[int]version.Number{
+	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersions, map[int]version.Number{
 		3: version.MustParse("2.9.1"),
 	})
 
@@ -632,32 +553,9 @@ func (s *modelUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 		st.EXPECT().HasUpgradeSeriesLocks().Return(true, nil),
 
 		// - check if the model has win machines;
-		st.EXPECT().MachineCountForSeries(
-			"win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
-			"win2016", "win2016hv", "win2019", "win7", "win8", "win81", "win10",
-		).Return(map[string]int{"win10": 1, "win7": 3}, nil),
+		st.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(map[string]int{"win10": 1, "win7": 3}, nil),
 		// - check if the model has deprecated ubuntu machines;
-		st.EXPECT().MachineCountForSeries(
-			"artful",
-			"bionic",
-			"cosmic",
-			"disco",
-			"eoan",
-			"groovy",
-			"hirsute",
-			"impish",
-			"precise",
-			"quantal",
-			"raring",
-			"saucy",
-			"trusty",
-			"utopic",
-			"vivid",
-			"wily",
-			"xenial",
-			"yakkety",
-			"zesty",
-		).Return(map[string]int{
+		st.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(map[string]int{
 			"artful": 1, "cosmic": 2, "disco": 3, "eoan": 4, "groovy": 5,
 			"hirsute": 6, "impish": 7, "precise": 8, "quantal": 9, "raring": 10,
 			"saucy": 11, "trusty": 12, "utopic": 13, "vivid": 14, "wily": 15,
@@ -665,7 +563,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 		}, nil),
 		// - check LXD version.
 		serverFactory.EXPECT().RemoteServer(s.cloudSpec).Return(server, nil),
-		server.EXPECT().ServerVersion().Return("5.1"),
+		server.EXPECT().ServerVersion().Return("4.0"),
 		model.EXPECT().Owner().Return(names.NewUserTag("admin")),
 		model.EXPECT().Name().Return("model-1"),
 	)
@@ -682,7 +580,7 @@ cannot upgrade to "3.9.99" due to issues with these models:
 - unexpected upgrade series lock found
 - the model hosts deprecated windows machine(s): win10(1) win7(3)
 - the model hosts deprecated ubuntu machine(s): artful(1) cosmic(2) disco(3) eoan(4) groovy(5) hirsute(6) impish(7) precise(8) quantal(9) raring(10) saucy(11) trusty(12) utopic(13) vivid(14) wily(15) xenial(16) yakkety(17) zesty(18)
-- LXD version has to be at least "5.2.0", but current version is only "5.1.0"`[1:])
+- LXD version has to be at least "5.0.0", but current version is only "4.0.0"`[1:])
 }
 
 func (s *modelUpgradeSuite) TestAbortCurrentUpgrade(c *gc.C) {

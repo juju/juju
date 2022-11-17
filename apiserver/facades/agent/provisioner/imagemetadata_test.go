@@ -114,7 +114,6 @@ func (s *ImageMetadataSuite) convertCloudImageMetadata(all []params.CloudImageMe
 			cloudimagemetadata.MetadataAttributes{
 				Region:          one.Region,
 				Version:         one.Version,
-				Series:          one.Series,
 				Arch:            one.Arch,
 				VirtType:        one.VirtType,
 				RootStorageType: one.RootStorageType,
@@ -136,7 +135,6 @@ func (s *ImageMetadataSuite) expectedDataSoureImageMetadata() [][]params.CloudIm
 			{ImageId: "ami-26745463",
 				Region:          "dummy_region",
 				Version:         "12.10",
-				Series:          "quantal",
 				Arch:            "amd64",
 				VirtType:        "pv",
 				RootStorageType: "ebs",

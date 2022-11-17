@@ -198,6 +198,15 @@ func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, isPrivate
 		appRole.Rules = []rbacv1.PolicyRule{
 			{
 				APIGroups: []string{""},
+				Resources: []string{"namespaces"},
+				Verbs: []string{
+					"get",
+					"list",
+				},
+				ResourceNames: []string{s.namespace},
+			},
+			{
+				APIGroups: []string{""},
 				Resources: []string{"pods", "services"},
 				Verbs: []string{
 					"get",
@@ -276,7 +285,7 @@ func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, isPrivate
 			AgentVersion:         version.MustParse("1.1.1"),
 			IsPrivateImageRepo:   isPrivateImageRepo,
 			AgentImagePath:       "operator/image-path:1.1.1",
-			CharmBaseImagePath:   "ubuntu:22.04",
+			CharmBaseImagePath:   "ubuntu@22.04",
 			CharmModifiedVersion: 9001,
 			Filesystems: []storage.KubernetesFilesystemParams{
 				{
@@ -425,7 +434,7 @@ func getPodSpec() corev1.PodSpec {
 			Image:           "operator/image-path:1.1.1",
 			WorkingDir:      jujuDataDir,
 			Command:         []string{"/opt/containeragent"},
-			Args:            []string{"init", "--data-dir", "/var/lib/juju", "--bin-dir", "/charm/bin"},
+			Args:            []string{"init", "--containeragent-pebble-dir", "/containeragent/pebble", "--charm-modified-version", "9001", "--data-dir", "/var/lib/juju", "--bin-dir", "/charm/bin"},
 			Env: []corev1.EnvVar{
 				{
 					Name:  "JUJU_CONTAINER_NAMES",
@@ -465,6 +474,11 @@ func getPodSpec() corev1.PodSpec {
 				},
 				{
 					Name:      "charm-data",
+					MountPath: "/containeragent/pebble",
+					SubPath:   "containeragent/pebble",
+				},
+				{
+					Name:      "charm-data",
 					MountPath: "/charm/bin",
 					SubPath:   "charm/bin",
 				},
@@ -478,15 +492,13 @@ func getPodSpec() corev1.PodSpec {
 		Containers: []corev1.Container{{
 			Name:            "charm",
 			ImagePullPolicy: corev1.PullIfNotPresent,
-			Image:           "ubuntu:22.04",
+			Image:           "ubuntu@22.04",
 			WorkingDir:      jujuDataDir,
-			Command:         []string{"/charm/bin/containeragent"},
+			Command:         []string{"/charm/bin/pebble"},
 			Args: []string{
-				"unit",
-				"--data-dir", jujuDataDir,
-				"--charm-modified-version", "9001",
-				"--append-env", "PATH=$PATH:/charm/bin",
-				"--show-log",
+				"run",
+				"--http", ":38812",
+				"--verbose",
 			},
 			Env: []corev1.EnvVar{
 				{
@@ -505,40 +517,35 @@ func getPodSpec() corev1.PodSpec {
 			LivenessProbe: &corev1.Probe{
 				ProbeHandler: corev1.ProbeHandler{
 					HTTPGet: &corev1.HTTPGetAction{
-						Path: constants.AgentHTTPPathLiveness,
-						Port: intstr.Parse(constants.AgentHTTPProbePort),
+						Path: "/v1/health?level=alive",
+						Port: intstr.Parse("38812"),
 					},
 				},
 				InitialDelaySeconds: 30,
-				PeriodSeconds:       10,
+				TimeoutSeconds:      1,
+				PeriodSeconds:       5,
 				SuccessThreshold:    1,
-				FailureThreshold:    2,
+				FailureThreshold:    3,
 			},
 			ReadinessProbe: &corev1.Probe{
 				ProbeHandler: corev1.ProbeHandler{
 					HTTPGet: &corev1.HTTPGetAction{
-						Path: constants.AgentHTTPPathReadiness,
-						Port: intstr.Parse(constants.AgentHTTPProbePort),
+						Path: "/v1/health?level=ready",
+						Port: intstr.Parse("38812"),
 					},
 				},
 				InitialDelaySeconds: 30,
-				PeriodSeconds:       10,
+				TimeoutSeconds:      1,
+				PeriodSeconds:       5,
 				SuccessThreshold:    1,
-				FailureThreshold:    2,
-			},
-			StartupProbe: &corev1.Probe{
-				ProbeHandler: corev1.ProbeHandler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path: constants.AgentHTTPPathStartup,
-						Port: intstr.Parse(constants.AgentHTTPProbePort),
-					},
-				},
-				InitialDelaySeconds: 30,
-				PeriodSeconds:       10,
-				SuccessThreshold:    1,
-				FailureThreshold:    2,
+				FailureThreshold:    3,
 			},
 			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      "charm-data",
+					MountPath: "/var/lib/pebble/default",
+					SubPath:   "containeragent/pebble",
+				},
 				{
 					Name:      "charm-data",
 					MountPath: "/charm/bin",
@@ -587,7 +594,7 @@ func getPodSpec() corev1.PodSpec {
 				TimeoutSeconds:      1,
 				PeriodSeconds:       5,
 				SuccessThreshold:    1,
-				FailureThreshold:    1,
+				FailureThreshold:    3,
 			},
 			ReadinessProbe: &corev1.Probe{
 				ProbeHandler: corev1.ProbeHandler{
@@ -600,7 +607,7 @@ func getPodSpec() corev1.PodSpec {
 				TimeoutSeconds:      1,
 				PeriodSeconds:       5,
 				SuccessThreshold:    1,
-				FailureThreshold:    1,
+				FailureThreshold:    3,
 			},
 			SecurityContext: &corev1.SecurityContext{
 				RunAsUser:  int64Ptr(0),
@@ -650,7 +657,7 @@ func getPodSpec() corev1.PodSpec {
 				TimeoutSeconds:      1,
 				PeriodSeconds:       5,
 				SuccessThreshold:    1,
-				FailureThreshold:    1,
+				FailureThreshold:    3,
 			},
 			ReadinessProbe: &corev1.Probe{
 				ProbeHandler: corev1.ProbeHandler{
@@ -663,7 +670,7 @@ func getPodSpec() corev1.PodSpec {
 				TimeoutSeconds:      1,
 				PeriodSeconds:       5,
 				SuccessThreshold:    1,
-				FailureThreshold:    1,
+				FailureThreshold:    3,
 			},
 			SecurityContext: &corev1.SecurityContext{
 				RunAsUser:  int64Ptr(0),

@@ -4,7 +4,7 @@
 package cloud_test
 
 import (
-	"io/ioutil"
+	"os"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -49,7 +49,7 @@ func (s *credentialSuite) TestValidCredentials(c *gc.C) {
 			},
 			Name: "client-cert-data-from-file",
 			PreSetup: func(a *clientcmdapi.AuthInfo) error {
-				certFile, err := ioutil.TempFile("", "")
+				certFile, err := os.CreateTemp("", "")
 				if err != nil {
 					return err
 				}
@@ -57,7 +57,7 @@ func (s *credentialSuite) TestValidCredentials(c *gc.C) {
 				if err != nil {
 					return err
 				}
-				certKeyFile, err := ioutil.TempFile("", "")
+				certKeyFile, err := os.CreateTemp("", "")
 				if err != nil {
 					return err
 				}
@@ -91,7 +91,7 @@ func (s *credentialSuite) TestValidCredentials(c *gc.C) {
 			},
 			Name: "token-from-file",
 			PreSetup: func(a *clientcmdapi.AuthInfo) error {
-				tokenFile, err := ioutil.TempFile("", "")
+				tokenFile, err := os.CreateTemp("", "")
 				if err != nil {
 					return err
 				}

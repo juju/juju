@@ -28,17 +28,17 @@ const getConstraintsDoc = "" +
 	"with `juju set-constraints` for commands (such as 'deploy') that provision\n" +
 	"machines/containers for applications. Where model and application constraints overlap, the\n" +
 	"application constraints take precedence.\n" +
-	"Constraints for a specific application can be viewed with `juju get-constraints`.\n" + getConstraintsDocExamples
+	"Constraints for a specific application can be viewed with `juju constraints`.\n" + getConstraintsDocExamples
 
 const getConstraintsDocExamples = `
 Examples:
 
-    juju get-model-constraints
-    juju get-model-constraints -m mymodel
+    juju model-constraints
+    juju model-constraints -m mymodel
 
 See also:
     models
-    get-constraints
+    constraints
     set-constraints
     set-model-constraints
 `
@@ -47,12 +47,12 @@ See also:
 // commands for ease in markdown.
 const setConstraintsDoc = "" +
 	"Sets constraints on the model that can be viewed with\n" +
-	"`juju get-model-constraints`.  By default, the model is the current model.\n" +
+	"`juju model-constraints`.  By default, the model is the current model.\n" +
 	"Model constraints are combined with constraints set for an application with\n" +
 	"`juju set-constraints` for commands (such as 'deploy') that provision\n" +
 	"machines/containers for applications. Where model and application constraints overlap, the\n" +
 	"application constraints take precedence.\n" +
-	"Constraints for a specific application can be viewed with `juju get-constraints`.\n" + setConstraintsDocExamples
+	"Constraints for a specific application can be viewed with `juju constraints`.\n" + setConstraintsDocExamples
 
 const setConstraintsDocExamples = `
 Examples:
@@ -62,13 +62,13 @@ Examples:
 
 See also:
     models
-    get-model-constraints
-    get-constraints
+    model-constraints
+    constraints
     set-constraints
 `
 
 // ConstraintsAPI defines methods on the client API that
-// the get-constraints and set-constraints commands call
+// the constraints and set-constraints commands call
 type ConstraintsAPI interface {
 	Close() error
 	GetModelConstraints() (constraints.Value, error)
@@ -89,7 +89,7 @@ type modelGetConstraintsCommand struct {
 
 func (c *modelGetConstraintsCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "get-model-constraints",
+		Name:    "model-constraints",
 		Purpose: "Displays machine constraints for a model.",
 		Doc:     getConstraintsDoc,
 	})

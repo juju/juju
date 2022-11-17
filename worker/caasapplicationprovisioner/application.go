@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs/bootstrap"
@@ -257,7 +256,11 @@ func (a *appWorker) loop() error {
 				appStateChanges = appStateWatcher.Changes()
 			}
 			err = a.alive(app)
-			if err != nil {
+			if errors.Is(err, errors.NotProvisioned) {
+				// State not ready for this application to be provisioned yet.
+				// Usually because the charm has not yet been downloaded.
+				break
+			} else if err != nil {
 				return errors.Trace(err)
 			}
 			if appChanges == nil {
@@ -697,7 +700,10 @@ func (a *appWorker) alive(app caas.Application) error {
 	a.logger.Debugf("ensuring application %q exists", a.name)
 
 	provisionInfo, err := a.facade.ProvisioningInfo(a.name)
-	if err != nil {
+	if errors.Is(err, errors.NotProvisioned) {
+		a.logger.Debugf("application %s is not provisioned yet: %s", a.name, err.Error())
+		return errors.NotProvisioned
+	} else if err != nil {
 		return errors.Annotate(err, "retrieving provisioning info")
 	}
 	if provisionInfo.CharmURL == nil {
@@ -725,22 +731,12 @@ func (a *appWorker) alive(app caas.Application) error {
 		return errors.Annotate(err, "getting OCI image resources")
 	}
 
-	os, err := series.GetOSFromSeries(provisionInfo.Series)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	ver, err := series.SeriesVersion(provisionInfo.Series)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	ch := charmInfo.Charm()
 	charmBaseImage, err := podcfg.ImageForBase(provisionInfo.ImageDetails.Repository, charm.Base{
-		Name: strings.ToLower(os.String()),
+		Name: provisionInfo.Base.OS,
 		Channel: charm.Channel{
-			Track: ver,
-			Risk:  charm.Stable,
+			Track: provisionInfo.Base.Channel.Track,
+			Risk:  charm.Risk(provisionInfo.Base.Channel.Risk),
 		},
 	})
 	if err != nil {

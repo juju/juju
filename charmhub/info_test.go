@@ -191,7 +191,7 @@ func (s *InfoSuite) TestInfoRequestPayload(c *gc.C) {
 			Description: "This will install and setup WordPress optimized to run in the cloud. By default it will place Ngnix and php-fpm configured to scale horizontally with Nginx's reverse proxy.",
 			License:     "Apache-2.0",
 			Publisher: map[string]string{
-				"display-name": "Wordress Charmers",
+				"display-name": "WordPress Charmers",
 			},
 			Summary: "WordPress is a full featured web blogging tool, this charm deploys it.",
 			UsedBy: []string{

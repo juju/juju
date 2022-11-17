@@ -4,7 +4,7 @@
 package jujuclient_test
 
 import (
-	"io/ioutil"
+	"os"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -126,7 +126,7 @@ var testBootstrapConfig = map[string]jujuclient.BootstrapConfig{
 
 func (s *BootstrapConfigFileSuite) TestWriteFile(c *gc.C) {
 	writeTestBootstrapConfigFile(c)
-	data, err := ioutil.ReadFile(osenv.JujuXDGDataHomePath("bootstrap-config.yaml"))
+	data, err := os.ReadFile(osenv.JujuXDGDataHomePath("bootstrap-config.yaml"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, testBootstrapConfigYAML[1:])
 }
@@ -139,7 +139,7 @@ func (s *BootstrapConfigFileSuite) TestReadNoFile(c *gc.C) {
 
 func (s *BootstrapConfigFileSuite) TestReadEmptyFile(c *gc.C) {
 	path := osenv.JujuXDGDataHomePath("bootstrap-config.yaml")
-	err := ioutil.WriteFile(path, []byte(""), 0600)
+	err := os.WriteFile(path, []byte(""), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
 	configs, err := jujuclient.ReadBootstrapConfigFile(path)

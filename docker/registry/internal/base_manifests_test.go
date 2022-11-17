@@ -4,7 +4,7 @@
 package internal_test
 
 import (
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 
@@ -31,7 +31,7 @@ func (s *baseSuite) assertGetManifestsSchemaVersion1(c *gc.C, responseData, cont
 			return &http.Response{
 				Request:    req,
 				StatusCode: http.StatusUnauthorized,
-				Body:       ioutil.NopCloser(nil),
+				Body:       io.NopCloser(nil),
 				Header: http.Header{
 					http.CanonicalHeaderKey("WWW-Authenticate"): []string{
 						`Bearer realm="https://auth.example.com/token",service="registry.example.com",scope="repository:jujuqa/jujud-operator:pull"`,
@@ -48,7 +48,7 @@ func (s *baseSuite) assertGetManifestsSchemaVersion1(c *gc.C, responseData, cont
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusOK,
-					Body:       ioutil.NopCloser(strings.NewReader(`{"token": "jwt-token", "access_token": "jwt-token","expires_in": 300}`)),
+					Body:       io.NopCloser(strings.NewReader(`{"token": "jwt-token", "access_token": "jwt-token","expires_in": 300}`)),
 				}, nil
 			},
 		),
@@ -62,7 +62,7 @@ func (s *baseSuite) assertGetManifestsSchemaVersion1(c *gc.C, responseData, cont
 				},
 				Request:    req,
 				StatusCode: statusCode,
-				Body:       ioutil.NopCloser(strings.NewReader(responseData)),
+				Body:       io.NopCloser(strings.NewReader(responseData)),
 			}
 			return resps, nil
 		}),
@@ -145,7 +145,7 @@ func (s *baseSuite) TestGetBlobs(c *gc.C) {
 			return &http.Response{
 				Request:    req,
 				StatusCode: http.StatusUnauthorized,
-				Body:       ioutil.NopCloser(nil),
+				Body:       io.NopCloser(nil),
 				Header: http.Header{
 					http.CanonicalHeaderKey("WWW-Authenticate"): []string{
 						`Bearer realm="https://auth.example.com/token",service="registry.example.com",scope="repository:jujuqa/jujud-operator:pull"`,
@@ -162,7 +162,7 @@ func (s *baseSuite) TestGetBlobs(c *gc.C) {
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusOK,
-					Body:       ioutil.NopCloser(strings.NewReader(`{"token": "jwt-token", "access_token": "jwt-token","expires_in": 300}`)),
+					Body:       io.NopCloser(strings.NewReader(`{"token": "jwt-token", "access_token": "jwt-token","expires_in": 300}`)),
 				}, nil
 			},
 		),
@@ -175,7 +175,7 @@ func (s *baseSuite) TestGetBlobs(c *gc.C) {
 			resps := &http.Response{
 				Request:    req,
 				StatusCode: http.StatusOK,
-				Body: ioutil.NopCloser(strings.NewReader(`
+				Body: io.NopCloser(strings.NewReader(`
 {"architecture":"amd64"}
 `[1:])),
 			}

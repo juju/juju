@@ -6,7 +6,6 @@ package commands
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"runtime"
 	"text/template"
@@ -238,7 +237,7 @@ func (suite *PluginSuite) TestJujuControllerEnvVars(c *gc.C) {
 func (suite *PluginSuite) makePlugin(fullName, script string, perm os.FileMode) {
 	filename := gitjujutesting.HomePath(fullName)
 	content := fmt.Sprintf("#!/bin/bash --norc\n%s", script)
-	ioutil.WriteFile(filename, []byte(content), perm)
+	os.WriteFile(filename, []byte(content), perm)
 }
 
 func (suite *PluginSuite) makeWorkingPlugin(name string, perm os.FileMode) {
@@ -307,5 +306,5 @@ func (suite *PluginSuite) makeFullPlugin(params PluginParams) {
 		params.DependsOn = gitjujutesting.HomePath(params.DependsOn)
 	}
 	t.Execute(content, params)
-	ioutil.WriteFile(filename, content.Bytes(), 0755)
+	os.WriteFile(filename, content.Bytes(), 0755)
 }

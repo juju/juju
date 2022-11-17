@@ -15,7 +15,6 @@ type State interface {
 	AllApplications() ([]*state.Application, error)
 	AllMachines() ([]*state.Machine, error)
 	Application(name string) (*state.Application, error)
-	ApplicationLeaders() (map[string]string, error)
 	FindEntity(tag names.Tag) (state.Entity, error)
 	GetBlockForType(t state.BlockType) (state.Block, bool, error)
 	Model() (Model, error)
@@ -51,10 +50,6 @@ func (s *stateShim) AllMachines() ([]*state.Machine, error) {
 
 func (s *stateShim) Application(name string) (*state.Application, error) {
 	return s.st.Application(name)
-}
-
-func (s *stateShim) ApplicationLeaders() (map[string]string, error) {
-	return s.st.ApplicationLeaders()
 }
 
 func (s *stateShim) FindEntity(tag names.Tag) (state.Entity, error) {

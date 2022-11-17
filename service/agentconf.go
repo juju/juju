@@ -9,7 +9,7 @@
 // 	- copy all tools and related to agents and setup the links
 // 	- start all the agents
 // These routines can be used by any tools/cmds trying to implement the above
-// functionality as part of the process, eg. upgrade-series.
+// functionality as part of the process, eg. upgrade-machine.
 
 // TODO (manadart 2018-07-31) This module is specific to systemd and should
 // reside in the service/systemd package.

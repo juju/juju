@@ -4,7 +4,7 @@
 package controller_test
 
 import (
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -241,7 +241,7 @@ func (s *ConfigSuite) TestErrorOnSetting(c *gc.C) {
 
 func writeFile(c *gc.C, name, content string) string {
 	path := filepath.Join(c.MkDir(), name)
-	err := ioutil.WriteFile(path, []byte(content), 0777)
+	err := os.WriteFile(path, []byte(content), 0777)
 	c.Assert(err, jc.ErrorIsNil)
 	return path
 }

@@ -311,7 +311,7 @@ type HookContext struct {
 	workloadName string
 
 	// seriesUpgradeTarget is the series that the unit's machine is to be
-	// updated to when Juju is issued the `upgrade-series` command.
+	// updated to when Juju is issued the `upgrade-machine` command.
 	seriesUpgradeTarget string
 
 	// secretURI is the reference to the secret relevant to the hook.
@@ -759,8 +759,61 @@ func (ctx *HookContext) getSecretsStore() (secrets.Store, error) {
 	return ctx.secretsStore, nil
 }
 
+func (ctx *HookContext) lookupOwnedSecretURIByLabel(label string) (*coresecrets.URI, error) {
+	mds, err := ctx.SecretMetadata()
+	if err != nil {
+		return nil, err
+	}
+	for ID, md := range mds {
+		if md.Label == label && md.Owner.Id() == ctx.unit.Tag().Id() {
+			return &coresecrets.URI{ID: ID}, nil
+		}
+	}
+	for _, md := range ctx.secretChanges.pendingCreates {
+		// Check if we have any pending create changes.
+		if md.Label == nil || md.URI == nil {
+			continue
+		}
+		if *md.Label == label && md.OwnerTag.Id() == ctx.unit.Tag().Id() {
+			return md.URI, nil
+		}
+	}
+	for _, md := range ctx.secretChanges.pendingUpdates {
+		// Check if we have any pending label update changes.
+		if md.Label == nil || md.URI == nil {
+			continue
+		}
+		if *md.Label == label {
+			return md.URI, nil
+		}
+	}
+	return nil, errors.NotFoundf("secret owned by %q with label %q", ctx.unitName, label)
+}
+
 // GetSecret returns the value of the specified secret.
 func (ctx *HookContext) GetSecret(uri *coresecrets.URI, label string, update, peek bool) (coresecrets.SecretValue, error) {
+	if uri == nil && label == "" {
+		return nil, errors.NotValidf("empty URI and label")
+	}
+	if label != "" {
+		// try to resolve label to URI by looking up owned secrets.
+		ownedSecretURI, err := ctx.lookupOwnedSecretURIByLabel(label)
+		if err != nil && !errors.Is(err, errors.NotFound) {
+			return nil, err
+		}
+		if ownedSecretURI != nil {
+			if uri != nil {
+				return nil, errors.NewNotValid(nil, "either URI or label should be used for getting an owned secret but not both")
+			}
+			if update {
+				return nil, errors.NewNotValid(nil, "secret owner cannot use --update")
+			}
+			// Found owned secret, no need label anymore.
+			uri = ownedSecretURI
+			label = ""
+		}
+	}
+
 	store, err := ctx.getSecretsStore()
 	if err != nil {
 		return nil, err
@@ -1378,7 +1431,7 @@ func (ctx *HookContext) doFlush(process string) error {
 	for i, u := range ctx.secretChanges.pendingUpdates {
 		// Juju checks that the current revision is stable when updating metadata so it's
 		// safe to increment here knowing the same value will be saved in Juju.
-		if u.Value == nil {
+		if u.Value.IsEmpty() {
 			pendingUpdates[i] = u.SecretUpsertArg
 			continue
 		}

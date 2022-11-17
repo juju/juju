@@ -33,6 +33,7 @@ func (s *imagemetadataSuite) TestList(c *gc.C) {
 
 	// This is used by filters to search function
 	testSeries := "jammy"
+
 	version, err := series.SeriesVersion(testSeries)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -48,7 +49,6 @@ func (s *imagemetadataSuite) TestList(c *gc.C) {
 			Stream:          stream,
 			Region:          region,
 			Version:         version,
-			Series:          testSeries,
 			Arch:            arch,
 			VirtType:        virtType,
 			RootStorageType: rootStorageType,
@@ -59,11 +59,11 @@ func (s *imagemetadataSuite) TestList(c *gc.C) {
 
 	args := params.ImageMetadataFilter{
 		Arches:          []string{arch},
-		Series:          []string{testSeries},
 		Stream:          stream,
 		VirtType:        virtType,
 		RootStorageType: rootStorageType,
 		Region:          region,
+		Versions:        []string{"22.04"},
 	}
 	res := new(params.ListCloudImageMetadataResult)
 	ress := params.ListCloudImageMetadataResult{
@@ -89,10 +89,10 @@ func (s *imagemetadataSuite) TestListFacadeCallError(c *gc.C) {
 	args := params.ImageMetadataFilter{
 		Stream:          "",
 		Region:          "",
-		Series:          nil,
 		Arches:          nil,
 		VirtType:        "",
 		RootStorageType: "",
+		Versions:        []string{},
 	}
 	res := new(params.ListCloudImageMetadataResult)
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)

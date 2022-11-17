@@ -119,8 +119,11 @@ func (c *secretUpsertCommand) Init(args []string) error {
 
 	var err error
 	c.data, err = secrets.CreateSecretData(args)
-	if err != nil || c.fileName == "" {
+	if err != nil {
 		return errors.Trace(err)
+	}
+	if c.fileName == "" {
+		return nil
 	}
 	dataFromFile, err := secrets.ReadSecretData(c.fileName)
 	if err != nil {
@@ -171,6 +174,9 @@ func (c *secretAddCommand) Run(ctx *cmd.Context) error {
 		ownerTag = names.NewUnitTag(unitName)
 	}
 	updateArgs := c.marshallArg()
+	if updateArgs.Value.IsEmpty() {
+		return errors.NotValidf("empty secret value")
+	}
 	arg := &SecretCreateArgs{
 		SecretUpdateArgs: *updateArgs,
 		OwnerTag:         ownerTag,

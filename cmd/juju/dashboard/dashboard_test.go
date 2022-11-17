@@ -159,7 +159,7 @@ func (s *dashboardSuite) TestDashboardErrorUnavailable(c *gc.C) {
 	_, err := s.run(c, "--browser")
 	c.Assert(err, gc.ErrorMatches, `
 The Juju dashboard is not yet deployed.
-To deploy the Juju dashboard follow these steps:
+To deploy the Juju dashboard, follow these steps:
   juju switch controller
   juju deploy juju-dashboard
   juju expose juju-dashboard

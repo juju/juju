@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
@@ -137,7 +136,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	toolsDir := filepath.FromSlash(agenttools.SharedToolsDir(s.dataDir, current))
 	err := os.MkdirAll(toolsDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(filepath.Join(toolsDir, "tools.tar.gz"), nil, 0644)
+	err = os.WriteFile(filepath.Join(toolsDir, "tools.tar.gz"), nil, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	s.writeDownloadedTools(c, &tools.Tools{Version: current})
 
@@ -161,7 +160,7 @@ func (s *BootstrapSuite) writeDownloadedTools(c *gc.C, tools *tools.Tools) {
 	c.Assert(err, jc.ErrorIsNil)
 	data, err := json.Marshal(tools)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(filepath.Join(toolsDir, "downloaded-tools.txt"), data, 0644)
+	err = os.WriteFile(filepath.Join(toolsDir, "downloaded-tools.txt"), data, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -205,12 +204,13 @@ func (s *BootstrapSuite) TestStoreControllerCharm(c *gc.C) {
 		c.Skip("controller charm only supported on Ubuntu")
 	}
 
-	series, err := osseries.HostSeries()
-	c.Assert(err, jc.ErrorIsNil)
+	s.PatchValue(&osseries.HostSeries, func() (string, error) {
+		return "jammy", nil
+	})
 
 	// Remove the local controller charm so we use the store one.
 	controllerCharmPath := filepath.Join(s.dataDir, "charms", "controller.charm")
-	err = os.Remove(controllerCharmPath)
+	err := os.Remove(controllerCharmPath)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctrl := gomock.NewController(c)
@@ -225,28 +225,27 @@ func (s *BootstrapSuite) TestStoreControllerCharm(c *gc.C) {
 	})
 
 	curl := charm.MustParseURL(controllerCharmURL)
-	channel := corecharm.MustParseChannel("beta")
+	channel := corecharm.MustParseChannel("3.0/beta")
 	origin := corecharm.Origin{
 		Source:  corecharm.CharmHub,
 		Channel: &channel,
 		Platform: corecharm.Platform{
 			Architecture: "amd64",
 			OS:           "ubuntu",
-			Series:       series,
+			Channel:      "22.04",
 		},
 	}
 
 	storeCurl := *curl
 	storeCurl.Revision = 666
-	storeCurl.Series = series
+	storeCurl.Series = "jammy"
 	storeCurl.Architecture = "amd64"
 	storeOrigin := origin
 	storeOrigin.Type = "charm"
 	repo.EXPECT().ResolveWithPreferredChannel(curl, origin, nil).Return(&storeCurl, storeOrigin, nil, nil)
 
-	origin.Platform.Series = series
 	downloader.EXPECT().DownloadAndStore(&storeCurl, storeOrigin, nil, false).
-		DoAndReturn(func(charmURL *charm.URL, requestedOrigin corecharm.Origin, macaroons macaroon.Slice, force bool) (*charm.CharmArchive, error) {
+		DoAndReturn(func(charmURL *charm.URL, requestedOrigin corecharm.Origin, macaroons macaroon.Slice, force bool) (corecharm.Origin, error) {
 			controllerCharm := testcharms.Repo.CharmArchive(c.MkDir(), "juju-controller")
 			st, closer := s.getSystemState(c)
 			defer closer()
@@ -257,7 +256,7 @@ func (s *BootstrapSuite) TestStoreControllerCharm(c *gc.C) {
 				SHA256:      "bar", // required to flag the charm as uploaded
 			})
 			c.Assert(err, jc.ErrorIsNil)
-			return controllerCharm, nil
+			return requestedOrigin, nil
 		})
 
 	_, cmd, err := s.initBootstrapCommand(c, nil)
@@ -659,7 +658,7 @@ func (s *BootstrapSuite) TestSystemIdentityWritten(c *gc.C) {
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	data, err := ioutil.ReadFile(filepath.Join(s.dataDir, agent.SystemIdentity))
+	data, err := os.ReadFile(filepath.Join(s.dataDir, agent.SystemIdentity))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, "private-key")
 }
@@ -753,7 +752,6 @@ func (s *BootstrapSuite) TestStructuredImageMetadataStored(c *gc.C) {
 			Region:          "region",
 			Arch:            "amd64",
 			Version:         "22.04",
-			Series:          "jammy",
 			RootStorageType: "rootStore",
 			VirtType:        "virtType",
 			Source:          "custom",
@@ -762,17 +760,6 @@ func (s *BootstrapSuite) TestStructuredImageMetadataStored(c *gc.C) {
 		ImageId:  "imageId",
 	}
 	s.assertWrittenToState(c, s.Session, expect)
-}
-
-func (s *BootstrapSuite) TestStructuredImageMetadataInvalidSeries(c *gc.C) {
-	s.bootstrapParams.CustomImageMetadata = createImageMetadata()
-	s.bootstrapParams.CustomImageMetadata[0].Version = "woat"
-	s.writeBootstrapParamsFile(c)
-
-	_, cmd, err := s.initBootstrapCommand(c, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	err = cmd.Run(nil)
-	c.Assert(err, gc.ErrorMatches, `cannot determine series for version woat: unknown series for version: \"woat\"`)
 }
 
 func (s *BootstrapSuite) makeTestModel(c *gc.C) {
@@ -830,7 +817,7 @@ func (s *BootstrapSuite) makeTestModel(c *gc.C) {
 		Type:      "dummy",
 		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
 	}
-	args.ControllerCharmRisk = "beta"
+	args.ControllerCharmChannel = charm.Channel{Track: "3.0", Risk: "beta"}
 	s.bootstrapParams = args
 	s.writeBootstrapParamsFile(c)
 }
@@ -838,15 +825,15 @@ func (s *BootstrapSuite) makeTestModel(c *gc.C) {
 func (s *BootstrapSuite) writeBootstrapParamsFile(c *gc.C) {
 	data, err := s.bootstrapParams.Marshal()
 	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(s.bootstrapParamsFile, data, 0600)
+	err = os.WriteFile(s.bootstrapParamsFile, data, 0600)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func nullContext() environs.BootstrapContext {
 	ctx, _ := cmd.DefaultContext()
 	ctx.Stdin = io.LimitReader(nil, 0)
-	ctx.Stdout = ioutil.Discard
-	ctx.Stderr = ioutil.Discard
+	ctx.Stdout = io.Discard
+	ctx.Stderr = io.Discard
 	return modelcmd.BootstrapContext(context.Background(), ctx)
 }
 

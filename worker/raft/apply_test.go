@@ -25,7 +25,6 @@ type applyOperationSuite struct {
 	applier LeaseApplier
 
 	raft         *MockRaft
-	target       *MockNotifyTarget
 	applyFuture  *MockApplyFuture
 	configFuture *MockConfigurationFuture
 	response     *MockFSMResponse
@@ -46,7 +45,6 @@ func (s *applyOperationSuite) TestApplyLease(c *gc.C) {
 	s.raft.EXPECT().Apply(cmds[0].Command, timeout).Return(s.applyFuture)
 	s.applyFuture.EXPECT().Error().Return(nil)
 	s.applyFuture.EXPECT().Response().Return(s.response)
-	s.response.EXPECT().Notify(s.target)
 	s.response.EXPECT().Error().Return(nil)
 
 	s.applier.ApplyOperation(cmds, timeout)
@@ -66,7 +64,6 @@ func (s *applyOperationSuite) TestApplyLeaseMultipleCommands(c *gc.C) {
 	s.raft.EXPECT().Apply(cmds[1].Command, timeout).Return(s.applyFuture)
 	s.applyFuture.EXPECT().Error().Return(nil).Times(2)
 	s.applyFuture.EXPECT().Response().Return(s.response).Times(2)
-	s.response.EXPECT().Notify(s.target).Times(2)
 	s.response.EXPECT().Error().Return(nil).Times(2)
 
 	s.applier.ApplyOperation(cmds, timeout)
@@ -266,14 +263,13 @@ func (s *applyOperationSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.raft = NewMockRaft(ctrl)
-	s.target = NewMockNotifyTarget(ctrl)
 	s.applyFuture = NewMockApplyFuture(ctrl)
 	s.configFuture = NewMockConfigurationFuture(ctrl)
 	s.response = NewMockFSMResponse(ctrl)
 	s.metrics = NewMockApplierMetrics(ctrl)
 
 	s.clock = testclock.NewClock(time.Now())
-	s.applier = NewApplier(s.raft, s.target, s.metrics, s.clock, fakeLogger{})
+	s.applier = NewApplier(s.raft, s.metrics, s.clock, fakeLogger{})
 
 	return ctrl
 }

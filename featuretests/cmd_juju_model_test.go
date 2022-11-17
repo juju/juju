@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
-	"github.com/juju/description/v3"
+	"github.com/juju/description/v4"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -98,7 +98,7 @@ func (s *cmdModelSuite) TestModelUsersCmd(c *gc.C) {
 	// to clear the logging writers here.
 	loggo.RemoveWriter("warning")
 
-	context := s.run(c, "list-users", "controller")
+	context := s.run(c, "users", "controller")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
 		"Name           Display name  Access  Last connection\n"+

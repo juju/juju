@@ -83,7 +83,7 @@ type MachineInfo struct {
 	Life                     life.Value
 	Annotations              map[string]string
 	Config                   map[string]interface{}
-	Series                   string
+	Base                     string
 	ContainerType            string
 	IsManual                 bool
 	SupportedContainers      []instance.ContainerType
@@ -364,7 +364,7 @@ type UnitInfo struct {
 	ModelUUID                string
 	Name                     string
 	Application              string
-	Series                   string
+	Base                     string
 	CharmURL                 string
 	Life                     life.Value
 	Annotations              map[string]string

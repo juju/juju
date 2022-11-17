@@ -51,6 +51,7 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tags"
@@ -593,7 +594,7 @@ func (e *Environ) ConstraintsValidator(ctx context.ProviderCallContext) (constra
 	sort.Strings(instTypeNames)
 	validator.RegisterVocabulary(constraints.InstanceType, instTypeNames)
 	validator.RegisterVocabulary(constraints.VirtType, []string{"kvm", "lxd"})
-	validator.RegisterVocabulary(constraints.RootDiskSource, []string{rootDiskSourceVolume})
+	validator.RegisterVocabulary(constraints.RootDiskSource, []string{rootDiskSourceVolume, rootDiskSourceLocal})
 	return validator, nil
 }
 
@@ -1076,7 +1077,7 @@ func (e *Environ) startInstance(
 	}
 	spec, err := findInstanceSpec(e, instances.InstanceConstraint{
 		Region:      e.cloud().Region,
-		Series:      args.InstanceConfig.Series,
+		Base:        args.InstanceConfig.Base,
 		Arch:        arch,
 		Constraints: args.Constraints,
 	}, args.ImageMetadata)
@@ -2198,7 +2199,11 @@ func (e *Environ) AgentMetadataLookupParams(region string) (*simplestreams.Metad
 
 // ImageMetadataLookupParams returns parameters which are used to query image simple-streams metadata.
 func (e *Environ) ImageMetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
-	return e.metadataLookupParams(region, config.PreferredSeries(e.ecfg()))
+	release, err := imagemetadata.ImageRelease(config.PreferredSeries(e.ecfg()))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return e.metadataLookupParams(region, release)
 }
 
 // MetadataLookupParams returns parameters which are used to query simple-streams metadata.

@@ -4,8 +4,8 @@
 package broker_test
 
 import (
-	"io/ioutil"
 	"net"
+	"os"
 	"path/filepath"
 
 	"github.com/juju/loggo"
@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
@@ -49,7 +50,8 @@ func (s *brokerSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *brokerSuite) TestCombinedCloudInitDataNoCloudInitUserData(c *gc.C) {
-	obtained, err := broker.CombinedCloudInitData(nil, "ca-certs,apt-primary", "xenial", loggo.Logger{})
+	obtained, err := broker.CombinedCloudInitData(nil, "ca-certs,apt-primary",
+		series.MakeDefaultBase("ubuntu", "16.04"), loggo.Logger{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertCloudInitUserData(obtained, map[string]interface{}{
@@ -70,7 +72,8 @@ func (s *brokerSuite) TestCombinedCloudInitDataNoCloudInitUserData(c *gc.C) {
 
 func (s *brokerSuite) TestCombinedCloudInitDataNoContainerInheritProperties(c *gc.C) {
 	containerConfig := fakeContainerConfig()
-	obtained, err := broker.CombinedCloudInitData(containerConfig.CloudInitUserData, "", "xenial", loggo.Logger{})
+	obtained, err := broker.CombinedCloudInitData(containerConfig.CloudInitUserData, "",
+		series.MakeDefaultBase("ubuntu", "16.04"), loggo.Logger{})
 	c.Assert(err, jc.ErrorIsNil)
 	assertCloudInitUserData(obtained, containerConfig.CloudInitUserData, c)
 }
@@ -213,12 +216,12 @@ type fakeContainerManager struct {
 
 func (m *fakeContainerManager) CreateContainer(instanceConfig *instancecfg.InstanceConfig,
 	cons constraints.Value,
-	series string,
+	base series.Base,
 	network *container.NetworkConfig,
 	storage *container.StorageConfig,
 	callback environs.StatusCallbackFunc,
 ) (instances.Instance, *instance.HardwareCharacteristics, error) {
-	m.MethodCall(m, "CreateContainer", instanceConfig, cons, series, network, storage, callback)
+	m.MethodCall(m, "CreateContainer", instanceConfig, cons, base, network, storage, callback)
 	inst := mockInstance{id: "testinst"}
 	arch := "testarch"
 	hw := instance.HardwareCharacteristics{Arch: &arch}
@@ -284,7 +287,7 @@ nameserver ns2.dummy
 `
 
 	fakeResolvConf := filepath.Join(c.MkDir(), "fakeresolv.conf")
-	err := ioutil.WriteFile(fakeResolvConf, []byte(fakeConf), 0644)
+	err := os.WriteFile(fakeResolvConf, []byte(fakeConf), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	s.PatchValue(broker.ResolvConfFiles, []string{fakeResolvConf})
 }
@@ -308,7 +311,8 @@ func makeInstanceConfig(c *gc.C, s patcher, machineId string) *instancecfg.Insta
 	// To isolate the tests from the host's architecture, we override it here.
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	instanceConfig, err := instancecfg.NewInstanceConfig(coretesting.ControllerTag, machineId, machineNonce, "released", "quantal", apiInfo)
+	instanceConfig, err := instancecfg.NewInstanceConfig(coretesting.ControllerTag, machineId, machineNonce,
+		"released", series.MakeDefaultBase("ubuntu", "22.04"), apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	return instanceConfig
 }
@@ -384,7 +388,7 @@ func (r *fakeMachineInitReader) GetInitConfig() (map[string]interface{}, error) 
 	}, nil
 }
 
-var newFakeMachineInitReader = func(series string) (cloudconfig.InitReader, error) {
-	r, err := cloudconfig.NewMachineInitReader(series)
+var newFakeMachineInitReader = func(base series.Base) (cloudconfig.InitReader, error) {
+	r, err := cloudconfig.NewMachineInitReader(base)
 	return &fakeMachineInitReader{r}, err
 }

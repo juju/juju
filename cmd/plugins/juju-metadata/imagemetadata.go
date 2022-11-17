@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/caas"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/filestorage"
@@ -221,7 +222,11 @@ func (c *imageMetadataCommand) Run(context *cmd.Context) error {
 		return err
 	}
 	fetcher := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
-	err = imagemetadata.MergeAndWriteMetadata(fetcher, c.Series, []*imagemetadata.ImageMetadata{im}, &cloudSpec, targetStorage)
+	version, err := series.SeriesVersion(c.Series)
+	if err != nil {
+		return err
+	}
+	err = imagemetadata.MergeAndWriteMetadata(fetcher, version, []*imagemetadata.ImageMetadata{im}, &cloudSpec, targetStorage)
 	if err != nil {
 		return errors.Errorf("image metadata files could not be created: %v", err)
 	}

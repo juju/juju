@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/vault/api"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 	vault "github.com/mittwald/vaultgo"
 	"gopkg.in/yaml.v2"
 
@@ -20,20 +21,25 @@ import (
 	"github.com/juju/juju/secrets/provider"
 )
 
+var logger = loggo.GetLogger("juju.secrets.vault")
+
 const (
 	// Store is the name of the Kubernetes secrets store.
 	Store = "vault"
 )
 
-// NewProvider returns a Kubernetes secrets provider.
+// NewProvider returns a Vault secrets provider.
 func NewProvider() provider.SecretStoreProvider {
-	return vaultProvider{}
+	return vaultProvider{Store}
 }
 
 type vaultProvider struct {
+	name string
 }
 
-var logger = loggo.GetLogger("juju.secrets.vault")
+func (p vaultProvider) Type() string {
+	return p.name
+}
 
 // Initialise sets up a kv store mounted on the model uuid.
 func (p vaultProvider) Initialise(m provider.Model) error {
@@ -114,7 +120,7 @@ func (p vaultProvider) CleanupModel(m provider.Model) error {
 }
 
 // CleanupSecrets removes policies associated with the removed secrets.
-func (p vaultProvider) CleanupSecrets(m provider.Model, removed []*secrets.URI) error {
+func (p vaultProvider) CleanupSecrets(m provider.Model, tag names.Tag, removed provider.SecretRevisions) error {
 	cfg, err := p.adminConfig(m)
 	if err != nil {
 		return errors.Trace(err)
@@ -126,8 +132,8 @@ func (p vaultProvider) CleanupSecrets(m provider.Model, removed []*secrets.URI) 
 	sys := client.client.Sys()
 
 	isRelevantPolicy := func(p string) bool {
-		for _, r := range removed {
-			if strings.HasPrefix(p, fmt.Sprintf("model-%s-%s-", m.UUID(), r.ID)) {
+		for id := range removed {
+			if strings.HasPrefix(p, fmt.Sprintf("model-%s-%s-", m.UUID(), id)) {
 				return true
 			}
 		}
@@ -217,7 +223,8 @@ func (p vaultProvider) adminConfig(m provider.Model) (*provider.StoreConfig, err
 }
 
 // StoreConfig returns the config needed to create a vault secrets store client.
-func (p vaultProvider) StoreConfig(m provider.Model, adminUser bool, owned []*secrets.URI, read []*secrets.URI) (*provider.StoreConfig, error) {
+func (p vaultProvider) StoreConfig(m provider.Model, tag names.Tag, owned provider.SecretRevisions, read provider.SecretRevisions) (*provider.StoreConfig, error) {
+	adminUser := tag == nil
 	// Get an admin store client so we can set up the policies.
 	storeCfg, err := p.adminConfig(m)
 	if err != nil {
@@ -253,24 +260,24 @@ func (p vaultProvider) StoreConfig(m provider.Model, adminUser bool, owned []*se
 	}
 	// Any secrets owned by the agent can be updated/deleted etc.
 	logger.Debugf("owned secrets: %#v", owned)
-	for _, uri := range owned {
-		rule := fmt.Sprintf(`path "%s/%s-*" {capabilities = ["create", "read", "update", "delete", "list"]}`, modelUUID, uri.ID)
-		policyName := fmt.Sprintf("model-%s-%s-owner", modelUUID, uri.ID)
+	for id := range owned {
+		rule := fmt.Sprintf(`path "%s/%s-*" {capabilities = ["create", "read", "update", "delete", "list"]}`, modelUUID, id)
+		policyName := fmt.Sprintf("model-%s-%s-owner", modelUUID, id)
 		err = sys.PutPolicyWithContext(ctx, policyName, rule)
 		if err != nil {
-			return nil, errors.Annotatef(err, "creating owner policy for %q", uri.ID)
+			return nil, errors.Annotatef(err, "creating owner policy for %q", id)
 		}
 		policies = append(policies, policyName)
 	}
 
 	// Any secrets consumed by the agent can be read etc.
 	logger.Debugf("consumed secrets: %#v", read)
-	for _, uri := range read {
-		rule := fmt.Sprintf(`path "%s/%s-*" {capabilities = ["read"]}`, modelUUID, uri.ID)
-		policyName := fmt.Sprintf("model-%s-%s-read", modelUUID, uri.ID)
+	for id := range read {
+		rule := fmt.Sprintf(`path "%s/%s-*" {capabilities = ["read"]}`, modelUUID, id)
+		policyName := fmt.Sprintf("model-%s-%s-read", modelUUID, id)
 		err = sys.PutPolicyWithContext(ctx, policyName, rule)
 		if err != nil {
-			return nil, errors.Annotatef(err, "creating read policy for %q", uri.ID)
+			return nil, errors.Annotatef(err, "creating read policy for %q", id)
 		}
 		policies = append(policies, policyName)
 	}
@@ -356,10 +363,6 @@ type vaultStore struct {
 	client    *vault.Client
 }
 
-func secretPath(uri *secrets.URI, revision int) string {
-	return fmt.Sprintf("%s-%d", uri.ID, revision)
-}
-
 // GetContent implements SecretsStore.
 func (k vaultStore) GetContent(ctx context.Context, providerId string) (_ secrets.SecretValue, err error) {
 	defer func() {
@@ -396,7 +399,7 @@ func (k vaultStore) SaveContent(ctx context.Context, uri *secrets.URI, revision 
 		err = maybePermissionDenied(err)
 	}()
 
-	path := secretPath(uri, revision)
+	path := uri.Name(revision)
 	val := make(map[string]interface{})
 	for k, v := range value.EncodedValues() {
 		val[k] = v

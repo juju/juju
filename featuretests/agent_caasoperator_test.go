@@ -4,7 +4,6 @@
 package featuretests
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
@@ -103,7 +102,7 @@ func (s *CAASOperatorSuite) primeOperator(c *gc.C, app *state.Application) {
 	}
 	data, err := info.Marshal()
 	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(file, data, 0644)
+	err = os.WriteFile(file, data, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

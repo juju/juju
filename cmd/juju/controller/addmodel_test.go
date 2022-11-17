@@ -5,7 +5,7 @@ package controller_test
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strings"
 
 	"github.com/juju/cmd/v3"
@@ -285,7 +285,7 @@ func (s *AddModelSuite) TestCredentialsOtherUserCredentialNotFound(c *gc.C) {
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
 Use 
 * 'juju add-credential -c' to upload a credential to a controller or
-* 'juju autoload-credentials' to add credenitals from local files or
+* 'juju autoload-credentials' to add credentials from local files or
 * 'juju add-model --credential' to use a local credential.
 Use 'juju credentials' to list all available credentials.
 `[1:])
@@ -370,7 +370,7 @@ func (s *AddModelSuite) TestControllerCredentialsDetectedAmbiguous(c *gc.C) {
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
 Use 
 * 'juju add-credential -c' to upload a credential to a controller or
-* 'juju autoload-credentials' to add credenitals from local files or
+* 'juju autoload-credentials' to add credentials from local files or
 * 'juju add-model --credential' to use a local credential.
 Use 'juju credentials' to list all available credentials.
 `[1:])
@@ -543,7 +543,7 @@ func (s *AddModelSuite) TestConfigFileValuesPassedThrough(c *gc.C) {
 	}
 	bytes, err := yaml.Marshal(config)
 	c.Assert(err, jc.ErrorIsNil)
-	file, err := ioutil.TempFile(c.MkDir(), "")
+	file, err := os.CreateTemp(c.MkDir(), "")
 	c.Assert(err, jc.ErrorIsNil)
 	file.Write(bytes)
 	file.Close()
@@ -566,7 +566,7 @@ func (s *AddModelSuite) TestConfigFileWithNestedMaps(c *gc.C) {
 
 	bytes, err := yaml.Marshal(config)
 	c.Assert(err, jc.ErrorIsNil)
-	file, err := ioutil.TempFile(c.MkDir(), "")
+	file, err := os.CreateTemp(c.MkDir(), "")
 	c.Assert(err, jc.ErrorIsNil)
 	file.Write(bytes)
 	file.Close()
@@ -587,7 +587,7 @@ func (s *AddModelSuite) TestConfigFileFailsToConform(c *gc.C) {
 	}
 	bytes, err := yaml.Marshal(config)
 	c.Assert(err, jc.ErrorIsNil)
-	file, err := ioutil.TempFile(c.MkDir(), "")
+	file, err := os.CreateTemp(c.MkDir(), "")
 	c.Assert(err, jc.ErrorIsNil)
 	file.Write(bytes)
 	file.Close()
@@ -597,7 +597,7 @@ func (s *AddModelSuite) TestConfigFileFailsToConform(c *gc.C) {
 }
 
 func (s *AddModelSuite) TestConfigFileFormatError(c *gc.C) {
-	file, err := ioutil.TempFile(c.MkDir(), "")
+	file, err := os.CreateTemp(c.MkDir(), "")
 	c.Assert(err, jc.ErrorIsNil)
 	file.Write(([]byte)("not: valid: yaml"))
 	file.Close()
@@ -619,7 +619,7 @@ func (s *AddModelSuite) TestConfigValuePrecedence(c *gc.C) {
 	}
 	bytes, err := yaml.Marshal(config)
 	c.Assert(err, jc.ErrorIsNil)
-	file, err := ioutil.TempFile(c.MkDir(), "")
+	file, err := os.CreateTemp(c.MkDir(), "")
 	c.Assert(err, jc.ErrorIsNil)
 	file.Write(bytes)
 	file.Close()

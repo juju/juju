@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 
 	"golang.org/x/crypto/openpgp"
 	"golang.org/x/crypto/openpgp/clearsign"
@@ -22,7 +21,7 @@ var PGPSignatureCheckFn = func(keyring openpgp.KeyRing, signed, signature io.Rea
 // DecodeCheckSignature parses the inline signed PGP text, checks the signature,
 // and returns plain text if the signature matches.
 func DecodeCheckSignature(r io.Reader, armoredPublicKey string) ([]byte, error) {
-	data, err := ioutil.ReadAll(r)
+	data, err := io.ReadAll(r)
 	if err != nil {
 		return nil, err
 	}

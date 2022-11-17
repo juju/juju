@@ -253,7 +253,7 @@ func (s *secretsStore) CreateSecret(uri *secrets.URI, p CreateSecretParams) (*se
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		var ops []txn.Op
 		if p.Label != nil {
-			uniqueLabelOps, err := s.st.uniqueSecretLabelOps(metadataDoc.OwnerTag, *p.Label)
+			uniqueLabelOps, err := s.st.uniqueSecretOwnerLabelOps(metadataDoc.OwnerTag, *p.Label)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -341,7 +341,7 @@ func (s *secretsStore) UpdateSecret(uri *secrets.URI, p UpdateSecretParams) (*se
 		}
 		var ops []txn.Op
 		if p.Label != nil && *p.Label != metadataDoc.Label {
-			uniqueLabelOps, err := s.st.uniqueSecretLabelOps(metadataDoc.OwnerTag, *p.Label)
+			uniqueLabelOps, err := s.st.uniqueSecretOwnerLabelOps(metadataDoc.OwnerTag, *p.Label)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -482,10 +482,14 @@ func (s *secretsStore) DeleteSecret(uri *secrets.URI, revisions ...int) (removed
 
 func (st *State) deleteSecrets(uris []*secrets.URI, revisions ...int) (removed bool, err error) {
 	// We will bulk delete the various artefacts, starting with the secret itself.
-	// Deleting the parent secret metadata first  will ensure that any consumers of
+	// Deleting the parent secret metadata first will ensure that any consumers of
 	// the secret get notified and subsequent attempts to access any secret
 	// attributes (revision etc) return not found.
 	// It is not practical to do this record by record in a legacy client side mgo txn operation.
+	if len(uris) == 0 && len(revisions) == 0 {
+		// Nothing to remove.
+		return false, nil
+	}
 
 	if len(uris) == 0 || len(uris) > 1 && len(revisions) > 0 {
 		return false, errors.Errorf("PROGRAMMING ERROR: invalid secret deletion args uris=%v, revisions=%v", uris, revisions)
@@ -580,14 +584,10 @@ func (st *State) deleteSecrets(uris []*secrets.URI, revisions ...int) (removed b
 			return false, errors.Annotatef(err, "deleting permissions for %s", uri.String())
 		}
 
-		secretConsumersCollection, closer := st.db().GetCollection(secretConsumersC)
-		defer closer()
-		_, err = secretConsumersCollection.Writeable().RemoveAll(bson.D{{
-			"_id", bson.D{{"$regex", fmt.Sprintf("%s#.*", uri.ID)}},
-		}})
-		if err != nil {
-			return false, errors.Annotatef(err, "deleting consumer info for %s", uri.String())
+		if err = st.removeSecretConsumer(uri); err != nil {
+			return false, errors.Trace(err)
 		}
+
 		refCountsCollection, closer := st.db().GetCollection(refcountsC)
 		defer closer()
 		_, err = refCountsCollection.Writeable().RemoveAll(bson.D{{
@@ -647,6 +647,10 @@ func (s *secretsStore) getSecretValue(uri *secrets.URI, revision int, checkExist
 
 // GetSecret gets the secret metadata for the specified URL.
 func (s *secretsStore) GetSecret(uri *secrets.URI) (*secrets.SecretMetadata, error) {
+	if uri == nil {
+		return nil, errors.NewNotValid(nil, "empty URI")
+	}
+
 	secretMetadataCollection, closer := s.st.db().GetCollection(secretMetadataC)
 	defer closer()
 
@@ -675,7 +679,6 @@ func (s *secretsStore) ListSecrets(filter SecretsFilter) ([]*secrets.SecretMetad
 	defer closer()
 
 	var docs []secretMetadataDoc
-
 	q := bson.D{}
 	if filter.URI != nil {
 		q = append(q, bson.DocElem{"_id", filter.URI.ID})
@@ -718,6 +721,7 @@ func (s *secretsStore) ListSecrets(filter SecretsFilter) ([]*secrets.SecretMetad
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	docs = []secretMetadataDoc(nil)
 	q2 := bson.M{"_id": bson.M{"$in": consumedIds}}
 	err = secretMetadataCollection.Find(q2).All(&docs)
@@ -742,10 +746,12 @@ func (s *secretsStore) listConsumedSecrets(consumers []string) ([]string, error)
 	secretPermissionsCollection, closer := s.st.db().GetCollection(secretPermissionsC)
 	defer closer()
 	var docs []secretPermissionDoc
-	err := secretPermissionsCollection.Find(bson.D{
-		{"_id", bson.D{{"$regex", fmt.Sprintf(".*#(%s)", strings.Join(consumers, "|"))}}},
-		{"role", secrets.RoleView},
-	}).All(&docs)
+	err := secretPermissionsCollection.Find(bson.M{
+		"subject-tag": bson.M{
+			"$in": consumers,
+		},
+		"role": secrets.RoleView,
+	}).Select(bson.D{{"_id", 1}}).All(&docs)
 	if err != nil {
 		return nil, errors.Annotatef(err, "reading permissions for %q", consumers)
 	}
@@ -850,6 +856,14 @@ func secretConsumerKey(id, consumer string) string {
 	return fmt.Sprintf("%s#%s", id, consumer)
 }
 
+func splitSecretConsumerKey(key string) (string, string) {
+	parts := strings.Split(key, "#")
+	if len(parts) != 2 {
+		return "", ""
+	}
+	return parts[0], parts[1]
+}
+
 // checkConsumerCountOps returns txn ops to ensure that no new secrets consumers
 // are added whilst a txn is in progress.
 func (st *State) checkConsumerCountOps(uri *secrets.URI, inc int) ([]txn.Op, error) {
@@ -877,21 +891,32 @@ func (st *State) checkConsumerCountOps(uri *secrets.URI, inc int) ([]txn.Op, err
 }
 
 func secretOwnerLabelKey(ownerTag string, label string) string {
-	return fmt.Sprintf("secretlabel#%s#%s", ownerTag, label)
+	return fmt.Sprintf("secretOwnerlabel#%s#%s", ownerTag, label)
 }
 
-func (st *State) uniqueSecretLabelOps(ownerTag string, label string) ([]txn.Op, error) {
+func secretConsumerLabelKey(ownerTag string, label string) string {
+	return fmt.Sprintf("secretConsumerlabel#%s#%s", ownerTag, label)
+}
+
+func (st *State) uniqueSecretOwnerLabelOps(ownerTag string, label string) ([]txn.Op, error) {
+	return st.uniqueSecretLabelOps(ownerTag, label, "owner", secretOwnerLabelKey)
+}
+
+func (st *State) uniqueSecretConsumerLabelOps(consumerTag string, label string) ([]txn.Op, error) {
+	return st.uniqueSecretLabelOps(consumerTag, label, "consumer", secretConsumerLabelKey)
+}
+
+func (st *State) uniqueSecretLabelOps(tag, label, role string, keyGenerator func(string, string) string) ([]txn.Op, error) {
 	refCountCollection, ccloser := st.db().GetCollection(refcountsC)
 	defer ccloser()
 
-	key := secretOwnerLabelKey(ownerTag, label)
+	key := keyGenerator(tag, label)
 	countOp, count, err := nsRefcounts.CurrentOp(refCountCollection, key)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	if count > 0 {
-		return nil, errors.WithType(
-			errors.Errorf("secret label %q owned by %s already exists", label, ownerTag), LabelExists)
+		return nil, errors.WithType(errors.Errorf("secret label %q for %s %q already exists", label, role, tag), LabelExists)
 	}
 	incOp, err := nsRefcounts.CreateOrIncRefOp(refCountCollection, key, 1)
 	if err != nil {
@@ -901,6 +926,14 @@ func (st *State) uniqueSecretLabelOps(ownerTag string, label string) ([]txn.Op, 
 }
 
 func (st *State) removeOwnerSecretLabelOps(ownerTag names.Tag) ([]txn.Op, error) {
+	return st.removeSecretLabelOps(ownerTag, secretOwnerLabelKey)
+}
+
+func (st *State) removeConsumerSecretLabelOps(consumerTag names.Tag) ([]txn.Op, error) {
+	return st.removeSecretLabelOps(consumerTag, secretConsumerLabelKey)
+}
+
+func (st *State) removeSecretLabelOps(tag names.Tag, keyGenerator func(string, string) string) ([]txn.Op, error) {
 	refCountsCollection, closer := st.db().GetCollection(refcountsC)
 	defer closer()
 
@@ -908,7 +941,7 @@ func (st *State) removeOwnerSecretLabelOps(ownerTag names.Tag) ([]txn.Op, error)
 		doc bson.M
 		ops []txn.Op
 	)
-	id := secretOwnerLabelKey(ownerTag.String(), ".*")
+	id := keyGenerator(tag.String(), ".*")
 	q := bson.D{{"_id", bson.D{{"$regex", id}}}}
 	iter := refCountsCollection.Find(q).Iter()
 	for iter.Next(&doc) {
@@ -923,15 +956,40 @@ func (st *State) removeOwnerSecretLabelOps(ownerTag names.Tag) ([]txn.Op, error)
 	return ops, iter.Close()
 }
 
+// GetURIByConsumerLabel gets the secret URI for the specified secret consumer label.
+func (st *State) GetURIByConsumerLabel(label string, consumer names.Tag) (*secrets.URI, error) {
+	secretConsumersCollection, closer := st.db().GetCollection(secretConsumersC)
+	defer closer()
+
+	var doc secretConsumerDoc
+	err := secretConsumersCollection.Find(bson.M{
+		"consumer-tag": consumer.String(), "label": label,
+	}).Select(bson.D{{"_id", 1}}).One(&doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("secret consumer with label %q for %q", label, consumer)
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	id, _ := splitSecretConsumerKey(st.localID(doc.DocID))
+	if id == "" {
+		return nil, errors.NotFoundf("secret consumer with label %q for %q", label, consumer)
+	}
+	return &secrets.URI{ID: id}, nil
+}
+
 // GetSecretConsumer gets secret consumer metadata.
 func (st *State) GetSecretConsumer(uri *secrets.URI, consumer names.Tag) (*secrets.SecretConsumerMetadata, error) {
+	if uri == nil {
+		return nil, errors.NewNotValid(nil, "empty URI")
+	}
+
 	if err := st.checkExists(uri); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	secretConsumersCollection, closer := st.db().GetCollection(secretConsumersC)
 	defer closer()
-
 	key := secretConsumerKey(uri.ID, consumer.String())
 	var doc secretConsumerDoc
 	err := secretConsumersCollection.FindId(key).One(&doc)
@@ -948,6 +1006,45 @@ func (st *State) GetSecretConsumer(uri *secrets.URI, consumer names.Tag) (*secre
 	}, nil
 }
 
+func (st *State) removeSecretConsumer(uri *secrets.URI) error {
+	secretConsumersCollection, closer := st.db().GetCollection(secretConsumersC)
+	defer closer()
+
+	var docs []secretConsumerDoc
+	err := secretConsumersCollection.Find(
+		bson.D{
+			{
+				Name: "$and", Value: []bson.D{
+					{{"_id", bson.D{{"$regex", fmt.Sprintf("%s#.*", uri.ID)}}}},
+					{{"label", bson.D{{"$exists", true}, {"$ne", ""}}}},
+				},
+			},
+		},
+	).Select(bson.D{{"consumer-tag", 1}, {"label", 1}}).All(&docs)
+	if err != nil && errors.Cause(err) != mgo.ErrNotFound {
+		return errors.Trace(err)
+	}
+	refCountsCollection, closer := st.db().GetCollection(refcountsC)
+	defer closer()
+	for _, doc := range docs {
+		key := secretConsumerLabelKey(doc.ConsumerTag, doc.Label)
+		_, err = refCountsCollection.Writeable().RemoveAll(bson.D{{
+			"_id", key,
+		}})
+		if err != nil {
+			return errors.Annotatef(err, "cannot delete consumer label refcounts for %s", key)
+		}
+	}
+
+	_, err = secretConsumersCollection.Writeable().RemoveAll(bson.D{{
+		"_id", bson.D{{"$regex", fmt.Sprintf("%s#.*", uri.ID)}},
+	}})
+	if err != nil {
+		return errors.Annotatef(err, "cannot delete consumer info for %s", uri.String())
+	}
+	return nil
+}
+
 // SaveSecretConsumer saves or updates secret consumer metadata.
 func (st *State) SaveSecretConsumer(uri *secrets.URI, consumer names.Tag, metadata *secrets.SecretConsumerMetadata) error {
 	key := secretConsumerKey(uri.ID, consumer.String())
@@ -959,22 +1056,23 @@ func (st *State) SaveSecretConsumer(uri *secrets.URI, consumer names.Tag, metada
 		if err := st.checkExists(uri); err != nil {
 			return nil, errors.Trace(err)
 		}
-		var ops []txn.Op
 		err := secretConsumersCollection.FindId(key).One(&doc)
-		if err == nil {
-			ops = []txn.Op{{
-				C:      secretConsumersC,
-				Id:     key,
-				Assert: txn.DocExists,
-				Update: bson.M{"$set": bson.M{
-					"label":            metadata.Label,
-					"current-revision": metadata.CurrentRevision,
-				}},
-			}}
-		} else if err != mgo.ErrNotFound {
+		if err != nil && err != mgo.ErrNotFound {
 			return nil, errors.Trace(err)
-		} else {
-			ops = []txn.Op{{
+		}
+		create := err != nil
+
+		var ops []txn.Op
+
+		if metadata.Label != "" && (create || metadata.Label != doc.Label) {
+			uniqueLabelOps, err := st.uniqueSecretConsumerLabelOps(consumer.String(), metadata.Label)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			ops = append(ops, uniqueLabelOps...)
+		}
+		if create {
+			ops = append(ops, txn.Op{
 				C:      secretConsumersC,
 				Id:     key,
 				Assert: txn.DocMissing,
@@ -985,7 +1083,7 @@ func (st *State) SaveSecretConsumer(uri *secrets.URI, consumer names.Tag, metada
 					CurrentRevision: metadata.CurrentRevision,
 					LatestRevision:  metadata.LatestRevision,
 				},
-			}}
+			})
 
 			// Increment the consumer count, ensuring no new consumers
 			// are added while update is in progress.
@@ -994,6 +1092,16 @@ func (st *State) SaveSecretConsumer(uri *secrets.URI, consumer names.Tag, metada
 				return nil, errors.Trace(err)
 			}
 			ops = append(ops, countRefOps...)
+		} else {
+			ops = append(ops, txn.Op{
+				C:      secretConsumersC,
+				Id:     key,
+				Assert: txn.DocExists,
+				Update: bson.M{"$set": bson.M{
+					"label":            metadata.Label,
+					"current-revision": metadata.CurrentRevision,
+				}},
+			})
 		}
 
 		// The consumer is tracking a new revision, which might result in the

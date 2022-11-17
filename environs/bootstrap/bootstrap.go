@@ -5,10 +5,10 @@ package bootstrap
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
+	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -175,8 +175,8 @@ type BootstrapParams struct {
 	// ControllerCharmPath is a local controller charm archive.
 	ControllerCharmPath string
 
-	// ControllerCharmRisk is used when fetching the charmhub controller charm.
-	ControllerCharmRisk string
+	// ControllerCharmChannel is used when fetching the charmhub controller charm.
+	ControllerCharmChannel charm.Channel
 
 	// ExtraAgentValuesForTesting are testing only values written to the agent config file.
 	ExtraAgentValuesForTesting map[string]string
@@ -272,7 +272,7 @@ func bootstrapCAAS(
 	podConfig, err := podcfg.NewBootstrapControllerPodConfig(
 		args.ControllerConfig,
 		args.ControllerName,
-		result.Series,
+		result.Base.OS,
 		bootstrapConstraints,
 	)
 	if err != nil {
@@ -591,7 +591,7 @@ func bootstrapIAAS(
 		args.ControllerConfig,
 		bootstrapParams.BootstrapConstraints,
 		args.ModelConstraints,
-		result.Series,
+		result.Base,
 		publicKey,
 		args.ExtraAgentValuesForTesting,
 	)
@@ -599,13 +599,12 @@ func bootstrapIAAS(
 		return errors.Trace(err)
 	}
 
-	osType := series.DefaultOSTypeNameFromSeries(result.Series)
 	matchingTools, err := bootstrapParams.AvailableTools.Match(coretools.Filter{
 		Arch:   result.Arch,
-		OSType: osType,
+		OSType: result.Base.OS,
 	})
 	if err != nil {
-		return errors.Annotatef(err, "expected tools for %q", osType)
+		return errors.Annotatef(err, "expected tools for %q", result.Base.OS)
 	}
 	selectedToolsList, err := getBootstrapToolsVersion(matchingTools)
 	if err != nil {
@@ -632,7 +631,7 @@ func bootstrapIAAS(
 	if err := instanceConfig.SetControllerCharm(args.ControllerCharmPath); err != nil {
 		return errors.Trace(err)
 	}
-	instanceConfig.Bootstrap.ControllerCharmRisk = args.ControllerCharmRisk
+	instanceConfig.Bootstrap.ControllerCharmChannel = args.ControllerCharmChannel
 
 	var environVersion int
 	if e, ok := environ.(environs.Environ); ok {
@@ -779,7 +778,7 @@ func finalizeInstanceBootstrapConfig(
 	icfg.Bootstrap.JujuDbSnapPath = args.JujuDbSnapPath
 	icfg.Bootstrap.JujuDbSnapAssertionsPath = args.JujuDbSnapAssertionsPath
 	icfg.Bootstrap.ControllerCharm = args.ControllerCharmPath
-	icfg.Bootstrap.ControllerCharmRisk = args.ControllerCharmRisk
+	icfg.Bootstrap.ControllerCharmChannel = args.ControllerCharmChannel
 	return nil
 }
 
@@ -856,7 +855,7 @@ func finalizePodBootstrapConfig(
 	pcfg.Bootstrap.ControllerExternalName = args.ControllerExternalName
 	pcfg.Bootstrap.ControllerExternalIPs = append([]string(nil), args.ControllerExternalIPs...)
 	pcfg.Bootstrap.ControllerCharmPath = args.ControllerCharmPath
-	pcfg.Bootstrap.ControllerCharmRisk = args.ControllerCharmRisk
+	pcfg.Bootstrap.ControllerCharmChannel = args.ControllerCharmChannel
 	return nil
 }
 
@@ -868,7 +867,7 @@ func userPublicSigningKey() (string, error) {
 		if err != nil {
 			return "", errors.Annotatef(err, "cannot expand key file path: %s", signingKeyFile)
 		}
-		b, err := ioutil.ReadFile(path)
+		b, err := os.ReadFile(path)
 		if err != nil {
 			return "", errors.Annotatef(err, "invalid public key file: %s", path)
 		}

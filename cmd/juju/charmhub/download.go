@@ -19,7 +19,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
-	"github.com/juju/os/v2/series"
 
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
@@ -54,7 +53,6 @@ See also:
 func NewDownloadCommand() cmd.Command {
 	return &downloadCommand{
 		charmHubCommand: newCharmHubCommand(),
-		orderedSeries:   series.SupportedJujuControllerSeries(),
 	}
 }
 
@@ -70,8 +68,6 @@ type downloadCommand struct {
 	archivePath   string
 	pipeToStdout  bool
 	noProgress    bool
-
-	orderedSeries []string
 }
 
 // Info returns help related download about the command, it implements
@@ -177,27 +173,20 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 	if pSeries == "all" || pSeries == "" {
 		pSeries = version.DefaultSupportedLTS()
 	}
-	platform := fmt.Sprintf("%s/%s", pArch, pSeries)
+	base, err := coreseries.GetBaseFromSeries(pSeries)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	platform := fmt.Sprintf("%s/%s/%s", pArch, base.OS, base.Channel.Track)
 	normBase, err := corecharm.ParsePlatformNormalize(platform)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	if normBase.Series != "" {
-		sys, err := series.GetOSFromSeries(normBase.Series)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		normBase.OS = strings.ToLower(sys.String())
-	}
-
-	// Ensure we compute the base channel correctly.
-	computedNormBase := corecharm.ComputeBaseChannel(normBase)
-
 	refreshConfig, err := charmhub.InstallOneFromChannel(c.charmOrBundle, normChannel.String(), charmhub.RefreshBase{
-		Architecture: computedNormBase.Architecture,
-		Name:         computedNormBase.OS,
-		Channel:      computedNormBase.Series,
+		Architecture: normBase.Architecture,
+		Name:         normBase.OS,
+		Channel:      normBase.Channel,
 	})
 	if err != nil {
 		return errors.Trace(err)
@@ -215,7 +204,7 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 	for _, res := range results {
 		if res.Error != nil {
 			if res.Error.Code == transport.ErrorCodeRevisionNotFound {
-				return c.suggested(normBase.Series, normChannel.String(), res.Error.Extra.Releases, cmdContext)
+				return c.suggested(pSeries, normChannel.String(), res.Error.Extra.Releases, cmdContext)
 			}
 			return errors.Errorf("unable to locate %s: %s", c.charmOrBundle, res.Error.Message)
 		}
@@ -230,24 +219,13 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 	entitySHA := entity.Download.HashSHA256
 
 	path := c.archivePath
-	if c.archivePath == "" {
-		// Use the sha256 to create a unique path for every download. The
-		// consequence of this is that same sha binary blobs will overwrite
-		// each other. That should be ok, as the sha will match.
-		var short string
-		if len(entitySHA) >= 7 {
-			short = fmt.Sprintf("_%s", entitySHA[0:7])
-		}
-		path = fmt.Sprintf("%s%s.%s", entity.Name, short, entityType)
+	if path == "" {
+		// Use the revision number to create a unique path for every download.
+		path = fmt.Sprintf("%s_r%d.%s", entity.Name, entity.Revision, entityType)
 	}
 
-	base := normBase
-	base.Series, err = coreseries.SeriesVersion(normBase.Series)
-	if err != nil {
-		base.Series = normBase.Series
-	}
-
-	cmdContext.Infof("Fetching %s %q using %q channel and base %q", entityType, entity.Name, normChannel, base)
+	cmdContext.Infof("Fetching %s %q revision %d using %q channel and base %q",
+		entityType, entity.Name, entity.Revision, normChannel, normBase)
 
 	resourceURL, err := url.Parse(entity.Download.URL)
 	if err != nil {
@@ -295,16 +273,16 @@ Install the %q %s with:
 	return nil
 }
 
-func (c *downloadCommand) suggested(ser string, channel string, releases []transport.Release, cmdContext *cmd.Context) error {
+func (c *downloadCommand) suggested(requestedSeries string, channel string, releases []transport.Release, cmdContext *cmd.Context) error {
 	series := set.NewStrings()
 	for _, rel := range releases {
 		if rel.Channel == channel {
-			platform := corecharm.NormalisePlatformSeries(corecharm.Platform{
+			platform := corecharm.Platform{
 				Architecture: rel.Base.Architecture,
 				OS:           rel.Base.Name,
-				Series:       rel.Base.Channel,
-			})
-			s, err := coreseries.VersionSeries(platform.Series)
+				Channel:      rel.Base.Channel,
+			}
+			s, err := coreseries.GetSeriesFromChannel(platform.OS, platform.Channel)
 			if err == nil {
 				series.Add(s)
 			} else {
@@ -321,7 +299,7 @@ for a list of supported channels.`,
 			c.charmOrBundle, channel, c.charmOrBundle)
 	}
 	return errors.Errorf("%q does not support series %q in channel %q.  Supported series are: %s.",
-		c.charmOrBundle, ser, channel, strings.Join(series.SortedValues(), ", "))
+		c.charmOrBundle, requestedSeries, channel, strings.Join(series.SortedValues(), ", "))
 }
 
 func (c *downloadCommand) calculateHash(path string) (string, error) {

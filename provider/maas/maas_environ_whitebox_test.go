@@ -2310,7 +2310,7 @@ func (suite *maasEnvironSuite) TestStartInstanceEndToEnd(c *gc.C) {
 	decodedUserData, err := decodeUserData(startArgs.UserData)
 	c.Assert(err, jc.ErrorIsNil)
 	info := machineInfo{"host1"}
-	cloudcfg, err := cloudinit.New("precise")
+	cloudcfg, err := cloudinit.New("ubuntu")
 	c.Assert(err, jc.ErrorIsNil)
 	cloudinitRunCmd, err := info.cloudinitRunCmd(cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)

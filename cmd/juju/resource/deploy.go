@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"strings"
@@ -269,7 +268,7 @@ func getDockerDetailsData(path string, osOpen osOpenFunc) (resources.DockerImage
 
 func unMarshalDockerDetails(data io.Reader) (resources.DockerImageDetails, error) {
 	var details resources.DockerImageDetails
-	contents, err := ioutil.ReadAll(data)
+	contents, err := io.ReadAll(data)
 	if err != nil {
 		return details, errors.Trace(err)
 	}

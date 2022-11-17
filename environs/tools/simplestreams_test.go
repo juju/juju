@@ -9,7 +9,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -883,7 +882,7 @@ func (s *metadataHelperSuite) TestWriteMetadataLegacyIndex(c *gc.C) {
 	rdr, err := stor.Get("tools/streams/v1/index.json")
 	defer rdr.Close()
 	c.Assert(err, jc.ErrorIsNil)
-	data, err := ioutil.ReadAll(rdr)
+	data, err := io.ReadAll(rdr)
 	c.Assert(err, jc.ErrorIsNil)
 	var indices simplestreams.Indices
 	err = json.Unmarshal(data, &indices)

@@ -257,6 +257,8 @@ func (s *upgradeSuite) checkLoginToAPIAsUser(c *gc.C, conf agent.Config, expectF
 	c.Fatalf("timed out waiting for expected API behaviour. last error was: %v", err)
 }
 
+const clientFacadeVersion = 6
+
 func (s *upgradeSuite) attemptRestrictedAPIAsUser(c *gc.C, conf agent.Config) error {
 	info, ok := conf.APIInfo()
 	c.Assert(ok, jc.IsTrue)
@@ -275,13 +277,13 @@ func (s *upgradeSuite) attemptRestrictedAPIAsUser(c *gc.C, conf agent.Config) er
 	// This call should always work, but might fail if the apiserver
 	// is restarting. If it fails just return the error so retries
 	// can continue.
-	err = apiState.APICall("Client", 5, "", "FullStatus", nil, new(params.FullStatus))
+	err = apiState.APICall("Client", clientFacadeVersion, "", "FullStatus", nil, new(params.FullStatus))
 	if err != nil {
 		return errors.Annotate(err, "FullStatus call")
 	}
 
 	// this call should only work if API is not restricted
-	err = apiState.APICall("Client", 5, "", "WatchAll", nil, nil)
+	err = apiState.APICall("Client", clientFacadeVersion, "", "WatchAll", nil, nil)
 	return errors.Annotate(err, "WatchAll call")
 }
 

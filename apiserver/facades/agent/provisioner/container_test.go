@@ -29,8 +29,8 @@ func (s *containerProvisionerSuite) SetUpTest(c *gc.C) {
 func addContainerToMachine(c *gc.C, st *state.State, machine *state.Machine) *state.Machine {
 	// Add a container machine with machine as its host.
 	containerTemplate := state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := st.AddMachineInsideMachine(containerTemplate, machine.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)

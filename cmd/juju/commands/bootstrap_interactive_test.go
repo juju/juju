@@ -6,7 +6,7 @@ package commands
 import (
 	"bufio"
 	"bytes"
-	"io/ioutil"
+	"io"
 	"strings"
 
 	"github.com/juju/cmd/v3/cmdtesting"
@@ -97,7 +97,7 @@ func (BSInteractSuite) TestQueryCloudDefault(c *gc.C) {
 	scanner := bufio.NewScanner(strings.NewReader(input))
 	clouds := []string{"books", "local"}
 
-	cloud, err := queryCloud(clouds, "local", scanner, ioutil.Discard)
+	cloud, err := queryCloud(clouds, "local", scanner, io.Discard)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloud, gc.Equals, "local")
 }
@@ -108,7 +108,7 @@ func (BSInteractSuite) TestInvalidCloud(c *gc.C) {
 	scanner := bufio.NewScanner(strings.NewReader(input))
 	clouds := []string{"books", "local", "bad^cloud"}
 
-	_, err := queryCloud(clouds, "local", scanner, ioutil.Discard)
+	_, err := queryCloud(clouds, "local", scanner, io.Discard)
 	c.Assert(err, gc.ErrorMatches, `cloud name "bad\^cloud" not valid`)
 }
 
@@ -149,7 +149,7 @@ func (BSInteractSuite) TestQueryRegionDefault(c *gc.C) {
 		{Name: "jupiter-central"},
 	}
 
-	region, err := queryRegion("goggles", regions, scanner, ioutil.Discard)
+	region, err := queryRegion("goggles", regions, scanner, io.Discard)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(region, gc.Equals, regions[0].Name)
 }
@@ -173,7 +173,7 @@ func (BSInteractSuite) TestQueryNameDefault(c *gc.C) {
 	input := "\n"
 
 	scanner := bufio.NewScanner(strings.NewReader(input))
-	name, err := queryName("default-cloud", scanner, ioutil.Discard)
+	name, err := queryName("default-cloud", scanner, io.Discard)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(name, gc.Equals, "default-cloud")
 }

@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/state"
 )
 
@@ -132,7 +133,7 @@ func MachineChange(c *gc.C, modelUUID string, machine *state.Machine) cache.Mach
 		AgentStatus:              aSts,
 		InstanceStatus:           iSts,
 		Life:                     life.Value(machine.Life().String()),
-		Series:                   machine.Series(),
+		Base:                     machine.Base().String(),
 		ContainerType:            string(machine.ContainerType()),
 		IsManual:                 isManual,
 		SupportedContainers:      sc,
@@ -182,11 +183,13 @@ func UnitChange(c *gc.C, modelUUID string, unit *state.Unit) cache.UnitChange {
 
 	principal, _ := unit.PrincipalName()
 
+	base, err := series.ParseBase(unit.Base().OS, unit.Base().Channel)
+	c.Assert(err, jc.ErrorIsNil)
 	return cache.UnitChange{
 		ModelUUID:                modelUUID,
 		Name:                     unit.Name(),
 		Application:              unit.ApplicationName(),
-		Series:                   unit.Series(),
+		Base:                     base.String(),
 		CharmURL:                 charmURL,
 		Life:                     life.Value(unit.Life().String()),
 		PublicAddress:            publicAddr.String(),

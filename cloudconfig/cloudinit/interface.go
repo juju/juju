@@ -15,7 +15,6 @@ import (
 
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/os"
-	"github.com/juju/juju/core/series"
 	jujupackaging "github.com/juju/juju/packaging"
 )
 
@@ -30,11 +29,12 @@ type CloudConfig interface {
 	// If the attribute has not been previously set, no error occurs.
 	UnsetAttr(string)
 
-	// GetSeries returns the series this CloudConfig was made for.
-	GetSeries() string
+	// GetOS returns the os this CloudConfig was made for.
+	GetOS() string
 
 	// CloudConfig also contains all the smaller interfaces for config
 	// management:
+
 	UsersConfig
 	SystemUpdateConfig
 	SystemUpgradeConfig
@@ -367,14 +367,6 @@ type AdvancedPackagingConfig interface {
 	//TODO(bogdanteleaga): this might be the same as the exported proxy setting up above, need
 	//to investigate how they're used
 	updateProxySettings(PackageManagerProxyConfig) error
-
-	// RequiresCloudArchiveCloudTools determines whether the cloudconfig
-	// requires the configuration of the cloud archive depending on its series.
-	RequiresCloudArchiveCloudTools() bool
-
-	// AddCloudArchiveCloudTools configures the cloudconfig to set up the cloud
-	// archive if it is required (eg: LTS'es).
-	AddCloudArchiveCloudTools()
 }
 
 type User struct {
@@ -391,7 +383,7 @@ type User struct {
 	SSHAuthorizedKeys string
 
 	// Sudo directives to add.
-	Sudo []string
+	Sudo string
 }
 
 // UsersConfig is the interface for managing user additions
@@ -417,23 +409,20 @@ type NetworkingConfig interface {
 }
 
 // New returns a new Config with no options set.
-func New(ser string) (CloudConfig, error) {
-	seriesos, err := series.GetOSFromSeries(ser)
-	if err != nil {
-		return nil, err
-	}
-	switch seriesos {
+func New(osname string) (CloudConfig, error) {
+	osType := os.OSTypeForName(osname)
+	switch osType {
 	case os.Ubuntu:
 		renderer, _ := shell.NewRenderer("bash")
 		return &ubuntuCloudConfig{
 			&cloudConfig{
-				series: ser,
+				osName: osname,
 				paccmder: map[jujupackaging.PackageManagerName]commands.PackageCommander{
 					jujupackaging.AptPackageManager:  commands.NewAptPackageCommander(),
 					jujupackaging.SnapPackageManager: commands.NewSnapPackageCommander(),
 				},
 				pacconfer: map[jujupackaging.PackageManagerName]config.PackagingConfigurer{
-					jujupackaging.AptPackageManager: config.NewAptPackagingConfigurer(ser),
+					jujupackaging.AptPackageManager: config.NewAptPackagingConfigurer(osname),
 				},
 				renderer: renderer,
 				attrs:    make(map[string]interface{}),
@@ -443,12 +432,12 @@ func New(ser string) (CloudConfig, error) {
 		renderer, _ := shell.NewRenderer("bash")
 		return &centOSCloudConfig{
 			cloudConfig: &cloudConfig{
-				series: ser,
+				osName: osname,
 				paccmder: map[jujupackaging.PackageManagerName]commands.PackageCommander{
 					jujupackaging.YumPackageManager: commands.NewYumPackageCommander(),
 				},
 				pacconfer: map[jujupackaging.PackageManagerName]config.PackagingConfigurer{
-					jujupackaging.YumPackageManager: config.NewYumPackagingConfigurer(ser),
+					jujupackaging.YumPackageManager: config.NewYumPackagingConfigurer("centos7"),
 				},
 				renderer: renderer,
 				attrs:    make(map[string]interface{}),
@@ -459,12 +448,12 @@ func New(ser string) (CloudConfig, error) {
 		renderer, _ := shell.NewRenderer("bash")
 		return &centOSCloudConfig{
 			cloudConfig: &cloudConfig{
-				series: ser,
+				osName: osname,
 				paccmder: map[jujupackaging.PackageManagerName]commands.PackageCommander{
 					jujupackaging.ZypperPackageManager: commands.NewZypperPackageCommander(),
 				},
 				pacconfer: map[jujupackaging.PackageManagerName]config.PackagingConfigurer{
-					jujupackaging.ZypperPackageManager: config.NewZypperPackagingConfigurer(ser),
+					jujupackaging.ZypperPackageManager: config.NewZypperPackagingConfigurer(osname),
 				},
 				renderer: renderer,
 				attrs:    make(map[string]interface{}),
@@ -474,7 +463,7 @@ func New(ser string) (CloudConfig, error) {
 			},
 		}, nil
 	default:
-		return nil, errors.NotFoundf("cloudconfig for series %q", ser)
+		return nil, errors.NotFoundf("cloudconfig for os %q", osname)
 	}
 }
 

@@ -22,11 +22,7 @@ type allWatcherSuite struct {
 
 var _ = gc.Suite(&allWatcherSuite{})
 
-func (s *allWatcherSuite) TestTranslateApplicationWithStatusV1(c *gc.C) {
-	s.assertTranslateApplicationWithStatus(c, newAllWatcherDeltaTranslaterV1())
-}
-
-func (s *allWatcherSuite) TestTranslateApplicationWithStatusV2(c *gc.C) {
+func (s *allWatcherSuite) TestTranslateApplicationWithStatus(c *gc.C) {
 	s.assertTranslateApplicationWithStatus(c, newAllWatcherDeltaTranslater())
 }
 
@@ -52,31 +48,7 @@ func (s *allWatcherSuite) assertTranslateApplicationWithStatus(c *gc.C, t DeltaT
 	})
 }
 
-func (s *allWatcherSuite) TestTranslateActionV1(c *gc.C) {
-	t := newAllWatcherDeltaTranslaterV1()
-	input := &multiwatcher.ActionInfo{
-		ModelUUID:  testing.ModelTag.Id(),
-		ID:         "1",
-		Parameters: map[string]interface{}{"foo": "bar"},
-		Results:    map[string]interface{}{"done": true},
-	}
-	output := t.TranslateAction(input)
-	c.Assert(output, jc.DeepEquals, &params.ActionInfo{
-		ModelUUID:  input.ModelUUID,
-		Id:         input.ID,
-		Receiver:   input.Receiver,
-		Name:       input.Name,
-		Status:     input.Status,
-		Message:    input.Message,
-		Enqueued:   input.Enqueued,
-		Started:    input.Started,
-		Completed:  input.Completed,
-		Parameters: input.Parameters,
-		Results:    input.Results,
-	})
-}
-
-func (s *allWatcherSuite) TestTranslateActionV2(c *gc.C) {
+func (s *allWatcherSuite) TestTranslateAction(c *gc.C) {
 	t := newAllWatcherDeltaTranslater()
 	input := &multiwatcher.ActionInfo{
 		ModelUUID:  testing.ModelTag.Id(),

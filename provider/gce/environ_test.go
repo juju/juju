@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/common"
@@ -69,7 +70,7 @@ func (s *environSuite) TestConfig(c *gc.C) {
 
 func (s *environSuite) TestBootstrap(c *gc.C) {
 	s.FakeCommon.Arch = "amd64"
-	s.FakeCommon.Series = "jammy"
+	s.FakeCommon.Base = series.MakeDefaultBase("ubuntu", "22.04")
 	finalizer := func(environs.BootstrapContext, *instancecfg.InstanceConfig, environs.BootstrapDialOpts) error {
 		return nil
 	}
@@ -84,7 +85,7 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(result.Arch, gc.Equals, "amd64")
-	c.Check(result.Series, gc.Equals, "jammy")
+	c.Check(result.Base.DisplayString(), gc.Equals, "ubuntu@22.04")
 	// We don't check bsFinalizer because functions cannot be compared.
 	c.Check(result.CloudBootstrapFinalizer, gc.NotNil)
 }

@@ -8,7 +8,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
@@ -309,7 +308,7 @@ func readFileAttr(attrs map[string]interface{}, key, defaultPath string) (conten
 	if !filepath.IsAbs(absPath) {
 		absPath = osenv.JujuXDGDataHomePath(absPath)
 	}
-	data, err := ioutil.ReadFile(absPath)
+	data, err := os.ReadFile(absPath)
 	if err != nil {
 		return "", userSpecified, errors.Annotatef(err, "%q not set, and could not read from %q", key, path)
 	}

@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/description/v3"
+	"github.com/juju/description/v4"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	gitjujutesting "github.com/juju/testing"
@@ -667,8 +667,8 @@ func (st *mockState) ControllerModelTag() names.ModelTag {
 	return st.controllerModel.tag
 }
 
-func (st *mockState) Export() (description.Model, error) {
-	st.MethodCall(st, "Export")
+func (st *mockState) Export(leaders map[string]string) (description.Model, error) {
+	st.MethodCall(st, "Export", leaders)
 	return &fakeModelDescription{UUID: st.model.UUID()}, nil
 }
 
@@ -677,7 +677,7 @@ func (st *mockState) ExportPartial(cfg state.ExportConfig) (description.Model, e
 	if !cfg.IgnoreIncompleteModel {
 		return nil, errors.New("expected IgnoreIncompleteModel=true")
 	}
-	return st.Export()
+	return &fakeModelDescription{UUID: st.model.UUID()}, nil
 }
 
 func (st *mockState) AllModelUUIDs() ([]string, error) {

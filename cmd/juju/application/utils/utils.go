@@ -6,7 +6,6 @@ package utils
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 
 	"github.com/mattn/go-isatty"
@@ -168,7 +167,7 @@ func ReadValue(ctx *cmd.Context, filesystem modelcmd.Filesystem, filename string
 	if fi.Size() > maxValueSize {
 		return "", errors.Errorf("size of option file is larger than 5M")
 	}
-	content, err := ioutil.ReadFile(ctx.AbsPath(filename))
+	content, err := os.ReadFile(ctx.AbsPath(filename))
 	if err != nil {
 		return "", errors.Errorf("cannot read option from file %q: %v", filename, err)
 	}

@@ -36,7 +36,7 @@ type MachineModelInfo struct {
 }
 
 // ModelSummary describe interesting information for a given model. This is meant to match the values that a user wants
-// to see as part of either show-model or list-models.
+// to see as part of either show-model or models.
 type ModelSummary struct {
 	Name           string
 	UUID           string

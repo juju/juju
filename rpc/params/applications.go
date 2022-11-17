@@ -37,8 +37,7 @@ type CharmOrigin struct {
 	Branch   *string `json:"branch,omitempty"`
 
 	Architecture string `json:"architecture,omitempty"`
-	OS           string `json:"os,omitempty"`
-	Series       string `json:"series,omitempty"`
+	Base         Base   `json:"base,omitempty"`
 
 	// InstanceKey is a unique string associated with the application. To
 	// assist with keeping KPI data in charmhub, it must be the same for every
@@ -51,7 +50,6 @@ type CharmOrigin struct {
 // call.
 type ApplicationDeploy struct {
 	ApplicationName  string                         `json:"application"`
-	Series           string                         `json:"series"`
 	CharmURL         string                         `json:"charm-url"`
 	CharmOrigin      *CharmOrigin                   `json:"charm-origin,omitempty"`
 	Channel          string                         `json:"channel"`
@@ -74,7 +72,7 @@ type ApplicationUpdate struct {
 	ApplicationName string             `json:"application"`
 	CharmURL        string             `json:"charm-url"`
 	ForceCharmURL   bool               `json:"force-charm-url"`
-	ForceSeries     bool               `json:"force-series"`
+	ForceBase       bool               `json:"force-base"`
 	Force           bool               `json:"force"`
 	MinUnits        *int               `json:"min-units,omitempty"`
 	SettingsStrings map[string]string  `json:"settings,omitempty"` // Takes precedence over yaml entries if both are present.
@@ -121,9 +119,9 @@ type ApplicationSetCharm struct {
 	// ForceUnits forces the upgrade on units in an error state.
 	ForceUnits bool `json:"force-units"`
 
-	// ForceSeries forces the use of the charm even if it doesn't match the
+	// ForceBase forces the use of the charm even if it doesn't match the
 	// series of the unit.
-	ForceSeries bool `json:"force-series"`
+	ForceBase bool `json:"force-base"`
 
 	// ResourceIDs is a map of resource names to resource IDs to activate during
 	// the upgrade.
@@ -206,7 +204,7 @@ type ApplicationGetResults struct {
 	CharmConfig       map[string]interface{} `json:"config"`
 	ApplicationConfig map[string]interface{} `json:"application-config,omitempty"`
 	Constraints       constraints.Value      `json:"constraints"`
-	Series            string                 `json:"series"`
+	Base              Base                   `json:"base"`
 	Channel           string                 `json:"channel"`
 	EndpointBindings  map[string]string      `json:"endpoint-bindings,omitempty"`
 }
@@ -434,7 +432,7 @@ type ScaleApplicationInfo struct {
 type ApplicationResult struct {
 	Tag              string                     `json:"tag"`
 	Charm            string                     `json:"charm,omitempty"`
-	Series           string                     `json:"series,omitempty"`
+	Base             Base                       `json:"base,omitempty"`
 	Channel          string                     `json:"channel,omitempty"`
 	Constraints      constraints.Value          `json:"constraints,omitempty"`
 	Principal        bool                       `json:"principal"`

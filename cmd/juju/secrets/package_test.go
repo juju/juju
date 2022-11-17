@@ -17,7 +17,7 @@ func TestPackage(t *stdtesting.T) {
 	gc.TestingT(t)
 }
 
-// NewListCommandForTest returns a list-secrets command for testing.
+// NewListCommandForTest returns a secrets command for testing.
 func NewListCommandForTest(store jujuclient.ClientStore, listSecretsAPI ListSecretsAPI) *listSecretsCommand {
 	c := &listSecretsCommand{
 		listSecretsAPIFunc: func() (ListSecretsAPI, error) { return listSecretsAPI, nil },

@@ -4,7 +4,6 @@
 package space_test
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -247,7 +246,7 @@ space2
 		s.AssertRunSucceeds(c, "", "", args...)
 		assertAPICalls()
 
-		data, err := ioutil.ReadFile(outFile)
+		data, err := os.ReadFile(outFile)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(string(data), gc.Equals, expected)
 
@@ -264,7 +263,7 @@ space2
 
 		// Write something in outFile2 to verify its contents are
 		// overwritten.
-		err = ioutil.WriteFile(outFile2, []byte("some contents"), 0644)
+		err = os.WriteFile(outFile2, []byte("some contents"), 0644)
 		c.Assert(err, jc.ErrorIsNil)
 
 		args = makeArgs(format, short, "-o", outFile1, "--output", outFile2)
@@ -272,7 +271,7 @@ space2
 		// Check only the last output file was used, and the output
 		// file was overwritten.
 		c.Assert(outFile1, jc.DoesNotExist)
-		data, err = ioutil.ReadFile(outFile2)
+		data, err = os.ReadFile(outFile2)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(string(data), gc.Equals, expected)
 		assertAPICalls()

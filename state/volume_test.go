@@ -36,7 +36,7 @@ func (s *VolumeStateSuite) TestAddMachine(c *gc.C) {
 
 func (s *VolumeStateSuite) TestAssignToMachine(c *gc.C) {
 	_, unit, _ := s.setupSingleStorage(c, "block", "loop-pool")
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -87,7 +87,14 @@ func (s *VolumeStateSuite) TestAddApplicationInvalidPool(c *gc.C) {
 	testStorage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("invalid-pool", 1024, 1),
 	}
-	_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block", Charm: ch, Storage: testStorage})
+	_, err := s.State.AddApplication(state.AddApplicationArgs{
+		Name: "storage-block", Charm: ch,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			OS:      "ubuntu",
+			Channel: "20.04/stable",
+		}},
+		Storage: testStorage,
+	})
 	c.Assert(err, gc.ErrorMatches, `.* pool "invalid-pool" not found`)
 }
 
@@ -96,7 +103,14 @@ func (s *VolumeStateSuite) TestAddApplicationNoUserDefaultPool(c *gc.C) {
 	testStorage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("", 1024, 1),
 	}
-	app, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block", Charm: ch, Storage: testStorage})
+	app, err := s.State.AddApplication(state.AddApplicationArgs{
+		Name: "storage-block", Charm: ch,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			OS:      "ubuntu",
+			Channel: "20.04/stable",
+		}},
+		Storage: testStorage,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	cons, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -188,7 +202,7 @@ func (s *VolumeStateSuite) TestSetVolumeInfoNoStorageAssigned(c *gc.C) {
 		Size: 123,
 	}
 	machineTemplate := state.MachineTemplate{
-		Series:                  "precise",
+		Base:                    state.UbuntuBase("12.10"),
 		Constraints:             cons,
 		HardwareCharacteristics: hc,
 		InstanceId:              "inst-id",
@@ -479,8 +493,8 @@ func (s *VolumeStateSuite) TestAllVolumes(c *gc.C) {
 
 func (s *VolumeStateSuite) assertCreateVolumes(c *gc.C) (_ *state.Machine, all, persistent []names.VolumeTag) {
 	machine, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 		Volumes: []state.HostVolumeParams{{
 			Volume: state.VolumeParams{Pool: "persistent-block", Size: 1024},
 		}, {
@@ -885,8 +899,8 @@ func (s *VolumeStateSuite) TestRemoveVolumeAttachmentAlive(c *gc.C) {
 
 func (s *VolumeStateSuite) TestRemoveMachineRemovesVolumes(c *gc.C) {
 	machine, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 		Volumes: []state.HostVolumeParams{{
 			Volume: state.VolumeParams{Pool: "persistent-block", Size: 1024}, // unprovisioned
 		}, {
@@ -949,8 +963,8 @@ func (s *VolumeStateSuite) TestRemoveMachineRemovesVolumes(c *gc.C) {
 
 func (s *VolumeStateSuite) TestEnsureMachineDeadAddVolumeConcurrently(c *gc.C) {
 	machine, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 		Volumes: []state.HostVolumeParams{{
 			Volume: state.VolumeParams{Pool: "static", Size: 1024},
 		}},
@@ -973,8 +987,8 @@ func (s *VolumeStateSuite) TestEnsureMachineDeadAddVolumeConcurrently(c *gc.C) {
 
 func (s *VolumeStateSuite) TestEnsureMachineDeadRemoveVolumeConcurrently(c *gc.C) {
 	machine, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 		Volumes: []state.HostVolumeParams{{
 			Volume: state.VolumeParams{Pool: "static", Size: 1024},
 		}},
@@ -993,8 +1007,8 @@ func (s *VolumeStateSuite) TestEnsureMachineDeadRemoveVolumeConcurrently(c *gc.C
 
 func (s *VolumeStateSuite) TestVolumeMachineScoped(c *gc.C) {
 	machine, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 		Volumes: []state.HostVolumeParams{{
 			Volume: state.VolumeParams{Pool: "loop", Size: 1024},
 		}},
@@ -1057,8 +1071,8 @@ func (s *VolumeStateSuite) setupMachineScopedVolumeAttachment(c *gc.C) (state.Vo
 
 func (s *VolumeStateSuite) setupVolumeAttachment(c *gc.C, pool string) (state.Volume, *state.Machine) {
 	machine, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 		Volumes: []state.HostVolumeParams{{
 			Volume: state.VolumeParams{Pool: pool, Size: 1024},
 		}},

@@ -71,8 +71,7 @@ func ComputedSeries(c charm.CharmMeta) (seriesSlice []string, _ error) {
 	manifest := c.Manifest()
 	if manifest != nil {
 		for _, base := range manifest.Bases {
-			version := base.Channel.Track
-			series, err := coreseries.VersionSeries(version)
+			series, err := coreseries.GetSeriesFromChannel(base.Name, base.Channel.Track)
 			if err != nil {
 				return []string{}, errors.Trace(err)
 			}

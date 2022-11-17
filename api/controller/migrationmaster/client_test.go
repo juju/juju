@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
@@ -383,7 +382,7 @@ func setupFakeHTTP() (*migrationmaster.Client, *fakeDoer) {
 	doer := &fakeDoer{
 		response: &http.Response{
 			StatusCode: 200,
-			Body:       ioutil.NopCloser(strings.NewReader(resourceContent)),
+			Body:       io.NopCloser(strings.NewReader(resourceContent)),
 		},
 	}
 	caller := &fakeHTTPCaller{
@@ -639,7 +638,7 @@ func (d *fakeDoer) Do(req *http.Request) (*http.Response, error) {
 }
 
 func checkReader(c *gc.C, r io.Reader, expected string) {
-	actual, err := ioutil.ReadAll(r)
+	actual, err := io.ReadAll(r)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(actual), gc.Equals, expected)
 }

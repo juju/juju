@@ -9,7 +9,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/juju/description/v3"
+	"github.com/juju/description/v4"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"

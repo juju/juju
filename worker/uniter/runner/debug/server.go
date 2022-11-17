@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -52,7 +51,7 @@ var waitClientExit = func(s *ServerSession) {
 // the hookName; otherwise, it will point to a script that acts as the dispatcher
 // for all hooks/actions.
 func (s *ServerSession) RunHook(hookName, charmDir string, env []string, hookRunner string) error {
-	debugDir, err := ioutil.TempDir("", "juju-debug-hooks-")
+	debugDir, err := os.MkdirTemp("", "juju-debug-hooks-")
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -119,7 +118,7 @@ func (s *ServerSession) writeDebugFiles(debugDir, help, hookRunner string) error
 		{"hook.sh", debugHooksHookScript, 0755},
 	}
 	for _, file := range files {
-		if err := ioutil.WriteFile(
+		if err := os.WriteFile(
 			filepath.Join(debugDir, file.filename),
 			[]byte(file.contents),
 			file.mode,
@@ -143,7 +142,7 @@ func (c *HooksContext) FindSession() (*ServerSession, error) {
 		}
 	}
 	// Parse the debug-hooks file for an optional hook name.
-	data, err := ioutil.ReadFile(c.ClientFileLock())
+	data, err := os.ReadFile(c.ClientFileLock())
 	if err != nil {
 		return nil, err
 	}
@@ -206,7 +205,7 @@ tmux kill-session -t $JUJU_UNIT_NAME # or, equivalently, CTRL+a d
 4. CTRL+a is tmux prefix.
 
 More help and info is available in the online documentation:
-https://discourse.charmhub.io/t/debugging-charm-hooks
+https://juju.is/docs/olm/debug-charm-hooks
 
 `
 

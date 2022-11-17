@@ -90,7 +90,7 @@ func (st *State) maintainControllersOps(newIds []string, bootstrapOnly bool) ([]
 // exhausted; thereafter any new machines are started according to the constraints and series.
 // MachineID is the id of the machine where the apiserver is running.
 func (st *State) EnableHA(
-	numControllers int, cons constraints.Value, series string, placement []string,
+	numControllers int, cons constraints.Value, base Base, placement []string,
 ) (ControllersChanges, error) {
 
 	if numControllers < 0 || (numControllers != 0 && numControllers%2 != 1) {
@@ -145,7 +145,7 @@ func (st *State) EnableHA(
 		logger.Infof("%d new machines; converting %v", intent.newCount, intent.convert)
 
 		var ops []txn.Op
-		ops, change, err = st.enableHAIntentionOps(intent, cons, series)
+		ops, change, err = st.enableHAIntentionOps(intent, cons, base)
 		return ops, err
 	}
 	if err := st.db().Run(buildTxn); err != nil {
@@ -167,7 +167,7 @@ type ControllersChanges struct {
 func (st *State) enableHAIntentionOps(
 	intent *enableHAIntent,
 	cons constraints.Value,
-	series string,
+	base Base,
 ) ([]txn.Op, ControllersChanges, error) {
 	var ops []txn.Op
 	var change ControllersChanges
@@ -215,7 +215,7 @@ func (st *State) enableHAIntentionOps(
 	for i := 0; i < intent.newCount; i++ {
 		placement, cons := getPlacementConstraints()
 		template := MachineTemplate{
-			Series: series,
+			Base: base,
 			Jobs: []MachineJob{
 				JobHostUnits,
 				JobManageModel,

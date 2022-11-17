@@ -4,7 +4,6 @@
 package backups
 
 import (
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -17,7 +16,6 @@ import (
 	"github.com/juju/mgo/v3/bson"
 
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state/imagestorage"
 )
 
 // db is a surrogate for the proverbial DB layer abstraction that we
@@ -52,8 +50,7 @@ type DBInfo struct {
 var ignoredDatabases = set.NewStrings(
 	"admin",
 	"backups",
-	"presence",            // note: this is still backed up anyway
-	imagestorage.ImagesDB, // note: this is still backed up anyway
+	"presence", // note: this is still backed up anyway
 )
 
 // DBSession is a subset of mgo.Session.
@@ -274,28 +271,34 @@ func stripIgnored(ignored set.Strings, dumpDir string) error {
 // mongodump.  Note that, while mongodump is unlikely to change behavior
 // in this regard, this is not a documented guaranteed behavior.
 func listDatabases(dumpDir string) (set.Strings, error) {
-	list, err := ioutil.ReadDir(dumpDir)
+	dirEntries, err := os.ReadDir(dumpDir)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	logger.Tracef("%d files found in dump dir", len(list))
-	for _, info := range list {
+	logger.Tracef("%d files found in dump dir", len(dirEntries))
+	for _, entry := range dirEntries {
+		fi, err := entry.Info()
+		if err != nil {
+			logger.Errorf("failed to read file info: %s", entry.Name())
+			continue
+		}
+
 		logger.Tracef("file found in dump dir: %q dir=%v size=%d",
-			info.Name(), info.IsDir(), info.Size())
+			fi.Name(), fi.IsDir(), fi.Size())
 	}
-	if len(list) < 2 {
+	if len(dirEntries) < 2 {
 		// Should be *at least* oplog.bson and a data directory
-		return nil, errors.Errorf("too few files in dump dir (%d)", len(list))
+		return nil, errors.Errorf("too few files in dump dir (%d)", len(dirEntries))
 	}
 
 	databases := make(set.Strings)
-	for _, info := range list {
-		if !info.IsDir() {
+	for _, entry := range dirEntries {
+		if !entry.IsDir() {
 			// Notably, oplog.bson is thus excluded here.
 			continue
 		}
-		databases.Add(info.Name())
+		databases.Add(entry.Name())
 	}
 	return databases, nil
 }

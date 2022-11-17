@@ -154,7 +154,7 @@ func (c *infoCommand) Run(cmdContext *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	view, err := convertCharmInfoResult(info, c.arch, c.series)
+	view, err := convertInfoResponse(info, c.arch, c.series)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -174,7 +174,21 @@ func (c *infoCommand) formatter(writer io.Writer, value interface{}) error {
 		return errors.Errorf("unexpected results")
 	}
 
-	if err := makeInfoWriter(writer, c.warningLog, c.config, c.unicode, results).Print(); err != nil {
+	// Default is to include both architecture and bases
+	mode := baseModeBoth
+	switch {
+	case c.arch != ArchAll && c.series != SeriesAll:
+		// If --arch and --series given, don't show arch or bases
+		mode = baseModeNone
+	case c.arch != ArchAll && c.series == SeriesAll:
+		// If only --arch given, show bases
+		mode = baseModeBases
+	case c.arch == ArchAll && c.series != SeriesAll:
+		// If only --series given, show arch
+		mode = baseModeArches
+	}
+
+	if err := makeInfoWriter(writer, c.warningLog, c.config, c.unicode, mode, results).Print(); err != nil {
 		return errors.Trace(err)
 	}
 

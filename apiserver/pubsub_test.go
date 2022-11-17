@@ -5,7 +5,7 @@ package apiserver_test
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"time"
@@ -96,7 +96,7 @@ func (s *pubsubSuite) checkAuthFails(c *gc.C, header http.Header, code int, mess
 	c.Assert(resp, gc.NotNil)
 	defer resp.Body.Close()
 	c.Check(resp.StatusCode, gc.Equals, code)
-	out, err := ioutil.ReadAll(resp.Body)
+	out, err := io.ReadAll(resp.Body)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(out), gc.Matches, message+"\n")
 }

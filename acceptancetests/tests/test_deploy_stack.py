@@ -138,7 +138,7 @@ class DeployStackTestCase(FakeHomeTestCase):
             with patch.object(client, 'iter_model_clients',
                               return_value=[client]) as imc_mock:
                 safe_print_status(client)
-        mock.assert_called_once_with('show-status', ('--format', 'yaml'))
+        mock.assert_called_once_with('status', ('--format', 'yaml'))
         imc_mock.assert_called_once_with()
 
     def test_safe_print_status_ignores_soft_deadline(self):
@@ -855,7 +855,7 @@ class TestDeployDummyStack(FakeHomeTestCase):
         def output(*args, **kwargs):
             token_file = '/var/run/dummy-sink/token'
             output = {
-                ('show-status', '--format', 'yaml'): status,
+                ('status', '--format', 'yaml'): status,
                 ('ssh', 'dummy-sink/0', 'cat', token_file): 'fake-token',
             }
             return output[args]
@@ -875,14 +875,14 @@ class TestDeployDummyStack(FakeHomeTestCase):
             'juju', '--show-log', 'deploy', '-m', 'foo:foo',
             '/tmp/repo/charms/dummy-sink', '--series', 'bar-'), 1)
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'add-relation', '-m', 'foo:foo',
+            'juju', '--show-log', 'integrate', '-m', 'foo:foo',
             'dummy-source', 'dummy-sink'), 2)
         assert_juju_call(self, cc_mock, client, (
             'juju', '--show-log', 'expose', '-m', 'foo:foo', 'dummy-sink'), 3)
         self.assertEqual(cc_mock.call_count, 4)
         self.assertEqual(
             [
-                call('show-status', '--format', 'yaml', controller=False)
+                call('status', '--format', 'yaml', controller=False)
             ],
             gjo_mock.call_args_list)
 
@@ -1041,10 +1041,10 @@ class TestTestUpgrade(FakeHomeTestCase):
         'juju', '--show-log', 'exec', '--format', 'json',
         '--application', 'dummy-source,dummy-sink', 'uname')
     STATUS = (
-        'juju', '--show-log', 'show-status', '-m', 'foo:foo',
+        'juju', '--show-log', 'status', '-m', 'foo:foo',
         '--format', 'yaml')
     CONTROLLER_STATUS = (
-        'juju', '--show-log', 'show-status', '-m', 'foo:controller',
+        'juju', '--show-log', 'status', '-m', 'foo:controller',
         '--format', 'yaml')
     GET_ENV = ('juju', '--show-log', 'model-config', '-m', 'foo:foo',
                'agent-metadata-url')
@@ -1106,7 +1106,7 @@ class TestTestUpgrade(FakeHomeTestCase):
             'juju', '--show-log', 'upgrade-juju', '-m', 'foo:controller',
             '--agent-version', '2.0-rc2'), 0)
         assert_juju_call(self, cc_mock, new_client, (
-            'juju', '--show-log', 'show-status', '-m', 'foo:controller',
+            'juju', '--show-log', 'status', '-m', 'foo:controller',
             '--format', 'yaml'), 1)
         assert_juju_call(self, cc_mock, new_client, (
             'juju', '--show-log', 'list-models', '-c', 'foo'), 2)
@@ -2032,10 +2032,10 @@ class TestBootContext(FakeHomeTestCase):
         assert_juju_call(self, cc_mock, client, (
             'path', '--show-log', 'list-models', '-c', 'bar'), 2)
         assert_juju_call(self, cc_mock, client, (
-            'path', '--show-log', 'show-status', '-m', 'bar:controller',
+            'path', '--show-log', 'status', '-m', 'bar:controller',
             '--format', 'yaml'), 3)
         assert_juju_call(self, cc_mock, client, (
-            'path', '--show-log', 'show-status', '-m', 'bar:bar',
+            'path', '--show-log', 'status', '-m', 'bar:bar',
             '--format', 'yaml'), 4)
 
     def test_keep_env(self):
@@ -2056,10 +2056,10 @@ class TestBootContext(FakeHomeTestCase):
         assert_juju_call(self, cc_mock, client, (
             'path', '--show-log', 'list-models', '-c', 'bar'), 2)
         assert_juju_call(self, cc_mock, client, (
-            'path', '--show-log', 'show-status', '-m', 'bar:controller',
+            'path', '--show-log', 'status', '-m', 'bar:controller',
             '--format', 'yaml'), 3)
         assert_juju_call(self, cc_mock, client, (
-            'path', '--show-log', 'show-status', '-m', 'bar:bar',
+            'path', '--show-log', 'status', '-m', 'bar:bar',
             '--format', 'yaml'), 4)
 
     def test_upload_tools(self):
@@ -2148,7 +2148,7 @@ class TestBootContext(FakeHomeTestCase):
         self.assertEqual('steve', client.env.get_region())
 
     def test_status_error_raises(self):
-        """An error on final show-status propagates so an assess will fail."""
+        """An error on final status propagates so an assess will fail."""
         error = subprocess.CalledProcessError(1, ['juju'], '')
         effects = [None, None, None, None, None, None, error]
         cc_mock = self.addContext(patch('subprocess.check_call', autospec=True,
@@ -2172,10 +2172,10 @@ class TestBootContext(FakeHomeTestCase):
         assert_juju_call(self, cc_mock, client, (
             'path', '--show-log', 'list-models', '-c', 'bar'), 2)
         assert_juju_call(self, cc_mock, client, (
-            'path', '--show-log', 'show-status', '-m', 'bar:controller',
+            'path', '--show-log', 'status', '-m', 'bar:controller',
             '--format', 'yaml'), 3)
         assert_juju_call(self, cc_mock, client, (
-            'path', '--show-log', 'show-status', '-m', 'bar:bar',
+            'path', '--show-log', 'status', '-m', 'bar:bar',
             '--format', 'yaml'), 4)
 
 

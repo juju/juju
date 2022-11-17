@@ -6,7 +6,6 @@ package jujuc
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
@@ -97,7 +96,7 @@ func (c *RelationSetCommand) Init(args []string) error {
 }
 
 func readSettings(in io.Reader) (map[string]string, error) {
-	data, err := ioutil.ReadAll(in)
+	data, err := io.ReadAll(in)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

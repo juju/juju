@@ -46,7 +46,7 @@ type statusSuite struct {
 var _ = gc.Suite(&statusSuite{})
 
 func (s *statusSuite) addMachine(c *gc.C) *state.Machine {
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	return machine
 }
@@ -78,7 +78,7 @@ func (s *statusSuite) TestFullStatus(c *gc.C) {
 		c.Fatalf("Missing machine with id %q", machine.Id())
 	}
 	c.Check(resultMachine.Id, gc.Equals, machine.Id())
-	c.Check(resultMachine.Series, gc.Equals, machine.Series())
+	c.Check(resultMachine.Base, jc.DeepEquals, params.Base{Name: "ubuntu", Channel: "12.10/stable"})
 	c.Check(resultMachine.LXDProfiles, gc.HasLen, 0)
 }
 
@@ -1020,6 +1020,10 @@ func (s *CAASStatusSuite) SetUpTest(c *gc.C) {
 		Series: "kubernetes",
 	})
 	s.app = s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			OS:      "ubuntu",
+			Channel: "20.04/stable",
+		}},
 		Charm: ch,
 	})
 	s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.app})
@@ -1104,7 +1108,7 @@ func (s *CAASStatusSuite) assertUnitStatus(c *gc.C, appStatus params.Application
 	}
 	c.Assert(appStatus, jc.DeepEquals, params.ApplicationStatus{
 		Charm:           *curl,
-		Series:          "kubernetes",
+		Base:            params.Base{Name: "ubuntu", Channel: "20.04/stable"},
 		WorkloadVersion: workloadVersion,
 		Relations:       map[string][]string{},
 		SubordinateTo:   []string{},

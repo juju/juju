@@ -643,11 +643,11 @@ attribute of 'gpu=nvidia-tesla-p100':
        twingpu=2,nvidia.com/gpu,gpu=nvidia-tesla-p100
 
 See also:
-    add-relation
+    integrate
     add-unit
     config
     expose
-    get-constraints
+    constraints
     refresh
     set-constraints
     spaces

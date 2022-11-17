@@ -4,7 +4,7 @@
 package model_test
 
 import (
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -360,7 +360,7 @@ func (s *DefaultsCommandSuite) TestSetValueWithSlash(c *gc.C) {
 func (s *DefaultsCommandSuite) TestSetFromFile(c *gc.C) {
 	tmpdir := c.MkDir()
 	configFile := filepath.Join(tmpdir, "config.yaml")
-	err := ioutil.WriteFile(configFile, []byte("special: extra\n"), 0644)
+	err := os.WriteFile(configFile, []byte("special: extra\n"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.run(c, "--file", configFile)
@@ -407,7 +407,7 @@ func (s *DefaultsCommandSuite) TestSetFromStdin(c *gc.C) {
 func (s *DefaultsCommandSuite) TestSetFromFileCombined(c *gc.C) {
 	tmpdir := c.MkDir()
 	configFile := filepath.Join(tmpdir, "config.yaml")
-	err := ioutil.WriteFile(configFile, []byte(`
+	err := os.WriteFile(configFile, []byte(`
 special: extra
 attr: foo`), 0644)
 	c.Assert(err, jc.ErrorIsNil)
@@ -430,7 +430,7 @@ attr: foo`), 0644)
 func (s *DefaultsCommandSuite) TestSetFromFileReset(c *gc.C) {
 	tmpdir := c.MkDir()
 	configFile := filepath.Join(tmpdir, "config.yaml")
-	err := ioutil.WriteFile(configFile, []byte(`
+	err := os.WriteFile(configFile, []byte(`
 special: extra
 attr: foo`), 0644)
 	c.Assert(err, jc.ErrorIsNil)
@@ -452,7 +452,7 @@ attr: foo`), 0644)
 func (s *DefaultsCommandSuite) TestSetFromFileUsingYAML(c *gc.C) {
 	tmpdir := c.MkDir()
 	configFile := filepath.Join(tmpdir, "config.yaml")
-	err := ioutil.WriteFile(configFile, []byte(`
+	err := os.WriteFile(configFile, []byte(`
 special:
   default: meshuggah
 `), 0644)
@@ -478,7 +478,7 @@ special:
 func (s *DefaultsCommandSuite) TestSetFromFileUsingYAMLTargettingController(c *gc.C) {
 	tmpdir := c.MkDir()
 	configFile := filepath.Join(tmpdir, "config.yaml")
-	err := ioutil.WriteFile(configFile, []byte(`
+	err := os.WriteFile(configFile, []byte(`
 special:
   default: meshuggah
   controller: nadir
@@ -514,7 +514,7 @@ func (s *DefaultsCommandSuite) TestSetFromFileUsingYAMLTargettingCloudRegion(c *
 		c.Logf("test %d", i)
 		tmpdir := c.MkDir()
 		configFile := filepath.Join(tmpdir, "config.yaml")
-		err := ioutil.WriteFile(configFile, []byte(`
+		err := os.WriteFile(configFile, []byte(`
 special:
   default: meshuggah
   controller: nadir

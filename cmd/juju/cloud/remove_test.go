@@ -4,7 +4,7 @@
 package cloud_test
 
 import (
-	"io/ioutil"
+	"os"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd/v3/cmdtesting"
@@ -74,7 +74,7 @@ func (s *removeSuite) TestRemoveNotFound(c *gc.C) {
 }
 
 func (s *removeSuite) createTestCloudData(c *gc.C) {
-	err := ioutil.WriteFile(osenv.JujuXDGDataHomePath("public-clouds.yaml"), []byte(`
+	err := os.WriteFile(osenv.JujuXDGDataHomePath("public-clouds.yaml"), []byte(`
 clouds:
   prodstack:
     type: openstack
@@ -87,7 +87,7 @@ clouds:
 `[1:]), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = ioutil.WriteFile(osenv.JujuXDGDataHomePath("credentials.yaml"), []byte(`
+	err = os.WriteFile(osenv.JujuXDGDataHomePath("credentials.yaml"), []byte(`
 credentials:
   prodstack2:
     cred-name:
@@ -97,7 +97,7 @@ credentials:
 `[1:]), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = ioutil.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(`
+	err = os.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(`
 clouds:
   homestack:
     type: openstack

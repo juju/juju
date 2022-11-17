@@ -196,7 +196,7 @@ type flatMetadataV0 struct {
 	Machine     string
 	Hostname    string
 	Version     version.Number
-	Series      string
+	Base        string
 }
 
 func flatV0(m *backups.Metadata) flatMetadataV0 {
@@ -211,7 +211,7 @@ func flatV0(m *backups.Metadata) flatMetadataV0 {
 		Machine:        m.Origin.Machine,
 		Hostname:       m.Origin.Hostname,
 		Version:        m.Origin.Version,
-		Series:         m.Origin.Series,
+		Base:           m.Origin.Base,
 	}
 	stored := m.Stored()
 	if stored != nil {

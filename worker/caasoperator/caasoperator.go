@@ -5,7 +5,6 @@ package caasoperator
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -685,8 +684,8 @@ func (op *caasOperator) remoteInit(client exec.Executor, unit names.UnitTag, run
 			Paths:        op.paths,
 			UnitTag:      unit,
 			ProviderID:   runningStatus.PodName,
-			WriteFile:    ioutil.WriteFile,
-			TempDir:      ioutil.TempDir,
+			WriteFile:    os.WriteFile,
+			TempDir:      os.MkdirTemp,
 			Clock:        op.config.Clock,
 			ReTrier:      runnerWithRetry,
 		}, cancel))

@@ -105,7 +105,7 @@ func (c *CommandBase) dumpMetadata(ctx *cmd.Context, result *params.BackupsMetad
 const backupMetadataTemplate = `
 backup format version: {{.FormatVersion}} 
 juju version:          {{.JujuVersion}} 
-series:                {{.Series}} 
+base:                  {{.Base}} 
 
 controller UUID:       {{.ControllerUUID}}{{if (gt .HANodes 1)}} 
 controllers in HA:     {{.HANodes}}{{end}}
@@ -138,7 +138,7 @@ type MetadataParams struct {
 	MachineID      string
 	Hostname       string
 	JujuVersion    version.Number
-	Series         string
+	Base           string
 }
 
 func (c *CommandBase) metadata(result *params.BackupsMetadataResult) string {
@@ -157,7 +157,7 @@ func (c *CommandBase) metadata(result *params.BackupsMetadataResult) string {
 		result.Machine,
 		result.Hostname,
 		result.Version,
-		result.Series,
+		result.Base,
 	}
 	t := template.Must(template.New("template").Parse(backupMetadataTemplate))
 	content := bytes.Buffer{}

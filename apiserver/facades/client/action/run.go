@@ -18,64 +18,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// getAllUnitNames returns a sequence of valid Unit objects from state. If any
-// of the application names or unit names are not found, an error is returned.
-func getAllUnitNames(st State, units, applications []string) (result []names.Tag, err error) {
-	var leaders map[string]string
-	getLeader := func(appName string) (string, error) {
-		if leaders == nil {
-			var err error
-			leaders, err = st.ApplicationLeaders()
-			if err != nil {
-				return "", err
-			}
-		}
-		if leader, ok := leaders[appName]; ok {
-			return leader, nil
-		}
-		return "", errors.Errorf("could not determine leader for %q", appName)
-	}
-
-	// Replace units matching $app/leader with the appropriate unit for
-	// the leader.
-	unitsSet := set.NewStrings()
-	for _, unit := range units {
-		if !strings.HasSuffix(unit, "leader") {
-			unitsSet.Add(unit)
-			continue
-		}
-
-		app := strings.Split(unit, "/")[0]
-		leaderUnit, err := getLeader(app)
-		if err != nil {
-			return nil, apiservererrors.ServerError(err)
-		}
-
-		unitsSet.Add(leaderUnit)
-	}
-
-	for _, name := range applications {
-		service, err := st.Application(name)
-		if err != nil {
-			return nil, err
-		}
-		units, err := service.AllUnits()
-		if err != nil {
-			return nil, err
-		}
-		for _, unit := range units {
-			unitsSet.Add(unit.Name())
-		}
-	}
-	for _, unitName := range unitsSet.SortedValues() {
-		if !names.IsValidUnit(unitName) {
-			return nil, errors.Errorf("invalid unit name %q", unitName)
-		}
-		result = append(result, names.NewUnitTag(unitName))
-	}
-	return result, nil
-}
-
 // Run the commands specified on the machines identified through the
 // list of machines, units and services.
 func (a *ActionAPI) Run(run params.RunParams) (results params.EnqueuedActions, err error) {
@@ -87,7 +29,7 @@ func (a *ActionAPI) Run(run params.RunParams) (results params.EnqueuedActions, e
 		return results, errors.Trace(err)
 	}
 
-	units, err := getAllUnitNames(a.state, run.Units, run.Applications)
+	units, err := a.getAllUnitNames(run.Units, run.Applications)
 	if err != nil {
 		return results, errors.Trace(err)
 	}
@@ -171,4 +113,62 @@ func (a *ActionAPI) createRunActionsParams(
 	}
 
 	return apiActionParams, nil
+}
+
+// getAllUnitNames returns a sequence of valid Unit objects from state. If any
+// of the application names or unit names are not found, an error is returned.
+func (a *ActionAPI) getAllUnitNames(units, applications []string) (result []names.Tag, err error) {
+	var leaders map[string]string
+	getLeader := func(appName string) (string, error) {
+		if leaders == nil {
+			var err error
+			leaders, err = a.leadership.Leaders()
+			if err != nil {
+				return "", err
+			}
+		}
+		if leader, ok := leaders[appName]; ok {
+			return leader, nil
+		}
+		return "", errors.Errorf("could not determine leader for %q", appName)
+	}
+
+	// Replace units matching $app/leader with the appropriate unit for
+	// the leader.
+	unitsSet := set.NewStrings()
+	for _, unit := range units {
+		if !strings.HasSuffix(unit, "leader") {
+			unitsSet.Add(unit)
+			continue
+		}
+
+		app := strings.Split(unit, "/")[0]
+		leaderUnit, err := getLeader(app)
+		if err != nil {
+			return nil, apiservererrors.ServerError(err)
+		}
+
+		unitsSet.Add(leaderUnit)
+	}
+
+	for _, name := range applications {
+		service, err := a.state.Application(name)
+		if err != nil {
+			return nil, err
+		}
+		units, err := service.AllUnits()
+		if err != nil {
+			return nil, err
+		}
+		for _, unit := range units {
+			unitsSet.Add(unit.Name())
+		}
+	}
+	for _, unitName := range unitsSet.SortedValues() {
+		if !names.IsValidUnit(unitName) {
+			return nil, errors.Errorf("invalid unit name %q", unitName)
+		}
+		result = append(result, names.NewUnitTag(unitName))
+	}
+	return result, nil
 }

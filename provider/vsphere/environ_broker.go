@@ -18,6 +18,8 @@ import (
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
+	jujuos "github.com/juju/juju/core/os"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
@@ -121,7 +123,8 @@ func (env *sessionEnviron) newRawInstance(
 ) (_ *mo.VirtualMachine, _ *instance.HardwareCharacteristics, err error) {
 	// Obtain the final constraints by merging with defaults.
 	cons := args.Constraints
-	minRootDisk := common.MinRootDiskSizeGiB(args.InstanceConfig.Series) * 1024
+	os := jujuos.OSTypeForName(args.InstanceConfig.Base.OS)
+	minRootDisk := common.MinRootDiskSizeGiB(os) * 1024
 	if cons.RootDisk == nil || *cons.RootDisk < minRootDisk {
 		cons.RootDisk = &minRootDisk
 	}
@@ -172,7 +175,11 @@ func (env *sessionEnviron) newRawInstance(
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	vmTemplate, arch, err := tplManager.EnsureTemplate(env.ctx, args.InstanceConfig.Series, arch)
+	series, err := coreseries.GetSeriesFromBase(args.InstanceConfig.Base)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	vmTemplate, arch, err := tplManager.EnsureTemplate(env.ctx, series, arch)
 	if err != nil {
 		return nil, nil, environs.ZoneIndependentError(err)
 	}
@@ -190,7 +197,7 @@ func (env *sessionEnviron) newRawInstance(
 		return nil, nil, environs.ZoneIndependentError(err)
 	}
 
-	cloudcfg, err := cloudinit.New(args.InstanceConfig.Series)
+	cloudcfg, err := cloudinit.New(args.InstanceConfig.Base.OS)
 	if err != nil {
 		return nil, nil, environs.ZoneIndependentError(err)
 	}
@@ -248,7 +255,7 @@ func (env *sessionEnviron) newRawInstance(
 	createVMArgs := vsphereclient.CreateVirtualMachineParams{
 		Name:                   vmName,
 		Folder:                 path.Join(env.getVMFolder(), controllerFolderName(args.ControllerUUID), env.modelFolderName()),
-		Series:                 args.InstanceConfig.Series,
+		Series:                 series,
 		UserData:               string(userData),
 		Metadata:               args.InstanceConfig.Tags,
 		Constraints:            cons,

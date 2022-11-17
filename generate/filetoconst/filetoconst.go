@@ -6,7 +6,6 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 	"text/template"
@@ -29,7 +28,7 @@ func main() {
 	if len(os.Args) < 5 {
 		fmt.Println("Usage: filetoconst <constname> <infile> <gofile> <copyrightyear> <pkgname>")
 	}
-	data, err := ioutil.ReadFile(os.Args[2])
+	data, err := os.ReadFile(os.Args[2])
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -57,7 +56,7 @@ func main() {
 		Pkgname:       os.Args[5],
 	})
 
-	err = ioutil.WriteFile(os.Args[3], buf.Bytes(), 0644)
+	err = os.WriteFile(os.Args[3], buf.Bytes(), 0644)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)

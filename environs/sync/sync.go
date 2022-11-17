@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -307,7 +306,7 @@ func buildAgentTarball(
 	// We create the entire archive before asking the environment to
 	// start uploading so that we can be sure we have archived
 	// correctly.
-	f, err := ioutil.TempFile("", "juju-tgz")
+	f, err := os.CreateTemp("", "juju-tgz")
 	if err != nil {
 		return nil, err
 	}
@@ -339,7 +338,7 @@ func buildAgentTarball(
 	}
 	logger.Infof("using %s %v aliased to %v (%dkB)", agentBinary, toolsVersion, forceVersion, (size+512)/1024)
 
-	baseToolsDir, err := ioutil.TempDir("", "juju-tools")
+	baseToolsDir, err := os.MkdirTemp("", "juju-tools")
 	if err != nil {
 		return nil, err
 	}

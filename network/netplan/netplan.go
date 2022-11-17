@@ -5,7 +5,6 @@ package netplan
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -310,42 +309,42 @@ func Marshal(in *Netplan) (out []byte, err error) {
 	return goyaml.Marshal(in)
 }
 
-type sortableFileInfos []os.FileInfo
+type sortableDirEntries []os.DirEntry
 
-func (fil sortableFileInfos) Len() int {
+func (fil sortableDirEntries) Len() int {
 	return len(fil)
 }
 
-func (fil sortableFileInfos) Less(i, j int) bool {
+func (fil sortableDirEntries) Less(i, j int) bool {
 	return fil[i].Name() < fil[j].Name()
 }
 
-func (fil sortableFileInfos) Swap(i, j int) {
+func (fil sortableDirEntries) Swap(i, j int) {
 	fil[i], fil[j] = fil[j], fil[i]
 }
 
 // ReadDirectory reads the contents of a netplan directory and
 // returns complete config.
 func ReadDirectory(dirPath string) (np Netplan, err error) {
-	fileInfos, err := ioutil.ReadDir(dirPath)
+	dirEntries, err := os.ReadDir(dirPath)
 	if err != nil {
 		return np, err
 	}
 	np.sourceDirectory = dirPath
-	sortedFileInfos := sortableFileInfos(fileInfos)
-	sort.Sort(sortedFileInfos)
+	sortedDirEntries := sortableDirEntries(dirEntries)
+	sort.Sort(sortedDirEntries)
 
 	// First, unmarshal all configuration files into maps and merge them.
 	// Since the file list is pre-sorted, the first unmarshalled file
 	// serves as the base configuration; subsequent configuration maps are
 	// merged into it.
 	var mergedConfig map[interface{}]interface{}
-	for _, fileInfo := range sortedFileInfos {
-		if !fileInfo.IsDir() && strings.HasSuffix(fileInfo.Name(), ".yaml") {
-			np.sourceFiles = append(np.sourceFiles, fileInfo.Name())
+	for _, dirEntry := range sortedDirEntries {
+		if !dirEntry.IsDir() && strings.HasSuffix(dirEntry.Name(), ".yaml") {
+			np.sourceFiles = append(np.sourceFiles, dirEntry.Name())
 
-			pathToConfig := path.Join(np.sourceDirectory, fileInfo.Name())
-			configContents, err := ioutil.ReadFile(pathToConfig)
+			pathToConfig := path.Join(np.sourceDirectory, dirEntry.Name())
+			configContents, err := os.ReadFile(pathToConfig)
 			if err != nil {
 				return Netplan{}, errors.Annotatef(err, "reading netplan configuration from %q", pathToConfig)
 			}
@@ -532,7 +531,7 @@ func (np *Netplan) Write(inPath string) (filePath string, err error) {
 	if err != nil {
 		return "", err
 	}
-	err = ioutil.WriteFile(tmpFilePath, out, 0644)
+	err = os.WriteFile(tmpFilePath, out, 0644)
 	if err != nil {
 		return "", err
 	}

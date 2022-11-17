@@ -5,7 +5,6 @@ package oci
 
 import (
 	"context"
-	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -93,8 +92,8 @@ type InstanceImage struct {
 	ImageType ImageType
 	// Id is the provider ID of the image
 	Id string
-	// Series is the series as known by juju
-	Series string
+	// Base is the os base.
+	Base series.Base
 	// Version is the version of the image
 	Version ImageVersion
 	// Raw stores the core.Image object
@@ -139,14 +138,14 @@ func (t byVersion) Less(i, j int) bool {
 // amount of time before it becomes stale
 type ImageCache struct {
 	// images []InstanceImage
-	images map[string][]InstanceImage
+	images map[series.Base][]InstanceImage
 
 	// shapeToInstanceImageMap map[string][]InstanceImage
 
 	lastRefresh time.Time
 }
 
-func (i *ImageCache) ImageMap() map[string][]InstanceImage {
+func (i *ImageCache) ImageMap() map[series.Base][]InstanceImage {
 	return i.images
 }
 
@@ -156,7 +155,7 @@ func (i *ImageCache) SetLastRefresh(t time.Time) {
 	i.lastRefresh = t
 }
 
-func (i *ImageCache) SetImages(images map[string][]InstanceImage) {
+func (i *ImageCache) SetImages(images map[series.Base][]InstanceImage) {
 	i.images = images
 }
 
@@ -170,13 +169,13 @@ func (i *ImageCache) isStale() bool {
 }
 
 // ImageMetadata returns an array of imagemetadata.ImageMetadata for
-// all images that are currently in cache, matching the provided series
+// all images that are currently in cache, matching the provided base
 // If defaultVirtType is specified, all generic images will inherit the
 // value of defaultVirtType.
-func (i ImageCache) ImageMetadata(series string, defaultVirtType string) []*imagemetadata.ImageMetadata {
+func (i ImageCache) ImageMetadata(base series.Base, defaultVirtType string) []*imagemetadata.ImageMetadata {
 	var metadata []*imagemetadata.ImageMetadata
 
-	images, ok := i.images[series]
+	images, ok := i.images[base]
 	if !ok {
 		return metadata
 	}
@@ -193,7 +192,7 @@ func (i ImageCache) ImageMetadata(series string, defaultVirtType string) []*imag
 			Arch: "amd64",
 			// TODO(gsamfira): add region name?
 			// RegionName: region,
-			Version:  val.Series,
+			Version:  val.Base.Channel.Track,
 			VirtType: string(val.ImageType),
 		}
 		metadata = append(metadata, imgMeta)
@@ -203,12 +202,12 @@ func (i ImageCache) ImageMetadata(series string, defaultVirtType string) []*imag
 }
 
 // SupportedShapes returns the InstanceTypes available for images matching
-// the supplied series
-func (i ImageCache) SupportedShapes(series string) []instances.InstanceType {
+// the supplied base
+func (i ImageCache) SupportedShapes(base series.Base) []instances.InstanceType {
 	matches := map[string]int{}
 	ret := []instances.InstanceType{}
 	// TODO(gsamfira): Find a better way for this.
-	images, ok := i.images[series]
+	images, ok := i.images[base]
 	if !ok {
 		return ret
 	}
@@ -240,32 +239,15 @@ func getImageType(img ociCore.Image) ImageType {
 	return ImageTypeGeneric
 }
 
-func getCentOSSeries(img ociCore.Image) (string, error) {
-	if img.OperatingSystemVersion == nil || *img.OperatingSystem != centOS {
-		return "", errors.NotSupportedf("invalid Operating system")
-	}
-	splitVersion := strings.Split(*img.OperatingSystemVersion, ".")
-	if len(splitVersion) < 1 {
-		return "", errors.NotSupportedf("invalid centOS version: %v", *img.OperatingSystemVersion)
-	}
-	tmpVersion := fmt.Sprintf("%s%s", strings.ToLower(*img.OperatingSystem), splitVersion[0])
-
-	// call series.CentOSVersionSeries to validate that the version
-	// of CentOS is supported by juju
-	logger.Tracef("Determining CentOS series for: %s", tmpVersion)
-	return series.CentOSVersionSeries(tmpVersion)
-}
-
 func NewInstanceImage(img ociCore.Image, compartmentID *string) (imgType InstanceImage, err error) {
-	var imgSeries string
-	switch osVersion := *img.OperatingSystem; osVersion {
+	var base series.Base
+	switch osName := *img.OperatingSystem; osName {
 	case centOS:
-		imgSeries, err = getCentOSSeries(img)
+		base = series.MakeDefaultBase("centos", *img.OperatingSystemVersion)
 	case ubuntuOS:
-		logger.Tracef("Determining Ubuntu series for: %s", *img.OperatingSystemVersion)
-		imgSeries, err = series.VersionSeries(*img.OperatingSystemVersion)
+		base = series.MakeDefaultBase("ubuntu", *img.OperatingSystemVersion)
 	default:
-		return imgType, errors.NotSupportedf("os %s", osVersion)
+		return imgType, errors.NotSupportedf("os %s", osName)
 	}
 
 	if err != nil {
@@ -274,7 +256,7 @@ func NewInstanceImage(img ociCore.Image, compartmentID *string) (imgType Instanc
 
 	imgType.ImageType = getImageType(img)
 	imgType.Id = *img.Id
-	imgType.Series = imgSeries
+	imgType.Base = base
 	imgType.Raw = img
 	imgType.CompartmentId = compartmentID
 
@@ -334,7 +316,7 @@ func refreshImageCache(cli ComputeClient, compartmentID *string) (*ImageCache, e
 		return nil, err
 	}
 
-	images := map[string][]InstanceImage{}
+	images := map[series.Base][]InstanceImage{}
 
 	for _, val := range items {
 		instTypes, err := instanceTypes(cli, compartmentID, val.Id)
@@ -351,7 +333,7 @@ func refreshImageCache(cli ComputeClient, compartmentID *string) (*ImageCache, e
 			continue
 		}
 		img.SetInstanceTypes(instTypes)
-		images[img.Series] = append(images[img.Series], img)
+		images[img.Base] = append(images[img.Base], img)
 	}
 	for v := range images {
 		sort.Sort(byVersion(images[v]))
@@ -379,7 +361,7 @@ func findInstanceSpec(
 	// in case someone wants to use this function with values
 	// not returned by the above two functions
 	for _, val := range allImageMetadata {
-		if val.Version != ic.Series {
+		if val.Version != ic.Base.Channel.Track {
 			continue
 		}
 		filtered = append(filtered, val)

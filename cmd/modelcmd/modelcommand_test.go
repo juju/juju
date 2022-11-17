@@ -6,7 +6,7 @@ package modelcmd_test
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 
 	"github.com/juju/cmd/v3"
@@ -512,7 +512,7 @@ func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
 func (s *macaroonLoginSuite) newModelCommandBase() *modelcmd.ModelCommandBase {
 	var c modelcmd.ModelCommandBase
 	c.SetClientStore(s.store)
-	modelcmd.InitContexts(&cmd.Context{Stderr: ioutil.Discard}, &c)
+	modelcmd.InitContexts(&cmd.Context{Stderr: io.Discard}, &c)
 	modelcmd.SetRunStarted(&c)
 	err := c.SetModelIdentifier(s.controllerName+":"+s.modelName, false)
 	if err != nil {

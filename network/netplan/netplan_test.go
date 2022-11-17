@@ -5,7 +5,7 @@ package netplan_test
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math/rand"
 	"os"
 	"path"
@@ -1419,9 +1419,9 @@ network:
 	contents := make([][]byte, len(files))
 	for i, file := range files {
 		var err error
-		contents[i], err = ioutil.ReadFile(path.Join("testdata/TestReadWriteBackup", file))
+		contents[i], err = os.ReadFile(path.Join("testdata/TestReadWriteBackup", file))
 		c.Assert(err, jc.ErrorIsNil)
-		err = ioutil.WriteFile(path.Join(tempDir, file), contents[i], 0644)
+		err = os.WriteFile(path.Join(tempDir, file), contents[i], 0644)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	np, err := netplan.ReadDirectory(tempDir)
@@ -1442,37 +1442,37 @@ network:
 	err = np.MoveYamlsToBak()
 	c.Check(err, gc.ErrorMatches, "Cannot backup netplan yamls twice")
 
-	fileInfos, err := ioutil.ReadDir(tempDir)
+	dirEntries, err := os.ReadDir(tempDir)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(fileInfos, gc.HasLen, len(files)+1)
-	for _, fileInfo := range fileInfos {
+	c.Check(dirEntries, gc.HasLen, len(files)+1)
+	for _, entry := range dirEntries {
 		for i, fileName := range files {
 			// original file is moved to backup
-			c.Check(fileInfo.Name(), gc.Not(gc.Equals), fileName)
+			c.Check(entry.Name(), gc.Not(gc.Equals), fileName)
 			// backup file has the proper content
-			if strings.HasPrefix(fileInfo.Name(), fmt.Sprintf("%s.bak.", fileName)) {
-				data, err := ioutil.ReadFile(path.Join(tempDir, fileInfo.Name()))
+			if strings.HasPrefix(entry.Name(), fmt.Sprintf("%s.bak.", fileName)) {
+				data, err := os.ReadFile(path.Join(tempDir, entry.Name()))
 				c.Assert(err, jc.ErrorIsNil)
 				c.Check(data, gc.DeepEquals, contents[i])
 			}
 		}
 	}
 
-	data, err := ioutil.ReadFile(generatedFile)
+	data, err := os.ReadFile(generatedFile)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(data), gc.Equals, expected)
 
 	err = np.Rollback()
 	c.Assert(err, jc.ErrorIsNil)
 
-	fileInfos, err = ioutil.ReadDir(tempDir)
+	dirEntries, err = os.ReadDir(tempDir)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(fileInfos, gc.HasLen, len(files))
+	c.Check(dirEntries, gc.HasLen, len(files))
 	foundFiles := 0
-	for _, fileInfo := range fileInfos {
+	for _, entry := range dirEntries {
 		for i, fileName := range files {
-			if fileInfo.Name() == fileName {
-				data, err := ioutil.ReadFile(path.Join(tempDir, fileInfo.Name()))
+			if entry.Name() == fileName {
+				data, err := os.ReadFile(path.Join(tempDir, entry.Name()))
 				c.Assert(err, jc.ErrorIsNil)
 				c.Check(data, gc.DeepEquals, contents[i])
 				foundFiles++
@@ -1487,7 +1487,7 @@ network:
 	outPath, err := np.Write(myPath)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(outPath, gc.Equals, myPath)
-	data, err = ioutil.ReadFile(outPath)
+	data, err = os.ReadFile(outPath)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(data), gc.Equals, expected)
 
@@ -1507,7 +1507,7 @@ func (s *NetplanSuite) TestReadDirectoryMissing(c *gc.C) {
 func (s *NetplanSuite) TestReadDirectoryAccessDenied(c *gc.C) {
 	coretesting.SkipIfWindowsBug(c, "lp:1771077")
 	tempDir := c.MkDir()
-	err := ioutil.WriteFile(path.Join(tempDir, "00-file.yaml"), []byte("network:\n"), 00000)
+	err := os.WriteFile(path.Join(tempDir, "00-file.yaml"), []byte("network:\n"), 00000)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = netplan.ReadDirectory(tempDir)
 	c.Check(err, gc.ErrorMatches, ".*open .*/00-file.yaml: permission denied")
@@ -1515,7 +1515,7 @@ func (s *NetplanSuite) TestReadDirectoryAccessDenied(c *gc.C) {
 
 func (s *NetplanSuite) TestReadDirectoryBrokenYaml(c *gc.C) {
 	tempDir := c.MkDir()
-	err := ioutil.WriteFile(path.Join(tempDir, "00-file.yaml"), []byte("I am not a yaml file!\nreally!\n"), 0644)
+	err := os.WriteFile(path.Join(tempDir, "00-file.yaml"), []byte("I am not a yaml file!\nreally!\n"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = netplan.ReadDirectory(tempDir)
 	c.Check(err, gc.ErrorMatches, ".*yaml: unmarshal errors:\n.*")
@@ -1535,7 +1535,7 @@ func (s *NetplanSuite) TestWriteCantGenerateName(c *gc.C) {
 	tempDir := c.MkDir()
 	for i := 0; i < 100; i++ {
 		filePath := path.Join(tempDir, fmt.Sprintf("%0.2d-juju.yaml", i))
-		ioutil.WriteFile(filePath, []byte{}, 0644)
+		os.WriteFile(filePath, []byte{}, 0644)
 	}
 	np, err := netplan.ReadDirectory(tempDir)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1561,7 +1561,7 @@ network:
 		for i := 0; i < (100 - n); i++ {
 			content += fmt.Sprintf(template, i, i, n)
 		}
-		ioutil.WriteFile(path.Join(tempDir, fmt.Sprintf("%0.2d-test.yaml", n)), []byte(content), 0644)
+		os.WriteFile(path.Join(tempDir, fmt.Sprintf("%0.2d-test.yaml", n)), []byte(content), 0644)
 	}
 
 	np, err := netplan.ReadDirectory(tempDir)
@@ -1570,7 +1570,7 @@ network:
 	fileName, err := np.Write("")
 	c.Assert(err, jc.ErrorIsNil)
 
-	writtenContent, err := ioutil.ReadFile(fileName)
+	writtenContent, err := os.ReadFile(fileName)
 	c.Assert(err, jc.ErrorIsNil)
 
 	content := header
@@ -1586,21 +1586,21 @@ type Example struct {
 }
 
 func readExampleStrings(c *gc.C) []Example {
-	fileInfos, err := ioutil.ReadDir("testdata/examples")
+	dirEntries, err := os.ReadDir("testdata/examples")
 	c.Assert(err, jc.ErrorIsNil)
 	var examples []Example
-	for _, finfo := range fileInfos {
-		if finfo.IsDir() {
+	for _, entry := range dirEntries {
+		if entry.IsDir() {
 			continue
 		}
-		if strings.HasSuffix(finfo.Name(), ".yaml") {
-			f, err := os.Open("testdata/examples/" + finfo.Name())
+		if strings.HasSuffix(entry.Name(), ".yaml") {
+			f, err := os.Open("testdata/examples/" + entry.Name())
 			c.Assert(err, jc.ErrorIsNil)
-			content, err := ioutil.ReadAll(f)
+			content, err := io.ReadAll(f)
 			f.Close()
 			c.Assert(err, jc.ErrorIsNil)
 			examples = append(examples, Example{
-				filename: finfo.Name(),
+				filename: entry.Name(),
 				content:  string(content),
 			})
 		}

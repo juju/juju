@@ -15,7 +15,6 @@ import (
 	unitassignerapi "github.com/juju/juju/api/agent/unitassigner"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
-	"github.com/juju/juju/version"
 )
 
 type RepoSuite struct {
@@ -24,10 +23,6 @@ type RepoSuite struct {
 
 func (s *RepoSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	// Change the environ's config to ensure we're using the one in state.
-	updateAttrs := map[string]interface{}{"default-series": version.DefaultSupportedLTS()}
-	err := s.Model.UpdateModelConfig(updateAttrs, nil)
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *RepoSuite) AssertApplication(c *gc.C, name string, expectCurl *charm.URL, unitCount, relCount int) (*state.Application, []*state.Relation) {

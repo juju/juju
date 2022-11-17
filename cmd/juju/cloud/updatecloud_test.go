@@ -4,7 +4,7 @@
 package cloud_test
 
 import (
-	"io/ioutil"
+	"os"
 	"strings"
 
 	"github.com/juju/cmd/v3/cmdtesting"
@@ -73,7 +73,7 @@ func (s *updateCloudSuite) setupCloudFileScenario(c *gc.C, yamlFile string, apiF
 }
 
 func (s *updateCloudSuite) createLocalCacheFile(c *gc.C) {
-	err := ioutil.WriteFile(osenv.JujuXDGDataHomePath("public-clouds.yaml"), []byte(garageMaasYamlFile), 0600)
+	err := os.WriteFile(osenv.JujuXDGDataHomePath("public-clouds.yaml"), []byte(garageMaasYamlFile), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

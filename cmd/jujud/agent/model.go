@@ -29,6 +29,7 @@ import (
 	jujuversion "github.com/juju/juju/version"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/gate"
+	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/upgradesteps"
 )
 
@@ -42,6 +43,7 @@ type ModelCommand struct {
 	ModelUUID        string
 	runner           *worker.Runner
 	upgradeComplete  gate.Lock
+	bufferedLogger   *logsender.BufferedLogWriter
 }
 
 // Done signals the model agent is finished
@@ -97,11 +99,14 @@ func (m *ModelCommand) maybeCopyAgentConfig() error {
 }
 
 // NewModelCommand creates a new ModelCommand instance properly initialized
-func NewModelCommand() *ModelCommand {
+func NewModelCommand(
+	bufferedLogger *logsender.BufferedLogWriter,
+) *ModelCommand {
 	return &ModelCommand{
 		AgentConf:        agentconf.NewAgentConf(""),
 		configChangedVal: voyeur.NewValue(true),
 		dead:             make(chan struct{}),
+		bufferedLogger:   bufferedLogger,
 	}
 }
 
@@ -169,6 +174,7 @@ func (m *ModelCommand) Workers() (worker.Worker, error) {
 		AgentConfigChanged:     m.configChangedVal,
 		NewContainerBrokerFunc: caas.New,
 		Port:                   port,
+		LogSource:              m.bufferedLogger.Logs(),
 		ServiceName:            svcName,
 		ServiceNamespace:       svcNamespace,
 		UpdateLoggerConfig:     updateAgentConfLogging,

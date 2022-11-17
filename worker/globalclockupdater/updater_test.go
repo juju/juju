@@ -20,14 +20,13 @@ import (
 type updaterSuite struct {
 	testing.IsolationSuite
 
-	raftApplier  *MockRaftApplier
-	notifyTarget *MockNotifyTarget
-	clock        *MockReadOnlyClock
-	sleeper      *MockSleeper
-	timer        *MockTimer
-	logger       *MockLogger
-	raftFuture   *MockApplyFuture
-	fsmResponse  *MockFSMResponse
+	raftApplier *MockRaftApplier
+	clock       *MockReadOnlyClock
+	sleeper     *MockSleeper
+	timer       *MockTimer
+	logger      *MockLogger
+	raftFuture  *MockApplyFuture
+	fsmResponse *MockFSMResponse
 }
 
 var _ = gc.Suite(&updaterSuite{})
@@ -43,7 +42,7 @@ func (s *updaterSuite) TestAdvance(c *gc.C) {
 
 	done := make(chan struct{}, 1)
 
-	updater := newUpdater(s.raftApplier, s.notifyTarget, s.clock, s.sleeper, s.timer, s.logger)
+	updater := newUpdater(s.raftApplier, s.clock, s.sleeper, s.timer, s.logger)
 	err := updater.Advance(time.Second, done)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -61,7 +60,7 @@ func (s *updaterSuite) TestAdvanceErrEnqueueTimeout(c *gc.C) {
 
 	done := make(chan struct{}, 1)
 
-	updater := newUpdater(s.raftApplier, s.notifyTarget, s.clock, s.sleeper, s.timer, s.logger)
+	updater := newUpdater(s.raftApplier, s.clock, s.sleeper, s.timer, s.logger)
 	err := updater.Advance(time.Second, done)
 	c.Assert(err, gc.ErrorMatches, globalclock.ErrTimeout.Error())
 }
@@ -77,7 +76,7 @@ func (s *updaterSuite) TestAdvanceWithUnknownError(c *gc.C) {
 
 	done := make(chan struct{}, 1)
 
-	updater := newUpdater(s.raftApplier, s.notifyTarget, s.clock, s.sleeper, s.timer, s.logger)
+	updater := newUpdater(s.raftApplier, s.clock, s.sleeper, s.timer, s.logger)
 	err := updater.Advance(time.Second, done)
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
@@ -95,7 +94,7 @@ func (s *updaterSuite) TestAdvanceLeadershipAborted(c *gc.C) {
 	done := make(chan struct{}, 1)
 	close(done)
 
-	updater := newUpdater(s.raftApplier, s.notifyTarget, s.clock, s.sleeper, s.timer, s.logger)
+	updater := newUpdater(s.raftApplier, s.clock, s.sleeper, s.timer, s.logger)
 	err := updater.Advance(time.Second, done)
 	c.Assert(err, gc.ErrorMatches, "setTime: lease operation aborted")
 }
@@ -116,7 +115,7 @@ func (s *updaterSuite) TestAdvanceLeadershipTimeout(c *gc.C) {
 
 	done := make(chan struct{}, 1)
 
-	updater := newUpdater(s.raftApplier, s.notifyTarget, s.clock, s.sleeper, s.timer, s.logger)
+	updater := newUpdater(s.raftApplier, s.clock, s.sleeper, s.timer, s.logger)
 	err := updater.Advance(time.Second, done)
 	c.Assert(err, gc.ErrorMatches, `timed out waiting for local Raft state to be "Leader"`)
 }
@@ -138,7 +137,7 @@ func (s *updaterSuite) TestAdvanceWithLeadershipLostErrorAndRetries(c *gc.C) {
 
 	done := make(chan struct{}, 1)
 
-	updater := newUpdater(s.raftApplier, s.notifyTarget, s.clock, s.sleeper, s.timer, s.logger)
+	updater := newUpdater(s.raftApplier, s.clock, s.sleeper, s.timer, s.logger)
 	err := updater.Advance(time.Second, done)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -148,7 +147,6 @@ func (s *updaterSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.clock = NewMockReadOnlyClock(ctrl)
 	s.raftApplier = NewMockRaftApplier(ctrl)
-	s.notifyTarget = NewMockNotifyTarget(ctrl)
 	s.logger = NewMockLogger(ctrl)
 	s.sleeper = NewMockSleeper(ctrl)
 	s.timer = NewMockTimer(ctrl)
@@ -187,7 +185,6 @@ func (s *updaterSuite) expectRaftApply(c *gc.C, now time.Time, err error) *gomoc
 			call,
 			s.raftFuture.EXPECT().Response().Return(s.fsmResponse),
 			s.fsmResponse.EXPECT().Error().Return(nil),
-			s.fsmResponse.EXPECT().Notify(s.notifyTarget),
 		)
 	}
 	return call

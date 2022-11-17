@@ -8,7 +8,7 @@ import (
 	stdcontext "context"
 	"encoding/pem"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -1547,8 +1547,8 @@ func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 	env := s.Open(c, stdcontext.TODO(), s.env.Config())
 
 	// An error occurs if no suitable image is found.
-	_, err := openstack.FindInstanceSpec(env, "saucy", "amd64", "mem=1G", nil)
-	c.Assert(err, gc.ErrorMatches, `no metadata for "saucy" images in some-region with arch amd64`)
+	_, err := openstack.FindInstanceSpec(env, series.MakeDefaultBase("ubuntu", "15.04"), "amd64", "mem=1G", nil)
+	c.Assert(err, gc.ErrorMatches, `no metadata for "ubuntu@15.04" images in some-region with arch amd64`)
 }
 
 func (s *localServerSuite) TestConstraintsValidator(c *gc.C) {
@@ -1595,7 +1595,7 @@ func (s *localServerSuite) TestFindImageInstanceConstraint(c *gc.C) {
 	}}
 
 	spec, err := openstack.FindInstanceSpec(
-		env, jujuversion.DefaultSupportedLTS(), "amd64", "instance-type=m1.tiny",
+		env, jujuversion.DefaultSupportedLTSBase(), "amd64", "instance-type=m1.tiny",
 		imageMetadata,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1612,7 +1612,7 @@ func (s *localServerSuite) TestFindInstanceImageConstraintHypervisor(c *gc.C) {
 	}}
 
 	spec, err := openstack.FindInstanceSpec(
-		env, jujuversion.DefaultSupportedLTS(), "amd64", "virt-type="+testVirtType,
+		env, jujuversion.DefaultSupportedLTSBase(), "amd64", "virt-type="+testVirtType,
 		imageMetadata,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1631,7 +1631,7 @@ func (s *localServerSuite) TestFindInstanceImageWithHypervisorNoConstraint(c *gc
 	}}
 
 	spec, err := openstack.FindInstanceSpec(
-		env, jujuversion.DefaultSupportedLTS(), "amd64", "",
+		env, jujuversion.DefaultSupportedLTSBase(), "amd64", "",
 		imageMetadata,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1648,7 +1648,7 @@ func (s *localServerSuite) TestFindInstanceNoConstraint(c *gc.C) {
 	}}
 
 	spec, err := openstack.FindInstanceSpec(
-		env, jujuversion.DefaultSupportedLTS(), "amd64", "",
+		env, jujuversion.DefaultSupportedLTSBase(), "amd64", "",
 		imageMetadata,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1663,7 +1663,7 @@ func (s *localServerSuite) TestFindImageInvalidInstanceConstraint(c *gc.C) {
 		Arch: "amd64",
 	}}
 	_, err := openstack.FindInstanceSpec(
-		env, jujuversion.DefaultSupportedLTS(), "amd64", "instance-type=m1.large",
+		env, jujuversion.DefaultSupportedLTSBase(), "amd64", "instance-type=m1.large",
 		imageMetadata,
 	)
 	c.Assert(err, gc.ErrorMatches, `no instance types in some-region matching constraints "arch=amd64 instance-type=m1.large"`)
@@ -1672,46 +1672,46 @@ func (s *localServerSuite) TestFindImageInvalidInstanceConstraint(c *gc.C) {
 func (s *localServerSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {
 	env := s.Open(c, stdcontext.TODO(), s.env.Config())
 	cons := constraints.MustParse("instance-type=m1.small")
-	err := env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: jujuversion.DefaultSupportedLTS(), Constraints: cons})
+	err := env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Base: jujuversion.DefaultSupportedLTSBase(), Constraints: cons})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *localServerSuite) TestPrecheckInstanceInvalidInstanceType(c *gc.C) {
 	env := s.Open(c, stdcontext.TODO(), s.env.Config())
 	cons := constraints.MustParse("instance-type=m1.large")
-	err := env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: jujuversion.DefaultSupportedLTS(), Constraints: cons})
+	err := env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Base: jujuversion.DefaultSupportedLTSBase(), Constraints: cons})
 	c.Assert(err, gc.ErrorMatches, `invalid Openstack flavour "m1.large" specified`)
 }
 
 func (s *localServerSuite) TestPrecheckInstanceInvalidRootDiskConstraint(c *gc.C) {
 	env := s.Open(c, stdcontext.TODO(), s.env.Config())
 	cons := constraints.MustParse("instance-type=m1.small root-disk=10G")
-	err := env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: jujuversion.DefaultSupportedLTS(), Constraints: cons})
+	err := env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Base: jujuversion.DefaultSupportedLTSBase(), Constraints: cons})
 	c.Assert(err, gc.ErrorMatches, `constraint root-disk cannot be specified with instance-type unless constraint root-disk-source=volume`)
 }
 
 func (s *localServerSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 	placement := "zone=test-available"
-	err := s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: jujuversion.DefaultSupportedLTS(), Placement: placement})
+	err := s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Base: jujuversion.DefaultSupportedLTSBase(), Placement: placement})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *localServerSuite) TestPrecheckInstanceAvailZoneUnavailable(c *gc.C) {
 	placement := "zone=test-unavailable"
-	err := s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: jujuversion.DefaultSupportedLTS(), Placement: placement})
+	err := s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Base: jujuversion.DefaultSupportedLTSBase(), Placement: placement})
 	c.Assert(err, gc.ErrorMatches, `zone "test-unavailable" is unavailable`)
 }
 
 func (s *localServerSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
 	placement := "zone=test-unknown"
-	err := s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: jujuversion.DefaultSupportedLTS(), Placement: placement})
+	err := s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Base: jujuversion.DefaultSupportedLTSBase(), Placement: placement})
 	c.Assert(err, gc.ErrorMatches, `availability zone "test-unknown" not valid`)
 }
 
 func (s *localServerSuite) TestPrecheckInstanceAvailZonesUnsupported(c *gc.C) {
 	s.srv.Nova.SetAvailabilityZones() // no availability zone support
 	placement := "zone=test-unknown"
-	err := s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: jujuversion.DefaultSupportedLTS(), Placement: placement})
+	err := s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Base: jujuversion.DefaultSupportedLTSBase(), Placement: placement})
 	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
 }
 
@@ -1745,7 +1745,7 @@ func (s *localServerSuite) testPrecheckInstanceVolumeAvailZones(c *gc.C, placeme
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{
-		Series:            jujuversion.DefaultSupportedLTS(),
+		Base:              jujuversion.DefaultSupportedLTSBase(),
 		Placement:         placement,
 		VolumeAttachments: []storage.VolumeAttachmentParams{{VolumeId: "foo"}},
 	})
@@ -1780,7 +1780,7 @@ func (s *localServerSuite) TestPrecheckInstanceAvailZonesConflictsVolume(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{
-		Series:            jujuversion.DefaultSupportedLTS(),
+		Base:              jujuversion.DefaultSupportedLTSBase(),
 		Placement:         "zone=az2",
 		VolumeAttachments: []storage.VolumeAttachmentParams{{VolumeId: "foo"}},
 	})
@@ -1905,7 +1905,7 @@ func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	params.Sources, err = environs.ImageMetadataSources(env, ss)
 	c.Assert(err, jc.ErrorIsNil)
-	params.Release = "raring"
+	params.Release = "13.04"
 	imageIDs, _, err := imagemetadata.ValidateImageMetadata(ss, params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(imageIDs, jc.SameContents, []string{"id-y"})
@@ -2232,7 +2232,7 @@ func (s *localHTTPSServerSuite) TestFetchFromImageMetadataSources(c *gc.C) {
 	contentReader, imageURL, err := mappedSources["image-metadata-url"].Fetch(custom)
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = contentReader.Close() }()
-	content, err := ioutil.ReadAll(contentReader)
+	content, err := io.ReadAll(contentReader)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(content), gc.Equals, custom)
 	c.Check(imageURL[:8], gc.Equals, "https://")
@@ -2241,7 +2241,7 @@ func (s *localHTTPSServerSuite) TestFetchFromImageMetadataSources(c *gc.C) {
 	contentReader, imageURL, err = mappedSources["keystone catalog"].Fetch(metadata)
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = contentReader.Close() }()
-	content, err = ioutil.ReadAll(contentReader)
+	content, err = io.ReadAll(contentReader)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(content), gc.Equals, metadata)
 	c.Check(imageURL[:8], gc.Equals, "https://")
@@ -2292,7 +2292,7 @@ func (s *localHTTPSServerSuite) TestFetchFromImageMetadataSourcesWithCertificate
 	contentReader, imageURL, err := mappedSources["keystone catalog"].Fetch(metadata)
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = contentReader.Close() }()
-	content, err := ioutil.ReadAll(contentReader)
+	content, err := io.ReadAll(contentReader)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(content), gc.Equals, metadata)
 	c.Check(imageURL[:8], gc.Equals, "https://")
@@ -2340,7 +2340,7 @@ func (s *localHTTPSServerSuite) TestFetchFromToolsMetadataSources(c *gc.C) {
 	contentReader, metadataURL, err := sources[0].Fetch(custom)
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = contentReader.Close() }()
-	content, err := ioutil.ReadAll(contentReader)
+	content, err := io.ReadAll(contentReader)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(content), gc.Equals, custom)
 	c.Check(metadataURL[:8], gc.Equals, "https://")
@@ -2350,7 +2350,7 @@ func (s *localHTTPSServerSuite) TestFetchFromToolsMetadataSources(c *gc.C) {
 	contentReader, metadataURL, err = sources[1].Fetch(keystoneContainer + "/" + keystone)
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = contentReader.Close() }()
-	content, err = ioutil.ReadAll(contentReader)
+	content, err = io.ReadAll(contentReader)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(content), gc.Equals, keystone)
 	c.Check(metadataURL[:8], gc.Equals, "https://")
@@ -2741,6 +2741,43 @@ func (s *localServerSuite) TestStartInstanceVolumeRootBlockDeviceSized(c *gc.C) 
 		DestinationType:     "volume",
 		DeleteOnTermination: true,
 		VolumeSize:          diskSizeGiB,
+	})
+}
+
+func (s *localServerSuite) TestStartInstanceLocalRootBlockDeviceConstraint(c *gc.C) {
+	env := s.ensureAMDImages(c)
+
+	err := bootstrapEnv(c, env)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cons, err := constraints.Parse("root-disk-source=local root-disk=1G arch=amd64")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cons.HasRootDisk(), jc.IsTrue)
+	c.Assert(*cons.RootDisk, gc.Equals, uint64(1024))
+
+	res, err := testing.StartInstanceWithParams(env, s.callCtx, "1", environs.StartInstanceParams{
+		ControllerUUID: s.ControllerUUID,
+		Constraints:    cons,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res, gc.NotNil)
+
+	c.Assert(res.Hardware.RootDisk, gc.NotNil)
+	// Check local disk requirements are met.
+	c.Assert(*res.Hardware.RootDisk, jc.GreaterThan, uint64(1024-1))
+
+	runOpts := res.Instance.(novaInstaceStartedWithOpts).NovaInstanceStartedWithOpts()
+	c.Assert(runOpts, gc.NotNil)
+	c.Assert(runOpts.BlockDeviceMappings, gc.NotNil)
+	deviceMapping := runOpts.BlockDeviceMappings[0]
+	c.Assert(deviceMapping, jc.DeepEquals, nova.BlockDeviceMapping{
+		BootIndex:           0,
+		UUID:                "1",
+		SourceType:          "image",
+		DestinationType:     "local",
+		DeleteOnTermination: true,
+		// VolumeSize is 0 when a local disk is used.
+		VolumeSize: 0,
 	})
 }
 

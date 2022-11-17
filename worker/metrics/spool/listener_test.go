@@ -6,7 +6,6 @@ package spool_test
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"path/filepath"
 
@@ -53,7 +52,7 @@ func (s *listenerSuite) TestDial(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer readCloser.Close()
 
-	data, err := ioutil.ReadAll(readCloser)
+	data, err := io.ReadAll(readCloser)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, "Hello socket.")
 	s.handler.CheckCall(c, 0, "Handle")

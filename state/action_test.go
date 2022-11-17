@@ -62,25 +62,25 @@ func (s *ActionSuite) SetUpTest(c *gc.C) {
 
 	s.unit, err = s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.unit.Series(), gc.Equals, "quantal")
+	c.Assert(s.unit.Base(), jc.DeepEquals, state.Base{OS: "ubuntu", Channel: "12.10/stable"})
 
 	err = s.unit.SetCharmURL(charm.MustParseURL(*sURL))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.unit2, err = s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.unit2.Series(), gc.Equals, "quantal")
+	c.Assert(s.unit2.Base(), jc.DeepEquals, state.Base{OS: "ubuntu", Channel: "12.10/stable"})
 
 	err = s.unit2.SetCharmURL(charm.MustParseURL(*sURL))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.charmlessUnit, err = s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.charmlessUnit.Series(), gc.Equals, "quantal")
+	c.Assert(s.charmlessUnit.Base(), jc.DeepEquals, state.Base{OS: "ubuntu", Channel: "12.10/stable"})
 
 	s.actionlessUnit, err = s.actionlessApplication.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.actionlessUnit.Series(), gc.Equals, "quantal")
+	c.Assert(s.actionlessUnit.Base(), jc.DeepEquals, state.Base{OS: "ubuntu", Channel: "12.10/stable"})
 
 	err = s.actionlessUnit.SetCharmURL(charm.MustParseURL(*actionlessSURL))
 	c.Assert(err, jc.ErrorIsNil)
@@ -566,7 +566,7 @@ func makeUnits(c *gc.C, s *ActionSuite, units map[string]*state.Unit, schemas ma
 		var err error
 		u, err := app.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(u.Series(), gc.Equals, "quantal")
+		c.Assert(u.Base(), jc.DeepEquals, state.Base{OS: "ubuntu", Channel: "12.10/stable"})
 		err = u.SetCharmURL(charm.MustParseURL(*sURL))
 		c.Assert(err, jc.ErrorIsNil)
 

@@ -5,7 +5,7 @@ package modelupgrader_test
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 
@@ -102,7 +102,7 @@ func (s *UpgradeModelSuite) TestUploadTools(c *gc.C) {
 		Request:    req,
 		StatusCode: http.StatusCreated,
 		Header:     http.Header{},
-		Body:       ioutil.NopCloser(strings.NewReader(`{"tools": [{"version": "2.9.100-ubuntu-amd64"}]}`)),
+		Body:       io.NopCloser(strings.NewReader(`{"tools": [{"version": "2.9.100-ubuntu-amd64"}]}`)),
 	}
 	resp.Header.Set("Content-Type", "application/json")
 

@@ -56,7 +56,7 @@ func (e *DischargeRequiredError) Error() string {
 	return e.Cause.Error()
 }
 
-// UpgradeSeriesValidationError is the error returns when a upgrade-series
+// UpgradeSeriesValidationError is the error returns when an upgrade-machine
 // can not be run because of a validation error.
 type UpgradeSeriesValidationError struct {
 	Cause  error

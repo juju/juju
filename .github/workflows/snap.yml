@@ -3,6 +3,11 @@ on:
   push:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - '**.go'
+      - 'go.mod'
+      - 'snap/**'
+      - '.github/workflows/snap.yml'
   workflow_dispatch:
 permissions:
   contents: read
@@ -19,10 +24,15 @@ jobs:
       shell: bash
       run: |
         set -euxo pipefail
-        sudo apt-get remove lxd lxd-client
-        sudo snap remove lxd --purge
         sudo snap install snapcraft --classic
-        sudo snap install lxd --channel latest/stable
+        
+        sudo apt-get remove lxd lxd-client
+        if snap info lxd | grep "installed"; then
+          sudo snap refresh lxd --channel=latest/stable
+        else
+          sudo snap install lxd --channel=latest/stable
+        fi        
+        
         sudo lxd waitready
         sudo lxd init --auto
         sudo chmod a+wr /var/snap/lxd/common/lxd/unix.socket
@@ -61,7 +71,7 @@ jobs:
         sudo snap connect juju:lxd lxd
         sudo snap connect juju:config-lxd
         sudo snap connect juju:dot-local-share-juju
-        sudo snap connect juju:ssh-public-keys
+        sudo snap connect juju:ssh-keys
         snap connections juju
 
     - name: Test bootstrap

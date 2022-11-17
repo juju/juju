@@ -73,7 +73,7 @@ func (s *ModelSuite) TestReport(c *gc.C) {
 				"name":            "application-name/0",
 				"private-address": "",
 				"public-address":  "",
-				"series":          "bionic",
+				"base":            "ubuntu@18.04",
 				"subordinate":     false,
 			},
 		},

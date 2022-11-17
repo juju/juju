@@ -37,7 +37,7 @@ type BackupsMetadataResult struct {
 	Machine  string         `json:"machine"`
 	Hostname string         `json:"hostname"`
 	Version  version.Number `json:"version"`
-	Series   string         `json:"series"`
+	Base     string         `json:"base"`
 
 	Filename string `json:"filename"`
 

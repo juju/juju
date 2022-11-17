@@ -163,6 +163,24 @@ func (s *supportedInfo) workloadSeries(includeUnsupported bool) []string {
 	return result
 }
 
+// workloadVersions returns a slice of versions that are supported to run on a
+// target workload (charm).
+// Note: workload series will also include controller workload types, as they
+// can also be used for workloads.
+func (s *supportedInfo) workloadVersions(includeUnsupported bool) []string {
+	var result []string
+	for _, namedSeries := range s.namedSeries() {
+		version := namedSeries.SeriesVersion
+		if version.WorkloadType == UnsupportedWorkloadType {
+			continue
+		}
+		if includeUnsupported || version.ESMSupported || version.Supported {
+			result = append(result, version.Version)
+		}
+	}
+	return result
+}
+
 // WorkloadType defines what type of workload the series is aimed at.
 // Controllers only support Ubuntu systems.
 type WorkloadType int
@@ -253,6 +271,7 @@ const (
 	Hirsute SeriesName = "hirsute"
 	Impish  SeriesName = "impish"
 	Jammy   SeriesName = "jammy"
+	Kinetic SeriesName = "kinetic"
 )
 
 var ubuntuSeries = map[SeriesName]seriesVersion{
@@ -349,6 +368,10 @@ var ubuntuSeries = map[SeriesName]seriesVersion{
 		Supported:    true,
 		ESMSupported: true,
 	},
+	Kinetic: {
+		WorkloadType: ControllerWorkloadType,
+		Version:      "22.10",
+	},
 }
 
 const (
@@ -362,17 +385,17 @@ const (
 var centosSeries = map[SeriesName]seriesVersion{
 	Centos7: {
 		WorkloadType: OtherWorkloadType,
-		Version:      "centos7",
+		Version:      "7",
 		Supported:    true,
 	},
 	Centos8: {
 		WorkloadType: OtherWorkloadType,
-		Version:      "centos8",
+		Version:      "8",
 		Supported:    true,
 	},
 	Centos9: {
 		WorkloadType: OtherWorkloadType,
-		Version:      "centos9",
+		Version:      "9",
 		Supported:    true,
 	},
 }

@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/container/lxd"
 	lxdtesting "github.com/juju/juju/container/lxd/testing"
+	"github.com/juju/juju/core/series"
 )
 
 var _ = gc.Suite(&imageSuite{})
@@ -60,14 +61,14 @@ func (s *imageSuite) TestFindImageLocalServer(c *gc.C) {
 	alias := &lxdapi.ImageAliasesEntry{ImageAliasesEntryPut: lxdapi.ImageAliasesEntryPut{Target: "foo-target"}}
 	image := lxdapi.Image{Filename: "this-is-our-image"}
 	gomock.InOrder(
-		iSvr.EXPECT().GetImageAlias("juju/xenial/"+s.Arch()).Return(alias, lxdtesting.ETag, nil),
+		iSvr.EXPECT().GetImageAlias("juju/ubuntu@16.04/"+s.Arch()).Return(alias, lxdtesting.ETag, nil),
 		iSvr.EXPECT().GetImage("foo-target").Return(&image, lxdtesting.ETag, nil),
 	)
 
 	jujuSvr, err := lxd.NewServer(iSvr)
 	c.Assert(err, jc.ErrorIsNil)
 
-	found, err := jujuSvr.FindImage("xenial", s.Arch(), []lxd.ServerSpec{{}}, false, nil)
+	found, err := jujuSvr.FindImage(series.MakeDefaultBase("ubuntu", "16.04"), s.Arch(), []lxd.ServerSpec{{}}, false, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(found.LXDServer, gc.Equals, iSvr)
 	c.Check(*found.Image, gc.DeepEquals, image)
@@ -77,13 +78,13 @@ func (s *imageSuite) TestFindImageLocalServerUnknownSeries(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	iSvr := s.NewMockServer(ctrl)
-	iSvr.EXPECT().GetImageAlias("juju/pldlinux/"+s.Arch()).Return(nil, lxdtesting.ETag, errors.New("not found"))
+	iSvr.EXPECT().GetImageAlias("juju/pldlinux@18.04/"+s.Arch()).Return(nil, lxdtesting.ETag, errors.New("not found"))
 
 	jujuSvr, err := lxd.NewServer(iSvr)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = jujuSvr.FindImage("pldlinux", s.Arch(), []lxd.ServerSpec{{}}, false, nil)
-	c.Check(err, gc.ErrorMatches, `.*series: "pldlinux".*`)
+	_, err = jujuSvr.FindImage(series.MakeDefaultBase("pldlinux", "18.04"), s.Arch(), []lxd.ServerSpec{{}}, false, nil)
+	c.Check(err, gc.ErrorMatches, `base.*pldlinux.*`)
 }
 
 func (s *imageSuite) TestFindImageRemoteServers(c *gc.C) {
@@ -102,9 +103,9 @@ func (s *imageSuite) TestFindImageRemoteServers(c *gc.C) {
 	image := lxdapi.Image{Filename: "this-is-our-image"}
 	alias := lxdapi.ImageAliasesEntry{ImageAliasesEntryPut: lxdapi.ImageAliasesEntryPut{Target: "foo-remote-target"}}
 	gomock.InOrder(
-		iSvr.EXPECT().GetImageAlias("juju/xenial/"+s.Arch()).Return(nil, lxdtesting.ETag, errors.New("not found")),
-		rSvr1.EXPECT().GetImageAliasType(imageType, "xenial/"+s.Arch()).Return(nil, lxdtesting.ETag, errors.New("not found")),
-		rSvr2.EXPECT().GetImageAliasType(imageType, "xenial/"+s.Arch()).Return(&alias, lxdtesting.ETag, nil),
+		iSvr.EXPECT().GetImageAlias("juju/ubuntu@16.04/"+s.Arch()).Return(nil, lxdtesting.ETag, errors.New("not found")),
+		rSvr1.EXPECT().GetImageAliasType(imageType, "16.04/"+s.Arch()).Return(nil, lxdtesting.ETag, errors.New("not found")),
+		rSvr2.EXPECT().GetImageAliasType(imageType, "16.04/"+s.Arch()).Return(&alias, lxdtesting.ETag, nil),
 		rSvr2.EXPECT().GetImage("foo-remote-target").Return(&image, lxdtesting.ETag, nil),
 	)
 
@@ -116,7 +117,7 @@ func (s *imageSuite) TestFindImageRemoteServers(c *gc.C) {
 		{Name: "server-that-has-image", Protocol: lxd.SimpleStreamsProtocol},
 		{Name: "server-that-should-not-be-touched", Protocol: lxd.LXDProtocol},
 	}
-	found, err := jujuSvr.FindImage("xenial", s.Arch(), remotes, false, nil)
+	found, err := jujuSvr.FindImage(series.MakeDefaultBase("ubuntu", "16.04"), s.Arch(), remotes, false, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(found.LXDServer, gc.Equals, rSvr2)
 	c.Check(*found.Image, gc.DeepEquals, image)
@@ -136,13 +137,13 @@ func (s *imageSuite) TestFindImageRemoteServersCopyLocalNoCallback(c *gc.C) {
 	copyOp.EXPECT().Wait().Return(nil).AnyTimes()
 	copyOp.EXPECT().GetTarget().Return(&lxdapi.Operation{StatusCode: lxdapi.Success}, nil)
 
-	localAlias := "juju/xenial/" + s.Arch()
+	localAlias := "juju/ubuntu@16.04/" + s.Arch()
 	image := lxdapi.Image{Filename: "this-is-our-image"}
 	alias := lxdapi.ImageAliasesEntry{ImageAliasesEntryPut: lxdapi.ImageAliasesEntryPut{Target: "foo-remote-target"}}
 	copyReq := &lxdclient.ImageCopyArgs{Aliases: []lxdapi.ImageAlias{{Name: localAlias}}}
 	gomock.InOrder(
 		iSvr.EXPECT().GetImageAlias(localAlias).Return(nil, lxdtesting.ETag, nil),
-		rSvr.EXPECT().GetImageAliasType("container", "xenial/"+s.Arch()).Return(&alias, lxdtesting.ETag, nil),
+		rSvr.EXPECT().GetImageAliasType("container", "16.04/"+s.Arch()).Return(&alias, lxdtesting.ETag, nil),
 		rSvr.EXPECT().GetImage("foo-remote-target").Return(&image, lxdtesting.ETag, nil),
 		iSvr.EXPECT().CopyImage(rSvr, image, copyReq).Return(copyOp, nil),
 	)
@@ -153,7 +154,7 @@ func (s *imageSuite) TestFindImageRemoteServersCopyLocalNoCallback(c *gc.C) {
 	remotes := []lxd.ServerSpec{
 		{Name: "server-that-has-image", Protocol: lxd.SimpleStreamsProtocol},
 	}
-	found, err := jujuSvr.FindImage("xenial", s.Arch(), remotes, true, nil)
+	found, err := jujuSvr.FindImage(series.MakeDefaultBase("ubuntu", "16.04"), s.Arch(), remotes, true, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(found.LXDServer, gc.Equals, iSvr)
 	c.Check(*found.Image, gc.DeepEquals, image)
@@ -171,8 +172,8 @@ func (s *imageSuite) TestFindImageRemoteServersNotFound(c *gc.C) {
 
 	alias := lxdapi.ImageAliasesEntry{ImageAliasesEntryPut: lxdapi.ImageAliasesEntryPut{Target: "foo-remote-target"}}
 	gomock.InOrder(
-		iSvr.EXPECT().GetImageAlias("juju/bionic/"+s.Arch()).Return(nil, lxdtesting.ETag, errors.New("not found")),
-		rSvr.EXPECT().GetImageAliasType("container", "bionic/"+s.Arch()).Return(&alias, lxdtesting.ETag, nil),
+		iSvr.EXPECT().GetImageAlias("juju/ubuntu@18.04/"+s.Arch()).Return(nil, lxdtesting.ETag, errors.New("not found")),
+		rSvr.EXPECT().GetImageAliasType("container", "18.04/"+s.Arch()).Return(&alias, lxdtesting.ETag, nil),
 		rSvr.EXPECT().GetImage("foo-remote-target").Return(
 			nil, lxdtesting.ETag, errors.New("failed to retrieve image")),
 	)
@@ -181,17 +182,17 @@ func (s *imageSuite) TestFindImageRemoteServersNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	remotes := []lxd.ServerSpec{{Name: "server-that-has-image", Protocol: lxd.SimpleStreamsProtocol}}
-	_, err = jujuSvr.FindImage("bionic", s.Arch(), remotes, false, nil)
+	_, err = jujuSvr.FindImage(series.MakeDefaultBase("ubuntu", "18.04"), s.Arch(), remotes, false, nil)
 	c.Assert(err, gc.ErrorMatches, ".*failed to retrieve image.*")
 }
 
-func (s *imageSuite) TestSeriesRemoteAliasesNotSupported(c *gc.C) {
-	_, err := lxd.SeriesRemoteAliases("centos7", "arm64")
-	c.Assert(err, gc.ErrorMatches, `series "centos7" not supported`)
+func (s *imageSuite) TestBaseRemoteAliasesNotSupported(c *gc.C) {
+	_, err := lxd.BaseRemoteAliases(series.MakeDefaultBase("centos", "7"), "arm64")
+	c.Assert(err, gc.ErrorMatches, `base "centos@7" not supported`)
 
-	_, err = lxd.SeriesRemoteAliases("centos8", "arm64")
-	c.Assert(err, gc.ErrorMatches, `series "centos8" not supported`)
+	_, err = lxd.BaseRemoteAliases(series.MakeDefaultBase("centos", "8"), "arm64")
+	c.Assert(err, gc.ErrorMatches, `base "centos@8" not supported`)
 
-	_, err = lxd.SeriesRemoteAliases("opensuseleap", "s390x")
-	c.Assert(err, gc.ErrorMatches, `series "opensuseleap" not supported`)
+	_, err = lxd.BaseRemoteAliases(series.MakeDefaultBase("opensuse", "opensuse42"), "s390x")
+	c.Assert(err, gc.ErrorMatches, `base "opensuse@opensuse42" not supported`)
 }

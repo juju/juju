@@ -75,8 +75,8 @@ type unitDoc struct {
 	DocID                  string `bson:"_id"`
 	Name                   string `bson:"name"`
 	ModelUUID              string `bson:"model-uuid"`
+	Base                   Base   `bson:"base"`
 	Application            string
-	Series                 string
 	CharmURL               *string
 	Principal              string
 	Subordinates           []string
@@ -159,9 +159,9 @@ func (u *Unit) ApplicationName() string {
 	return u.doc.Application
 }
 
-// Series returns the deployed charm's series.
-func (u *Unit) Series() string {
-	return u.doc.Series
+// Base returns the deployed charm's base.
+func (u *Unit) Base() Base {
+	return u.doc.Base
 }
 
 // String returns the unit as string.
@@ -1694,7 +1694,7 @@ func (u *Unit) assignToMachineOps(m *Machine, unused bool) ([]txn.Op, error) {
 		return nil, errors.Trace(err)
 	}
 	if err := validateUnitMachineAssignment(
-		m, u.doc.Series, u.doc.Principal != "", storagePools,
+		m, u.doc.Base, u.doc.Principal != "", storagePools,
 	); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1752,7 +1752,7 @@ func (u *Unit) assignToMachineOps(m *Machine, unused bool) ([]txn.Op, error) {
 // to a specified machine.
 func validateUnitMachineAssignment(
 	m *Machine,
-	series string,
+	base Base,
 	isSubordinate bool,
 	storagePools set.Strings,
 ) (err error) {
@@ -1762,8 +1762,8 @@ func validateUnitMachineAssignment(
 	if isSubordinate {
 		return fmt.Errorf("unit is a subordinate")
 	}
-	if series != m.doc.Series {
-		return fmt.Errorf("series does not match")
+	if !base.compatibleWith(m.doc.Base) {
+		return fmt.Errorf("base does not match: unit has %q, machine has %q", base.DisplayString(), m.doc.Base.DisplayString())
 	}
 	canHost := false
 	for _, j := range m.doc.Jobs {
@@ -2103,7 +2103,7 @@ func (u *Unit) AssignToNewMachineOrContainer() (err error) {
 			}
 		}
 		template := MachineTemplate{
-			Series:      u.doc.Series,
+			Base:        u.doc.Base,
 			Constraints: *cons,
 			Jobs:        []MachineJob{JobHostUnits},
 		}
@@ -2161,7 +2161,7 @@ func (u *Unit) assignToNewMachine(placement string) error {
 			return nil, errors.Trace(err)
 		}
 		template := MachineTemplate{
-			Series:                u.doc.Series,
+			Base:                  u.doc.Base,
 			Constraints:           *cons,
 			Jobs:                  []MachineJob{JobHostUnits},
 			Placement:             placement,
@@ -2240,11 +2240,11 @@ func unitStorageParams(u *Unit) (*storageParams, error) {
 		}
 		storageInstances = append(storageInstances, storage)
 	}
-	return storageParamsForUnit(sb, storageInstances, u.UnitTag(), u.Series(), ch.Meta())
+	return storageParamsForUnit(sb, storageInstances, u.UnitTag(), u.Base(), ch.Meta())
 }
 
 func storageParamsForUnit(
-	sb *storageBackend, storageInstances []*storageInstance, tag names.UnitTag, series string, chMeta *charm.Meta,
+	sb *storageBackend, storageInstances []*storageInstance, tag names.UnitTag, base Base, chMeta *charm.Meta,
 ) (*storageParams, error) {
 
 	var volumes []HostVolumeParams
@@ -2253,7 +2253,7 @@ func storageParamsForUnit(
 	filesystemAttachments := make(map[names.FilesystemTag]FilesystemAttachmentParams)
 	for _, storage := range storageInstances {
 		storageParams, err := storageParamsForStorageInstance(
-			sb, chMeta, tag, series, storage,
+			sb, chMeta, base.OS, storage,
 		)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -2285,8 +2285,7 @@ func storageParamsForUnit(
 func storageParamsForStorageInstance(
 	sb *storageBackend,
 	charmMeta *charm.Meta,
-	unit names.UnitTag,
-	series string,
+	osName string,
 	storage *storageInstance,
 ) (*storageParams, error) {
 
@@ -2299,7 +2298,7 @@ func storageParamsForStorageInstance(
 
 	switch storage.Kind() {
 	case StorageKindFilesystem:
-		location, err := FilesystemMountPoint(charmStorage, storage.StorageTag(), series)
+		location, err := FilesystemMountPoint(charmStorage, storage.StorageTag(), osName)
 		if err != nil {
 			return nil, errors.Annotatef(
 				err, "getting filesystem mount point for storage %s",
@@ -2488,7 +2487,7 @@ func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value)
 
 	terms := bson.D{
 		{"life", Alive},
-		{"series", u.doc.Series},
+		{"base", u.doc.Base},
 		{"jobs", []MachineJob{JobHostUnits}},
 		{"clean", true},
 		{"machineid", bson.D{{"$nin", omitMachineIds}}},
@@ -3011,7 +3010,7 @@ func (g *HistoryGetter) StatusHistory(filter status.StatusHistoryFilter) ([]stat
 	return statusHistory(args)
 }
 
-// UpgradeSeriesStatus returns the upgrade status of the units assigned machine.
+// UpgradeSeriesStatus returns the upgrade status of the unit's assigned machine.
 func (u *Unit) UpgradeSeriesStatus() (model.UpgradeSeriesStatus, string, error) {
 	mID, err := u.AssignedMachineId()
 	if err != nil {
@@ -3035,7 +3034,7 @@ func (u *Unit) UpgradeSeriesStatus() (model.UpgradeSeriesStatus, string, error) 
 		return "", "", errors.NotFoundf("unit %q of machine %q", u.Name(), mID)
 	}
 
-	return sts.Status, lock.ToSeries, nil
+	return sts.Status, lock.ToBase, nil
 }
 
 // SetUpgradeSeriesStatus sets the upgrade status of the units assigned machine.

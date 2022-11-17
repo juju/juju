@@ -4,7 +4,7 @@
 package machinemanager
 
 var InstanceTypes = instanceTypes
-var IsSeriesLessThan = isSeriesLessThan
+var IsBaseLessThan = isBaseLessThan
 
 func NewTestUpgradeSeriesValidator(localValidator, remoteValidator ApplicationValidator) upgradeSeriesValidator {
 	return upgradeSeriesValidator{

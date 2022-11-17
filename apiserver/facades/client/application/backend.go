@@ -91,14 +91,13 @@ type Application interface {
 	IsPrincipal() bool
 	IsRemote() bool
 	Life() state.Life
-	Series() string
 	SetCharm(state.SetCharmConfig) error
 	SetConstraints(constraints.Value) error
 	MergeExposeSettings(map[string]state.ExposedEndpoint) error
 	UnsetExposeSettings([]string) error
 	SetMetricCredentials([]byte) error
 	SetMinUnits(int) error
-	UpdateApplicationSeries(string, bool) error
+	UpdateApplicationBase(state.Base, bool) error
 	UpdateCharmConfig(string, charm.Settings) error
 	UpdateApplicationConfig(coreconfig.ConfigAttributes, []string, environschema.Fields, schema.Defaults) error
 	SetScale(int, int64, bool) error

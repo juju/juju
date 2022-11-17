@@ -19,8 +19,12 @@ import (
 	apicharms "github.com/juju/juju/api/client/charms"
 	"github.com/juju/juju/api/client/sshclient"
 	commoncharm "github.com/juju/juju/api/common/charms"
+	controllerapi "github.com/juju/juju/api/controller/controller"
+	"github.com/juju/juju/caas/kubernetes/provider"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"
+	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/controller"
 	environsbootstrap "github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/cloudspec"
 	jujussh "github.com/juju/juju/network/ssh"
@@ -38,12 +42,22 @@ type sshContainer struct {
 	args      []string
 	modelUUID string
 	modelName string
+	namespace string
 
 	applicationAPI   ApplicationAPI
 	charmsAPI        CharmsAPI
-	execClientGetter func(string, string, cloudspec.CloudSpec) (k8sexec.Executor, error)
+	execClientGetter func(string, cloudspec.CloudSpec) (k8sexec.Executor, error)
 	execClient       k8sexec.Executor
 	sshClient        SSHClientAPI
+	controllerAPI    SSHControllerAPI
+}
+
+// CloudCredentialAPI defines cloud credential related APIs.
+type CloudCredentialAPI interface {
+	Cloud(tag names.CloudTag) (jujucloud.Cloud, error)
+	CredentialContents(cloud, credential string, withSecrets bool) ([]params.CredentialContentResult, error)
+	BestAPIVersion() int
+	Close() error
 }
 
 // ApplicationAPI defines application related APIs.
@@ -62,6 +76,10 @@ type SSHClientAPI interface {
 type CharmsAPI interface {
 	Close() error
 	CharmInfo(charmURL string) (*commoncharm.CharmInfo, error)
+}
+
+type SSHControllerAPI interface {
+	ControllerConfig() (controller.Config, error)
 }
 
 // SetFlags sets up options and flags for the command.
@@ -113,17 +131,35 @@ func (c *sshContainer) initRun(mc ModelCommand) (err error) {
 		c.modelUUID = mDetails.ModelUUID
 	}
 
+	cAPI, err := mc.NewControllerAPIRoot()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	root, err := mc.NewAPIRoot()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	if c.sshClient == nil {
-		root, err := mc.NewAPIRoot()
-		if err != nil {
-			return errors.Trace(err)
-		}
 		c.sshClient = sshclient.NewFacade(root)
 	}
 
 	if c.execClientGetter == nil {
 		c.execClientGetter = k8sexec.NewForJujuCloudSpec
 	}
+
+	c.namespace = modelNameWithoutUsername(c.modelName)
+	if c.namespace == environsbootstrap.ControllerModelName {
+		if c.controllerAPI == nil {
+			c.controllerAPI = controllerapi.NewClient(cAPI)
+		}
+		controllerCfg, err := c.controllerAPI.ControllerConfig()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		c.namespace = provider.DecideControllerNamespace(controllerCfg.ControllerName())
+	}
+
 	if c.execClient == nil {
 		if c.execClient, err = c.getExecClient(); err != nil {
 			return errors.Trace(err)
@@ -134,18 +170,10 @@ func (c *sshContainer) initRun(mc ModelCommand) (err error) {
 		c.leaderAPI = c.applicationAPI
 	}()
 	if c.applicationAPI == nil {
-		root, err := mc.NewAPIRoot()
-		if err != nil {
-			return errors.Trace(err)
-		}
 		c.applicationAPI = application.NewClient(root)
 	}
 
 	if c.charmsAPI == nil {
-		root, err := mc.NewAPIRoot()
-		if err != nil {
-			return errors.Trace(err)
-		}
 		c.charmsAPI = apicharms.NewClient(root)
 	}
 
@@ -366,7 +394,7 @@ func (c *sshContainer) getExecClient() (k8sexec.Executor, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return c.execClientGetter(modelNameWithoutUsername(c.modelName), c.modelUUID, cloudSpec)
+	return c.execClientGetter(c.namespace, cloudSpec)
 }
 
 func (c *sshContainer) maybePopulateTargetViaField(_ *resolvedTarget, _ func([]string) (*params.FullStatus, error)) error {

@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -207,7 +207,7 @@ func SignFileData(stor storage.Storage, fileName string) error {
 	}
 	defer r.Close()
 
-	fileData, err := ioutil.ReadAll(r)
+	fileData, err := io.ReadAll(r)
 	if err != nil {
 		return err
 	}

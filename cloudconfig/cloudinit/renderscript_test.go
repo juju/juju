@@ -18,6 +18,7 @@ import (
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -51,15 +52,15 @@ func testConfig(c *gc.C, series string, vers version.Binary) *config.Config {
 	return testConfig
 }
 
-func (s *configureSuite) getCloudConfig(c *gc.C, controller bool, vers version.Binary, series string) cloudinit.CloudConfig {
+func (s *configureSuite) getCloudConfig(c *gc.C, controller bool, vers version.Binary, base series.Base) cloudinit.CloudConfig {
 	var icfg *instancecfg.InstanceConfig
 	var err error
-	modelConfig := testConfig(c, series, vers)
+	modelConfig := testConfig(c, "jammy", vers)
 	if controller {
 		icfg, err = instancecfg.NewBootstrapInstanceConfig(
 			coretesting.FakeControllerConfig(),
 			constraints.Value{}, constraints.Value{},
-			series, "",
+			base, "",
 			map[string]string{"foo": "bar"},
 		)
 		c.Assert(err, jc.ErrorIsNil)
@@ -90,7 +91,7 @@ func (s *configureSuite) getCloudConfig(c *gc.C, controller bool, vers version.B
 			APIPort:      456,
 		}
 	} else {
-		icfg, err = instancecfg.NewInstanceConfig(coretesting.ControllerTag, "0", "ya", imagemetadata.ReleasedStream, series, nil)
+		icfg, err = instancecfg.NewInstanceConfig(coretesting.ControllerTag, "0", "ya", imagemetadata.ReleasedStream, base, nil)
 		c.Assert(err, jc.ErrorIsNil)
 		icfg.Jobs = []model.MachineJob{model.JobHostUnits}
 	}
@@ -103,7 +104,7 @@ func (s *configureSuite) getCloudConfig(c *gc.C, controller bool, vers version.B
 	c.Assert(err, jc.ErrorIsNil)
 	err = instancecfg.FinishInstanceConfig(icfg, modelConfig)
 	c.Assert(err, jc.ErrorIsNil)
-	cloudcfg, err := cloudinit.New(icfg.Series)
+	cloudcfg, err := cloudinit.New(icfg.Base.OS)
 	c.Assert(err, jc.ErrorIsNil)
 	udata, err := cloudconfig.NewUserdataConfig(icfg, cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -112,58 +113,7 @@ func (s *configureSuite) getCloudConfig(c *gc.C, controller bool, vers version.B
 	return cloudcfg
 }
 
-var allSeries = []string{"jammy", "focal"}
-
-func checkIff(checker gc.Checker, condition bool) gc.Checker {
-	if condition {
-		return checker
-	}
-	return gc.Not(checker)
-}
-
 var aptgetRegexp = "(.|\n)*" + regexp.QuoteMeta("apt-get --option=Dpkg::Options::=--force-confold --option=Dpkg::Options::=--force-unsafe-io --assume-yes --quiet ")
-
-func (s *configureSuite) TestAptSources(c *gc.C) {
-	vers := version.MustParseBinary("1.16.0-ubuntu-amd64")
-	for _, series := range allSeries {
-		script, err := s.getCloudConfig(c, true, vers, series).RenderScript()
-		c.Assert(err, jc.ErrorIsNil)
-
-		// Only Precise requires the cloud-tools pocket.
-		//
-		// The only source we add that requires an explicitly
-		// specified key is cloud-tools.
-		needsCloudTools := series == "precise"
-		c.Assert(
-			script,
-			checkIff(gc.Matches, needsCloudTools),
-			"(.|\n)*apt-key add.*(.|\n)*",
-		)
-		c.Assert(
-			script,
-			checkIff(gc.Matches, needsCloudTools),
-			"(.|\n)*add-apt-repository.*cloud-tools(.|\n)*",
-		)
-		c.Assert(
-			script,
-			checkIff(gc.Matches, needsCloudTools),
-			"(.|\n)*Pin: release n=precise-updates/cloud-tools\nPin-Priority: 400(.|\n)*",
-		)
-		c.Assert(
-			script,
-			checkIff(gc.Matches, needsCloudTools),
-			"(.|\n)*install -D -m 644 /dev/null '/etc/apt/preferences.d/50-cloud-tools'(.|\n)*",
-		)
-
-		// Only install software-properties-common (add-apt-repository)
-		// if we need to.
-		c.Assert(
-			script,
-			checkIff(gc.Matches, needsCloudTools),
-			aptgetRegexp+"install.*software-properties-common(.|\n)*",
-		)
-	}
-}
 
 func assertScriptMatches(c *gc.C, cfg cloudinit.CloudConfig, pattern string, match bool) {
 	script, err := cfg.RenderScript()
@@ -178,7 +128,7 @@ func assertScriptMatches(c *gc.C, cfg cloudinit.CloudConfig, pattern string, mat
 func (s *configureSuite) TestAptUpdate(c *gc.C) {
 	// apt-get update is run only if AptUpdate is set.
 	aptGetUpdatePattern := aptgetRegexp + "update(.|\n)*"
-	cfg, err := cloudinit.New("quantal")
+	cfg, err := cloudinit.New("ubuntu")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(cfg.SystemUpdate(), jc.IsFalse)
@@ -203,7 +153,7 @@ func (s *configureSuite) TestAptUpdate(c *gc.C) {
 func (s *configureSuite) TestAptUpgrade(c *gc.C) {
 	// apt-get upgrade is only run if AptUpgrade is set.
 	aptGetUpgradePattern := aptgetRegexp + "upgrade(.|\n)*"
-	cfg, err := cloudinit.New("quantal")
+	cfg, err := cloudinit.New("ubuntu")
 	c.Assert(err, jc.ErrorIsNil)
 	cfg.SetSystemUpdate(true)
 	source := packaging.PackageSource{
@@ -245,7 +195,7 @@ for old in ${old_prefix}_*; do
     fi
 done`)
 	aptMirrorRegexp := "(.|\n)*" + expectedCommands + "(.|\n)*"
-	cfg, err := cloudinit.New("quantal")
+	cfg, err := cloudinit.New("ubuntu")
 	c.Assert(err, jc.ErrorIsNil)
 	cfg.SetPackageMirror("http://woat.com")
 	assertScriptMatches(c, cfg, aptMirrorRegexp, true)

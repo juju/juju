@@ -6,7 +6,7 @@ package commands
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
+	"os"
 	"strings"
 
 	"github.com/chzyer/readline"
@@ -83,7 +83,7 @@ func (c *replCommand) Run(ctx *cmd.Context) error {
 	if c.showHelp {
 		jujuCmd := NewJujuCommand(ctx, "")
 		f := gnuflag.NewFlagSet(c.Info().Name, gnuflag.ContinueOnError)
-		f.SetOutput(ioutil.Discard)
+		f.SetOutput(io.Discard)
 		jujuCmd.SetFlags(f)
 		if err := jujuCmd.Init([]string{"help"}); err != nil {
 			return errors.Trace(err)
@@ -95,7 +95,7 @@ func (c *replCommand) Run(ctx *cmd.Context) error {
 		return nil
 	}
 
-	history, err := ioutil.TempFile("", "juju-repl")
+	history, err := os.CreateTemp("", "juju-repl")
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -132,7 +132,7 @@ func (c *replCommand) Run(ctx *cmd.Context) error {
 		jujuCmd := NewJujuCommandWithStore(ctx, c.store, jujucmd.DefaultLog, "", replHelpHint, nil, false)
 		if c.showHelp {
 			f := gnuflag.NewFlagSet(c.Info().Name, gnuflag.ContinueOnError)
-			f.SetOutput(ioutil.Discard)
+			f.SetOutput(io.Discard)
 			jujuCmd.SetFlags(f)
 			if err := jujuCmd.Init([]string{"help"}); err != nil {
 				return errors.Trace(err)

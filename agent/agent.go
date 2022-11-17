@@ -6,7 +6,6 @@ package agent
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"path"
@@ -583,7 +582,7 @@ func ReadConfig(configFilePath string) (ConfigSetterWriter, error) {
 		format formatter
 		config *configInternal
 	)
-	configData, err := ioutil.ReadFile(configFilePath)
+	configData, err := os.ReadFile(configFilePath)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot read agent config %q", configFilePath)
 	}

@@ -5,7 +5,6 @@ package deployer
 
 import (
 	"archive/zip"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -31,6 +30,7 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/storage"
 )
@@ -235,7 +235,7 @@ func (d *factory) newDeployCharm() deployCharm {
 		placement:        d.placement,
 		placementSpec:    d.placementSpec,
 		resources:        d.resources,
-		series:           d.series,
+		seriesFlag:       d.series,
 		steps:            d.steps,
 		storage:          d.storage,
 		trust:            d.trust,
@@ -275,11 +275,17 @@ func (d *factory) maybeReadLocalBundle() (Deployer, error) {
 		return nil, errors.Trace(err)
 	}
 	db := d.newDeployBundle(d.defaultCharmSchema, ds)
+	var base series.Base
+	if platform.Channel != "" {
+		base, err = series.ParseBase(platform.OS, platform.Channel)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
 	db.origin = commoncharm.Origin{
 		Source:       commoncharm.OriginLocal,
 		Architecture: platform.Architecture,
-		OS:           platform.OS,
-		Series:       platform.Series,
+		Base:         base,
 	}
 	return &localBundle{deployBundle: db}, nil
 }
@@ -469,7 +475,7 @@ func (d *factory) maybeReadRepositoryBundle(resolver Resolver) (Deployer, error)
 	// from the charmstore we simply use the existing
 	// charmrepo.v4 API to read the base bundle and
 	// wrap it in a BundleDataSource for use by deployBundle.
-	dir, err := ioutil.TempDir("", bundleURL.Name)
+	dir, err := os.MkdirTemp("", bundleURL.Name)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

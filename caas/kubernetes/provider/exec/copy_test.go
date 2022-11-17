@@ -6,7 +6,6 @@ package exec_test
 import (
 	"archive/tar"
 	"bytes"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -106,7 +105,7 @@ func (s *execSuite) TestCopyToPod(c *gc.C) {
 
 	s.suiteMocks.EXPECT().RemoteCmdExecutorGetter(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(s.mockRemoteCmdExecutor, nil)
 
-	srcPath, err := ioutil.TempFile(c.MkDir(), "testfile")
+	srcPath, err := os.CreateTemp(c.MkDir(), "testfile")
 	c.Assert(err, jc.ErrorIsNil)
 	defer srcPath.Close()
 	defer os.Remove(srcPath.Name())
@@ -214,7 +213,7 @@ func (s *execSuite) TestCopyFromPod(c *gc.C) {
 
 	s.suiteMocks.EXPECT().RemoteCmdExecutorGetter(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(s.mockRemoteCmdExecutor, nil)
 
-	srcPath, err := ioutil.TempFile(c.MkDir(), "testfile")
+	srcPath, err := os.CreateTemp(c.MkDir(), "testfile")
 	c.Assert(err, jc.ErrorIsNil)
 	fileContent := `test data`
 	_, err = srcPath.WriteString(fileContent)
@@ -303,7 +302,7 @@ func (s *execSuite) TestCopyFromPod(c *gc.C) {
 	select {
 	case err := <-errChan:
 		c.Assert(err, jc.ErrorIsNil)
-		data, err := ioutil.ReadFile(destPath)
+		data, err := os.ReadFile(destPath)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(string(data), gc.DeepEquals, fileContent)
 	case <-time.After(coretesting.LongWait):

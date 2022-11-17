@@ -187,8 +187,8 @@ func (m UnitScope) GetIdentValue(name string) (query.Box, error) {
 		return query.NewString(m.UnitInfo.Name), nil
 	case "application":
 		return query.NewString(m.UnitInfo.Application), nil
-	case "series":
-		return query.NewString(m.UnitInfo.Series), nil
+	case "base":
+		return query.NewString(m.UnitInfo.Base), nil
 	case "charm-url":
 		return query.NewString(m.UnitInfo.CharmURL), nil
 	case "life":

@@ -130,7 +130,7 @@ func (f findWriter) Print() error {
 			case ColumnNameOS:
 				colValues = append(colValues, strings.Join(result.OS, ","))
 			case ColumnNameSupports:
-				colValues = append(colValues, strings.Join(result.Series, ","))
+				colValues = append(colValues, strings.Join(basesToSeries(result.Supports), ","))
 			case ColumnNamePublisher:
 				colValues = append(colValues, result.Publisher)
 			case ColumnNameSummary:

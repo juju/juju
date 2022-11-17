@@ -6,7 +6,6 @@ package raftlease
 import (
 	"fmt"
 	"io"
-	"strings"
 	"sync"
 	"time"
 
@@ -58,12 +57,6 @@ type FSMResponse interface {
 	// Error is a lease error (rather than anything to do with the
 	// raft machinery).
 	Error() error
-
-	// Notify tells the target what changes occurred because of the
-	// applied command.
-	// On encountering an error, notify will continue until all resulting
-	// claims and expiries are exhausted, before returning the error messages.
-	Notify(NotifyTarget) error
 }
 
 // groupKey stores the namespace and model uuid that identifies all
@@ -389,43 +382,6 @@ type response struct {
 // Error is part of FSMResponse.
 func (r *response) Error() error {
 	return r.err
-}
-
-// Notify is part of FSMResponse.
-func (r *response) Notify(target NotifyTarget) error {
-	// This response is either for a claim (in which case claimer will be set)
-	// or a set-time (so it will have zero or more expirations).
-	var errs []error
-	if r.claimer != "" {
-		if err := target.Claimed(r.claimed, r.claimer); err != nil {
-			errs = append(errs, errors.Annotatef(err, "claim lease"))
-		}
-	}
-	// One call expiries when we have some expired keys.
-	if len(r.expired) > 0 {
-		if err := target.Expiries(r.expired); err != nil {
-			errs = append(errs, errors.Annotatef(err, "expirying leases"))
-		}
-	}
-	if errs == nil {
-		return nil
-	}
-	return multiErr(errs)
-}
-
-type multiErr []error
-
-func (e multiErr) Error() string {
-	// TODO(stickupkid): It maybe more prudent to use a pooled bytes buffer for
-	// this.
-	var s []string
-	for _, err := range e {
-		if err == nil {
-			continue
-		}
-		s = append(s, err.Error())
-	}
-	return strings.Join(s, "\n")
 }
 
 // Apply log is invoked once a log entry is committed.

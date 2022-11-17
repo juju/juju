@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"net"
 	"net/http"
@@ -220,7 +219,7 @@ func NewTunnel(
 		config:     c,
 		Kind:       kind,
 		Namespace:  namespace,
-		Out:        ioutil.Discard,
+		Out:        io.Discard,
 		readyChan:  make(chan struct{}, 1),
 		RemotePort: remotePort,
 		stopChan:   make(chan struct{}, 1),

@@ -13,6 +13,7 @@ import (
 	"github.com/kr/pretty"
 
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/imagemetadata"
 )
 
@@ -22,7 +23,7 @@ var logger = loggo.GetLogger("juju.environs.instances")
 // chosen by the environment provider.
 type InstanceConstraint struct {
 	Region      string
-	Series      string
+	Base        series.Base
 	Arch        string
 	Constraints constraints.Value
 
@@ -40,9 +41,9 @@ type InstanceConstraint struct {
 // String returns a human readable form of this InstanceConstraint.
 func (ic *InstanceConstraint) String() string {
 	return fmt.Sprintf(
-		"{region: %s, series: %s, arch: %s, constraints: %s, storage: %s}",
+		"{region: %s, base: %s, arch: %s, constraints: %s, storage: %s}",
 		ic.Region,
-		ic.Series,
+		ic.Base.DisplayString(),
 		ic.Arch,
 		ic.Constraints,
 		ic.Storage,
@@ -66,7 +67,7 @@ func FindInstanceSpec(possibleImages []Image, ic *InstanceConstraint, allInstanc
 	logger.Debugf("instance constraints %+v", ic)
 	if len(possibleImages) == 0 {
 		return nil, errors.Errorf("no metadata for %q images in %s with arch %s",
-			ic.Series, ic.Region, ic.Arch)
+			ic.Base.DisplayString(), ic.Region, ic.Arch)
 	}
 
 	logger.Debugf("matching constraints %v against possible image metadata %s", ic, pretty.Sprint(possibleImages))
@@ -119,7 +120,7 @@ func FindInstanceSpec(possibleImages []Image, ic *InstanceConstraint, allInstanc
 	for i, itype := range matchingTypes {
 		names[i] = itype.Name
 	}
-	return nil, errors.Errorf("no %q images in %s matching instance types %v", ic.Series, ic.Region, names)
+	return nil, errors.Errorf("no %q images in %s matching instance types %v", ic.Base.DisplayString(), ic.Region, names)
 }
 
 // byArch sorts InstanceSpecs first by descending word-size, then

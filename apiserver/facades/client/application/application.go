@@ -9,7 +9,6 @@ import (
 	"net"
 	"reflect"
 	"strings"
-	"time"
 
 	"github.com/juju/charm/v9"
 	csparams "github.com/juju/charmrepo/v7/csclient/params"
@@ -61,8 +60,8 @@ var ClassifyDetachedStorage = storagecommon.ClassifyDetachedStorage
 
 var logger = loggo.GetLogger("juju.apiserver.application")
 
-// APIv14 provides the Application API facade for version 14.
-type APIv14 struct {
+// APIv15 provides the Application API facade for version 15.
+type APIv15 struct {
 	*APIBase
 }
 
@@ -74,9 +73,9 @@ type APIBase struct {
 	backend       Backend
 	storageAccess StorageInterface
 
-	authorizer   facade.Authorizer
-	check        BlockChecker
-	updateSeries UpdateSeries
+	authorizer facade.Authorizer
+	check      BlockChecker
+	updateBase UpdateBase
 
 	model     Model
 	modelType state.ModelType
@@ -151,13 +150,13 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 		return nil, errors.Trace(err)
 	}
 
-	updateSeries := NewUpdateSeriesAPI(state, makeUpdateSeriesValidator(chClient))
+	updateBase := NewUpdateBaseAPI(state, makeUpdateSeriesValidator(chClient))
 
 	return NewAPIBase(
 		state,
 		storageAccess,
 		ctx.Auth(),
-		updateSeries,
+		updateBase,
 		blockChecker,
 		&modelShim{Model: model}, // modelShim wraps the AllPorts() API.
 		leadershipReader,
@@ -175,7 +174,7 @@ func NewAPIBase(
 	backend Backend,
 	storageAccess StorageInterface,
 	authorizer facade.Authorizer,
-	updateSeries UpdateSeries,
+	updateBase UpdateBase,
 	blockChecker BlockChecker,
 	model Model,
 	leadershipReader leadership.Reader,
@@ -193,7 +192,7 @@ func NewAPIBase(
 		backend:               backend,
 		storageAccess:         storageAccess,
 		authorizer:            authorizer,
-		updateSeries:          updateSeries,
+		updateBase:            updateBase,
 		check:                 blockChecker,
 		model:                 model,
 		modelType:             model.Type(),
@@ -546,7 +545,6 @@ func deployApplication(
 	}
 	_, err = deployApplicationFunc(backend, model, DeployApplicationParams{
 		ApplicationName:   args.ApplicationName,
-		Series:            args.Series,
 		Charm:             stateCharm(ch),
 		CharmOrigin:       origin,
 		Channel:           csparams.Channel(args.Channel),
@@ -572,10 +570,14 @@ func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL, charmStoreC
 	)
 	if origin != nil {
 		originType = origin.Type
+		base, err := series.ParseBase(origin.Base.Name, origin.Base.Channel)
+		if err != nil {
+			return corecharm.Origin{}, errors.Trace(err)
+		}
 		platform = corecharm.Platform{
 			Architecture: origin.Architecture,
-			OS:           origin.OS,
-			Series:       origin.Series,
+			OS:           base.OS,
+			Channel:      base.Channel.Track,
 		}
 	}
 
@@ -819,7 +821,7 @@ type setCharmParams struct {
 }
 
 type forceParams struct {
-	ForceSeries, ForceUnits, Force bool
+	ForceBase, ForceUnits, Force bool
 }
 
 func (api *APIBase) setConfig(app Application, generation, settingsYAML string, settingsStrings map[string]string) error {
@@ -868,9 +870,9 @@ func (api *APIBase) setConfig(app Application, generation, settingsYAML string, 
 	return nil
 }
 
-// UpdateApplicationSeries updates the application series. Series for
-// subordinates updated too.
-func (api *APIBase) UpdateApplicationSeries(args params.UpdateSeriesArgs) (params.ErrorResults, error) {
+// UpdateApplicationBase updates the application base.
+// Base for subordinates is updated too.
+func (api *APIBase) UpdateApplicationBase(args params.UpdateChannelArgs) (params.ErrorResults, error) {
 	if err := api.checkCanWrite(); err != nil {
 		return params.ErrorResults{}, err
 	}
@@ -881,14 +883,30 @@ func (api *APIBase) UpdateApplicationSeries(args params.UpdateSeriesArgs) (param
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
 	for i, arg := range args.Args {
-		err := api.updateOneApplicationSeries(arg)
+		err := api.updateOneApplicationBase(arg)
 		results.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return results, nil
 }
 
-func (api *APIBase) updateOneApplicationSeries(arg params.UpdateSeriesArg) error {
-	return api.updateSeries.UpdateSeries(arg.Entity.Tag, arg.Series, arg.Force)
+func (api *APIBase) updateOneApplicationBase(arg params.UpdateChannelArg) error {
+	var argBase series.Base
+	if arg.Channel != "" {
+		appTag, err := names.ParseTag(arg.Entity.Tag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		app, err := api.backend.Application(appTag.Id())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		origin := app.CharmOrigin()
+		argBase, err = series.ParseBase(origin.Platform.OS, arg.Channel)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return api.updateBase.UpdateBase(arg.Entity.Tag, argBase, arg.Force)
 }
 
 // SetCharm sets the charm for a given for the application.
@@ -919,9 +937,9 @@ func (api *APIBase) SetCharm(args params.ApplicationSetCharm) error {
 			StorageConstraints:    args.StorageConstraints,
 			EndpointBindings:      args.EndpointBindings,
 			Force: forceParams{
-				ForceSeries: args.ForceSeries,
-				ForceUnits:  args.ForceUnits,
-				Force:       args.Force,
+				ForceBase:  args.ForceBase,
+				ForceUnits: args.ForceUnits,
+				Force:      args.Force,
 			},
 		},
 		args.CharmURL,
@@ -970,11 +988,10 @@ func (api *APIBase) setCharmWithAgentValidation(
 	if err != nil {
 		logger.Debugf("Unable to locate current charm: %v", err)
 	}
-	charmOrigin, err := convertCharmOrigin(params.CharmOrigin, curl, string(params.Channel))
+	newOrigin, err := convertCharmOrigin(params.CharmOrigin, curl, string(params.Channel))
 	if err != nil {
 		return errors.Trace(err)
 	}
-	newOrigin := StateCharmOrigin(charmOrigin)
 	if api.modelType == state.ModelTypeCAAS {
 		// We need to disallow updates that k8s does not yet support,
 		// eg changing the filesystem or device directives, or deployment info.
@@ -990,7 +1007,11 @@ func (api *APIBase) setCharmWithAgentValidation(
 		if unsupportedReason != "" {
 			return errors.NotSupportedf(unsupportedReason)
 		}
-		return api.applicationSetCharm(params, newCharm, newOrigin)
+		origin, err := StateCharmOrigin(newOrigin)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return api.applicationSetCharm(params, newCharm, origin)
 	}
 
 	// Check if the controller agent tools version is greater than the
@@ -1017,7 +1038,11 @@ func (api *APIBase) setCharmWithAgentValidation(
 		}
 	}
 
-	return api.applicationSetCharm(params, newCharm, newOrigin)
+	origin, err := StateCharmOrigin(newOrigin)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return api.applicationSetCharm(params, newCharm, origin)
 }
 
 // applicationSetCharm sets the charm for the given for the application.
@@ -1071,7 +1096,7 @@ func (api *APIBase) applicationSetCharm(
 		CharmOrigin:        newOrigin,
 		Channel:            params.Channel,
 		ConfigSettings:     settings,
-		ForceSeries:        force.ForceSeries,
+		ForceBase:          force.ForceBase,
 		ForceUnits:         force.ForceUnits,
 		Force:              force.Force,
 		ResourceIDs:        params.ResourceIDs,
@@ -1088,80 +1113,7 @@ func (api *APIBase) applicationSetCharm(
 		return errors.New("cannot downgrade from v2 charm format to v1")
 	}
 
-	// If upgrading from a pod-spec (v1) charm to sidecar (v2), override the
-	// application's series to what it would be for a fresh sidecar deploy.
-	oldSeries := params.Application.Series()
-	if oldSeries == series.Kubernetes.String() && charm.MetaFormat(newCharm) >= charm.FormatV2 && corecharm.IsKubernetes(newCharm) {
-		// Disallow upgrading from a v1 DaemonSet or Deployment type charm
-		// (only StatefulSet is supported in v2 right now).
-		deployment := oldCharm.Meta().Deployment
-		if deployment != nil && deployment.DeploymentType != charm.DeploymentStateful {
-			return errors.Errorf("cannot upgrade from v1 %s deployment to v2", deployment.DeploymentType)
-		}
-
-		modelConfig, err := api.model.ModelConfig()
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		var supported []string
-		for _, base := range newCharm.Manifest().Bases {
-			series, err := series.VersionSeries(base.Channel.Track)
-			if err != nil {
-				continue
-			}
-			supported = append(supported, series)
-		}
-
-		newSeries, err := sidecarUpgradeSeries(modelConfig, supported)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		logger.Debugf("upgrading pod-spec to sidecar charm, setting series to %q", newSeries)
-		cfg.Series = newSeries
-	}
-
 	return params.Application.SetCharm(cfg)
-}
-
-// sidecarUpgradeSeries is a cut-down version of seriesSelector.charmSeries
-// for a refresh from a pod-spec to a sidecar charm. It looks at the model's
-// default and falls back to the charm's series (no support for "--series",
-// series in charm URL, or default LTS).
-func sidecarUpgradeSeries(modelConfig *environsconfig.Config, supported []string) (string, error) {
-	supportedJuju, err := series.WorkloadSeries(time.Now(), "", modelConfig.ImageStream())
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
-	// Use model default series, if explicitly set and supported by the charm.
-	if selected, explicit := modelConfig.DefaultSeries(); explicit {
-		if _, err := corecharm.SeriesForCharm(selected, supported); err == nil {
-			// validate the series we get from the charm
-			if !supportedJuju.Contains(selected) {
-				return "", errors.NotSupportedf("series: %q", selected)
-			}
-			return selected, nil
-		}
-	}
-
-	// Fall back to the charm's list of series, filtered to what's supported
-	// by Juju. Preserve the order of the supported series from the charm
-	// metadata, as the order could be out of order compared to Ubuntu series
-	// order (precise, xenial, bionic, trusty, etc).
-	var filtered []string
-	for _, charmSeries := range supported {
-		if supportedJuju.Contains(charmSeries) {
-			filtered = append(filtered, charmSeries)
-		}
-	}
-	selected, err := corecharm.SeriesForCharm("", filtered)
-	if err == nil {
-		return selected, nil
-	}
-
-	// Otherwise it's an error
-	return "", err
 }
 
 // charmConfigFromYamlConfigValues will parse a yaml produced by juju get and
@@ -1219,12 +1171,15 @@ func (api *APIBase) GetCharmURLOrigin(args params.ApplicationGet) (params.CharmU
 		result.Error = apiservererrors.ServerError(errors.NotFoundf("charm origin for %q", args.ApplicationName))
 		return result, nil
 	}
-	result.Origin = makeParamsCharmOrigin(chOrigin)
+	if result.Origin, err = makeParamsCharmOrigin(chOrigin); err != nil {
+		result.Error = apiservererrors.ServerError(errors.NotFoundf("charm origin for %q", args.ApplicationName))
+		return result, nil
+	}
 	result.Origin.InstanceKey = charmhub.CreateInstanceKey(oneApplication.ApplicationTag(), api.model.ModelTag())
 	return result, nil
 }
 
-func makeParamsCharmOrigin(origin *state.CharmOrigin) params.CharmOrigin {
+func makeParamsCharmOrigin(origin *state.CharmOrigin) (params.CharmOrigin, error) {
 	retOrigin := params.CharmOrigin{
 		Source: origin.Source,
 		ID:     origin.ID,
@@ -1244,10 +1199,9 @@ func makeParamsCharmOrigin(origin *state.CharmOrigin) params.CharmOrigin {
 	}
 	if origin.Platform != nil {
 		retOrigin.Architecture = origin.Platform.Architecture
-		retOrigin.OS = origin.Platform.OS
-		retOrigin.Series = origin.Platform.Series
+		retOrigin.Base = params.Base{Name: origin.Platform.OS, Channel: origin.Platform.Channel}
 	}
-	return retOrigin
+	return retOrigin, nil
 }
 
 // CharmRelations implements the server side of Application.CharmRelations.
@@ -2484,7 +2438,7 @@ func (api *APIBase) ApplicationsInfo(in params.Entities) (params.ApplicationInfo
 		out[i].Result = &params.ApplicationResult{
 			Tag:              tag.String(),
 			Charm:            details.Charm,
-			Series:           details.Series,
+			Base:             details.Base,
 			Channel:          channel,
 			Constraints:      details.Constraints,
 			Principal:        app.IsPrincipal(),
@@ -2615,7 +2569,7 @@ var (
 	// upgrade juju using 2.5.x agents with 2.6 or greater controllers.
 	ErrInvalidAgentVersions = errors.Errorf(
 		"Unable to upgrade LXDProfile charms with the current model version. " +
-			"Please run juju upgrade-juju to upgrade the current model to match your controller.")
+			"Please run juju upgrade-model to upgrade the current model to match your controller.")
 )
 
 func getAgentToolsVersion(agentTools AgentTools) (version.Number, error) {
