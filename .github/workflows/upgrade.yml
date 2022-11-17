@@ -61,21 +61,20 @@ jobs:
         run: |
           set -euxo pipefail
           
-          echo "::set-output name=go-version::$(grep '^go ' go.mod | awk '{print $2}')"
-          echo "::set-output name=base-juju-version::$(juju version | cut -d '-' -f 1)"
+          echo "base-juju-version=$(juju version | cut -d '-' -f 1)" >> $GITHUB_OUTPUT
           upstreamJujuVersion=$(grep -r "const version =" version/version.go | sed -r 's/^const version = \"(.*)\"$/\1/')
-          echo "::set-output name=upstream-juju-version::${upstreamJujuVersion}"
+          echo "upstream-juju-version=${upstreamJujuVersion}" >> $GITHUB_OUTPUT
           currentStableChannel="$(echo $upstreamJujuVersion | cut -d'.' -f1,2)/stable"
           currentStableVersion=$(snap info juju | yq ".channels[\"$currentStableChannel\"]" | cut -d' ' -f1)
-          echo "::set-output name=current-stable-juju-version::$currentStableVersion"
-          echo "::set-output name=juju-db-version::4.0"
+          echo "current-stable-juju-version=$currentStableVersion" >> $GITHUB_OUTPUT
+          echo "juju-db-version=4.0" >> $GITHUB_OUTPUT
         id: vars
 
       - name: Set up Go
         if: env.RUN_TEST == 'RUN'
         uses: actions/setup-go@v3
         with:
-          go-version: ${{ steps.vars.outputs.go-version }}
+          go-version-file: 'go.mod'
 
       - name: setup env
         shell: bash
