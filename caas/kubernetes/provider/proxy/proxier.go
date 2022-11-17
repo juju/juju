@@ -22,12 +22,12 @@ type Proxier struct {
 }
 
 type ProxierConfig struct {
-	APIHost             string `yaml:"api-host"`
-	CAData              string `yaml:"ca-cert"`
-	Namespace           string `yaml:"namespace"`
-	RemotePort          string `yaml:"remote-port"`
-	Service             string `yaml:"service"`
-	ServiceAccountToken string `yaml:"service-account-token"`
+	APIHost             string `yaml:"api-host" mapstructure:"api-host"`
+	CAData              string `yaml:"ca-cert" mapstructure:"ca-cert"`
+	Namespace           string `yaml:"namespace" mapstructure:"namespace"`
+	RemotePort          string `yaml:"remote-port" mapstructure:"remote-port"`
+	Service             string `yaml:"service" mapstructure:"service"`
+	ServiceAccountToken string `yaml:"service-account-token" mapstructure:"service-account-token"`
 }
 
 const (

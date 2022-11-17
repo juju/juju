@@ -452,7 +452,7 @@ func (s *RegisterSuite) TestControllerUUIDExistsReplace(c *gc.C) {
 		}}, nil
 	}
 
-	srv := s.mockServer(c)
+	srv := s.mockServer(c, nil)
 	s.httpHandler = srv
 
 	prompter := cmdtesting.NewSeqPrompter(c, "»", `
@@ -495,7 +495,7 @@ func (s *RegisterSuite) TestControllerUUIDExistsRenameNotAllowed(c *gc.C) {
 		ControllerName: "controller-name",
 	})
 
-	srv := s.mockServer(c)
+	srv := s.mockServer(c, nil)
 	s.httpHandler = srv
 
 	prompter := cmdtesting.NewSeqPrompter(c, "»", `
