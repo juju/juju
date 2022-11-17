@@ -14,7 +14,7 @@ import (
 var NewProxierFactory = newProxierFactory
 
 func newProxierFactory() (ProxyFactory, error) {
-	return proxyfactory.NewDefaultFactory()
+	return proxy.NewDefaultFactory()
 }
 
 // ProxyFactory defines the interface for a factory that can create a proxy.

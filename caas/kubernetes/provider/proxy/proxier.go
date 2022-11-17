@@ -8,6 +8,7 @@ import (
 	"net/url"
 
 	"github.com/juju/errors"
+	"github.com/mitchellh/mapstructure"
 	"k8s.io/client-go/rest"
 
 	"github.com/juju/juju/caas/kubernetes"
@@ -80,6 +81,13 @@ func NewProxierFromRawConfig(rawConf interface{}) (*Proxier, error) {
 func (p *Proxier) SetAPIHost(host string) {
 	p.restConfig.Host = host
 	p.config.APIHost = host
+}
+
+// RawConfig implements Proxier RawConfig interface.
+func (p *Proxier) RawConfig() (map[string]interface{}, error) {
+	rval := map[string]interface{}{}
+	err := mapstructure.Decode(&p.config, &rval)
+	return rval, errors.Trace(err)
 }
 
 func (p *Proxier) MarshalYAML() (interface{}, error) {

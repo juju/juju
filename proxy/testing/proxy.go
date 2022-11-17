@@ -12,6 +12,9 @@ type MockProxier struct {
 
 	// See Proxier interface
 	TypeFn func() string
+
+	// See Proxier interface
+	MarshalYAMLFn func() (interface{}, error)
 }
 
 type MockTunnelProxier struct {
@@ -37,7 +40,12 @@ func (mp *MockProxier) Start() error {
 	return mp.StartFn()
 }
 
-func (mp *MockProxier) MarshalYAML() (interface{}, error) { return nil, nil }
+func (mp *MockProxier) MarshalYAML() (interface{}, error) {
+	if mp.MarshalYAMLFn == nil {
+		return nil, nil
+	}
+	return mp.MarshalYAMLFn()
+}
 
 func (mp *MockProxier) Insecure() {}
 

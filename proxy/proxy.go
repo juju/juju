@@ -17,6 +17,10 @@ type Proxier interface {
 	// considered single use. This call should only ever be made once.
 	Stop()
 
+	// RawConfig is responsible for providing a raw configuration representation
+	// of the proxier for serialising over the wire.
+	RawConfig() (map[string]interface{}, error)
+
 	// Type is the unique key identifying the type of proxying for configuration
 	// purposes.
 	Type() string
