@@ -46,22 +46,22 @@ juju_agent_call () {
 }
 
 juju_machine_agent_name () {
-  local machine=$(find /var/lib/juju/agents -type d -name 'machine*' -printf %f)
+  local machine=$(find /var/lib/juju/agents -maxdepth 1 -type d -name 'machine-*' -printf %f)
   echo $machine
 }
 
 juju_controller_agent_name () {
-  local controller=$(find /var/lib/juju/agents -type d -name 'controller*' -printf %f)
+  local controller=$(find /var/lib/juju/agents -maxdepth 1 -type d -name 'controller-*' -printf %f)
   echo $controller
 }
 
 juju_application_agent_name () {
-  local application=$(find /var/lib/juju/agents -type d -name 'application*' -printf %f)
+  local application=$(find /var/lib/juju/agents -maxdepth 1 -type d -name 'application-*' -printf %f)
   echo $application
 }
 
 juju_unit_agent_name () {
-  local unit=$(find /var/lib/juju/agents -type d -name 'unit*' -printf %f)
+  local unit=$(find /var/lib/juju/agents -maxdepth 1 -type d -name 'unit-*' -printf %f)
   echo $unit
 }
 
