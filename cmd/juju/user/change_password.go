@@ -190,7 +190,7 @@ func (c *changePasswordCommand) resetUserPassword(ctx *cmd.Context) error {
 	}
 	ctx.Infof("Password for %q has been reset.", c.User)
 	base64RegistrationData, err := generateUserControllerAccessToken(
-		c.ControllerCommandBase,
+		&c.ControllerCommandBase,
 		c.userTag.Id(),
 		key,
 	)

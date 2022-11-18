@@ -5,6 +5,7 @@ package proxy
 
 import (
 	"github.com/juju/errors"
+	"github.com/mitchellh/mapstructure"
 
 	k8sproxy "github.com/juju/juju/caas/kubernetes/provider/proxy"
 )
@@ -78,6 +79,26 @@ func NewFactory() *Factory {
 	return &Factory{
 		inventory: make(map[string]FactoryRegister),
 	}
+}
+
+// ProxierFromConfig is a utility function for making a proxier from this
+// factory using raw config data within in a map[string]interface{}. The type
+// key cannot be an empty string.
+func (f *Factory) ProxierFromConfig(typeKey string, config map[string]interface{}) (Proxier, error) {
+	if typeKey == "" {
+		return nil, errors.NotValidf("type key for proxier cannot be empty")
+	}
+
+	maker, err := f.MakerForTypeKey(typeKey)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := mapstructure.Decode(config, maker.Config()); err != nil {
+		return nil, errors.Annotatef(err, "decoding config  for proxier type %q", typeKey)
+	}
+
+	return maker.Make()
 }
 
 // Register registers a new proxier type and creationg methods to this factory

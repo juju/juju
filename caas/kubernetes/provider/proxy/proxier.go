@@ -8,6 +8,7 @@ import (
 	"net/url"
 
 	"github.com/juju/errors"
+	"github.com/mitchellh/mapstructure"
 	"k8s.io/client-go/rest"
 
 	"github.com/juju/juju/caas/kubernetes"
@@ -21,12 +22,12 @@ type Proxier struct {
 }
 
 type ProxierConfig struct {
-	APIHost             string `yaml:"api-host"`
-	CAData              string `yaml:"ca-cert"`
-	Namespace           string `yaml:"namespace"`
-	RemotePort          string `yaml:"remote-port"`
-	Service             string `yaml:"service"`
-	ServiceAccountToken string `yaml:"service-account-token"`
+	APIHost             string `yaml:"api-host" mapstructure:"api-host"`
+	CAData              string `yaml:"ca-cert" mapstructure:"ca-cert"`
+	Namespace           string `yaml:"namespace" mapstructure:"namespace"`
+	RemotePort          string `yaml:"remote-port" mapstructure:"remote-port"`
+	Service             string `yaml:"service" mapstructure:"service"`
+	ServiceAccountToken string `yaml:"service-account-token" mapstructure:"service-account-token"`
 }
 
 const (
@@ -38,16 +39,29 @@ func (p *Proxier) Host() string {
 }
 
 func NewProxier(config ProxierConfig) *Proxier {
-	return &Proxier{
-		config: config,
-		restConfig: rest.Config{
-			BearerToken: config.ServiceAccountToken,
-			Host:        config.APIHost,
-			TLSClientConfig: rest.TLSClientConfig{
-				CAData: []byte(config.CAData),
-			},
-		},
+	p := &Proxier{config: config}
+	p.updateRESTConfig()
+	return p
+}
+
+// Insecure sets the proxy to be insecure.
+func (p *Proxier) Insecure() {
+	p.config.CAData = ""
+	p.updateRESTConfig()
+}
+
+func (p *Proxier) updateRESTConfig() {
+	restConfig := rest.Config{
+		BearerToken:     p.config.ServiceAccountToken,
+		Host:            p.config.APIHost,
+		TLSClientConfig: rest.TLSClientConfig{},
 	}
+	if p.config.CAData != "" {
+		restConfig.TLSClientConfig.CAData = []byte(p.config.CAData)
+	} else {
+		restConfig.TLSClientConfig.Insecure = true
+	}
+	p.restConfig = restConfig
 }
 
 func NewProxierConfig() *ProxierConfig {
@@ -67,6 +81,13 @@ func NewProxierFromRawConfig(rawConf interface{}) (*Proxier, error) {
 func (p *Proxier) SetAPIHost(host string) {
 	p.restConfig.Host = host
 	p.config.APIHost = host
+}
+
+// RawConfig implements Proxier RawConfig interface.
+func (p *Proxier) RawConfig() (map[string]interface{}, error) {
+	rval := map[string]interface{}{}
+	err := mapstructure.Decode(&p.config, &rval)
+	return rval, errors.Trace(err)
 }
 
 func (p *Proxier) MarshalYAML() (interface{}, error) {
@@ -97,10 +118,10 @@ func (p *Proxier) Start() (err error) {
 	err = p.tunnel.ForwardPort()
 	urlErr, ok := errors.Cause(err).(*url.Error)
 	if !ok {
-		return err
+		return errors.Trace(err)
 	}
 	if _, ok = urlErr.Err.(*net.OpError); !ok {
-		return err
+		return errors.Trace(err)
 	}
 	return proxyerrors.NewProxyConnectError(err, p.Type())
 }
