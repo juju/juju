@@ -428,6 +428,7 @@ func (d *factory) maybeReadRepositoryBundle(resolver Resolver) (Deployer, error)
 		if curl.Revision == -1 {
 			curl = curl.WithRevision(d.revision)
 		}
+		logger.Warningf("Charm store bundles, those with cs: before the bundle name, will not be supported in juju 3.1.\n\tMigration of this model to a juju 3.1 controller will be prohibited.")
 	}
 	platform, err := utils.DeducePlatform(d.constraints, d.series, d.modelConstraints)
 	if err != nil {
@@ -517,6 +518,7 @@ func (d *factory) repositoryCharm() (Deployer, error) {
 		if userRequestedURL.Revision == -1 && d.revision != -1 {
 			userRequestedURL = userRequestedURL.WithRevision(d.revision)
 		}
+		logger.Warningf("Charm store charms, those with cs: before the charm name, will not be supported in juju 3.1.\n\tMigration of this model to a juju 3.1 controller will be prohibited.")
 	}
 	platform, err := utils.DeducePlatform(d.constraints, d.series, d.modelConstraints)
 	if err != nil {

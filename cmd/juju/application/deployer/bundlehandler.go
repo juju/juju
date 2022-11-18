@@ -409,6 +409,8 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 				Revision: -1,
 			}
 			origin = origin.WithBase(nil)
+		} else if charm.CharmStore.Matches(url.Schema) {
+			h.ctx.Warningf("Deploying %q.\n\tCharm store charms, those with cs: before the charm name, will not be supported in juju 3.1.\n\tMigration of this model to a juju 3.1 controller will be prohibited.", ch)
 		}
 
 		h.ctx.Infof(formatLocatedText(ch, origin))
