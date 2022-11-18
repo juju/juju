@@ -650,6 +650,9 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 				TimeoutSeconds:      5,
 			},
 			Resources: core.ResourceRequirements{
+				Requests: core.ResourceList{
+					core.ResourceMemory: resource.MustParse("4000Mi"),
+				},
 				Limits: core.ResourceList{
 					core.ResourceMemory: resource.MustParse("4000Mi"),
 				},

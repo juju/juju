@@ -40,7 +40,6 @@ jobs:
           sudo snap install yq
           sudo snap install juju --classic --channel=${{ matrix.snap_version }}
           
-          sudo apt-get remove lxd lxd-client
           if snap info lxd | grep "installed"; then
             sudo snap remove lxd --purge
           fi
