@@ -196,12 +196,6 @@ type bundleHandler struct {
 	// status up to date.
 	watcher api.AllWatch
 
-	// warnedLXC indicates whether or not we have warned the user that the
-	// bundle they're deploying uses lxc containers, which will be treated as
-	// LXD.  This flag keeps us from writing the warning more than once per
-	// bundle.
-	warnedLXC bool
-
 	// The name and UUID of the model where the bundle is about to be deployed.
 	targetModelName string
 	targetModelUUID string
@@ -1169,17 +1163,6 @@ func (h *bundleHandler) addMachine(change *bundlechanges.AddMachineChange) error
 		Jobs:        []model.MachineJob{model.JobHostUnits},
 	}
 	if ct := p.ContainerType; ct != "" {
-		// TODO(thumper): move the warning and translation into the bundle reading code.
-
-		// for backwards compatibility with 1.x bundles, we treat lxc
-		// placement directives as lxd.
-		if ct == "lxc" {
-			if !h.warnedLXC {
-				h.ctx.Infof("Bundle has one or more containers specified as lxc. lxc containers are deprecated in Juju 2.0. lxd containers will be deployed instead.")
-				h.warnedLXC = true
-			}
-			ct = string(instance.LXD)
-		}
 		containerType, err := instance.ParseContainerType(ct)
 		if err != nil {
 			return errors.Annotatef(err, "cannot create machine for holding %s", deployedApps())
