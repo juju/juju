@@ -94,7 +94,7 @@ func (s *RegisterSuite) TestInit(c *gc.C) {
 }
 
 func (s *RegisterSuite) TestRegister(c *gc.C) {
-	s.testRegisterSuccess(c, nil, "")
+	s.testRegisterSuccess(c, nil, "", false)
 	c.Assert(s.listModelsControllerName, gc.Equals, "controller-name")
 	c.Assert(s.listModelsUserName, gc.Equals, "bob")
 }
@@ -120,7 +120,7 @@ Welcome, bob. You are now logged into "controller-name".
 
 Current model set to "carol/theoneandonly".
 `[1:])
-	s.testRegisterSuccess(c, prompter, "")
+	s.testRegisterSuccess(c, prompter, "", false)
 	c.Assert(
 		s.store.Models["controller-name"].CurrentModel,
 		gc.Equals, "carol/theoneandonly",
@@ -158,7 +158,7 @@ one of them:
   - juju switch model2
 `[1:])
 	defer prompter.CheckDone()
-	s.testRegisterSuccess(c, prompter, "")
+	s.testRegisterSuccess(c, prompter, "", false)
 
 	// When there are multiple models, no current model will be set.
 	// Instead, the command will output the list of models and inform
@@ -172,7 +172,7 @@ one of them:
 // default prompter will be used.
 // If controllerName is non-empty, that name will be expected
 // to be the name of the registered controller.
-func (s *RegisterSuite) testRegisterSuccess(c *gc.C, stdio io.ReadWriter, controllerName string) {
+func (s *RegisterSuite) testRegisterSuccess(c *gc.C, stdio io.ReadWriter, controllerName string, replace bool) {
 	srv := s.mockServer(c)
 	s.httpHandler = srv
 
@@ -200,7 +200,11 @@ Welcome, bob. You are now logged into "controller-name".
 		defer prompter.CheckDone()
 		stdio = prompter
 	}
-	err := s.run(c, stdio, registrationData)
+	args := []string{registrationData}
+	if replace {
+		args = append(args, "--replace")
+	}
+	err := s.run(c, stdio, args...)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// There should have been one POST command to "/register".
@@ -240,7 +244,7 @@ Welcome, bob. You are now logged into "controller-name".
 
 func (s *RegisterSuite) TestRegisterInvalidRegistrationData(c *gc.C) {
 	err := s.run(c, nil, "not base64")
-	c.Assert(err, gc.ErrorMatches, "illegal base64 data at input byte 3")
+	c.Assert(err, gc.ErrorMatches, "invalid registration token: illegal base64 data at input byte 3")
 
 	err = s.run(c, nil, "YXNuLjEK")
 	c.Assert(err, gc.ErrorMatches, "asn1: structure error: .*")
@@ -290,7 +294,7 @@ Initial password successfully set for bob.
 
 Welcome, bob. You are now logged into "other-name".
 `[1:]+noModelsText)
-	s.testRegisterSuccess(c, prompter, "other-name")
+	s.testRegisterSuccess(c, prompter, "other-name", false)
 	prompter.AssertDone()
 }
 
@@ -375,7 +379,112 @@ Welcome, bob. You are now logged into "other-name".
 Current model set to "bob/model-name".
 `[1:])
 	defer prompter.CheckDone()
-	s.testRegisterSuccess(c, prompter, "other-name")
+	s.testRegisterSuccess(c, prompter, "other-name", false)
+}
+
+func (s *RegisterSuite) TestRegisterControllerNameExistsReplace(c *gc.C) {
+	err := s.store.AddController("controller-name", jujuclient.ControllerDetails{
+		ControllerUUID: "0d75314a-5266-4f4f-8523-415be76f92dc",
+		CACert:         testing.CACert,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	prompter := cmdtesting.NewSeqPrompter(c, "»", `
+Enter a new password: »hunter2
+
+Confirm password: »hunter2
+
+Enter a name for this controller \[replace controller-name\]: »
+Initial password successfully set for bob.
+
+Welcome, bob. You are now logged into "controller-name".
+`[1:]+noModelsText)
+	s.testRegisterSuccess(c, prompter, "controller-name", true)
+	prompter.AssertDone()
+}
+
+func (s *RegisterSuite) TestControllerUUIDExistsReplace(c *gc.C) {
+	// Controller has the UUID from s.testRegister to mimic a user with
+	// this controller already registered (regardless of its name).
+	err := s.store.AddController("controller-name", jujuclient.ControllerDetails{
+		ControllerUUID: mockControllerUUID,
+		CACert:         testing.CACert,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.listModels = func(_ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
+		return []base.UserModel{{
+			Name:  "model-name",
+			Owner: "bob",
+			UUID:  mockControllerUUID,
+			Type:  model.IAAS,
+		}}, nil
+	}
+
+	srv := s.mockServer(c)
+	s.httpHandler = srv
+
+	prompter := cmdtesting.NewSeqPrompter(c, "»", `
+Enter a new password: »hunter2
+
+Confirm password: »hunter2
+
+Enter a name for this controller \[replace controller-name\]: »controller-name
+Initial password successfully set for bob.
+
+Welcome, bob. You are now logged into "controller-name".
+
+Current model set to "bob/model-name".
+`[1:])
+	s.testRegisterSuccess(c, prompter, "controller-name", true)
+	prompter.CheckDone()
+}
+
+func (s *RegisterSuite) TestControllerUUIDExistsRenameNotAllowed(c *gc.C) {
+	// Controller has the UUID from s.testRegister to mimic a user with
+	// this controller already registered (regardless of its name).
+	err := s.store.AddController("controller-name", jujuclient.ControllerDetails{
+		ControllerUUID: mockControllerUUID,
+		CACert:         testing.CACert,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.listModels = func(_ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
+		return []base.UserModel{{
+			Name:  "model-name",
+			Owner: "bob",
+			UUID:  mockControllerUUID,
+			Type:  model.IAAS,
+		}}, nil
+	}
+
+	registrationData := s.encodeRegistrationData(c, jujuclient.RegistrationInfo{
+		User:           "bob",
+		SecretKey:      mockSecretKey,
+		ControllerName: "controller-name",
+	})
+
+	srv := s.mockServer(c)
+	s.httpHandler = srv
+
+	prompter := cmdtesting.NewSeqPrompter(c, "»", `
+Enter a new password: »hunter2
+
+Confirm password: »hunter2
+
+Enter a name for this controller \[replace controller-name\]: »foo
+Initial password successfully set for bob.
+`[1:])
+	err = s.run(c, prompter, registrationData, "--replace")
+	c.Assert(err, gc.Not(gc.IsNil))
+	c.Assert(err.Error(), gc.Equals, `This controller has already been registered on this client as "controller-name".
+To login user "bob" run 'juju login -u bob -c controller-name'.
+To update controller details and login as user "bob":
+    1. run 'juju unregister controller-name'
+    2. request from your controller admin another registration string, i.e
+       output from 'juju change-user-password bob --reset'
+    3. re-run 'juju register' with the registration string from (2) above.
+`)
+	prompter.CheckDone()
 }
 
 func (s *RegisterSuite) TestRegisterEmptyPassword(c *gc.C) {
