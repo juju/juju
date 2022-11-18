@@ -310,13 +310,13 @@ func matchPortRanges(patterns []string, portRanges ...network.PortRange) (bool, 
 		pNumStr, pProto, _ := strings.Cut(p.String(), "/")
 		pFrom, pTo, err := getPortsFromString(pNumStr)
 		if err != nil {
-			return false, true, err
+			return false, true, nil
 		}
 		for _, patt := range patterns {
 			pattNumStr, pattProto, isPortPattern := strings.Cut(patt, "/")
 			pattFrom, pattTo, err := getPortsFromString(pattNumStr)
 			if err != nil {
-				return false, true, err
+				return false, true, nil
 			}
 			isPortInRange := pattFrom <= pTo && pattTo >= pFrom
 			if isPortPattern && isPortInRange && pProto == pattProto {
