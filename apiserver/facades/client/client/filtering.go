@@ -281,47 +281,42 @@ func buildUnitMatcherShims(u *state.Unit, patterns []string) []closurePredicate 
 	}
 }
 
+// portsFromString gets "from port" and "to port" value from port string.
+func getPortsFromString(portStr string) (int, int, error) {
+	var portFrom, portTo int
+	var err error
+	portFromStr, portToStr, isPortRange := strings.Cut(portStr, "-")
+	if isPortRange {
+		portFrom, err = strconv.Atoi(portFromStr)
+		if err != nil {
+			return -1, -1, err
+		}
+		portTo, err = strconv.Atoi(portToStr)
+		if err != nil {
+			return -1, -1, err
+		}
+	} else {
+		portFrom, err = strconv.Atoi(portStr)
+		if err != nil {
+			return -1, -1, err
+		}
+		portTo = portFrom
+	}
+	return portFrom, portTo, nil
+}
+
 func matchPortRanges(patterns []string, portRanges ...network.PortRange) (bool, bool, error) {
 	for _, p := range portRanges {
-		var pFrom, pTo int
-		var err error
 		pNumStr, pProto, _ := strings.Cut(p.String(), "/")
-		pFromStr, pToStr, isPortRange := strings.Cut(pNumStr, "-")
-		if isPortRange {
-			pFrom, err = strconv.Atoi(pFromStr)
-			if err != nil {
-				return false, true, err
-			}
-			pTo, err = strconv.Atoi(pToStr)
-			if err != nil {
-				return false, true, err
-			}
-		} else {
-			pFrom, err = strconv.Atoi(pNumStr)
-			if err != nil {
-				return false, true, err
-			}
-			pTo = pFrom
+		pFrom, pTo, err := getPortsFromString(pNumStr)
+		if err != nil {
+			return false, true, err
 		}
 		for _, patt := range patterns {
-			var pattFrom, pattTo int
 			pattNumStr, pattProto, isPortPattern := strings.Cut(patt, "/")
-			pattFromStr, pattToStr, isPattRange := strings.Cut(pattNumStr, "-")
-			if isPattRange {
-				pattFrom, err = strconv.Atoi(pattFromStr)
-				if err != nil {
-					return false, true, err
-				}
-				pattTo, err = strconv.Atoi(pattToStr)
-				if err != nil {
-					return false, true, err
-				}
-			} else {
-				pattFrom, err = strconv.Atoi(pattNumStr)
-				if err != nil {
-					return false, true, err
-				}
-				pattTo = pattFrom
+			pattFrom, pattTo, err := getPortsFromString(pattNumStr)
+			if err != nil {
+				return false, true, err
 			}
 			isPortInRange := pattFrom <= pTo && pattTo >= pFrom
 			if isPortPattern && isPortInRange && pProto == pattProto {
