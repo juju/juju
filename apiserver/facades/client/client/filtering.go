@@ -301,10 +301,7 @@ func matchPortRanges(patterns []string, portRanges ...network.PortRange) (bool, 
 			if err != nil {
 				return false, true, err
 			}
-			pTo, err = strconv.Atoi(pNumStr)
-			if err != nil {
-				return false, true, err
-			}
+			pTo = pFrom
 		}
 		for _, patt := range patterns {
 			var pattFrom, pattTo int
@@ -324,10 +321,7 @@ func matchPortRanges(patterns []string, portRanges ...network.PortRange) (bool, 
 				if err != nil {
 					return false, true, err
 				}
-				pattTo, err = strconv.Atoi(pattNumStr)
-				if err != nil {
-					return false, true, err
-				}
+				pattTo = pattFrom
 			}
 			isPortInRange := pattFrom <= pTo && pattTo >= pFrom
 			if isPortPattern && isPortInRange && pProto == pattProto {
