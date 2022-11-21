@@ -282,7 +282,6 @@ var commandNames = []string{
 	"add-k8s",
 	"add-machine",
 	"add-model",
-	"add-relation", // alias for 'integrate'
 	"add-space",
 	"add-ssh-key",
 	"add-storage",
@@ -334,8 +333,8 @@ var commandNames = []string{
 	"find",
 	"find-offers",
 	"firewall-rules",
-	"get-constraints",
-	"get-model-constraints",
+	"constraints",
+	"model-constraints",
 	"grant",
 	"grant-cloud",
 	"help",

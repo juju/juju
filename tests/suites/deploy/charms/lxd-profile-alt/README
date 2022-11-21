@@ -2,7 +2,7 @@
 
 Start ubuntu image on a container with the included lxd profile.  Most useful when deploying to a container or an lxd cloud.
 
-# Usaage
+# Usage
 
 juju deploy lxd-profile
 

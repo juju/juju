@@ -15,7 +15,6 @@ var (
 	NewForTest                   = newClient
 	HandleContainerNotFoundError = handleContainerNotFoundError
 	RandomString                 = &randomString
-	ModelNameToNameSpace         = modelNameToNameSpace
 )
 
 func (ep *ExecParams) Validate(podGetter typedcorev1.PodInterface) error {

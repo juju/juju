@@ -15,11 +15,11 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/paths"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/environs/imagedownloads"
 )
 
@@ -66,7 +66,7 @@ func (syncInternalSuite) TestFetcher(c *gc.C) {
 
 	// Check that our call was made as expected.
 	c.Assert(stub.Calls(), gc.HasLen, 1)
-	c.Assert(stub.Calls()[0], gc.Matches, " qemu-img convert -f qcow2 .*/juju-kvm-server.img-.* .*/guests/spammy-archless-backing-file.qcow")
+	c.Assert(stub.Calls()[0], gc.Matches, " qemu-img convert -f qcow2 .*/juju-kvm-server.img-.* .*/guests/version-archless-backing-file.qcow")
 
 }
 
@@ -102,7 +102,7 @@ func (syncInternalSuite) TestFetcherWriteFails(c *gc.C) {
 
 	// Check that our call was made as expected.
 	c.Assert(stub.Calls(), gc.HasLen, 1)
-	c.Assert(stub.Calls()[0], gc.Matches, " qemu-img convert -f qcow2 .*/juju-kvm-server.img-.* .*/guests/spammy-archless-backing-file.qcow")
+	c.Assert(stub.Calls()[0], gc.Matches, " qemu-img convert -f qcow2 .*/juju-kvm-server.img-.* .*/guests/version-archless-backing-file.qcow")
 
 }
 

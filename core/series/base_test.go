@@ -45,11 +45,22 @@ func (s *BaseSuite) TestGetSeriesFromBase(c *gc.C) {
 	c.Assert(series, gc.Equals, "jammy")
 }
 
+func (s *BaseSuite) TestParseBaseFromString(c *gc.C) {
+	base, err := ParseBaseFromString("ubuntu@22.04")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(base.String(), gc.Equals, "ubuntu@22.04/stable")
+	base, err = ParseBaseFromString("ubuntu@22.04/edge")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(base.String(), gc.Equals, "ubuntu@22.04/edge")
+	base, err = ParseBaseFromString("foo")
+	c.Assert(err, gc.ErrorMatches, `expected base string to contain os and channel separated by '@'`)
+}
+
 func (s *BaseSuite) TestDisplayString(c *gc.C) {
 	b := Base{OS: "ubuntu", Channel: Channel{Track: "18.04"}}
-	c.Check(b.DisplayString(), gc.Equals, "ubuntu:18.04")
+	c.Check(b.DisplayString(), gc.Equals, "ubuntu@18.04")
 	b = Base{OS: "kubuntu", Channel: Channel{Track: "20.04", Risk: "stable"}}
-	c.Check(b.DisplayString(), gc.Equals, "kubuntu:20.04")
+	c.Check(b.DisplayString(), gc.Equals, "kubuntu@20.04")
 	b = Base{OS: "qubuntu", Channel: Channel{Track: "22.04", Risk: "edge"}}
-	c.Check(b.DisplayString(), gc.Equals, "qubuntu:22.04/edge")
+	c.Check(b.DisplayString(), gc.Equals, "qubuntu@22.04/edge")
 }

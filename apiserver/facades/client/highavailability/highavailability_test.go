@@ -131,7 +131,7 @@ func (s *clientSuite) TestEnableHAErrorForMultiCloudLocal(c *gc.C) {
 	machines, err := s.State.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 1)
-	c.Assert(machines[0].Base().DisplayString(), gc.Equals, "ubuntu:12.10")
+	c.Assert(machines[0].Base().DisplayString(), gc.Equals, "ubuntu@12.10")
 
 	err = machines[0].SetMachineAddresses(
 		network.NewSpaceAddress("cloud-local2.internal", network.WithScope(network.ScopeCloudLocal)),
@@ -148,7 +148,7 @@ func (s *clientSuite) TestEnableHAErrorForMultiCloudLocal(c *gc.C) {
 func (s *clientSuite) TestEnableHAErrorForNoCloudLocal(c *gc.C) {
 	m0, err := s.State.Machine("0")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m0.Base().DisplayString(), gc.Equals, "ubuntu:12.10")
+	c.Assert(m0.Base().DisplayString(), gc.Equals, "ubuntu@12.10")
 
 	// remove the extra provider addresses, so we have no valid CloudLocal addresses
 	c.Assert(m0.SetProviderAddresses(
@@ -181,7 +181,7 @@ func (s *clientSuite) TestEnableHAAddMachinesErrorForMultiCloudLocal(c *gc.C) {
 	machines, err := s.State.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 1)
-	c.Assert(machines[0].Base().String(), gc.Equals, "ubuntu:12.10/stable")
+	c.Assert(machines[0].Base().String(), gc.Equals, "ubuntu@12.10/stable")
 
 	enableHAResult, err := s.enableHA(c, 3, emptyCons, nil)
 	c.Assert(err, jc.ErrorIsNil)

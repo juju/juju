@@ -10,7 +10,7 @@ import (
 	"github.com/juju/juju/controller"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/description/v3"
+	"github.com/juju/description/v4"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"

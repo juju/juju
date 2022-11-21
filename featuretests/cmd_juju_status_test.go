@@ -176,8 +176,8 @@ mysql/0      waiting   allocating  0                               waiting for m
 wordpress/0  waiting   allocating  0                               waiting for machine
 
 Machine  State    Address  Inst id  Base          AZ  Message
-0        pending           id0      ubuntu:12.10      
-1        pending           id1      ubuntu:12.10      
+0        pending           id0      ubuntu@12.10      
+1        pending           id1      ubuntu@12.10      
 `)
 
 	context = s.run(c, "status", "--no-color", "0")
@@ -191,7 +191,7 @@ mysql/0      waiting   allocating  0                               waiting for m
 wordpress/0  waiting   allocating  0                               waiting for machine
 
 Machine  State    Address  Inst id  Base          AZ  Message
-0        pending           id0      ubuntu:12.10      
+0        pending           id0      ubuntu@12.10      
 `)
 }
 
@@ -241,7 +241,7 @@ Unit       Workload  Agent       Machine  Public address  Ports  Message
 another/0  waiting   allocating  1                               waiting for machine
 
 Machine  State    Address  Inst id  Base          AZ  Message
-1        pending           id1      ubuntu:12.10      
+1        pending           id1      ubuntu@12.10      
 `)
 
 	context = s.run(c, "status", "--no-color", "10")
@@ -251,7 +251,7 @@ Unit       Workload  Agent       Machine  Public address  Ports  Message
 another/1  waiting   allocating  10                              waiting for machine
 
 Machine  State    Address  Inst id  Base          AZ  Message
-10       pending           id10     ubuntu:12.10      
+10       pending           id10     ubuntu@12.10      
 `)
 }
 
@@ -277,7 +277,7 @@ func (s *StatusSuite) TestStatusMachineFilteringWithUnassignedUnits(c *gc.C) {
 	context := s.run(c, "status", "--no-color", "1")
 	c.Assert(cmdtesting.Stdout(context), jc.Contains, `
 Machine  State    Address  Inst id  Base          AZ  Message
-1        pending           id1      ubuntu:12.10      
+1        pending           id1      ubuntu@12.10      
 `)
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, ``)
 }

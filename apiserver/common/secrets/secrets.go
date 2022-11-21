@@ -102,6 +102,8 @@ func StoreConfig(model Model, authTag names.Tag, leadershipChecker leadership.Ch
 	readFilter := state.SecretsFilter{
 		ConsumerTags: []names.Tag{authTag},
 	}
+	// Find secrets owned by the application that should be readable for non leader units.
+	readAppOwnedFilter := state.SecretsFilter{}
 	switch t := authTag.(type) {
 	case names.UnitTag:
 		appName, _ := names.UnitApplication(t.Id())
@@ -114,34 +116,54 @@ func StoreConfig(model Model, authTag names.Tag, leadershipChecker leadership.Ch
 		if err == nil {
 			// Leader unit owns application level secrets.
 			ownedFilter.OwnerTags = append(ownedFilter.OwnerTags, authApp)
+		} else {
+			// Non leader units can read application level secrets.
+			// Find secrets owned by the application.
+			readAppOwnedFilter.OwnerTags = append(readAppOwnedFilter.OwnerTags, authApp)
 		}
-		// All units can read application level secrets.
+		// Granted secrets can be consumed in application level for all units.
 		readFilter.ConsumerTags = append(readFilter.ConsumerTags, authApp)
 	case names.ApplicationTag:
 	default:
 		return nil, errors.NotSupportedf("login as %q", authTag)
 	}
 
-	owned, err := backend.ListSecrets(ownedFilter)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	ownedRevisions := provider.SecretRevisions{}
-	for _, md := range owned {
-		ownedRevisions.Add(md.URI, md.Version)
+	if err := getRevisions(backend, ownedFilter, ownedRevisions); err != nil {
+		return nil, errors.Trace(err)
 	}
 
-	read, err := backend.ListSecrets(readFilter)
-	if err != nil {
+	readRevisions := provider.SecretRevisions{}
+	if err := getRevisions(backend, readFilter, readRevisions); err != nil {
 		return nil, errors.Trace(err)
 	}
-	readRevisions := provider.SecretRevisions{}
-	for _, md := range read {
-		readRevisions.Add(md.URI, md.Version)
+
+	if len(readAppOwnedFilter.OwnerTags) > 0 {
+		if err := getRevisions(backend, readAppOwnedFilter, readRevisions); err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
+
 	logger.Debugf("secrets for %v:\nowned: %v\nconsumed:%v", authTag.String(), ownedRevisions, readRevisions)
 	cfg, err := p.StoreConfig(ma, authTag, ownedRevisions, readRevisions)
 	return cfg, errors.Trace(err)
+}
+
+func getRevisions(backend state.SecretsStore, filter state.SecretsFilter, revisions provider.SecretRevisions) error {
+	secrets, err := backend.ListSecrets(filter)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, md := range secrets {
+		revs, err := backend.ListSecretRevisions(md.URI)
+		if err != nil {
+			return errors.Annotatef(err, "cannot get revisions for secret %q", md.URI)
+		}
+		for _, rev := range revs {
+			revisions.Add(md.URI, rev.Revision)
+		}
+	}
+	return nil
 }
 
 // StoreForInspect returns the config to create a secret store client able

@@ -603,9 +603,9 @@ var expiresInSeconds = int64(60 * 10)
 
 // EnsureSecretAccessToken ensures the RBAC resources created and updated for the provided resource name.
 func (k *kubernetesClient) EnsureSecretAccessToken(tag names.Tag, owned, read, removed []string) (string, error) {
-	appName, err := names.UnitApplication(tag.Id())
-	if err != nil {
-		return "", errors.Trace(err)
+	appName := tag.Id()
+	if tag.Kind() == names.UnitTagKind {
+		appName, _ = names.UnitApplication(tag.Id())
 	}
 	labels := utils.LabelsForApp(appName, k.IsLegacyLabels())
 
@@ -619,7 +619,7 @@ func (k *kubernetesClient) EnsureSecretAccessToken(tag names.Tag, owned, read, r
 		ObjectMeta:                   objMeta,
 		AutomountServiceAccountToken: boolPtr(true),
 	}
-	_, _, err = k.ensureServiceAccount(sa)
+	_, _, err := k.ensureServiceAccount(sa)
 	if err != nil {
 		return "", errors.Annotatef(err, "cannot ensure service account %q", sa.GetName())
 	}

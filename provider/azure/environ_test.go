@@ -1457,7 +1457,7 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Arch, gc.Equals, "amd64")
-	c.Assert(result.Base.DisplayString(), gc.Equals, "ubuntu:22.04")
+	c.Assert(result.Base.DisplayString(), gc.Equals, "ubuntu@22.04")
 
 	c.Assert(len(s.requests), gc.Equals, numExpectedBootstrapStartInstanceRequests)
 	s.vmTags[tags.JujuIsController] = "true"
@@ -1491,7 +1491,7 @@ func (s *environSuite) TestBootstrapPrivateIP(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Arch, gc.Equals, "amd64")
-	c.Assert(result.Base.DisplayString(), gc.Equals, "ubuntu:22.04")
+	c.Assert(result.Base.DisplayString(), gc.Equals, "ubuntu@22.04")
 
 	c.Assert(len(s.requests), gc.Equals, numExpectedBootstrapStartInstanceRequests)
 	s.vmTags[tags.JujuIsController] = "true"
@@ -1525,7 +1525,7 @@ func (s *environSuite) TestBootstrapCustomNetwork(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Arch, gc.Equals, "amd64")
-	c.Assert(result.Base.DisplayString(), gc.Equals, "ubuntu:22.04")
+	c.Assert(result.Base.DisplayString(), gc.Equals, "ubuntu@22.04")
 
 	// 2 extra requests for network setup.
 	c.Assert(len(s.requests), gc.Equals, numExpectedBootstrapStartInstanceRequests+2)
@@ -1694,7 +1694,7 @@ func (s *environSuite) TestBootstrapWithAutocert(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Arch, gc.Equals, "amd64")
-	c.Assert(result.Base.DisplayString(), gc.Equals, "ubuntu:22.04")
+	c.Assert(result.Base.DisplayString(), gc.Equals, "ubuntu@22.04")
 
 	c.Assert(len(s.requests), gc.Equals, numExpectedBootstrapStartInstanceRequests)
 	s.vmTags[tags.JujuIsController] = "true"

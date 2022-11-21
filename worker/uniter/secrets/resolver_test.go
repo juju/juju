@@ -34,6 +34,7 @@ type triggerSecretsSuite struct {
 	resolver        resolver.Resolver
 	rotatedSecret   func(string)
 	expiredRevision func(string)
+	deletedSecrets  func([]string)
 }
 
 var _ = gc.Suite(&triggerSecretsSuite{})
@@ -52,6 +53,10 @@ func (s *triggerSecretsSuite) SetUpTest(_ *gc.C) {
 	}, func(rev string) {
 		if s.expiredRevision != nil {
 			s.expiredRevision(rev)
+		}
+	}, func(uris []string) {
+		if s.deletedSecrets != nil {
+			s.deletedSecrets(uris)
 		}
 	},
 	)
@@ -243,7 +248,7 @@ func (s *changeSecretsSuite) setupMocks(c *gc.C) *gomock.Controller {
 		Logger: logger,
 	})
 	s.tracker = mocks.NewMockSecretStateTracker(ctlr)
-	s.resolver = secrets.NewSecretsResolver(logger, s.tracker, nil, nil)
+	s.resolver = secrets.NewSecretsResolver(logger, s.tracker, nil, nil, nil)
 	return ctlr
 }
 
@@ -341,7 +346,7 @@ func (s *removeSecretSuite) setupMocks(c *gc.C) *gomock.Controller {
 		Logger: logger,
 	})
 	s.tracker = mocks.NewMockSecretStateTracker(ctlr)
-	s.resolver = secrets.NewSecretsResolver(logger, s.tracker, nil, nil)
+	s.resolver = secrets.NewSecretsResolver(logger, s.tracker, nil, nil, nil)
 	return ctlr
 }
 
@@ -424,6 +429,8 @@ type secretDeletedSuite struct {
 	mockCallbacks *operationmocks.MockCallbacks
 	mockFactory   *runnermocks.MockFactory
 	resolver      resolver.Resolver
+
+	deleted []string
 }
 
 var _ = gc.Suite(&secretDeletedSuite{})
@@ -437,7 +444,9 @@ func (s *secretDeletedSuite) SetUpTest(_ *gc.C) {
 func (s *secretDeletedSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctlr := gomock.NewController(c)
 	logger := loggo.GetLogger("test")
-	s.resolver = secrets.NewSecretsResolver(logger, s.mockTracker, nil, nil)
+	s.resolver = secrets.NewSecretsResolver(logger, s.mockTracker, nil, nil, func(uris []string) {
+		s.deleted = uris
+	})
 	s.mockCallbacks = operationmocks.NewMockCallbacks(ctlr)
 	s.mockTracker = mocks.NewMockSecretStateTracker(ctlr)
 	s.opFactory = operation.NewFactory(operation.FactoryParams{
@@ -498,4 +507,5 @@ func (s *secretDeletedSuite) TestCommit(c *gc.C) {
 
 	_, err = op.Commit(operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.deleted, jc.DeepEquals, []string{"secret:9m4e2mr0ui3e8a215n4g"})
 }

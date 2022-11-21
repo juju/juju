@@ -414,7 +414,7 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 				Name:     url.Name,
 				Revision: -1,
 			}
-			origin = origin.WithSeries("")
+			origin = origin.WithBase(nil)
 		}
 
 		h.ctx.Infof(formatLocatedText(ch, origin))
@@ -939,7 +939,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 	// Only Kubernetes bundles send the unit count and placement with the deploy API call.
 	numUnits := 0
 	var placement []*instance.Placement
-	if h.data.Type == "kubernetes" {
+	if h.data.Type == series.Kubernetes.String() {
 		numUnits = p.NumUnits
 	}
 

@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
-	jujuversion "github.com/juju/juju/version"
 )
 
 var (
@@ -145,7 +144,7 @@ func TestingRestrictedRoot(check func(string, string) error) rpc.Root {
 // as if called from a newer client.
 func TestingUpgradeOrMigrationOnlyRoot(userLogin bool, clientVersion version.Number) rpc.Root {
 	r := TestingAPIRoot(AllFacades())
-	return restrictRoot(r, checkClientVersion(userLogin, clientVersion, jujuversion.Current))
+	return restrictRoot(r, checkClientVersion(userLogin, clientVersion))
 }
 
 // PatchGetMigrationBackend overrides the getMigrationBackend function

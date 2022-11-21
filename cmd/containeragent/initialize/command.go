@@ -222,7 +222,7 @@ func (c *initCommand) writeContainerAgentPebbleConfig() error {
 				Startup: plan.StartupEnabled,
 				OnCheckFailure: map[string]plan.ServiceAction{
 					"liveness":  onCheckFailureAction,
-					"readiness": onCheckFailureAction,
+					"readiness": plan.ActionIgnore,
 				},
 				Environment: map[string]string{
 					constants.EnvHTTPProbePort: constants.DefaultHTTPProbePort,
@@ -242,7 +242,7 @@ func (c *initCommand) writeContainerAgentPebbleConfig() error {
 			},
 			"liveness": {
 				Override:  plan.ReplaceOverride,
-				Level:     plan.ReadyLevel,
+				Level:     plan.AliveLevel,
 				Period:    plan.OptionalDuration{Value: 10 * time.Second, IsSet: true},
 				Timeout:   plan.OptionalDuration{Value: 3 * time.Second, IsSet: true},
 				Threshold: 3,

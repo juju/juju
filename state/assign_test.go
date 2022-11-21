@@ -1286,7 +1286,7 @@ func (s *assignCleanSuite) TestAssignUnitPolicy(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(units, gc.HasLen, 1)
 		c.Assert(units[0].Name(), gc.Equals, unit.Name())
-		c.Assert(m.Base().String(), gc.Equals, "ubuntu:12.10/stable")
+		c.Assert(m.Base().String(), gc.Equals, "ubuntu@12.10/stable")
 	}
 
 	// Remove units from alternate machines. These machines will still be
@@ -1422,7 +1422,7 @@ func (s *assignCleanSuite) TestAssignUnitPolicyWithContainers(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(units, gc.HasLen, 1)
 		c.Assert(units[0].Name(), gc.Equals, unit.Name())
-		c.Assert(m.Base().String(), gc.Equals, "ubuntu:12.10/stable")
+		c.Assert(m.Base().String(), gc.Equals, "ubuntu@12.10/stable")
 	}
 
 	// Check unassigned placements with no clean and/or empty machines cause a new container to be created.

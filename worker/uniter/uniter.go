@@ -511,6 +511,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				u.secretsTracker,
 				watcher.RotateSecretCompleted,
 				watcher.ExpireRevisionCompleted,
+				watcher.RemoveSecretsCompleted,
 			),
 			Logger: u.logger,
 		}

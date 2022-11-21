@@ -699,6 +699,16 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 					Protocol:      "TCP",
 				},
 			},
+			StartupProbe: &core.Probe{
+				ProbeHandler: core.ProbeHandler{
+					Exec: probCmds,
+				},
+				FailureThreshold:    60,
+				InitialDelaySeconds: 1,
+				PeriodSeconds:       5,
+				SuccessThreshold:    1,
+				TimeoutSeconds:      1,
+			},
 			ReadinessProbe: &core.Probe{
 				ProbeHandler: core.ProbeHandler{
 					Exec: probCmds,
@@ -835,7 +845,7 @@ EOF
 				TimeoutSeconds:      3,
 				PeriodSeconds:       3,
 				SuccessThreshold:    1,
-				FailureThreshold:    5,
+				FailureThreshold:    100,
 			},
 			LivenessProbe: &core.Probe{
 				ProbeHandler: core.ProbeHandler{

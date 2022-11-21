@@ -51,7 +51,7 @@ func (s *CharmUpgradeSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	unitTwo.SetCharmURL(charmTwo.URL())
 
-	runCommandExpectSuccess(c, "add-relation", s.appOneName, s.appTwoName)
+	runCommandExpectSuccess(c, "integrate", s.appOneName, s.appTwoName)
 }
 
 // This test deploys 2 applications with 1 unit each and relates units to each other.

@@ -87,7 +87,7 @@ An error is returned if the Juju Dashboard is not running.
 `
 
 const dashboardNotAvailableMessage = `The Juju dashboard is not yet deployed.
-To deploy the Juju dashboard follow these steps:
+To deploy the Juju dashboard, follow these steps:
   juju switch controller
   juju deploy juju-dashboard
   juju expose juju-dashboard
@@ -131,7 +131,7 @@ func (c *dashboardCommand) Run(ctx *cmd.Context) error {
 	}
 
 	res, err := api.DashboardConnectionInfo(factory)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return errors.New(dashboardNotAvailableMessage)
 	} else if err != nil {
 		return errors.Annotatef(err,

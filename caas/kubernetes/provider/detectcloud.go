@@ -54,7 +54,13 @@ func (p kubernetesEnvironProvider) DetectCloud(name string) (cloud.Cloud, error)
 	if err == nil && name == k8s.K8sCloudMicrok8s {
 		return mk8sCloud, nil
 	}
+
 	if !errors.IsNotFound(err) && err != nil {
+		// if the cloud is not microk8s and we get the user group error, return not found so the caller skips the cloud
+		// https://bugs.launchpad.net/juju/+bug/1937985
+		if name != k8s.K8sCloudMicrok8s {
+			return cloud.Cloud{}, errors.NotFoundf("cloud %s", name)
+		}
 		return cloud.Cloud{}, errors.Trace(err)
 	}
 

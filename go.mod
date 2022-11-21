@@ -49,12 +49,12 @@ require (
 	github.com/im7mortal/kmutex v1.0.1
 	github.com/juju/ansiterm v1.0.0
 	github.com/juju/blobstore/v3 v3.0.2
-	github.com/juju/charm/v9 v9.0.5
+	github.com/juju/charm/v9 v9.0.6
 	github.com/juju/charmrepo/v7 v7.0.1
 	github.com/juju/clock v1.0.2
 	github.com/juju/cmd/v3 v3.0.2
 	github.com/juju/collections v1.0.0
-	github.com/juju/description/v3 v3.0.5
+	github.com/juju/description/v4 v4.0.0
 	github.com/juju/errors v1.0.0
 	github.com/juju/featureflag v1.0.0
 	github.com/juju/gnuflag v1.0.0
@@ -71,7 +71,7 @@ require (
 	github.com/juju/names/v4 v4.0.0
 	github.com/juju/naturalsort v1.0.0
 	github.com/juju/os/v2 v2.2.3
-	github.com/juju/packaging/v2 v2.0.0
+	github.com/juju/packaging/v2 v2.0.1
 	github.com/juju/persistent-cookiejar v1.0.0
 	github.com/juju/proxy v1.0.0
 	github.com/juju/pubsub/v2 v2.0.0
