@@ -106,6 +106,9 @@ func (p vaultProvider) CleanupModel(m provider.Model) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	if s == nil || s.Data == nil {
+		return nil
+	}
 	keys, ok := s.Data["keys"].([]interface{})
 	if !ok {
 		return nil
