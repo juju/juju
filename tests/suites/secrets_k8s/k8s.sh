@@ -83,7 +83,10 @@ run_secrets() {
 	juju exec --unit hello/0 -- secret-remove "$secret_owned_by_hello"
 	check_contains "$(juju exec --unit hello/0 -- secret-get "$secret_owned_by_hello" 2>&1)" 'not found'
 
-	destroy_model "model-secrets-k8s"
+	# TODO: destroy model properly once we fix the k8s teardown issue.
+	# We destroy with --force for now.
+	juju --show-log destroy-model -y --debug --force --destroy-storage "model-secrets-k8s"
+	# destroy_model "model-secrets-k8s"
 }
 
 test_secrets() {
