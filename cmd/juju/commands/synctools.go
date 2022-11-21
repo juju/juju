@@ -6,6 +6,7 @@ package commands
 import (
 	"bytes"
 	"io"
+	"os"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
@@ -14,6 +15,7 @@ import (
 	"github.com/juju/version/v2"
 
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/constants"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/filestorage"
@@ -114,6 +116,11 @@ func (c *syncAgentBinaryCommand) Run(ctx *cmd.Context) (resultErr error) {
 	)
 	_ = loggo.RegisterWriter("syncagentbinaries", writer)
 	defer func() { _, _ = loggo.RemoveWriter("syncagentbinaries") }()
+
+	if envMetadataSrc := os.Getenv(constants.EnvJujuMetadataSource); c.source == "" && envMetadataSrc != "" {
+		c.source = envMetadataSrc
+		ctx.Infof("Using local simple stream source directory %q", c.source)
+	}
 
 	sctx := &sync.SyncContext{
 		ChosenVersion: c.targetVersion,

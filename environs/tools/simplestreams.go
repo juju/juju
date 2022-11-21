@@ -48,6 +48,14 @@ var currentStreamsVersion = StreamsVersionV1
 // This needs to be a var so we can override it for testing.
 var DefaultBaseURL = streamsAgentURL
 
+// toolsReleaseAltMapping is a simple table that can be used when generating
+// metadata for a tools tarball by finding alternative release names to create
+// metadata for.
+var toolsReleaseAltMapping = map[string][]string{
+	"linux":  {"ubuntu", "centos", "genericlinux"},
+	"darwin": {"osx"},
+}
+
 const (
 	// Used to specify the released tools metadata.
 	ReleasedStream = "released"
@@ -161,7 +169,6 @@ type SimplestreamsFetcher interface {
 // then unsigned data is used.
 func Fetch(ss SimplestreamsFetcher, sources []simplestreams.DataSource, cons *ToolsConstraint,
 ) ([]*ToolsMetadata, *simplestreams.ResolveInfo, error) {
-
 	params := simplestreams.GetMetadataParams{
 		StreamsVersion:   currentStreamsVersion,
 		LookupConstraint: cons,
@@ -253,17 +260,22 @@ type MetadataFile struct {
 // given tools list. The size and sha256 will not be computed if
 // missing.
 func MetadataFromTools(toolsList coretools.List, toolsDir string) []*ToolsMetadata {
-	metadata := make([]*ToolsMetadata, len(toolsList))
-	for i, t := range toolsList {
-		path := fmt.Sprintf("%s/juju-%s-%s-%s.tgz", toolsDir, t.Version.Number, t.Version.Release, t.Version.Arch)
-		metadata[i] = &ToolsMetadata{
-			Release:  t.Version.Release,
-			Version:  t.Version.Number.String(),
-			Arch:     t.Version.Arch,
-			Path:     path,
-			FileType: "tar.gz",
-			Size:     t.Size,
-			SHA256:   t.SHA256,
+	metadata := make([]*ToolsMetadata, 0, len(toolsList))
+	for _, t := range toolsList {
+		toolNamedRelease := t.Version.Release
+		allToolReleases := append(toolsReleaseAltMapping[toolNamedRelease], toolNamedRelease)
+
+		for _, release := range allToolReleases {
+			path := fmt.Sprintf("%s/juju-%s-%s-%s.tgz", toolsDir, t.Version.Number, toolNamedRelease, t.Version.Arch)
+			metadata = append(metadata, &ToolsMetadata{
+				Release:  release,
+				Version:  t.Version.Number.String(),
+				Arch:     t.Version.Arch,
+				Path:     path,
+				FileType: "tar.gz",
+				Size:     t.Size,
+				SHA256:   t.SHA256,
+			})
 		}
 	}
 	return metadata
@@ -282,7 +294,7 @@ func ResolveMetadata(stor storage.StorageReader, toolsDir string, metadata []*To
 			return errors.Annotate(err, "cannot resolve metadata")
 		}
 		logger.Infof("Fetching agent binaries from dir %q to generate hash: %v", toolsDir, binary)
-		size, sha256hash, err := fetchToolsHash(stor, toolsDir, binary)
+		size, sha256hash, err := fetchToolsHash(stor, md.Path)
 		if err != nil {
 			return err
 		}
@@ -509,8 +521,8 @@ func MergeAndWriteMetadata(ss SimplestreamsFetcher, store storage.Storage, tools
 
 // fetchToolsHash fetches the tools from storage and calculates
 // its size in bytes and computes a SHA256 hash of its contents.
-func fetchToolsHash(stor storage.StorageReader, stream string, ver version.Binary) (size int64, sha256hash hash.Hash, err error) {
-	r, err := storage.Get(stor, StorageName(ver, stream))
+func fetchToolsHash(stor storage.StorageReader, toolsPath string) (size int64, sha256hash hash.Hash, err error) {
+	r, err := storage.Get(stor, fmt.Sprintf("tools/%s", toolsPath))
 	if err != nil {
 		return 0, nil, err
 	}
