@@ -987,10 +987,10 @@ func (s *mockHookContextSuite) TestSecretGet(c *gc.C) {
 		c.Assert(request, gc.Equals, "GetSecretContentInfo")
 		c.Assert(arg, gc.DeepEquals, params.GetSecretContentArgs{
 			Args: []params.GetSecretContentArg{{
-				URI:    uri.String(),
-				Label:  "label",
-				Update: true,
-				Peek:   true,
+				URI:     uri.String(),
+				Label:   "label",
+				Refresh: true,
+				Peek:    true,
 			}},
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.SecretContentResults{})
@@ -1040,7 +1040,7 @@ func (s *mockHookContextSuite) TestSecretGetOwnedSecretFailedWithUpdate(c *gc.C)
 		}, nil, nil)
 
 	_, err := hookContext.GetSecret(nil, "label", true, false)
-	c.Assert(err, gc.ErrorMatches, `secret owner cannot use --update`)
+	c.Assert(err, gc.ErrorMatches, `secret owner cannot use --refresh`)
 }
 
 func (s *mockHookContextSuite) assertSecretGetOwnedSecretURILookup(
@@ -1070,9 +1070,9 @@ func (s *mockHookContextSuite) assertSecretGetOwnedSecretURILookup(
 		c.Assert(request, gc.Equals, "GetSecretContentInfo")
 		c.Assert(arg, gc.DeepEquals, params.GetSecretContentArgs{
 			Args: []params.GetSecretContentArg{{
-				URI:    uri.String(),
-				Update: false,
-				Peek:   false,
+				URI:     uri.String(),
+				Refresh: false,
+				Peek:    false,
 			}},
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.SecretContentResults{})

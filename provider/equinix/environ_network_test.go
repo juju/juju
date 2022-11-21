@@ -7,16 +7,17 @@ import (
 	"net/http"
 
 	"github.com/golang/mock/gomock"
+	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
+	"github.com/packethost/packngo"
+	gc "gopkg.in/check.v1"
+
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/context"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/equinix/mocks"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	"github.com/packethost/packngo"
-	gc "gopkg.in/check.v1"
 )
 
 type networkSuite struct {
