@@ -22,10 +22,12 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/names/v4"
 	"golang.org/x/crypto/nacl/secretbox"
 	"golang.org/x/crypto/ssh/terminal"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -36,6 +38,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/proxy/factory"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -62,7 +65,9 @@ type registerCommand struct {
 	apiOpen        api.OpenFunc
 	listModelsFunc func(_ jujuclient.ClientStore, controller, user string) ([]base.UserModel, error)
 	store          jujuclient.ClientStore
-	Arg            string
+
+	arg     string
+	replace bool
 
 	// onRunError is executed if non-nil if there is an error at the end
 	// of the Run method.
@@ -87,6 +92,11 @@ can now either add a model or wait for a model to be shared with them.
 Some machine providers will require the user to be in possession of
 certain credentials in order to add a model.
 
+If a new controller has been spun up to replace an existing one, and you want 
+to start using that replacement controller instead of the original one,
+use the --replace option to overwrite any existing controller details based
+on either a name or UUID match.
+
 When adding a controller at a public address, authentication via some
 external third party (for example Ubuntu SSO) will be required, usually
 by using a web browser.
@@ -94,6 +104,8 @@ by using a web browser.
 Examples:
 
     juju register MFATA3JvZDAnExMxMDQuMTU0LjQyLjQ0OjE3MDcwExAxMC4xMjguMC4yOjE3MDcwBCBEFCaXerhNImkKKabuX5ULWf2Bp4AzPNJEbXVWgraLrAA=
+
+    juju register --replace MFATA3JvZDAnExMxMDQuMTU0LjQyLjQ0OjE3MDcwExAxMC4xMjguMC4yOjE3MDcwBCBEFCaXerhNImkKKabuX5ULWf2Bp4AzPNJEbXVWgraLrAA=
 
     juju register public-controller.example.com
 
@@ -114,12 +126,18 @@ func (c *registerCommand) Info() *cmd.Info {
 	})
 }
 
-// SetFlags implements Command.Init.
+// SetFlags implements Command.SetFlags.
+func (c *registerCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.CommandBase.SetFlags(f)
+	f.BoolVar(&c.replace, "replace", false, "replace any existing controller")
+}
+
+// Init implements Command.Init.
 func (c *registerCommand) Init(args []string) error {
 	if len(args) < 1 {
 		return errors.New("registration data missing")
 	}
-	c.Arg, args = args[0], args[1:]
+	c.arg, args = args[0], args[1:]
 	if err := cmd.CheckEmpty(args); err != nil {
 		return errors.Trace(err)
 	}
@@ -164,7 +182,6 @@ func (c *registerCommand) run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	if err := c.updateController(
-		ctx,
 		c.store,
 		controllerName,
 		controllerDetails,
@@ -260,6 +277,18 @@ func (c *registerCommand) publicControllerDetails(host, controllerName string) (
 		}, nil
 }
 
+func getProxier(proxyConfig params.Proxy) (*jujuclient.ProxyConfWrapper, error) {
+	f, err := factory.NewDefaultFactory()
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot create default proxy factory")
+	}
+	proxier, err := f.ProxierFromConfig(proxyConfig.Type, proxyConfig.Config)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &jujuclient.ProxyConfWrapper{Proxier: proxier}, nil
+}
+
 // nonPublicControllerDetails returns controller and account details to be registered with
 // respect to the given registration parameters.
 func (c *registerCommand) nonPublicControllerDetails(ctx *cmd.Context, registrationParams *registrationParams, controllerName string) (jujuclient.ControllerDetails, jujuclient.AccountDetails, error) {
@@ -269,10 +298,22 @@ func (c *registerCommand) nonPublicControllerDetails(ctx *cmd.Context, registrat
 	// During registration we must set a new password. This has to be done
 	// atomically with the clearing of the secret key.
 	payloadBytes, err := json.Marshal(params.SecretKeyLoginRequestPayload{
-		registrationParams.newPassword,
+		Password: registrationParams.newPassword,
 	})
 	if err != nil {
 		return errRet(errors.Trace(err))
+	}
+
+	controllerDetails := jujuclient.ControllerDetails{
+		APIEndpoints: registrationParams.controllerAddrs,
+	}
+
+	if registrationParams.proxyConfig != "" {
+		var proxy jujuclient.ProxyConfWrapper
+		if err := yaml.Unmarshal([]byte(registrationParams.proxyConfig), &proxy); err != nil {
+			return errRet(errors.Trace(err))
+		}
+		controllerDetails.Proxy = &proxy
 	}
 
 	// Make the registration call. If this is successful, the client's
@@ -288,7 +329,7 @@ func (c *registerCommand) nonPublicControllerDetails(ctx *cmd.Context, registrat
 			&registrationParams.key,
 		),
 	}
-	resp, err := c.secretKeyLogin(registrationParams.controllerAddrs, req, controllerName)
+	resp, err := c.secretKeyLogin(controllerDetails, req, controllerName)
 	if err != nil {
 		// If we got here and got an error, the registration token supplied
 		// will be expired.
@@ -314,6 +355,15 @@ func (c *registerCommand) nonPublicControllerDetails(ctx *cmd.Context, registrat
 	if err := json.Unmarshal(payloadBytes, &responsePayload); err != nil {
 		return errRet(errors.Annotate(err, "unmarshalling response payload"))
 	}
+	controllerDetails.ControllerUUID = responsePayload.ControllerUUID
+	controllerDetails.CACert = responsePayload.CACert
+
+	if responsePayload.ProxyConfig != nil {
+		if controllerDetails.Proxy, err = getProxier(*responsePayload.ProxyConfig); err != nil {
+			return errRet(errors.Annotate(err, "creating proxier from config"))
+		}
+	}
+
 	user := registrationParams.userTag.Id()
 	ctx.Infof("Initial password successfully set for %s.", friendlyUserName(user))
 	// If we get to here, then we have a cached macaroon for the registered
@@ -323,20 +373,15 @@ func (c *registerCommand) nonPublicControllerDetails(ctx *cmd.Context, registrat
 			logger.Errorf("failed to clear macaroon: %v", err)
 		}
 	}
-	return jujuclient.ControllerDetails{
-			APIEndpoints:   registrationParams.controllerAddrs,
-			ControllerUUID: responsePayload.ControllerUUID,
-			CACert:         responsePayload.CACert,
-		}, jujuclient.AccountDetails{
-			User:            user,
-			LastKnownAccess: string(permission.LoginAccess),
-		}, nil
+	return controllerDetails, jujuclient.AccountDetails{
+		User:            user,
+		LastKnownAccess: string(permission.LoginAccess),
+	}, nil
 }
 
 // updateController prompts for a controller name and updates the
 // controller and account details in the given client store.
 func (c *registerCommand) updateController(
-	ctx *cmd.Context,
 	store jujuclient.ClientStore,
 	controllerName string,
 	controllerDetails jujuclient.ControllerDetails,
@@ -350,11 +395,25 @@ func (c *registerCommand) updateController(
 	}
 	for name, ctl := range all {
 		if ctl.ControllerUUID == controllerDetails.ControllerUUID {
-			return genAlreadyRegisteredError(name, accountDetails.User)
+			if !c.replace || controllerName != name {
+				return genAlreadyRegisteredError(name, accountDetails.User)
+			}
+			break
 		}
 	}
-	if err := store.AddController(controllerName, controllerDetails); err != nil {
-		return errors.Trace(err)
+	if c.replace {
+		if err := store.UpdateController(controllerName, controllerDetails); err != nil {
+			if !errors.IsNotFound(err) {
+				return errors.Trace(err)
+			}
+			if err := store.AddController(controllerName, controllerDetails); err != nil {
+				return errors.Trace(err)
+			}
+		}
+	} else {
+		if err := store.AddController(controllerName, controllerDetails); err != nil {
+			return errors.Trace(err)
+		}
 	}
 	if err := store.UpdateAccount(controllerName, accountDetails); err != nil {
 		return errors.Annotatef(err, "cannot update account information: %v", err)
@@ -428,25 +487,26 @@ type registrationParams struct {
 	key                   [32]byte
 	nonce                 [24]byte
 	newPassword           string
+	proxyConfig           string
 }
 
 // getParameters gets all of the parameters required for registering, prompting
 // the user as necessary.
 func (c *registerCommand) getParameters(ctx *cmd.Context) (*registrationParams, error) {
 	var params registrationParams
-	if strings.Contains(c.Arg, ".") || c.Arg == "localhost" {
+	if strings.Contains(c.arg, ".") || c.arg == "localhost" {
 		// Looks like a host name - no URL-encoded base64 string should
 		// contain a dot and every public controller name should.
 		// Allow localhost for development purposes.
-		params.publicHost = c.Arg
+		params.publicHost = c.arg
 		// No need for password shenanigans if we're using a public controller.
 		return &params, nil
 	}
 	// Decode key, username, controller addresses from the string supplied
 	// on the command line.
-	decodedData, err := base64.URLEncoding.DecodeString(c.Arg)
+	decodedData, err := base64.URLEncoding.DecodeString(c.arg)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err, "invalid registration token")
 	}
 	var info jujuclient.RegistrationInfo
 	if _, err := asn1.Unmarshal(decodedData, &info); err != nil {
@@ -454,6 +514,7 @@ func (c *registerCommand) getParameters(ctx *cmd.Context) (*registrationParams, 
 	}
 
 	params.controllerAddrs = info.Addrs
+	params.proxyConfig = info.ProxyConfig
 	params.userTag = names.NewUserTag(info.User)
 	if len(info.SecretKey) != len(params.key) {
 		return nil, errors.NotValidf("secret key")
@@ -476,7 +537,9 @@ func (c *registerCommand) getParameters(ctx *cmd.Context) (*registrationParams, 
 	return &params, nil
 }
 
-func (c *registerCommand) secretKeyLogin(addrs []string, request params.SecretKeyLoginRequest, controllerName string) (*params.SecretKeyLoginResponse, error) {
+func (c *registerCommand) secretKeyLogin(
+	controllerDetails jujuclient.ControllerDetails, request params.SecretKeyLoginRequest, controllerName string,
+) (_ *params.SecretKeyLoginResponse, err error) {
 	cookieJar, err := c.CookieJar(c.store, controllerName)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting API context")
@@ -495,17 +558,27 @@ func (c *registerCommand) secretKeyLogin(addrs []string, request params.SecretKe
 	// we can verify the server's identity.
 	opts := api.DefaultDialOpts()
 	opts.InsecureSkipVerify = true
-	conn, err := c.apiOpen(&api.Info{
-		Addrs:     addrs,
+	apiInfo := &api.Info{
+		Addrs:     controllerDetails.APIEndpoints,
 		SkipLogin: true,
-	}, opts)
+	}
+	if controllerDetails.Proxy != nil {
+		apiInfo.Proxier = controllerDetails.Proxy.Proxier
+	}
+	conn, err := c.apiOpen(apiInfo, opts)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	apiAddr := conn.Addr()
-	if err := conn.Close(); err != nil {
-		return nil, errors.Trace(err)
-	}
+	defer func() {
+		if closeErr := conn.Close(); closeErr != nil {
+			if err == nil {
+				err = closeErr
+			} else {
+				logger.Warningf("error closing API connection: %v", closeErr)
+			}
+		}
+	}()
 
 	// Using the address we connected to above, perform the request.
 	// A success response will include a macaroon cookie that we can
@@ -563,7 +636,7 @@ func (c *registerCommand) promptNewPassword(stderr io.Writer, stdin io.Reader) (
 
 func (c *registerCommand) promptControllerName(suggestedName string, stderr io.Writer, stdin io.Reader) (string, error) {
 	if suggestedName != "" {
-		if _, err := c.store.ControllerByName(suggestedName); err == nil {
+		if _, err := c.store.ControllerByName(suggestedName); err == nil && !c.replace {
 			suggestedName = ""
 		}
 	}
@@ -571,7 +644,11 @@ func (c *registerCommand) promptControllerName(suggestedName string, stderr io.W
 		var setMsg string
 		setMsg = "Enter a name for this controller: "
 		if suggestedName != "" {
-			setMsg = fmt.Sprintf("Enter a name for this controller [%s]: ", suggestedName)
+			replace := ""
+			if c.replace {
+				replace = "replace "
+			}
+			setMsg = fmt.Sprintf("Enter a name for this controller [%s%s]: ", replace, suggestedName)
 		}
 		fmt.Fprintf(stderr, setMsg)
 		name, err := c.readLine(stdin)
@@ -587,7 +664,7 @@ func (c *registerCommand) promptControllerName(suggestedName string, stderr io.W
 			name = suggestedName
 		}
 		_, err = c.store.ControllerByName(name)
-		if err == nil {
+		if err == nil && !c.replace {
 			fmt.Fprintf(stderr, "Controller %q already exists.\n", name)
 			continue
 		}

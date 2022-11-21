@@ -18424,7 +18424,7 @@
                             "$ref": "#/definitions/Error"
                         },
                         "proxy-connection": {
-                            "$ref": "#/definitions/DashboardConnectionProxy"
+                            "$ref": "#/definitions/Proxy"
                         },
                         "ssh-connection": {
                             "$ref": "#/definitions/DashboardConnectionSSHTunnel"
@@ -18436,32 +18436,16 @@
                         "ssh-connection"
                     ]
                 },
-                "DashboardConnectionProxy": {
-                    "type": "object",
-                    "properties": {
-                        "config": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        },
-                        "type": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "config",
-                        "type"
-                    ]
-                },
                 "DashboardConnectionSSHTunnel": {
                     "type": "object",
                     "properties": {
+                        "entity": {
+                            "type": "string"
+                        },
                         "host": {
+                            "type": "string"
+                        },
+                        "model": {
                             "type": "string"
                         },
                         "port": {
@@ -19054,6 +19038,28 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "Proxy": {
+                    "type": "object",
+                    "properties": {
+                        "config": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "config",
+                        "type"
                     ]
                 },
                 "RemoveBlocksArgs": {
@@ -38979,7 +38985,7 @@
                         "peek": {
                             "type": "boolean"
                         },
-                        "update": {
+                        "refresh": {
                             "type": "boolean"
                         },
                         "uri": {
@@ -46077,7 +46083,7 @@
                         "peek": {
                             "type": "boolean"
                         },
-                        "update": {
+                        "refresh": {
                             "type": "boolean"
                         },
                         "uri": {

@@ -103,7 +103,9 @@ func (c *BootstrapCommand) deployControllerCharm(st *state.State, cons constrain
 	origin.Platform.Channel = base.Channel.String()
 
 	// Once the charm is added, set up the controller application.
-	if controllerUnit, err = addControllerApplication(st, curl, *origin, controllerAddress); err != nil {
+	controllerUnit, err = addControllerApplication(
+		st, curl, *origin, cons, controllerAddress)
+	if err != nil {
 		return errors.Annotate(err, "cannot add controller application")
 	}
 
@@ -289,7 +291,13 @@ func addLocalControllerCharm(st *state.State, base coreseries.Base, charmFileNam
 }
 
 // addControllerApplication deploys and configures the controller application.
-func addControllerApplication(st *state.State, curl *charm.URL, origin corecharm.Origin, address string) (*state.Unit, error) {
+func addControllerApplication(
+	st *state.State,
+	curl *charm.URL,
+	origin corecharm.Origin,
+	cons constraints.Value,
+	address string,
+) (*state.Unit, error) {
 	ch, err := st.Charm(curl)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -326,12 +334,13 @@ func addControllerApplication(st *state.State, curl *charm.URL, origin corecharm
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Criticalf("ADD APP WITH PLATFORM: %+v", *stateOrigin.Platform)
+
 	app, err := st.AddApplication(state.AddApplicationArgs{
 		Name:              bootstrap.ControllerApplicationName,
 		Charm:             ch,
 		CharmOrigin:       stateOrigin,
 		CharmConfig:       cfg,
+		Constraints:       cons,
 		ApplicationConfig: appCfg,
 		NumUnits:          1,
 	})

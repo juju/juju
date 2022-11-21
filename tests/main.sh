@@ -64,6 +64,8 @@ TEST_NAMES="agents \
             refresh \
             relations \
             resources \
+            secrets_iaas \
+            secrets_k8s \
             sidecar \
             smoke \
             spaces_ec2 \

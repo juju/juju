@@ -18,8 +18,8 @@ type ContextSecrets struct {
 }
 
 // GetSecret implements jujuc.ContextSecrets.
-func (c *ContextSecrets) GetSecret(uri *secrets.URI, label string, update, peek bool) (secrets.SecretValue, error) {
-	c.stub.AddCall("GetSecret", uri.String(), label, update, peek)
+func (c *ContextSecrets) GetSecret(uri *secrets.URI, label string, refresh, peek bool) (secrets.SecretValue, error) {
+	c.stub.AddCall("GetSecret", uri.String(), label, refresh, peek)
 	return c.SecretValue, nil
 }
 

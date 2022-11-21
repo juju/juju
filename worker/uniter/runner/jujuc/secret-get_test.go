@@ -28,23 +28,11 @@ func (s *SecretGetSuite) TestSecretGetInit(c *gc.C) {
 		args []string
 		err  string
 	}{{
-		args: []string{"secret:9m4e2mr0ui3e8a215n4g", "--peek", "--update"},
-		err:  "ERROR specify one of --peek or --update but not both",
-	}, {
-		args: []string{"--metadata"},
-		err:  "ERROR require either a secret URI or label",
+		args: []string{"secret:9m4e2mr0ui3e8a215n4g", "--peek", "--refresh"},
+		err:  "ERROR specify one of --peek or --refresh but not both",
 	}, {
 		args: []string{},
 		err:  "ERROR require either a secret URI or label",
-	}, {
-		args: []string{"secret:9m4e2mr0ui3e8a215n4g", "--label", "foo", "--metadata"},
-		err:  "ERROR specify either a secret URI or label but not both",
-	}, {
-		args: []string{"secret:9m4e2mr0ui3e8a215n4g", "--metadata", "--update"},
-		err:  "ERROR --peek and --update are not valid when fetching metadata",
-	}, {
-		args: []string{"secret:9m4e2mr0ui3e8a215n4g", "--metadata", "--peek"},
-		err:  "ERROR --peek and --update are not valid when fetching metadata",
 	}} {
 		hctx, _ := s.ContextSuite.NewHookContext()
 		com, err := jujuc.NewCommand(hctx, "secret-get")
@@ -115,7 +103,7 @@ func (s *SecretGetSuite) TestSecretGetPeekViaLabel(c *gc.C) {
 
 func (s *SecretGetSuite) TestSecretGetUpdateWithURI(c *gc.C) {
 	s.assertSecretGet(c, func() ([]string, testing.StubCall) {
-		return []string{"secret:9m4e2mr0ui3e8a215n4g", "--update"},
+		return []string{"secret:9m4e2mr0ui3e8a215n4g", "--refresh"},
 			testing.StubCall{
 				FuncName: "GetSecret",
 				Args:     []interface{}{"secret:9m4e2mr0ui3e8a215n4g", "", true, false},
@@ -125,7 +113,7 @@ func (s *SecretGetSuite) TestSecretGetUpdateWithURI(c *gc.C) {
 
 func (s *SecretGetSuite) TestSecretGetUpdateWithLabel(c *gc.C) {
 	s.assertSecretGet(c, func() ([]string, testing.StubCall) {
-		return []string{"--label", "label", "--update"},
+		return []string{"--label", "label", "--refresh"},
 			testing.StubCall{
 				FuncName: "GetSecret",
 				Args:     []interface{}{"", "label", true, false},
@@ -135,7 +123,7 @@ func (s *SecretGetSuite) TestSecretGetUpdateWithLabel(c *gc.C) {
 
 func (s *SecretGetSuite) TestSecretGetUpdateWithBothURIAndLabel(c *gc.C) {
 	s.assertSecretGet(c, func() ([]string, testing.StubCall) {
-		return []string{"secret:9m4e2mr0ui3e8a215n4g", "--label", "label", "--update"},
+		return []string{"secret:9m4e2mr0ui3e8a215n4g", "--label", "label", "--refresh"},
 			testing.StubCall{
 				FuncName: "GetSecret",
 				Args:     []interface{}{"secret:9m4e2mr0ui3e8a215n4g", "label", true, false},
@@ -225,70 +213,4 @@ func (s *SecretGetSuite) TestSecretGetKeyBase64(c *gc.C) {
 	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "GetSecret", Args: []interface{}{"secret:9m4e2mr0ui3e8a215n4g", "", false, false}}})
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, "Y2VydA==\n")
-}
-
-func (s *SecretGetSuite) TestSecretGetMetadata(c *gc.C) {
-	hctx, _ := s.ContextSuite.NewHookContext()
-
-	com, err := jujuc.NewCommand(hctx, "secret-get")
-	c.Assert(err, jc.ErrorIsNil)
-	ctx := cmdtesting.Context(c)
-	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"secret:9m4e2mr0ui3e8a215n4g", "--metadata"})
-	c.Assert(code, gc.Equals, 0)
-
-	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, `
-9m4e2mr0ui3e8a215n4g:
-  revision: 666
-  label: label
-  owner: application
-  description: description
-  rotation: hourly
-`[1:])
-}
-
-func (s *SecretGetSuite) TestSecretGetMetadataFailedNotFound(c *gc.C) {
-	hctx, _ := s.ContextSuite.NewHookContext()
-
-	com, err := jujuc.NewCommand(hctx, "secret-get")
-	c.Assert(err, jc.ErrorIsNil)
-	ctx := cmdtesting.Context(c)
-	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"secret:cd88u16ffbaql5kgmlh0", "--metadata"})
-	c.Assert(code, gc.Equals, 1)
-
-	c.Assert(bufferString(ctx.Stderr), gc.Matches, `ERROR secret "cd88u16ffbaql5kgmlh0" not found\n`)
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, ``)
-}
-
-func (s *SecretGetSuite) TestSecretGetMetadataByLabelFailedNotFound(c *gc.C) {
-	hctx, _ := s.ContextSuite.NewHookContext()
-
-	com, err := jujuc.NewCommand(hctx, "secret-get")
-	c.Assert(err, jc.ErrorIsNil)
-	ctx := cmdtesting.Context(c)
-	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--metadata", "--label", "not-found-label"})
-	c.Assert(code, gc.Equals, 1)
-
-	c.Assert(bufferString(ctx.Stderr), gc.Matches, `ERROR secret "not-found-label" not found\n`)
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, ``)
-}
-
-func (s *SecretGetSuite) TestSecretGetMetadataByLabel(c *gc.C) {
-	hctx, _ := s.ContextSuite.NewHookContext()
-
-	com, err := jujuc.NewCommand(hctx, "secret-get")
-	c.Assert(err, jc.ErrorIsNil)
-	ctx := cmdtesting.Context(c)
-	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--metadata", "--label", "label"})
-	c.Assert(code, gc.Equals, 0)
-
-	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, `
-9m4e2mr0ui3e8a215n4g:
-  revision: 666
-  label: label
-  owner: application
-  description: description
-  rotation: hourly
-`[1:])
 }

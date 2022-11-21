@@ -711,7 +711,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentConsumerUpdateArg(c *gc.C) {
 
 	results, err := s.facade.GetSecretContentInfo(params.GetSecretContentArgs{
 		Args: []params.GetSecretContentArg{
-			{URI: uri.String(), Label: "label", Update: true},
+			{URI: uri.String(), Label: "label", Refresh: true},
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)

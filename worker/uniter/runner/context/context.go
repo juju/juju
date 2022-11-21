@@ -791,7 +791,7 @@ func (ctx *HookContext) lookupOwnedSecretURIByLabel(label string) (*coresecrets.
 }
 
 // GetSecret returns the value of the specified secret.
-func (ctx *HookContext) GetSecret(uri *coresecrets.URI, label string, update, peek bool) (coresecrets.SecretValue, error) {
+func (ctx *HookContext) GetSecret(uri *coresecrets.URI, label string, refresh, peek bool) (coresecrets.SecretValue, error) {
 	if uri == nil && label == "" {
 		return nil, errors.NotValidf("empty URI and label")
 	}
@@ -805,8 +805,8 @@ func (ctx *HookContext) GetSecret(uri *coresecrets.URI, label string, update, pe
 			if uri != nil {
 				return nil, errors.NewNotValid(nil, "either URI or label should be used for getting an owned secret but not both")
 			}
-			if update {
-				return nil, errors.NewNotValid(nil, "secret owner cannot use --update")
+			if refresh {
+				return nil, errors.NewNotValid(nil, "secret owner cannot use --refresh")
 			}
 			// Found owned secret, no need label anymore.
 			uri = ownedSecretURI
@@ -818,7 +818,7 @@ func (ctx *HookContext) GetSecret(uri *coresecrets.URI, label string, update, pe
 	if err != nil {
 		return nil, err
 	}
-	v, err := store.GetContent(uri, label, update, peek)
+	v, err := store.GetContent(uri, label, refresh, peek)
 	if err != nil {
 		return nil, err
 	}

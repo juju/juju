@@ -104,7 +104,7 @@ EOF
 
 	echo "${CLOUD}" >"${TEST_DIR}/cloud_name.yaml"
 
-	juju add-cloud --client "${cloud_name}" "${TEST_DIR}/cloud_name.yaml" >"${TEST_DIR}/add-cloud.log" 2>&1
+	juju add-cloud --client "${cloud_name}" "${TEST_DIR}/cloud_name.yaml" 2>&1 | tee "${TEST_DIR}/add-cloud.log"
 
 	file="${TEST_DIR}/test-${name}.log"
 
@@ -115,9 +115,9 @@ EOF
 	# Each machine is in a different subnet,
 	# which will be discovered when the agent starts.
 	echo "==> Adding Machines"
-	juju add-machine ssh:ubuntu@"${addr_m1}" >"${TEST_DIR}/add-machine-1.log" 2>&1
-	juju add-machine ssh:ubuntu@"${addr_m2}" >"${TEST_DIR}/add-machine-2.log" 2>&1
-	juju add-machine ssh:ubuntu@"${addr_m3}" >"${TEST_DIR}/add-machine-3.log" 2>&1
+	juju add-machine ssh:ubuntu@"${addr_m1}" 2>&1 | tee "${TEST_DIR}/add-machine-1.log"
+	juju add-machine ssh:ubuntu@"${addr_m2}" 2>&1 | tee "${TEST_DIR}/add-machine-2.log"
+	juju add-machine ssh:ubuntu@"${addr_m3}" 2>&1 | tee "${TEST_DIR}/add-machine-3.log"
 
 	wait_for_machine_agent_status "0" "started"
 	wait_for_machine_agent_status "1" "started"
