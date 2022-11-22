@@ -391,7 +391,7 @@ func parseAPIVersion(s string) (version.Number, error) {
 }
 
 // minLXDVersion defines the min version of LXD we support.
-var minLXDVersion = version.Number{Major: 5, Minor: 2}
+var minLXDVersion = version.Number{Major: 5, Minor: 0}
 
 // ValidateAPIVersion validates the LXD version.
 func ValidateAPIVersion(version string) error {

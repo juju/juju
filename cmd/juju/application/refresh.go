@@ -410,6 +410,9 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	if err == nil {
 		curl := charmID.URL
 		charmOrigin := charmID.Origin
+		if charmOrigin.Source == corecharm.CharmStore {
+			ctx.Warningf("Charm store charms, those with cs: before the charm name, will not be supported in juju 3.1.\n\tMigration of this model to a juju 3.1 controller will be prohibited.\n\tUse the --switch flag to refresh to a non charm store version of the charm.")
+		}
 		// The current charm URL that's been found and selected.
 		channel := ""
 		if charmOrigin.Source == corecharm.CharmHub || charmOrigin.Source == corecharm.CharmStore {

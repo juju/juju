@@ -9,8 +9,10 @@ import (
 	"os"
 	"strings"
 
+	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/webbrowser"
 	gc "gopkg.in/check.v1"
@@ -29,6 +31,7 @@ type baseDashboardSuite struct {
 	tunnelProxier *proxytesting.MockTunnelProxier
 	store         *jujuclient.MemStore
 	signalCh      chan os.Signal
+	sshCmd        cmd.Command
 }
 
 type mockControllerAPI struct {
@@ -46,7 +49,7 @@ func (m *mockControllerAPI) Close() error {
 
 // run executes the dashboard command passing the given args.
 func (s *baseDashboardSuite) run(c *gc.C, args ...string) (string, error) {
-	ctx, err := cmdtesting.RunCommand(c, dashboard.NewDashboardCommandForTest(s.store, s.controllerAPI, s.signalCh), args...)
+	ctx, err := cmdtesting.RunCommand(c, dashboard.NewDashboardCommandForTest(s.store, s.controllerAPI, s.signalCh, s.sshCmd), args...)
 	return strings.Trim(cmdtesting.Stderr(ctx), "\n"), err
 }
 
@@ -159,7 +162,7 @@ func (s *dashboardSuite) TestDashboardErrorUnavailable(c *gc.C) {
 	_, err := s.run(c, "--browser")
 	c.Assert(err, gc.ErrorMatches, `
 The Juju dashboard is not yet deployed.
-To deploy the Juju dashboard follow these steps:
+To deploy the Juju dashboard, follow these steps:
   juju switch controller
   juju deploy juju-dashboard
   juju expose juju-dashboard
@@ -172,4 +175,77 @@ func (s *dashboardSuite) TestDashboardError(c *gc.C) {
 	out, err := s.run(c, "--browser")
 	c.Assert(err, gc.ErrorMatches, `getting dashboard address for controller "kontroll": bad wolf`)
 	c.Assert(out, gc.Equals, "")
+}
+
+func (s *dashboardSuite) TestResolveSSHTarget(c *gc.C) {
+	s.testResolveSSHTarget(c,
+		&controller.DashboardConnectionSSHTunnel{
+			Model:  "c:controller",
+			Entity: "dashboard/leader",
+			Host:   "10.35.42.151",
+			Port:   "8080",
+		},
+		"c:controller",
+		[]string{"dashboard/leader", "-N", "-L", "31666:10.35.42.151:8080"})
+}
+
+func (s *dashboardSuite) TestResolveSSHTargetLegacy(c *gc.C) {
+	s.testResolveSSHTarget(c,
+		&controller.DashboardConnectionSSHTunnel{
+			Host: "10.35.42.151",
+			Port: "8080",
+		},
+		"",
+		[]string{"ubuntu@10.35.42.151", "-N", "-L", "31666:10.35.42.151:8080"})
+}
+
+func (s *dashboardSuite) testResolveSSHTarget(
+	c *gc.C, sshTunnel *controller.DashboardConnectionSSHTunnel, model string, args []string) {
+
+	s.controllerAPI = &mockControllerAPI{
+		info: controller.DashboardConnectionInfo{
+			SSHTunnel: sshTunnel,
+		},
+	}
+	fakeSSHCmd := newFakeSSHCmd()
+	s.sshCmd = fakeSSHCmd
+
+	_, err := s.run(c)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(fakeSSHCmd.model, gc.Equals, model)
+	c.Check(fakeSSHCmd.args, gc.DeepEquals, args)
+}
+
+func newFakeSSHCmd() *fakeSSHCmd {
+	return &fakeSSHCmd{}
+}
+
+type fakeSSHCmd struct {
+	model string
+	args  []string
+}
+
+func (c *fakeSSHCmd) IsSuperCommand() bool {
+	panic("method shouldn't be called")
+}
+
+func (c *fakeSSHCmd) Info() *cmd.Info {
+	panic("method shouldn't be called")
+}
+
+func (c *fakeSSHCmd) SetFlags(f *gnuflag.FlagSet) {
+	f.StringVar(&c.model, "m", "", "")
+}
+
+func (c *fakeSSHCmd) Init(args []string) error {
+	c.args = args
+	return nil
+}
+
+func (c *fakeSSHCmd) Run(ctx *cmd.Context) error {
+	return nil
+}
+
+func (c *fakeSSHCmd) AllowInterspersedFlags() bool {
+	panic("method shouldn't be called")
 }

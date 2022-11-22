@@ -1,3 +1,4 @@
+# Ensure that related applications can exchange data via databag correctly.
 run_relation_data_exchange() {
 	echo
 
@@ -6,96 +7,65 @@ run_relation_data_exchange() {
 
 	ensure "${model_name}" "${file}"
 
-	# Deploy 2 wordpress instances and one mysql instance
-	juju deploy wordpress -n 2 --force --series jammy
-	wait_for "wordpress" "$(idle_condition "wordpress" 0 0)"
-	wait_for "wordpress" "$(idle_condition "wordpress" 0 1)"
-	# mysql charm does not have stable channel, so we use edge channel
-	juju deploy mysql --channel=edge --force --series jammy
-	wait_for "mysql" "$(idle_condition "mysql")"
+	echo "Deploy 2 dummy-sink instances and one dummy-source instance"
+	juju deploy ./testcharms/charms/dummy-sink -n 2
+	juju deploy ./testcharms/charms/dummy-source
 
-	# Establish relation
-	juju relate wordpress mysql
+	echo "Establish relation"
+	juju relate dummy-sink dummy-source
+	juju config dummy-source token=becomegreen
 
-	# Block until the relation is joined; otherwise, the relation-set commands
-	# below will fail
+	wait_for "dummy-sink" "$(idle_condition "dummy-sink" 0 0)"
+	wait_for "dummy-sink" "$(idle_condition "dummy-sink" 0 1)"
+	wait_for "dummy-source" "$(idle_condition "dummy-source" 1 0)"
+
+	echo "Get the leader unit name"
+	non_leader_dummy_sink_unit=$(juju status dummy-sink --format json | jq -r '.applications."dummy-sink".units | to_entries[] | select(.value.leader!=true) | .key')
+	dummy_sink_relation_id=$(juju exec --unit "dummy-sink/leader" 'relation-ids source')
+	dummy_source_relation_id=$(juju exec --unit "dummy-source/leader" 'relation-ids sink')
+	# stop there
+	echo "Block until the relation is joined; otherwise, the relation-set commands below will fail"
 	attempt=0
 	while true; do
-		got=$(juju exec --unit 'wordpress/0' 'relation-get --app -r db:2 origin wordpress' || echo 'NOT FOUND')
+		got=$(juju exec --unit "dummy-sink/leader" "relation-get --app -r ${dummy_sink_relation_id} origin dummy-sink" || echo 'NOT FOUND')
 		if [ "${got}" != "NOT FOUND" ]; then
 			break
 		fi
 		attempt=$((attempt + 1))
 		if [ $attempt -eq 30 ]; then
 			# shellcheck disable=SC2046
-			echo $(red "timeout: wordpress has not yet joined db relation after 30sec")
+			echo $(red "timeout: dummy-sink has not yet joined sink relation after 30sec")
 			exit 1
 		fi
 		sleep 1
 	done
 	attempt=0
 	while true; do
-		got=$(juju exec --unit 'mysql/0' 'relation-get --app -r db:2 origin mysql' || echo 'NOT FOUND')
+		got=$(juju exec --unit 'dummy-source/0' "relation-get --app -r ${dummy_sink_relation_id} origin dummy-source" || echo 'NOT FOUND')
 		if [ "${got}" != "NOT FOUND" ]; then
 			break
 		fi
 		attempt=$((attempt + 1))
 		if [ $attempt -eq 30 ]; then
 			# shellcheck disable=SC2046
-			echo $(red "timeout: mysql has not yet joined db relation after 30sec")
+			echo $(red "timeout: dummy-source has not yet joined sink relation after 30sec")
 			exit 1
 		fi
 		sleep 1
 	done
 
-	juju exec --unit 'mysql/0' 'relation-set --app -r db:2 origin=mysql'
+	echo "Exchange relation data"
+	juju exec --unit 'dummy-source/0' "relation-set --app -r ${dummy_source_relation_id} origin=dummy-source"
+	# As the leader units, set some *application* data for both sides of a non-peer relation
+	juju exec --unit "dummy-sink/leader" "relation-set --app -r ${dummy_sink_relation_id} origin=dummy-sink"
+	juju exec --unit 'dummy-source/0' "relation-set --app -r ${dummy_source_relation_id} origin=dummy-source"
 
-	# As the leader units, set some *application* data for both sides of a
-	# non-peer relation
-	juju exec --unit 'wordpress/0' 'relation-set --app -r db:2 origin=wordpress'
-	juju exec --unit 'mysql/0' 'relation-set --app -r db:2 origin=mysql'
+	echo "Check 1: ensure that leaders can read the application databag for their own application"
+	juju exec --unit "dummy-sink/leader" "relation-get --app -r ${dummy_sink_relation_id} origin dummy-sink" | check "dummy-sink"
+	juju exec --unit 'dummy-source/0' "relation-get --app -r ${dummy_source_relation_id} origin dummy-source" | check "dummy-source"
 
-	# As the leader wordpress unit, also set *application* data for a peer relation
-	juju exec --unit 'wordpress/0' 'relation-set --app -r loadbalancer:0 visible=to-peers'
-
-	# Check 1: ensure that leaders can read the application databag for their
-	# own application (LP1854348)
-	got=$(juju exec --unit 'wordpress/0' 'relation-get --app -r db:2 origin wordpress')
-	if [ "${got}" != "wordpress" ]; then
-		# shellcheck disable=SC2046
-		echo $(red "expected wordpress leader to read its own databag for non-peer relation")
-		exit 1
-	fi
-	got=$(juju exec --unit 'mysql/0' 'relation-get --app -r db:2 origin mysql')
-	if [ "${got}" != "mysql" ]; then
-		# shellcheck disable=SC2046
-		echo $(red "expected mysql leader to read its own databag for non-peer relation")
-		exit 1
-	fi
-
-	# Check 2: ensure that any unit can read its own application databag for
-	# *peer* relations LP1865229)
-	got=$(juju exec --unit 'wordpress/0' 'relation-get --app -r loadbalancer:0 visible wordpress')
-	if [ "${got}" != "to-peers" ]; then
-		# shellcheck disable=SC2046
-		echo $(red "expected wordpress leader to read its own databag for a peer relation")
-		exit 1
-	fi
-	got=$(juju exec --unit 'wordpress/1' 'relation-get --app -r loadbalancer:0 visible wordpress')
-	if [ "${got}" != "to-peers" ]; then
-		# shellcheck disable=SC2046
-		echo $(red "expected wordpress non-leader to read its own databag for a peer relation")
-		exit 1
-	fi
-
-	# Check 3: ensure that non-leader units are not allowed to read their own
-	# application databag for non-peer relations
-	got=$(juju exec --unit 'wordpress/1' 'relation-get --app -r db:2 origin wordpress' || echo 'PERMISSION DENIED')
-	if [ "${got}" != "PERMISSION DENIED" ]; then
-		# shellcheck disable=SC2046
-		echo $(red "expected wordpress non-leader not to be allowed to read the databag for a non-peer relation")
-		exit 1
-	fi
+	echo "Check 2: ensure that non-leader units are not allowed to read their own application databag for non-peer relations"
+	juju exec --unit "${non_leader_dummy_sink_unit}" "relation-get --app -r ${dummy_sink_relation_id} origin dummy-sink" 2>&1 || echo "PERMISSION DENIED" | check "PERMISSION DENIED"
 
 	destroy_model "${model_name}"
 }

@@ -68,7 +68,7 @@ run_deploy_local_lxd_profile_charm() {
 
 	juju deploy ./testcharms/charms/lxd-profile
 	juju deploy ./testcharms/charms/lxd-profile-subordinate
-	juju add-relation lxd-profile-subordinate lxd-profile
+	juju integrate lxd-profile-subordinate lxd-profile
 
 	wait_for "lxd-profile" "$(idle_condition "lxd-profile")"
 	wait_for "lxd-profile-subordinate" ".applications | keys[1]"

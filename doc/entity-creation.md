@@ -34,10 +34,10 @@ existing machine without assigned units.
   * New units can only be added to Alive services.
 
 
-juju add-relation
+juju integrate
 -----------------
 
-The `juju add-relation` command creates relations, and may -- if the relation
+The `juju integrate` command creates relations, and may -- if the relation
 has container scope, by virtue of one or more endpoints having container scope
 -- indirectly cause the creation of subordinate units. Subordinate units are in
 fact created by principal unit agents, at the point when they enter scope of a

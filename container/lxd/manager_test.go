@@ -633,7 +633,7 @@ func (s *managerSuite) expectGetImage(image lxdapi.Image, getImageErr error) {
 
 	exp := s.cSvr.EXPECT()
 	gomock.InOrder(
-		exp.GetImageAlias("juju/ubuntu:16.04/"+s.Arch()).Return(alias, lxdtesting.ETag, nil),
+		exp.GetImageAlias("juju/ubuntu@16.04/"+s.Arch()).Return(alias, lxdtesting.ETag, nil),
 		exp.GetImage(target).Return(&image, lxdtesting.ETag, getImageErr),
 	)
 }

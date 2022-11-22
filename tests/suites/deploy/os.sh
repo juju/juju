@@ -52,7 +52,7 @@ run_deploy_centos7() {
 	juju deploy ./tests/suites/deploy/charms/centos-dummy-sink --series centos7 --constraints instance-type=t3.medium
 
 	base=$(juju status --format=json | jq '.applications."dummy-sink".base')
-	echo "$base" | check "centos:7"
+	echo "$base" | check "centos@7"
 
 	wait_for "dummy-sink" "$(idle_condition "dummy-sink")"
 
@@ -84,7 +84,7 @@ run_deploy_centos8() {
 	juju deploy ./tests/suites/deploy/charms/centos-dummy-sink --series centos8 --constraints root-disk=10G
 
 	base=$(juju status --format=json | jq '.applications."dummy-sink".base')
-	echo "$base" | check "centos:8"
+	echo "$base" | check "centos@8"
 
 	wait_for "dummy-sink" "$(idle_condition "dummy-sink")"
 

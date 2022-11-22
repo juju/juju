@@ -224,7 +224,7 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		logger.Errorf("%v", err)
 		ctx.Infof("Use \n* 'juju add-credential -c' to upload a credential to a controller or\n" +
-			"* 'juju autoload-credentials' to add credenitals from local files or\n" +
+			"* 'juju autoload-credentials' to add credentials from local files or\n" +
 			"* 'juju add-model --credential' to use a local credential.\n" +
 			"Use 'juju credentials' to list all available credentials.\n")
 		return cmd.ErrSilent

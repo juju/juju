@@ -6,14 +6,13 @@ package provisioner
 import (
 	"sort"
 
+	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
 
 	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/rpc/params"
 )
 
 func SetObserver(p Provisioner, observer chan<- *config.Config) {
@@ -74,6 +73,6 @@ func SetupToStartMachine(p ProvisionerTask, machine apiprovisioner.MachineProvis
 	return p.(*provisionerTask).setupToStartMachine(machine, version)
 }
 
-func (cs *ContainerSetup) SetGetNetConfig(getNetConf func(network.ConfigSource) ([]params.NetworkConfig, error)) {
-	cs.getNetConfig = getNetConf
+func MachineSupportsContainers(cfg ContainerManifoldConfig, pr ContainerMachineGetter, mTag names.MachineTag) (ContainerMachine, error) {
+	return cfg.machineSupportsContainers(pr, mTag)
 }

@@ -78,6 +78,13 @@ active_condition() {
 	echo ".applications | select(.[\"$name\"] | .[\"application-status\"] | .current == \"active\") | keys[$app_index]"
 }
 
+# not_idle_list should be used where you expect an arbitrary list of applications whose agent-status are not in idle state,
+# ideally applications in a bundle, this helps the tests to avoid being overly specific to a given number of applications.
+# e.g. wait_for 0 "$(not_idle_list) | length" 1800
+not_idle_list() {
+	echo '[.applications[] | select((.units[] | .["juju-status"].current != "idle") or (.units[] | .["workload-status"].current == "error"))]'
+}
+
 # workload_status gets the workload-status object for the unit - use
 # .current or .message to select the actual field you need.
 workload_status() {

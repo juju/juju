@@ -9,10 +9,7 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/ssh_container_mock.go github.com/juju/juju/cmd/juju/ssh ApplicationAPI,CharmsAPI
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/context_mock.go github.com/juju/juju/cmd/juju/ssh Context
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/leaderapi_mock.go github.com/juju/juju/cmd/juju/ssh LeaderAPI
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/sshclient_mock.go github.com/juju/juju/cmd/juju/ssh SSHClientAPI
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/package_mock.go github.com/juju/juju/cmd/juju/ssh Context,LeaderAPI,SSHClientAPI,SSHControllerAPI,CloudCredentialAPI,ApplicationAPI,CharmsAPI,ModelCommand
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/k8s_exec_mock.go github.com/juju/juju/caas/kubernetes/provider/exec Executor
 
 func TestPackage(t *stdtesting.T) {

@@ -45,8 +45,8 @@ func NewClient(jujuAPI jujuAPIClient) (*secretsClient, error) {
 }
 
 // GetContent implements Client.
-func (c *secretsClient) GetContent(uri *secrets.URI, label string, update, peek bool) (secrets.SecretValue, error) {
-	content, err := c.jujuAPI.GetContentInfo(uri, label, update, peek)
+func (c *secretsClient) GetContent(uri *secrets.URI, label string, refresh, peek bool) (secrets.SecretValue, error) {
+	content, err := c.jujuAPI.GetContentInfo(uri, label, refresh, peek)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

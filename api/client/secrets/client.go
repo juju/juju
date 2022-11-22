@@ -82,7 +82,9 @@ func (api *Client) ListSecrets(reveal bool, filter secrets.Filter) ([]SecretDeta
 		}
 		if reveal && r.Value != nil {
 			if r.Value.Error == nil {
-				details.Value = secrets.NewSecretValue(r.Value.Data)
+				if data := secrets.NewSecretValue(r.Value.Data); !data.IsEmpty() {
+					details.Value = data
+				}
 			} else {
 				details.Error = r.Value.Error.Error()
 			}

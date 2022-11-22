@@ -96,10 +96,10 @@ func (s *SecretsSuite) TestGetContentInfo(c *gc.C) {
 		c.Check(request, gc.Equals, "GetSecretContentInfo")
 		c.Check(arg, jc.DeepEquals, params.GetSecretContentArgs{
 			Args: []params.GetSecretContentArg{{
-				URI:    uri.String(),
-				Label:  "label",
-				Update: true,
-				Peek:   true,
+				URI:     uri.String(),
+				Label:   "label",
+				Refresh: true,
+				Peek:    true,
 			}},
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.SecretContentResults{})
@@ -125,9 +125,9 @@ func (s *SecretsSuite) TestGetContentInfoLabelArgOnly(c *gc.C) {
 		c.Check(request, gc.Equals, "GetSecretContentInfo")
 		c.Check(arg, jc.DeepEquals, params.GetSecretContentArgs{
 			Args: []params.GetSecretContentArg{{
-				Label:  "label",
-				Update: true,
-				Peek:   true,
+				Label:   "label",
+				Refresh: true,
+				Peek:    true,
 			}},
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.SecretContentResults{})

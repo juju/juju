@@ -24,6 +24,12 @@ type Proxier interface {
 	// Type is the unique key identifying the type of proxying for configuration
 	// purposes.
 	Type() string
+
+	// MarshalYAML implements marshalling method for yaml.
+	MarshalYAML() (interface{}, error)
+
+	// Insecure sets the proxy to be insecure.
+	Insecure()
 }
 
 // TunnelProxier describes an implementation that can provide tunneled proxy

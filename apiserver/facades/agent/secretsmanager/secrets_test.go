@@ -52,6 +52,8 @@ var _ = gc.Suite(&SecretsManagerSuite{})
 
 func (s *SecretsManagerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
+
+	s.authTag = names.NewUnitTag("mariadb/0")
 }
 
 type mockModel struct {
@@ -72,7 +74,6 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 	s.secretsWatcher = mocks.NewMockStringsWatcher(ctrl)
 	s.secretTriggers = mocks.NewMockSecretTriggers(ctrl)
 	s.secretsTriggerWatcher = mocks.NewMockSecretsTriggerWatcher(ctrl)
-	s.authTag = names.NewUnitTag("mariadb/0")
 	s.expectAuthUnitAgent()
 
 	s.clock = testclock.NewClock(time.Now())
@@ -291,7 +292,7 @@ func (s *SecretsManagerSuite) TestUpdateSecrets(c *gc.C) {
 	)
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token).Times(2)
 	s.token.EXPECT().Check().Return(nil).Times(2)
-	s.expectSecretAccessQuery(2)
+	s.expectSecretAccessQuery(4)
 
 	results, err := s.facade.UpdateSecrets(params.UpdateSecretArgs{
 		Args: []params.UpdateSecretArg{{
@@ -341,7 +342,7 @@ func (s *SecretsManagerSuite) TestUpdateSecretDuplicateLabel(c *gc.C) {
 	)
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
 	s.token.EXPECT().Check().Return(nil)
-	s.expectSecretAccessQuery(1)
+	s.expectSecretAccessQuery(2)
 
 	results, err := s.facade.UpdateSecrets(params.UpdateSecretArgs{
 		Args: []params.UpdateSecretArg{{
@@ -367,7 +368,7 @@ func (s *SecretsManagerSuite) TestRemoveSecrets(c *gc.C) {
 	s.secretsBackend.EXPECT().DeleteSecret(&expectURI, []int{666}).Return(true, nil)
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
 	s.token.EXPECT().Check().Return(nil)
-	s.expectSecretAccessQuery(1)
+	s.expectSecretAccessQuery(2)
 	s.provider.EXPECT().CleanupSecrets(
 		mockModel{}, names.NewUnitTag("mariadb/0"),
 		provider.SecretRevisions{uri.ID: set.NewInts(666)},
@@ -393,7 +394,7 @@ func (s *SecretsManagerSuite) TestRemoveSecretRevision(c *gc.C) {
 	s.secretsBackend.EXPECT().DeleteSecret(&expectURI, []int{666}).Return(false, nil)
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
 	s.token.EXPECT().Check().Return(nil)
-	s.expectSecretAccessQuery(1)
+	s.expectSecretAccessQuery(2)
 
 	results, err := s.facade.RemoveSecrets(params.DeleteSecretArgs{
 		Args: []params.DeleteSecretArg{{
@@ -710,7 +711,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentConsumerUpdateArg(c *gc.C) {
 
 	results, err := s.facade.GetSecretContentInfo(params.GetSecretContentArgs{
 		Args: []params.GetSecretContentArg{
-			{URI: uri.String(), Label: "label", Update: true},
+			{URI: uri.String(), Label: "label", Refresh: true},
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1003,7 +1004,7 @@ func (s *SecretsManagerSuite) TestWatchSecretRevisionsExpiryChanges(c *gc.C) {
 func (s *SecretsManagerSuite) TestSecretsGrant(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.expectSecretAccessQuery(1)
+	s.expectSecretAccessQuery(2)
 	uri := coresecrets.NewURI()
 	subjectTag := names.NewUnitTag("wordpress/0")
 	scopeTag := names.NewRelationTag("wordpress:db mysql:server")
@@ -1047,7 +1048,7 @@ func (s *SecretsManagerSuite) TestSecretsGrant(c *gc.C) {
 func (s *SecretsManagerSuite) TestSecretsRevoke(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.expectSecretAccessQuery(1)
+	s.expectSecretAccessQuery(2)
 	uri := coresecrets.NewURI()
 	subjectTag := names.NewUnitTag("wordpress/0")
 	scopeTag := names.NewRelationTag("wordpress:db mysql:server")

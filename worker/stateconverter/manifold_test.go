@@ -4,13 +4,17 @@
 package stateconverter_test
 
 import (
+	"time"
+
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/stateconverter"
 	"github.com/juju/juju/worker/stateconverter/mocks"
 )
@@ -59,6 +63,8 @@ func (s *manifoldConfigSuite) TestValidateSuccess(c *gc.C) {
 
 func (s *manifoldConfigSuite) TestManifoldStart(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+
+	done := make(chan any)
 	cfg := stateconverter.ManifoldConfig{
 		AgentName:     "agent-name",
 		APICallerName: "machiner",
@@ -67,14 +73,26 @@ func (s *manifoldConfigSuite) TestManifoldStart(c *gc.C) {
 			return s.machiner
 		},
 	}
-	s.config.EXPECT().Tag().Return(names.NewMachineTag("3"))
-	s.agent.EXPECT().CurrentConfig().Return(s.config)
-	s.context.EXPECT().Get(cfg.AgentName, gomock.Any()).SetArg(1, s.agent).Return(nil)
-
+	gomock.InOrder(
+		s.context.EXPECT().Get(cfg.AgentName, gomock.Any()).SetArg(1, s.agent).Return(nil),
+		s.agent.EXPECT().CurrentConfig().Return(s.config),
+		s.config.EXPECT().Tag().Return(names.NewMachineTag("3")),
+		s.machiner.EXPECT().Machine(names.NewMachineTag("3")).DoAndReturn(func(_ names.MachineTag) (stateconverter.Machine, error) {
+			close(done)
+			return nil, errors.New("nope")
+		}),
+	)
 	manifold := stateconverter.Manifold(cfg)
 	w, err := manifold.Start(s.context)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w, gc.NotNil)
+	select {
+	case <-done:
+	case <-time.After(testing.ShortWait):
+		c.Fatal("timed out waiting for calls")
+	}
+	err = workertest.CheckKill(c, w)
+	c.Assert(err, gc.ErrorMatches, `nope`)
 }
 
 func (s *manifoldConfigSuite) setupMocks(c *gc.C) *gomock.Controller {

@@ -5156,11 +5156,11 @@ wordpress/0*  active       idle   1        10.0.1.1
   logging/0   active       idle            10.0.1.1               
 
 Machine  State    Address   Inst id       Base          AZ          Message
-0        started  10.0.0.1  controller-0  ubuntu:12.10  us-east-1a  
-1        started  10.0.1.1  snowflake     ubuntu:12.10              
-2        started  10.0.2.1  controller-2  ubuntu:12.10              
-3        started  10.0.3.1  controller-3  ubuntu:12.10              I am number three
-4        error    10.0.3.1  controller-4  ubuntu:12.10              I am an error
+0        started  10.0.0.1  controller-0  ubuntu@12.10  us-east-1a  
+1        started  10.0.1.1  snowflake     ubuntu@12.10              
+2        started  10.0.2.1  controller-2  ubuntu@12.10              
+3        started  10.0.3.1  controller-3  ubuntu@12.10              I am number three
+4        error    10.0.3.1  controller-4  ubuntu@12.10              I am an error
 
 Offer         Application  Charm  Rev  Connected  Endpoint  Interface  Role
 hosted-mysql  mysql        mysql  1    1/1        server    mysql      provider
@@ -5538,6 +5538,123 @@ foo                     0/1                    0  54.32.1.2  no
 
 Unit   Workload  Agent       Address   Ports             Message
 foo/0  waiting   allocating  10.0.0.1  80,1555-1559/TCP  
+`[1:])
+}
+
+func (s *StatusSuite) TestFormatTabularTruncateMessage(c *gc.C) {
+	longMessage := "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
+	longMeterStatus := meterStatus{
+		Color:   "blue",
+		Message: longMessage,
+	}
+	longStatusInfo := statusInfoContents{
+		Current: status.Active,
+		Message: longMessage,
+	}
+
+	status := formattedStatus{
+		Model: modelStatus{
+			Name:        "m",
+			Controller:  "c",
+			Cloud:       "localhost",
+			Version:     "3.0.0",
+			Status:      longStatusInfo,
+			MeterStatus: &longMeterStatus,
+		},
+		Applications: map[string]applicationStatus{
+			"foo": {
+				CharmName:    "foo",
+				CharmChannel: "latest/stable",
+				StatusInfo:   longStatusInfo,
+				Units: map[string]unitStatus{
+					"foo/0": {
+						WorkloadStatusInfo: longStatusInfo,
+						JujuStatusInfo:     longStatusInfo,
+						Machine:            "0",
+						PublicAddress:      "10.53.62.100",
+						MeterStatus:        &longMeterStatus,
+						Subordinates: map[string]unitStatus{
+							"foo/1": {
+								WorkloadStatusInfo: longStatusInfo,
+								JujuStatusInfo:     longStatusInfo,
+								Machine:            "0/lxd/0",
+								PublicAddress:      "10.53.62.101",
+								MeterStatus:        &longMeterStatus,
+							},
+						},
+					},
+				},
+			},
+		},
+		RemoteApplications: map[string]remoteApplicationStatus{
+			"bar": {
+				OfferURL:   "model.io/bar",
+				StatusInfo: longStatusInfo,
+			},
+		},
+		Machines: map[string]machineStatus{
+			"0": {
+				Id:      "0",
+				DNSName: "10.53.62.100",
+				Base: &formattedBase{
+					Name:    "ubuntu",
+					Channel: "22.04",
+				},
+				JujuStatus:         longStatusInfo,
+				MachineStatus:      longStatusInfo,
+				ModificationStatus: longStatusInfo,
+				Containers: map[string]machineStatus{
+					"0": {
+						Id:      "0/lxd/0",
+						DNSName: "10.53.62.101",
+						Base: &formattedBase{
+							Name:    "ubuntu",
+							Channel: "22.04",
+						},
+						JujuStatus:         longStatusInfo,
+						MachineStatus:      longStatusInfo,
+						ModificationStatus: longStatusInfo,
+					},
+				},
+			},
+		},
+		Relations: []relationStatus{
+			{
+				Provider:  "foo:cluster",
+				Requirer:  "bar:cluster",
+				Interface: "baz",
+				Message:   longMessage,
+			},
+		},
+	}
+
+	out := &bytes.Buffer{}
+	err := FormatTabular(out, false, status)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out.String(), gc.Equals, `
+Model  Controller  Cloud/Region  Version  Notes
+m      c           localhost     3.0.0    Lorem ipsum dolor sit amet, consectetur adipisc...
+
+SAAS  Status  Store    URL
+bar   active  unknown  model.io/bar
+
+App  Version  Status  Scale  Charm  Channel        Rev  Exposed  Message
+foo           active    0/1  foo    latest/stable    0  no       Lorem ipsum dolor sit amet, consectetur adipisc...
+
+Unit     Workload  Agent   Machine  Public address  Ports  Message
+foo/0    active    active  0        10.53.62.100           Lorem ipsum dolor sit amet, consectetur adipisc...
+  foo/1  active    active  0/lxd/0  10.53.62.101           Lorem ipsum dolor sit amet, consectetur adipisc...
+
+Entity  Meter status  Message
+model   blue          Lorem ipsum dolor sit amet, consectetur adipisc...  
+foo/0   blue          Lorem ipsum dolor sit amet, consectetur adipisc...  
+
+Machine  State   Address       Inst id  Base          AZ  Message
+0        active  10.53.62.100           ubuntu@22.04      Lorem ipsum dolor sit amet, consectetur adipisc...
+0/lxd/0  active  10.53.62.101           ubuntu@22.04      Lorem ipsum dolor sit amet, consectetur adipisc...
+
+Relation provider  Requirer     Interface  Type  Message
+foo:cluster        bar:cluster  baz                Lorem ipsum dolor sit amet, consectetur adipisc...
 `[1:])
 }
 

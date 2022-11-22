@@ -285,7 +285,7 @@ func (s *AddModelSuite) TestCredentialsOtherUserCredentialNotFound(c *gc.C) {
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
 Use 
 * 'juju add-credential -c' to upload a credential to a controller or
-* 'juju autoload-credentials' to add credenitals from local files or
+* 'juju autoload-credentials' to add credentials from local files or
 * 'juju add-model --credential' to use a local credential.
 Use 'juju credentials' to list all available credentials.
 `[1:])
@@ -370,7 +370,7 @@ func (s *AddModelSuite) TestControllerCredentialsDetectedAmbiguous(c *gc.C) {
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
 Use 
 * 'juju add-credential -c' to upload a credential to a controller or
-* 'juju autoload-credentials' to add credenitals from local files or
+* 'juju autoload-credentials' to add credentials from local files or
 * 'juju add-model --credential' to use a local credential.
 Use 'juju credentials' to list all available credentials.
 `[1:])

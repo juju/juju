@@ -166,7 +166,7 @@ func (s *imagesSuite) TestNewInstanceImage(c *gc.C) {
 	imgType, err := oci.NewInstanceImage(image, &s.testCompartment)
 	c.Assert(err, gc.IsNil)
 	c.Check(imgType.ImageType, gc.Equals, oci.ImageTypeGeneric)
-	c.Check(imgType.Base.DisplayString(), gc.Equals, "ubuntu:22.04")
+	c.Check(imgType.Base.DisplayString(), gc.Equals, "ubuntu@22.04")
 	c.Check(imgType.CompartmentId, gc.NotNil)
 	c.Check(*imgType.CompartmentId, gc.Equals, s.testCompartment)
 	c.Check(imgType.Id, gc.Equals, s.testImageID)

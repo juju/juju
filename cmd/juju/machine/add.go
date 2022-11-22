@@ -141,7 +141,7 @@ Further reading:
 
 See also:
 	remove-machine
-	get-model-constraints
+	model-constraints
 	set-model-constraints
 `
 
@@ -188,7 +188,7 @@ func (c *addCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.StringVar(&c.Series, "series", "", "The operating system series to install on the new machine(s)")
 	f.IntVar(&c.NumMachines, "n", 1, "The number of machines to add")
-	f.StringVar(&c.ConstraintsStr, "constraints", "", "Machine constraints that overwrite those available from 'juju get-model-constraints' and provider's defaults")
+	f.StringVar(&c.ConstraintsStr, "constraints", "", "Machine constraints that overwrite those available from 'juju model-constraints' and provider's defaults")
 	f.Var(disksFlag{&c.Disks}, "disks", "Storage constraints for disks to attach to the machine(s)")
 	f.StringVar(&c.PrivateKey, "private-key", "", "Path to the private key to use during the connection")
 	f.StringVar(&c.PublicKey, "public-key", "", "Path to the public key to add to the remote authorized keys")

@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/upgrades/upgradevalidation"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -179,7 +180,12 @@ func (s *upgradeNewSuite) TestUpgradeModelWithAgentVersion(c *gc.C) {
 	defer ctrl.Finish()
 
 	cfg := coretesting.FakeConfig().Merge(coretesting.Attrs{
-		"agent-version": coretesting.FakeVersionNumber.String(),
+		// TODO (hml) 19-oct-2022
+		// Once upgrade from 2.9 to 3.0 is supported, go back to
+		// using coretesting.FakeVersionNumber.String() in this
+		// test.
+		//"agent-version": coretesting.FakeVersionNumber.String(),
+		"agent-version": "3.0.1",
 	})
 
 	gomock.InOrder(
@@ -218,6 +224,7 @@ func (s *upgradeNewSuite) TestUpgradeModelWithAgentVersionUploadLocalOfficial(c 
 	cfg := coretesting.FakeConfig().Merge(coretesting.Attrs{
 		"agent-version": agentVersion.String(),
 	})
+	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersions, map[int]version.Number{3: agentVersion})
 
 	c.Assert(agentVersion.Build, gc.Equals, 0)
 	builtVersion := coretesting.CurrentVersion()
@@ -264,6 +271,7 @@ func (s *upgradeNewSuite) TestUpgradeModelWithAgentVersionAlreadyUpToDate(c *gc.
 	cfg := coretesting.FakeConfig().Merge(coretesting.Attrs{
 		"agent-version": agentVersion.String(),
 	})
+	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersions, map[int]version.Number{3: agentVersion})
 
 	c.Assert(agentVersion.Build, gc.Equals, 0)
 	targetVersion := coretesting.CurrentVersion()
@@ -342,6 +350,7 @@ func (s *upgradeNewSuite) TestUpgradeModelWithAgentVersionExpectUploadFailedDueT
 	cfg := coretesting.FakeConfig().Merge(coretesting.Attrs{
 		"agent-version": agentVersion.String(),
 	})
+	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersions, map[int]version.Number{3: agentVersion})
 
 	targetVersion := coretesting.CurrentVersion().Number
 	gomock.InOrder(
@@ -377,6 +386,7 @@ func (s *upgradeNewSuite) TestUpgradeModelWithAgentVersionExpectUploadFailedDueT
 	modelCfg := coretesting.FakeConfig().Merge(coretesting.Attrs{
 		"agent-version": agentVersion.String(),
 	})
+	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersions, map[int]version.Number{3: agentVersion})
 	controllerCfg := coretesting.FakeConfig().Merge(coretesting.Attrs{
 		"agent-version": agentVersion.String(),
 		// This isn't right, but it's ok for testing because it's not important here.
@@ -410,7 +420,12 @@ func (s *upgradeNewSuite) TestUpgradeModelWithAgentVersionDryRun(c *gc.C) {
 	defer ctrl.Finish()
 
 	cfg := coretesting.FakeConfig().Merge(coretesting.Attrs{
-		"agent-version": coretesting.FakeVersionNumber.String(),
+		// TODO (hml) 19-oct-2022
+		// Once upgrade from 2.9 to 3.0 is supported, go back to
+		// using coretesting.FakeVersionNumber.String() in this
+		// test.
+		//"agent-version": coretesting.FakeVersionNumber.String(),
+		"agent-version": "3.0.1",
 	})
 
 	gomock.InOrder(
@@ -439,7 +454,12 @@ func (s *upgradeNewSuite) TestUpgradeModelWithAgentVersionGotBlockers(c *gc.C) {
 	defer ctrl.Finish()
 
 	cfg := coretesting.FakeConfig().Merge(coretesting.Attrs{
-		"agent-version": coretesting.FakeVersionNumber.String(),
+		// TODO (hml) 19-oct-2022
+		// Once upgrade from 2.9 to 3.0 is supported, go back to
+		// using coretesting.FakeVersionNumber.String() in this
+		// test.
+		//"agent-version": coretesting.FakeVersionNumber.String(),
+		"agent-version": "3.0.1",
 	})
 
 	gomock.InOrder(
