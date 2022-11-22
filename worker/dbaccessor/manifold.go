@@ -37,6 +37,22 @@ type ManifoldConfig struct {
 	NewApp    func(string, ...app.Option) (DBApp, error)
 }
 
+func (cfg ManifoldConfig) Validate() error {
+	if cfg.AgentName == "" {
+		return errors.NotValidf("empty AgentName")
+	}
+	if cfg.Logger == nil {
+		return errors.NotValidf("nil Logger")
+	}
+	if cfg.Clock == nil {
+		return errors.NotValidf("nil Clock")
+	}
+	if cfg.NewApp == nil {
+		return errors.NotValidf("nil NewApp")
+	}
+	return nil
+}
+
 // Manifold returns a dependency manifold that runs the dbaccessor
 // worker, using the resource names defined in the supplied config.
 func Manifold(config ManifoldConfig) dependency.Manifold {
@@ -46,6 +62,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		},
 		Output: dbAccessorOutput,
 		Start: func(context dependency.Context) (worker.Worker, error) {
+			if err := config.Validate(); err != nil {
+				return nil, errors.Trace(err)
+			}
+
 			var agent coreagent.Agent
 			if err := context.Get(config.AgentName, &agent); err != nil {
 				return nil, err
@@ -59,7 +79,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				NewApp:        config.NewApp,
 			}
 
-			w, err := NewWorker(cfg)
+			w, err := newWorker(cfg)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
