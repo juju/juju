@@ -3,7 +3,7 @@ SHELL = bash
 
 PROJECT_DIR ?= $(GOPATH)/src/github.com/juju/juju
 
-DQLITE_BUILD_IMAGE=ubuntu:20.04
+DQLITE_BUILD_IMAGE=ubuntu:22.04
 DQLITE_BUILD_CONTAINER=lib-build-server
 
 DQLITE_ARCHIVE_DEPS_PATH=${PROJECT_DIR}/scripts/dqlite
@@ -23,7 +23,7 @@ ${DQLITE_ARCHIVE_PATH}:
 	@lxc delete -f ${DQLITE_BUILD_CONTAINER} &>/dev/null || true
 
 	@echo "DQLITE: Creating build box using ${DQLITE_BUILD_IMAGE}"
-	@lxc launch ubuntu:20.04 ${DQLITE_BUILD_CONTAINER}
+	@lxc launch ${DQLITE_BUILD_IMAGE} ${DQLITE_BUILD_CONTAINER}
 
 	@echo "DQLITE: Waiting for ${DQLITE_BUILD_CONTAINER} to become ready..."
 	@lxc exec ${DQLITE_BUILD_CONTAINER} -- bash -c 'while [ "$$(systemctl is-system-running 2>/dev/null)" != "running" ] && [ "$$(systemctl is-system-running 2>/dev/null)" != "degraded" ]; do :; done'
