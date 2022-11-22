@@ -274,6 +274,10 @@ func (api *APIBase) Deploy(args params.ApplicationsDeploy) (params.ErrorResults,
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
+		if arg.CharmOrigin != nil && !corecharm.CharmHub.Matches(arg.CharmOrigin.Source) && !corecharm.Local.Matches(arg.CharmOrigin.Source) {
+			result.Results[i].Error = apiservererrors.ServerError(errors.BadRequestf("%s not a valid charm origin source", arg.CharmOrigin.Source))
+			continue
+		}
 		err := deployApplication(
 			api.backend,
 			api.model,
@@ -557,6 +561,8 @@ func deployApplication(
 	return errors.Trace(err)
 }
 
+// TODO 22-Nov-22 HML
+// Fix the default origin and remove the charmStoreChannel
 func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL, charmStoreChannel string) (corecharm.Origin, error) {
 	var (
 		originType string
@@ -908,6 +914,11 @@ func (api *APIBase) SetCharm(args params.ApplicationSetCharm) error {
 	if err := api.checkCanWrite(); err != nil {
 		return err
 	}
+
+	if args.CharmOrigin != nil && !corecharm.CharmHub.Matches(args.CharmOrigin.Source) && !corecharm.Local.Matches(args.CharmOrigin.Source) {
+		return errors.BadRequestf("%q not a valid charm origin source", args.CharmOrigin.Source)
+	}
+
 	// when forced units in error, don't block
 	if !args.ForceUnits {
 		if err := api.check.ChangeAllowed(); err != nil {

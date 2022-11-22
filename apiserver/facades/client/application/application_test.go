@@ -93,7 +93,7 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.APIv15 {
 }
 
 func (s *applicationSuite) setupApplicationDeploy(c *gc.C, args string) (*charm.URL, charm.Charm, constraints.Value) {
-	curl, ch := s.addCharmToState(c, "cs:jammy/dummy-42", "dummy")
+	curl, ch := s.addCharmToState(c, "ch:jammy/dummy-42", "dummy")
 	cons := constraints.MustParse(args)
 	return curl, ch, cons
 }
@@ -102,7 +102,7 @@ func (s *applicationSuite) assertApplicationDeployPrincipal(c *gc.C, curl *charm
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
-			CharmOrigin:     createCharmOriginFromURL(c, curl),
+			CharmOrigin:     createCharmOriginFromURL(curl),
 			ApplicationName: "application",
 			NumUnits:        3,
 			Constraints:     mem4g,
@@ -117,7 +117,7 @@ func (s *applicationSuite) assertApplicationDeployPrincipalBlocked(c *gc.C, msg 
 	_, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
-			CharmOrigin:     createCharmOriginFromURL(c, curl),
+			CharmOrigin:     createCharmOriginFromURL(curl),
 			ApplicationName: "application",
 			NumUnits:        3,
 			Constraints:     mem4g,
@@ -144,11 +144,11 @@ func (s *applicationSuite) TestBlockChangesApplicationDeployPrincipal(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationDeploySubordinate(c *gc.C) {
-	curl, ch := s.addCharmToState(c, "cs:utopic/logging-47", "logging")
+	curl, ch := s.addCharmToState(c, "ch:utopic/logging-47", "logging")
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
-			CharmOrigin:     createCharmOriginFromURL(c, curl),
+			CharmOrigin:     createCharmOriginFromURL(curl),
 			ApplicationName: "application-name",
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -178,11 +178,11 @@ func (s *applicationSuite) combinedSettings(ch *state.Charm, inSettings charm.Se
 }
 
 func (s *applicationSuite) TestApplicationDeployConfig(c *gc.C) {
-	curl, _ := s.addCharmToState(c, "cs:jammy/dummy-0", "dummy")
+	curl, _ := s.addCharmToState(c, "ch:jammy/dummy-0", "dummy")
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
-			CharmOrigin:     createCharmOriginFromURL(c, curl),
+			CharmOrigin:     createCharmOriginFromURL(curl),
 			ApplicationName: "application-name",
 			NumUnits:        1,
 			ConfigYAML:      "application-name:\n  username: fred",
@@ -203,11 +203,11 @@ func (s *applicationSuite) TestApplicationDeployConfig(c *gc.C) {
 func (s *applicationSuite) TestApplicationDeployConfigError(c *gc.C) {
 	// TODO(fwereade): test Config/ConfigYAML handling directly on srvClient.
 	// Can't be done cleanly until it's extracted similarly to Machiner.
-	curl, _ := s.addCharmToState(c, "cs:jammy/dummy-0", "dummy")
+	curl, _ := s.addCharmToState(c, "ch:jammy/dummy-0", "dummy")
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
-			CharmOrigin:     createCharmOriginFromURL(c, curl),
+			CharmOrigin:     createCharmOriginFromURL(curl),
 			ApplicationName: "application-name",
 			NumUnits:        1,
 			ConfigYAML:      "application-name:\n  skill-level: fred",
@@ -220,7 +220,7 @@ func (s *applicationSuite) TestApplicationDeployConfigError(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationDeployToMachine(c *gc.C) {
-	curl, ch := s.addCharmToState(c, "cs:jammy/dummy-0", "dummy")
+	curl, ch := s.addCharmToState(c, "ch:jammy/dummy-0", "dummy")
 
 	machine, err := s.State.AddMachine(state.UbuntuBase("22.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -236,7 +236,7 @@ func (s *applicationSuite) TestApplicationDeployToMachine(c *gc.C) {
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
-			CharmOrigin:     createCharmOriginFromURL(c, curl),
+			CharmOrigin:     createCharmOriginFromURL(curl),
 			ApplicationName: "application-name",
 			NumUnits:        1,
 			ConfigYAML:      "application-name:\n  username: fred",
@@ -268,7 +268,7 @@ func (s *applicationSuite) TestApplicationDeployToMachine(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationDeployToMachineWithLXDProfile(c *gc.C) {
-	curl, ch := s.addCharmToState(c, "cs:jammy/lxd-profile-0", "lxd-profile")
+	curl, ch := s.addCharmToState(c, "ch:jammy/lxd-profile-0", "lxd-profile")
 
 	machine, err := s.State.AddMachine(state.UbuntuBase("22.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -284,7 +284,7 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithLXDProfile(c *gc.C)
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
-			CharmOrigin:     createCharmOriginFromURL(c, curl),
+			CharmOrigin:     createCharmOriginFromURL(curl),
 			ApplicationName: "application-name",
 			NumUnits:        1,
 		}}})
@@ -322,7 +322,7 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithLXDProfile(c *gc.C)
 }
 
 func (s *applicationSuite) TestApplicationDeployToMachineWithInvalidLXDProfileAndForceStillSucceeds(c *gc.C) {
-	curl, ch := s.addCharmToState(c, "cs:jammy/lxd-profile-fail-0", "lxd-profile-fail")
+	curl, ch := s.addCharmToState(c, "ch:jammy/lxd-profile-fail-0", "lxd-profile-fail")
 
 	machine, err := s.State.AddMachine(state.UbuntuBase("22.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -338,7 +338,7 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithInvalidLXDProfileAn
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
-			CharmOrigin:     createCharmOriginFromURL(c, curl),
+			CharmOrigin:     createCharmOriginFromURL(curl),
 			ApplicationName: "application-name",
 			NumUnits:        1,
 		}}})
@@ -378,7 +378,7 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithInvalidLXDProfileAn
 func (s *applicationSuite) TestApplicationDeployToMachineNotFound(c *gc.C) {
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
-			CharmURL:        "cs:jammy/application-name-1",
+			CharmURL:        "ch:jammy/application-name-1",
 			CharmOrigin:     &params.CharmOrigin{Source: "charm-store", Base: params.Base{Name: "ubuntu", Channel: "22.04/stable"}},
 			ApplicationName: "application-name",
 			NumUnits:        1,
@@ -393,11 +393,11 @@ func (s *applicationSuite) TestApplicationDeployToMachineNotFound(c *gc.C) {
 }
 
 func (s *applicationSuite) deployApplicationForUpdateTests(c *gc.C) {
-	curl, _ := s.addCharmToState(c, "cs:jammy/dummy-1", "dummy")
+	curl, _ := s.addCharmToState(c, "ch:jammy/dummy-1", "dummy")
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
-			CharmOrigin:     createCharmOriginFromURL(c, curl),
+			CharmOrigin:     createCharmOriginFromURL(curl),
 			ApplicationName: "application",
 			NumUnits:        1,
 		}}})
@@ -408,7 +408,7 @@ func (s *applicationSuite) deployApplicationForUpdateTests(c *gc.C) {
 
 func (s *applicationSuite) setupApplicationUpdate(c *gc.C) string {
 	s.deployApplicationForUpdateTests(c)
-	curl, _ := s.addCharmToState(c, "cs:jammy/wordpress-3", "wordpress")
+	curl, _ := s.addCharmToState(c, "ch:jammy/wordpress-3", "wordpress")
 	return curl.String()
 }
 
