@@ -1,21 +1,20 @@
+// Copyright 2022 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package dbaccessor
 
 import (
 	"github.com/canonical/go-dqlite/app"
-	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 )
 
 type manifoldSuite struct {
-	testing.IsolationSuite
-
-	clock  *MockClock
-	logger *MockLogger
-	dbApp  *MockDBApp
+	baseSuite
 }
+
+var _ = gc.Suite(&manifoldSuite{})
 
 func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	defer s.setupMocks(c).Finish()
@@ -34,16 +33,6 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	cfg.NewApp = nil
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 
-}
-
-func (s *manifoldSuite) setupMocks(c *gc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-
-	s.clock = NewMockClock(ctrl)
-	s.logger = NewMockLogger(ctrl)
-	s.dbApp = NewMockDBApp(ctrl)
-
-	return ctrl
 }
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {

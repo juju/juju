@@ -15,11 +15,32 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
-
-	"github.com/juju/juju/database"
 )
 
 const replSocketFileName = "juju.sock"
+
+// OptionFactory creates Dqlite `App` initialisation arguments and options.
+type OptionFactory interface {
+	// EnsureDataDir ensures that a directory for Dqlite data exists at
+	// a path determined by the agent config, then returns that path.
+	EnsureDataDir() (string, error)
+
+	// WithLogFuncOption returns a Dqlite application Option that will proxy Dqlite
+	// log output via this factory's logger where the level is recognised.
+	WithLogFuncOption() app.Option
+
+	// WithAddressOption returns a Dqlite application Option
+	// for specifying the local address:port to use.
+	WithAddressOption() (app.Option, error)
+
+	// WithTLSOption returns a Dqlite application Option for TLS encryption
+	// of traffic between clients and clustered application nodes.
+	WithTLSOption() (app.Option, error)
+
+	// WithClusterOption returns a Dqlite application Option for initialising
+	// Dqlite as the member of a cluster with peers representing other controllers.
+	WithClusterOption() (app.Option, error)
+}
 
 // DBGetter describes the ability to supply a sql.DB
 // reference for a particular database.
@@ -33,7 +54,7 @@ type DBGetter interface {
 // WorkerConfig encapsulates the configuration options for the
 // dbaccessor worker.
 type WorkerConfig struct {
-	OptionFactory *database.OptionFactory
+	OptionFactory OptionFactory
 	Clock         clock.Clock
 	Logger        Logger
 	NewApp        func(string, ...app.Option) (DBApp, error)
