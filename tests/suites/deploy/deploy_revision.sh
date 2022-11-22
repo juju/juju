@@ -67,10 +67,10 @@ run_deploy_revision_fail() {
 	destroy_model "${model_name}"
 }
 
-run_deploy_revision_upgrade() {
+run_deploy_revision_refresh() {
 	echo
 
-	model_name="test-deploy-upgrade"
+	model_name="test-deploy-refresh"
 	file="${TEST_DIR}/${model_name}.log"
 
 	ensure "${model_name}" "${file}"
@@ -79,11 +79,15 @@ run_deploy_revision_upgrade() {
 	juju deploy juju-qa-test --revision 23 --channel latest/edge
 	wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" 23)"
 
+	# NOTE:
+	# The following loop is specific to juju 3.0+ due to
+	# async charm download and should NOT be removed in
+	# a merge from 2.9.
 	attempt=0
 	while true; do
 		# Ensure that refresh gets the revision from the channel
 		# listed at deploy.
-		# revision 21 is in channel latest/edge
+		# revision 15 is in channel latest/edge
 		OUT=$(juju refresh juju-qa-test 2>&1 || true)
 		if echo "${OUT}" | grep -E -q "Added"; then
 			break
@@ -97,7 +101,9 @@ run_deploy_revision_upgrade() {
 		sleep 5
 	done
 
+	# revision 21 is in channel latest/edge
 	wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" 21)"
+	wait_for "juju-qa-test" "$(charm_channel "juju-qa-test" "latest/edge")"
 
 	destroy_model "${model_name}"
 }
@@ -115,7 +121,7 @@ test_deploy_revision() {
 
 		run "run_deploy_revision"
 		run "run_deploy_revision_fail"
-		run "run_deploy_revision_upgrade"
+		run "run_deploy_revision_refresh"
 		run "run_deploy_revision_resource"
 	)
 }

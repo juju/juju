@@ -49,9 +49,11 @@ func (c *secretAddCommand) Info() *cmd.Info {
 	doc := `
 Add a secret with a list of key values.
 
-If a value has the '#base64' suffix, it is already in base64 format and no
+If a key has the '#base64' suffix, the value is already in base64 format and no
 encoding will be performed, otherwise the value will be base64 encoded
 prior to being stored.
+
+If a key has the '#file' suffix, the value is read from the corresponding file.
 
 By default, a secret is owned by the application, meaning only the unit
 leader can manage it. Use "--owner unit" to create a secret owned by the
@@ -59,21 +61,22 @@ specific unit which created it.
 
 Examples:
     secret-add token=34ae35facd4
-    secret-add key#base64 AA==
+    secret-add key#base64=AA==
+    secret-add key#file=/path/to/file another-key=s3cret
     secret-add --owner unit token=s3cret 
     secret-add --rotate monthly token=s3cret 
     secret-add --expire 24h token=s3cret 
     secret-add --expire 2025-01-01T06:06:06 token=s3cret 
     secret-add --label db-password \
         --description "my database password" \
-        data#base64 s3cret== 
+        data#base64=s3cret== 
     secret-add --label db-password \
         --description "my database password" \
         --file=/path/to/file
 `
 	return jujucmd.Info(&cmd.Info{
 		Name:    "secret-add",
-		Args:    "[key[#base64]=value...]",
+		Args:    "[key[#base64|#file]=value...]",
 		Purpose: "add a new secret",
 		Doc:     doc,
 	})
@@ -119,8 +122,11 @@ func (c *secretUpsertCommand) Init(args []string) error {
 
 	var err error
 	c.data, err = secrets.CreateSecretData(args)
-	if err != nil || c.fileName == "" {
+	if err != nil {
 		return errors.Trace(err)
+	}
+	if c.fileName == "" {
+		return nil
 	}
 	dataFromFile, err := secrets.ReadSecretData(c.fileName)
 	if err != nil {

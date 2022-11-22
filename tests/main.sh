@@ -47,6 +47,7 @@ TEST_NAMES="agents \
             cli \
             constraints \
             controller \
+            coslite \
             credential \
             ck \
             deploy \
@@ -54,14 +55,18 @@ TEST_NAMES="agents \
             expose_ec2 \
             hooks \
             hooktools \
+			kubeflow \
             machine \
             magma \
             manual \
             model \
             network \
             ovs_maas \
+            refresh \
             relations \
             resources \
+            secrets_iaas \
+            secrets_k8s \
             sidecar \
             smoke \
             spaces_ec2 \

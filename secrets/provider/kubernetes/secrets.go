@@ -108,6 +108,7 @@ func cloudSpecToStoreConfig(controllerUUID string, cfg *config.Config, spec clou
 // StoreConfig returns the config needed to create a k8s secrets store.
 // TODO(wallyworld) - only allow access to the specified secrets
 func (p k8sProvider) StoreConfig(m provider.Model, tag names.Tag, owned provider.SecretRevisions, read provider.SecretRevisions) (*provider.StoreConfig, error) {
+	logger.Tracef("getting k8s store config for %q, owned %v, read %v", tag, owned, read)
 	cloudSpec, err := cloudSpecForModel(m)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -152,7 +153,6 @@ func (p k8sProvider) StoreConfig(m provider.Model, tag names.Tag, owned provider
 			cloudSpec.IsControllerCloud = false
 		}
 	}
-
 	return cloudSpecToStoreConfig(controllerUUID, cfg, cloudSpec)
 }
 

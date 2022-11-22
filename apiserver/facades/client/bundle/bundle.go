@@ -13,7 +13,7 @@ import (
 	"github.com/juju/charm/v9"
 	"github.com/juju/charm/v9/resource"
 	"github.com/juju/collections/set"
-	"github.com/juju/description/v3"
+	"github.com/juju/description/v4"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -437,12 +437,14 @@ func (b *BundleAPI) bundleDataApplications(
 		var newApplication *charm.ApplicationSpec
 		p, err := corecharm.ParsePlatformNormalize(application.CharmOrigin().Platform())
 		if err != nil {
-			return nil, nil, nil, errors.Trace(err)
+			return nil, nil, nil, fmt.Errorf("extracting charm origin from application description %w", err)
 		}
+
 		appSeries, err := series.GetSeriesFromChannel(p.OS, p.Channel)
 		if err != nil {
-			return nil, nil, nil, errors.Trace(err)
+			return nil, nil, nil, fmt.Errorf("extracting series from application description %w", err)
 		}
+
 		usedSeries.Add(appSeries)
 
 		endpointsWithSpaceNames, err := b.endpointBindings(application.EndpointBindings(), allSpacesInfoLookup, printEndpointBindingSpaceNames)
@@ -646,11 +648,11 @@ func (b *BundleAPI) bundleDataMachines(machines []description.Machine, machineId
 		if !machineIds.Contains(machine.Tag().Id()) {
 			continue
 		}
-		macBase, err := state.ParseBase(machine.Base())
+		macBase, err := series.ParseBaseFromString(machine.Base())
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}
-		macSeries, err := series.GetSeriesFromChannel(macBase.OS, macBase.Channel)
+		macSeries, err := series.GetSeriesFromBase(macBase)
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}

@@ -4,8 +4,10 @@
 package secrets_test
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -29,6 +31,43 @@ func (s *CreateSecretSuite) TestKeyValues(c *gc.C) {
 		"foo":     "YmFy",
 		"hello":   "d29ybGQ=",
 		"goodbye": "world",
+	})
+}
+
+func (s *CreateSecretSuite) TestKeyContentTooLarge(c *gc.C) {
+	content := strings.Repeat("a", 8*1024)
+	_, err := secrets.CreateSecretData([]string{"foo=" + content})
+	c.Assert(err, gc.ErrorMatches, `secret content for key "foo" too large: 8192 bytes`)
+}
+
+func (s *CreateSecretSuite) TestTotalContentTooLarge(c *gc.C) {
+	content := strings.Repeat("a", 4*1024)
+	var args []string
+	for i := 1; i <= 20; i++ {
+		args = append(args, fmt.Sprintf("key%d=%s", i, content))
+	}
+	_, err := secrets.CreateSecretData(args)
+	c.Assert(err, gc.ErrorMatches, `secret content too large: 81920 bytes`)
+}
+
+func (s *CreateSecretSuite) TestSecretKeyFromFile(c *gc.C) {
+	content := `
+      -----BEGIN CERTIFICATE-----
+      MIIFYjCCA0qgAwIBAgIQKaPND9YggIG6+jOcgmpk3DANBgkqhkiG9w0BAQsFADAz
+      MRwwGgYDVQQKExNsaW51eGNvbnRhaW5lcnMub3JnMRMwEQYDVQQDDAp0aW1AZWx3
+      -----END CERTIFICATE-----`[1:]
+
+	dir := c.MkDir()
+	fileName := filepath.Join(dir, "secret-data.bin")
+	err := os.WriteFile(fileName, []byte(content), os.FileMode(0644))
+	c.Assert(err, jc.ErrorIsNil)
+
+	data, err := secrets.CreateSecretData([]string{"key1=value1", "key2#file=" + fileName})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(data, jc.DeepEquals, secrets.SecretData{
+		"key1": "dmFsdWUx",
+		"key2": `ICAgICAgLS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCiAgICAgIE1JSUZZakNDQTBxZ0F3SUJBZ0lRS2FQTkQ5WWdnSUc2K2pPY2dtcGszREFOQmdrcWhraUc5dzBCQVFzRkFEQXoKICAgICAgTVJ3d0dnWURWUVFLRXhOc2FXNTFlR052Ym5SaGFXNWxjbk11YjNKbk1STXdFUVlEVlFRRERBcDBhVzFBWld4MwogICAgICAtLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0t`,
 	})
 }
 

@@ -88,7 +88,10 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"lease-manager",
 			"log-sender",
 			"logging-config-updater",
+			"lxd-container-provisioner",
+			"kvm-container-provisioner",
 			"machine-action-runner",
+			"machine-setup",
 			"machiner",
 			"migration-fortress",
 			"migration-minion",
@@ -118,7 +121,6 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"syslog",
 			"termination-signal-handler",
 			"tools-version-checker",
-			"unconverted-api-workers",
 			"upgrade-check-flag",
 			"upgrade-check-gate",
 			"upgrade-database-flag",
@@ -146,6 +148,7 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"api-config-watcher",
 			"api-server",
 			"audit-config-updater",
+			"caas-units-manager",
 			"central-hub",
 			"certificate-watcher",
 			"charmhub-http-client",
@@ -184,7 +187,6 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"state-config-watcher",
 			"syslog",
 			"termination-signal-handler",
-			"unconverted-api-workers",
 			"upgrade-check-flag",
 			"upgrade-check-gate",
 			"upgrade-database-flag",
@@ -195,7 +197,6 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"upgrade-steps-runner",
 			"upgrader",
 			"valid-credential-flag",
-			"caas-units-manager",
 		},
 	)
 }
@@ -717,7 +718,43 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-steps-gate",
 	},
 
+	"lxd-container-provisioner": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+	},
+
+	"kvm-container-provisioner": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+	},
+
 	"machine-action-runner": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+	},
+
+	"machine-setup": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
@@ -1019,18 +1056,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 	"termination-signal-handler": {},
 
 	"tools-version-checker": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"upgrade-check-flag",
-		"upgrade-check-gate",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate",
-	},
-
-	"unconverted-api-workers": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
@@ -1508,18 +1533,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 	"syslog": {},
 
 	"termination-signal-handler": {},
-
-	"unconverted-api-workers": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"upgrade-check-flag",
-		"upgrade-check-gate",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate",
-	},
 
 	"upgrade-check-flag": {"upgrade-check-gate"},
 

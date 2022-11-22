@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	containerbroker "github.com/juju/juju/container/broker"
 	"github.com/juju/juju/container/lxd"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/raft/queue"
@@ -78,6 +79,7 @@ import (
 	"github.com/juju/juju/worker/multiwatcher"
 	"github.com/juju/juju/worker/peergrouper"
 	prworker "github.com/juju/juju/worker/presence"
+	"github.com/juju/juju/worker/provisioner"
 	"github.com/juju/juju/worker/proxyupdater"
 	psworker "github.com/juju/juju/worker/pubsub"
 	"github.com/juju/juju/worker/raft"
@@ -156,10 +158,9 @@ type ManifoldsConfig struct {
 	// use to establish a connection to state.
 	OpenStateForUpgrade func() (*state.StatePool, error)
 
-	// StartAPIWorkers is passed to the apiworkers manifold. It starts
-	// workers which rely on an API connection (which have not yet
-	// been converted to work directly with the dependency engine).
-	StartAPIWorkers func(api.Connection) (worker.Worker, error)
+	// MachineStartup is passed to the machine manifold. It does
+	// machine setup work which relies on an API connection.
+	MachineStartup func(api.Connection, Logger) error
 
 	// PreUpgradeSteps is a function that is used by the upgradesteps
 	// worker to ensure that conditions are OK for an upgrade to
@@ -599,15 +600,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:         loggo.GetLogger("juju.worker.agentconfigupdater"),
 		})),
 
-		// The apiworkers manifold starts workers which rely on the
-		// machine agent's API connection but have not been converted
-		// to work directly under the dependency engine. It waits for
-		// upgrades to be finished before starting these workers.
-		apiWorkersName: ifNotMigrating(APIWorkersManifold(APIWorkersConfig{
-			APICallerName:   apiCallerName,
-			StartAPIWorkers: config.StartAPIWorkers,
-		})),
-
 		// The logging config updater is a leaf worker that indirectly
 		// controls the messages sent via the log sender or rsyslog,
 		// according to changes in environment config. We should only need
@@ -1005,6 +997,30 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker: syslogger.NewWorker,
 			NewLogger: syslogger.NewSyslog,
 		}),
+		// The machineSetupName manifold runs small tasks required
+		// to setup a machine, but requires the machine agent's API
+		// connection. Once its work is comlete, it stops.
+		machineSetupName: ifNotMigrating(MachineStartupManifold(MachineStartupConfig{
+			APICallerName:  apiCallerName,
+			MachineStartup: config.MachineStartup,
+			Logger:         loggo.GetLogger("juju.worker.machinesetup"),
+		})),
+		kvmContainerProvisioner: ifNotMigrating(provisioner.ContainerProvisioningManifold(provisioner.ContainerManifoldConfig{
+			AgentName:                    agentName,
+			APICallerName:                apiCallerName,
+			Logger:                       loggo.GetLogger("juju.worker.kvmprovisioner"),
+			MachineLock:                  config.MachineLock,
+			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
+			ContainerType:                instance.KVM,
+		})),
+		lxdContainerProvisioner: ifNotMigrating(provisioner.ContainerProvisioningManifold(provisioner.ContainerManifoldConfig{
+			AgentName:                    agentName,
+			APICallerName:                apiCallerName,
+			Logger:                       loggo.GetLogger("juju.worker.lxdprovisioner"),
+			MachineLock:                  config.MachineLock,
+			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
+			ContainerType:                instance.LXD,
+		})),
 		// isNotControllerFlagName is only used for the stateconverter,
 		isNotControllerFlagName: isControllerFlagManifold(false),
 		stateConverterName: ifNotController(ifNotMigrating(stateconverter.Manifold(stateconverter.ManifoldConfig{
@@ -1148,7 +1164,7 @@ const (
 	migrationInactiveFlagName = "migration-inactive-flag"
 	migrationMinionName       = "migration-minion"
 
-	apiWorkersName                = "unconverted-api-workers"
+	machineSetupName              = "machine-setup"
 	rebootName                    = "reboot-executor"
 	loggingConfigUpdaterName      = "logging-config-updater"
 	diskManagerName               = "disk-manager"
@@ -1182,6 +1198,8 @@ const (
 	auditConfigUpdaterName        = "audit-config-updater"
 	leaseManagerName              = "lease-manager"
 	stateConverterName            = "state-converter"
+	lxdContainerProvisioner       = "lxd-container-provisioner"
+	kvmContainerProvisioner       = "kvm-container-provisioner"
 
 	upgradeSeriesWorkerName = "upgrade-series"
 

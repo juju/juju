@@ -245,7 +245,7 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementAvailable(c *gc.C) {
 	image := &api.Image{Filename: "container-image"}
 
 	tExp.GetServer().Return(serverRet, lxdtesting.ETag, nil)
-	tExp.GetImageAlias("juju/ubuntu:22.04/amd64").Return(&api.ImageAliasesEntry{}, lxdtesting.ETag, nil)
+	tExp.GetImageAlias("juju/ubuntu@22.04/amd64").Return(&api.ImageAliasesEntry{}, lxdtesting.ETag, nil)
 	tExp.GetImage("").Return(image, lxdtesting.ETag, nil)
 
 	jujuTarget, err := containerlxd.NewServer(target)

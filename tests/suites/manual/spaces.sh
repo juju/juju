@@ -11,11 +11,10 @@ test_spaces_manual() {
 
 		case "${BOOTSTRAP_PROVIDER:-}" in
 		"aws")
-			export BOOTSTRAP_PROVIDER="manual"
 			run "run_spaces_manual_aws"
 			;;
 		*)
-			echo "==> TEST SKIPPED: deploy manual - tests for LXD and AWS"
+			echo "==> TEST SKIPPED: spaces manual - tests AWS only"
 			;;
 		esac
 	)
@@ -34,13 +33,12 @@ run_spaces_manual_aws() {
 	machine2="${name}-m2"
 	machine3="${name}-m3"
 
-	set -eux
-
 	add_clean_func "run_cleanup_deploy_manual_aws"
 
 	# Eventually we should use BOOTSTRAP_SERIES.
 	series="jammy"
 
+	echo "==> Configuring aws"
 	OUT=$(aws ec2 describe-images \
 		--owners 099720109477 \
 		--filters "Name=name,Values=ubuntu/images/hvm-ssd/ubuntu-${series}-?????-amd64-server-????????" 'Name=state,Values=available' \
@@ -52,16 +50,15 @@ run_spaces_manual_aws() {
 	fi
 	image_id="${OUT}"
 
-	# Get each subnet ID from the default VPC.
-	# These should represent the VPC 172.31.0.0/16 carved into 3 /20 ranges.
-	# See https://docs.aws.amazon.com/vpc/latest/userguide/default-vpc.html#default-vpc-components
-	OUT=$(aws ec2 describe-subnets | jq -r '.Subnets[] | select(.DefaultForAz==true) | .SubnetId')
-	len=$(echo "$OUT" | wc -w)
-	if [[ ${len} -ne "3" ]]; then
-		echo "Expected 3 subnets from default VPC; got: ${OUT}"
-		exit 1
-	fi
-	subs="${OUT}"
+	echo "===> Ensure at least 3 default subnets exists"
+	check_ge "$(aws ec2 describe-availability-zones | jq -r ".AvailabilityZones | length")" 3
+	aws ec2 create-default-subnet --availability-zone "${BOOTSTRAP_REGION}a" 2>/dev/null || true
+	aws ec2 create-default-subnet --availability-zone "${BOOTSTRAP_REGION}b" 2>/dev/null || true
+	aws ec2 create-default-subnet --availability-zone "${BOOTSTRAP_REGION}c" 2>/dev/null || true
+
+	sub1=$(aws ec2 describe-subnets | jq -r '.Subnets[] | select(.DefaultForAz==true and .CidrBlock=="172.31.0.0/20") | .SubnetId')
+	sub2=$(aws ec2 describe-subnets | jq -r '.Subnets[] | select(.DefaultForAz==true and .CidrBlock=="172.31.16.0/20") | .SubnetId')
+	sub3=$(aws ec2 describe-subnets | jq -r '.Subnets[] | select(.DefaultForAz==true and .CidrBlock=="172.31.32.0/20") | .SubnetId')
 
 	# Ensure we have a security group allowing SSH and controller access.
 	OUT=$(aws ec2 describe-security-groups | jq '.SecurityGroups[] | select(.GroupName=="ci-spaces-manual-ssh")' || true)
@@ -77,18 +74,19 @@ run_spaces_manual_aws() {
 	fi
 
 	# Create a key-pair so that we can provision machines via SSH.
-	aws ec2 create-key-pair --key-name "${name}" --query 'KeyMaterial' --output text >~/.ssh/"${name}".pem
-	chmod 400 ~/.ssh/"${name}".pem
+	aws ec2 create-key-pair --key-name "${name}" --query 'KeyMaterial' --output text >"${TEST_DIR}/${name}.pem"
+	chmod 400 "${TEST_DIR}/${name}.pem"
 	echo "${name}" >>"${TEST_DIR}/ec2-key-pairs"
 
 	local addr_c addr_m1 addr_m2 addr_m3
 
-	launch_and_wait_addr_ec2 "${name}" "${controller}" "${image_id}" "$(echo "${subs}" | sed -n 1p)" "${sg_id}" addr_c
-	launch_and_wait_addr_ec2 "${name}" "${machine1}" "${image_id}" "$(echo "${subs}" | sed -n 1p)" "${sg_id}" addr_m1
-	launch_and_wait_addr_ec2 "${name}" "${machine2}" "${image_id}" "$(echo "${subs}" | sed -n 2p)" "${sg_id}" addr_m2
-	launch_and_wait_addr_ec2 "${name}" "${machine3}" "${image_id}" "$(echo "${subs}" | sed -n 3p)" "${sg_id}" addr_m3
+	echo "===> Creating machines in aws"
+	launch_and_wait_addr_ec2 "${name}" "${controller}" "${image_id}" "${sub1}" "${sg_id}" addr_c
+	launch_and_wait_addr_ec2 "${name}" "${machine1}" "${image_id}" "${sub1}" "${sg_id}" addr_m1
+	launch_and_wait_addr_ec2 "${name}" "${machine2}" "${image_id}" "${sub2}" "${sg_id}" addr_m2
+	launch_and_wait_addr_ec2 "${name}" "${machine3}" "${image_id}" "${sub3}" "${sg_id}" addr_m3
 
-	ensure_valid_ssh_hosts "${addr_c}" "${addr_m1}" "${addr_m2}" "${addr_m3}"
+	ensure_valid_ssh_config "${name}.pem" "${addr_c}" "${addr_m1}" "${addr_m2}" "${addr_m3}"
 
 	cloud_name="cloud-${name}"
 
@@ -106,17 +104,24 @@ EOF
 
 	echo "${CLOUD}" >"${TEST_DIR}/cloud_name.yaml"
 
-	juju add-cloud --client "${cloud_name}" "${TEST_DIR}/cloud_name.yaml" >"${TEST_DIR}/add-cloud.log" 2>&1
+	juju add-cloud --client "${cloud_name}" "${TEST_DIR}/cloud_name.yaml" 2>&1 | tee "${TEST_DIR}/add-cloud.log"
 
 	file="${TEST_DIR}/test-${name}.log"
 
+	export BOOTSTRAP_PROVIDER="manual"
+	unset BOOTSTRAP_REGION
 	bootstrap "${cloud_name}" "test-${name}" "${file}"
 
 	# Each machine is in a different subnet,
 	# which will be discovered when the agent starts.
-	juju add-machine ssh:ubuntu@"${addr_m1}" >"${TEST_DIR}/add-machine-1.log" 2>&1
-	juju add-machine ssh:ubuntu@"${addr_m2}" >"${TEST_DIR}/add-machine-2.log" 2>&1
-	juju add-machine ssh:ubuntu@"${addr_m3}" >"${TEST_DIR}/add-machine-3.log" 2>&1
+	echo "==> Adding Machines"
+	juju add-machine ssh:ubuntu@"${addr_m1}" 2>&1 | tee "${TEST_DIR}/add-machine-1.log"
+	juju add-machine ssh:ubuntu@"${addr_m2}" 2>&1 | tee "${TEST_DIR}/add-machine-2.log"
+	juju add-machine ssh:ubuntu@"${addr_m3}" 2>&1 | tee "${TEST_DIR}/add-machine-3.log"
+
+	wait_for_machine_agent_status "0" "started"
+	wait_for_machine_agent_status "1" "started"
+	wait_for_machine_agent_status "2" "started"
 
 	# The discovered subnets then be carved into spaces.
 	juju add-space space-1 172.31.0.0/20

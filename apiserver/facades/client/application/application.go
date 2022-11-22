@@ -30,7 +30,6 @@ import (
 	k8s "github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/charmhub"
-	"github.com/juju/juju/controller"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
@@ -390,7 +389,6 @@ func splitApplicationAndCharmConfigFromYAML(modelType state.ModelType, inYaml, a
 
 func caasPrecheck(
 	ch Charm,
-	controllerCfg controller.Config,
 	model Model,
 	args params.ApplicationDeploy,
 	storagePoolManager poolmanager.PoolManager,
@@ -508,11 +506,7 @@ func deployApplication(
 
 	modelType := model.Type()
 	if modelType != state.ModelTypeIAAS {
-		cfg, err := backend.ControllerConfig()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if err := caasPrecheck(ch, cfg, model, args, storagePoolManager, registry, caasBroker); err != nil {
+		if err := caasPrecheck(ch, model, args, storagePoolManager, registry, caasBroker); err != nil {
 			return errors.Trace(err)
 		}
 	}

@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/v3"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
@@ -37,8 +39,28 @@ func GetJujuAdminServiceAccountResolver(clock jujuclock.Clock) K8sCredentialReso
 // GetLocalKubeConfig attempts to load up the current users local Kubernetes
 // configuration.
 func GetLocalKubeConfig() (*clientcmdapi.Config, error) {
+	// Confined snaps mess with the home path so ensure we
+	// include that in the config loader.
+	possibleRealHome := filepath.Join(utils.Home(),
+		clientcmd.RecommendedHomeDir, clientcmd.RecommendedFileName)
+	loader := clientcmd.NewDefaultClientConfigLoadingRules()
+	realHomeUsed := false
+	for i, opt := range loader.Precedence {
+		// Insert the real home before the sandboxed snap home.
+		if opt == clientcmd.RecommendedHomeFile {
+			precedence := append([]string{}, loader.Precedence[:i]...)
+			precedence = append(precedence, possibleRealHome)
+			precedence = append(precedence, loader.Precedence[i:]...)
+			loader.Precedence = precedence
+			realHomeUsed = true
+			break
+		}
+	}
+	if !realHomeUsed {
+		loader.Precedence = append(loader.Precedence, possibleRealHome)
+	}
 	kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-		clientcmd.NewDefaultClientConfigLoadingRules(),
+		loader,
 		&clientcmd.ConfigOverrides{},
 	)
 	r, err := kubeConfig.RawConfig()
@@ -211,9 +233,18 @@ func cloudsFromConfig(config *clientcmdapi.Config, cloudName string) (map[string
 // returned.
 func GetKubeConfigPath() string {
 	pathOpts := clientcmd.NewDefaultPathOptions()
+	// Confined snaps mess with the home path so ensure we
+	// include that in the config loader.
+	possibleRealHome := filepath.Join(utils.Home(),
+		clientcmd.RecommendedHomeDir, clientcmd.RecommendedFileName)
+	pathOpts.LoadingRules.Precedence = append([]string{possibleRealHome}, pathOpts.LoadingRules.Precedence...)
 	envFiles := pathOpts.GetEnvVarFiles()
 	if len(envFiles) == 0 {
-		return pathOpts.GetDefaultFilename()
+		configPath := pathOpts.LoadingRules.GetDefaultFilename()
+		if configPath == "" {
+			configPath = pathOpts.GetDefaultFilename()
+		}
+		return configPath
 	}
 	logger.Debugf("The kubeconfig file path is %s", envFiles[0])
 	return envFiles[0]

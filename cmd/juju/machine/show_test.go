@@ -137,9 +137,9 @@ func (s *MachineShowCommandSuite) TestShowTabularMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
 		"Machine  State    Address   Inst id              Base          AZ         Message\n"+
-		"0        started  10.0.0.1  juju-badd06-0        ubuntu:22.04  us-east-1  \n"+
-		"1        started  10.0.0.2  juju-badd06-1        ubuntu:22.04             \n"+
-		"1/lxd/0  pending  10.0.0.3  juju-badd06-1-lxd-0  ubuntu:22.04             \n")
+		"0        started  10.0.0.1  juju-badd06-0        ubuntu@22.04  us-east-1  \n"+
+		"1        started  10.0.0.2  juju-badd06-1        ubuntu@22.04             \n"+
+		"1/lxd/0  pending  10.0.0.3  juju-badd06-1-lxd-0  ubuntu@22.04             \n")
 }
 
 func (s *MachineShowCommandSuite) TestShowJsonMachine(c *gc.C) {

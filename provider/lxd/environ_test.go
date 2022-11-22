@@ -100,12 +100,12 @@ func (s *environSuite) TestBootstrapOkay(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(result.Arch, gc.Equals, "amd64")
-	c.Check(result.Base.DisplayString(), gc.Equals, "ubuntu:22.04")
+	c.Check(result.Base.DisplayString(), gc.Equals, "ubuntu@22.04")
 	// We don't check bsFinalizer because functions cannot be compared.
 	c.Check(result.CloudBootstrapFinalizer, gc.NotNil)
 
 	out := cmdtesting.Stderr(ctx)
-	c.Assert(out, gc.Equals, "To configure your system to better support LXD containers, please see: https://github.com/lxc/lxd/blob/master/doc/production-setup.md\n")
+	c.Assert(out, gc.Equals, "To configure your system to better support LXD containers, please see: https://linuxcontainers.org/lxd/docs/master/explanation/performance_tuning/\n")
 }
 
 func (s *environSuite) TestBootstrapAPI(c *gc.C) {

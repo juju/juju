@@ -129,7 +129,7 @@ bootstrap() {
 	if [[ ${BOOTSTRAP_REUSE} == "true" ]]; then
 		echo "====> Reusing bootstrapped juju ($(green "${version}:${cloud}"))"
 
-		OUT=$(juju models -c "${bootstrapped_name}" --format=json 2>/dev/null | jq '.models[] | .["short-name"]' | grep "${model}" || true)
+		OUT=$(juju models -c "${bootstrapped_name}" --format=json 2>/dev/null | jq -r ".models[] | .[\"short-name\"] | select(. == \"${model}\")" || true)
 		if [[ -n ${OUT} ]]; then
 			echo "${model} already exists. Use the following to clean up the environment:"
 			echo "    juju switch ${bootstrapped_name}"
@@ -277,6 +277,10 @@ pre_bootstrap() {
 	if [[ -n ${SHORT_GIT_COMMIT:-} ]]; then
 		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --model-default agent-metadata-url=https://ci-run-streams.s3.amazonaws.com/builds/build-${SHORT_GIT_COMMIT}/"
 		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --model-default agent-stream=build-${SHORT_GIT_COMMIT}"
+	fi
+
+	if [[ -n ${BOOTSTRAP_ARCH:-} ]]; then
+		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --bootstrap-constraints arch=${BOOTSTRAP_ARCH}"
 	fi
 
 	echo "BOOTSTRAP_ADDITIONAL_ARGS => ${BOOTSTRAP_ADDITIONAL_ARGS}"

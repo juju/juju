@@ -11,14 +11,19 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/golang/mock/gomock"
+	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http/v2"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/testing/httptesting"
 	"golang.org/x/crypto/nacl/secretbox"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -38,7 +43,32 @@ func (s *registrationSuite) SetUpTest(c *gc.C) {
 	s.registrationURL = s.server.URL + "/register"
 }
 
-func (s *registrationSuite) TestRegister(c *gc.C) {
+func (s *registrationSuite) assertRegisterNoProxy(c *gc.C, hasProxy bool) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	rawConfig := map[string]interface{}{
+		"api-host":              "https://127.0.0.1:16443",
+		"ca-cert":               "cert====",
+		"namespace":             "controller-k1",
+		"remote-port":           "17070",
+		"service":               "controller-service",
+		"service-account-token": "token====",
+	}
+	environ := NewMockConnectorInfo(ctrl)
+	proxier := NewMockProxier(ctrl)
+	s.PatchValue(&apiserver.GetConnectorInfoer, func(stateenvirons.Model) (environs.ConnectorInfo, error) {
+		if hasProxy {
+			return environ, nil
+		}
+		return nil, errors.NotSupportedf("proxier")
+	})
+	if hasProxy {
+		environ.EXPECT().ConnectionProxyInfo().Return(proxier, nil)
+		proxier.EXPECT().RawConfig().Return(rawConfig, nil)
+		proxier.EXPECT().Type().Return("kubernetes-port-forward")
+	}
+
 	// Ensure we cannot log in with the password yet.
 	const password = "hunter2"
 	c.Assert(s.bob.PasswordValid(password), jc.IsFalse)
@@ -85,6 +115,21 @@ func (s *registrationSuite) TestRegister(c *gc.C) {
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(responsePayload.ControllerUUID, gc.Equals, model.ControllerUUID())
+	if hasProxy {
+		c.Assert(responsePayload.ProxyConfig, gc.DeepEquals, &params.Proxy{
+			Type: "kubernetes-port-forward", Config: rawConfig,
+		})
+	} else {
+		c.Assert(responsePayload.ProxyConfig, gc.IsNil)
+	}
+}
+
+func (s *registrationSuite) TestRegisterNoProxy(c *gc.C) {
+	s.assertRegisterNoProxy(c, false)
+}
+
+func (s *registrationSuite) TestRegisterWithProxy(c *gc.C) {
+	s.assertRegisterNoProxy(c, true)
 }
 
 func (s *registrationSuite) TestRegisterInvalidMethod(c *gc.C) {

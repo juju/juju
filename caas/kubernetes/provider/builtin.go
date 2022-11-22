@@ -103,10 +103,6 @@ func getLocalMicroK8sConfig(cmdRunner CommandRunner, getKubeConfigDir func() (st
 		return getLocalMicroK8sConfigNonLinux(cmdRunner)
 	}
 
-	_, err := cmdRunner.LookPath("microk8s")
-	if err != nil {
-		return []byte{}, errors.NotFoundf("microk8s")
-	}
 	notSupportErr := errors.NewNotSupported(nil, fmt.Sprintf("juju %q can only work with strictly confined microk8s", version.Current))
 	clientConfigPath, err := getKubeConfigDir()
 	if err != nil {

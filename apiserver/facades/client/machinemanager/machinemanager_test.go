@@ -1077,7 +1077,7 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateAlre
 
 	results, err := s.api.UpgradeSeriesValidate(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results[0].Error, gc.ErrorMatches, "machine-0 is already running base ubuntu:20.04")
+	c.Assert(results.Results[0].Error, gc.ErrorMatches, "machine-0 is already running base ubuntu@20.04")
 }
 
 func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateOlderSeriesError(c *gc.C) {
@@ -1097,7 +1097,7 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateOlde
 	results, err := s.api.UpgradeSeriesValidate(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results[0].Error, gc.ErrorMatches,
-		"machine machine-0 is running ubuntu:20.04 which is a newer base than ubuntu:18.04.")
+		"machine machine-0 is running ubuntu@20.04 which is a newer base than ubuntu@18.04.")
 }
 
 func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateUnitNotIdleError(c *gc.C) {
@@ -1212,7 +1212,7 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) expectPrepareMachine(ctrl *gom
 
 	machine.EXPECT().SetUpgradeSeriesStatus(
 		model.UpgradeSeriesPrepareStarted,
-		"started upgrade from \"ubuntu:20.04\" to \"ubuntu:22.04\"",
+		"started upgrade from \"ubuntu@20.04\" to \"ubuntu@22.04\"",
 	).Return(upgradeSeriesErr)
 
 	if upgradeSeriesErr != nil {
