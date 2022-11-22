@@ -44,7 +44,7 @@ run_deploy_ck() {
 	juju --show-log run "$integrator_app_name/leader" --wait=10m purge-subnet-tags
 }
 
-# Ensure that a CAAS workload (mariadb+mediawiki) deploys successfully,
+# Ensure that a CAAS workload (hello-kubecon+nginx-ingress-integrator) deploys successfully,
 # and that we can relate the two applications once it has.
 run_deploy_caas_workload() {
 	echo
@@ -63,12 +63,12 @@ run_deploy_caas_workload() {
 
 	add_model "${model_name}" "${k8s_cloud_name}" "${controller_name}" "${file}"
 
-	juju deploy cs:~juju/mariadb-k8s-3
-	juju deploy cs:~juju/mediawiki-k8s-4 --config kubernetes-service-type=loadbalancer
-	juju relate mediawiki-k8s:db mariadb-k8s:server
+	juju deploy hello-kubecon
+	juju deploy nginx-ingress-integrator
+	juju relate hello-kubecon:ingress nginx-ingress-integrator:ingress
 
-	wait_for "active" '.applications["mariadb-k8s"] | ."application-status".current' 300
-	wait_for "active" '.applications["mediawiki-k8s"] | ."application-status".current'
+	wait_for "active" '.applications["hello-kubecon"] | ."application-status".current' 300
+	wait_for "active" '.applications["nginx-ingress-integrator"] | ."application-status".current'
 }
 
 test_deploy_ck() {
@@ -79,7 +79,6 @@ test_deploy_ck() {
 
 	(
 		set_verbosity
-
 		cd .. || exit
 
 		run "run_deploy_ck"
