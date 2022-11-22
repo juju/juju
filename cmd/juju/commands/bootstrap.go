@@ -30,6 +30,7 @@ import (
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/constants"
 	"github.com/juju/juju/cmd/juju/application/refresher"
 	"github.com/juju/juju/cmd/juju/common"
 	cmdcontroller "github.com/juju/juju/cmd/juju/controller"
@@ -943,6 +944,11 @@ See `[1:] + "`juju kill-controller`" + `.`)
 			}
 		}
 	}()
+
+	if envMetadataSrc := os.Getenv(constants.EnvJujuMetadataSource); c.MetadataSource == "" && envMetadataSrc != "" {
+		c.MetadataSource = envMetadataSrc
+		ctx.Infof("Using metadata source directory %q", c.MetadataSource)
+	}
 
 	// If --metadata-source is specified, override the default tools metadata source so
 	// SyncTools can use it, and also upload any image metadata.
