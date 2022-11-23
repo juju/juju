@@ -97,7 +97,7 @@ func (c *Client) GetContentInfo(uri *coresecrets.URI, label string, refresh, pee
 		return nil, apiservererrors.RestoreError(err)
 	}
 	result := results.Results[0].Content
-	content := &secrets.ContentParams{ProviderId: result.ProviderId}
+	content := &secrets.ContentParams{BackendId: result.BackendId}
 	if len(result.Data) > 0 {
 		content.SecretValue = coresecrets.NewSecretValue(result.Data)
 	}
@@ -216,16 +216,16 @@ func (c *Client) SecretMetadata(filter coresecrets.Filter) ([]coresecrets.Secret
 			LatestExpireTime: info.LatestExpireTime,
 			NextRotateTime:   info.NextRotateTime,
 		}
-		providerIds := make(map[int]string)
+		BackendIds := make(map[int]string)
 		for _, r := range info.Revisions {
-			if r.ProviderId == nil {
+			if r.BackendId == nil {
 				continue
 			}
-			providerIds[r.Revision] = *r.ProviderId
+			BackendIds[r.Revision] = *r.BackendId
 		}
 		result = append(result, coresecrets.SecretOwnerMetadata{
-			Metadata:    md,
-			ProviderIds: providerIds,
+			Metadata:   md,
+			BackendIds: BackendIds,
 		})
 	}
 	return result, nil

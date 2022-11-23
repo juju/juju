@@ -234,13 +234,13 @@ type k8sStore struct {
 }
 
 // GetContent implements SecretsStore.
-func (k k8sStore) GetContent(ctx context.Context, providerId string) (secrets.SecretValue, error) {
-	return k.broker.GetJujuSecret(ctx, providerId)
+func (k k8sStore) GetContent(ctx context.Context, backendId string) (secrets.SecretValue, error) {
+	return k.broker.GetJujuSecret(ctx, backendId)
 }
 
 // DeleteContent implements SecretsStore.
-func (k k8sStore) DeleteContent(ctx context.Context, providerId string) error {
-	return k.broker.DeleteJujuSecret(ctx, providerId)
+func (k k8sStore) DeleteContent(ctx context.Context, backendId string) error {
+	return k.broker.DeleteJujuSecret(ctx, backendId)
 }
 
 // SaveContent implements SecretsStore.

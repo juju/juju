@@ -22,12 +22,12 @@ const (
 // access the content from an external provider like vault.
 type ContentParams struct {
 	secrets.SecretValue
-	ProviderId *string
+	BackendId *string
 }
 
 // Validate returns an error if the content is invalid.
 func (p *ContentParams) Validate() error {
-	if p.ProviderId == nil && p.SecretValue == nil {
+	if p.BackendId == nil && p.SecretValue == nil {
 		return errors.NotValidf("secret content without value or provider id")
 	}
 	return nil
@@ -90,5 +90,5 @@ type Store interface {
 	SaveContent(uri *secrets.URI, revision int, value secrets.SecretValue) (string, error)
 
 	// DeleteContent deletes a secret from an external store.
-	DeleteContent(providerId string) error
+	DeleteContent(BackendId string) error
 }

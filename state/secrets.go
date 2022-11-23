@@ -46,7 +46,7 @@ type UpdateSecretParams struct {
 	Label          *string
 	Params         map[string]interface{}
 	Data           secrets.SecretData
-	ProviderId     *string
+	BackendId      *string
 }
 
 func (u *UpdateSecretParams) hasUpdate() bool {
@@ -56,7 +56,7 @@ func (u *UpdateSecretParams) hasUpdate() bool {
 		u.Label != nil ||
 		u.ExpireTime != nil ||
 		len(u.Data) > 0 ||
-		u.ProviderId != nil ||
+		u.BackendId != nil ||
 		len(u.Params) > 0
 }
 
@@ -117,7 +117,7 @@ type secretRevisionDoc struct {
 	ExpireTime *time.Time     `bson:"expire-time,omitempty"`
 	Obsolete   bool           `bson:"obsolete"`
 	Data       secretsDataMap `bson:"data"`
-	ProviderId *string        `bson:"provider-id,omitempty"`
+	BackendId  *string        `bson:"backend-id,omitempty"`
 
 	// OwnerTag is denormalised here so that watchers do not need
 	// to do an extra query on the secret metadata collection to
@@ -183,7 +183,7 @@ func (s *secretsStore) updateSecretMetadataDoc(doc *secretMetadataDoc, p *Update
 	if p.RotatePolicy != nil {
 		doc.RotatePolicy = string(toValue(p.RotatePolicy))
 	}
-	hasData := len(p.Data) > 0 || p.ProviderId != nil
+	hasData := len(p.Data) > 0 || p.BackendId != nil
 	if p.ExpireTime != nil || hasData {
 		if p.ExpireTime == nil || p.ExpireTime.IsZero() {
 			doc.LatestExpireTime = nil
@@ -202,7 +202,7 @@ func secretRevisionKey(uri *secrets.URI, revision int) string {
 	return fmt.Sprintf("%s/%d", uri.ID, revision)
 }
 
-func (s *secretsStore) secretRevisionDoc(uri *secrets.URI, owner string, revision int, expireTime *time.Time, data secrets.SecretData, providerId *string) *secretRevisionDoc {
+func (s *secretsStore) secretRevisionDoc(uri *secrets.URI, owner string, revision int, expireTime *time.Time, data secrets.SecretData, BackendId *string) *secretRevisionDoc {
 	dataCopy := make(secretsDataMap)
 	for k, v := range data {
 		dataCopy[k] = v
@@ -215,7 +215,7 @@ func (s *secretsStore) secretRevisionDoc(uri *secrets.URI, owner string, revisio
 		CreateTime: now,
 		UpdateTime: now,
 		Data:       dataCopy,
-		ProviderId: providerId,
+		BackendId:  BackendId,
 	}
 	if expireTime != nil {
 		expire := expireTime.Round(time.Second).UTC()
@@ -226,7 +226,7 @@ func (s *secretsStore) secretRevisionDoc(uri *secrets.URI, owner string, revisio
 
 // CreateSecret creates a new secret.
 func (s *secretsStore) CreateSecret(uri *secrets.URI, p CreateSecretParams) (*secrets.SecretMetadata, error) {
-	if len(p.Data) == 0 && p.ProviderId == nil {
+	if len(p.Data) == 0 && p.BackendId == nil {
 		return nil, errors.New("cannot create a secret without content")
 	}
 	metadataDoc, err := s.secretMetadataDoc(uri, &p)
@@ -234,7 +234,7 @@ func (s *secretsStore) CreateSecret(uri *secrets.URI, p CreateSecretParams) (*se
 		return nil, errors.Trace(err)
 	}
 	revision := 1
-	valueDoc := s.secretRevisionDoc(uri, p.Owner.String(), revision, p.ExpireTime, p.Data, p.ProviderId)
+	valueDoc := s.secretRevisionDoc(uri, p.Owner.String(), revision, p.ExpireTime, p.Data, p.BackendId)
 	// OwnerTag has already been validated.
 	owner, _ := names.ParseTag(metadataDoc.OwnerTag)
 	entity, scopeCollName, scopeDocID, err := s.st.findSecretEntity(owner)
@@ -366,11 +366,11 @@ func (s *secretsStore) UpdateSecret(uri *secrets.URI, p UpdateSecretParams) (*se
 		if !revisionExists && !errors.IsNotFound(err) {
 			return nil, errors.Trace(err)
 		}
-		if len(p.Data) > 0 || p.ProviderId != nil {
+		if len(p.Data) > 0 || p.BackendId != nil {
 			if revisionExists {
 				return nil, errors.AlreadyExistsf("secret value with revision %d for %q", metadataDoc.LatestRevision, uri.String())
 			}
-			revisionDoc := s.secretRevisionDoc(uri, metadataDoc.OwnerTag, metadataDoc.LatestRevision, newExpireTime, p.Data, p.ProviderId)
+			revisionDoc := s.secretRevisionDoc(uri, metadataDoc.OwnerTag, metadataDoc.LatestRevision, newExpireTime, p.Data, p.BackendId)
 			ops = append(ops, txn.Op{
 				C:      secretRevisionsC,
 				Id:     revisionDoc.DocID,
@@ -642,7 +642,7 @@ func (s *secretsStore) getSecretValue(uri *secrets.URI, revision int, checkExist
 	for k, v := range doc.Data {
 		data[k] = fmt.Sprintf("%v", v)
 	}
-	return secrets.NewSecretValue(data), doc.ProviderId, nil
+	return secrets.NewSecretValue(data), doc.BackendId, nil
 }
 
 // GetSecret gets the secret metadata for the specified URL.
@@ -816,7 +816,7 @@ func (s *secretsStore) listSecretRevisions(uri *secrets.URI, revision *int) ([]*
 	for i, doc := range docs {
 		result[i] = &secrets.SecretRevisionMetadata{
 			Revision:   doc.Revision,
-			ProviderId: doc.ProviderId,
+			BackendId:  doc.BackendId,
 			CreateTime: doc.CreateTime,
 			UpdateTime: doc.UpdateTime,
 			ExpireTime: doc.ExpireTime,
@@ -899,10 +899,18 @@ func secretConsumerLabelKey(ownerTag string, label string) string {
 }
 
 func (st *State) uniqueSecretOwnerLabelOps(ownerTag string, label string) ([]txn.Op, error) {
+	if _, err := st.uniqueSecretLabelOps(ownerTag, label, "consumer", secretConsumerLabelKey); err != nil {
+		// Check that there is no consumer with the same label.
+		return nil, errors.Trace(err)
+	}
 	return st.uniqueSecretLabelOps(ownerTag, label, "owner", secretOwnerLabelKey)
 }
 
 func (st *State) uniqueSecretConsumerLabelOps(consumerTag string, label string) ([]txn.Op, error) {
+	if _, err := st.uniqueSecretLabelOps(consumerTag, label, "owner", secretOwnerLabelKey); err != nil {
+		// Check that there is no owner with the same label.
+		return nil, errors.Trace(err)
+	}
 	return st.uniqueSecretLabelOps(consumerTag, label, "consumer", secretConsumerLabelKey)
 }
 

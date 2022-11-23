@@ -581,7 +581,7 @@ func (ImportSecrets) Execute(src SecretsInput, runner TransactionRunner) error {
 					ExpireTime: rev.ExpireTime(),
 					Obsolete:   rev.Obsolete(),
 					Data:       dataCopy,
-					ProviderId: rev.ProviderId(),
+					BackendId:  rev.ProviderId(),
 					OwnerTag:   owner.String(),
 				},
 			})

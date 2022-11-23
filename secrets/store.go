@@ -55,11 +55,11 @@ func (c *secretsClient) GetContent(uri *secrets.URI, label string, refresh, peek
 	}
 	// We just support the juju backend for now.
 	// In the future, we'll use the store to lookup the secret content based on id.
-	if content.ProviderId != nil && c.store == nil {
+	if content.BackendId != nil && c.store == nil {
 		return nil, errors.NotSupportedf("secret content from external store")
 	}
-	if content.ProviderId != nil {
-		return c.store.GetContent(context.Background(), *content.ProviderId)
+	if content.BackendId != nil {
+		return c.store.GetContent(context.Background(), *content.BackendId)
 	}
 	return content.SecretValue, nil
 }
@@ -73,9 +73,9 @@ func (c *secretsClient) SaveContent(uri *secrets.URI, revision int, value secret
 }
 
 // DeleteContent implements Client.
-func (c *secretsClient) DeleteContent(providerId string) error {
+func (c *secretsClient) DeleteContent(backendId string) error {
 	if c.store == nil {
 		return errors.NotSupportedf("deleting secret content from external store")
 	}
-	return c.store.DeleteContent(context.Background(), providerId)
+	return c.store.DeleteContent(context.Background(), backendId)
 }

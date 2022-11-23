@@ -506,7 +506,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentOwnerArgURI(c *gc.C) {
 			names.NewApplicationTag("mariadb"),
 		},
 	}).Return([]*coresecrets.SecretMetadata{
-		&coresecrets.SecretMetadata{
+		{
 			URI:            uri,
 			LatestRevision: 668,
 			OwnerTag:       "unit-mariadb-0",

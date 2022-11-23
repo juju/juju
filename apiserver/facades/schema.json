@@ -38529,6 +38529,9 @@
                 "SecretRevision": {
                     "type": "object",
                     "properties": {
+                        "backend-id": {
+                            "type": "string"
+                        },
                         "create-time": {
                             "type": "string",
                             "format": "date-time"
@@ -38536,9 +38539,6 @@
                         "expire-time": {
                             "type": "string",
                             "format": "date-time"
-                        },
-                        "provider-id": {
-                            "type": "string"
                         },
                         "revision": {
                             "type": "integer"
@@ -39167,6 +39167,9 @@
                 "SecretContentParams": {
                     "type": "object",
                     "properties": {
+                        "backend-id": {
+                            "type": "string"
+                        },
                         "data": {
                             "type": "object",
                             "patternProperties": {
@@ -39174,9 +39177,6 @@
                                     "type": "string"
                                 }
                             }
-                        },
-                        "provider-id": {
-                            "type": "string"
                         }
                     },
                     "additionalProperties": false
@@ -39214,6 +39214,9 @@
                 "SecretRevision": {
                     "type": "object",
                     "properties": {
+                        "backend-id": {
+                            "type": "string"
+                        },
                         "create-time": {
                             "type": "string",
                             "format": "date-time"
@@ -39221,9 +39224,6 @@
                         "expire-time": {
                             "type": "string",
                             "format": "date-time"
-                        },
-                        "provider-id": {
-                            "type": "string"
                         },
                         "revision": {
                             "type": "integer"
@@ -47229,6 +47229,9 @@
                 "SecretContentParams": {
                     "type": "object",
                     "properties": {
+                        "backend-id": {
+                            "type": "string"
+                        },
                         "data": {
                             "type": "object",
                             "patternProperties": {
@@ -47236,9 +47239,6 @@
                                     "type": "string"
                                 }
                             }
-                        },
-                        "provider-id": {
-                            "type": "string"
                         }
                     },
                     "additionalProperties": false
@@ -47276,6 +47276,9 @@
                 "SecretRevision": {
                     "type": "object",
                     "properties": {
+                        "backend-id": {
+                            "type": "string"
+                        },
                         "create-time": {
                             "type": "string",
                             "format": "date-time"
@@ -47283,9 +47286,6 @@
                         "expire-time": {
                             "type": "string",
                             "format": "date-time"
-                        },
-                        "provider-id": {
-                            "type": "string"
                         },
                         "revision": {
                             "type": "integer"
