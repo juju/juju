@@ -8,6 +8,7 @@ on:
       - 'go.mod'
       - 'snap/**'
       - '.github/workflows/upgrade.yml'
+      - '.github/setup-lxd/**'
   workflow_dispatch:
 
 permissions:
@@ -39,21 +40,16 @@ jobs:
           sudo snap install snapcraft --classic
           sudo snap install yq
           sudo snap install juju --classic --channel=${{ matrix.snap_version }}
-          
-          if snap info lxd | grep "installed"; then
-            sudo snap remove lxd --purge
-          fi
-          sudo snap install lxd --channel=4.0/candidate
-          
-          sudo lxd waitready
-          sudo lxd init --auto
-          sudo chmod a+wr /var/snap/lxd/common/lxd/unix.socket
-          lxc network set lxdbr0 ipv6.address none
           echo "/snap/bin" >> $GITHUB_PATH
 
       - name: Checkout
         if: env.RUN_TEST == 'RUN'
         uses: actions/checkout@v3
+
+      - name: Setup LXD
+        uses: ./.github/setup-lxd
+        with:
+          channel: 4.0/candidate
 
       - name: Set some variables
         if: env.RUN_TEST == 'RUN'
