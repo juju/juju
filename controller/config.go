@@ -9,7 +9,6 @@ import (
 	"net/url"
 	"os"
 	"regexp"
-	"strconv"
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
@@ -1066,11 +1065,7 @@ func (c Config) SkipConfirmation() bool {
 		return v.(bool)
 	}
 	if environmentValue := os.Getenv(osenv.JujuSkipConfirmationEnvKey); environmentValue != "" {
-		boolValue, err := strconv.ParseBool(environmentValue)
-		if err != nil {
-			errors.Errorf("Value (%s) of JUJU_SKIP_CONFIRMATION env var is not a boolean", osenv.JujuSkipConfirmationEnvKey)
-		}
-		return boolValue
+		return true
 	} else {
 		return DefaultSkipConfirmation
 	}
