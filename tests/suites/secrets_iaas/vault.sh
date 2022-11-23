@@ -74,8 +74,6 @@ run_secrets_vault() {
 	juju exec --unit easyrsa/0 -- secret-remove "$secret_owned_by_easyrsa"
 	check_contains "$(juju exec --unit easyrsa/0 -- secret-get "$secret_owned_by_easyrsa" 2>&1)" 'not found'
 
-	vault kv list -format json "$model_uuid" | jq -r '. | length' | check 0
-
 	destroy_model "model-secrets-vault"
 	destroy_model "model-vault-provider"
 }

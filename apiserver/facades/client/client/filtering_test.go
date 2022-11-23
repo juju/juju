@@ -31,7 +31,7 @@ func (f *filteringUnitTests) TestMatchPortRanges(c *gc.C) {
 	match, ok, err = client.MatchPortRanges([]string{"90/tcp"}, network.PortRange{80, 90, "tcp"})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(ok, jc.IsTrue)
-	c.Check(match, jc.IsFalse)
+	c.Check(match, jc.IsTrue)
 
 	match, ok, err = client.MatchPortRanges([]string{"70"}, network.PortRange{7070, 7070, "tcp"})
 	c.Check(err, jc.ErrorIsNil)
@@ -39,6 +39,21 @@ func (f *filteringUnitTests) TestMatchPortRanges(c *gc.C) {
 	c.Check(match, jc.IsFalse)
 
 	match, ok, err = client.MatchPortRanges([]string{"7070"}, network.PortRange{7070, 7070, "tcp"})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(ok, jc.IsTrue)
+	c.Check(match, jc.IsFalse)
+
+	match, ok, err = client.MatchPortRanges([]string{"7070/udp"}, network.PortRange{7070, 7070, "tcp"})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(ok, jc.IsTrue)
+	c.Check(match, jc.IsFalse)
+
+	match, ok, err = client.MatchPortRanges([]string{"7070/tcp"}, network.PortRange{7065, 7069, "tcp"})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(ok, jc.IsTrue)
+	c.Check(match, jc.IsFalse)
+
+	match, ok, err = client.MatchPortRanges([]string{"7070/tcp"}, network.PortRange{7069, 7071, "tcp"})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(ok, jc.IsTrue)
 	c.Check(match, jc.IsTrue)
