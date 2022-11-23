@@ -10,6 +10,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check if CLA signed
-        uses: canonical/has-signed-canonical-cla@3eb79ef290553f0de096b3948a6770c15171fb15 # v1
+        uses: canonical/has-signed-canonical-cla@a88f98e3c696d7878130227cbba835395c87abc6 # v1
         with:
           accept-existing-contributors: true
