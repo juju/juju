@@ -187,7 +187,7 @@ func (s *modelUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, d
 	ctrl, api := s.getModelUpgraderAPI(c)
 	defer ctrl.Finish()
 
-	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersions, map[int]version.Number{
+	s.PatchValue(&upgradevalidation.MinAgentVersions, map[int]version.Number{
 		3: version.MustParse("2.9.1"),
 	})
 
@@ -219,7 +219,7 @@ func (s *modelUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, d
 
 		// Decide/validate target version.
 		ctrlState.EXPECT().ControllerConfig().Return(controllerCfg, nil),
-		ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil),
+		ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("3.9.1"), nil),
 		ctrlModel.EXPECT().Type().Return(state.ModelTypeIAAS),
 		s.toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{
 			Number:        version.MustParse("3.9.99"),
@@ -231,7 +231,7 @@ func (s *modelUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, d
 
 		// 1. Check controller model.
 		// - check agent version;
-		ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil),
+		ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("3.9.1"), nil),
 		// - check mongo status;
 		ctrlState.EXPECT().MongoCurrentStatus().Return(&replicaset.Status{
 			Members: []replicaset.MemberStatus{
@@ -312,7 +312,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 	ctrl, api := s.getModelUpgraderAPI(c)
 	defer ctrl.Finish()
 
-	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersions, map[int]version.Number{
+	s.PatchValue(&upgradevalidation.MinAgentVersions, map[int]version.Number{
 		3: version.MustParse("2.9.2"),
 	})
 
@@ -423,7 +423,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 	c.Assert(result.Error.Error(), gc.Equals, `
 cannot upgrade to "3.9.99" due to issues with these models:
 "admin/controller":
-- current model ("2.9.1") has to be upgraded to "2.9.2" at least
+- upgrading a controller to a newer major.minor version 3.9 not supported
 - unable to upgrade, database node 1 (1.1.1.1) has state FATAL, node 2 (2.2.2.2) has state ARBITER, node 3 (3.3.3.3) has state RECOVERING
 - mongo version has to be "4.4" at least, but current version is "4.3"
 - the model hosts deprecated windows machine(s): win10(1) win7(2)
@@ -440,10 +440,6 @@ cannot upgrade to "3.9.99" due to issues with these models:
 func (s *modelUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, dryRun bool) {
 	ctrl, api := s.getModelUpgraderAPI(c)
 	defer ctrl.Finish()
-
-	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersions, map[int]version.Number{
-		3: version.MustParse("2.9.1"),
-	})
 
 	server := upgradevalidationmocks.NewMockServer(ctrl)
 	serverFactory := upgradevalidationmocks.NewMockServerFactory(ctrl)
@@ -525,10 +521,6 @@ func (s *modelUpgradeSuite) TestUpgradeModelJuju3DryRun(c *gc.C) {
 func (s *modelUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 	ctrl, api := s.getModelUpgraderAPI(c)
 	defer ctrl.Finish()
-
-	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersions, map[int]version.Number{
-		3: version.MustParse("2.9.1"),
-	})
 
 	server := upgradevalidationmocks.NewMockServer(ctrl)
 	serverFactory := upgradevalidationmocks.NewMockServerFactory(ctrl)

@@ -42,7 +42,7 @@ func (m *ModelUpgraderAPI) decideVersion(
 		}
 		var targetVersion version.Number
 		targetVersion, packagedAgents = packagedAgents.Newest()
-		logger.Debugf("target version %q is the best version, packagedAgents %s", targetVersion, packagedAgents)
+		logger.Debugf("target version %q is the best version, packagedAgents %v", targetVersion, packagedAgents)
 		return targetVersion, nil
 	}
 
