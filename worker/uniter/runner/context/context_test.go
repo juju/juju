@@ -1203,6 +1203,51 @@ func (s *mockHookContextSuite) assertSecretCreate(c *gc.C, owner names.Tag) {
 	}})
 }
 
+func (s *mockHookContextSuite) TestSecretCreateDupLabel(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	data := map[string]string{"foo": "bar"}
+	value := coresecrets.NewSecretValue(data)
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "SecretsManager")
+		c.Assert(version, gc.Equals, 0)
+		c.Assert(id, gc.Equals, "")
+		c.Assert(request, gc.Equals, "CreateSecretURIs")
+		c.Check(arg, gc.DeepEquals, params.CreateSecretURIsArg{
+			Count: 1,
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
+		*(result.(*params.StringResults)) = params.StringResults{
+			[]params.StringResult{{
+				Result: "secret:9m4e2mr0ui3e8a215n4g",
+			}},
+		}
+		return nil
+	})
+	s.mockLeadership.EXPECT().IsLeader().Return(true, nil).Times(2)
+
+	hookContext := context.NewMockUnitHookContext(s.mockUnit, s.mockLeadership)
+	jujuSecretsAPI := secretsmanager.NewClient(apiCaller)
+	context.SetEnvironmentHookContextSecret(hookContext, "", nil, jujuSecretsAPI, nil)
+
+	_, err := hookContext.CreateSecret(&jujuc.SecretCreateArgs{
+		SecretUpdateArgs: jujuc.SecretUpdateArgs{
+			Value: value,
+			Label: ptr("foo"),
+		},
+		OwnerTag: names.NewApplicationTag("myapp"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = hookContext.CreateSecret(&jujuc.SecretCreateArgs{
+		SecretUpdateArgs: jujuc.SecretUpdateArgs{
+			Value: value,
+			Label: ptr("foo"),
+		},
+		OwnerTag: names.NewApplicationTag("myapp"),
+	})
+	c.Assert(err, gc.ErrorMatches, `secret with label "foo" already exists`)
+}
+
 func (s *mockHookContextSuite) TestSecretUpdate(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 

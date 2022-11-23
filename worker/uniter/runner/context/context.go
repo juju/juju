@@ -840,7 +840,7 @@ func (ctx *HookContext) CreateSecret(args *jujuc.SecretCreateArgs) (*coresecrets
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	ctx.secretChanges.create(uniter.SecretCreateArg{
+	err = ctx.secretChanges.create(uniter.SecretCreateArg{
 		SecretUpsertArg: uniter.SecretUpsertArg{
 			URI:          uris[0],
 			RotatePolicy: args.RotatePolicy,
@@ -851,6 +851,9 @@ func (ctx *HookContext) CreateSecret(args *jujuc.SecretCreateArgs) (*coresecrets
 		},
 		OwnerTag: args.OwnerTag,
 	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return uris[0], nil
 }
 
