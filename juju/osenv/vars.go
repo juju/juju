@@ -54,6 +54,10 @@ const (
 	// timestamps to be written in RFC3339 format.
 	JujuStatusIsoTimeEnvKey = "JUJU_STATUS_ISO_TIME"
 
+	// JujuSkipConfirmationEnvKey is the env var which if true, will disable confirmation for removal
+	// and destroying commands in Juju CLI.
+	JujuSkipConfirmationEnvKey = "JUJU_SKIP_CONFIRMATION"
+
 	// XDGDataHome is a path where data for the running user
 	// should be stored according to the xdg standard.
 	XDGDataHome = "XDG_DATA_HOME"

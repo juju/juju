@@ -5,8 +5,11 @@ package controller
 
 import (
 	"fmt"
+	"github.com/juju/juju/juju/osenv"
 	"net/url"
+	"os"
 	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
@@ -1062,7 +1065,15 @@ func (c Config) SkipConfirmation() bool {
 	if v, ok := c[SkipConfirmation]; ok {
 		return v.(bool)
 	}
-	return DefaultSkipConfirmation
+	if environmentValue := os.Getenv(osenv.JujuSkipConfirmationEnvKey); environmentValue != "" {
+		boolValue, err := strconv.ParseBool(environmentValue)
+		if err != nil {
+			errors.Errorf("Value (%s) of JUJU_SKIP_CONFIRMATION env var is not a boolean", osenv.JujuSkipConfirmationEnvKey)
+		}
+		return boolValue
+	} else {
+		return DefaultSkipConfirmation
+	}
 }
 
 // Validate ensures that config is a valid configuration.
