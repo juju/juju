@@ -84,6 +84,9 @@ func (c *removeApplicationCommand) Info() *cmd.Info {
 
 func (c *removeApplicationCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
+	// This unused var is declared so we can pass a valid ptr into BoolVar
+	var noPromptHolder bool
+	f.BoolVar(&noPromptHolder, "no-prompt", false, "Does nothing. Option present for forward compatibility with Juju 3")
 	f.BoolVar(&c.DestroyStorage, "destroy-storage", false, "Destroy storage attached to application units")
 	f.BoolVar(&c.Force, "force", false, "Completely remove an application and all its dependencies")
 	f.BoolVar(&c.NoWait, "no-wait", false, "Rush through application removal without waiting for each individual step to complete")
