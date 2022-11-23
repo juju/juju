@@ -92,7 +92,7 @@ type Pinner interface {
 
 	// PinnedLeadership returns a map keyed on pinned application names,
 	// with entities that require the application's pinned behaviour.
-	PinnedLeadership() map[string][]string
+	PinnedLeadership() (map[string][]string, error)
 }
 
 // Token represents a unit's leadership of its application.
