@@ -1,0 +1,35 @@
+name: 'Setup LXD'
+description: 'Install and configure LXD on the runner'
+inputs:
+  channel:
+    description: 'Snap channel to install LXD from'
+    required: false
+    default: 'latest/stable'
+runs:
+  using: "composite"
+  steps:
+    - name: Install/refresh LXD snap
+      shell: bash
+      run: |
+        set -x
+        if snap info lxd | grep "installed"; then
+          sudo snap refresh lxd --channel=${{ inputs.channel }}
+        else
+          sudo snap install lxd --channel=${{ inputs.channel }}
+        fi
+
+    - name: Initialise LXD
+      shell: bash
+      run: |
+        set -x
+        sudo lxd waitready
+        sudo lxd init --auto
+        sudo chmod a+wr /var/snap/lxd/common/lxd/unix.socket
+        lxc network set lxdbr0 ipv6.address none
+
+    - name: Configure firewall
+      shell: bash
+      run: |
+        set -x
+        sudo iptables -I DOCKER-USER -i lxdbr0 -j ACCEPT
+        sudo iptables -I DOCKER-USER -o lxdbr0 -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
