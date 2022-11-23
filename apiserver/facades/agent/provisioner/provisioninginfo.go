@@ -423,6 +423,23 @@ func (api *ProvisionerAPI) subnetsAndZonesForSpace(machineID string, spaceName s
 		return nil, errors.Errorf("cannot use space %q as deployment target: no subnets", spaceName)
 	}
 
+	// Memoise the determination of the model's provider.
+	var pType string
+	getProviderType := func() (string, error) {
+		if pType == "" {
+			m, err := api.st.Model()
+			if err != nil {
+				return "", errors.Trace(err)
+			}
+			cfg, err := m.Config()
+			if err != nil {
+				return "", errors.Trace(err)
+			}
+			pType = cfg.Type()
+		}
+		return pType, nil
+	}
+
 	subnetsToZones := make(map[string][]string, len(subnets))
 	for _, subnet := range subnets {
 		warningPrefix := fmt.Sprintf("not using subnet %q in space %q for machine %q provisioning: ",
@@ -437,18 +454,19 @@ func (api *ProvisionerAPI) subnetsAndZonesForSpace(machineID string, spaceName s
 
 		zones := subnet.AvailabilityZones
 		if len(zones) == 0 {
-			// For most providers we expect availability zones but Azure
-			// uses Availability Sets instead. So in that case we accept
-			// an empty map.
-			m, err := api.st.Model()
+			// For most providers we expect availability zones, however:
+			// - Azure uses Availability Sets.
+			// - OpenStack networks have R/W availability zone *hints*,
+			//   and AZs based on the actual scheduling of the resource.
+			// For these cases we allow empty map entries.
+			// TODO (manadart 2022-11-10): Bring this condition under testing
+			// when we cut machine handling over to Dqlite.
+			providerType, err := getProviderType()
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			cfg, err := m.Config()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			if cfg.Type() != azure.ProviderType {
+
+			if providerType != azure.ProviderType && providerType != "openstack" {
 				logger.Warningf(warningPrefix + "no availability zone(s) set")
 				continue
 			}
