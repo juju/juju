@@ -45,21 +45,20 @@ upgrades that software across an entire model, which is, by default, the
 current model.
 A model's agent version can be shown with `[1:] + "`juju model-config agent-\nversion`" + `.
 A version is denoted by: major.minor.patch
-The upgrade candidate will be auto-selected if '--agent-version' is not
-specified:
- - If the server major version matches the client major version, the
- version selected is minor+1. If such a minor version is not available then
- the next patch version is chosen.
- - If the server major version does not match the client major version,
- the version selected is that of the client version.
+
+If '--agent-version' is not specified, then the upgrade candidate is
+selected to be the exact version the controller itself is running.
+
 If the controller is without internet access, the client must first supply
 the software to the controller's cache via the ` + "`juju sync-agent-binary`" + ` command.
 The command will abort if an upgrade is in progress. It will also abort if
 a previous upgrade was not fully completed (e.g.: if one of the
 controllers in a high availability model failed to upgrade).
+
 When looking for an agent to upgrade to Juju will check the currently
 configured agent stream for that model. It's possible to overwrite this for
 the lifetime of this upgrade using --agent-stream
+
 If a failed upgrade has been resolved, '--reset-previous-upgrade' can be
 used to allow the upgrade to proceed.
 Backups are recommended prior to upgrading.

@@ -8,7 +8,8 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	params "github.com/juju/juju/rpc/params"
+	common "github.com/juju/juju/apiserver/common"
+	tools "github.com/juju/juju/tools"
 )
 
 // MockToolsFinder is a mock of ToolsFinder interface.
@@ -34,17 +35,17 @@ func (m *MockToolsFinder) EXPECT() *MockToolsFinderMockRecorder {
 	return m.recorder
 }
 
-// FindTools mocks base method.
-func (m *MockToolsFinder) FindTools(arg0 params.FindToolsParams) (params.FindToolsResult, error) {
+// FindAgents mocks base method.
+func (m *MockToolsFinder) FindAgents(arg0 common.FindAgentsParams) (tools.List, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindTools", arg0)
-	ret0, _ := ret[0].(params.FindToolsResult)
+	ret := m.ctrl.Call(m, "FindAgents", arg0)
+	ret0, _ := ret[0].(tools.List)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// FindTools indicates an expected call of FindTools.
-func (mr *MockToolsFinderMockRecorder) FindTools(arg0 interface{}) *gomock.Call {
+// FindAgents indicates an expected call of FindAgents.
+func (mr *MockToolsFinderMockRecorder) FindAgents(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindTools", reflect.TypeOf((*MockToolsFinder)(nil).FindTools), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindAgents", reflect.TypeOf((*MockToolsFinder)(nil).FindAgents), arg0)
 }

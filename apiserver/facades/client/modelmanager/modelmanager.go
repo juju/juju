@@ -170,13 +170,13 @@ func (m *ModelManagerAPI) newModelConfig(
 			if jujucloud.CloudTypeIsCAAS(cloudSpec.Type) {
 				return tools.List{&tools.Tools{Version: version.Binary{Number: n}}}, nil
 			}
-			result, err := m.toolsFinder.FindTools(params.FindToolsParams{
+			toolsList, err := m.toolsFinder.FindAgents(common.FindAgentsParams{
 				Number: n,
 			})
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			return result.List, nil
+			return toolsList, nil
 		},
 	}
 	return creator.NewModelConfig(cloudSpec, baseConfig, joint)
