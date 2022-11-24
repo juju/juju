@@ -367,32 +367,30 @@ func (a action) String() string {
 // unrecoverable errors or timeouts; mere failure to claim just
 // indicates a bad request, and is returned as (false, nil).
 func (manager *Manager) handleClaim(claim claim) (action, bool, error) {
-	store := manager.config.Store
-	request := lease.Request{Holder: claim.holderName, Duration: claim.duration}
-	var (
-		err error
-		act action
-	)
+	logger := manager.config.Logger
+	var act action
+
 	select {
 	case <-manager.catacomb.Dying():
 		return "unknown", false, manager.catacomb.ErrDying()
 	default:
-		// Note that we avoid shadowing the outer `err` here.
-		// It needs to be set then assessed outside the case.
-		info, found, lookupErr := manager.lookupLease(claim.leaseKey)
-		if lookupErr != nil {
-			return "unknown", false, errors.Trace(lookupErr)
+		info, found, err := manager.lookupLease(claim.leaseKey)
+		if err != nil {
+			return "unknown", false, errors.Trace(err)
 		}
+
+		request := lease.Request{Holder: claim.holderName, Duration: claim.duration}
+		store := manager.config.Store
 
 		switch {
 		case !found:
-			manager.config.Logger.Tracef("[%s] %s asked for lease %s, no lease found, claiming for %s",
+			logger.Tracef("[%s] %s asked for lease %s, no lease found, claiming for %s",
 				manager.logContext, claim.holderName, claim.leaseKey.Lease, claim.duration)
 			act = claimAction
 			err = store.ClaimLease(claim.leaseKey, request, manager.catacomb.Dying())
 
 		case info.Holder == claim.holderName:
-			manager.config.Logger.Tracef("[%s] %s extending lease %s for %s",
+			logger.Tracef("[%s] %s extending lease %s for %s",
 				manager.logContext, claim.holderName, claim.leaseKey.Lease, claim.duration)
 			act = extendAction
 			err = store.ExtendLease(claim.leaseKey, request, manager.catacomb.Dying())
@@ -401,18 +399,20 @@ func (manager *Manager) handleClaim(claim claim) (action, bool, error) {
 			// Note: (jam) 2017-10-31) We don't check here if the lease has
 			// expired for the current holder. Should we?
 			remaining := info.Expiry.Sub(manager.config.Clock.Now())
-			manager.config.Logger.Tracef("[%s] %s asked for lease %s, held by %s for another %s, rejecting",
+			logger.Tracef("[%s] %s asked for lease %s, held by %s for another %s, rejecting",
 				manager.logContext, claim.holderName, claim.leaseKey.Lease, info.Holder, remaining)
 			return "unknown", false, nil
 		}
+
+		if lease.IsAborted(err) {
+			return act, false, manager.catacomb.ErrDying()
+		}
+		if err != nil {
+			return act, false, errors.Trace(err)
+		}
 	}
-	if lease.IsAborted(err) {
-		return act, false, manager.catacomb.ErrDying()
-	}
-	if err != nil {
-		return act, false, errors.Trace(err)
-	}
-	manager.config.Logger.Tracef("[%s] %s %s lease %s for %s successful",
+
+	logger.Tracef("[%s] %s %s lease %s for %s successful",
 		manager.logContext, claim.holderName, act.String(), claim.leaseKey.Lease, claim.duration)
 	return act, true, nil
 }
@@ -493,44 +493,42 @@ func (manager *Manager) retryingRevoke(revoke revoke) {
 // handleRevoke processes the supplied revocation. It will only return
 // unrecoverable errors or timeouts.
 func (manager *Manager) handleRevoke(revoke revoke) error {
-	store := manager.config.Store
-	var err error
+	logger := manager.config.Logger
+
 	select {
 	case <-manager.catacomb.Dying():
 		return manager.catacomb.ErrDying()
 	default:
-		// Note that we avoid shadowing the outer `err` here.
-		// It needs to be set then assessed outside the case.
-		info, found, lookupErr := manager.lookupLease(revoke.leaseKey)
-		if lookupErr != nil {
-			return errors.Trace(lookupErr)
+		info, found, err := manager.lookupLease(revoke.leaseKey)
+		if err != nil {
+			return errors.Trace(err)
 		}
 
 		switch {
 		case !found:
-			manager.config.Logger.Tracef("[%s] %s asked to revoke lease %s, no lease found",
+			logger.Tracef("[%s] %s asked to revoke lease %s, no lease found",
 				manager.logContext, revoke.holderName, revoke.leaseKey.Lease)
 			return nil
 
 		case info.Holder == revoke.holderName:
-			manager.config.Logger.Tracef("[%s] %s revoking lease %s",
-				manager.logContext, revoke.holderName, revoke.leaseKey.Lease)
-			err = store.RevokeLease(revoke.leaseKey, revoke.holderName, manager.catacomb.Dying())
+			logger.Tracef("[%s] %s revoking lease %s", manager.logContext, revoke.holderName, revoke.leaseKey.Lease)
+			err = manager.config.Store.RevokeLease(revoke.leaseKey, revoke.holderName, manager.catacomb.Dying())
 
 		default:
-			manager.config.Logger.Tracef("[%s] %s revoking lease %s, held by %s, rejecting",
+			logger.Tracef("[%s] %s revoking lease %s, held by %s, rejecting",
 				manager.logContext, revoke.holderName, revoke.leaseKey.Lease, info.Holder)
 			return lease.ErrNotHeld
 		}
+
+		if lease.IsAborted(err) {
+			return manager.catacomb.ErrDying()
+		}
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
-	if lease.IsAborted(err) {
-		return manager.catacomb.ErrDying()
-	}
-	if err != nil {
-		return errors.Trace(err)
-	}
-	manager.config.Logger.Tracef("[%s] %s revoked lease %s successful",
-		manager.logContext, revoke.holderName, revoke.leaseKey.Lease)
+
+	logger.Tracef("[%s] %s revoked lease %s successful", manager.logContext, revoke.holderName, revoke.leaseKey.Lease)
 	return nil
 }
 
