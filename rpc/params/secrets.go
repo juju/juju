@@ -19,8 +19,8 @@ type SecretStoreConfig struct {
 type SecretContentParams struct {
 	// Data is the key values of the secret value itself.
 	Data map[string]string `json:"data,omitempty"`
-	// ProviderId is the content id for when a secret store like vault is used.
-	ProviderId *string `json:"provider-id,omitempty"`
+	// BackendId is the content id for when a secret store like vault is used.
+	BackendId *string `json:"backend-id,omitempty"`
 }
 
 // UpsertSecretArg holds the args for creating or updating a secret.
@@ -154,7 +154,7 @@ type ListSecretResults struct {
 
 type SecretRevision struct {
 	Revision   int        `json:"revision"`
-	ProviderId *string    `json:"provider-id,omitempty"`
+	BackendId  *string    `json:"backend-id,omitempty"`
 	CreateTime time.Time  `json:"create-time,omitempty"`
 	UpdateTime time.Time  `json:"update-time,omitempty"`
 	ExpireTime *time.Time `json:"expire-time,omitempty"`

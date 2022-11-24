@@ -18,6 +18,7 @@ import (
 // pool.
 type StatePool interface {
 	Get(string) (State, error)
+	ControllerModel() (Model, error)
 	MongoVersion() (string, error)
 }
 
@@ -34,6 +35,10 @@ type State interface {
 	ControllerConfig() (controller.Config, error)
 }
 
+type SystemState interface {
+	ControllerModel() (Model, error)
+}
+
 // Model defines a point of use interface for the model from state.
 type Model interface {
 	IsControllerModel() bool
@@ -46,6 +51,20 @@ type Model interface {
 
 type statePoolShim struct {
 	*state.StatePool
+}
+
+func (s statePoolShim) ControllerModel() (Model, error) {
+	st, err := s.StatePool.SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return modelShim{
+		Model: model,
+	}, nil
 }
 
 func (s statePoolShim) Get(uuid string) (State, error) {

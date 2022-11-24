@@ -947,11 +947,8 @@ type FindToolsParams struct {
 	Number version.Number `json:"number"`
 
 	// MajorVersion will be used to match the major version if non-zero.
+	// TODO(juju 3.1) - remove
 	MajorVersion int `json:"major"`
-
-	// MinorVersion will be used to match the major version if greater
-	// than or equal to zero, and Number is zero.
-	MinorVersion int `json:"minor"`
 
 	// Arch will be used to match tools by architecture if non-empty.
 	Arch string `json:"arch"`

@@ -426,9 +426,9 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 	ctx.secretMetadata = make(map[string]jujuc.SecretMetadata)
 	for _, v := range info {
 		md := v.Metadata
-		providerIds := make(map[int]string)
-		for rev, id := range v.ProviderIds {
-			providerIds[rev] = id
+		backendIds := make(map[int]string)
+		for rev, id := range v.BackendIds {
+			backendIds[rev] = id
 		}
 		ownerTag, err := names.ParseTag(md.OwnerTag)
 		if err != nil {
@@ -442,7 +442,7 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 			LatestRevision:   md.LatestRevision,
 			LatestExpireTime: md.LatestExpireTime,
 			NextRotateTime:   md.NextRotateTime,
-			ProviderIds:      providerIds,
+			BackendIds:       backendIds,
 		}
 	}
 

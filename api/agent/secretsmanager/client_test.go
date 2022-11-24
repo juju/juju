@@ -182,8 +182,8 @@ func (s *SecretsSuite) TestGetSecretMetadata(c *gc.C) {
 				NextRotateTime:   &now,
 				LatestExpireTime: &now,
 				Revisions: []params.SecretRevision{{
-					Revision:   666,
-					ProviderId: ptr("provider-id"),
+					Revision:  666,
+					BackendId: ptr("backend-id"),
 				}, {
 					Revision: 667,
 				}},
@@ -204,7 +204,7 @@ func (s *SecretsSuite) TestGetSecretMetadata(c *gc.C) {
 		c.Assert(info.Metadata.LatestRevision, gc.Equals, 666)
 		c.Assert(info.Metadata.LatestExpireTime, gc.Equals, &now)
 		c.Assert(info.Metadata.NextRotateTime, gc.Equals, &now)
-		c.Assert(info.ProviderIds, jc.DeepEquals, map[int]string{666: "provider-id"})
+		c.Assert(info.BackendIds, jc.DeepEquals, map[int]string{666: "backend-id"})
 	}
 }
 

@@ -15701,7 +15701,7 @@
                             "$ref": "#/definitions/FindToolsResult"
                         }
                     },
-                    "description": "FindTools returns a List containing all tools matching the given parameters."
+                    "description": "FindTools returns a List containing all tools matching the given parameters.\nTODO(juju 3.1) - remove, used by 2.9 client only"
                 },
                 "FullStatus": {
                     "type": "object",
@@ -16113,9 +16113,6 @@
                         "major": {
                             "type": "integer"
                         },
-                        "minor": {
-                            "type": "integer"
-                        },
                         "number": {
                             "$ref": "#/definitions/Number"
                         },
@@ -16127,7 +16124,6 @@
                     "required": [
                         "number",
                         "major",
-                        "minor",
                         "arch",
                         "os-type",
                         "agentstream"
@@ -34158,9 +34154,6 @@
                         "major": {
                             "type": "integer"
                         },
-                        "minor": {
-                            "type": "integer"
-                        },
                         "number": {
                             "$ref": "#/definitions/Number"
                         },
@@ -34172,7 +34165,6 @@
                     "required": [
                         "number",
                         "major",
-                        "minor",
                         "arch",
                         "os-type",
                         "agentstream"
@@ -38529,6 +38521,9 @@
                 "SecretRevision": {
                     "type": "object",
                     "properties": {
+                        "backend-id": {
+                            "type": "string"
+                        },
                         "create-time": {
                             "type": "string",
                             "format": "date-time"
@@ -38536,9 +38531,6 @@
                         "expire-time": {
                             "type": "string",
                             "format": "date-time"
-                        },
-                        "provider-id": {
-                            "type": "string"
                         },
                         "revision": {
                             "type": "integer"
@@ -39167,6 +39159,9 @@
                 "SecretContentParams": {
                     "type": "object",
                     "properties": {
+                        "backend-id": {
+                            "type": "string"
+                        },
                         "data": {
                             "type": "object",
                             "patternProperties": {
@@ -39174,9 +39169,6 @@
                                     "type": "string"
                                 }
                             }
-                        },
-                        "provider-id": {
-                            "type": "string"
                         }
                     },
                     "additionalProperties": false
@@ -39214,6 +39206,9 @@
                 "SecretRevision": {
                     "type": "object",
                     "properties": {
+                        "backend-id": {
+                            "type": "string"
+                        },
                         "create-time": {
                             "type": "string",
                             "format": "date-time"
@@ -39221,9 +39216,6 @@
                         "expire-time": {
                             "type": "string",
                             "format": "date-time"
-                        },
-                        "provider-id": {
-                            "type": "string"
                         },
                         "revision": {
                             "type": "integer"
@@ -47229,6 +47221,9 @@
                 "SecretContentParams": {
                     "type": "object",
                     "properties": {
+                        "backend-id": {
+                            "type": "string"
+                        },
                         "data": {
                             "type": "object",
                             "patternProperties": {
@@ -47236,9 +47231,6 @@
                                     "type": "string"
                                 }
                             }
-                        },
-                        "provider-id": {
-                            "type": "string"
                         }
                     },
                     "additionalProperties": false
@@ -47276,6 +47268,9 @@
                 "SecretRevision": {
                     "type": "object",
                     "properties": {
+                        "backend-id": {
+                            "type": "string"
+                        },
                         "create-time": {
                             "type": "string",
                             "format": "date-time"
@@ -47283,9 +47278,6 @@
                         "expire-time": {
                             "type": "string",
                             "format": "date-time"
-                        },
-                        "provider-id": {
-                            "type": "string"
                         },
                         "revision": {
                             "type": "integer"

@@ -266,8 +266,8 @@ func (s *SecretsManagerSuite) TestUpdateSecrets(c *gc.C) {
 		Params:         map[string]interface{}{"param": 1},
 		Data:           map[string]string{"foo": "bar"},
 	}
-	pWithProviderId := p
-	p.ProviderId = ptr("provider-id")
+	pWithBackendId := p
+	p.BackendId = ptr("backend-id")
 	p.Data = nil
 	uri := coresecrets.NewURI()
 	expectURI := *uri
@@ -281,7 +281,7 @@ func (s *SecretsManagerSuite) TestUpdateSecrets(c *gc.C) {
 			return md, nil
 		},
 	)
-	s.secretsBackend.EXPECT().UpdateSecret(&expectURI, pWithProviderId).DoAndReturn(
+	s.secretsBackend.EXPECT().UpdateSecret(&expectURI, pWithBackendId).DoAndReturn(
 		func(uri *coresecrets.URI, p state.UpdateSecretParams) (*coresecrets.SecretMetadata, error) {
 			md := &coresecrets.SecretMetadata{
 				URI:            uri,
@@ -313,7 +313,7 @@ func (s *SecretsManagerSuite) TestUpdateSecrets(c *gc.C) {
 				Description:  ptr("my secret"),
 				Label:        ptr("foobar"),
 				Params:       map[string]interface{}{"param": 1},
-				Content:      params.SecretContentParams{ProviderId: ptr("provider-id")},
+				Content:      params.SecretContentParams{BackendId: ptr("backend-id")},
 			},
 		}, {
 			URI: uri.String(),
@@ -454,8 +454,8 @@ func (s *SecretsManagerSuite) TestGetSecretMetadata(c *gc.C) {
 		NextRotateTime:   &now,
 	}}, nil)
 	s.secretsBackend.EXPECT().ListSecretRevisions(uri).Return([]*coresecrets.SecretRevisionMetadata{{
-		Revision:   666,
-		ProviderId: ptr("provider-id"),
+		Revision:  666,
+		BackendId: ptr("backend-id"),
 	}, {
 		Revision: 667,
 	}}, nil)
@@ -473,8 +473,8 @@ func (s *SecretsManagerSuite) TestGetSecretMetadata(c *gc.C) {
 			LatestExpireTime: &now,
 			NextRotateTime:   &now,
 			Revisions: []params.SecretRevision{{
-				Revision:   666,
-				ProviderId: ptr("provider-id"),
+				Revision:  666,
+				BackendId: ptr("backend-id"),
 			}, {
 				Revision: 667,
 			}},

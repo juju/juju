@@ -25,7 +25,7 @@ func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju3(c *gc.C
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersions, map[int]version.Number{
+	s.PatchValue(&upgradevalidation.MinAgentVersions, map[int]version.Number{
 		3: version.MustParse("2.9.1"),
 	})
 
@@ -51,7 +51,7 @@ func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju3(c *gc.C
 	gomock.InOrder(
 		// 1. Check controller model.
 		// - check agent version;
-		ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil),
+		ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("3.666.1"), nil),
 		// - check mongo status;
 		ctrlState.EXPECT().MongoCurrentStatus().Return(&replicaset.Status{
 			Members: []replicaset.MemberStatus{
@@ -94,7 +94,7 @@ func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju3(c *gc.C
 		server.EXPECT().ServerVersion().Return("5.2"),
 	)
 
-	targetVersion := version.MustParse("3.0.0")
+	targetVersion := version.MustParse("3.666.2")
 	validators := upgradevalidation.ValidatorsForControllerUpgrade(true, targetVersion, cloudSpec)
 	checker := upgradevalidation.NewModelUpgradeCheck(ctrlModelTag.Id(), statePool, ctrlState, ctrlModel, validators...)
 	blockers, err := checker.Validate()
@@ -108,77 +108,9 @@ func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju3(c *gc.C
 	c.Assert(blockers, gc.IsNil)
 }
 
-func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju2(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersions, map[int]version.Number{
-		3: version.MustParse("2.9.1"),
-	})
-
-	ctrlModelTag := names.NewModelTag("deadpork-0bad-400d-8000-4b1d0d06f00d")
-	model1ModelTag := coretesting.ModelTag
-	statePool := mocks.NewMockStatePool(ctrl)
-
-	ctrlState := mocks.NewMockState(ctrl)
-	ctrlModel := mocks.NewMockModel(ctrl)
-
-	state1 := mocks.NewMockState(ctrl)
-	model1 := mocks.NewMockModel(ctrl)
-
-	gomock.InOrder(
-		// 1. Check controller model.
-		// - check agent version;
-		ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil),
-		// - check mongo status;
-		ctrlState.EXPECT().MongoCurrentStatus().Return(&replicaset.Status{
-			Members: []replicaset.MemberStatus{
-				{
-					Id:      1,
-					Address: "1.1.1.1",
-					State:   replicaset.PrimaryState,
-				},
-				{
-					Id:      2,
-					Address: "2.2.2.2",
-					State:   replicaset.SecondaryState,
-				},
-				{
-					Id:      3,
-					Address: "3.3.3.3",
-					State:   replicaset.SecondaryState,
-				},
-			},
-		}, nil),
-
-		// 2. Check hosted models.
-		// - check agent version;
-		model1.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil),
-		//  - check if model migration is ongoing;
-		model1.EXPECT().MigrationMode().Return(state.MigrationModeNone),
-	)
-
-	targetVersion := version.MustParse("2.9.99")
-	validators := upgradevalidation.ValidatorsForControllerUpgrade(true, targetVersion, environscloudspec.CloudSpec{Type: "lxd"})
-	checker := upgradevalidation.NewModelUpgradeCheck(ctrlModelTag.Id(), statePool, ctrlState, ctrlModel, validators...)
-	blockers, err := checker.Validate()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blockers, gc.IsNil)
-
-	validators = upgradevalidation.ValidatorsForControllerUpgrade(false, targetVersion, environscloudspec.CloudSpec{Type: "lxd"})
-	checker = upgradevalidation.NewModelUpgradeCheck(model1ModelTag.Id(), statePool, state1, model1, validators...)
-	blockers, err = checker.Validate()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blockers, gc.IsNil)
-}
-
 func (s *upgradeValidationSuite) TestValidatorsForModelUpgradeJuju3(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-
-	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersions, map[int]version.Number{
-		3: version.MustParse("2.9.1"),
-	})
 
 	modelTag := coretesting.ModelTag
 	statePool := mocks.NewMockStatePool(ctrl)
@@ -207,32 +139,6 @@ func (s *upgradeValidationSuite) TestValidatorsForModelUpgradeJuju3(c *gc.C) {
 
 	targetVersion := version.MustParse("3.0.0")
 	validators := upgradevalidation.ValidatorsForModelUpgrade(false, targetVersion, cloudSpec)
-	checker := upgradevalidation.NewModelUpgradeCheck(modelTag.Id(), statePool, state, model, validators...)
-	blockers, err := checker.Validate()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blockers, gc.IsNil)
-}
-
-func (s *upgradeValidationSuite) TestValidatorsForModelUpgradeJuju2(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersions, map[int]version.Number{
-		3: version.MustParse("2.9.1"),
-	})
-
-	modelTag := coretesting.ModelTag
-	statePool := mocks.NewMockStatePool(ctrl)
-	state := mocks.NewMockState(ctrl)
-	model := mocks.NewMockModel(ctrl)
-
-	gomock.InOrder(
-		// - check no upgrade series in process.
-		state.EXPECT().HasUpgradeSeriesLocks().Return(false, nil),
-	)
-
-	targetVersion := version.MustParse("2.9.99")
-	validators := upgradevalidation.ValidatorsForModelUpgrade(false, targetVersion, environscloudspec.CloudSpec{Type: "lxd"})
 	checker := upgradevalidation.NewModelUpgradeCheck(modelTag.Id(), statePool, state, model, validators...)
 	blockers, err := checker.Validate()
 	c.Assert(err, jc.ErrorIsNil)

@@ -367,14 +367,14 @@ type vaultStore struct {
 }
 
 // GetContent implements SecretsStore.
-func (k vaultStore) GetContent(ctx context.Context, providerId string) (_ secrets.SecretValue, err error) {
+func (k vaultStore) GetContent(ctx context.Context, backendId string) (_ secrets.SecretValue, err error) {
 	defer func() {
 		err = maybePermissionDenied(err)
 	}()
 
-	s, err := k.client.KVv1(k.modelUUID).Get(ctx, providerId)
+	s, err := k.client.KVv1(k.modelUUID).Get(ctx, backendId)
 	if err != nil {
-		return nil, errors.Annotatef(err, "getting secret %q", providerId)
+		return nil, errors.Annotatef(err, "getting secret %q", backendId)
 	}
 	val := make(map[string]string)
 	for k, v := range s.Data {
@@ -384,12 +384,12 @@ func (k vaultStore) GetContent(ctx context.Context, providerId string) (_ secret
 }
 
 // DeleteContent implements SecretsStore.
-func (k vaultStore) DeleteContent(ctx context.Context, providerId string) (err error) {
+func (k vaultStore) DeleteContent(ctx context.Context, backendId string) (err error) {
 	defer func() {
 		err = maybePermissionDenied(err)
 	}()
 
-	err = k.client.KVv1(k.modelUUID).Delete(ctx, providerId)
+	err = k.client.KVv1(k.modelUUID).Delete(ctx, backendId)
 	if isNotFound(err) {
 		return nil
 	}

@@ -96,23 +96,23 @@ func (s *SecretsSuite) TestCreate(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
 }
 
-func (s *SecretsSuite) TestCreateProviderId(c *gc.C) {
+func (s *SecretsSuite) TestCreateBackendId(c *gc.C) {
 	uri := secrets.NewURI()
 	p := state.CreateSecretParams{
 		Version: 1,
 		Owner:   s.owner.Tag(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
-			ProviderId:  ptr("provider-id"),
+			BackendId:   ptr("backend-id"),
 		},
 	}
 	_, err := s.store.CreateSecret(uri, p)
 	c.Assert(err, jc.ErrorIsNil)
-	v, providerId, err := s.store.GetSecretValue(uri, 1)
+	v, backendId, err := s.store.GetSecretValue(uri, 1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(v.EncodedValues(), gc.HasLen, 0)
-	c.Assert(providerId, gc.NotNil)
-	c.Assert(*providerId, gc.Equals, "provider-id")
+	c.Assert(backendId, gc.NotNil)
+	c.Assert(*backendId, gc.Equals, "backend-id")
 }
 
 func (s *SecretsSuite) TestCreateDuplicateLabel(c *gc.C) {
@@ -177,9 +177,9 @@ func (s *SecretsSuite) TestGetValue(c *gc.C) {
 	md, err := s.store.CreateSecret(uri, p)
 	c.Assert(err, jc.ErrorIsNil)
 
-	val, providerId, err := s.store.GetSecretValue(md.URI, 1)
+	val, backendId, err := s.store.GetSecretValue(md.URI, 1)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(providerId, gc.IsNil)
+	c.Assert(backendId, gc.IsNil)
 	c.Assert(val.EncodedValues(), jc.DeepEquals, map[string]string{
 		"foo": "bar",
 	})
@@ -663,13 +663,13 @@ func (s *SecretsSuite) assertUpdatedSecret(c *gc.C, original *secrets.SecretMeta
 	if update.Data != nil {
 		expectedData = update.Data
 	}
-	val, providerId, err := s.store.GetSecretValue(md.URI, expectedRevision)
+	val, backendId, err := s.store.GetSecretValue(md.URI, expectedRevision)
 	c.Assert(err, jc.ErrorIsNil)
-	if update.ProviderId != nil {
-		c.Assert(providerId, gc.NotNil)
-		c.Assert(*update.ProviderId, gc.Equals, *providerId)
+	if update.BackendId != nil {
+		c.Assert(backendId, gc.NotNil)
+		c.Assert(*update.BackendId, gc.Equals, *backendId)
 	} else {
-		c.Assert(providerId, gc.IsNil)
+		c.Assert(backendId, gc.IsNil)
 		c.Assert(val.EncodedValues(), jc.DeepEquals, expectedData)
 	}
 	if update.ExpireTime != nil {
@@ -784,7 +784,7 @@ func (s *SecretsSuite) TestListSecretRevisions(c *gc.C) {
 	updateTime := s.Clock.Now().Round(time.Second).UTC()
 	s.assertUpdatedSecret(c, md, 3, state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
-		ProviderId:  ptr("provider-id"),
+		BackendId:   ptr("backend-id"),
 	})
 	updateTime2 := s.Clock.Now().Round(time.Second).UTC()
 	r, err := s.store.ListSecretRevisions(uri)
@@ -803,7 +803,7 @@ func (s *SecretsSuite) TestListSecretRevisions(c *gc.C) {
 		UpdateTime: updateTime,
 	}, {
 		Revision:   3,
-		ProviderId: ptr("provider-id"),
+		BackendId:  ptr("backend-id"),
 		CreateTime: updateTime2,
 		UpdateTime: updateTime2,
 	}})
