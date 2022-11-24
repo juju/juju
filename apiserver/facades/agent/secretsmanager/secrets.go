@@ -344,37 +344,21 @@ func (s *SecretsManagerAPI) GetSecretContentInfo(args params.GetSecretContentArg
 	return result, nil
 }
 
-func (s *SecretsManagerAPI) getAppOwnedOrUnitOwnedSecretMetadata(uri *coresecrets.URI, label string) (md *coresecrets.SecretMetadata, _ error) {
-	filter := state.SecretsFilter{
-		OwnerTags: []names.Tag{s.authTag},
-	}
-	if s.authTag.Kind() == names.UnitTagKind {
-		// Units can access application owned secrets.
-		appOwner := names.NewApplicationTag(authTagApp(s.authTag))
-		filter.OwnerTags = append(filter.OwnerTags, appOwner)
-	}
-	mds, err := s.secretsBackend.ListSecrets(filter)
+func (s *SecretsManagerAPI) getOwnerSecretMetadata(uri *coresecrets.URI) (*coresecrets.SecretMetadata, error) {
+	md, err := s.secretsBackend.GetSecret(uri)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	for _, md := range mds {
-		if uri != nil && md.URI.ID == uri.ID {
-			return md, nil
-		}
-		if label != "" && md.Label == label {
-			return md, nil
-		}
+	if s.authTag.String() != md.OwnerTag {
+		// Invisible for non owner users.
+		return nil, errors.NotFoundf("secret %s", uri)
 	}
-	if uri != nil {
-		return nil, errors.NotFoundf("secret %q", uri)
-	}
-	return nil, errors.NotFoundf("secret with label %q", label)
+	return md, nil
 }
 
 func (s *SecretsManagerAPI) getSecretContent(arg params.GetSecretContentArg) (*secrets.ContentParams, error) {
 	// Only the owner can access secrets via the secret metadata label added by the owner.
-	// (Note: the leader unit is treated as the owner of the application secrets, and non
-	// leader units can read the secret using owner label but cannot update them).
+	// (Note: the leader unit is not the owner of the application secrets).
 	// Consumers get to use their own label.
 	// Both owners and consumers can also just use the secret URI.
 
@@ -404,21 +388,20 @@ func (s *SecretsManagerAPI) getSecretContent(arg params.GetSecretContentArg) (*s
 		}
 	}
 
-	// Owner units should always have the UIR because we resolved the label to URI on uiter side already.
-	md, err := s.getAppOwnedOrUnitOwnedSecretMetadata(uri, arg.Label)
-	if err != nil && !errors.Is(err, errors.NotFound) {
-		return nil, errors.Trace(err)
+	if uri != nil && arg.Label == "" {
+		md, err := s.getOwnerSecretMetadata(uri)
+		if err != nil && !errors.Is(err, errors.NotFound) {
+			return nil, errors.Trace(err)
+		}
+		if md != nil {
+			// Owner can access the content directly.
+			return getSecretValue(md.URI, md.LatestRevision)
+		}
 	}
-	if md != nil {
-		// 1. secrets can be accesed by owners;
-		// 2. application owned secrets can be accessed by all the units of the application using owner label or URI.
-		return getSecretValue(md.URI, md.LatestRevision)
-	}
-
-	// This is a consumer agent.
 
 	// arg.Label is the consumer label for consumers.
 	possibleUpdateLabel := arg.Label != "" && uri != nil
+
 	if uri == nil {
 		var err error
 		uri, err = s.secretsConsumer.GetURIByConsumerLabel(arg.Label, s.authTag)
