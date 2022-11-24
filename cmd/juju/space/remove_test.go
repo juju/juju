@@ -140,8 +140,7 @@ WARNING! This command will remove the space with the following existing boundari
 - "myspace" is used as a binding on: mysql, mediawiki
 - "myspace" is used for controller config(s): jujuhaspace, juuuu-space
 
-
-Continue [y/N]?`[1:]
+Continue [y/N]? `[1:]
 
 	ctx, _, err := s.runCommand(c, api, spaceName, "--force")
 

@@ -487,7 +487,7 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 	_, errc := cmdtest.RunCommandWithDummyProvider(ctx, s.newDestroyCommand(), "test1")
 	select {
 	case err := <-errc:
-		c.Check(err, gc.ErrorMatches, "controller destruction aborted")
+		c.Check(err, gc.ErrorMatches, "controller destruction: aborted")
 	case <-time.After(testing.LongWait):
 		c.Fatalf("command took too long")
 	}
@@ -500,7 +500,7 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 	_, errc = cmdtest.RunCommandWithDummyProvider(ctx, s.newDestroyCommand(), "test1")
 	select {
 	case err := <-errc:
-		c.Check(err, gc.ErrorMatches, "controller destruction aborted")
+		c.Check(err, gc.ErrorMatches, "controller destruction: aborted")
 	case <-time.After(testing.LongWait):
 		c.Fatalf("command took too long")
 	}
