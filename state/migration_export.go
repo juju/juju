@@ -1739,7 +1739,7 @@ func (e *exporter) secrets() error {
 			Created:    rev.CreateTime,
 			Updated:    rev.UpdateTime,
 			ExpireTime: rev.ExpireTime,
-			ProviderId: rev.BackendId,
+			BackendId:  rev.BackendId,
 		}
 		if len(rev.Data) > 0 {
 			revArg.Content = make(secrets.SecretData)
