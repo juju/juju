@@ -51,32 +51,6 @@ const (
 // the manager has started (and possibly finished) shutdown.
 var errStopped = errors.New("lease manager stopped")
 
-type dummySecretary struct{}
-
-func (d dummySecretary) CheckLease(key lease.Key) error             { return nil }
-func (d dummySecretary) CheckHolder(name string) error              { return nil }
-func (d dummySecretary) CheckDuration(duration time.Duration) error { return nil }
-
-// NewDeadManager returns a manager that's already dead
-// and always returns the given error.
-func NewDeadManager(err error) *Manager {
-	var secretary dummySecretary
-	m := Manager{
-		config: ManagerConfig{
-			Secretary: func(_ string) (Secretary, error) {
-				return secretary, nil
-			},
-		},
-	}
-	_ = catacomb.Invoke(catacomb.Plan{
-		Site: &m.catacomb,
-		Work: func() error {
-			return errors.Trace(err)
-		},
-	})
-	return &m
-}
-
 // NewManager returns a new *Manager configured as supplied. The caller takes
 // responsibility for killing, and handling errors from, the returned Worker.
 func NewManager(config ManagerConfig) (*Manager, error) {
@@ -182,8 +156,14 @@ func (manager *Manager) loop() error {
 	}
 
 	defer manager.waitForGoroutines()
+
+	leases, err := manager.config.Store.Leases()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	manager.computeNextTimeout(leases)
+
 	blocks := make(blocks)
-	manager.computeNextTimeout(manager.config.Store.Leases())
 	for {
 		if err := manager.choose(blocks); err != nil {
 			manager.config.Logger.Tracef("[%s] exiting main loop with error: %v", manager.logContext, err)
@@ -192,9 +172,14 @@ func (manager *Manager) loop() error {
 	}
 }
 
-func (manager *Manager) lookupLease(leaseKey lease.Key) (lease.Info, bool) {
-	l, exists := manager.config.Store.Leases(leaseKey)[leaseKey]
-	return l, exists
+func (manager *Manager) lookupLease(leaseKey lease.Key) (lease.Info, bool, error) {
+	leases, err := manager.config.Store.Leases(leaseKey)
+	if err != nil {
+		return lease.Info{}, false, errors.Trace(err)
+	}
+
+	l, exists := leases[leaseKey]
+	return l, exists, nil
 }
 
 // choose breaks the select out of loop to make the blocking logic clearer.
@@ -207,10 +192,14 @@ func (manager *Manager) choose(blocks blocks) error {
 		return manager.handleCheck(check)
 
 	case now := <-manager.timer.Chan():
-		manager.tick(now, blocks)
+		if err := manager.tick(now, blocks); err != nil {
+			return errors.Trace(err)
+		}
 
 	case <-manager.expireDone:
-		manager.checkBlocks(blocks)
+		if err := manager.checkBlocks(blocks); err != nil {
+			return errors.Trace(err)
+		}
 
 	case claim := <-manager.claims:
 		manager.startingClaim()
@@ -344,7 +333,7 @@ func (manager *Manager) retryingClaim(claim claim) {
 			claim.respond(lease.ErrClaimDenied)
 
 		case lease.IsDeadlineExceeded(err):
-			// This can happen if we where unable to process the claim in a
+			// This can happen if we were unable to process the claim in a
 			// given time. We should just return the claim denied.
 			manager.config.Logger.Warningf("[%s] deadline exceeded while handling claim %q for %q",
 				manager.logContext, claim.leaseKey, claim.holderName)
@@ -388,7 +377,13 @@ func (manager *Manager) handleClaim(claim claim) (action, bool, error) {
 	case <-manager.catacomb.Dying():
 		return "unknown", false, manager.catacomb.ErrDying()
 	default:
-		info, found := manager.lookupLease(claim.leaseKey)
+		// Note that we avoid shadowing the outer `err` here.
+		// It needs to be set then assessed outside the case.
+		info, found, lookupErr := manager.lookupLease(claim.leaseKey)
+		if lookupErr != nil {
+			return "unknown", false, errors.Trace(lookupErr)
+		}
+
 		switch {
 		case !found:
 			manager.config.Logger.Tracef("[%s] %s asked for lease %s, no lease found, claiming for %s",
@@ -504,7 +499,13 @@ func (manager *Manager) handleRevoke(revoke revoke) error {
 	case <-manager.catacomb.Dying():
 		return manager.catacomb.ErrDying()
 	default:
-		info, found := manager.lookupLease(revoke.leaseKey)
+		// Note that we avoid shadowing the outer `err` here.
+		// It needs to be set then assessed outside the case.
+		info, found, lookupErr := manager.lookupLease(revoke.leaseKey)
+		if lookupErr != nil {
+			return errors.Trace(lookupErr)
+		}
+
 		switch {
 		case !found:
 			manager.config.Logger.Tracef("[%s] %s asked to revoke lease %s, no lease found",
@@ -542,7 +543,10 @@ func (manager *Manager) handleCheck(check check) error {
 	manager.config.Logger.Tracef("[%s] handling Check for lease %s on behalf of %s",
 		manager.logContext, key.Lease, check.holderName)
 
-	info, found := manager.lookupLease(key)
+	info, found, err := manager.lookupLease(key)
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	var response error
 	if !found || info.Holder != check.holderName {
@@ -568,15 +572,20 @@ func (manager *Manager) handleCheck(check check) error {
 // tick triggers when we think a lease might be expiring, so we check if there
 // are leases to expire, and then unblock anything that is no longer blocked,
 // and then compute the next time we should wake up.
-func (manager *Manager) tick(now time.Time, blocks blocks) {
+func (manager *Manager) tick(now time.Time, blocks blocks) error {
 	manager.config.Logger.Tracef("[%s] tick at %v, running expiry checks\n", manager.logContext, now)
 	// Check for blocks that need to be notified.
-	manager.checkBlocks(blocks)
+	return errors.Trace(manager.checkBlocks(blocks))
 }
 
-func (manager *Manager) checkBlocks(blocks blocks) {
+func (manager *Manager) checkBlocks(blocks blocks) error {
 	manager.config.Logger.Tracef("[%s] evaluating %d blocks", manager.logContext, len(blocks))
-	leases := manager.config.Store.Leases()
+
+	leases, err := manager.config.Store.Leases()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	for leaseName := range blocks {
 		if _, found := leases[leaseName]; !found {
 			manager.config.Logger.Tracef("[%s] unblocking: %s", manager.logContext, leaseName)
@@ -584,6 +593,7 @@ func (manager *Manager) checkBlocks(blocks blocks) {
 		}
 	}
 	manager.computeNextTimeout(leases)
+	return nil
 }
 
 // computeNextTimeout iterates the leases and finds out what the next time we
@@ -700,22 +710,32 @@ func (manager *Manager) handleUnpin(p pin) {
 
 // pinned returns lease names and the entities requiring their pinned
 // behaviour, from the input namespace/model for which leases are pinned.
-func (manager *Manager) pinned(namespace, modelUUID string) map[string][]string {
-	pinned := make(map[string][]string)
-	for key, entities := range manager.config.Store.Pinned() {
+func (manager *Manager) pinned(namespace, modelUUID string) (map[string][]string, error) {
+	pinned, err := manager.config.Store.Pinned()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	result := make(map[string][]string)
+	for key, entities := range pinned {
 		if key.Namespace == namespace && key.ModelUUID == modelUUID {
-			pinned[key.Lease] = entities
+			result[key.Lease] = entities
 		}
 	}
-	return pinned
+	return result, nil
 }
 
-func (manager *Manager) leases(namespace, modelUUID string) map[string]string {
-	leases := make(map[string]string)
-	for key, lease := range manager.config.Store.LeaseGroup(namespace, modelUUID) {
-		leases[key.Lease] = lease.Holder
+func (manager *Manager) leases(namespace, modelUUID string) (map[string]string, error) {
+	group, err := manager.config.Store.LeaseGroup(namespace, modelUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	return leases
+
+	leases := make(map[string]string)
+	for key, info := range group {
+		leases[key.Lease] = info.Holder
+	}
+	return leases, nil
 }
 
 func (manager *Manager) startingClaim() {
@@ -776,7 +796,8 @@ func (manager *Manager) dumpDebug() (string, error) {
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	defer dumpFile.Close()
+	defer func() { _ = dumpFile.Close() }()
+
 	claims := atomic.LoadInt64(&manager.outstandingClaims)
 	revokes := atomic.LoadInt64(&manager.outstandingRevokes)
 	template := `
