@@ -90,5 +90,5 @@ type Store interface {
 	SaveContent(uri *secrets.URI, revision int, value secrets.SecretValue) (string, error)
 
 	// DeleteContent deletes a secret from an external store.
-	DeleteContent(BackendId string) error
+	DeleteContent(backendId string) error
 }

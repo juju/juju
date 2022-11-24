@@ -216,16 +216,16 @@ func (c *Client) SecretMetadata(filter coresecrets.Filter) ([]coresecrets.Secret
 			LatestExpireTime: info.LatestExpireTime,
 			NextRotateTime:   info.NextRotateTime,
 		}
-		BackendIds := make(map[int]string)
+		backendIds := make(map[int]string)
 		for _, r := range info.Revisions {
 			if r.BackendId == nil {
 				continue
 			}
-			BackendIds[r.Revision] = *r.BackendId
+			backendIds[r.Revision] = *r.BackendId
 		}
 		result = append(result, coresecrets.SecretOwnerMetadata{
 			Metadata:   md,
-			BackendIds: BackendIds,
+			BackendIds: backendIds,
 		})
 	}
 	return result, nil

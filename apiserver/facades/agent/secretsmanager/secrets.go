@@ -387,11 +387,11 @@ func (s *SecretsManagerAPI) getSecretContent(arg params.GetSecretContentArg) (*s
 			return nil, apiservererrors.ErrPerm
 		}
 
-		val, BackendId, err := s.secretsBackend.GetSecretValue(uri, revision)
+		val, backendId, err := s.secretsBackend.GetSecretValue(uri, revision)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return &secrets.ContentParams{SecretValue: val, BackendId: BackendId}, nil
+		return &secrets.ContentParams{SecretValue: val, BackendId: backendId}, nil
 	}
 
 	var uri *coresecrets.URI
