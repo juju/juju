@@ -35,7 +35,7 @@ const (
 	ellipsis            = "..."
 	iaasMaxVersionWidth = 15
 	caasMaxVersionWidth = 30
-	maxMessageLength    = 50
+	maxMessageLength    = 120
 )
 
 // FormatTabular writes a tabular summary of machines, applications, and
