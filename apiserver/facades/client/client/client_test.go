@@ -460,10 +460,8 @@ func (s *findToolsSuite) TestFindToolsIAAS(c *gc.C) {
 	registryProvider := registrymocks.NewMockRegistry(ctrl)
 	toolsFinder := mocks.NewMockToolsFinder(ctrl)
 
-	simpleStreams := params.FindToolsResult{
-		List: []*tools.Tools{
-			{Version: version.MustParseBinary("2.9.6-ubuntu-amd64")},
-		},
+	simpleStreams := []*tools.Tools{
+		{Version: version.MustParseBinary("2.9.6-ubuntu-amd64")},
 	}
 
 	gomock.InOrder(
@@ -474,7 +472,7 @@ func (s *findToolsSuite) TestFindToolsIAAS(c *gc.C) {
 		authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(true, nil),
 
 		backend.EXPECT().Model().Return(model, nil),
-		toolsFinder.EXPECT().FindTools(params.FindToolsParams{MajorVersion: 2}).
+		toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{MajorVersion: 2}).
 			Return(simpleStreams, nil),
 		model.EXPECT().Type().Return(state.ModelTypeIAAS),
 	)
@@ -491,7 +489,7 @@ func (s *findToolsSuite) TestFindToolsIAAS(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	result, err := api.FindTools(params.FindToolsParams{MajorVersion: 2})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, simpleStreams)
+	c.Assert(result, gc.DeepEquals, params.FindToolsResult{List: simpleStreams})
 }
 
 func (s *findToolsSuite) getModelConfig(c *gc.C, agentVersion string) *config.Config {
@@ -515,12 +513,10 @@ func (s *findToolsSuite) TestFindToolsCAASReleased(c *gc.C) {
 	registryProvider := registrymocks.NewMockRegistry(ctrl)
 	toolsFinder := mocks.NewMockToolsFinder(ctrl)
 
-	simpleStreams := params.FindToolsResult{
-		List: []*tools.Tools{
-			{Version: version.MustParseBinary("2.9.9-ubuntu-amd64")},
-			{Version: version.MustParseBinary("2.9.10-ubuntu-amd64")},
-			{Version: version.MustParseBinary("2.9.11-ubuntu-amd64")},
-		},
+	simpleStreams := []*tools.Tools{
+		{Version: version.MustParseBinary("2.9.9-ubuntu-amd64")},
+		{Version: version.MustParseBinary("2.9.10-ubuntu-amd64")},
+		{Version: version.MustParseBinary("2.9.11-ubuntu-amd64")},
 	}
 	s.PatchValue(&coreos.HostOS, func() coreos.OSType { return coreos.Ubuntu })
 
@@ -532,7 +528,7 @@ func (s *findToolsSuite) TestFindToolsCAASReleased(c *gc.C) {
 		authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(true, nil),
 
 		backend.EXPECT().Model().Return(model, nil),
-		toolsFinder.EXPECT().FindTools(params.FindToolsParams{MajorVersion: 2}).
+		toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{MajorVersion: 2}).
 			Return(simpleStreams, nil),
 		model.EXPECT().Type().Return(state.ModelTypeCAAS),
 		model.EXPECT().Config().Return(s.getModelConfig(c, "2.9.9"), nil),
@@ -597,13 +593,11 @@ func (s *findToolsSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 	registryProvider := registrymocks.NewMockRegistry(ctrl)
 	toolsFinder := mocks.NewMockToolsFinder(ctrl)
 
-	simpleStreams := params.FindToolsResult{
-		List: []*tools.Tools{
-			{Version: version.MustParseBinary("2.9.9-ubuntu-amd64")},
-			{Version: version.MustParseBinary("2.9.10-ubuntu-amd64")},
-			{Version: version.MustParseBinary("2.9.11-ubuntu-amd64")},
-			{Version: version.MustParseBinary("2.9.12-ubuntu-amd64")},
-		},
+	simpleStreams := []*tools.Tools{
+		{Version: version.MustParseBinary("2.9.9-ubuntu-amd64")},
+		{Version: version.MustParseBinary("2.9.10-ubuntu-amd64")},
+		{Version: version.MustParseBinary("2.9.11-ubuntu-amd64")},
+		{Version: version.MustParseBinary("2.9.12-ubuntu-amd64")},
 	}
 	s.PatchValue(&coreos.HostOS, func() coreos.OSType { return coreos.Ubuntu })
 
@@ -615,7 +609,7 @@ func (s *findToolsSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 		authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(true, nil),
 
 		backend.EXPECT().Model().Return(model, nil),
-		toolsFinder.EXPECT().FindTools(params.FindToolsParams{MajorVersion: 2, AgentStream: envtools.DevelStream}).
+		toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{MajorVersion: 2, AgentStream: envtools.DevelStream}).
 			Return(simpleStreams, nil),
 		model.EXPECT().Type().Return(state.ModelTypeCAAS),
 		model.EXPECT().Config().Return(s.getModelConfig(c, "2.9.9.1"), nil),

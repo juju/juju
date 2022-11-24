@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -67,20 +66,14 @@ func InstanceConfig(ctrlSt ControllerBackend, st InstanceConfigBackend, machineI
 		return environs.GetEnviron(configGetter, environs.New)
 	}
 	toolsFinder := common.NewToolsFinder(configGetter, st, urlGetter, newEnviron)
-	findToolsResult, err := toolsFinder.FindTools(params.FindToolsParams{
-		Number:       agentVersion,
-		MajorVersion: -1,
-		MinorVersion: -1,
-		OSType:       machine.Base().OS,
-		Arch:         *hc.Arch,
+	toolsList, err := toolsFinder.FindAgents(common.FindAgentsParams{
+		Number: agentVersion,
+		OSType: machine.Base().OS,
+		Arch:   *hc.Arch,
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "finding agent binaries")
 	}
-	if findToolsResult.Error != nil {
-		return nil, errors.Annotate(findToolsResult.Error, "finding agent binaries")
-	}
-	toolsList := findToolsResult.List
 
 	controllerConfig, err := ctrlSt.ControllerConfig()
 	if err != nil {

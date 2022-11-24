@@ -193,10 +193,11 @@ func (s *ListSuite) TestNewestVersions(c *gc.C) {
 }
 
 var newestCompatibleTests = []struct {
-	src    tools.List
-	base   version.Number
-	expect version.Number
-	found  bool
+	src            tools.List
+	base           version.Number
+	expect         version.Number
+	allowDevBuilds bool
+	found          bool
 }{{
 	src:    nil,
 	base:   version.Zero,
@@ -213,20 +214,32 @@ var newestCompatibleTests = []struct {
 	expect: version.MustParse("1.0.0"),
 	found:  true,
 }, {
-	src:    tAllBefore210,
-	base:   version.MustParse("2.0.0"),
-	expect: version.MustParse("2.0.0.1"),
-	found:  true,
+	src:            tAllBefore210,
+	base:           version.MustParse("2.0.0"),
+	expect:         version.MustParse("2.0.0.1"),
+	allowDevBuilds: true,
+	found:          true,
 }, {
 	src:    tAllBefore210,
 	base:   version.MustParse("1.9.0"),
 	expect: version.MustParse("1.9.0"),
 	found:  true,
 }, {
+	src:            t210all,
+	base:           version.MustParse("2.1.1"),
+	expect:         version.MustParse("2.1.5.2"),
+	allowDevBuilds: true,
+	found:          true,
+}, {
 	src:    t210all,
 	base:   version.MustParse("2.1.1"),
-	expect: version.MustParse("2.1.5.2"),
+	expect: version.MustParse("2.1.5"),
 	found:  true,
+}, {
+	src:    t210all,
+	base:   version.MustParse("2.0.0"),
+	expect: version.MustParse("2.0.0"),
+	found:  false,
 }}
 
 func (s *ListSuite) TestNewestCompatible(c *gc.C) {
@@ -236,7 +249,7 @@ func (s *ListSuite) TestNewestCompatible(c *gc.C) {
 		for i, v := range test.src {
 			versions[i] = v
 		}
-		actual, found := versions.NewestCompatible(test.base)
+		actual, found := versions.NewestCompatible(test.base, test.allowDevBuilds)
 		c.Check(actual, gc.DeepEquals, test.expect)
 		c.Check(found, gc.Equals, test.found)
 	}

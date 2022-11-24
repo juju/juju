@@ -81,22 +81,20 @@ func (s *getToolsSuite) TestTools(c *gc.C) {
 		"uuid":                 coretesting.ModelTag.Id(),
 		config.AgentVersionKey: current.Number.String(),
 	}
-	config, err := config.New(config.NoDefaults, configAttrs)
+	cfg, err := config.New(config.NoDefaults, configAttrs)
 	c.Assert(err, jc.ErrorIsNil)
-	s.configGetter.EXPECT().ModelConfig().Return(config, nil)
+	s.configGetter.EXPECT().ModelConfig().Return(cfg, nil)
 
 	s.entityFinder.EXPECT().FindEntity(names.NewMachineTag("0")).Return(s.machine0, nil)
 	s.machine0.EXPECT().AgentTools().Return(&coretools.Tools{Version: current}, nil)
-	s.toolsFinder.EXPECT().FindTools(params.FindToolsParams{
-		Number:       current.Number,
-		MajorVersion: -1,
-		MinorVersion: -1,
-		OSType:       current.Release,
-		Arch:         current.Arch,
-	}).Return(params.FindToolsResult{List: coretools.List{{
+	s.toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{
+		Number: current.Number,
+		OSType: current.Release,
+		Arch:   current.Arch,
+	}).Return(coretools.List{{
 		Version: current,
 		URL:     "tools:" + current.String(),
-	}}}, nil)
+	}}, nil)
 
 	s.entityFinder.EXPECT().FindEntity(names.NewMachineTag("42")).Return(nil, apiservertesting.NotFoundError("machine 42"))
 
@@ -113,7 +111,7 @@ func (s *getToolsSuite) TestTools(c *gc.C) {
 	c.Assert(result.Results[2].Error, gc.DeepEquals, apiservertesting.NotFoundError("machine 42"))
 }
 
-func (s *getToolsSuite) TestSeriesTools(c *gc.C) {
+func (s *getToolsSuite) TestOSTools(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	getCanRead := func() (common.AuthFunc, error) {
@@ -136,22 +134,20 @@ func (s *getToolsSuite) TestSeriesTools(c *gc.C) {
 		"uuid":                 coretesting.ModelTag.Id(),
 		config.AgentVersionKey: currentCopy.Number.String(),
 	}
-	config, err := config.New(config.NoDefaults, configAttrs)
+	cfg, err := config.New(config.NoDefaults, configAttrs)
 	c.Assert(err, jc.ErrorIsNil)
-	s.configGetter.EXPECT().ModelConfig().Return(config, nil)
+	s.configGetter.EXPECT().ModelConfig().Return(cfg, nil)
 
 	s.entityFinder.EXPECT().FindEntity(names.NewMachineTag("0")).Return(s.machine0, nil)
 	s.machine0.EXPECT().AgentTools().Return(&coretools.Tools{Version: currentCopy}, nil)
-	s.toolsFinder.EXPECT().FindTools(params.FindToolsParams{
-		Number:       currentCopy.Number,
-		MajorVersion: -1,
-		MinorVersion: -1,
-		OSType:       currentCopy.Release,
-		Arch:         currentCopy.Arch,
-	}).Return(params.FindToolsResult{List: coretools.List{{
+	s.toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{
+		Number: currentCopy.Number,
+		OSType: currentCopy.Release,
+		Arch:   currentCopy.Arch,
+	}).Return(coretools.List{{
 		Version: current,
 		URL:     "tools:" + current.String(),
-	}}}, nil)
+	}}, nil)
 
 	args := params.Entities{
 		Entities: []params.Entity{
@@ -304,7 +300,7 @@ func (s *findToolsSuite) setup(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *findToolsSuite) expectMatchingStorageTools(c *gc.C, storageMetadata []binarystorage.Metadata, err error) {
+func (s *findToolsSuite) expectMatchingStorageTools(storageMetadata []binarystorage.Metadata, err error) {
 	s.toolsStorageGetter.EXPECT().ToolsStorage().Return(s.storage, nil)
 	s.storage.EXPECT().AllMetadata().Return(storageMetadata, err)
 	s.storage.EXPECT().Close().Return(nil)
@@ -319,13 +315,13 @@ func (s *findToolsSuite) expectBootstrapEnvironConfig(c *gc.C) {
 		config.AgentVersionKey: current.Number.String(),
 		"development":          false,
 	}
-	config, err := config.New(config.NoDefaults, configAttrs)
+	cfg, err := config.New(config.NoDefaults, configAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.bootstrapEnviron.EXPECT().Config().Return(config)
+	s.bootstrapEnviron.EXPECT().Config().Return(cfg)
 }
 
-func (s *findToolsSuite) TestFindTools(c *gc.C) {
+func (s *findToolsSuite) TestFindToolsMatchMajor(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	envtoolsList := coretools.List{
@@ -351,15 +347,19 @@ func (s *findToolsSuite) TestFindTools(c *gc.C) {
 		Version: "123.456.0-windows-alpha",
 		Size:    1024,
 		SHA256:  "feedface",
+	}, {
+		Version: "666.456.0-windows-alpha",
+		Size:    1024,
+		SHA256:  "feedface666",
 	}}
-	s.expectMatchingStorageTools(c, storageMetadata, nil)
+	s.expectMatchingStorageTools(storageMetadata, nil)
 	s.expectBootstrapEnvironConfig(c)
 
 	toolsFinder := common.NewToolsFinder(
 		nil, s.toolsStorageGetter, s.urlGetter, s.newEnviron,
 	)
 
-	result, err := toolsFinder.FindTools(params.FindToolsParams{
+	result, err := toolsFinder.FindAgents(common.FindAgentsParams{
 		MajorVersion: 123,
 		MinorVersion: 456,
 		OSType:       "windows",
@@ -367,8 +367,7 @@ func (s *findToolsSuite) TestFindTools(c *gc.C) {
 	})
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.List, jc.DeepEquals, coretools.List{
+	c.Assert(result, jc.DeepEquals, coretools.List{
 		&coretools.Tools{
 			Version: version.MustParseBinary(storageMetadata[0].Version),
 			Size:    storageMetadata[0].Size,
@@ -409,13 +408,13 @@ func (s *findToolsSuite) TestFindToolsRequestAgentStream(c *gc.C) {
 		Size:    1024,
 		SHA256:  "feedface",
 	}}
-	s.expectMatchingStorageTools(c, storageMetadata, nil)
+	s.expectMatchingStorageTools(storageMetadata, nil)
 	s.expectBootstrapEnvironConfig(c)
 
 	toolsFinder := common.NewToolsFinder(
 		nil, s.toolsStorageGetter, s.urlGetter, s.newEnviron,
 	)
-	result, err := toolsFinder.FindTools(params.FindToolsParams{
+	result, err := toolsFinder.FindAgents(common.FindAgentsParams{
 		MajorVersion: 123,
 		MinorVersion: 456,
 		OSType:       "windows",
@@ -423,8 +422,7 @@ func (s *findToolsSuite) TestFindToolsRequestAgentStream(c *gc.C) {
 		AgentStream:  "pretend",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.List, jc.DeepEquals, coretools.List{
+	c.Assert(result, jc.DeepEquals, coretools.List{
 		&coretools.Tools{
 			Version: version.MustParseBinary(storageMetadata[0].Version),
 			Size:    storageMetadata[0].Size,
@@ -445,13 +443,12 @@ func (s *findToolsSuite) TestFindToolsNotFound(c *gc.C) {
 		return nil, errors.NotFoundf("tools")
 	})
 
-	s.expectMatchingStorageTools(c, []binarystorage.Metadata{}, nil)
+	s.expectMatchingStorageTools([]binarystorage.Metadata{}, nil)
 	s.expectBootstrapEnvironConfig(c)
 
 	toolsFinder := common.NewToolsFinder(nil, s.toolsStorageGetter, nil, s.newEnviron)
-	result, err := toolsFinder.FindTools(params.FindToolsParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, jc.Satisfies, params.IsCodeNotFound)
+	_, err := toolsFinder.FindAgents(common.FindAgentsParams{})
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *findToolsSuite) TestFindToolsExactInStorage(c *gc.C) {
@@ -464,11 +461,11 @@ func (s *findToolsSuite) TestFindToolsExactInStorage(c *gc.C) {
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	s.PatchValue(&coreos.HostOS, func() coreos.OSType { return coreos.Ubuntu })
 
-	s.expectMatchingStorageTools(c, storageMetadata, nil)
+	s.expectMatchingStorageTools(storageMetadata, nil)
 	s.PatchValue(&jujuversion.Current, version.MustParseBinary("1.22-beta1-ubuntu-amd64").Number)
 	s.testFindToolsExact(c, true, true)
 
-	s.expectMatchingStorageTools(c, storageMetadata, nil)
+	s.expectMatchingStorageTools(storageMetadata, nil)
 	s.PatchValue(&jujuversion.Current, version.MustParseBinary("1.22.0-ubuntu-amd64").Number)
 	s.testFindToolsExact(c, true, false)
 }
@@ -476,12 +473,12 @@ func (s *findToolsSuite) TestFindToolsExactInStorage(c *gc.C) {
 func (s *findToolsSuite) TestFindToolsExactNotInStorage(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.expectMatchingStorageTools(c, []binarystorage.Metadata{}, nil)
+	s.expectMatchingStorageTools([]binarystorage.Metadata{}, nil)
 	s.expectBootstrapEnvironConfig(c)
 	s.PatchValue(&jujuversion.Current, version.MustParse("1.22-beta1"))
 	s.testFindToolsExact(c, false, true)
 
-	s.expectMatchingStorageTools(c, []binarystorage.Metadata{}, nil)
+	s.expectMatchingStorageTools([]binarystorage.Metadata{}, nil)
 	s.expectBootstrapEnvironConfig(c)
 	s.PatchValue(&jujuversion.Current, version.MustParse("1.22.0"))
 	s.testFindToolsExact(c, false, false)
@@ -503,19 +500,16 @@ func (s *findToolsSuite) testFindToolsExact(c *gc.C, inStorage bool, develVersio
 		return nil, errors.NotFoundf("tools")
 	})
 	toolsFinder := common.NewToolsFinder(nil, s.toolsStorageGetter, s.urlGetter, s.newEnviron)
-	result, err := toolsFinder.FindTools(params.FindToolsParams{
-		Number:       jujuversion.Current,
-		MajorVersion: -1,
-		MinorVersion: -1,
-		OSType:       current.Release,
-		Arch:         arch.HostArch(),
+	_, err := toolsFinder.FindAgents(common.FindAgentsParams{
+		Number: jujuversion.Current,
+		OSType: current.Release,
+		Arch:   arch.HostArch(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
 	if inStorage {
-		c.Assert(result.Error, gc.IsNil)
+		c.Assert(err, gc.IsNil)
 		c.Assert(called, jc.IsFalse)
 	} else {
-		c.Assert(result.Error, gc.ErrorMatches, "tools not found")
+		c.Assert(err, gc.ErrorMatches, "tools not found")
 		c.Assert(called, jc.IsTrue)
 	}
 }
@@ -529,20 +523,18 @@ func (s *findToolsSuite) TestFindToolsToolsStorageError(c *gc.C) {
 		return nil, errors.NotFoundf("tools")
 	})
 
-	s.expectMatchingStorageTools(c, nil, errors.New("AllMetadata failed"))
+	s.expectMatchingStorageTools(nil, errors.New("AllMetadata failed"))
 
 	toolsFinder := common.NewToolsFinder(nil, s.toolsStorageGetter, s.urlGetter, s.newEnviron)
-	result, err := toolsFinder.FindTools(params.FindToolsParams{
-		MajorVersion: 1,
-		MinorVersion: -1,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	// ToolsStorage errors always cause FindTools to bail. Only
+	_, err := toolsFinder.FindAgents(common.FindAgentsParams{})
+	// ToolsStorage errors always cause FindAgents to bail. Only
 	// if AllMetadata succeeds but returns nothing that matches
 	// do we continue on to searching simplestreams.
-	c.Assert(result.Error, gc.ErrorMatches, "AllMetadata failed")
+	c.Assert(err, gc.ErrorMatches, "AllMetadata failed")
 	c.Assert(called, jc.IsFalse)
 }
+
+var _ = gc.Suite(&getUrlSuite{})
 
 type getUrlSuite struct {
 	apiHostPortsGetter *mocks.MockAPIHostPortsForAgentsGetter
