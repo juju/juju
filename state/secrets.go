@@ -597,17 +597,15 @@ func (st *State) deleteSecrets(uris []*secrets.URI, revisions ...int) (removed b
 			return false, errors.Annotatef(err, "deleting consumer refcounts for %s", uri.String())
 		}
 		if md.Label != "" {
-			_, err = refCountsCollection.Writeable().RemoveAll(bson.D{{
-				"_id", secretOwnerLabelKey(md.OwnerTag, md.Label),
-			}})
-			if err != nil {
-				return false, errors.Annotatef(err, "deleting label refcounts for %s", uri.String())
+			keys := []string{
+				secretConsumerLabelKey(md.OwnerTag, md.Label),
+				secretOwnerLabelKey(md.OwnerTag, md.Label),
 			}
-			_, err = refCountsCollection.Writeable().RemoveAll(bson.D{{
-				"_id", secretConsumerLabelKey(md.OwnerTag, md.Label),
-			}})
+			_, err = refCountsCollection.Writeable().RemoveAll(bson.M{
+				"_id": bson.M{"$in": keys},
+			})
 			if err != nil {
-				return false, errors.Annotatef(err, "deleting label refcounts for %s", uri.String())
+				return false, errors.Annotatef(err, "cannot delete label refcounts for %v", keys)
 			}
 		}
 		return true, nil

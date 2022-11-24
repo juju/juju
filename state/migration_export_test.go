@@ -2719,7 +2719,7 @@ func (s *MigrationExportSuite) TestSecrets(c *gc.C) {
 	c.Assert(revisions, gc.HasLen, 2)
 	c.Assert(revisions[0].Content(), jc.DeepEquals, map[string]string{"foo": "bar"})
 	c.Assert(revisions[0].ExpireTime(), jc.DeepEquals, ptr(expire))
-	c.Assert(revisions[1].ProviderId(), jc.DeepEquals, ptr("backend-id"))
+	c.Assert(revisions[1].BackendId(), jc.DeepEquals, ptr("backend-id"))
 	consumers := secret.Consumers()
 	c.Assert(consumers, gc.HasLen, 1)
 	info := consumers[0]
