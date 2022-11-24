@@ -8,6 +8,7 @@ on:
       - 'go.mod'
       - 'snap/**'
       - '.github/workflows/snap.yml'
+      - '.github/setup-lxd/**'
   workflow_dispatch:
 permissions:
   contents: read
@@ -25,20 +26,13 @@ jobs:
       run: |
         set -euxo pipefail
         sudo snap install snapcraft --classic
-        
-        if snap info lxd | grep "installed"; then
-          sudo snap refresh lxd --channel=latest/stable
-        else
-          sudo snap install lxd --channel=latest/stable
-        fi        
-        
-        sudo lxd waitready
-        sudo lxd init --auto
-        sudo chmod a+wr /var/snap/lxd/common/lxd/unix.socket
         echo "/snap/bin" >> $GITHUB_PATH
 
     - name: Checkout
       uses: actions/checkout@v3
+
+    - name: Setup LXD
+      uses: ./.github/setup-lxd
 
     - name: Set up Go
       if: env.RUN_TEST == 'RUN'
@@ -69,6 +63,5 @@ jobs:
       shell: bash
       run: |
         set -euxo pipefail
-        lxc network set lxdbr0 ipv6.address none
         mkdir ~/.ssh
         juju bootstrap localhost --debug
