@@ -85,7 +85,7 @@ func (s *SecretsManagerAPI) CreateSecrets(args params.CreateSecretArgs) (params.
 }
 
 func (s *SecretsManagerAPI) createSecret(arg params.CreateSecretArg) (string, error) {
-	if len(arg.Content.Data) == 0 && arg.Content.ProviderId == nil {
+	if len(arg.Content.Data) == 0 && arg.Content.BackendId == nil {
 		return "", errors.NotValidf("empty secret value")
 	}
 	// A unit can only create secrets owned by its app.
@@ -143,7 +143,7 @@ func fromUpsertParams(p params.UpsertSecretArg, token leadership.Token, nextRota
 		Label:          p.Label,
 		Params:         p.Params,
 		Data:           p.Content.Data,
-		ProviderId:     p.Content.ProviderId,
+		BackendId:      p.Content.BackendId,
 	}
 }
 
@@ -168,7 +168,7 @@ func (s *SecretsManagerAPI) updateSecret(arg params.UpdateSecretArg) error {
 		return errors.Trace(err)
 	}
 	if arg.RotatePolicy == nil && arg.Description == nil && arg.ExpireTime == nil &&
-		arg.Label == nil && len(arg.Params) == 0 && len(arg.Content.Data) == 0 && arg.Content.ProviderId == nil {
+		arg.Label == nil && len(arg.Params) == 0 && len(arg.Content.Data) == 0 && arg.Content.BackendId == nil {
 		return errors.New("at least one attribute to update must be specified")
 	}
 	token, err := s.canManage(uri)
@@ -314,8 +314,8 @@ func (s *SecretsManagerAPI) GetSecretMetadata() (params.ListSecretResults, error
 		}
 		for _, r := range revs {
 			result.Results[i].Revisions = append(result.Results[i].Revisions, params.SecretRevision{
-				Revision:   r.Revision,
-				ProviderId: r.ProviderId,
+				Revision:  r.Revision,
+				BackendId: r.BackendId,
 			})
 		}
 	}
@@ -334,7 +334,7 @@ func (s *SecretsManagerAPI) GetSecretContentInfo(args params.GetSecretContentArg
 			continue
 		}
 		contentParams := params.SecretContentParams{
-			ProviderId: content.ProviderId,
+			BackendId: content.BackendId,
 		}
 		if content.SecretValue != nil {
 			contentParams.Data = content.SecretValue.EncodedValues()
@@ -371,11 +371,11 @@ func (s *SecretsManagerAPI) getSecretContent(arg params.GetSecretContentArg) (*s
 			return nil, apiservererrors.ErrPerm
 		}
 
-		val, providerId, err := s.secretsBackend.GetSecretValue(uri, revision)
+		val, backendId, err := s.secretsBackend.GetSecretValue(uri, revision)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return &secrets.ContentParams{SecretValue: val, ProviderId: providerId}, nil
+		return &secrets.ContentParams{SecretValue: val, BackendId: backendId}, nil
 	}
 
 	var uri *coresecrets.URI

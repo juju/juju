@@ -12,8 +12,8 @@ import (
 // SecretsStore is an external secrets store like vault.
 type SecretsStore interface {
 	SaveContent(_ context.Context, uri *secrets.URI, revision int, value secrets.SecretValue) (string, error)
-	GetContent(_ context.Context, providerId string) (secrets.SecretValue, error)
-	DeleteContent(_ context.Context, providerId string) error
+	GetContent(_ context.Context, backendId string) (secrets.SecretValue, error)
+	DeleteContent(_ context.Context, backendId string) error
 }
 
 // StoreConfig is used when constructing a secrets store.

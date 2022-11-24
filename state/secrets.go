@@ -46,7 +46,7 @@ type UpdateSecretParams struct {
 	Label          *string
 	Params         map[string]interface{}
 	Data           secrets.SecretData
-	ProviderId     *string
+	BackendId      *string
 }
 
 func (u *UpdateSecretParams) hasUpdate() bool {
@@ -56,7 +56,7 @@ func (u *UpdateSecretParams) hasUpdate() bool {
 		u.Label != nil ||
 		u.ExpireTime != nil ||
 		len(u.Data) > 0 ||
-		u.ProviderId != nil ||
+		u.BackendId != nil ||
 		len(u.Params) > 0
 }
 
@@ -117,7 +117,7 @@ type secretRevisionDoc struct {
 	ExpireTime *time.Time     `bson:"expire-time,omitempty"`
 	Obsolete   bool           `bson:"obsolete"`
 	Data       secretsDataMap `bson:"data"`
-	ProviderId *string        `bson:"provider-id,omitempty"`
+	BackendId  *string        `bson:"backend-id,omitempty"`
 
 	// OwnerTag is denormalised here so that watchers do not need
 	// to do an extra query on the secret metadata collection to
@@ -183,7 +183,7 @@ func (s *secretsStore) updateSecretMetadataDoc(doc *secretMetadataDoc, p *Update
 	if p.RotatePolicy != nil {
 		doc.RotatePolicy = string(toValue(p.RotatePolicy))
 	}
-	hasData := len(p.Data) > 0 || p.ProviderId != nil
+	hasData := len(p.Data) > 0 || p.BackendId != nil
 	if p.ExpireTime != nil || hasData {
 		if p.ExpireTime == nil || p.ExpireTime.IsZero() {
 			doc.LatestExpireTime = nil
@@ -202,7 +202,7 @@ func secretRevisionKey(uri *secrets.URI, revision int) string {
 	return fmt.Sprintf("%s/%d", uri.ID, revision)
 }
 
-func (s *secretsStore) secretRevisionDoc(uri *secrets.URI, owner string, revision int, expireTime *time.Time, data secrets.SecretData, providerId *string) *secretRevisionDoc {
+func (s *secretsStore) secretRevisionDoc(uri *secrets.URI, owner string, revision int, expireTime *time.Time, data secrets.SecretData, backendId *string) *secretRevisionDoc {
 	dataCopy := make(secretsDataMap)
 	for k, v := range data {
 		dataCopy[k] = v
@@ -215,7 +215,7 @@ func (s *secretsStore) secretRevisionDoc(uri *secrets.URI, owner string, revisio
 		CreateTime: now,
 		UpdateTime: now,
 		Data:       dataCopy,
-		ProviderId: providerId,
+		BackendId:  backendId,
 	}
 	if expireTime != nil {
 		expire := expireTime.Round(time.Second).UTC()
@@ -226,7 +226,7 @@ func (s *secretsStore) secretRevisionDoc(uri *secrets.URI, owner string, revisio
 
 // CreateSecret creates a new secret.
 func (s *secretsStore) CreateSecret(uri *secrets.URI, p CreateSecretParams) (*secrets.SecretMetadata, error) {
-	if len(p.Data) == 0 && p.ProviderId == nil {
+	if len(p.Data) == 0 && p.BackendId == nil {
 		return nil, errors.New("cannot create a secret without content")
 	}
 	metadataDoc, err := s.secretMetadataDoc(uri, &p)
@@ -234,7 +234,7 @@ func (s *secretsStore) CreateSecret(uri *secrets.URI, p CreateSecretParams) (*se
 		return nil, errors.Trace(err)
 	}
 	revision := 1
-	valueDoc := s.secretRevisionDoc(uri, p.Owner.String(), revision, p.ExpireTime, p.Data, p.ProviderId)
+	valueDoc := s.secretRevisionDoc(uri, p.Owner.String(), revision, p.ExpireTime, p.Data, p.BackendId)
 	// OwnerTag has already been validated.
 	owner, _ := names.ParseTag(metadataDoc.OwnerTag)
 	entity, scopeCollName, scopeDocID, err := s.st.findSecretEntity(owner)
@@ -253,7 +253,7 @@ func (s *secretsStore) CreateSecret(uri *secrets.URI, p CreateSecretParams) (*se
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		var ops []txn.Op
 		if p.Label != nil {
-			uniqueLabelOps, err := s.st.uniqueSecretOwnerLabelOps(metadataDoc.OwnerTag, *p.Label)
+			uniqueLabelOps, err := s.st.uniqueSecretLabelOps(metadataDoc.OwnerTag, *p.Label)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -341,7 +341,7 @@ func (s *secretsStore) UpdateSecret(uri *secrets.URI, p UpdateSecretParams) (*se
 		}
 		var ops []txn.Op
 		if p.Label != nil && *p.Label != metadataDoc.Label {
-			uniqueLabelOps, err := s.st.uniqueSecretOwnerLabelOps(metadataDoc.OwnerTag, *p.Label)
+			uniqueLabelOps, err := s.st.uniqueSecretLabelOps(metadataDoc.OwnerTag, *p.Label)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -366,11 +366,11 @@ func (s *secretsStore) UpdateSecret(uri *secrets.URI, p UpdateSecretParams) (*se
 		if !revisionExists && !errors.IsNotFound(err) {
 			return nil, errors.Trace(err)
 		}
-		if len(p.Data) > 0 || p.ProviderId != nil {
+		if len(p.Data) > 0 || p.BackendId != nil {
 			if revisionExists {
 				return nil, errors.AlreadyExistsf("secret value with revision %d for %q", metadataDoc.LatestRevision, uri.String())
 			}
-			revisionDoc := s.secretRevisionDoc(uri, metadataDoc.OwnerTag, metadataDoc.LatestRevision, newExpireTime, p.Data, p.ProviderId)
+			revisionDoc := s.secretRevisionDoc(uri, metadataDoc.OwnerTag, metadataDoc.LatestRevision, newExpireTime, p.Data, p.BackendId)
 			ops = append(ops, txn.Op{
 				C:      secretRevisionsC,
 				Id:     revisionDoc.DocID,
@@ -596,11 +596,17 @@ func (st *State) deleteSecrets(uris []*secrets.URI, revisions ...int) (removed b
 		if err != nil {
 			return false, errors.Annotatef(err, "deleting consumer refcounts for %s", uri.String())
 		}
-		_, err = refCountsCollection.Writeable().RemoveAll(bson.D{{
-			"_id", secretOwnerLabelKey(md.OwnerTag, md.Label),
-		}})
-		if err != nil {
-			return false, errors.Annotatef(err, "deleting label refcounts for %s", uri.String())
+		if md.Label != "" {
+			keys := []string{
+				secretConsumerLabelKey(md.OwnerTag, md.Label),
+				secretOwnerLabelKey(md.OwnerTag, md.Label),
+			}
+			_, err = refCountsCollection.Writeable().RemoveAll(bson.M{
+				"_id": bson.M{"$in": keys},
+			})
+			if err != nil {
+				return false, errors.Annotatef(err, "cannot delete label refcounts for %v", keys)
+			}
 		}
 		return true, nil
 	}
@@ -642,7 +648,7 @@ func (s *secretsStore) getSecretValue(uri *secrets.URI, revision int, checkExist
 	for k, v := range doc.Data {
 		data[k] = fmt.Sprintf("%v", v)
 	}
-	return secrets.NewSecretValue(data), doc.ProviderId, nil
+	return secrets.NewSecretValue(data), doc.BackendId, nil
 }
 
 // GetSecret gets the secret metadata for the specified URL.
@@ -816,7 +822,7 @@ func (s *secretsStore) listSecretRevisions(uri *secrets.URI, revision *int) ([]*
 	for i, doc := range docs {
 		result[i] = &secrets.SecretRevisionMetadata{
 			Revision:   doc.Revision,
-			ProviderId: doc.ProviderId,
+			BackendId:  doc.BackendId,
 			CreateTime: doc.CreateTime,
 			UpdateTime: doc.UpdateTime,
 			ExpireTime: doc.ExpireTime,
@@ -899,14 +905,28 @@ func secretConsumerLabelKey(ownerTag string, label string) string {
 }
 
 func (st *State) uniqueSecretOwnerLabelOps(ownerTag string, label string) ([]txn.Op, error) {
-	return st.uniqueSecretLabelOps(ownerTag, label, "owner", secretOwnerLabelKey)
+	return st.uniqueSecretLabelOpsRaw(ownerTag, label, "owner", secretOwnerLabelKey)
 }
 
 func (st *State) uniqueSecretConsumerLabelOps(consumerTag string, label string) ([]txn.Op, error) {
-	return st.uniqueSecretLabelOps(consumerTag, label, "consumer", secretConsumerLabelKey)
+	return st.uniqueSecretLabelOpsRaw(consumerTag, label, "consumer", secretConsumerLabelKey)
 }
 
-func (st *State) uniqueSecretLabelOps(tag, label, role string, keyGenerator func(string, string) string) ([]txn.Op, error) {
+func (st *State) uniqueSecretLabelOps(tag string, label string) ([]txn.Op, error) {
+	ops1, err := st.uniqueSecretConsumerLabelOps(tag, label)
+	if err != nil {
+		// Check that there is no consumer with the same label.
+		return nil, errors.Trace(err)
+	}
+	ops2, err := st.uniqueSecretOwnerLabelOps(tag, label)
+	if err != nil {
+		// Check that there is no owner with the same label.
+		return nil, errors.Trace(err)
+	}
+	return append(ops1, ops2...), nil
+}
+
+func (st *State) uniqueSecretLabelOpsRaw(tag, label, role string, keyGenerator func(string, string) string) ([]txn.Op, error) {
 	refCountCollection, ccloser := st.db().GetCollection(refcountsC)
 	defer ccloser()
 
@@ -926,14 +946,26 @@ func (st *State) uniqueSecretLabelOps(tag, label, role string, keyGenerator func
 }
 
 func (st *State) removeOwnerSecretLabelOps(ownerTag names.Tag) ([]txn.Op, error) {
-	return st.removeSecretLabelOps(ownerTag, secretOwnerLabelKey)
+	return st.removeSecretLabelOpsRaw(ownerTag, secretOwnerLabelKey)
 }
 
 func (st *State) removeConsumerSecretLabelOps(consumerTag names.Tag) ([]txn.Op, error) {
-	return st.removeSecretLabelOps(consumerTag, secretConsumerLabelKey)
+	return st.removeSecretLabelOpsRaw(consumerTag, secretConsumerLabelKey)
 }
 
-func (st *State) removeSecretLabelOps(tag names.Tag, keyGenerator func(string, string) string) ([]txn.Op, error) {
+func (st *State) removeSecretLabelOps(tag names.Tag) ([]txn.Op, error) {
+	ops1, err := st.removeOwnerSecretLabelOps(tag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ops2, err := st.removeConsumerSecretLabelOps(tag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return append(ops1, ops2...), nil
+}
+
+func (st *State) removeSecretLabelOpsRaw(tag names.Tag, keyGenerator func(string, string) string) ([]txn.Op, error) {
 	refCountsCollection, closer := st.db().GetCollection(refcountsC)
 	defer closer()
 
@@ -1027,12 +1059,15 @@ func (st *State) removeSecretConsumer(uri *secrets.URI) error {
 	refCountsCollection, closer := st.db().GetCollection(refcountsC)
 	defer closer()
 	for _, doc := range docs {
-		key := secretConsumerLabelKey(doc.ConsumerTag, doc.Label)
-		_, err = refCountsCollection.Writeable().RemoveAll(bson.D{{
-			"_id", key,
-		}})
+		keys := []string{
+			secretConsumerLabelKey(doc.ConsumerTag, doc.Label),
+			secretOwnerLabelKey(doc.ConsumerTag, doc.Label),
+		}
+		_, err = refCountsCollection.Writeable().RemoveAll(bson.M{
+			"_id": bson.M{"$in": keys},
+		})
 		if err != nil {
-			return errors.Annotatef(err, "cannot delete consumer label refcounts for %s", key)
+			return errors.Annotatef(err, "cannot delete label refcounts for %v", keys)
 		}
 	}
 
@@ -1065,7 +1100,7 @@ func (st *State) SaveSecretConsumer(uri *secrets.URI, consumer names.Tag, metada
 		var ops []txn.Op
 
 		if metadata.Label != "" && (create || metadata.Label != doc.Label) {
-			uniqueLabelOps, err := st.uniqueSecretConsumerLabelOps(consumer.String(), metadata.Label)
+			uniqueLabelOps, err := st.uniqueSecretLabelOps(consumer.String(), metadata.Label)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

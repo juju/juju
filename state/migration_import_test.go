@@ -2875,7 +2875,7 @@ func (s *MigrationImportSuite) TestSecrets(c *gc.C) {
 	updateTime := time.Now().UTC().Round(time.Second)
 	md, err = store.UpdateSecret(md.URI, state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
-		ProviderId:  ptr("provider-id"),
+		BackendId:   ptr("backend-id"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.GrantSecretAccess(uri, state.SecretAccessParams{
@@ -2912,13 +2912,13 @@ func (s *MigrationImportSuite) TestSecrets(c *gc.C) {
 	mc.AddExpr(`_.UpdateTime`, jc.Almost, jc.ExpectedValue)
 	c.Assert(revs, mc, []*secrets.SecretRevisionMetadata{{
 		Revision:   1,
-		ProviderId: nil,
+		BackendId:  nil,
 		CreateTime: createTime,
 		UpdateTime: updateTime,
 		ExpireTime: &expire,
 	}, {
 		Revision:   2,
-		ProviderId: ptr("provider-id"),
+		BackendId:  ptr("backend-id"),
 		CreateTime: createTime,
 		UpdateTime: createTime,
 	}})

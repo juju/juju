@@ -1418,7 +1418,7 @@ func (ctx *HookContext) doFlush(process string) error {
 	pendingUpdates := make([]uniter.SecretUpsertArg, len(ctx.secretChanges.pendingUpdates))
 	pendingDeletes := make([]uniter.SecretDeleteArg, len(ctx.secretChanges.pendingDeletes))
 	for i, c := range ctx.secretChanges.pendingCreates {
-		providerId, err := secretsStore.SaveContent(c.URI, 1, c.Value)
+		backendId, err := secretsStore.SaveContent(c.URI, 1, c.Value)
 		if errors.IsNotSupported(err) {
 			pendingCreates[i] = c
 			continue
@@ -1426,8 +1426,8 @@ func (ctx *HookContext) doFlush(process string) error {
 		if err != nil {
 			return errors.Annotatef(err, "saving content for secret %q", c.URI.ID)
 		}
-		cleanups = append(cleanups, providerId)
-		c.ProviderId = &providerId
+		cleanups = append(cleanups, backendId)
+		c.BackendId = &backendId
 		c.Value = nil
 		pendingCreates[i] = c
 	}
@@ -1438,7 +1438,7 @@ func (ctx *HookContext) doFlush(process string) error {
 			pendingUpdates[i] = u.SecretUpsertArg
 			continue
 		}
-		providerId, err := secretsStore.SaveContent(u.URI, u.CurrentRevision+1, u.Value)
+		backendId, err := secretsStore.SaveContent(u.URI, u.CurrentRevision+1, u.Value)
 		if errors.IsNotSupported(err) {
 			pendingUpdates[i] = u.SecretUpsertArg
 			continue
@@ -1446,8 +1446,8 @@ func (ctx *HookContext) doFlush(process string) error {
 		if err != nil {
 			return errors.Annotatef(err, "saving content for secret %q", u.URI.ID)
 		}
-		cleanups = append(cleanups, providerId)
-		u.ProviderId = &providerId
+		cleanups = append(cleanups, backendId)
+		u.BackendId = &backendId
 		u.Value = nil
 		pendingUpdates[i] = u.SecretUpsertArg
 	}
@@ -1458,19 +1458,19 @@ func (ctx *HookContext) doFlush(process string) error {
 		if !ok {
 			continue
 		}
-		var providerIds []string
+		var backendIds []string
 		if d.Revision == nil {
-			for _, providerId := range md.ProviderIds {
-				providerIds = append(providerIds, providerId)
+			for _, backendId := range md.BackendIds {
+				backendIds = append(backendIds, backendId)
 			}
 		} else {
-			if providerId, ok := md.ProviderIds[*d.Revision]; ok {
-				providerIds = []string{providerId}
+			if backendId, ok := md.BackendIds[*d.Revision]; ok {
+				backendIds = []string{backendId}
 			}
 		}
-		ctx.logger.Debugf("deleting secret %q provider ids: %v", d.URI.String(), providerIds)
+		ctx.logger.Debugf("deleting secret %q provider ids: %v", d.URI.String(), backendIds)
 	deleteDone:
-		for _, secretId := range providerIds {
+		for _, secretId := range backendIds {
 			if err := secretsStore.DeleteContent(secretId); err != nil {
 				if errors.IsNotSupported(err) {
 					break deleteDone

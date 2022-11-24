@@ -961,7 +961,7 @@ func (s *MigrationSuite) TestSecretRevisionDocFields(c *gc.C) {
 		"UpdateTime",
 		"ExpireTime",
 		"Obsolete",
-		"ProviderId",
+		"BackendId",
 		"Data",
 		"OwnerTag",
 	)

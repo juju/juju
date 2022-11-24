@@ -238,12 +238,12 @@ func (k *kubernetesClient) GetSecretToken(name string) (string, error) {
 }
 
 // GetJujuSecret implements SecretsStore.
-func (k *kubernetesClient) GetJujuSecret(ctx context.Context, providerId string) (secrets.SecretValue, error) {
-	// providerId is the secret name.
-	secret, err := k.getSecret(providerId)
+func (k *kubernetesClient) GetJujuSecret(ctx context.Context, backendId string) (secrets.SecretValue, error) {
+	// backendId is the secret name.
+	secret, err := k.getSecret(backendId)
 	if k8serrors.IsForbidden(err) {
-		logger.Tracef("getting secret %q: %v", providerId, err)
-		return nil, errors.Unauthorizedf("cannot access %q", providerId)
+		logger.Tracef("getting secret %q: %v", backendId, err)
+		return nil, errors.Unauthorizedf("cannot access %q", backendId)
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -273,12 +273,12 @@ func (k *kubernetesClient) SaveJujuSecret(ctx context.Context, name string, valu
 }
 
 // DeleteJujuSecret implements SecretsStore.
-func (k *kubernetesClient) DeleteJujuSecret(ctx context.Context, providerId string) error {
-	// providerId is the secret name.
-	secret, err := k.getSecret(providerId)
+func (k *kubernetesClient) DeleteJujuSecret(ctx context.Context, backendId string) error {
+	// backendId is the secret name.
+	secret, err := k.getSecret(backendId)
 	if k8serrors.IsForbidden(err) {
-		logger.Tracef("deleting secret %q: %v", providerId, err)
-		return errors.Unauthorizedf("cannot access %q", providerId)
+		logger.Tracef("deleting secret %q: %v", backendId, err)
+		return errors.Unauthorizedf("cannot access %q", backendId)
 	}
 	if errors.IsNotFound(err) {
 		return nil
