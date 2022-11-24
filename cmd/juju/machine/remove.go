@@ -27,6 +27,8 @@ func NewRemoveCommand() cmd.Command {
 // removeCommand causes an existing machine to be destroyed.
 type removeCommand struct {
 	baseMachinesCommand
+	noPrompt     bool
+	dryRun       bool
 	apiRoot      api.Connection
 	machineAPI   RemoveMachineAPI
 	MachineIds   []string
@@ -78,6 +80,8 @@ func (c *removeCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *removeCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
+	f.BoolVar(&c.noPrompt, "no-prompt", false, "Do not prompt for approval")
+	f.BoolVar(&c.dryRun, "dry-run", false, "Print what this command would be removed without removing")
 	f.BoolVar(&c.Force, "force", false, "Completely remove a machine and all its dependencies")
 	f.BoolVar(&c.KeepInstance, "keep-instance", false, "Do not stop the running cloud instance")
 	f.BoolVar(&c.NoWait, "no-wait", false, "Rush through machine removal without waiting for each individual step to complete")
@@ -98,7 +102,8 @@ func (c *removeCommand) Init(args []string) error {
 }
 
 type RemoveMachineAPI interface {
-	DestroyMachinesWithParams(force, keep bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error)
+	DestroyMachinesWithParams(force, keep, dryRun bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error)
+	BestAPIVersion() int
 	Close() error
 }
 
@@ -148,7 +153,7 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	results, err := client.DestroyMachinesWithParams(c.Force, c.KeepInstance, maxWait, c.MachineIds...)
+	results, err := client.DestroyMachinesWithParams(c.Force, c.KeepInstance, false, maxWait, c.MachineIds...)
 	if err := block.ProcessBlockedError(err, block.BlockRemove); err != nil {
 		return err
 	}

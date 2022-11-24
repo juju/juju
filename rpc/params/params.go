@@ -272,8 +272,8 @@ type AddMachinesResult struct {
 	Error   *Error `json:"error,omitempty"`
 }
 
-// DestroyMachinesParams holds parameters for the DestroyMachinesWithParams call.
-type DestroyMachinesParams struct {
+// DestroyMachinesParamsV9 holds parameters for the v9 DestroyMachinesWithParams call.
+type DestroyMachinesParamsV9 struct {
 	MachineTags []string `json:"machine-tags"`
 	Force       bool     `json:"force,omitempty"`
 	Keep        bool     `json:"keep,omitempty"`
@@ -282,6 +282,12 @@ type DestroyMachinesParams struct {
 	// will wait before forcing the next step to kick-off. This parameter
 	// only makes sense in combination with 'force' set to 'true'.
 	MaxWait *time.Duration `json:"max-wait,omitempty"`
+}
+
+// DestroyMachinesParams holds parameters for the v9 DestroyMachinesWithParams call.
+type DestroyMachinesParams struct {
+	DestroyMachinesParamsV9
+	DryRun bool `json:"dry-run,omitempty"`
 }
 
 // RecordAgentStartInformationArgs holds the parameters for updating the

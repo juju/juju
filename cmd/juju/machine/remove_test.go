@@ -28,7 +28,7 @@ var _ = gc.Suite(&RemoveMachineSuite{})
 
 func (s *RemoveMachineSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	s.fake = &fakeRemoveMachineAPI{}
+	s.fake = &fakeRemoveMachineAPI{facadeVersion: 10}
 	s.apiConnection = &mockAPIConnection{}
 }
 
@@ -199,20 +199,23 @@ func (s *RemoveMachineSuite) TestForceBlockedError(c *gc.C) {
 }
 
 type fakeRemoveMachineAPI struct {
-	forced      bool
-	keep        bool
-	machines    []string
-	removeError error
-	results     []params.DestroyMachineResult
+	facadeVersion int
+	forced        bool
+	keep          bool
+	dryRun        bool
+	machines      []string
+	removeError   error
+	results       []params.DestroyMachineResult
 }
 
 func (f *fakeRemoveMachineAPI) Close() error {
 	return nil
 }
 
-func (f *fakeRemoveMachineAPI) DestroyMachinesWithParams(force, keep bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error) {
+func (f *fakeRemoveMachineAPI) DestroyMachinesWithParams(force, keep, dryRun bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error) {
 	f.forced = force
 	f.keep = keep
+	f.dryRun = dryRun
 	f.machines = machines
 	if f.removeError != nil || f.results != nil {
 		return f.results, f.removeError
@@ -222,6 +225,10 @@ func (f *fakeRemoveMachineAPI) DestroyMachinesWithParams(force, keep bool, maxWa
 		results[i].Info = &params.DestroyMachineInfo{MachineId: machines[i]}
 	}
 	return results, nil
+}
+
+func (f *fakeRemoveMachineAPI) BestAPIVersion() int {
+	return f.facadeVersion
 }
 
 type mockAPIConnection struct {
