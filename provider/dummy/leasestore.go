@@ -94,7 +94,7 @@ func (s *leaseStore) RevokeLease(key lease.Key, _ string, _ <-chan struct{}) err
 }
 
 // Leases is part of lease.Store.
-func (s *leaseStore) Leases(keys ...lease.Key) map[lease.Key]lease.Info {
+func (s *leaseStore) Leases(keys ...lease.Key) (map[lease.Key]lease.Info, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -117,14 +117,14 @@ func (s *leaseStore) Leases(keys ...lease.Key) map[lease.Key]lease.Info {
 			Expiry: entry.start.Add(entry.duration),
 		}
 	}
-	return results
+	return results, nil
 }
 
 // LeaseGroup is part of lease.Store.
-func (s *leaseStore) LeaseGroup(namespace, modelUUID string) map[lease.Key]lease.Info {
-	leases := s.Leases()
+func (s *leaseStore) LeaseGroup(namespace, modelUUID string) (map[lease.Key]lease.Info, error) {
+	leases, _ := s.Leases()
 	if len(leases) == 0 {
-		return leases
+		return leases, nil
 	}
 	results := make(map[lease.Key]lease.Info)
 	for key, info := range leases {
@@ -132,7 +132,7 @@ func (s *leaseStore) LeaseGroup(namespace, modelUUID string) map[lease.Key]lease
 			results[key] = info
 		}
 	}
-	return results
+	return results, nil
 }
 
 // PinLease is part of lease.Store.
@@ -146,6 +146,6 @@ func (s *leaseStore) UnpinLease(lease.Key, string, <-chan struct{}) error {
 }
 
 // Pinned is part of the Store interface.
-func (s *leaseStore) Pinned() map[lease.Key][]string {
-	return nil
+func (s *leaseStore) Pinned() (map[lease.Key][]string, error) {
+	return nil, nil
 }
