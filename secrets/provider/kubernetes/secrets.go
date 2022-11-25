@@ -27,13 +27,13 @@ import (
 var logger = loggo.GetLogger("juju.secrets.provider.kubernetes")
 
 const (
-	// Store is the name of the Kubernetes secrets store.
-	Store = "kubernetes"
+	// Backend is the name of the Kubernetes secrets backend.
+	Backend = "kubernetes"
 )
 
 // NewProvider returns a Kubernetes secrets provider.
-func NewProvider() provider.SecretStoreProvider {
-	return k8sProvider{Store}
+func NewProvider() provider.SecretBackendProvider {
+	return k8sProvider{Backend}
 }
 
 type k8sProvider struct {
@@ -85,14 +85,14 @@ func (p k8sProvider) CleanupSecrets(m provider.Model, tag names.Tag, removed pro
 	return errors.Trace(err)
 }
 
-func cloudSpecToStoreConfig(controllerUUID string, cfg *config.Config, spec cloudspec.CloudSpec) (*provider.StoreConfig, error) {
+func cloudSpecToBackendConfig(controllerUUID string, cfg *config.Config, spec cloudspec.CloudSpec) (*provider.BackendConfig, error) {
 	cred, err := json.Marshal(spec.Credential)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &provider.StoreConfig{
-		StoreType: Store,
-		Params: map[string]interface{}{
+	return &provider.BackendConfig{
+		BackendType: Backend,
+		Config: map[string]interface{}{
 			"controller-uuid":     controllerUUID,
 			"model-name":          cfg.Name(),
 			"model-type":          cfg.Type(),
@@ -105,10 +105,10 @@ func cloudSpecToStoreConfig(controllerUUID string, cfg *config.Config, spec clou
 	}, nil
 }
 
-// StoreConfig returns the config needed to create a k8s secrets store.
+// BackendConfig returns the config needed to create a k8s secrets backend.
 // TODO(wallyworld) - only allow access to the specified secrets
-func (p k8sProvider) StoreConfig(m provider.Model, tag names.Tag, owned provider.SecretRevisions, read provider.SecretRevisions) (*provider.StoreConfig, error) {
-	logger.Tracef("getting k8s store config for %q, owned %v, read %v", tag, owned, read)
+func (p k8sProvider) BackendConfig(m provider.Model, tag names.Tag, owned provider.SecretRevisions, read provider.SecretRevisions) (*provider.BackendConfig, error) {
+	logger.Tracef("getting k8s backend config for %q, owned %v, read %v", tag, owned, read)
 	cloudSpec, err := cloudSpecForModel(m)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -120,7 +120,7 @@ func (p k8sProvider) StoreConfig(m provider.Model, tag names.Tag, owned provider
 	}
 	controllerUUID := m.ControllerUUID()
 	if tag == nil {
-		return cloudSpecToStoreConfig(controllerUUID, cfg, cloudSpec)
+		return cloudSpecToBackendConfig(controllerUUID, cfg, cloudSpec)
 	}
 
 	broker, err := NewCaas(context.TODO(), environs.OpenParams{
@@ -153,11 +153,11 @@ func (p k8sProvider) StoreConfig(m provider.Model, tag names.Tag, owned provider
 			cloudSpec.IsControllerCloud = false
 		}
 	}
-	return cloudSpecToStoreConfig(controllerUUID, cfg, cloudSpec)
+	return cloudSpecToBackendConfig(controllerUUID, cfg, cloudSpec)
 }
 
 type Broker interface {
-	caas.SecretsStore
+	caas.SecretsBackend
 	caas.SecretsProvider
 }
 
@@ -168,11 +168,11 @@ func newCaas(ctx context.Context, args environs.OpenParams) (Broker, error) {
 	return caas.New(ctx, args)
 }
 
-// NewStore returns a k8s backed secrets store.
-func (p k8sProvider) NewStore(cfg *provider.StoreConfig) (provider.SecretsStore, error) {
-	modelName := cfg.Params["model-name"].(string)
-	modelType := cfg.Params["model-type"].(string)
-	modelUUID := cfg.Params["model-uuid"].(string)
+// NewBackend returns a k8s backed secrets backend.
+func (p k8sProvider) NewBackend(cfg *provider.BackendConfig) (provider.SecretsBackend, error) {
+	modelName := cfg.Config["model-name"].(string)
+	modelType := cfg.Config["model-type"].(string)
+	modelUUID := cfg.Config["model-uuid"].(string)
 	modelCfg, err := config.New(config.UseDefaults, map[string]interface{}{
 		config.NameKey: modelName,
 		config.TypeKey: modelType,
@@ -184,34 +184,34 @@ func (p k8sProvider) NewStore(cfg *provider.StoreConfig) (provider.SecretsStore,
 	cloudSpec := cloudspec.CloudSpec{
 		Type:              "kubernetes",
 		Name:              "secret-access",
-		Endpoint:          cfg.Params["endpoint"].(string),
-		IsControllerCloud: cfg.Params["is-controller-cloud"].(bool),
+		Endpoint:          cfg.Config["endpoint"].(string),
+		IsControllerCloud: cfg.Config["is-controller-cloud"].(bool),
 	}
 	var ok bool
-	cloudSpec.CACertificates, ok = cfg.Params["ca-certs"].([]string)
+	cloudSpec.CACertificates, ok = cfg.Config["ca-certs"].([]string)
 	if !ok {
-		certs := cfg.Params["ca-certs"].([]interface{})
+		certs := cfg.Config["ca-certs"].([]interface{})
 		cloudSpec.CACertificates = make([]string, len(certs))
 		for i, cert := range certs {
 			cloudSpec.CACertificates[i] = fmt.Sprintf("%s", cert)
 		}
 	}
 	var cred cloud.Credential
-	err = json.Unmarshal([]byte(cfg.Params["credential"].(string)), &cred)
+	err = json.Unmarshal([]byte(cfg.Config["credential"].(string)), &cred)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	cloudSpec.Credential = &cred
 
 	broker, err := NewCaas(context.TODO(), environs.OpenParams{
-		ControllerUUID: cfg.Params["controller-uuid"].(string),
+		ControllerUUID: cfg.Config["controller-uuid"].(string),
 		Cloud:          cloudSpec,
 		Config:         modelCfg,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &k8sStore{broker: broker}, nil
+	return &k8sBackend{broker: broker}, nil
 }
 
 func cloudSpecForModel(m provider.Model) (cloudspec.CloudSpec, error) {
@@ -229,21 +229,21 @@ func cloudSpecForModel(m provider.Model) (cloudspec.CloudSpec, error) {
 	return cloudspec.MakeCloudSpec(c, "", cloudCredential)
 }
 
-type k8sStore struct {
-	broker caas.SecretsStore
+type k8sBackend struct {
+	broker caas.SecretsBackend
 }
 
-// GetContent implements SecretsStore.
-func (k k8sStore) GetContent(ctx context.Context, backendId string) (secrets.SecretValue, error) {
+// GetContent implements SecretsBackend.
+func (k k8sBackend) GetContent(ctx context.Context, backendId string) (secrets.SecretValue, error) {
 	return k.broker.GetJujuSecret(ctx, backendId)
 }
 
-// DeleteContent implements SecretsStore.
-func (k k8sStore) DeleteContent(ctx context.Context, backendId string) error {
+// DeleteContent implements SecretsBackend.
+func (k k8sBackend) DeleteContent(ctx context.Context, backendId string) error {
 	return k.broker.DeleteJujuSecret(ctx, backendId)
 }
 
-// SaveContent implements SecretsStore.
-func (k k8sStore) SaveContent(ctx context.Context, uri *secrets.URI, revision int, value secrets.SecretValue) (string, error) {
+// SaveContent implements SecretsBackend.
+func (k k8sBackend) SaveContent(ctx context.Context, uri *secrets.URI, revision int, value secrets.SecretValue) (string, error) {
 	return k.broker.SaveJujuSecret(ctx, uri.Name(revision), value)
 }

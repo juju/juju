@@ -24,13 +24,13 @@ import (
 var logger = loggo.GetLogger("juju.secrets.vault")
 
 const (
-	// Store is the name of the Kubernetes secrets store.
-	Store = "vault"
+	// Backend is the name of the Vault secrets backend.
+	Backend = "vault"
 )
 
 // NewProvider returns a Vault secrets provider.
-func NewProvider() provider.SecretStoreProvider {
-	return vaultProvider{Store}
+func NewProvider() provider.SecretBackendProvider {
+	return vaultProvider{Backend}
 }
 
 type vaultProvider struct {
@@ -47,7 +47,7 @@ func (p vaultProvider) Initialise(m provider.Model) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	client, err := p.newStore(cfg)
+	client, err := p.newBackend(cfg)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -59,7 +59,7 @@ func (p vaultProvider) Initialise(m provider.Model) error {
 		return errors.Trace(err)
 	}
 	logger.Debugf("kv mounts: %v", mounts)
-	modelUUID := cfg.Params["model-uuid"].(string)
+	modelUUID := cfg.Config["model-uuid"].(string)
 	if _, ok := mounts[modelUUID]; !ok {
 		err = sys.MountWithContext(ctx, modelUUID, &api.MountInput{
 			Type:    "kv",
@@ -78,7 +78,7 @@ func (p vaultProvider) CleanupModel(m provider.Model) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	k, err := p.newStore(cfg)
+	k, err := p.newBackend(cfg)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -128,7 +128,7 @@ func (p vaultProvider) CleanupSecrets(m provider.Model, tag names.Tag, removed p
 	if err != nil {
 		return errors.Trace(err)
 	}
-	client, err := p.newStore(cfg)
+	client, err := p.newBackend(cfg)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -172,14 +172,14 @@ type vaultConfig struct {
 	Keys          []string `yaml:"keys" json:"keys"`
 }
 
-// adminConfig returns the config needed to create a vault secrets store client
+// adminConfig returns the config needed to create a vault secrets backend client
 // with full admin rights.
-func (p vaultProvider) adminConfig(m provider.Model) (*provider.StoreConfig, error) {
+func (p vaultProvider) adminConfig(m provider.Model) (*provider.BackendConfig, error) {
 	cfg, err := m.Config()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	vaultCfgStr := cfg.SecretStoreConfig()
+	vaultCfgStr := cfg.SecretBackendConfig()
 	if vaultCfgStr == "" {
 		return nil, errors.NotValidf("empty vault config")
 	}
@@ -190,9 +190,9 @@ func (p vaultProvider) adminConfig(m provider.Model) (*provider.StoreConfig, err
 		}
 	}
 	modelUUID := cfg.UUID()
-	storeCfg := &provider.StoreConfig{
-		StoreType: Store,
-		Params: map[string]interface{}{
+	BackendCfg := &provider.BackendConfig{
+		BackendType: Backend,
+		Config: map[string]interface{}{
 			"controller-uuid": m.ControllerUUID(),
 			"model-uuid":      modelUUID,
 			"endpoint":        vaultCfg.Endpoint,
@@ -207,10 +207,10 @@ func (p vaultProvider) adminConfig(m provider.Model) (*provider.StoreConfig, err
 	// If keys are provided, we need to unseal the vault.
 	// (If not, the vault needs to be unsealed already).
 	if len(vaultCfg.Keys) == 0 {
-		return storeCfg, nil
+		return BackendCfg, nil
 	}
 
-	vaultClient, err := p.newStore(storeCfg)
+	vaultClient, err := p.newBackend(BackendCfg)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -222,22 +222,22 @@ func (p vaultProvider) adminConfig(m provider.Model) (*provider.StoreConfig, err
 		}
 	}
 
-	return storeCfg, nil
+	return BackendCfg, nil
 }
 
-// StoreConfig returns the config needed to create a vault secrets store client.
-func (p vaultProvider) StoreConfig(m provider.Model, tag names.Tag, owned provider.SecretRevisions, read provider.SecretRevisions) (*provider.StoreConfig, error) {
+// BackendConfig returns the config needed to create a vault secrets backend client.
+func (p vaultProvider) BackendConfig(m provider.Model, tag names.Tag, owned provider.SecretRevisions, read provider.SecretRevisions) (*provider.BackendConfig, error) {
 	adminUser := tag == nil
-	// Get an admin store client so we can set up the policies.
-	storeCfg, err := p.adminConfig(m)
+	// Get an admin backend client so we can set up the policies.
+	backendCfg, err := p.adminConfig(m)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	store, err := p.newStore(storeCfg)
+	backend, err := p.newBackend(backendCfg)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	sys := store.client.Sys()
+	sys := backend.client.Sys()
 
 	ctx := context.Background()
 	modelUUID := m.UUID()
@@ -284,7 +284,7 @@ func (p vaultProvider) StoreConfig(m provider.Model, tag names.Tag, owned provid
 		}
 		policies = append(policies, policyName)
 	}
-	s, err := store.client.Auth().Token().Create(&api.TokenCreateRequest{
+	s, err := backend.client.Auth().Token().Create(&api.TokenCreateRequest{
 		TTL:             "10m", // 10 minutes for now, can configure later.
 		NoDefaultPolicy: true,
 		Policies:        policies,
@@ -292,26 +292,26 @@ func (p vaultProvider) StoreConfig(m provider.Model, tag names.Tag, owned provid
 	if err != nil {
 		return nil, errors.Annotate(err, "creating secret access token")
 	}
-	storeCfg.Params["token"] = s.Auth.ClientToken
+	backendCfg.Config["token"] = s.Auth.ClientToken
 
-	return storeCfg, nil
+	return backendCfg, nil
 }
 
 // NewVaultClient is patched for testing.
 var NewVaultClient = vault.NewClient
 
-// NewStore returns a vault backed secrets store client.
-func (p vaultProvider) NewStore(cfg *provider.StoreConfig) (provider.SecretsStore, error) {
-	return p.newStore(cfg)
+// NewBackend returns a vault backed secrets backend client.
+func (p vaultProvider) NewBackend(cfg *provider.BackendConfig) (provider.SecretsBackend, error) {
+	return p.newBackend(cfg)
 }
 
-func (p vaultProvider) newStore(cfg *provider.StoreConfig) (*vaultStore, error) {
-	modelUUID := cfg.Params["model-uuid"].(string)
-	address := cfg.Params["endpoint"].(string)
+func (p vaultProvider) newBackend(cfg *provider.BackendConfig) (*vaultBackend, error) {
+	modelUUID := cfg.Config["model-uuid"].(string)
+	address := cfg.Config["endpoint"].(string)
 
 	var clientCertPath, clientKeyPath string
-	clientCert, _ := cfg.Params["client-cert"].(string)
-	clientKey, _ := cfg.Params["client-key"].(string)
+	clientCert, _ := cfg.Config["client-cert"].(string)
+	clientKey, _ := cfg.Config["client-key"].(string)
 	if clientCert != "" && clientKey == "" {
 		return nil, errors.NotValidf("vault config missing client key")
 	}
@@ -342,32 +342,32 @@ func (p vaultProvider) newStore(cfg *provider.StoreConfig) (*vaultStore, error) 
 
 	tlsConfig := vault.TLSConfig{
 		TLSConfig: &api.TLSConfig{
-			CACertBytes:   []byte(cfg.Params["ca-cert"].(string)),
+			CACertBytes:   []byte(cfg.Config["ca-cert"].(string)),
 			ClientCert:    clientCertPath,
 			ClientKey:     clientKeyPath,
-			TLSServerName: cfg.Params["tls-server-name"].(string),
+			TLSServerName: cfg.Config["tls-server-name"].(string),
 		},
 	}
 	c, err := NewVaultClient(address,
 		&tlsConfig,
-		vault.WithAuthToken(cfg.Params["token"].(string)),
+		vault.WithAuthToken(cfg.Config["token"].(string)),
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if ns := cfg.Params["namespace"].(string); ns != "" {
+	if ns := cfg.Config["namespace"].(string); ns != "" {
 		c.SetNamespace(ns)
 	}
-	return &vaultStore{modelUUID: modelUUID, client: c}, nil
+	return &vaultBackend{modelUUID: modelUUID, client: c}, nil
 }
 
-type vaultStore struct {
+type vaultBackend struct {
 	modelUUID string
 	client    *vault.Client
 }
 
-// GetContent implements SecretsStore.
-func (k vaultStore) GetContent(ctx context.Context, backendId string) (_ secrets.SecretValue, err error) {
+// GetContent implements SecretsBackend.
+func (k vaultBackend) GetContent(ctx context.Context, backendId string) (_ secrets.SecretValue, err error) {
 	defer func() {
 		err = maybePermissionDenied(err)
 	}()
@@ -383,8 +383,8 @@ func (k vaultStore) GetContent(ctx context.Context, backendId string) (_ secrets
 	return secrets.NewSecretValue(val), nil
 }
 
-// DeleteContent implements SecretsStore.
-func (k vaultStore) DeleteContent(ctx context.Context, backendId string) (err error) {
+// DeleteContent implements SecretsBackend.
+func (k vaultBackend) DeleteContent(ctx context.Context, backendId string) (err error) {
 	defer func() {
 		err = maybePermissionDenied(err)
 	}()
@@ -396,8 +396,8 @@ func (k vaultStore) DeleteContent(ctx context.Context, backendId string) (err er
 	return err
 }
 
-// SaveContent implements SecretsStore.
-func (k vaultStore) SaveContent(ctx context.Context, uri *secrets.URI, revision int, value secrets.SecretValue) (_ string, err error) {
+// SaveContent implements SecretsBackend.
+func (k vaultBackend) SaveContent(ctx context.Context, uri *secrets.URI, revision int, value secrets.SecretValue) (_ string, err error) {
 	defer func() {
 		err = maybePermissionDenied(err)
 	}()

@@ -42,12 +42,12 @@ func (s *modelconfigSuite) SetUpTest(c *gc.C) {
 	}
 	s.backend = &mockBackend{
 		cfg: config.ConfigValues{
-			"type":                {"dummy", "model"},
-			"agent-version":       {"1.2.3.4", "model"},
-			"ftp-proxy":           {"http://proxy", "model"},
-			"authorized-keys":     {coretesting.FakeAuthKeys, "model"},
-			"charmhub-url":        {"http://meshuggah.rocks", "model"},
-			"secret-store-config": {"shhh", "model"},
+			"type":                  {"dummy", "model"},
+			"agent-version":         {"1.2.3.4", "model"},
+			"ftp-proxy":             {"http://proxy", "model"},
+			"authorized-keys":       {coretesting.FakeAuthKeys, "model"},
+			"charmhub-url":          {"http://meshuggah.rocks", "model"},
+			"secret-backend-config": {"shhh", "model"},
 		},
 	}
 	var err error
@@ -59,11 +59,11 @@ func (s *modelconfigSuite) TestAdminModelGet(c *gc.C) {
 	result, err := s.api.ModelGet()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Config, jc.DeepEquals, map[string]params.ConfigValue{
-		"type":                {"dummy", "model"},
-		"ftp-proxy":           {"http://proxy", "model"},
-		"agent-version":       {Value: "1.2.3.4", Source: "model"},
-		"charmhub-url":        {"http://meshuggah.rocks", "model"},
-		"secret-store-config": {"shhh", "model"},
+		"type":                  {"dummy", "model"},
+		"ftp-proxy":             {"http://proxy", "model"},
+		"agent-version":         {Value: "1.2.3.4", Source: "model"},
+		"charmhub-url":          {"http://meshuggah.rocks", "model"},
+		"secret-backend-config": {"shhh", "model"},
 	})
 }
 
@@ -97,9 +97,9 @@ func (s *modelconfigSuite) assertConfigValueMissing(c *gc.C, key string) {
 func (s *modelconfigSuite) TestAdminModelSet(c *gc.C) {
 	params := params.ModelSet{
 		Config: map[string]interface{}{
-			"some-key":            "value",
-			"other-key":           "other value",
-			"secret-store-config": "shhhhhh",
+			"some-key":              "value",
+			"other-key":             "other value",
+			"secret-backend-config": "shhhhhh",
 		},
 	}
 	err := s.api.ModelSet(params)
@@ -116,9 +116,9 @@ func (s *modelconfigSuite) TestUserModelSet(c *gc.C) {
 	}
 	params := params.ModelSet{
 		Config: map[string]interface{}{
-			"some-key":            "value",
-			"other-key":           "other value",
-			"secret-store-config": "shhhhhh",
+			"some-key":              "value",
+			"other-key":             "other value",
+			"secret-backend-config": "shhhhhh",
 		},
 	}
 	err := s.api.ModelSet(params)

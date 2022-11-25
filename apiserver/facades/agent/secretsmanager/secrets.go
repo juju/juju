@@ -37,7 +37,7 @@ type SecretsManagerAPI struct {
 	authTag           names.Tag
 	clock             clock.Clock
 
-	storeConfigGetter commonsecrets.StoreConfigGetter
+	storeConfigGetter commonsecrets.BackendConfigGetter
 	providerGetter    commonsecrets.ProviderInfoGetter
 }
 
@@ -48,8 +48,8 @@ func (s *SecretsManagerAPI) GetSecretStoreConfig() (params.SecretStoreConfig, er
 		return params.SecretStoreConfig{}, errors.Trace(err)
 	}
 	result := params.SecretStoreConfig{
-		StoreType: cfg.StoreType,
-		Params:    cfg.Params,
+		StoreType: cfg.BackendType,
+		Params:    cfg.Config,
 	}
 	return result, nil
 }

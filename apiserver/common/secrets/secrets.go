@@ -42,14 +42,14 @@ type Model interface {
 	State() *state.State
 }
 
-// StoreConfigGetter is a func used to get secret store config.
-type StoreConfigGetter func() (*provider.StoreConfig, error)
+// BackendConfigGetter is a func used to get secret backend config.
+type BackendConfigGetter func() (*provider.BackendConfig, error)
 
-// ProviderInfoGetter is a func used to get a secret store provider.
-type ProviderInfoGetter func() (provider.SecretStoreProvider, provider.Model, error)
+// ProviderInfoGetter is a func used to get a secret backend provider.
+type ProviderInfoGetter func() (provider.SecretBackendProvider, provider.Model, error)
 
-// ProviderInfoForModel returns the secret store provider for the specified model.
-func ProviderInfoForModel(model Model) (provider.SecretStoreProvider, provider.Model, error) {
+// ProviderInfoForModel returns the secret backend provider for the specified model.
+func ProviderInfoForModel(model Model) (provider.SecretBackendProvider, provider.Model, error) {
 	p, err := providerForModel(model)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "getting configured secrets provider")
@@ -57,30 +57,30 @@ func ProviderInfoForModel(model Model) (provider.SecretStoreProvider, provider.M
 	return p, &modelAdaptor{model}, nil
 }
 
-// providerForModel returns the secret store provider for the specified model.
-// If no store is configured, the "juju" store is used for machine models and
-// the k8s store is used for k8s models.
-func providerForModel(model Model) (provider.SecretStoreProvider, error) {
+// providerForModel returns the secret backend provider for the specified model.
+// If no backend is configured, the "juju" backend is used for machine models and
+// the k8s backend is used for k8s models.
+func providerForModel(model Model) (provider.SecretBackendProvider, error) {
 	cfg, err := model.Config()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	storeType := cfg.SecretStore()
-	if storeType == "" {
-		storeType = juju.Store
+	backendType := cfg.SecretStore()
+	if backendType == "" {
+		backendType = juju.Backend
 		if featureflag.Enabled(feature.DeveloperMode) && model.Type() == state.ModelTypeCAAS {
-			storeType = kubernetes.Store
+			backendType = kubernetes.Backend
 		}
 	}
-	return GetProvider(storeType)
+	return GetProvider(backendType)
 }
 
-// StoreConfig returns the config to create a secret store.
+// BackendConfig returns the config to create a secret backend.
 // This is called to provide config to a client like a unit agent which
 // needs to access secrets. The authTag is the agent which needs access.
 // The client is expected to be restricted to write only those secrets
 // owned by the agent, and read only those secrets shared with the agent.
-func StoreConfig(model Model, authTag names.Tag, leadershipChecker leadership.Checker) (*provider.StoreConfig, error) {
+func BackendConfig(model Model, authTag names.Tag, leadershipChecker leadership.Checker) (*provider.BackendConfig, error) {
 	ma := &modelAdaptor{model}
 	p, err := providerForModel(model)
 	if err != nil {
@@ -145,7 +145,7 @@ func StoreConfig(model Model, authTag names.Tag, leadershipChecker leadership.Ch
 	}
 
 	logger.Debugf("secrets for %v:\nowned: %v\nconsumed:%v", authTag.String(), ownedRevisions, readRevisions)
-	cfg, err := p.StoreConfig(ma, authTag, ownedRevisions, readRevisions)
+	cfg, err := p.BackendConfig(ma, authTag, ownedRevisions, readRevisions)
 	return cfg, errors.Trace(err)
 }
 
@@ -166,10 +166,10 @@ func getRevisions(backend state.SecretsStore, filter state.SecretsFilter, revisi
 	return nil
 }
 
-// StoreForInspect returns the config to create a secret store client able
+// StoreForInspect returns the config to create a secret backend client able
 // to read any secrets for that model.
 // This is called by the show-secret facade for admin users.
-func StoreForInspect(model Model) (provider.SecretsStore, error) {
+func StoreForInspect(model Model) (provider.SecretsBackend, error) {
 	p, err := providerForModel(model)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting configured secrets provider")
@@ -181,11 +181,11 @@ func StoreForInspect(model Model) (provider.SecretsStore, error) {
 		return nil, errors.Annotate(err, "initialising secrets provider")
 	}
 
-	cfg, err := p.StoreConfig(ma, nil, nil, nil)
+	cfg, err := p.BackendConfig(ma, nil, nil, nil)
 	if err != nil {
-		return nil, errors.Annotate(err, "creating secrets store config")
+		return nil, errors.Annotate(err, "creating secrets backend config")
 	}
-	return p.NewStore(cfg)
+	return p.NewBackend(cfg)
 }
 
 type modelAdaptor struct {
