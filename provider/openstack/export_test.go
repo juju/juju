@@ -127,9 +127,9 @@ func GetNovaClient(e environs.Environ) *nova.Client {
 	return e.(*Environ).nova()
 }
 
-// ResolveNetwork exposes environ helper function resolveNetwork for testing
-func ResolveNetwork(e environs.Environ, networkName string, external bool) (string, error) {
-	return e.(*Environ).networking.ResolveNetwork(networkName, external)
+// ResolveNetworks exposes environ helper function resolveNetwork for testing
+func ResolveNetworks(e environs.Environ, networkName string, external bool) ([]string, error) {
+	return e.(*Environ).networking.ResolveNetworks(networkName, external)
 }
 
 // FindNetworks exposes environ helper function FindNetworks for testing

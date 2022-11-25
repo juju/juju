@@ -572,14 +572,13 @@ func (s *localServerSuite) TestStartInstanceMultiNetworkFound(c *gc.C) {
 		"network": "",
 	})
 	c.Assert(err, jc.ErrorIsNil)
+
 	err = s.env.SetConfig(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	inst, _, _, err := testing.StartInstance(s.env, s.callCtx, s.ControllerUUID, "100")
-	c.Check(inst, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, `multiple networks with label .*
-	To resolve this error, set a value for "network" in model-config or model-defaults;
-	or supply it via --config when creating a new model`)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(inst, gc.NotNil)
 }
 
 func (s *localServerSuite) TestStartInstanceExternalNetwork(c *gc.C) {
@@ -608,7 +607,7 @@ func (s *localServerSuite) TestStartInstanceNetworkUnknownLabel(c *gc.C) {
 
 	inst, _, _, err := testing.StartInstance(s.env, s.callCtx, s.ControllerUUID, "100")
 	c.Check(inst, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "no networks exist with label .*")
+	c.Assert(err, gc.ErrorMatches, `unable to determine networks for configured list: \[no-network-with-this-label\]`)
 }
 
 func (s *localServerSuite) TestStartInstanceExternalNetworkUnknownLabel(c *gc.C) {
@@ -2408,28 +2407,24 @@ func (s *localServerSuite) TestAllRunningInstancesIgnoresOtherMachines(c *gc.C) 
 
 func (s *localServerSuite) TestResolveNetworkUUID(c *gc.C) {
 	var sampleUUID = "f81d4fae-7dec-11d0-a765-00a0c91e6bf6"
-	networkId, err := openstack.ResolveNetwork(s.env, sampleUUID, false)
+	networkIDs, err := openstack.ResolveNetworks(s.env, sampleUUID, false)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(networkId, gc.Equals, sampleUUID)
+	c.Assert(networkIDs, gc.DeepEquals, []string{sampleUUID})
 }
 
 func (s *localServerSuite) TestResolveNetworkLabel(c *gc.C) {
 	// For now this test has to cheat and use knowledge of goose internals
 	var networkLabel = "net"
-	var expectNetworkId = "1"
-	networkId, err := openstack.ResolveNetwork(s.env, networkLabel, false)
+	var expectNetworkIDs = []string{"1"}
+	networkIDs, err := openstack.ResolveNetworks(s.env, networkLabel, false)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(networkId, gc.Equals, expectNetworkId)
+	c.Assert(networkIDs, gc.DeepEquals, expectNetworkIDs)
 }
 
 func (s *localServerSuite) TestResolveNetworkNotPresent(c *gc.C) {
-	var notPresentNetwork = "no-network-with-this-label"
-	networkId, err := openstack.ResolveNetwork(s.env, notPresentNetwork, false)
-	c.Check(networkId, gc.Equals, "")
-	c.Assert(err, gc.ErrorMatches, `no networks exist with label "no-network-with-this-label"`)
-	networkId, err = openstack.ResolveNetwork(s.env, notPresentNetwork, true)
-	c.Check(networkId, gc.Equals, "")
-	c.Assert(err, gc.ErrorMatches, `no networks exist with label "no-network-with-this-label"`)
+	networkIDs, err := openstack.ResolveNetworks(s.env, "no-network-with-this-label", false)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(networkIDs, gc.HasLen, 0)
 }
 
 // TODO(gz): TestResolveNetworkMultipleMatching when can inject new networks

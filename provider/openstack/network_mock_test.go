@@ -105,21 +105,6 @@ func (mr *MockNetworkingMockRecorder) CreatePort(arg0, arg1, arg2 interface{}) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreatePort", reflect.TypeOf((*MockNetworking)(nil).CreatePort), arg0, arg1, arg2)
 }
 
-// DefaultNetworks mocks base method.
-func (m *MockNetworking) DefaultNetworks() ([]nova.ServerNetworks, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DefaultNetworks")
-	ret0, _ := ret[0].([]nova.ServerNetworks)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// DefaultNetworks indicates an expected call of DefaultNetworks.
-func (mr *MockNetworkingMockRecorder) DefaultNetworks() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DefaultNetworks", reflect.TypeOf((*MockNetworking)(nil).DefaultNetworks))
-}
-
 // DeletePortByID mocks base method.
 func (m *MockNetworking) DeletePortByID(arg0 string) error {
 	m.ctrl.T.Helper()
@@ -164,19 +149,19 @@ func (mr *MockNetworkingMockRecorder) NetworkInterfaces(arg0 interface{}) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NetworkInterfaces", reflect.TypeOf((*MockNetworking)(nil).NetworkInterfaces), arg0)
 }
 
-// ResolveNetwork mocks base method.
-func (m *MockNetworking) ResolveNetwork(arg0 string, arg1 bool) (string, error) {
+// ResolveNetworks mocks base method.
+func (m *MockNetworking) ResolveNetworks(arg0 string, arg1 bool) ([]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ResolveNetwork", arg0, arg1)
-	ret0, _ := ret[0].(string)
+	ret := m.ctrl.Call(m, "ResolveNetworks", arg0, arg1)
+	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// ResolveNetwork indicates an expected call of ResolveNetwork.
-func (mr *MockNetworkingMockRecorder) ResolveNetwork(arg0, arg1 interface{}) *gomock.Call {
+// ResolveNetworks indicates an expected call of ResolveNetworks.
+func (mr *MockNetworkingMockRecorder) ResolveNetworks(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveNetwork", reflect.TypeOf((*MockNetworking)(nil).ResolveNetwork), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveNetworks", reflect.TypeOf((*MockNetworking)(nil).ResolveNetworks), arg0, arg1)
 }
 
 // Subnets mocks base method.

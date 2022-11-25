@@ -40,16 +40,6 @@ func (n networkingBase) ecfg() NetworkingEnvironConfig {
 	return n.env.ecfg()
 }
 
-func processResolveNetworkIds(name string, networkIds []string) (string, error) {
-	switch len(networkIds) {
-	case 1:
-		return networkIds[0], nil
-	case 0:
-		return "", errors.Errorf("no networks exist with label %q", name)
-	}
-	return "", errors.Errorf("multiple networks with label %q: %v", name, networkIds)
-}
-
 // NeutronNetworking is an implementation of Networking that uses the Neutron
 // network APIs.
 type NeutronNetworking struct {
@@ -150,24 +140,26 @@ func (n *NeutronNetworking) AllocatePublicIP(id instance.Id) (*string, error) {
 // for an external network in the same availability zones as the provided
 // server addresses.
 func (n *NeutronNetworking) getExternalNetworkIDsFromHostAddrs(addrs map[string][]nova.IPAddress) ([]string, error) {
-	extNetworkIds := make([]string, 0)
+	var extNetworkIds []string
 	neutronClient := n.neutron()
 	externalNetwork := n.ecfg().externalNetwork()
 	if externalNetwork != "" {
-		// the config specified an external network, try it first.
-		netId, err := resolveNeutronNetwork(neutronClient, externalNetwork, true)
+		// The config specified an external network, try it first.
+		netIDs, err := resolveNeutronNetworks(neutronClient, externalNetwork, true)
 		if err != nil {
-			logger.Debugf("external network %s not found, search for one", externalNetwork)
+			logger.Warningf("resolving configured external network %q: %s", externalNetwork, err.Error())
 		} else {
 			logger.Debugf("using external network %q", externalNetwork)
-			extNetworkIds = []string{netId}
+			extNetworkIds = netIDs
 		}
 	}
 
-	// We have an external network ID, no need to search.
-	if len(extNetworkIds) > 0 {
+	// We have a single external network ID, no need to search.
+	if len(extNetworkIds) == 1 {
 		return extNetworkIds, nil
 	}
+
+	logger.Debugf("unique match for external network %s not found; searching for one", externalNetwork)
 
 	hostAddrAZs, err := n.findNetworkAZForHostAddrs(addrs)
 	if err != nil {
@@ -240,11 +232,6 @@ func getExternalNeutronNetworksByAZ(e NetworkingBase, azNames set.Strings) ([]st
 	return netIds, nil
 }
 
-// DefaultNetworks is part of the Networking interface.
-func (n *NeutronNetworking) DefaultNetworks() ([]nova.ServerNetworks, error) {
-	return []nova.ServerNetworks{}, nil
-}
-
 // CreatePort creates a port for a given network id with a subnet ID.
 func (n *NeutronNetworking) CreatePort(name, networkID string, subnetID corenetwork.Id) (*neutron.PortV2, error) {
 	client := n.neutron()
@@ -298,9 +285,9 @@ func (n *NeutronNetworking) FindNetworks(internal bool) (set.Strings, error) {
 	return names, nil
 }
 
-// ResolveNetwork is part of the Networking interface.
-func (n *NeutronNetworking) ResolveNetwork(name string, external bool) (string, error) {
-	return resolveNeutronNetwork(n.neutron(), name, external)
+// ResolveNetworks is part of the Networking interface.
+func (n *NeutronNetworking) ResolveNetworks(name string, external bool) ([]string, error) {
+	return resolveNeutronNetworks(n.neutron(), name, external)
 }
 
 func generateUniquePortName(name string) string {
@@ -308,7 +295,7 @@ func generateUniquePortName(name string) string {
 	return fmt.Sprintf("juju-%s-%s", name, unique)
 }
 
-func resolveNeutronNetwork(client NetworkingNeutron, name string, external bool) (string, error) {
+func resolveNeutronNetworks(client NetworkingNeutron, name string, external bool) ([]string, error) {
 	if utils.IsValidUUIDString(name) {
 		// NOTE: There is an OpenStack cloud, whitestack, which has the network
 		// used to create servers specified as an External network, contrary to
@@ -317,7 +304,7 @@ func resolveNeutronNetwork(client NetworkingNeutron, name string, external bool)
 		// verify, nor check to ensure it's an internal network.
 		// TODO hml 2021-08-03
 		// Verify that the UUID is of a valid network, without type.
-		return name, nil
+		return []string{name}, nil
 	}
 	// Mimic unintentional, now expected behavior. Prior to OpenStack Rocky,
 	// empty strings in the neutron filters were ignored. name == "" AND
@@ -326,8 +313,8 @@ func resolveNeutronNetwork(client NetworkingNeutron, name string, external bool)
 	// without explicit user configuration.
 	//
 	// Rocky introduced an optional extension to neutron: empty-string-filtering.
-	// If configured, allows the empty string must be matched.  This reverses
-	// the expected behavior.
+	// If configured, it means the empty string must be explicitly matched.
+	// This reverses the prior expected behavior.
 	//
 	// To keep the expected behavior, if the provided name is empty, look for
 	// all networks matching external value for the configured OpenStack project
@@ -341,15 +328,17 @@ func resolveNeutronNetwork(client NetworkingNeutron, name string, external bool)
 	default:
 		filter = networkFilter(name, external)
 	}
+
 	networks, err := client.ListNetworksV2(filter)
 	if err != nil {
-		return "", err
+		return nil, errors.Trace(err)
 	}
+
 	var networkIds []string
-	for _, network := range networks {
-		networkIds = append(networkIds, network.Id)
+	for _, o7kNet := range networks {
+		networkIds = append(networkIds, o7kNet.Id)
 	}
-	return processResolveNetworkIds(name, networkIds)
+	return networkIds, nil
 }
 
 func makeSubnetInfo(neutron NetworkingNeutron, subnet neutron.SubnetV2) (corenetwork.SubnetInfo, error) {
@@ -382,32 +371,35 @@ func makeSubnetInfo(neutron NetworkingNeutron, subnet neutron.SubnetV2) (corenet
 func (n *NeutronNetworking) Subnets(instId instance.Id, subnetIds []corenetwork.Id) ([]corenetwork.SubnetInfo, error) {
 	netIds := set.NewStrings()
 	neutron := n.neutron()
-	internalNet := n.ecfg().networks()[0]
-	netId, err := resolveNeutronNetwork(neutron, internalNet, false)
-	if err != nil {
-		// Note: (jam 2018-05-23) We don't treat this as fatal because
-		// we used to never pay attention to it anyway
-		if internalNet == "" {
-			logger.Warningf(noNetConfigMsg(err))
-		} else {
-			logger.Warningf("could not resolve internal network id for %q: %v", internalNet, err)
+	internalNets := n.ecfg().networks()
+
+	for _, iNet := range internalNets {
+		netIDs, err := resolveNeutronNetworks(neutron, iNet, false)
+		if err != nil {
+			logger.Warningf("could not resolve internal network id for %q: %v", iNet, err)
+			continue
 		}
-	} else {
-		netIds.Add(netId)
-		// Note, there are cases where we will detect an external
-		// network without it being explicitly configured by the user.
-		// When we get to a point where we start detecting spaces for users
-		// on Openstack, we'll probably need to include better logic here.
-		externalNet := n.ecfg().externalNetwork()
-		if externalNet != "" {
-			netId, err := resolveNeutronNetwork(neutron, externalNet, true)
-			if err != nil {
-				logger.Warningf("could not resolve external network id for %q: %v", externalNet, err)
-			} else {
-				netIds.Add(netId)
+		for _, netID := range netIDs {
+			netIds.Add(netID)
+		}
+	}
+
+	// Note, there are cases where we will detect an external
+	// network without it being explicitly configured by the user.
+	// When we get to a point where we start detecting spaces for users
+	// on Openstack, we'll probably need to include better logic here.
+	externalNet := n.ecfg().externalNetwork()
+	if externalNet != "" {
+		netIDs, err := resolveNeutronNetworks(neutron, externalNet, true)
+		if err != nil {
+			logger.Warningf("could not resolve external network id for %q: %v", externalNet, err)
+		} else {
+			for _, netID := range netIDs {
+				netIds.Add(netID)
 			}
 		}
 	}
+
 	logger.Debugf("finding subnets in networks: %s", strings.Join(netIds.Values(), ", "))
 
 	subIdSet := set.NewStrings()
