@@ -253,7 +253,7 @@ func (s *secretsStore) CreateSecret(uri *secrets.URI, p CreateSecretParams) (*se
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		var ops []txn.Op
 		if p.Label != nil {
-			uniqueLabelOps, err := s.st.uniqueSecretLabelOps(metadataDoc.OwnerTag, *p.Label)
+			uniqueLabelOps, err := s.st.uniqueSecretOwnerLabelOps(metadataDoc.OwnerTag, *p.Label)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -341,7 +341,7 @@ func (s *secretsStore) UpdateSecret(uri *secrets.URI, p UpdateSecretParams) (*se
 		}
 		var ops []txn.Op
 		if p.Label != nil && *p.Label != metadataDoc.Label {
-			uniqueLabelOps, err := s.st.uniqueSecretLabelOps(metadataDoc.OwnerTag, *p.Label)
+			uniqueLabelOps, err := s.st.uniqueSecretOwnerLabelOps(metadataDoc.OwnerTag, *p.Label)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -597,15 +597,11 @@ func (st *State) deleteSecrets(uris []*secrets.URI, revisions ...int) (removed b
 			return false, errors.Annotatef(err, "deleting consumer refcounts for %s", uri.String())
 		}
 		if md.Label != "" {
-			keys := []string{
-				secretConsumerLabelKey(md.OwnerTag, md.Label),
-				secretOwnerLabelKey(md.OwnerTag, md.Label),
-			}
-			_, err = refCountsCollection.Writeable().RemoveAll(bson.M{
-				"_id": bson.M{"$in": keys},
-			})
+			_, err = refCountsCollection.Writeable().RemoveAll(bson.D{{
+				"_id", secretOwnerLabelKey(md.OwnerTag, md.Label),
+			}})
 			if err != nil {
-				return false, errors.Annotatef(err, "cannot delete label refcounts for %v", keys)
+				return false, errors.Annotatef(err, "deleting owner label refcounts for %s", uri.String())
 			}
 		}
 		return true, nil
@@ -905,28 +901,34 @@ func secretConsumerLabelKey(ownerTag string, label string) string {
 }
 
 func (st *State) uniqueSecretOwnerLabelOps(ownerTag string, label string) ([]txn.Op, error) {
-	return st.uniqueSecretLabelOpsRaw(ownerTag, label, "owner", secretOwnerLabelKey)
+	// Check that there is no consumer with the same label.
+	assertNoConsumerLabel, err := st.uniqueSecretLabelOpsRaw(ownerTag, label, "consumer", secretConsumerLabelKey, true)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// Check that there is no owner with the same label.
+	ops2, err := st.uniqueSecretLabelOpsRaw(ownerTag, label, "owner", secretOwnerLabelKey, false)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return append(assertNoConsumerLabel, ops2...), nil
 }
 
 func (st *State) uniqueSecretConsumerLabelOps(consumerTag string, label string) ([]txn.Op, error) {
-	return st.uniqueSecretLabelOpsRaw(consumerTag, label, "consumer", secretConsumerLabelKey)
-}
-
-func (st *State) uniqueSecretLabelOps(tag string, label string) ([]txn.Op, error) {
-	ops1, err := st.uniqueSecretConsumerLabelOps(tag, label)
+	// Check that there is no owner with the same label.
+	assertNoOwnerLabel, err := st.uniqueSecretLabelOpsRaw(consumerTag, label, "owner", secretOwnerLabelKey, true)
 	if err != nil {
-		// Check that there is no consumer with the same label.
 		return nil, errors.Trace(err)
 	}
-	ops2, err := st.uniqueSecretOwnerLabelOps(tag, label)
+	// Check that there is no consumer with the same label.
+	ops2, err := st.uniqueSecretLabelOpsRaw(consumerTag, label, "consumer", secretConsumerLabelKey, false)
 	if err != nil {
-		// Check that there is no owner with the same label.
 		return nil, errors.Trace(err)
 	}
-	return append(ops1, ops2...), nil
+	return append(assertNoOwnerLabel, ops2...), nil
 }
 
-func (st *State) uniqueSecretLabelOpsRaw(tag, label, role string, keyGenerator func(string, string) string) ([]txn.Op, error) {
+func (st *State) uniqueSecretLabelOpsRaw(tag, label, role string, keyGenerator func(string, string) string, assertionOnly bool) ([]txn.Op, error) {
 	refCountCollection, ccloser := st.db().GetCollection(refcountsC)
 	defer ccloser()
 
@@ -938,6 +940,10 @@ func (st *State) uniqueSecretLabelOpsRaw(tag, label, role string, keyGenerator f
 	if count > 0 {
 		return nil, errors.WithType(errors.Errorf("secret label %q for %s %q already exists", label, role, tag), LabelExists)
 	}
+	if assertionOnly {
+		// We only assert the doc doesn't exist but donot create the doc.
+		return []txn.Op{countOp}, nil
+	}
 	incOp, err := nsRefcounts.CreateOrIncRefOp(refCountCollection, key, 1)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -946,26 +952,14 @@ func (st *State) uniqueSecretLabelOpsRaw(tag, label, role string, keyGenerator f
 }
 
 func (st *State) removeOwnerSecretLabelOps(ownerTag names.Tag) ([]txn.Op, error) {
-	return st.removeSecretLabelOpsRaw(ownerTag, secretOwnerLabelKey)
+	return st.removeSecretLabelOps(ownerTag, secretOwnerLabelKey)
 }
 
 func (st *State) removeConsumerSecretLabelOps(consumerTag names.Tag) ([]txn.Op, error) {
-	return st.removeSecretLabelOpsRaw(consumerTag, secretConsumerLabelKey)
+	return st.removeSecretLabelOps(consumerTag, secretConsumerLabelKey)
 }
 
-func (st *State) removeSecretLabelOps(tag names.Tag) ([]txn.Op, error) {
-	ops1, err := st.removeOwnerSecretLabelOps(tag)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	ops2, err := st.removeConsumerSecretLabelOps(tag)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return append(ops1, ops2...), nil
-}
-
-func (st *State) removeSecretLabelOpsRaw(tag names.Tag, keyGenerator func(string, string) string) ([]txn.Op, error) {
+func (st *State) removeSecretLabelOps(tag names.Tag, keyGenerator func(string, string) string) ([]txn.Op, error) {
 	refCountsCollection, closer := st.db().GetCollection(refcountsC)
 	defer closer()
 
@@ -1059,15 +1053,12 @@ func (st *State) removeSecretConsumer(uri *secrets.URI) error {
 	refCountsCollection, closer := st.db().GetCollection(refcountsC)
 	defer closer()
 	for _, doc := range docs {
-		keys := []string{
-			secretConsumerLabelKey(doc.ConsumerTag, doc.Label),
-			secretOwnerLabelKey(doc.ConsumerTag, doc.Label),
-		}
-		_, err = refCountsCollection.Writeable().RemoveAll(bson.M{
-			"_id": bson.M{"$in": keys},
-		})
+		key := secretConsumerLabelKey(doc.ConsumerTag, doc.Label)
+		_, err = refCountsCollection.Writeable().RemoveAll(bson.D{{
+			"_id", key,
+		}})
 		if err != nil {
-			return errors.Annotatef(err, "cannot delete label refcounts for %v", keys)
+			return errors.Annotatef(err, "cannot delete consumer label refcounts for %s", key)
 		}
 	}
 
@@ -1100,7 +1091,7 @@ func (st *State) SaveSecretConsumer(uri *secrets.URI, consumer names.Tag, metada
 		var ops []txn.Op
 
 		if metadata.Label != "" && (create || metadata.Label != doc.Label) {
-			uniqueLabelOps, err := st.uniqueSecretLabelOps(consumer.String(), metadata.Label)
+			uniqueLabelOps, err := st.uniqueSecretConsumerLabelOps(consumer.String(), metadata.Label)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
