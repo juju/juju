@@ -27,7 +27,7 @@ func newUndertakerFacade(ctx facade.Context) (*UndertakerAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	secretsProviderGetter := func() (provider.SecretStoreProvider, provider.Model, error) {
+	secretsProviderGetter := func() (provider.SecretBackendProvider, provider.Model, error) {
 		model, err := st.Model()
 		if err != nil {
 			return nil, nil, errors.Trace(err)

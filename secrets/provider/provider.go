@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/environs/config"
 )
 
-// Model exposes the methods needed to create a secrets store config.
+// Model exposes the methods needed to create a secrets backend config.
 type Model interface {
 	ControllerUUID() string
 	Cloud() (cloud.Cloud, error)
@@ -23,7 +23,7 @@ type Model interface {
 	UUID() string
 }
 
-// SecretRevisions stores information for generating resource name for a list of secrets.
+// SecretRevisions backends information for generating resource name for a list of secrets.
 type SecretRevisions map[string]set.Ints
 
 // Add adds a secret with revisions.
@@ -49,13 +49,13 @@ func (nm SecretRevisions) Names() (names []string) {
 	return names
 }
 
-// SecretStoreProvider instances create secret stores.
-type SecretStoreProvider interface {
+// SecretBackendProvider instances create secret backends.
+type SecretBackendProvider interface {
 	// TODO(wallyworld) - add config schema methods
 
 	Type() string
 
-	// Initialise sets up the secrets store to host secrets for
+	// Initialise sets up the secrets backend to host secrets for
 	// the specified model.
 	Initialise(m Model) error
 
@@ -67,11 +67,11 @@ type SecretStoreProvider interface {
 	// associated with the model.
 	CleanupModel(m Model) error
 
-	// StoreConfig returns the config needed to create a vault secrets store client
+	// BackendConfig returns the config needed to create a vault secrets backend client
 	// used to manage owned secrets and read shared secrets.
-	StoreConfig(m Model, tag names.Tag, owned SecretRevisions, read SecretRevisions) (*StoreConfig, error)
+	BackendConfig(m Model, tag names.Tag, owned SecretRevisions, read SecretRevisions) (*BackendConfig, error)
 
-	// NewStore creates a secrets store client using the
+	// NewBackend creates a secrets backend client using the
 	// specified config.
-	NewStore(cfg *StoreConfig) (SecretsStore, error)
+	NewBackend(cfg *BackendConfig) (SecretsBackend, error)
 }

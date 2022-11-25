@@ -34,7 +34,7 @@ type SecretsManagerSuite struct {
 	authorizer *facademocks.MockAuthorizer
 	resources  *facademocks.MockResources
 
-	provider              *mocks.MockSecretStoreProvider
+	provider              *mocks.MockSecretBackendProvider
 	leadership            *mocks.MockChecker
 	token                 *mocks.MockToken
 	secretsBackend        *mocks.MockSecretsBackend
@@ -66,7 +66,7 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 	s.authorizer = facademocks.NewMockAuthorizer(ctrl)
 	s.resources = facademocks.NewMockResources(ctrl)
 
-	s.provider = mocks.NewMockSecretStoreProvider(ctrl)
+	s.provider = mocks.NewMockSecretBackendProvider(ctrl)
 	s.leadership = mocks.NewMockChecker(ctrl)
 	s.token = mocks.NewMockToken(ctrl)
 	s.secretsBackend = mocks.NewMockSecretsBackend(ctrl)
@@ -78,13 +78,13 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 
 	s.clock = testclock.NewClock(time.Now())
 
-	storeConfigGetter := func() (*provider.StoreConfig, error) {
-		return &provider.StoreConfig{
-			StoreType: "juju",
-			Params:    map[string]interface{}{"foo": "bar"},
+	storeConfigGetter := func() (*provider.BackendConfig, error) {
+		return &provider.BackendConfig{
+			BackendType: "juju",
+			Config:      map[string]interface{}{"foo": "bar"},
 		}, nil
 	}
-	providerGetter := func() (provider.SecretStoreProvider, provider.Model, error) {
+	providerGetter := func() (provider.SecretBackendProvider, provider.Model, error) {
 		return s.provider, mockModel{}, nil
 	}
 	var err error

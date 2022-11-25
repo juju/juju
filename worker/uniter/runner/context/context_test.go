@@ -1044,7 +1044,7 @@ func (s *mockHookContextSuite) TestSecretGetOwnedSecretFailedWithUpdate(c *gc.C)
 }
 
 func (s *mockHookContextSuite) assertSecretGetOwnedSecretURILookup(
-	c *gc.C, patchContext func(*context.HookContext, *coresecrets.URI, string, context.SecretsAccessor, secrets.Store),
+	c *gc.C, patchContext func(*context.HookContext, *coresecrets.URI, string, context.SecretsAccessor, secrets.Backend),
 ) {
 	defer s.setupMocks(c).Finish()
 
@@ -1101,20 +1101,20 @@ func (s *mockHookContextSuite) assertSecretGetOwnedSecretURILookup(
 
 func (s *mockHookContextSuite) TestSecretGetOwnedSecretURILookupFromAppliedCache(c *gc.C) {
 	s.assertSecretGetOwnedSecretURILookup(c,
-		func(ctx *context.HookContext, uri *coresecrets.URI, label string, client context.SecretsAccessor, store secrets.Store) {
+		func(ctx *context.HookContext, uri *coresecrets.URI, label string, client context.SecretsAccessor, backend secrets.Backend) {
 			context.SetEnvironmentHookContextSecret(
 				ctx, uri.String(),
 				map[string]jujuc.SecretMetadata{
 					uri.ID: {Label: "label", Owner: s.mockUnit.Tag()},
 				},
-				client, store)
+				client, backend)
 		},
 	)
 }
 
 func (s *mockHookContextSuite) TestSecretGetOwnedSecretURILookupFromPendingCreate(c *gc.C) {
 	s.assertSecretGetOwnedSecretURILookup(c,
-		func(ctx *context.HookContext, uri *coresecrets.URI, label string, client context.SecretsAccessor, store secrets.Store) {
+		func(ctx *context.HookContext, uri *coresecrets.URI, label string, client context.SecretsAccessor, backend secrets.Backend) {
 			arg := uniter.SecretCreateArg{OwnerTag: s.mockUnit.Tag()}
 			arg.URI = uri
 			arg.Label = ptr(label)
@@ -1126,7 +1126,7 @@ func (s *mockHookContextSuite) TestSecretGetOwnedSecretURILookupFromPendingCreat
 
 func (s *mockHookContextSuite) TestSecretGetOwnedSecretURILookupFromPendingUpdate(c *gc.C) {
 	s.assertSecretGetOwnedSecretURILookup(c,
-		func(ctx *context.HookContext, uri *coresecrets.URI, label string, client context.SecretsAccessor, store secrets.Store) {
+		func(ctx *context.HookContext, uri *coresecrets.URI, label string, client context.SecretsAccessor, backend secrets.Backend) {
 			arg := uniter.SecretUpdateArg{}
 			arg.URI = uri
 			arg.Label = ptr(label)

@@ -9,16 +9,16 @@ import (
 	"github.com/juju/juju/core/secrets"
 )
 
-// SecretsStore is an external secrets store like vault.
-type SecretsStore interface {
+// SecretsBackend is an external secrets backend like vault.
+type SecretsBackend interface {
 	SaveContent(_ context.Context, uri *secrets.URI, revision int, value secrets.SecretValue) (string, error)
 	GetContent(_ context.Context, backendId string) (secrets.SecretValue, error)
 	DeleteContent(_ context.Context, backendId string) error
 }
 
-// StoreConfig is used when constructing a secrets store.
-type StoreConfig struct {
-	StoreType string
+// BackendConfig is used when constructing a secrets backend.
+type BackendConfig struct {
+	BackendType string
 	// TODO(wallyworld) - use a schema
-	Params map[string]interface{}
+	Config map[string]interface{}
 }

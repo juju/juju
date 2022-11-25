@@ -52,11 +52,11 @@ func (s *SecretsSuite) TestGetSecretStoreConfig(c *gc.C) {
 		return nil
 	})
 	client := secretsmanager.NewClient(apiCaller)
-	result, err := client.GetSecretStoreConfig()
+	result, err := client.GetSecretBackendConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, &provider.StoreConfig{
-		StoreType: "juju",
-		Params:    map[string]interface{}{"foo": "bar"},
+	c.Assert(result, jc.DeepEquals, &provider.BackendConfig{
+		BackendType: "juju",
+		Config:      map[string]interface{}{"foo": "bar"},
 	})
 }
 

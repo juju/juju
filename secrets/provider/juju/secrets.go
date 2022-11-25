@@ -10,13 +10,13 @@ import (
 )
 
 const (
-	// Store is the name of the Juju secrets store.
-	Store = "juju"
+	// Backend is the name of the Juju secrets backend.
+	Backend = "juju"
 )
 
 // NewProvider returns a Juju secrets provider.
-func NewProvider() provider.SecretStoreProvider {
-	return jujuProvider{Store}
+func NewProvider() provider.SecretBackendProvider {
+	return jujuProvider{Backend}
 }
 
 type jujuProvider struct {
@@ -42,16 +42,16 @@ func (p jujuProvider) CleanupSecrets(m provider.Model, tag names.Tag, removed pr
 	return nil
 }
 
-// StoreConfig returns nil config params since the Juju store saves
+// BackendConfig returns nil config params since the Juju backend saves
 // secret content to the Juju database.
-func (p jujuProvider) StoreConfig(
+func (p jujuProvider) BackendConfig(
 	m provider.Model, tag names.Tag, owned provider.SecretRevisions, read provider.SecretRevisions,
-) (*provider.StoreConfig, error) {
-	return &provider.StoreConfig{StoreType: Store}, nil
+) (*provider.BackendConfig, error) {
+	return &provider.BackendConfig{BackendType: Backend}, nil
 }
 
-// NewStore returns a nil store since the Juju store saves
+// NewBackend returns a nil backend since the Juju backend saves
 // secret content to the Juju database.
-func (jujuProvider) NewStore(*provider.StoreConfig) (provider.SecretsStore, error) {
+func (jujuProvider) NewBackend(*provider.BackendConfig) (provider.SecretsBackend, error) {
 	return nil, nil
 }

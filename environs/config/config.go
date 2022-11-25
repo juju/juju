@@ -302,12 +302,12 @@ const (
 	// explicitly use for charms unless otherwise provided.
 	DefaultSeriesKey = "default-series"
 
-	// SecretStoreKey is used to specify the secret store backend.
-	SecretStoreKey = "secret-store"
+	// SecretBackendKey is used to specify the secret backend.
+	SecretBackendKey = "secret-backend"
 
-	// SecretStoreConfigKey is used to configure the secret store backend.
+	// SecretBackendConfigKey is used to configure the secret backend.
 	// The config is provider dependent and is expected to be json or yaml.
-	SecretStoreConfigKey = "secret-store-config"
+	SecretBackendConfigKey = "secret-backend-config"
 )
 
 // ParseHarvestMode parses description of harvesting method and
@@ -592,8 +592,8 @@ var defaultConfigValues = map[string]interface{}{
 	MaxActionResultsSize: DefaultActionResultsSize,
 
 	// By default the Juju backend is used.
-	SecretStoreKey:       "",
-	SecretStoreConfigKey: "",
+	SecretBackendKey:       "",
+	SecretBackendConfigKey: "",
 }
 
 // defaultLoggingConfig is the default value for logging-config if it is otherwise not set.
@@ -1016,15 +1016,15 @@ func (c *Config) DefaultSeries() (string, bool) {
 
 // SecretStore returns the secret store name.
 func (c *Config) SecretStore() string {
-	value, _ := c.defined[SecretStoreKey].(string)
+	value, _ := c.defined[SecretBackendKey].(string)
 	return value
 }
 
-// SecretStoreConfig returns the secret store config,
+// SecretBackendConfig returns the secret store config,
 // expected to be a json or yaml encoded config struct
 // relevant to the configured secret store type.
-func (c *Config) SecretStoreConfig() string {
-	value, _ := c.defined[SecretStoreConfigKey].(string)
+func (c *Config) SecretBackendConfig() string {
+	value, _ := c.defined[SecretBackendConfigKey].(string)
 	return value
 }
 
@@ -1808,8 +1808,8 @@ var alwaysOptional = schema.Defaults{
 	DefaultSpace:                    schema.Omit,
 	LXDSnapChannel:                  schema.Omit,
 	CharmHubURLKey:                  schema.Omit,
-	SecretStoreKey:                  schema.Omit,
-	SecretStoreConfigKey:            schema.Omit,
+	SecretBackendKey:                schema.Omit,
+	SecretBackendConfigKey:          schema.Omit,
 }
 
 func allowEmpty(attr string) bool {
@@ -1845,7 +1845,7 @@ var immutableAttributes = []string{
 	UUIDKey,
 	"firewall-mode",
 	CharmHubURLKey,
-	SecretStoreKey,
+	SecretBackendKey,
 }
 
 var (
@@ -1947,7 +1947,7 @@ func AptProxyConfigMap(proxySettings proxy.Settings) map[string]interface{} {
 func developerConfigValue(name string) bool {
 	if !featureflag.Enabled(feature.DeveloperMode) {
 		switch name {
-		case SecretStoreKey, SecretStoreConfigKey:
+		case SecretBackendKey, SecretBackendConfigKey:
 			return true
 		}
 	}
@@ -2374,12 +2374,12 @@ where possible. (default "")`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
-	SecretStoreKey: {
+	SecretBackendKey: {
 		Description: `The name of the secret store backend. (default "" which implies Juju)`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
-	SecretStoreConfigKey: {
+	SecretBackendConfigKey: {
 		Description: `The json or yaml secret store config. (default "")`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
