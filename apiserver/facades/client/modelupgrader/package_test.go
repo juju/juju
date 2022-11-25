@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 )
@@ -21,15 +22,12 @@ func TestAll(t *stdtesting.T) {
 	testing.MgoTestPackage(t)
 }
 
-func (m *ModelUpgraderAPI) FindTools(
-	st State, model Model,
-	majorVersion, minorVersion int, agentVersion version.Number, osType, arch, agentStream string,
-) (coretools.Versions, error) {
-	return m.findTools(st, model, majorVersion, minorVersion, agentVersion, osType, arch, agentStream)
+func (m *ModelUpgraderAPI) FindAgents(args common.FindAgentsParams) (coretools.Versions, error) {
+	return m.findAgents(args)
 }
 
 func (m *ModelUpgraderAPI) DecideVersion(
-	targetVersion, agentVersion version.Number, agentStream string, st State, model Model,
+	currentVersion version.Number, args common.FindAgentsParams,
 ) (_ version.Number, err error) {
-	return m.decideVersion(targetVersion, agentVersion, agentStream, st, model)
+	return m.decideVersion(currentVersion, args)
 }

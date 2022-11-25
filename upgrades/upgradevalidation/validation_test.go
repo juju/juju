@@ -170,11 +170,11 @@ func (s *upgradeValidationSuite) TestGetCheckUpgradeSeriesLockForModel(c *gc.C) 
 	c.Assert(blocker.Error(), gc.Equals, `unexpected upgrade series lock found`)
 }
 
-func (s *upgradeValidationSuite) TestGetCheckTargetVersionForModel(c *gc.C) {
+func (s *upgradeValidationSuite) TestGetCheckTargetVersionForControllerModel(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersions, map[int]version.Number{
+	s.PatchValue(&upgradevalidation.MinAgentVersions, map[int]version.Number{
 		3: version.MustParse("2.9.30"),
 	})
 
@@ -188,30 +188,30 @@ func (s *upgradeValidationSuite) TestGetCheckTargetVersionForModel(c *gc.C) {
 
 	blocker, err := upgradevalidation.GetCheckTargetVersionForModel(
 		version.MustParse("3.0.0"),
-		upgradevalidation.UpgradeToAllowed,
+		upgradevalidation.UpgradeControllerAllowed,
 	)("", nil, nil, model)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(blocker.Error(), gc.Equals, `current model ("2.9.29") has to be upgraded to "2.9.30" at least`)
 
 	blocker, err = upgradevalidation.GetCheckTargetVersionForModel(
 		version.MustParse("3.0.0"),
-		upgradevalidation.UpgradeToAllowed,
+		upgradevalidation.UpgradeControllerAllowed,
 	)("", nil, nil, model)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(blocker, gc.IsNil)
 
 	blocker, err = upgradevalidation.GetCheckTargetVersionForModel(
 		version.MustParse("1.1.1"),
-		upgradevalidation.UpgradeToAllowed,
+		upgradevalidation.UpgradeControllerAllowed,
 	)("", nil, nil, model)
 	c.Assert(err, gc.ErrorMatches, `downgrade is not allowed`)
 	c.Assert(blocker, gc.IsNil)
 
 	blocker, err = upgradevalidation.GetCheckTargetVersionForModel(
 		version.MustParse("4.1.1"),
-		upgradevalidation.UpgradeToAllowed,
+		upgradevalidation.UpgradeControllerAllowed,
 	)("", nil, nil, model)
-	c.Assert(err, gc.ErrorMatches, `upgrade to "4.1.1" is not supported from "2.9.31"`)
+	c.Assert(err, gc.ErrorMatches, `upgrading controller to "4.1.1" is not supported from "2.9.31"`)
 	c.Assert(blocker, gc.IsNil)
 }
 

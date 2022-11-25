@@ -15,7 +15,7 @@ func ValidatorsForControllerUpgrade(
 ) []Validator {
 	if isControllerModel {
 		validators := []Validator{
-			getCheckTargetVersionForModel(targetVersion, UpgradeToAllowed),
+			getCheckTargetVersionForControllerModel(targetVersion),
 			checkMongoStatusForControllerUpgrade,
 		}
 		if targetVersion.Major == 3 {
@@ -29,10 +29,10 @@ func ValidatorsForControllerUpgrade(
 		return validators
 	}
 	validators := []Validator{
-		getCheckTargetVersionForModel(targetVersion, UpgradeToAllowed),
+		getCheckTargetVersionForModel(targetVersion, UpgradeControllerAllowed),
 		checkModelMigrationModeForControllerUpgrade,
 	}
-	if targetVersion.Major == 3 {
+	if targetVersion.Major >= 3 {
 		validators = append(validators,
 			checkNoWinMachinesForModel,
 			checkForDeprecatedUbuntuSeriesForModel,

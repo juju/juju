@@ -214,6 +214,25 @@ func checkForDeprecatedUbuntuSeriesForModel(
 	return nil, nil
 }
 
+func getCheckTargetVersionForControllerModel(
+	targetVersion version.Number,
+) Validator {
+	return func(modelUUID string, pool StatePool, st State, model Model) (*Blocker, error) {
+		agentVersion, err := model.AgentVersion()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if targetVersion.Major == agentVersion.Major &&
+			targetVersion.Minor == agentVersion.Minor {
+			return nil, nil
+		}
+
+		return NewBlocker(
+			"upgrading a controller to a newer major.minor version %d.%d not supported", targetVersion.Major, targetVersion.Minor,
+		), nil
+	}
+}
+
 func getCheckTargetVersionForModel(
 	targetVersion version.Number,
 	versionChecker func(from, to version.Number) (bool, version.Number, error),

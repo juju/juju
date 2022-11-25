@@ -178,10 +178,8 @@ func (st *State) MachinesWithTransientErrors() ([]MachineStatusResult, error) {
 // series, and, arch. If arch is blank, a default will be used.
 func (st *State) FindTools(v version.Number, os string, arch string) (tools.List, error) {
 	args := params.FindToolsParams{
-		Number:       v,
-		OSType:       os,
-		MajorVersion: -1,
-		MinorVersion: -1,
+		Number: v,
+		OSType: os,
 	}
 	if arch != "" {
 		args.Arch = arch

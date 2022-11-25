@@ -134,32 +134,6 @@ func (c *Client) AbortCurrentUpgrade() error {
 	return c.facade.FacadeCall("AbortCurrentUpgrade", nil, nil)
 }
 
-// FindTools returns a List containing all tools matching the specified parameters.
-func (c *Client) FindTools(majorVersion, minorVersion int, osType, arch, agentStream string) (result params.FindToolsResult, err error) {
-	args := params.FindToolsParams{
-		MajorVersion: majorVersion,
-		MinorVersion: minorVersion,
-		Arch:         arch,
-		OSType:       osType,
-		AgentStream:  agentStream,
-	}
-	err = c.facade.FacadeCall("FindTools", args, &result)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	if result.Error != nil {
-		err = result.Error
-		// We need to deal with older controllers.
-		if strings.HasSuffix(result.Error.Message, "not valid") {
-			err = errors.NewNotValid(result.Error, "finding tools")
-		}
-		if params.IsCodeNotFound(err) {
-			err = errors.NewNotFound(err, "finding tools")
-		}
-	}
-	return result, err
-}
-
 // UploadTools uploads tools at the specified location to the API server over HTTPS.
 func (c *Client) UploadTools(r io.ReadSeeker, vers version.Binary, additionalSeries ...string) (tools.List, error) {
 	endpoint := fmt.Sprintf("/tools?binaryVersion=%s&series=%s", vers, strings.Join(additionalSeries, ","))

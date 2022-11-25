@@ -939,7 +939,7 @@ type SecretUpsertArg struct {
 	Description  *string
 	Label        *string
 	Value        secrets.SecretValue
-	ProviderId   *string
+	BackendId    *string
 }
 
 // SecretCreateArg holds parameters for creating a secret.
@@ -984,8 +984,8 @@ func (b *CommitHookParamsBuilder) AddSecretCreates(creates []SecretCreateArg) {
 				Description:  c.Description,
 				Label:        c.Label,
 				Content: params.SecretContentParams{
-					Data:       data,
-					ProviderId: c.ProviderId,
+					Data:      data,
+					BackendId: c.BackendId,
 				},
 			},
 			URI:      &uriStr,
@@ -1017,8 +1017,8 @@ func (b *CommitHookParamsBuilder) AddSecretUpdates(updates []SecretUpsertArg) {
 				Description:  u.Description,
 				Label:        u.Label,
 				Content: params.SecretContentParams{
-					Data:       data,
-					ProviderId: u.ProviderId,
+					Data:      data,
+					BackendId: u.BackendId,
 				},
 			},
 			URI: u.URI.String(),
