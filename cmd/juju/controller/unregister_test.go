@@ -88,7 +88,7 @@ This command will remove connection information for controller "fake1".
 Doing so will prevent you from accessing this controller until
 you register it again.
 
-Continue [y/N]?`[1:]
+Continue [y/N]? `[1:]
 
 func (s *UnregisterSuite) unregisterCommandAborts(c *gc.C, answer string) {
 	var stdin, stdout bytes.Buffer

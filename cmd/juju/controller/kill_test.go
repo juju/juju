@@ -423,7 +423,7 @@ func (s *KillSuite) TestKillCommandConfirmation(c *gc.C) {
 	_, errc := cmdtest.RunCommandWithDummyProvider(ctx, s.newKillCommand(), "test1")
 	select {
 	case err := <-errc:
-		c.Check(err, gc.ErrorMatches, "controller destruction aborted")
+		c.Check(err, gc.ErrorMatches, "controller destruction: aborted")
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("command took too long")
 	}

@@ -4,12 +4,9 @@
 package controller
 
 import (
-	"bufio"
 	"bytes"
 	stdcontext "context"
 	"fmt"
-	"io"
-	"strings"
 	"time"
 
 	"github.com/juju/clock"
@@ -120,8 +117,7 @@ Destroys a controller.`[1:]
 var destroySysMsg = `
 WARNING! This command will destroy the %q controller.
 This includes all machines, applications, data and other resources.
-
-Continue? (y/N):`[1:]
+`[1:]
 
 // destroyControllerAPI defines the methods on the controller API endpoint
 // that the destroy command calls.
@@ -189,8 +185,9 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	}
 	store := c.ClientStore()
 	if !c.assumeYes {
-		if err := confirmDestruction(ctx, controllerName); err != nil {
-			return err
+		fmt.Fprintf(ctx.Stdout, destroySysMsg, controllerName)
+		if err := jujucmd.UserConfirmYes(ctx); err != nil {
+			return errors.Annotate(err, "controller destruction")
 		}
 	}
 
@@ -630,24 +627,6 @@ func (c *destroyCommandBase) getControllerEnvironFromAPI(
 		Cloud:          cloudSpec,
 		Config:         cfg,
 	})
-}
-
-func confirmDestruction(ctx *cmd.Context, controllerName string) error {
-	// Get confirmation from the user that they want to continue
-	fmt.Fprintf(ctx.Stdout, destroySysMsg, controllerName)
-
-	scanner := bufio.NewScanner(ctx.Stdin)
-	scanner.Scan()
-	err := scanner.Err()
-	if err != nil && err != io.EOF {
-		return errors.Annotate(err, "controller destruction aborted")
-	}
-	answer := strings.ToLower(scanner.Text())
-	if answer != "y" && answer != "yes" {
-		return errors.New("controller destruction aborted")
-	}
-
-	return nil
 }
 
 // CredentialAPI defines the methods on the credential API endpoint that the

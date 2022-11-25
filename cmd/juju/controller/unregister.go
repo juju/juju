@@ -93,8 +93,7 @@ var unregisterMsg = `
 This command will remove connection information for controller %q.
 Doing so will prevent you from accessing this controller until
 you register it again.
-
-Continue [y/N]?`[1:]
+`[1:]
 
 func (c *unregisterCommand) Run(ctx *cmd.Context) error {
 

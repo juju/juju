@@ -40,8 +40,7 @@ var SupportedJujuSeries = series.WorkloadSeries
 var upgradeSeriesConfirmationMsg = `
 WARNING: This command will mark machine %q as being upgraded to series %q.
 This operation cannot be reverted or canceled once started.
-%s
-Continue [y/N]?`[1:]
+%s`[1:]
 
 var upgradeSeriesAffectedMsg = `
 Units running on the machine will also be upgraded. These units include:
