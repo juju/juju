@@ -78,6 +78,9 @@ func (c *removeCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *removeCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
+	// This unused var is declared so we can pass a valid ptr into BoolVar
+	var noPromptHolder bool
+	f.BoolVar(&noPromptHolder, "no-prompt", false, "Does nothing. Option present for forward compatibility with Juju 3")
 	f.BoolVar(&c.Force, "force", false, "Completely remove a machine and all its dependencies")
 	f.BoolVar(&c.KeepInstance, "keep-instance", false, "Do not stop the running cloud instance")
 	f.BoolVar(&c.NoWait, "no-wait", false, "Rush through machine removal without waiting for each individual step to complete")

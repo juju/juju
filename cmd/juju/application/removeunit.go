@@ -106,6 +106,9 @@ func (c *removeUnitCommand) Info() *cmd.Info {
 
 func (c *removeUnitCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
+	// This unused var is declared so we can pass a valid ptr into BoolVar
+	var noPromptHolder bool
+	f.BoolVar(&noPromptHolder, "no-prompt", false, "Does nothing. Option present for forward compatibility with Juju 3")
 	f.IntVar(&c.NumUnits, "num-units", 0, "Number of units to remove (k8s models only)")
 	f.BoolVar(&c.DestroyStorage, "destroy-storage", false, "Destroy storage attached to the unit")
 	f.BoolVar(&c.Force, "force", false, "Completely remove an unit and all its dependencies")
