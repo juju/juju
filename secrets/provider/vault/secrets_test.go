@@ -51,20 +51,20 @@ func (s *vaultSuite) SetUpTest(c *gc.C) {
 	})
 }
 
-func (s *vaultSuite) TestStoreConfig(c *gc.C) {
-	p, err := provider.Provider(jujuvault.Store)
+func (s *vaultSuite) TestBackendConfig(c *gc.C) {
+	p, err := provider.Provider(jujuvault.Backend)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = p.StoreConfig(mockModel{}, nil, nil, nil)
+	_, err = p.BackendConfig(mockModel{}, nil, nil, nil)
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
-func (s *vaultSuite) TestNewStore(c *gc.C) {
-	p, err := provider.Provider(jujuvault.Store)
+func (s *vaultSuite) TestNewBackend(c *gc.C) {
+	p, err := provider.Provider(jujuvault.Backend)
 	c.Assert(err, jc.ErrorIsNil)
 
-	cfg := &provider.StoreConfig{
-		StoreType: jujuvault.Store,
-		Params: map[string]interface{}{
+	cfg := &provider.BackendConfig{
+		BackendType: jujuvault.Backend,
+		Config: map[string]interface{}{
 			"controller-uuid": coretesting.ControllerTag.Id(),
 			"model-uuid":      coretesting.ModelTag.Id(),
 			"endpoint":        "http://vault-ip:8200/",
@@ -74,7 +74,7 @@ func (s *vaultSuite) TestNewStore(c *gc.C) {
 			"tls-server-name": "tls-server",
 		},
 	}
-	_, err = p.NewStore(cfg)
+	_, err = p.NewBackend(cfg)
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
@@ -105,10 +105,10 @@ func (mockModel) CloudCredential() (*cloud.Credential, error) {
 func (mockModel) Config() (*config.Config, error) {
 	cert := coretesting.CACert
 	return config.New(config.UseDefaults, map[string]interface{}{
-		"name":                "fred",
-		"type":                "lxd",
-		"uuid":                coretesting.ModelTag.Id(),
-		"secret-store":        "vault",
-		"secret-store-config": fmt.Sprintf(`{"endpoint":"http://vault-ip:8200/","token":"vault-token","namespace":"ns","ca-cert":%q,"tls-server-name":"tls-server"}`, cert),
+		"name":                  "fred",
+		"type":                  "lxd",
+		"uuid":                  coretesting.ModelTag.Id(),
+		"secret-backend":        "vault",
+		"secret-backend-config": fmt.Sprintf(`{"endpoint":"http://vault-ip:8200/","token":"vault-token","namespace":"ns","ca-cert":%q,"tls-server-name":"tls-server"}`, cert),
 	})
 }

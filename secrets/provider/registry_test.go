@@ -19,7 +19,7 @@ type registrySuite struct {
 
 var _ = gc.Suite(&registrySuite{})
 
-func (*registrySuite) TestStore(c *gc.C) {
+func (*registrySuite) TestProvider(c *gc.C) {
 	_, err := provider.Provider("bad")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 

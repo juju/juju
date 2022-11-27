@@ -153,10 +153,10 @@ type HookContext struct {
 	// secretsClient allows the context to access the secrets backend.
 	secretsClient SecretsAccessor
 
-	// secretsStoreGetter is used to get a client to access the secrets store.
-	secretsStoreGetter SecretsStoreGetter
-	// secretsStore is the secrets store client, created only when needed.
-	secretsStore secrets.Store
+	// secretsBackendGetter is used to get a client to access the secrets backend.
+	secretsBackendGetter SecretsBackendGetter
+	// secretsBackend is the secrets backend client, created only when needed.
+	secretsBackend secrets.Backend
 
 	// LeadershipContext supplies several hooks.Context methods.
 	LeadershipContext
@@ -747,16 +747,16 @@ func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
 	return result, nil
 }
 
-func (ctx *HookContext) getSecretsStore() (secrets.Store, error) {
-	if ctx.secretsStore != nil {
-		return ctx.secretsStore, nil
+func (ctx *HookContext) getSecretsBackend() (secrets.Backend, error) {
+	if ctx.secretsBackend != nil {
+		return ctx.secretsBackend, nil
 	}
 	var err error
-	ctx.secretsStore, err = ctx.secretsStoreGetter()
+	ctx.secretsBackend, err = ctx.secretsBackendGetter()
 	if err != nil {
 		return nil, err
 	}
-	return ctx.secretsStore, nil
+	return ctx.secretsBackend, nil
 }
 
 func (ctx *HookContext) lookupOwnedSecretURIByLabel(label string) (*coresecrets.URI, error) {
@@ -814,7 +814,7 @@ func (ctx *HookContext) GetSecret(uri *coresecrets.URI, label string, refresh, p
 		}
 	}
 
-	store, err := ctx.getSecretsStore()
+	store, err := ctx.getSecretsBackend()
 	if err != nil {
 		return nil, err
 	}
@@ -1403,12 +1403,12 @@ func (ctx *HookContext) doFlush(process string) error {
 	}
 
 	// Before saving the secret metadata to Juju, save the content to an external
-	// store (if configured) - we need the provider id to send to Juju.
+	// backend (if configured) - we need the backend id to send to Juju.
 	// If the flush to Juju fails, we'll delete the external content.
-	var secretsStore secrets.Store
+	var secretsBackend secrets.Backend
 	if ctx.secretChanges.haveContentUpdates() {
 		var err error
-		secretsStore, err = ctx.getSecretsStore()
+		secretsBackend, err = ctx.getSecretsBackend()
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1418,7 +1418,7 @@ func (ctx *HookContext) doFlush(process string) error {
 	pendingUpdates := make([]uniter.SecretUpsertArg, len(ctx.secretChanges.pendingUpdates))
 	pendingDeletes := make([]uniter.SecretDeleteArg, len(ctx.secretChanges.pendingDeletes))
 	for i, c := range ctx.secretChanges.pendingCreates {
-		backendId, err := secretsStore.SaveContent(c.URI, 1, c.Value)
+		backendId, err := secretsBackend.SaveContent(c.URI, 1, c.Value)
 		if errors.IsNotSupported(err) {
 			pendingCreates[i] = c
 			continue
@@ -1438,7 +1438,7 @@ func (ctx *HookContext) doFlush(process string) error {
 			pendingUpdates[i] = u.SecretUpsertArg
 			continue
 		}
-		backendId, err := secretsStore.SaveContent(u.URI, u.CurrentRevision+1, u.Value)
+		backendId, err := secretsBackend.SaveContent(u.URI, u.CurrentRevision+1, u.Value)
 		if errors.IsNotSupported(err) {
 			pendingUpdates[i] = u.SecretUpsertArg
 			continue
@@ -1471,7 +1471,7 @@ func (ctx *HookContext) doFlush(process string) error {
 		ctx.logger.Debugf("deleting secret %q provider ids: %v", d.URI.String(), backendIds)
 	deleteDone:
 		for _, secretId := range backendIds {
-			if err := secretsStore.DeleteContent(secretId); err != nil {
+			if err := secretsBackend.DeleteContent(secretId); err != nil {
 				if errors.IsNotSupported(err) {
 					break deleteDone
 				}
@@ -1499,7 +1499,7 @@ func (ctx *HookContext) doFlush(process string) error {
 			ctx.logger.Errorf("cannot apply changes: %v", err)
 		cleanupDone:
 			for _, secretId := range cleanups {
-				if err2 := secretsStore.DeleteContent(secretId); err2 != nil {
+				if err2 := secretsBackend.DeleteContent(secretId); err2 != nil {
 					if errors.IsNotSupported(err) {
 						break cleanupDone
 					}

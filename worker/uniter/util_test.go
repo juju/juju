@@ -142,7 +142,7 @@ type testContext struct {
 	secretsRotateCh        chan []string
 	secretsExpireCh        chan []string
 	secretsClient          *secretsmanager.Client
-	secretsStore           jujusecrets.Store
+	secretsStore           jujusecrets.Backend
 	err                    string
 
 	wg             sync.WaitGroup
@@ -605,7 +605,7 @@ func (s startUniter) step(c *gc.C, ctx *testContext) {
 			return watchertest.NewMockStringsWatcher(ctx.secretsExpireCh), nil
 		},
 		SecretsClient: ctx.secretsClient,
-		SecretsStoreGetter: func() (jujusecrets.Store, error) {
+		SecretsBackendGetter: func() (jujusecrets.Backend, error) {
 			return ctx.secretsStore, nil
 		},
 	}

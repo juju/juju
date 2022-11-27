@@ -30,15 +30,15 @@ func NewClient(caller base.APICaller) *Client {
 }
 
 // GetSecretStoreConfig fetches the config needed to make a secret store client.
-func (c *Client) GetSecretStoreConfig() (*provider.StoreConfig, error) {
+func (c *Client) GetSecretBackendConfig() (*provider.BackendConfig, error) {
 	var result params.SecretStoreConfig
 	err := c.facade.FacadeCall("GetSecretStoreConfig", nil, &result)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &provider.StoreConfig{
-		StoreType: result.StoreType,
-		Params:    result.Params,
+	return &provider.BackendConfig{
+		BackendType: result.StoreType,
+		Config:      result.Params,
 	}, nil
 }
 

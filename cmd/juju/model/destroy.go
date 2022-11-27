@@ -102,14 +102,12 @@ See also:
 var destroyIAASModelMsg = `
 WARNING! This command will destroy the %q model.
 This includes all machines, applications, data and other resources.
-
-Continue [y/N]? `[1:]
+`[1:]
 
 var destroyCAASModelMsg = `
 WARNING! This command will destroy the %q model.
 This includes all containers, applications, data and other resources.
-
-Continue [y/N]? `[1:]
+`[1:]
 
 // DestroyModelAPI defines the methods on the modelmanager
 // API that the destroy command calls. It is exported for mocking in tests.

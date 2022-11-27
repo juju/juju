@@ -42,7 +42,7 @@ func (s *secretsSuite) TestProviderInfoForModel(c *gc.C) {
 	model := mocks.NewMockModel(ctrl)
 
 	cfg := coretesting.CustomModelConfig(c, coretesting.Attrs{
-		"secret-store": "vault",
+		"secret-backend": "vault",
 	})
 	gomock.InOrder(
 		model.EXPECT().Config().Return(cfg, nil),
@@ -59,7 +59,7 @@ func (s *secretsSuite) TestProviderInfoForModelJujuDefaultIAAS(c *gc.C) {
 	model := mocks.NewMockModel(ctrl)
 
 	cfg := coretesting.CustomModelConfig(c, coretesting.Attrs{
-		"secret-store": "",
+		"secret-backend": "",
 	})
 	gomock.InOrder(
 		model.EXPECT().Config().Return(cfg, nil),
@@ -77,7 +77,7 @@ func (s *secretsSuite) TestProviderInfoForModelJujuDefaultCAAS(c *gc.C) {
 	model := mocks.NewMockModel(ctrl)
 
 	cfg := coretesting.CustomModelConfig(c, coretesting.Attrs{
-		"secret-store": "",
+		"secret-backend": "",
 	})
 	gomock.InOrder(
 		model.EXPECT().Config().Return(cfg, nil),
@@ -113,10 +113,10 @@ func (s *secretsSuite) TestStoreConfigLeaderUnit(c *gc.C) {
 	model := mocks.NewMockModel(ctrl)
 	leadershipChecker := mocks.NewMockChecker(ctrl)
 	token := mocks.NewMockToken(ctrl)
-	p := mocks.NewMockSecretStoreProvider(ctrl)
+	p := mocks.NewMockSecretBackendProvider(ctrl)
 	backend := mocks.NewMockSecretsStore(ctrl)
 
-	s.PatchValue(&secrets.GetProvider, func(string) (provider.SecretStoreProvider, error) { return p, nil })
+	s.PatchValue(&secrets.GetProvider, func(string) (provider.SecretBackendProvider, error) { return p, nil })
 	s.PatchValue(&secrets.GetStateBackEnd, func(secrets.Model) state.SecretsStore { return backend })
 
 	owned := []*coresecrets.SecretMetadata{
@@ -150,13 +150,13 @@ func (s *secretsSuite) TestStoreConfigLeaderUnit(c *gc.C) {
 			Return([]*coresecrets.SecretRevisionMetadata{
 				{Revision: 1},
 			}, nil),
-		p.EXPECT().StoreConfig(gomock.Any(), unitTag,
+		p.EXPECT().BackendConfig(gomock.Any(), unitTag,
 			provider.SecretRevisions{"owned-1": set.NewInts(1, 2)},
 			provider.SecretRevisions{"read-1": set.NewInts(1)},
 		).Return(nil, nil),
 	)
 
-	_, err := secrets.StoreConfig(model, unitTag, leadershipChecker)
+	_, err := secrets.BackendConfig(model, unitTag, leadershipChecker)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -168,10 +168,10 @@ func (s *secretsSuite) TestStoreConfigNonLeaderUnit(c *gc.C) {
 	model := mocks.NewMockModel(ctrl)
 	leadershipChecker := mocks.NewMockChecker(ctrl)
 	token := mocks.NewMockToken(ctrl)
-	p := mocks.NewMockSecretStoreProvider(ctrl)
+	p := mocks.NewMockSecretBackendProvider(ctrl)
 	backend := mocks.NewMockSecretsStore(ctrl)
 
-	s.PatchValue(&secrets.GetProvider, func(string) (provider.SecretStoreProvider, error) { return p, nil })
+	s.PatchValue(&secrets.GetProvider, func(string) (provider.SecretBackendProvider, error) { return p, nil })
 	s.PatchValue(&secrets.GetStateBackEnd, func(secrets.Model) state.SecretsStore { return backend })
 
 	unitOwned := []*coresecrets.SecretMetadata{
@@ -215,13 +215,13 @@ func (s *secretsSuite) TestStoreConfigNonLeaderUnit(c *gc.C) {
 				{Revision: 2},
 				{Revision: 3},
 			}, nil),
-		p.EXPECT().StoreConfig(gomock.Any(), unitTag,
+		p.EXPECT().BackendConfig(gomock.Any(), unitTag,
 			provider.SecretRevisions{"owned-1": set.NewInts(1, 2)},
 			provider.SecretRevisions{"read-1": set.NewInts(1), "app-owned-1": set.NewInts(1, 2, 3)},
 		).Return(nil, nil),
 	)
 
-	_, err := secrets.StoreConfig(model, unitTag, leadershipChecker)
+	_, err := secrets.BackendConfig(model, unitTag, leadershipChecker)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -232,10 +232,10 @@ func (s *secretsSuite) TestStoreConfigAppTagLogin(c *gc.C) {
 	appTag := names.NewApplicationTag("gitlab")
 	model := mocks.NewMockModel(ctrl)
 	leadershipChecker := mocks.NewMockChecker(ctrl)
-	p := mocks.NewMockSecretStoreProvider(ctrl)
+	p := mocks.NewMockSecretBackendProvider(ctrl)
 	backend := mocks.NewMockSecretsStore(ctrl)
 
-	s.PatchValue(&secrets.GetProvider, func(string) (provider.SecretStoreProvider, error) { return p, nil })
+	s.PatchValue(&secrets.GetProvider, func(string) (provider.SecretBackendProvider, error) { return p, nil })
 	s.PatchValue(&secrets.GetStateBackEnd, func(secrets.Model) state.SecretsStore { return backend })
 
 	owned := []*coresecrets.SecretMetadata{
@@ -265,13 +265,13 @@ func (s *secretsSuite) TestStoreConfigAppTagLogin(c *gc.C) {
 			Return([]*coresecrets.SecretRevisionMetadata{
 				{Revision: 1},
 			}, nil),
-		p.EXPECT().StoreConfig(gomock.Any(), appTag,
+		p.EXPECT().BackendConfig(gomock.Any(), appTag,
 			provider.SecretRevisions{"owned-1": set.NewInts(1, 2)},
 			provider.SecretRevisions{"read-1": set.NewInts(1)},
 		).Return(nil, nil),
 	)
 
-	_, err := secrets.StoreConfig(model, appTag, leadershipChecker)
+	_, err := secrets.BackendConfig(model, appTag, leadershipChecker)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -282,10 +282,10 @@ func (s *secretsSuite) TestStoreConfigFailedInvalidAuthTag(c *gc.C) {
 	badTag := names.NewUserTag("foo")
 	model := mocks.NewMockModel(ctrl)
 	leadershipChecker := mocks.NewMockChecker(ctrl)
-	p := mocks.NewMockSecretStoreProvider(ctrl)
+	p := mocks.NewMockSecretBackendProvider(ctrl)
 	backend := mocks.NewMockSecretsStore(ctrl)
 
-	s.PatchValue(&secrets.GetProvider, func(string) (provider.SecretStoreProvider, error) { return p, nil })
+	s.PatchValue(&secrets.GetProvider, func(string) (provider.SecretBackendProvider, error) { return p, nil })
 	s.PatchValue(&secrets.GetStateBackEnd, func(secrets.Model) state.SecretsStore { return backend })
 
 	gomock.InOrder(
@@ -295,7 +295,7 @@ func (s *secretsSuite) TestStoreConfigFailedInvalidAuthTag(c *gc.C) {
 		p.EXPECT().Initialise(gomock.Any()).Return(nil),
 	)
 
-	_, err := secrets.StoreConfig(model, badTag, leadershipChecker)
+	_, err := secrets.BackendConfig(model, badTag, leadershipChecker)
 	c.Assert(err, gc.ErrorMatches, `login as "user-foo" not supported`)
 }
 
@@ -304,18 +304,18 @@ func (s *secretsSuite) TestStoreForInspect(c *gc.C) {
 	defer ctrl.Finish()
 
 	model := mocks.NewMockModel(ctrl)
-	p := mocks.NewMockSecretStoreProvider(ctrl)
+	p := mocks.NewMockSecretBackendProvider(ctrl)
 
-	s.PatchValue(&secrets.GetProvider, func(string) (provider.SecretStoreProvider, error) { return p, nil })
+	s.PatchValue(&secrets.GetProvider, func(string) (provider.SecretBackendProvider, error) { return p, nil })
 
-	storeCfg := &provider.StoreConfig{StoreType: "juju"}
+	storeCfg := &provider.BackendConfig{BackendType: "juju"}
 	gomock.InOrder(
 		model.EXPECT().Config().Return(coretesting.ModelConfig(c), nil),
 		model.EXPECT().Type().Return(state.ModelTypeIAAS),
 
 		p.EXPECT().Initialise(gomock.Any()).Return(nil),
-		p.EXPECT().StoreConfig(gomock.Any(), nil, nil, nil).Return(storeCfg, nil),
-		p.EXPECT().NewStore(storeCfg).Return(nil, nil),
+		p.EXPECT().BackendConfig(gomock.Any(), nil, nil, nil).Return(storeCfg, nil),
+		p.EXPECT().NewBackend(storeCfg).Return(nil, nil),
 	)
 
 	_, err := secrets.StoreForInspect(model)

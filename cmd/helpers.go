@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"strings"
 
@@ -14,6 +15,8 @@ import (
 
 // This file contains helper functions for generic operations commonly needed
 // when implementing a command.
+
+const msg = "\nContinue [y/N]? "
 
 type userAbortedError string
 
@@ -30,6 +33,7 @@ func IsUserAbortedError(err error) bool {
 // UserConfirmYes returns an error if we do not read a "y" or "yes" from user
 // input.
 func UserConfirmYes(ctx *cmd.Context) error {
+	fmt.Fprint(ctx.Stdout, msg)
 	scanner := bufio.NewScanner(ctx.Stdin)
 	scanner.Scan()
 	err := scanner.Err()
