@@ -21,6 +21,8 @@ import (
 
 const yesNoMsg = "\nContinue [y/N]? "
 
+var nameVerificationMsg = "\nTo continue, enter the name of the %s to be destroyed:"[1:]
+
 type userAbortedError string
 
 func (e userAbortedError) Error() string {
@@ -53,7 +55,7 @@ func UserConfirmYes(ctx *cmd.Context) error {
 // UserConfirmName returns an error if we do not read a "name" of the model/controller/etc from user
 // input.
 func UserConfirmName(verificationName string, objectType string, ctx *cmd.Context) error {
-	fmt.Fprintf(ctx.Stdout, "\nTo continue, enter the name of the %s to be destroyed:", objectType)
+	fmt.Fprintf(ctx.Stdout, nameVerificationMsg, objectType)
 	scanner := bufio.NewScanner(ctx.Stdin)
 	scanner.Scan()
 	err := scanner.Err()
