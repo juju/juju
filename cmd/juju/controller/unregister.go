@@ -102,11 +102,11 @@ func (c *unregisterCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if !c.assumeNoPrompt {
-		var skipErr error
-		c.assumeNoPrompt, skipErr = jujucmd.CheckSkipConfirmEnvVar()
+		assumeNoPrompt, skipErr := jujucmd.CheckSkipConfirmEnvVar()
 		if skipErr != nil {
 			return errors.Trace(skipErr)
 		}
+		c.assumeNoPrompt = assumeNoPrompt
 	}
 	if c.assumeYes {
 		fmt.Fprint(ctx.Stdout, "WARNING: '-y'/'--yes' flags a deprecated and will be removed in JUJU 3.1\n")
