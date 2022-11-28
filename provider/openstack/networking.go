@@ -453,17 +453,6 @@ func (n *NeutronNetworking) Subnets(instId instance.Id, subnetIds []corenetwork.
 	return results, nil
 }
 
-// noNetConfigMsg is used to present resolution options when an error is
-// encountered due to missing "network" configuration.
-// Any error from attempting to resolve a network without network config set,
-// is likely due to the resolution returning multiple internal networks.
-func noNetConfigMsg(err error) string {
-	return fmt.Sprintf(
-		"%s\n\tTo resolve this error, set a value for \"network\" in model-config or model-defaults;"+
-			"\n\tor supply it via --config when creating a new model",
-		err.Error())
-}
-
 // NetworkInterfaces implements environs.NetworkingEnviron. It returns a
 // slice where the i_th element contains the list of network interfaces
 // for the i_th input instance ID.
