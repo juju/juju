@@ -28,6 +28,7 @@ func NewUnregisterCommand(store jujuclient.ClientStore) cmd.Command {
 type unregisterCommand struct {
 	modelcmd.CommandBase
 	controllerName string
+	assumeYes      bool // DEPRECATED
 	assumeNoPrompt bool
 	store          jujuclient.ClientStore
 }
@@ -61,9 +62,8 @@ func (c *unregisterCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *unregisterCommand) SetFlags(f *gnuflag.FlagSet) {
 	// This unused var is declared to pass a valid ptr into BoolVar
-	var assumeYesHolder bool
-	f.BoolVar(&assumeYesHolder, "y", false, "Does nothing. Option present for forward compatibility with Juju 2.9")
-	f.BoolVar(&assumeYesHolder, "yes", false, "")
+	f.BoolVar(&c.assumeYes, "y", false, "Do not ask for confirmation. Option present for forward compatibility with Juju 2.9")
+	f.BoolVar(&c.assumeYes, "yes", false, "")
 	f.BoolVar(&c.assumeNoPrompt, "no-prompt", false, "Do not ask for confirmation")
 }
 
@@ -106,7 +106,10 @@ func (c *unregisterCommand) Run(ctx *cmd.Context) error {
 	if skipErr != nil {
 		return errors.Trace(skipErr)
 	}
-	if !(c.assumeNoPrompt || skipConfirm) {
+	if c.assumeYes {
+		fmt.Fprint(ctx.Stdout, "WARNING: '-y'/'--yes' flags a deprecated and will be removed in JUJU 3.1\n")
+	}
+	if !(c.assumeYes || c.assumeNoPrompt || skipConfirm) {
 		fmt.Fprintf(ctx.Stdout, unregisterMsg, c.controllerName)
 		if err := jujucmd.UserConfirmName(c.controllerName, "controller", ctx); err != nil {
 			return errors.Annotate(err, "unregistering controller")

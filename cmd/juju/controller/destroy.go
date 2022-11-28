@@ -189,7 +189,10 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	if skipErr != nil {
 		return errors.Trace(skipErr)
 	}
-	if !(c.assumeNoPrompt || skipConfirm) {
+	if c.assumeYes {
+		fmt.Fprint(ctx.Stdout, "WARNING: '-y'/'--yes' flags a deprecated and will be removed in JUJU 3.1\n")
+	}
+	if !(c.assumeYes || c.assumeNoPrompt || skipConfirm) {
 		fmt.Fprintf(ctx.Stdout, destroySysMsg, controllerName)
 		if err := jujucmd.UserConfirmName(controllerName, "controller", ctx); err != nil {
 			return errors.Annotate(err, "controller destruction")
@@ -467,6 +470,7 @@ to be cleaned up.
 // destroy and controller kill commands require.
 type destroyCommandBase struct {
 	modelcmd.ControllerCommandBase
+	assumeYes      bool // DEPRECATED
 	assumeNoPrompt bool
 
 	// The following fields are for mocking out
@@ -511,9 +515,8 @@ func (c *destroyCommand) getStorageAPI(modelName string) (storageAPI, error) {
 func (c *destroyCommandBase) SetFlags(f *gnuflag.FlagSet) {
 	c.ControllerCommandBase.SetFlags(f)
 	// This unused var is declared to pass a valid ptr into BoolVar
-	var assumeYesHolder bool
-	f.BoolVar(&assumeYesHolder, "y", false, "Does nothing. Option present for forward compatibility with Juju 2.9")
-	f.BoolVar(&assumeYesHolder, "yes", false, "")
+	f.BoolVar(&c.assumeYes, "y", false, "Do not ask for confirmation. Option present for forward compatibility with Juju 2.9")
+	f.BoolVar(&c.assumeYes, "yes", false, "")
 	f.BoolVar(&c.assumeNoPrompt, "no-prompt", false, "Do not ask for confirmation")
 }
 
