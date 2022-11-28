@@ -6,7 +6,10 @@ package cmd
 import (
 	"bufio"
 	"fmt"
+	"github.com/juju/juju/juju/osenv"
 	"io"
+	"os"
+	"strconv"
 	"strings"
 
 	"github.com/juju/cmd/v3"
@@ -16,7 +19,7 @@ import (
 // This file contains helper functions for generic operations commonly needed
 // when implementing a command.
 
-const msg = "\nContinue [y/N]? "
+const yesNoMsg = "\nContinue [y/N]? "
 
 type userAbortedError string
 
@@ -33,7 +36,7 @@ func IsUserAbortedError(err error) bool {
 // UserConfirmYes returns an error if we do not read a "y" or "yes" from user
 // input.
 func UserConfirmYes(ctx *cmd.Context) error {
-	fmt.Fprint(ctx.Stdout, msg)
+	fmt.Fprint(ctx.Stdout, yesNoMsg)
 	scanner := bufio.NewScanner(ctx.Stdin)
 	scanner.Scan()
 	err := scanner.Err()
@@ -45,4 +48,31 @@ func UserConfirmYes(ctx *cmd.Context) error {
 		return errors.Trace(userAbortedError("aborted"))
 	}
 	return nil
+}
+
+// UserConfirmName returns an error if we do not read a "name" of the model/controller/etc from user
+// input.
+func UserConfirmName(verificationName string, objectType string, ctx *cmd.Context) error {
+	fmt.Fprintf(ctx.Stdout, "\nTo continue, enter the name of the %s to be destroyed:", objectType)
+	scanner := bufio.NewScanner(ctx.Stdin)
+	scanner.Scan()
+	err := scanner.Err()
+	if err != nil && err != io.EOF {
+		return errors.Trace(err)
+	}
+	answer := strings.ToLower(scanner.Text())
+	if answer != verificationName {
+		return errors.Trace(userAbortedError("aborted"))
+	}
+	return nil
+}
+
+// CheckSkipConfirmEnvVar check if JujuSkipConfirmationEnvKey environment variable is defined, and if yes -
+// return it's boolean value
+func CheckSkipConfirmEnvVar() (bool, error) {
+	if envSkipConfirmValueStr := os.Getenv(osenv.JujuSkipConfirmationEnvKey); envSkipConfirmValueStr != "" {
+		return strconv.ParseBool(envSkipConfirmValueStr)
+	} else {
+		return false, nil
+	}
 }
