@@ -5,6 +5,7 @@ package controller_test
 
 import (
 	"bytes"
+	"os"
 	"time"
 
 	"github.com/juju/cmd/v3"
@@ -314,6 +315,17 @@ func (s *DestroySuite) TestDestroy(c *gc.C) {
 	checkControllerRemovedFromStore(c, "test1", s.store)
 }
 
+func (s *DestroySuite) TestDestroyWithSkipConfirmEnvVar(c *gc.C) {
+	setEnvVarErr := os.Setenv("JUJU_SKIP_CONFIRMATION", "true")
+	c.Assert(setEnvVarErr, jc.ErrorIsNil)
+	_, err := s.runDestroyCommand(c, "test1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.clientapi.destroycalled, jc.IsFalse)
+	checkControllerRemovedFromStore(c, "test1", s.store)
+	unsetEnvVarErr := os.Unsetenv("JUJU_SKIP_CONFIRMATION")
+	c.Assert(unsetEnvVarErr, jc.ErrorIsNil)
+}
+
 func (s *DestroySuite) TestDestroyAlias(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test1", "--no-prompt")
 	c.Assert(err, jc.ErrorIsNil)
@@ -615,7 +627,7 @@ func (s *DestroySuite) TestDestroyWithInvalidCredentialCallbackFailing(c *gc.C) 
 
 func (s *DestroySuite) TestDestroyWithInvalidCredentialCallbackFailingToCloseAPI(c *gc.C) {
 	s.controllerCredentialAPI.SetErrors(
-		nil,                                           // call to invalidate credential succeeds
+		nil, // call to invalidate credential succeeds
 		errors.New("unexpected creds callback error"), // call to close api client fails
 	)
 	// As we are throwing the error on api.Close for callback,
