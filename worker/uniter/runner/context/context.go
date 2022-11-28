@@ -813,7 +813,9 @@ func (ctx *HookContext) GetSecret(uri *coresecrets.URI, label string, refresh, p
 			label = ""
 		}
 	}
-
+	if v, got := ctx.getPendingSecretValue(uri); got {
+		return v, nil
+	}
 	store, err := ctx.getSecretsBackend()
 	if err != nil {
 		return nil, err
@@ -823,6 +825,23 @@ func (ctx *HookContext) GetSecret(uri *coresecrets.URI, label string, refresh, p
 		return nil, err
 	}
 	return v, nil
+}
+
+func (ctx *HookContext) getPendingSecretValue(uri *coresecrets.URI) (coresecrets.SecretValue, bool) {
+	if uri == nil {
+		return nil, false
+	}
+	for _, v := range ctx.secretChanges.pendingCreates {
+		if v.URI != nil && v.URI.ID == uri.ID {
+			return v.Value, true
+		}
+	}
+	for _, v := range ctx.secretChanges.pendingUpdates {
+		if v.URI != nil && v.URI.ID == uri.ID {
+			return v.Value, v.Value != nil && !v.Value.IsEmpty()
+		}
+	}
+	return nil, false
 }
 
 // CreateSecret creates a secret with the specified data.
