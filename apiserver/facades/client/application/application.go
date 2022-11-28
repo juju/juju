@@ -537,7 +537,7 @@ func deployApplication(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	origin, err := convertCharmOrigin(args.CharmOrigin, curl, args.Channel)
+	origin, err := convertCharmOrigin(args.CharmOrigin, curl)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -561,9 +561,7 @@ func deployApplication(
 	return errors.Trace(err)
 }
 
-// TODO 22-Nov-22 HML
-// Fix the default origin and remove the charmStoreChannel
-func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL, charmStoreChannel string) (corecharm.Origin, error) {
+func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL) (corecharm.Origin, error) {
 	var (
 		originType string
 		platform   corecharm.Platform
@@ -582,24 +580,6 @@ func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL, charmStoreC
 	}
 
 	switch {
-	case origin == nil || origin.Source == "" || origin.Source == "charm-store":
-		var rev *int
-		if curl.Revision != -1 {
-			rev = &curl.Revision
-		}
-		var ch *charm.Channel
-		if charmStoreChannel != "" {
-			ch = &charm.Channel{
-				Risk: charm.Risk(charmStoreChannel),
-			}
-		}
-		return corecharm.Origin{
-			Type:     originType,
-			Source:   corecharm.CharmStore,
-			Revision: rev,
-			Channel:  ch,
-			Platform: platform,
-		}, nil
 	case origin.Source == "local":
 		return corecharm.Origin{
 			Type:     originType,
@@ -607,6 +587,8 @@ func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL, charmStoreC
 			Revision: &curl.Revision,
 			Platform: platform,
 		}, nil
+	case origin.Source != "charm-hub":
+		return corecharm.Origin{}, errors.NotValidf("origin source not local nor charm-hub")
 	}
 
 	var track string
@@ -993,7 +975,7 @@ func (api *APIBase) setCharmWithAgentValidation(
 	if err != nil {
 		logger.Debugf("Unable to locate current charm: %v", err)
 	}
-	newOrigin, err := convertCharmOrigin(params.CharmOrigin, curl, string(params.Channel))
+	newOrigin, err := convertCharmOrigin(params.CharmOrigin, curl)
 	if err != nil {
 		return errors.Trace(err)
 	}

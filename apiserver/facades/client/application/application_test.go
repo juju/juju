@@ -379,7 +379,7 @@ func (s *applicationSuite) TestApplicationDeployToMachineNotFound(c *gc.C) {
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        "ch:jammy/application-name-1",
-			CharmOrigin:     &params.CharmOrigin{Source: "charm-store", Base: params.Base{Name: "ubuntu", Channel: "22.04/stable"}},
+			CharmOrigin:     &params.CharmOrigin{Source: "charm-hub", Base: params.Base{Name: "ubuntu", Channel: "22.04/stable"}},
 			ApplicationName: "application-name",
 			NumUnits:        1,
 			Placement:       []*instance.Placement{instance.MustParsePlacement("42")},
@@ -1318,9 +1318,6 @@ func (s *applicationSuite) TestRemoteRelationApplicationNotFound(c *gc.C) {
 // have been updated to return NotSupported errors for Juju 3.
 func (s *applicationSuite) addCharmToState(c *gc.C, charmURL string, name string) (*charm.URL, charm.Charm) {
 	curl := charm.MustParseURL(charmURL)
-	if curl.User == "" {
-		curl.User = "who"
-	}
 
 	if curl.Revision < 0 {
 		base := curl.String()
