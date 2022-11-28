@@ -248,7 +248,7 @@ type SecretBackend struct {
 
 	// TokenRotateInterval is the interval to rotate
 	// the backend master access token.
-	TokenRotateInterval time.Duration `json:"token-rotate-interval,omitempty"`
+	TokenRotateInterval *time.Duration `json:"token-rotate-interval,omitempty"`
 
 	// Config are the backend's configuration attributes.
 	Config map[string]interface{} `json:"config"`

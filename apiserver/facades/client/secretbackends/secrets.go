@@ -11,6 +11,10 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/secrets/provider"
+	_ "github.com/juju/juju/secrets/provider/all"
+	"github.com/juju/juju/secrets/provider/juju"
+	"github.com/juju/juju/secrets/provider/kubernetes"
 	"github.com/juju/juju/state"
 )
 
@@ -35,21 +39,40 @@ func (s *SecretBackendsAPI) checkCanAdmin() error {
 
 // AddSecretBackends adds new secret backends.
 func (s *SecretBackendsAPI) AddSecretBackends(args params.AddSecretBackendArgs) (params.ErrorResults, error) {
-	result := params.ErrorResults{}
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Args)),
+	}
 	if err := s.checkCanAdmin(); err != nil {
 		return result, errors.Trace(err)
 	}
 	for i, arg := range args.Args {
-		// TODO(wallyworld) - add backend specific config validation
-		err := s.state.AddSecretBackend(state.CreateSecretBackendParams{
-			Name:                arg.Name,
-			Backend:             arg.Backend,
-			TokenRotateInterval: arg.TokenRotateInterval,
-			Config:              arg.Config,
-		})
+		err := s.createBackend(arg)
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
+}
+
+func (s *SecretBackendsAPI) createBackend(arg params.SecretBackend) error {
+	if arg.Name == "" {
+		return errors.NotValidf("missing backend name")
+	}
+	if arg.Name == juju.Backend || arg.Name == kubernetes.Backend {
+		return errors.NotValidf("backend %q")
+	}
+	p, err := provider.Provider(arg.Backend)
+	if err != nil {
+		return errors.Annotatef(err, "creating backend provider type %q", arg.Backend)
+	}
+	err = p.ValidateConfig(nil, arg.Config)
+	if err != nil {
+		return errors.Annotatef(err, "invalid config for provider %q", arg.Backend)
+	}
+	return s.state.CreateSecretBackend(state.CreateSecretBackendParams{
+		Name:                arg.Name,
+		Backend:             arg.Backend,
+		TokenRotateInterval: arg.TokenRotateInterval,
+		Config:              arg.Config,
+	})
 }
 
 // ListSecretBackends lists available secret backends.

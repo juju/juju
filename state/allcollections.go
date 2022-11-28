@@ -560,6 +560,13 @@ func allCollections() CollectionSchema {
 			}},
 		},
 
+		secretBackendsC: {
+			global: true,
+			indexes: []mgo.Index{{
+				Key: []string{"name"},
+			}},
+		},
+
 		// ----------------------
 
 		// Raw-access collections
@@ -673,6 +680,7 @@ const (
 	secretConsumersC   = "secretConsumers"
 	secretPermissionsC = "secretPermissions"
 	secretRotateC      = "secretRotate"
+	secretBackendsC    = "secretBackends"
 )
 
 // watcherIgnoreList contains all the collections in mongo that should not be watched by the
