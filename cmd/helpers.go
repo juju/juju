@@ -71,7 +71,11 @@ func UserConfirmName(verificationName string, objectType string, ctx *cmd.Contex
 // return it's boolean value
 func CheckSkipConfirmEnvVar() (bool, error) {
 	if envSkipConfirmValueStr := os.Getenv(osenv.JujuSkipConfirmationEnvKey); envSkipConfirmValueStr != "" {
-		return strconv.ParseBool(envSkipConfirmValueStr)
+		envSkipConfirmValue, err := strconv.ParseBool(envSkipConfirmValueStr)
+		if err != nil {
+			return false, errors.Errorf("Unexpected value of JUJU_SKIP_CONFIRMATION env var, needs to be bool.")
+		}
+		return envSkipConfirmValue, nil
 	} else {
 		return false, nil
 	}
