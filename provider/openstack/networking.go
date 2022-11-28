@@ -141,11 +141,10 @@ func (n *NeutronNetworking) AllocatePublicIP(id instance.Id) (*string, error) {
 // server addresses.
 func (n *NeutronNetworking) getExternalNetworkIDsFromHostAddrs(addrs map[string][]nova.IPAddress) ([]string, error) {
 	var extNetworkIds []string
-	neutronClient := n.neutron()
 	externalNetwork := n.ecfg().externalNetwork()
 	if externalNetwork != "" {
 		// The config specified an external network, try it first.
-		netIDs, err := resolveNeutronNetworks(neutronClient, externalNetwork, true)
+		netIDs, err := n.ResolveNetworks(externalNetwork, true)
 		if err != nil {
 			logger.Warningf("resolving configured external network %q: %s", externalNetwork, err.Error())
 		} else {
@@ -287,15 +286,6 @@ func (n *NeutronNetworking) FindNetworks(internal bool) (set.Strings, error) {
 
 // ResolveNetworks is part of the Networking interface.
 func (n *NeutronNetworking) ResolveNetworks(name string, external bool) ([]string, error) {
-	return resolveNeutronNetworks(n.neutron(), name, external)
-}
-
-func generateUniquePortName(name string) string {
-	unique := utils.RandomString(8, append(utils.LowerAlpha, utils.Digits...))
-	return fmt.Sprintf("juju-%s-%s", name, unique)
-}
-
-func resolveNeutronNetworks(client NetworkingNeutron, name string, external bool) ([]string, error) {
 	if utils.IsValidUUIDString(name) {
 		// NOTE: There is an OpenStack cloud, whitestack, which has the network
 		// used to create servers specified as an External network, contrary to
@@ -329,7 +319,7 @@ func resolveNeutronNetworks(client NetworkingNeutron, name string, external bool
 		filter = networkFilter(name, external)
 	}
 
-	networks, err := client.ListNetworksV2(filter)
+	networks, err := n.neutron().ListNetworksV2(filter)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -339,6 +329,11 @@ func resolveNeutronNetworks(client NetworkingNeutron, name string, external bool
 		networkIds = append(networkIds, o7kNet.Id)
 	}
 	return networkIds, nil
+}
+
+func generateUniquePortName(name string) string {
+	unique := utils.RandomString(8, append(utils.LowerAlpha, utils.Digits...))
+	return fmt.Sprintf("juju-%s-%s", name, unique)
 }
 
 func makeSubnetInfo(neutron NetworkingNeutron, subnet neutron.SubnetV2) (corenetwork.SubnetInfo, error) {
@@ -370,11 +365,10 @@ func makeSubnetInfo(neutron NetworkingNeutron, subnet neutron.SubnetV2) (corenet
 // empty, in which case all known are returned.
 func (n *NeutronNetworking) Subnets(instId instance.Id, subnetIds []corenetwork.Id) ([]corenetwork.SubnetInfo, error) {
 	netIds := set.NewStrings()
-	neutron := n.neutron()
 	internalNets := n.ecfg().networks()
 
 	for _, iNet := range internalNets {
-		netIDs, err := resolveNeutronNetworks(neutron, iNet, false)
+		netIDs, err := n.ResolveNetworks(iNet, false)
 		if err != nil {
 			logger.Warningf("could not resolve internal network id for %q: %v", iNet, err)
 			continue
@@ -390,7 +384,7 @@ func (n *NeutronNetworking) Subnets(instId instance.Id, subnetIds []corenetwork.
 	// on Openstack, we'll probably need to include better logic here.
 	externalNet := n.ecfg().externalNetwork()
 	if externalNet != "" {
-		netIDs, err := resolveNeutronNetworks(neutron, externalNet, true)
+		netIDs, err := n.ResolveNetworks(externalNet, true)
 		if err != nil {
 			logger.Warningf("could not resolve external network id for %q: %v", externalNet, err)
 		} else {
@@ -415,6 +409,7 @@ func (n *NeutronNetworking) Subnets(instId instance.Id, subnetIds []corenetwork.
 	} else {
 		// TODO(jam): 2018-05-23 It is likely that ListSubnetsV2 could
 		// take a Filter rather that doing the filtering client side.
+		neutron := n.neutron()
 		subnets, err := neutron.ListSubnetsV2()
 		if err != nil {
 			return nil, errors.Annotatef(err, "failed to retrieve subnets")
