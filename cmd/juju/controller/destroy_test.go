@@ -507,22 +507,21 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 	c.Check(cmdtesting.Stdout(ctx), gc.Matches, "WARNING!.*test1(.|\n)*")
 	checkControllerExistsInStore(c, "test1", s.store)
 
-	for _, answer := range []string{"test1"} {
-		stdin.Reset()
-		stdout.Reset()
-		stdin.WriteString(answer)
-		_, errc = cmdtest.RunCommandWithDummyProvider(ctx, s.newDestroyCommand(), "test1")
-		select {
-		case err := <-errc:
-			c.Check(err, jc.ErrorIsNil)
-		case <-time.After(testing.LongWait):
-			c.Fatalf("command took too long")
-		}
-		checkControllerRemovedFromStore(c, "test1", s.store)
-
-		// Add the test1 controller back into the store for the next test
-		s.resetController(c)
+	answer := "test1"
+	stdin.Reset()
+	stdout.Reset()
+	stdin.WriteString(answer)
+	_, errc = cmdtest.RunCommandWithDummyProvider(ctx, s.newDestroyCommand(), "test1")
+	select {
+	case err := <-errc:
+		c.Check(err, jc.ErrorIsNil)
+	case <-time.After(testing.LongWait):
+		c.Fatalf("command took too long")
 	}
+	checkControllerRemovedFromStore(c, "test1", s.store)
+
+	// Add the test1 controller back into the store for the next test
+	s.resetController(c)
 }
 
 func (s *DestroySuite) TestBlockedDestroy(c *gc.C) {
@@ -616,7 +615,7 @@ func (s *DestroySuite) TestDestroyWithInvalidCredentialCallbackFailing(c *gc.C) 
 
 func (s *DestroySuite) TestDestroyWithInvalidCredentialCallbackFailingToCloseAPI(c *gc.C) {
 	s.controllerCredentialAPI.SetErrors(
-		nil, // call to invalidate credential succeeds
+		nil,                                           // call to invalidate credential succeeds
 		errors.New("unexpected creds callback error"), // call to close api client fails
 	)
 	// As we are throwing the error on api.Close for callback,
