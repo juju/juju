@@ -105,14 +105,10 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 	}
 	store := c.ClientStore()
 
-	skipConfirm, skipErr := jujucmd.CheckSkipConfirmEnvVar()
-	if skipErr != nil {
-		return errors.Trace(skipErr)
-	}
 	if c.assumeYes {
-		fmt.Fprint(ctx.Stdout, "WARNING: '-y'/'--yes' flags a deprecated and will be removed in JUJU 3.1\n")
+		fmt.Fprint(ctx.Stdout, "WARNING: '-y'/'--yes' flags are deprecated and will be removed in Juju 3.1\n")
 	}
-	if !(c.assumeYes || c.assumeNoPrompt || skipConfirm) {
+	if !(c.assumeYes || c.assumeNoPrompt) {
 		fmt.Fprintf(ctx.Stdout, destroySysMsg, controllerName)
 		if err := jujucmd.UserConfirmName(controllerName, "controller", ctx); err != nil {
 			return errors.Annotate(err, "controller destruction")

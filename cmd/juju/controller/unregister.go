@@ -78,6 +78,15 @@ func (c *unregisterCommand) Init(args []string) error {
 	}
 	c.controllerName, args = args[0], args[1:]
 
+	if !c.assumeNoPrompt {
+		assumeNoPrompt, skipErr := jujucmd.CheckSkipConfirmEnvVar()
+		if skipErr != nil && !errors.Is(skipErr, errors.NotFound) {
+			return errors.Trace(skipErr)
+		} else {
+			c.assumeNoPrompt = assumeNoPrompt
+		}
+	}
+
 	if err := jujuclient.ValidateControllerName(c.controllerName); err != nil {
 		return err
 	}
@@ -101,14 +110,6 @@ func (c *unregisterCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	if !c.assumeNoPrompt {
-		assumeNoPrompt, skipErr := jujucmd.CheckSkipConfirmEnvVar()
-		if skipErr != nil && !errors.Is(skipErr, errors.NotFound) {
-			return errors.Trace(skipErr)
-		} else {
-			c.assumeNoPrompt = assumeNoPrompt
-		}
-	}
 	if c.assumeYes {
 		fmt.Fprint(ctx.Stdout, "WARNING: '-y'/'--yes' flags are deprecated and will be removed in Juju 3.1\n")
 	}

@@ -174,6 +174,14 @@ func (c *destroyCommand) Init(args []string) error {
 	if c.destroyStorage && c.releaseStorage {
 		return errors.New("--destroy-storage and --release-storage cannot both be specified")
 	}
+	if !c.assumeNoPrompt {
+		assumeNoPrompt, skipErr := jujucmd.CheckSkipConfirmEnvVar()
+		if skipErr != nil && !errors.Is(skipErr, errors.NotFound) {
+			return errors.Trace(skipErr)
+		} else {
+			c.assumeNoPrompt = assumeNoPrompt
+		}
+	}
 	return c.destroyCommandBase.Init(args)
 }
 
@@ -185,14 +193,6 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	}
 	store := c.ClientStore()
 
-	if !c.assumeNoPrompt {
-		assumeNoPrompt, skipErr := jujucmd.CheckSkipConfirmEnvVar()
-		if skipErr != nil && !errors.Is(skipErr, errors.NotFound) {
-			return errors.Trace(skipErr)
-		} else {
-			c.assumeNoPrompt = assumeNoPrompt
-		}
-	}
 	if c.assumeYes {
 		fmt.Fprint(ctx.Stdout, "WARNING: '-y'/'--yes' flags are deprecated and will be removed in Juju 3.1\n")
 	}

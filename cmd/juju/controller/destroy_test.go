@@ -5,7 +5,7 @@ package controller_test
 
 import (
 	"bytes"
-	"os"
+	"github.com/juju/juju/juju/osenv"
 	"time"
 
 	"github.com/juju/cmd/v3"
@@ -316,14 +316,11 @@ func (s *DestroySuite) TestDestroy(c *gc.C) {
 }
 
 func (s *DestroySuite) TestDestroyWithSkipConfirmEnvVar(c *gc.C) {
-	setEnvVarErr := os.Setenv("JUJU_SKIP_CONFIRMATION", "true")
-	c.Assert(setEnvVarErr, jc.ErrorIsNil)
+	s.PatchEnvironment(osenv.JujuSkipConfirmationEnvKey, "true")
 	_, err := s.runDestroyCommand(c, "test1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.clientapi.destroycalled, jc.IsFalse)
 	checkControllerRemovedFromStore(c, "test1", s.store)
-	unsetEnvVarErr := os.Unsetenv("JUJU_SKIP_CONFIRMATION")
-	c.Assert(unsetEnvVarErr, jc.ErrorIsNil)
 }
 
 func (s *DestroySuite) TestDestroyAlias(c *gc.C) {
