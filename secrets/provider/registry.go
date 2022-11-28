@@ -12,44 +12,44 @@ import (
 
 var logger = loggo.GetLogger("juju.secrets.provider")
 
-type secretStoreRegistry struct {
-	stores map[string]SecretStoreProvider
+type secretBackendRegistry struct {
+	backends map[string]SecretBackendProvider
 }
 
-var globalStoreRegistry = &secretStoreRegistry{
-	stores: map[string]SecretStoreProvider{},
+var globalBackendRegistry = &secretBackendRegistry{
+	backends: map[string]SecretBackendProvider{},
 }
 
-// Register registers the named secret store provider.
-func (r *secretStoreRegistry) Register(p SecretStoreProvider) error {
-	storeType := p.Type()
-	if r.stores[storeType] != nil {
-		return errors.Errorf("duplicate store name %q", storeType)
+// Register registers the named secret backend provider.
+func (r *secretBackendRegistry) Register(p SecretBackendProvider) error {
+	backendType := p.Type()
+	if r.backends[backendType] != nil {
+		return errors.Errorf("duplicate backend name %q", backendType)
 	}
-	logger.Tracef("registering secret provider %q", storeType)
-	r.stores[storeType] = p
+	logger.Tracef("registering secret provider %q", backendType)
+	r.backends[backendType] = p
 	return nil
 }
 
-// Provider returns the named secret store provider.
-func (r *secretStoreRegistry) Provider(storeType string) (SecretStoreProvider, error) {
-	p, ok := r.stores[storeType]
+// Provider returns the named secret backend provider.
+func (r *secretBackendRegistry) Provider(backendType string) (SecretBackendProvider, error) {
+	p, ok := r.backends[backendType]
 	if !ok {
 		return nil, errors.NewNotFound(
-			nil, fmt.Sprintf("no registered provider for %q", storeType),
+			nil, fmt.Sprintf("no registered provider for %q", backendType),
 		)
 	}
 	return p, nil
 }
 
-// Register registers the named secret store provider.
-func Register(p SecretStoreProvider) {
-	if err := globalStoreRegistry.Register(p); err != nil {
+// Register registers the named secret backend provider.
+func Register(p SecretBackendProvider) {
+	if err := globalBackendRegistry.Register(p); err != nil {
 		panic(fmt.Errorf("juju: %v", err))
 	}
 }
 
-// Provider returns the named secret store provider.
-func Provider(storeType string) (SecretStoreProvider, error) {
-	return globalStoreRegistry.Provider(storeType)
+// Provider returns the named secret backend provider.
+func Provider(backendType string) (SecretBackendProvider, error) {
+	return globalBackendRegistry.Provider(backendType)
 }

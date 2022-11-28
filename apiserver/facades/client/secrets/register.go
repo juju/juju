@@ -29,7 +29,7 @@ func newSecretsAPI(context facade.Context) (*SecretsAPI, error) {
 	}
 	backend := state.NewSecrets(context.State())
 
-	secretGetter := func() (provider.SecretsStore, error) {
+	secretGetter := func() (provider.SecretsBackend, error) {
 		model, err := context.State().Model()
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -40,7 +40,7 @@ func newSecretsAPI(context facade.Context) (*SecretsAPI, error) {
 		authorizer:     context.Auth(),
 		controllerUUID: context.State().ControllerUUID(),
 		modelUUID:      context.State().ModelUUID(),
-		backend:        backend,
+		state:          backend,
 		storeGetter:    secretGetter,
 	}, nil
 }

@@ -33,14 +33,14 @@ func NewSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	secretStoreConfigGetter := func() (*provider.StoreConfig, error) {
+	secretStoreConfigGetter := func() (*provider.BackendConfig, error) {
 		model, err := context.State().Model()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return secrets.StoreConfig(model, context.Auth().GetAuthTag(), leadershipChecker)
+		return secrets.BackendConfig(model, context.Auth().GetAuthTag(), leadershipChecker)
 	}
-	providerGetter := func() (provider.SecretStoreProvider, provider.Model, error) {
+	providerGetter := func() (provider.SecretBackendProvider, provider.Model, error) {
 		model, err := context.State().Model()
 		if err != nil {
 			return nil, nil, errors.Trace(err)

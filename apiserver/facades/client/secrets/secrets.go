@@ -25,8 +25,8 @@ type SecretsAPI struct {
 	controllerUUID string
 	modelUUID      string
 
-	backend     SecretsBackend
-	storeGetter func() (provider.SecretsStore, error)
+	state       SecretsState
+	storeGetter func() (provider.SecretsBackend, error)
 }
 
 func (s *SecretsAPI) checkCanRead() error {
@@ -81,21 +81,21 @@ func (s *SecretsAPI) ListSecrets(arg params.ListSecretsArgs) (params.ListSecretR
 		}
 		filter.OwnerTags = []names.Tag{tag}
 	}
-	metadata, err := s.backend.ListSecrets(filter)
+	metadata, err := s.state.ListSecrets(filter)
 	if err != nil {
 		return params.ListSecretResults{}, errors.Trace(err)
 	}
 	revisionMetadata := make(map[string][]*coresecrets.SecretRevisionMetadata)
 	for _, md := range metadata {
 		if arg.Filter.Revision == nil {
-			revs, err := s.backend.ListSecretRevisions(md.URI)
+			revs, err := s.state.ListSecretRevisions(md.URI)
 			if err != nil {
 				return params.ListSecretResults{}, errors.Trace(err)
 			}
 			revisionMetadata[md.URI.ID] = revs
 			continue
 		}
-		rev, err := s.backend.GetSecretRevision(md.URI, *arg.Filter.Revision)
+		rev, err := s.state.GetSecretRevision(md.URI, *arg.Filter.Revision)
 		if err != nil {
 			return params.ListSecretResults{}, errors.Trace(err)
 		}
@@ -129,7 +129,7 @@ func (s *SecretsAPI) ListSecrets(arg params.ListSecretsArgs) (params.ListSecretR
 			if arg.Filter.Revision != nil {
 				rev = *arg.Filter.Revision
 			}
-			val, backendId, err := s.backend.GetSecretValue(m.URI, rev)
+			val, backendId, err := s.state.GetSecretValue(m.URI, rev)
 			if backendId != nil {
 				val, err = s.secretContentFromStore(*backendId)
 			}

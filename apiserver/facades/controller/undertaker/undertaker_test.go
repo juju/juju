@@ -41,7 +41,7 @@ func (s *undertakerSuite) setupStateAndAPI(c *gc.C, isSystem bool, modelName str
 
 	st := newMockState(names.NewUserTag("admin"), modelName, isSystem)
 	s.secrets = &mockSecrets{}
-	api, err := undertaker.NewUndertaker(st, nil, authorizer, func() (provider.SecretStoreProvider, provider.Model, error) {
+	api, err := undertaker.NewUndertaker(st, nil, authorizer, func() (provider.SecretBackendProvider, provider.Model, error) {
 		return s.secrets, st.model, nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -58,7 +58,7 @@ func (s *undertakerSuite) TestNoPerms(c *gc.C) {
 		_, err := undertaker.NewUndertaker(
 			st,
 			nil,
-			authorizer, func() (provider.SecretStoreProvider, provider.Model, error) {
+			authorizer, func() (provider.SecretBackendProvider, provider.Model, error) {
 				return nil, nil, errors.NotImplemented
 			},
 		)

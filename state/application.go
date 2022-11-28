@@ -688,7 +688,13 @@ func (a *Application) removeOps(asserts bson.D, op *ForcedOperation) ([]txn.Op, 
 		return nil, errors.Trace(err)
 	}
 	ops = append(ops, secretPermissionsOps...)
-	secretLabelOps, err := a.st.removeSecretLabelOps(a.ApplicationTag())
+	secretLabelOps, err := a.st.removeOwnerSecretLabelOps(a.ApplicationTag())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ops = append(ops, secretLabelOps...)
+
+	secretLabelOps, err = a.st.removeConsumerSecretLabelOps(a.ApplicationTag())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -2751,7 +2757,11 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation
 	if op.FatalError(err) {
 		return nil, errors.Trace(err)
 	}
-	secretLabelOps, err := a.st.removeSecretLabelOps(u.Tag())
+	secretOwnerLabelOps, err := a.st.removeOwnerSecretLabelOps(u.Tag())
+	if op.FatalError(err) {
+		return nil, errors.Trace(err)
+	}
+	secretConsumerLabelOps, err := a.st.removeConsumerSecretLabelOps(u.Tag())
 	if op.FatalError(err) {
 		return nil, errors.Trace(err)
 	}
@@ -2781,7 +2791,8 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation
 	ops = append(ops, resOps...)
 	ops = append(ops, hostOps...)
 	ops = append(ops, secretPermissionsOps...)
-	ops = append(ops, secretLabelOps...)
+	ops = append(ops, secretOwnerLabelOps...)
+	ops = append(ops, secretConsumerLabelOps...)
 
 	m, err := a.st.Model()
 	if err != nil {

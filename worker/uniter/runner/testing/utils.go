@@ -147,7 +147,7 @@ func (ft *FakeTicket) Ready() <-chan struct{} {
 
 type SecretsContextAccessor struct {
 	context.SecretsAccessor
-	jujusecrets.Store
+	jujusecrets.Backend
 }
 
 func (s SecretsContextAccessor) SecretMetadata(filter secrets.Filter) ([]secrets.SecretOwnerMetadata, error) {

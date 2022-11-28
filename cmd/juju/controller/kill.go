@@ -105,8 +105,9 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 	}
 	store := c.ClientStore()
 	if !c.assumeYes {
-		if err := confirmDestruction(ctx, controllerName); err != nil {
-			return err
+		fmt.Fprintf(ctx.Stdout, destroySysMsg, controllerName)
+		if err := jujucmd.UserConfirmYes(ctx); err != nil {
+			return errors.Annotate(err, "controller destruction")
 		}
 	}
 

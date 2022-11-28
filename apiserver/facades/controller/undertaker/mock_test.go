@@ -182,7 +182,7 @@ func (w *mockWatcher) Changes() <-chan struct{} {
 }
 
 type mockSecrets struct {
-	provider.SecretStoreProvider
+	provider.SecretBackendProvider
 	cleanedUUID string
 }
 

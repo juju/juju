@@ -31,14 +31,14 @@ type kubernetesSuite struct {
 
 var _ = gc.Suite(&kubernetesSuite{})
 
-func (*kubernetesSuite) TestStoreConfig(c *gc.C) {
-	p, err := provider.Provider(kubernetes.Store)
+func (*kubernetesSuite) TestBackendConfig(c *gc.C) {
+	p, err := provider.Provider(kubernetes.Backend)
 	c.Assert(err, jc.ErrorIsNil)
-	cfg, err := p.StoreConfig(mockModel{}, nil, nil, nil)
+	cfg, err := p.BackendConfig(mockModel{}, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg, jc.DeepEquals, &provider.StoreConfig{
-		StoreType: kubernetes.Store,
-		Params: map[string]interface{}{
+	c.Assert(cfg, jc.DeepEquals, &provider.BackendConfig{
+		BackendType: kubernetes.Backend,
+		Config: map[string]interface{}{
 			"ca-certs":            []string{"cert-data"},
 			"controller-uuid":     coretesting.ControllerTag.Id(),
 			"credential":          `{"auth-type":"access-key","Attributes":{"foo":"bar"}}`,
@@ -51,7 +51,7 @@ func (*kubernetesSuite) TestStoreConfig(c *gc.C) {
 	})
 }
 
-func (s *kubernetesSuite) assertStoreConfigWithTag(c *gc.C, isControllerCloud bool) {
+func (s *kubernetesSuite) assertBackendConfigWithTag(c *gc.C, isControllerCloud bool) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -89,16 +89,16 @@ func (s *kubernetesSuite) assertStoreConfigWithTag(c *gc.C, isControllerCloud bo
 		).Return("token", nil),
 	)
 
-	p, err := provider.Provider(kubernetes.Store)
+	p, err := provider.Provider(kubernetes.Backend)
 	c.Assert(err, jc.ErrorIsNil)
-	storeCfg, err := p.StoreConfig(model, tag,
+	backendCfg, err := p.BackendConfig(model, tag,
 		provider.SecretRevisions{"owned-a": set.NewInts(1)},
 		provider.SecretRevisions{"read-b": set.NewInts(1, 2)},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	expected := &provider.StoreConfig{
-		StoreType: kubernetes.Store,
-		Params: map[string]interface{}{
+	expected := &provider.BackendConfig{
+		BackendType: kubernetes.Backend,
+		Config: map[string]interface{}{
 			"ca-certs":            []string{"cert-data"},
 			"controller-uuid":     coretesting.ControllerTag.Id(),
 			"credential":          `{"auth-type":"access-key","Attributes":{"Token":"token","password":"","username":""}}`,
@@ -110,18 +110,18 @@ func (s *kubernetesSuite) assertStoreConfigWithTag(c *gc.C, isControllerCloud bo
 		},
 	}
 	if isControllerCloud {
-		expected.Params["endpoint"] = "https://8.6.8.6:8888"
-		expected.Params["is-controller-cloud"] = false
+		expected.Config["endpoint"] = "https://8.6.8.6:8888"
+		expected.Config["is-controller-cloud"] = false
 	}
-	c.Assert(storeCfg, jc.DeepEquals, expected)
+	c.Assert(backendCfg, jc.DeepEquals, expected)
 }
 
-func (s *kubernetesSuite) TestStoreConfigWithTag(c *gc.C) {
-	s.assertStoreConfigWithTag(c, false)
+func (s *kubernetesSuite) TestBackendConfigWithTag(c *gc.C) {
+	s.assertBackendConfigWithTag(c, false)
 }
 
-func (s *kubernetesSuite) TestStoreConfigWithTagWithControllerCloud(c *gc.C) {
-	s.assertStoreConfigWithTag(c, true)
+func (s *kubernetesSuite) TestBackendConfigWithTagWithControllerCloud(c *gc.C) {
+	s.assertBackendConfigWithTag(c, true)
 }
 
 func (s *kubernetesSuite) TestCleanupSecrets(c *gc.C) {
@@ -160,13 +160,13 @@ func (s *kubernetesSuite) TestCleanupSecrets(c *gc.C) {
 		).Return("token", nil),
 	)
 
-	p, err := provider.Provider(kubernetes.Store)
+	p, err := provider.Provider(kubernetes.Backend)
 	c.Assert(err, jc.ErrorIsNil)
 	err = p.CleanupSecrets(model, tag, provider.SecretRevisions{"removed": set.NewInts(1, 2)})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *kubernetesSuite) TestNewStore(c *gc.C) {
+func (s *kubernetesSuite) TestNewBackend(c *gc.C) {
 	model := mockModel{}
 	s.PatchValue(&kubernetes.NewCaas, func(ctx context.Context, args environs.OpenParams) (kubernetes.Broker, error) {
 		cred := cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{"foo": "bar"})
@@ -186,11 +186,11 @@ func (s *kubernetesSuite) TestNewStore(c *gc.C) {
 		})
 		return nil, errors.New("boom")
 	})
-	p, err := provider.Provider(kubernetes.Store)
+	p, err := provider.Provider(kubernetes.Backend)
 	c.Assert(err, jc.ErrorIsNil)
-	cfg, err := p.StoreConfig(model, nil, nil, nil)
+	cfg, err := p.BackendConfig(model, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = p.NewStore(cfg)
+	_, err = p.NewBackend(cfg)
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
