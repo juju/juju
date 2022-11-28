@@ -5,14 +5,12 @@ package secrets
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/secrets/provider/juju"
 	"github.com/juju/juju/secrets/provider/kubernetes"
@@ -68,7 +66,7 @@ func providerForModel(model Model) (provider.SecretBackendProvider, error) {
 	backendType := cfg.SecretStore()
 	if backendType == "" {
 		backendType = juju.Backend
-		if featureflag.Enabled(feature.DeveloperMode) && model.Type() == state.ModelTypeCAAS {
+		if model.Type() == state.ModelTypeCAAS {
 			backendType = kubernetes.Backend
 		}
 	}

@@ -30,7 +30,6 @@ type secretsSuite struct {
 var _ = gc.Suite(&secretsSuite{})
 
 func (s *secretsSuite) SetUpTest(c *gc.C) {
-	s.SetInitialFeatureFlags(feature.DeveloperMode)
 	s.IsolationSuite.SetUpTest(c)
 	s.JujuOSEnvSuite.SetUpTest(c)
 }

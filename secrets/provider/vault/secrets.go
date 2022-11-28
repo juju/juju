@@ -179,10 +179,11 @@ func (p vaultProvider) adminConfig(m provider.Model) (*provider.BackendConfig, e
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	vaultCfgStr := cfg.SecretBackendConfig()
-	if vaultCfgStr == "" {
-		return nil, errors.NotValidf("empty vault config")
-	}
+	// TODO(wallyworld) - look up from controller
+	vaultCfgStr := ""
+	//if vaultCfgStr == "" {
+	//	return nil, errors.NotValidf("empty vault config")
+	//}
 	var vaultCfg vaultConfig
 	if errJ := json.Unmarshal([]byte(vaultCfgStr), &vaultCfg); errJ != nil {
 		if errY := yaml.Unmarshal([]byte(vaultCfgStr), &vaultCfg); errY != nil {

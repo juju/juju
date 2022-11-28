@@ -4,8 +4,6 @@
 package vault_test
 
 import (
-	"fmt"
-
 	"github.com/hashicorp/vault/api"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -103,12 +101,10 @@ func (mockModel) CloudCredential() (*cloud.Credential, error) {
 }
 
 func (mockModel) Config() (*config.Config, error) {
-	cert := coretesting.CACert
 	return config.New(config.UseDefaults, map[string]interface{}{
-		"name":                  "fred",
-		"type":                  "lxd",
-		"uuid":                  coretesting.ModelTag.Id(),
-		"secret-backend":        "vault",
-		"secret-backend-config": fmt.Sprintf(`{"endpoint":"http://vault-ip:8200/","token":"vault-token","namespace":"ns","ca-cert":%q,"tls-server-name":"tls-server"}`, cert),
+		"name":           "fred",
+		"type":           "lxd",
+		"uuid":           coretesting.ModelTag.Id(),
+		"secret-backend": "vault",
 	})
 }
