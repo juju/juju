@@ -347,7 +347,7 @@ func (s *charmsSuite) TestUploadRepackagesNestedArchives(c *gc.C) {
 func (s *charmsSuite) TestNonLocalCharmUploadFailsIfNotMigrating(c *gc.C) {
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	curl := charm.MustParseURL(
-		fmt.Sprintf("cs:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
+		fmt.Sprintf("ch:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
 	)
 	info := state.CharmInfo{
 		Charm:       ch,
@@ -363,14 +363,14 @@ func (s *charmsSuite) TestNonLocalCharmUploadFailsIfNotMigrating(c *gc.C) {
 }
 
 func (s *charmsSuite) TestNonLocalCharmUpload(c *gc.C) {
-	// Check that upload of charms with the "cs:" schema works (for
+	// Check that upload of charms with the "ch:" schema works (for
 	// model migrations).
 	s.setModelImporting(c)
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 
-	resp := s.uploadRequest(c, s.charmsURI("?schema=cs&series=quantal"), "application/zip", &fileReader{path: ch.Path})
+	resp := s.uploadRequest(c, s.charmsURI("?schema=ch&series=quantal"), "application/zip", &fileReader{path: ch.Path})
 
-	expectedURL := charm.MustParseURL("cs:quantal/dummy-1")
+	expectedURL := charm.MustParseURL("ch:quantal/dummy-1")
 	s.assertUploadResponse(c, resp, expectedURL.String())
 	sch, err := s.State.Charm(expectedURL)
 	c.Assert(err, jc.ErrorIsNil)
@@ -419,9 +419,9 @@ func (s *charmsSuite) TestCharmUploadWithUserOverride(c *gc.C) {
 	s.setModelImporting(c)
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 
-	resp := s.uploadRequest(c, s.charmsURI("?schema=cs&user=bobo"), "application/zip", &fileReader{path: ch.Path})
+	resp := s.uploadRequest(c, s.charmsURI("?schema=ch"), "application/zip", &fileReader{path: ch.Path})
 
-	expectedURL := charm.MustParseURL("cs:~bobo/dummy-1")
+	expectedURL := charm.MustParseURL("ch:dummy-1")
 	s.assertUploadResponse(c, resp, expectedURL.String())
 	sch, err := s.State.Charm(expectedURL)
 	c.Assert(err, jc.ErrorIsNil)
@@ -433,9 +433,9 @@ func (s *charmsSuite) TestNonLocalCharmUploadWithRevisionOverride(c *gc.C) {
 	s.setModelImporting(c)
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 
-	resp := s.uploadRequest(c, s.charmsURI("?schema=cs&&revision=99"), "application/zip", &fileReader{path: ch.Path})
+	resp := s.uploadRequest(c, s.charmsURI("?schema=ch&&revision=99"), "application/zip", &fileReader{path: ch.Path})
 
-	expectedURL := charm.MustParseURL("cs:dummy-99")
+	expectedURL := charm.MustParseURL("ch:dummy-99")
 	s.assertUploadResponse(c, resp, expectedURL.String())
 	sch, err := s.State.Charm(expectedURL)
 	c.Assert(err, jc.ErrorIsNil)
