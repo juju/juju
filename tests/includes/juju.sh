@@ -394,9 +394,9 @@ destroy_controller() {
 
 	echo "====> Destroying juju ($(green "${name}"))"
 	if [[ ${KILL_CONTROLLER:-} != "true" ]]; then
-		echo "${name}" | xargs -I % juju destroy-controller --destroy-all-models -y % >"${output}" 2>&1
+		echo "${name}" | xargs -I % juju destroy-controller --destroy-all-models --no-prompt % >"${output}" 2>&1
 	else
-		echo "${name}" | xargs -I % juju kill-controller -t 0 -y % >"${output}" 2>&1
+		echo "${name}" | xargs -I % juju kill-controller -t 0 --no-prompt % >"${output}" 2>&1
 	fi
 
 	set +e
