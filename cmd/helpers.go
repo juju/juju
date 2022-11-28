@@ -22,7 +22,7 @@ import (
 
 const yesNoMsg = "\nContinue [y/N]? "
 
-var nameVerificationMsg = "\nTo continue, enter the name of the %s to be destroyed:"[1:]
+var nameVerificationMsg = "\nTo continue, enter the name of the %s to be destroyed: "
 
 type userAbortedError string
 
@@ -77,10 +77,10 @@ func CheckSkipConfirmEnvVar() (bool, error) {
 	if envVarIsSet {
 		envSkipConfirmValue, err := strconv.ParseBool(envSkipConfirmValueStr)
 		if err != nil {
-			return false, errors.Errorf("Unexpected value of JUJU_SKIP_CONFIRMATION env var, needs to be bool.")
+			return false, errors.Errorf("Unexpected value of %s env var, needs to be bool.", osenv.JujuSkipConfirmationEnvKey)
 		}
 		return envSkipConfirmValue, nil
 	} else {
-		return false, errors.NewNotFound(nil, "JUJU_SKIP+CONFIRMATION is not defined.")
+		return false, errors.NewNotFound(nil, osenv.JujuSkipConfirmationEnvKey+" is not defined.")
 	}
 }
