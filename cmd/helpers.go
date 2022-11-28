@@ -6,7 +6,6 @@ package cmd
 import (
 	"bufio"
 	"fmt"
-	"github.com/juju/juju/juju/osenv"
 	"io"
 	"os"
 	"strconv"
@@ -14,6 +13,8 @@ import (
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
+
+	"github.com/juju/juju/juju/osenv"
 )
 
 // This file contains helper functions for generic operations commonly needed
@@ -70,15 +71,16 @@ func UserConfirmName(verificationName string, objectType string, ctx *cmd.Contex
 }
 
 // CheckSkipConfirmEnvVar check if JujuSkipConfirmationEnvKey environment variable is defined, and if yes -
-// return it's boolean value
+// returns its boolean value, if bo - returns false value
 func CheckSkipConfirmEnvVar() (bool, error) {
-	if envSkipConfirmValueStr := os.Getenv(osenv.JujuSkipConfirmationEnvKey); envSkipConfirmValueStr != "" {
+	envSkipConfirmValueStr, envVarIsSet := os.LookupEnv(osenv.JujuSkipConfirmationEnvKey)
+	if envVarIsSet {
 		envSkipConfirmValue, err := strconv.ParseBool(envSkipConfirmValueStr)
 		if err != nil {
 			return false, errors.Errorf("Unexpected value of JUJU_SKIP_CONFIRMATION env var, needs to be bool.")
 		}
 		return envSkipConfirmValue, nil
 	} else {
-		return false, nil
+		return false, errors.NewNotFound(nil, "JUJU_SKIP+CONFIRMATION is not defined.")
 	}
 }
