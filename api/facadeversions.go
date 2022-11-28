@@ -103,6 +103,7 @@ var facadeVersions = map[string]int{
 	"ResourcesHookContext":         1,
 	"RetryStrategy":                1,
 	"SecretsTriggerWatcher":        1,
+	"SecretBackends":               1,
 	"Secrets":                      1,
 	"SecretsManager":               1,
 	"Singular":                     2,

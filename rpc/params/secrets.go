@@ -222,3 +222,34 @@ type GrantRevokeSecretArg struct {
 	// Role is the role being granted.
 	Role string `json:"role"`
 }
+
+// ListSecretBackendsResults holds secret backend results.
+type ListSecretBackendsResults struct {
+	Results []SecretBackend `json:"results"`
+}
+
+// AddSecretBackendArgs holds args for adding secret backends.
+type AddSecretBackendArgs struct {
+	Args []SecretBackend `json:"args"`
+}
+
+// ListSecretBackendsArgs holds the args for listing secret backends.
+type ListSecretBackendsArgs struct {
+	Reveal bool `json:"reveal"`
+}
+
+// SecretBackend holds secret backend details.
+type SecretBackend struct {
+	// Name is the name of the backend.
+	Name string `json:"name"`
+
+	// Backend is the backend provider, eg "vault".
+	Backend string `json:"backend"`
+
+	// TokenRotateInterval is the interval to rotate
+	// the backend master access token.
+	TokenRotateInterval time.Duration `json:"token-rotate-interval,omitempty"`
+
+	// Config are the backend's configuration attributes.
+	Config map[string]interface{} `json:"config"`
+}

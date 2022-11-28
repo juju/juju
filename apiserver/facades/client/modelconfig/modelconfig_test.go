@@ -42,12 +42,11 @@ func (s *modelconfigSuite) SetUpTest(c *gc.C) {
 	}
 	s.backend = &mockBackend{
 		cfg: config.ConfigValues{
-			"type":                  {"dummy", "model"},
-			"agent-version":         {"1.2.3.4", "model"},
-			"ftp-proxy":             {"http://proxy", "model"},
-			"authorized-keys":       {coretesting.FakeAuthKeys, "model"},
-			"charmhub-url":          {"http://meshuggah.rocks", "model"},
-			"secret-backend-config": {"shhh", "model"},
+			"type":            {"dummy", "model"},
+			"agent-version":   {"1.2.3.4", "model"},
+			"ftp-proxy":       {"http://proxy", "model"},
+			"authorized-keys": {coretesting.FakeAuthKeys, "model"},
+			"charmhub-url":    {"http://meshuggah.rocks", "model"},
 		},
 	}
 	var err error
@@ -59,11 +58,10 @@ func (s *modelconfigSuite) TestAdminModelGet(c *gc.C) {
 	result, err := s.api.ModelGet()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Config, jc.DeepEquals, map[string]params.ConfigValue{
-		"type":                  {"dummy", "model"},
-		"ftp-proxy":             {"http://proxy", "model"},
-		"agent-version":         {Value: "1.2.3.4", Source: "model"},
-		"charmhub-url":          {"http://meshuggah.rocks", "model"},
-		"secret-backend-config": {"shhh", "model"},
+		"type":          {"dummy", "model"},
+		"ftp-proxy":     {"http://proxy", "model"},
+		"agent-version": {Value: "1.2.3.4", Source: "model"},
+		"charmhub-url":  {"http://meshuggah.rocks", "model"},
 	})
 }
 
@@ -97,32 +95,14 @@ func (s *modelconfigSuite) assertConfigValueMissing(c *gc.C, key string) {
 func (s *modelconfigSuite) TestAdminModelSet(c *gc.C) {
 	params := params.ModelSet{
 		Config: map[string]interface{}{
-			"some-key":              "value",
-			"other-key":             "other value",
-			"secret-backend-config": "shhhhhh",
+			"some-key":  "value",
+			"other-key": "other value",
 		},
 	}
 	err := s.api.ModelSet(params)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertConfigValue(c, "some-key", "value")
 	s.assertConfigValue(c, "other-key", "other value")
-}
-
-func (s *modelconfigSuite) TestUserModelSet(c *gc.C) {
-	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag:         names.NewUserTag("bruce@local"),
-		HasWriteTag: names.NewUserTag("bruce@local"),
-		AdminTag:    names.NewUserTag("mary@local"),
-	}
-	params := params.ModelSet{
-		Config: map[string]interface{}{
-			"some-key":              "value",
-			"other-key":             "other value",
-			"secret-backend-config": "shhhhhh",
-		},
-	}
-	err := s.api.ModelSet(params)
-	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
 func (s *modelconfigSuite) blockAllChanges(c *gc.C, msg string) {
