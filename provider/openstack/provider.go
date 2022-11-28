@@ -1400,70 +1400,22 @@ func (e *Environ) networksForInstance(
 	}
 	if len(networks) == 0 {
 		return nil, errors.New(
-			"space constraints and/or bindings were supplied, but no Openstack network is configured")
+			"space constraints and/or bindings were supplied, but no Openstack networks are configured")
 	}
 
+	subnetIDForZone, err := subnetInZone(args.AvailabilityZone, args.SubnetsToZones)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// TODO: *** Assume multiple networks.
 	// We know that we are operating in the single configured network.
 	networkID := networks[0].NetworkId
-
-	// Attempt to filter the constraint/binding subnet IDs for the supplied
-	// availability zone.
-	// The zone is supplied by the provisioner based on its attempt to maintain
-	// distribution of units across zones.
-	// The zones recorded against O7k subnets in Juju are affected by the
-	// `availability_zone_hints` attribute on the network where they reside,
-	// and the default AZ configuration for the project.
-	// They are a read-only attribute.
-	// If a subnet in the subnets-to-zones map has no zones, we assume a basic
-	// O7k set-up where networks are not zone-limited. We log a warning and
-	// consider all the supplied subnets.
-	// See:
-	// - https://docs.openstack.org/neutron/latest/admin/config-az.html#availability-zone-related-attributes
-	// - https://docs.openstack.org/neutron/latest/admin/ovn/availability_zones.html#network-availability-zones
-	az := args.AvailabilityZone
-	subnetIDsForZone := make([][]network.Id, len(args.SubnetsToZones))
-	for i, nic := range args.SubnetsToZones {
-		subnetIDs, err := network.FindSubnetIDsForAvailabilityZone(az, nic)
-		if err != nil {
-			// We found no subnets in the zone.
-			// Add subnets without zone-limited networks.
-			for subnetID, zones := range nic {
-				if len(zones) == 0 {
-					logger.Warningf(
-						"subnet %q is not in a network with availability zones listed; assuming availability in zone %q",
-						subnetID, az)
-					subnetIDs = append(subnetIDs, subnetID)
-				}
-			}
-
-			if len(subnetIDs) == 0 {
-				// If we still have no candidate subnets, then they are all in
-				// networks with availability zones, and none of those zones
-				// match the input one. Return the error we have in hand.
-				return nil, errors.Annotatef(err, "determining subnets in zone %q", az)
-			}
-		}
-
-		// Filter out any fan networks.
-		subnetIDsForZone[i] = network.FilterInFanNetwork(subnetIDs)
-	}
-
-	// For each list of subnet IDs that satisfy space and zone constraints,
-	// choose a single one at random.
-	subnetIDForZone := make([]network.Id, len(subnetIDsForZone))
-	for i, subnetIDs := range subnetIDsForZone {
-		if len(subnetIDs) == 1 {
-			subnetIDForZone[i] = subnetIDs[0]
-			continue
-		}
-
-		subnetIDForZone[i] = subnetIDs[rand.Intn(len(subnetIDs))]
-	}
 
 	// Set the subnetID on the network for all networks.
 	// For each of the subnetIDs selected, create a port for each one.
 	subnetNetworks := make([]nova.ServerNetworks, 0, len(subnetIDForZone))
-	netInfo := make(network.InterfaceInfos, len(subnetIDsForZone))
+	netInfo := make(network.InterfaceInfos, len(subnetIDForZone))
 	for i, subnetID := range subnetIDForZone {
 		var port *neutron.PortV2
 		port, err = e.networking.CreatePort(e.uuid, networkID, subnetID)
@@ -1506,6 +1458,63 @@ func (e *Environ) networksForInstance(
 	return subnetNetworks, nil
 }
 
+// subnetInZone chooses a subnet at random for each entry in the input slice of
+// subnet:zones that is in the input availability zone.
+func subnetInZone(az string, subnetsToZones []map[network.Id][]string) ([]network.Id, error) {
+	// Attempt to filter the constraint/binding subnet IDs for the supplied
+	// availability zone.
+	// The zone is supplied by the provisioner based on its attempt to maintain
+	// distribution of units across zones.
+	// The zones recorded against O7k subnets in Juju are affected by the
+	// `availability_zone_hints` attribute on the network where they reside,
+	// and the default AZ configuration for the project.
+	// They are a read-only attribute.
+	// If a subnet in the subnets-to-zones map has no zones, we assume a basic
+	// O7k set-up where networks are not zone-limited. We log a warning and
+	// consider all the supplied subnets.
+	// See:
+	// - https://docs.openstack.org/neutron/latest/admin/config-az.html#availability-zone-related-attributes
+	// - https://docs.openstack.org/neutron/latest/admin/ovn/availability_zones.html#network-availability-zones
+	subnetIDsForZone := make([][]network.Id, len(subnetsToZones))
+	for i, nic := range subnetsToZones {
+		subnetIDs, err := network.FindSubnetIDsForAvailabilityZone(az, nic)
+		if err != nil {
+			// We found no subnets in the zone.
+			// Add subnets without zone-limited networks.
+			for subnetID, zones := range nic {
+				if len(zones) == 0 {
+					logger.Warningf(
+						"subnet %q is not in a network with availability zones listed; assuming availability in zone %q",
+						subnetID, az)
+					subnetIDs = append(subnetIDs, subnetID)
+				}
+			}
+
+			if len(subnetIDs) == 0 {
+				// If we still have no candidate subnets, then they are all in
+				// networks with availability zones, and none of those zones
+				// match the input one. Return the error we have in hand.
+				return nil, errors.Annotatef(err, "determining subnets in zone %q", az)
+			}
+		}
+
+		subnetIDsForZone[i] = network.FilterInFanNetwork(subnetIDs)
+	}
+
+	// For each list of subnet IDs that satisfy space and zone constraints,
+	// choose a single one at random.
+	subnetIDForZone := make([]network.Id, len(subnetIDsForZone))
+	for i, subnetIDs := range subnetIDsForZone {
+		if len(subnetIDs) == 1 {
+			subnetIDForZone[i] = subnetIDs[0]
+			continue
+		}
+		subnetIDForZone[i] = subnetIDs[rand.Intn(len(subnetIDs))]
+	}
+
+	return subnetIDForZone, nil
+}
+
 // DeletePorts goes through and attempts to delete any ports that have been
 // created during the creation of the networks for the given instance.
 func (e *Environ) DeletePorts(networks []nova.ServerNetworks) error {
@@ -1531,35 +1540,38 @@ func (e *Environ) DeletePorts(networks []nova.ServerNetworks) error {
 
 // networksForModel returns the Openstack network list based on current model
 // configuration.
-// Note that the current implementation of DefaultNetworks means that this will
-// always return a single network, or none.
 func (e *Environ) networksForModel() ([]nova.ServerNetworks, error) {
-	networks, err := e.networking.DefaultNetworks()
-	if err != nil {
-		return nil, errors.Annotate(err, "getting initial networks")
+	cfgNets := e.ecfg().networks()
+	o7kNets := set.NewStrings()
+
+	for _, cfgNet := range cfgNets {
+		networkIDs, err := e.networking.ResolveNetworks(cfgNet, false)
+		if err != nil {
+			logger.Warningf("filtering networks for %q", cfgNet)
+		}
+
+		for _, netID := range networkIDs {
+			o7kNets.Add(netID)
+		}
 	}
 
-	usingNetwork := e.ecfg().networks()[0]
-	networkID, err := e.networking.ResolveNetwork(usingNetwork, false)
-	if err != nil {
-		if usingNetwork == "" {
-			// If there is no network configured, we only throw out when the
-			// error reports multiple Openstack networks.
-			// If there are no Openstack networks at all (such as Canonistack),
-			// having no network config is not an error condition.
-			if strings.HasPrefix(err.Error(), "multiple networks") {
-				return nil, errors.New(noNetConfigMsg(err))
-			}
+	if len(o7kNets) == 0 {
+		if len(cfgNets) == 1 && cfgNets[0] == "" {
 			return nil, nil
 		}
-		return nil, errors.Trace(err)
+		return nil, errors.Errorf("unable to determine networks for configured list: %v", cfgNets)
 	}
 
-	logger.Debugf("using network id %q", networkID)
-	return append(networks, nova.ServerNetworks{NetworkId: networkID}), nil
+	logger.Debugf("using network IDs %v", o7kNets.Values())
+
+	result := make([]nova.ServerNetworks, o7kNets.Size())
+	for i, netID := range o7kNets.Values() {
+		result[i] = nova.ServerNetworks{NetworkId: netID}
+	}
+	return result, nil
 }
 
-func (e *Environ) configureRootDisk(ctx context.ProviderCallContext, args environs.StartInstanceParams,
+func (e *Environ) configureRootDisk(_ context.ProviderCallContext, args environs.StartInstanceParams,
 	spec *instances.InstanceSpec, runOpts *nova.RunServerOpts) error {
 	rootDiskSource := rootDiskSourceLocal
 	if args.Constraints.HasRootDiskSource() {

@@ -910,8 +910,7 @@ func (s *providerUnitTests) TestNetworksForInstance(c *gc.C) {
 	defer ctrl.Finish()
 
 	mockNetworking := NewMockNetworking(ctrl)
-	mockNetworking.EXPECT().ResolveNetwork("network-id-foo", false).Return("network-id-foo", nil)
-	expectDefaultNetworks(mockNetworking)
+	mockNetworking.EXPECT().ResolveNetworks("network-id-foo", false).Return([]string{"network-id-foo"}, nil)
 
 	netCfg := NewMockNetworkingConfig(ctrl)
 
@@ -936,7 +935,7 @@ func (s *providerUnitTests) TestNetworksForInstanceWithAZ(c *gc.C) {
 	defer ctrl.Finish()
 
 	mockNetworking := NewMockNetworking(ctrl)
-	mockNetworking.EXPECT().ResolveNetwork("network-id-foo", false).Return("network-id-foo", nil)
+	mockNetworking.EXPECT().ResolveNetworks("network-id-foo", false).Return([]string{"network-id-foo"}, nil)
 	mockNetworking.EXPECT().CreatePort("", "network-id-foo", network.Id("subnet-foo")).Return(
 		&neutron.PortV2{
 			FixedIPs: []neutron.PortFixedIPsV2{{
@@ -946,7 +945,6 @@ func (s *providerUnitTests) TestNetworksForInstanceWithAZ(c *gc.C) {
 			Id:         "port-id",
 			MACAddress: "mac-address",
 		}, nil)
-	expectDefaultNetworks(mockNetworking)
 
 	netCfg := NewMockNetworkingConfig(ctrl)
 	netCfg.EXPECT().AddNetworkConfig(network.InterfaceInfos{{
@@ -979,8 +977,7 @@ func (s *providerUnitTests) TestNetworksForInstanceWithNoMatchingAZ(c *gc.C) {
 	defer ctrl.Finish()
 
 	mockNetworking := NewMockNetworking(ctrl)
-	mockNetworking.EXPECT().ResolveNetwork("network-id-foo", false).Return("network-id-foo", nil)
-	expectDefaultNetworks(mockNetworking)
+	mockNetworking.EXPECT().ResolveNetworks("network-id-foo", false).Return([]string{"network-id-foo"}, nil)
 
 	netCfg := NewMockNetworkingConfig(ctrl)
 
@@ -1001,7 +998,7 @@ func (s *providerUnitTests) TestNetworksForInstanceNoSubnetAZsStillConsidered(c 
 	defer ctrl.Finish()
 
 	mockNetworking := NewMockNetworking(ctrl)
-	mockNetworking.EXPECT().ResolveNetwork("network-id-foo", false).Return("network-id-foo", nil)
+	mockNetworking.EXPECT().ResolveNetworks("network-id-foo", false).Return([]string{"network-id-foo"}, nil)
 	mockNetworking.EXPECT().CreatePort("", "network-id-foo", network.Id("subnet-foo")).Return(
 		&neutron.PortV2{
 			FixedIPs: []neutron.PortFixedIPsV2{{
@@ -1011,7 +1008,6 @@ func (s *providerUnitTests) TestNetworksForInstanceNoSubnetAZsStillConsidered(c 
 			Id:         "port-id",
 			MACAddress: "mac-address",
 		}, nil)
-	expectDefaultNetworks(mockNetworking)
 
 	netCfg := NewMockNetworkingConfig(ctrl)
 	netCfg.EXPECT().AddNetworkConfig(network.InterfaceInfos{{
@@ -1049,12 +1045,4 @@ func envWithNetworking(net Networking) *Environ {
 		},
 		networking: net,
 	}
-}
-
-// expectDefaultNetworks will always return an empty slice as that's the current
-// implementation. Once that's been resolved we can then send back a non-empty
-// slice.
-// For now replicate the existing behaviour.
-func expectDefaultNetworks(mock *MockNetworking) {
-	mock.EXPECT().DefaultNetworks().Return([]nova.ServerNetworks{}, nil)
 }
