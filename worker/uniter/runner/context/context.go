@@ -833,11 +833,13 @@ func (ctx *HookContext) getPendingSecretValue(uri *coresecrets.URI) (coresecrets
 	}
 	for _, v := range ctx.secretChanges.pendingCreates {
 		if v.URI != nil && v.URI.ID == uri.ID {
+			// The initial value of the secret is not stored in the database yet.
 			return v.Value, true
 		}
 	}
 	for _, v := range ctx.secretChanges.pendingUpdates {
 		if v.URI != nil && v.URI.ID == uri.ID {
+			// The new value of the secret is going to be updated to the database.
 			return v.Value, v.Value != nil && !v.Value.IsEmpty()
 		}
 	}
