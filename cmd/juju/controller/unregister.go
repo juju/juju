@@ -61,7 +61,6 @@ func (c *unregisterCommand) Info() *cmd.Info {
 
 // SetFlags implements Command.SetFlags.
 func (c *unregisterCommand) SetFlags(f *gnuflag.FlagSet) {
-	// This unused var is declared to pass a valid ptr into BoolVar
 	f.BoolVar(&c.assumeYes, "y", false, "Do not ask for confirmation. Option present for forward compatibility with Juju 2.9")
 	f.BoolVar(&c.assumeYes, "yes", false, "")
 	f.BoolVar(&c.assumeNoPrompt, "no-prompt", false, "Do not ask for confirmation")
@@ -102,14 +101,17 @@ func (c *unregisterCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	skipConfirm, skipErr := jujucmd.CheckSkipConfirmEnvVar()
-	if skipErr != nil {
-		return errors.Trace(skipErr)
+	if !c.assumeNoPrompt {
+		var skipErr error
+		c.assumeNoPrompt, skipErr = jujucmd.CheckSkipConfirmEnvVar()
+		if skipErr != nil {
+			return errors.Trace(skipErr)
+		}
 	}
 	if c.assumeYes {
 		fmt.Fprint(ctx.Stdout, "WARNING: '-y'/'--yes' flags a deprecated and will be removed in JUJU 3.1\n")
 	}
-	if !(c.assumeYes || c.assumeNoPrompt || skipConfirm) {
+	if !(c.assumeYes || c.assumeNoPrompt) {
 		fmt.Fprintf(ctx.Stdout, unregisterMsg, c.controllerName)
 		if err := jujucmd.UserConfirmName(c.controllerName, "controller", ctx); err != nil {
 			return errors.Annotate(err, "unregistering controller")

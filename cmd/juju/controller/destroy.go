@@ -185,14 +185,17 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	}
 	store := c.ClientStore()
 
-	skipConfirm, skipErr := jujucmd.CheckSkipConfirmEnvVar()
-	if skipErr != nil {
-		return errors.Trace(skipErr)
+	if !c.assumeNoPrompt {
+		var skipErr error
+		c.assumeNoPrompt, skipErr = jujucmd.CheckSkipConfirmEnvVar()
+		if skipErr != nil {
+			return errors.Trace(skipErr)
+		}
 	}
 	if c.assumeYes {
 		fmt.Fprint(ctx.Stdout, "WARNING: '-y'/'--yes' flags a deprecated and will be removed in JUJU 3.1\n")
 	}
-	if !(c.assumeYes || c.assumeNoPrompt || skipConfirm) {
+	if !(c.assumeYes || c.assumeNoPrompt) {
 		fmt.Fprintf(ctx.Stdout, destroySysMsg, controllerName)
 		if err := jujucmd.UserConfirmName(controllerName, "controller", ctx); err != nil {
 			return errors.Annotate(err, "controller destruction")
@@ -514,7 +517,6 @@ func (c *destroyCommand) getStorageAPI(modelName string) (storageAPI, error) {
 // SetFlags implements Command.SetFlags.
 func (c *destroyCommandBase) SetFlags(f *gnuflag.FlagSet) {
 	c.ControllerCommandBase.SetFlags(f)
-	// This unused var is declared to pass a valid ptr into BoolVar
 	f.BoolVar(&c.assumeYes, "y", false, "Do not ask for confirmation. Option present for forward compatibility with Juju 2.9")
 	f.BoolVar(&c.assumeYes, "yes", false, "")
 	f.BoolVar(&c.assumeNoPrompt, "no-prompt", false, "Do not ask for confirmation")
