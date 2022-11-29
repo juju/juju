@@ -106,7 +106,7 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 	store := c.ClientStore()
 
 	c.ConfirmationCommandBase.Run(ctx)
-	if !(c.ConfirmationCommandBase.NeedsConfirmation()) {
+	if c.ConfirmationCommandBase.NeedsConfirmation() {
 		fmt.Fprintf(ctx.Stdout, destroySysMsg, controllerName)
 		if err := jujucmd.UserConfirmName(controllerName, "controller", ctx); err != nil {
 			return errors.Annotate(err, "controller destruction")

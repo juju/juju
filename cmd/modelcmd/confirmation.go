@@ -49,5 +49,5 @@ func (c *ConfirmationCommandBase) Run(ctx *cmd.Context) error {
 
 // NeedsConfirmation returns if flags require the confirmation or not.
 func (c *ConfirmationCommandBase) NeedsConfirmation() bool {
-	return c.assumeYes || c.assumeNoPrompt
+	return !(c.assumeYes || c.assumeNoPrompt)
 }
