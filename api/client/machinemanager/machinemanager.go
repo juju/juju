@@ -63,13 +63,15 @@ func (client *Client) AddMachines(machineParams []params.AddMachineParams) ([]pa
 
 // DestroyMachinesWithParams removes the given set of machines, the semantics of which
 // is determined by the force and keep parameters.
-// TODO(wallyworld) - for Juju 3.0, this should be the preferred api to use.
-func (client *Client) DestroyMachinesWithParams(force, keep bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error) {
+func (client *Client) DestroyMachinesWithParams(force, keep, dryRun bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error) {
 	args := params.DestroyMachinesParams{
-		Force:       force,
-		Keep:        keep,
-		MachineTags: make([]string, 0, len(machines)),
-		MaxWait:     maxWait,
+		DestroyMachinesParamsV9: params.DestroyMachinesParamsV9{
+			Force:       force,
+			Keep:        keep,
+			MachineTags: make([]string, 0, len(machines)),
+			MaxWait:     maxWait,
+		},
+		DryRun: dryRun,
 	}
 	allResults := make([]params.DestroyMachineResult, len(machines))
 	index := make([]int, 0, len(machines))
@@ -90,39 +92,6 @@ func (client *Client) DestroyMachinesWithParams(force, keep bool, maxWait *time.
 		}
 		if n := len(result.Results); n != len(args.MachineTags) {
 			return nil, errors.Errorf("expected %d result(s), got %d", len(args.MachineTags), n)
-		}
-		for i, result := range result.Results {
-			allResults[index[i]] = result
-		}
-	}
-	return allResults, nil
-}
-
-func (client *Client) destroyMachines(method string, machines []string) ([]params.DestroyMachineResult, error) {
-	args := params.Entities{
-		Entities: make([]params.Entity, 0, len(machines)),
-	}
-	allResults := make([]params.DestroyMachineResult, len(machines))
-	index := make([]int, 0, len(machines))
-	for i, machineId := range machines {
-		if !names.IsValidMachine(machineId) {
-			allResults[i].Error = &params.Error{
-				Message: errors.NotValidf("machine ID %q", machineId).Error(),
-			}
-			continue
-		}
-		index = append(index, i)
-		args.Entities = append(args.Entities, params.Entity{
-			Tag: names.NewMachineTag(machineId).String(),
-		})
-	}
-	if len(args.Entities) > 0 {
-		var result params.DestroyMachineResults
-		if err := client.facade.FacadeCall(method, args, &result); err != nil {
-			return nil, errors.Trace(err)
-		}
-		if n := len(result.Results); n != len(args.Entities) {
-			return nil, errors.Errorf("expected %d result(s), got %d", len(args.Entities), n)
 		}
 		for i, result := range result.Results {
 			allResults[index[i]] = result

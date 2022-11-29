@@ -223,7 +223,7 @@ type ModelConfigAPI interface {
 
 type MachineManagerAPI interface {
 	AddMachines([]params.AddMachineParams) ([]params.AddMachinesResult, error)
-	DestroyMachinesWithParams(force, keep bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error)
+	DestroyMachinesWithParams(force, keep, dryRun bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error)
 	ModelUUID() (string, bool)
 	ProvisioningScript(params.ProvisioningScriptParams) (script string, err error)
 	Close() error
