@@ -101,7 +101,8 @@ func (s *PinSuite) TestPinned(c *gc.C) {
 		}},
 	}
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
-		pinned := getPinner(c, manager).Pinned()
+		pinned, err := getPinner(c, manager).Pinned()
+		c.Assert(err, jc.ErrorIsNil)
 		c.Check(pinned, gc.DeepEquals, map[string][]string{"redis": {s.machine}})
 	})
 }

@@ -46,6 +46,10 @@ func (a *LeadershipPinningAPI) PinnedLeadership() (map[string][]names.Tag, error
 		return nil, errors.Trace(err)
 	}
 
+	if callResult.Error != nil {
+		return nil, errors.Trace(callResult.Error)
+	}
+
 	pinned := make(map[string][]names.Tag, len(callResult.Result))
 	for app, entities := range callResult.Result {
 		entityTags := make([]names.Tag, len(entities))
