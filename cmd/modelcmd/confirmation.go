@@ -28,10 +28,11 @@ func (c *ConfirmationCommandBase) SetFlags(f *gnuflag.FlagSet) {
 // Init implements Command.Init.
 func (c *ConfirmationCommandBase) Init(args []string) error {
 	if !c.assumeNoPrompt {
-		assumeNoPrompt, skipErr := jujucmd.CheckSkipConfirmEnvVar()
+		assumeNoPrompt, skipErr := jujucmd.CheckSkipConfirmationEnvVar()
 		if skipErr != nil && !errors.Is(skipErr, errors.NotFound) {
 			return errors.Trace(skipErr)
-		} else {
+		}
+		if !errors.Is(skipErr, errors.NotFound) {
 			c.assumeNoPrompt = assumeNoPrompt
 		}
 	}
@@ -46,12 +47,7 @@ func (c *ConfirmationCommandBase) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-// GetAssumeYes returns assumeYes
-func (c *ConfirmationCommandBase) GetAssumeYes() bool {
-	return c.assumeYes
-}
-
-// GetAssumeNoPrompt returns assumeNoPrompt
-func (c *ConfirmationCommandBase) GetAssumeNoPrompt() bool {
-	return c.assumeNoPrompt
+// NeedsConfirmation returns if flags require the confirmation or not.
+func (c *ConfirmationCommandBase) NeedsConfirmation() bool {
+	return c.assumeYes || c.assumeNoPrompt
 }

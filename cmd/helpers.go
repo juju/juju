@@ -70,17 +70,16 @@ func UserConfirmName(verificationName string, objectType string, ctx *cmd.Contex
 	return nil
 }
 
-// CheckSkipConfirmEnvVar check if JujuSkipConfirmationEnvKey environment variable is defined, and if yes -
-// returns its boolean value, if bo - returns false value
-func CheckSkipConfirmEnvVar() (bool, error) {
+// CheckSkipConfirmationEnvVar returns parses and returns a boolean value for the skip confirmation env var.
+// If the env var is not set, return a NotFound error
+func CheckSkipConfirmationEnvVar() (bool, error) {
 	envSkipConfirmValueStr, envVarIsSet := os.LookupEnv(osenv.JujuSkipConfirmationEnvKey)
-	if envVarIsSet {
-		envSkipConfirmValue, err := strconv.ParseBool(envSkipConfirmValueStr)
-		if err != nil {
-			return false, errors.Errorf("Unexpected value of %s env var, needs to be bool.", osenv.JujuSkipConfirmationEnvKey)
-		}
-		return envSkipConfirmValue, nil
-	} else {
+	if !envVarIsSet {
 		return false, errors.NewNotFound(nil, osenv.JujuSkipConfirmationEnvKey+" is not defined.")
 	}
+	envSkipConfirmValue, err := strconv.ParseBool(envSkipConfirmValueStr)
+	if err != nil {
+		return false, errors.Errorf("Unexpected value of %s env var, needs to be bool.", osenv.JujuSkipConfirmationEnvKey)
+	}
+	return envSkipConfirmValue, nil
 }

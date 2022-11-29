@@ -78,8 +78,6 @@ func (c *unregisterCommand) Init(args []string) error {
 	}
 	c.controllerName, args = args[0], args[1:]
 
-	c.ConfirmationCommandBase.Init(args)
-
 	if err := jujuclient.ValidateControllerName(c.controllerName); err != nil {
 		return err
 	}
@@ -87,7 +85,7 @@ func (c *unregisterCommand) Init(args []string) error {
 	if err := cmd.CheckEmpty(args); err != nil {
 		return err
 	}
-	return nil
+	return c.ConfirmationCommandBase.Init(args)
 }
 
 var unregisterMsg = `
@@ -104,7 +102,7 @@ func (c *unregisterCommand) Run(ctx *cmd.Context) error {
 	}
 
 	c.ConfirmationCommandBase.Run(ctx)
-	if !(c.ConfirmationCommandBase.GetAssumeYes() || c.ConfirmationCommandBase.GetAssumeNoPrompt()) {
+	if !(c.ConfirmationCommandBase.NeedsConfirmation()) {
 		fmt.Fprintf(ctx.Stdout, unregisterMsg, c.controllerName)
 		if err := jujucmd.UserConfirmName(c.controllerName, "controller", ctx); err != nil {
 			return errors.Annotate(err, "unregistering controller")
