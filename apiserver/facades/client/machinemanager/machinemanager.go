@@ -507,7 +507,7 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep, d
 			fail(err)
 			continue
 		}
-		if force {
+		if force || dryRun {
 			info.DestroyedContainers, err = mm.destoryContainer(containers, force, keep, dryRun, maxWait)
 			if err != nil {
 				fail(err)
@@ -531,6 +531,12 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep, d
 				continue
 			}
 			logger.Warningf("could not deal with units' storage on machine %v: %v", machineTag.Id(), err)
+		}
+
+		if dryRun {
+			result.Info = &info
+			results[i] = result
+			continue
 		}
 
 		applicationNames, err := mm.leadership.GetMachineApplicationNames(machineTag.Id())
@@ -573,7 +579,6 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep, d
 					"could not unpin application leaders for machine %s with error %v", machineTag.Id(), result.Error)
 			}
 		}
-
 		result.Info = &info
 		results[i] = result
 	}
