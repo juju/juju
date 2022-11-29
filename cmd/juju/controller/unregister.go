@@ -83,9 +83,13 @@ func (c *unregisterCommand) Init(args []string) error {
 	}
 
 	if err := cmd.CheckEmpty(args); err != nil {
-		return err
+		return errors.Trace(err)
 	}
-	return c.ConfirmationCommandBase.Init(args)
+
+	if err := c.ConfirmationCommandBase.Init(args); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 var unregisterMsg = `
