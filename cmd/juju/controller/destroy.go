@@ -174,14 +174,6 @@ func (c *destroyCommand) Init(args []string) error {
 	if c.destroyStorage && c.releaseStorage {
 		return errors.New("--destroy-storage and --release-storage cannot both be specified")
 	}
-	if !c.assumeNoPrompt {
-		assumeNoPrompt, skipErr := jujucmd.CheckSkipConfirmEnvVar()
-		if skipErr != nil && !errors.Is(skipErr, errors.NotFound) {
-			return errors.Trace(skipErr)
-		} else {
-			c.assumeNoPrompt = assumeNoPrompt
-		}
-	}
 	return c.destroyCommandBase.Init(args)
 }
 
@@ -193,10 +185,8 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	}
 	store := c.ClientStore()
 
-	if c.assumeYes {
-		fmt.Fprint(ctx.Stdout, "WARNING: '-y'/'--yes' flags are deprecated and will be removed in Juju 3.1\n")
-	}
-	if !(c.assumeYes || c.assumeNoPrompt) {
+	c.ConfirmationCommandBase.Run(ctx)
+	if !(c.ConfirmationCommandBase.GetAssumeYes() || c.ConfirmationCommandBase.GetAssumeNoPrompt()) {
 		fmt.Fprintf(ctx.Stdout, destroySysMsg, controllerName)
 		if err := jujucmd.UserConfirmName(controllerName, "controller", ctx); err != nil {
 			return errors.Annotate(err, "controller destruction")
@@ -474,8 +464,7 @@ to be cleaned up.
 // destroy and controller kill commands require.
 type destroyCommandBase struct {
 	modelcmd.ControllerCommandBase
-	assumeYes      bool // DEPRECATED
-	assumeNoPrompt bool
+	modelcmd.ConfirmationCommandBase
 
 	// The following fields are for mocking out
 	// api behavior for testing.
@@ -518,13 +507,12 @@ func (c *destroyCommand) getStorageAPI(modelName string) (storageAPI, error) {
 // SetFlags implements Command.SetFlags.
 func (c *destroyCommandBase) SetFlags(f *gnuflag.FlagSet) {
 	c.ControllerCommandBase.SetFlags(f)
-	f.BoolVar(&c.assumeYes, "y", false, "Do not ask for confirmation. Option present for backwards compatibility with Juju 2.9")
-	f.BoolVar(&c.assumeYes, "yes", false, "")
-	f.BoolVar(&c.assumeNoPrompt, "no-prompt", false, "Do not ask for confirmation")
+	c.ConfirmationCommandBase.SetFlags(f)
 }
 
 // Init implements Command.Init.
 func (c *destroyCommandBase) Init(args []string) error {
+	c.ConfirmationCommandBase.Init(args)
 	switch len(args) {
 	case 0:
 		return errors.New("no controller specified")

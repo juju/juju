@@ -105,10 +105,8 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 	}
 	store := c.ClientStore()
 
-	if c.assumeYes {
-		fmt.Fprint(ctx.Stdout, "WARNING: '-y'/'--yes' flags are deprecated and will be removed in Juju 3.1\n")
-	}
-	if !(c.assumeYes || c.assumeNoPrompt) {
+	c.ConfirmationCommandBase.Run(ctx)
+	if !(c.destroyCommandBase.GetAssumeYes() || c.destroyCommandBase.GetAssumeNoPrompt()) {
 		fmt.Fprintf(ctx.Stdout, destroySysMsg, controllerName)
 		if err := jujucmd.UserConfirmName(controllerName, "controller", ctx); err != nil {
 			return errors.Annotate(err, "controller destruction")

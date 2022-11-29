@@ -27,6 +27,8 @@ func NewUnregisterCommand(store jujuclient.ClientStore) cmd.Command {
 // unregisterCommand removes a Juju controller from the local store.
 type unregisterCommand struct {
 	modelcmd.CommandBase
+	modelcmd.ConfirmationCommandBase
+
 	controllerName string
 	assumeYes      bool // DEPRECATED
 	assumeNoPrompt bool
@@ -61,9 +63,7 @@ func (c *unregisterCommand) Info() *cmd.Info {
 
 // SetFlags implements Command.SetFlags.
 func (c *unregisterCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.assumeYes, "y", false, "Do not ask for confirmation. Option present for backwards compatibility with Juju 2.9")
-	f.BoolVar(&c.assumeYes, "yes", false, "")
-	f.BoolVar(&c.assumeNoPrompt, "no-prompt", false, "Do not ask for confirmation")
+	c.ConfirmationCommandBase.SetFlags(f)
 }
 
 // SetClientStore implements Command.SetClientStore.
@@ -78,14 +78,7 @@ func (c *unregisterCommand) Init(args []string) error {
 	}
 	c.controllerName, args = args[0], args[1:]
 
-	if !c.assumeNoPrompt {
-		assumeNoPrompt, skipErr := jujucmd.CheckSkipConfirmEnvVar()
-		if skipErr != nil && !errors.Is(skipErr, errors.NotFound) {
-			return errors.Trace(skipErr)
-		} else {
-			c.assumeNoPrompt = assumeNoPrompt
-		}
-	}
+	c.ConfirmationCommandBase.Init(args)
 
 	if err := jujuclient.ValidateControllerName(c.controllerName); err != nil {
 		return err
@@ -110,10 +103,8 @@ func (c *unregisterCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	if c.assumeYes {
-		fmt.Fprint(ctx.Stdout, "WARNING: '-y'/'--yes' flags are deprecated and will be removed in Juju 3.1\n")
-	}
-	if !(c.assumeYes || c.assumeNoPrompt) {
+	c.ConfirmationCommandBase.Run(ctx)
+	if !(c.ConfirmationCommandBase.GetAssumeYes() || c.ConfirmationCommandBase.GetAssumeNoPrompt()) {
 		fmt.Fprintf(ctx.Stdout, unregisterMsg, c.controllerName)
 		if err := jujucmd.UserConfirmName(c.controllerName, "controller", ctx); err != nil {
 			return errors.Annotate(err, "unregistering controller")
