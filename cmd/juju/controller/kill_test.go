@@ -366,14 +366,14 @@ func (s *KillSuite) TestKillUnknownController(c *gc.C) {
 
 func (s *KillSuite) TestKillCannotConnectToAPISucceeds(c *gc.C) {
 	s.api, s.apierror = nil, errors.New("connection refused")
-	ctx, err := s.runKillCommand(c, "test1", "-y")
+	ctx, err := s.runKillCommand(c, "test1", "--no-prompt")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cmdtesting.Stderr(ctx), jc.Contains, "Unable to open API: connection refused")
 	checkControllerRemovedFromStore(c, "test1", s.store)
 }
 
 func (s *KillSuite) TestKillWithAPIConnection(c *gc.C) {
-	_, err := s.runKillCommand(c, "test1", "-y")
+	_, err := s.runKillCommand(c, "test1", "--no-prompt")
 	c.Assert(err, jc.ErrorIsNil)
 	s.api.CheckCallNames(c, "DestroyController", "AllModels", "ModelStatus", "Close")
 	destroyStorage := true
@@ -387,7 +387,7 @@ func (s *KillSuite) TestKillWithAPIConnection(c *gc.C) {
 
 func (s *KillSuite) TestKillEnvironmentGetFailsWithoutAPIConnection(c *gc.C) {
 	s.api, s.apierror = nil, errors.New("connection refused")
-	_, err := s.runKillCommand(c, "test3", "-y")
+	_, err := s.runKillCommand(c, "test3", "--no-prompt")
 	c.Assert(err, gc.ErrorMatches,
 		"getting controller environ: unable to get bootstrap information from client store or API",
 	)
@@ -396,7 +396,7 @@ func (s *KillSuite) TestKillEnvironmentGetFailsWithoutAPIConnection(c *gc.C) {
 
 func (s *KillSuite) TestKillEnvironmentGetFailsWithAPIConnection(c *gc.C) {
 	s.api.SetErrors(errors.NotFoundf(`controller "test3"`))
-	_, err := s.runKillCommand(c, "test3", "-y")
+	_, err := s.runKillCommand(c, "test3", "--no-prompt")
 	c.Assert(err, gc.ErrorMatches,
 		"getting controller environ: getting model config from API: controller \"test3\" not found",
 	)
@@ -405,7 +405,7 @@ func (s *KillSuite) TestKillEnvironmentGetFailsWithAPIConnection(c *gc.C) {
 
 func (s *KillSuite) TestKillDestroysControllerWithAPIError(c *gc.C) {
 	s.api.SetErrors(errors.New("some destroy error"))
-	ctx, err := s.runKillCommand(c, "test1", "-y")
+	ctx, err := s.runKillCommand(c, "test1", "--no-prompt")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cmdtesting.Stderr(ctx), jc.Contains, "Unable to destroy controller through the API: some destroy error\nDestroying through provider")
 	checkControllerRemovedFromStore(c, "test1", s.store)
@@ -418,7 +418,7 @@ func (s *KillSuite) TestKillCommandConfirmation(c *gc.C) {
 	ctx.Stdout = &stdout
 	ctx.Stdin = &stdin
 
-	// Ensure confirmation is requested if "-y" is not specified.
+	// Ensure confirmation is requested if "--no-prompt" is not specified.
 	stdin.WriteString("n")
 	_, errc := cmdtest.RunCommandWithDummyProvider(ctx, s.newKillCommand(), "test1")
 	select {
@@ -432,7 +432,7 @@ func (s *KillSuite) TestKillCommandConfirmation(c *gc.C) {
 }
 
 func (s *KillSuite) TestKillCommandControllerAlias(c *gc.C) {
-	_, err := cmdtesting.RunCommand(c, s.newKillCommand(), "test1", "-y")
+	_, err := cmdtesting.RunCommand(c, s.newKillCommand(), "test1", "--no-prompt")
 	c.Assert(err, jc.ErrorIsNil)
 	checkControllerRemovedFromStore(c, "test1:test1", s.store)
 }
@@ -445,7 +445,7 @@ func (s *KillSuite) TestKillAPIPermErrFails(c *gc.C) {
 		func() (controller.CredentialAPI, error) { return s.controllerCredentialAPI, nil },
 		environs.Destroy,
 	)
-	_, err := cmdtesting.RunCommand(c, cmd, "test1", "-y")
+	_, err := cmdtesting.RunCommand(c, cmd, "test1", "--no-prompt")
 	c.Assert(err, gc.ErrorMatches, "cannot destroy controller: permission denied")
 	checkControllerExistsInStore(c, "test1", s.store)
 }
@@ -464,7 +464,7 @@ func (s *KillSuite) TestKillEarlyAPIConnectionTimeout(c *gc.C) {
 		func() (controller.CredentialAPI, error) { return s.controllerCredentialAPI, nil },
 		environs.Destroy,
 	)
-	ctx, err := cmdtesting.RunCommand(c, cmd, "test1", "-y")
+	ctx, err := cmdtesting.RunCommand(c, cmd, "test1", "--no-prompt")
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(cmdtesting.Stderr(ctx), jc.Contains, "Unable to open API: open connection timed out")
 	checkControllerRemovedFromStore(c, "test1", s.store)

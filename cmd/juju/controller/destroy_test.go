@@ -5,7 +5,6 @@ package controller_test
 
 import (
 	"bytes"
-	"github.com/juju/juju/juju/osenv"
 	"time"
 
 	"github.com/juju/cmd/v3"
@@ -27,6 +26,7 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/rpc/params"
@@ -321,6 +321,12 @@ func (s *DestroySuite) TestDestroyWithSkipConfirmEnvVar(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.clientapi.destroycalled, jc.IsFalse)
 	checkControllerRemovedFromStore(c, "test1", s.store)
+}
+
+func (s *DestroySuite) TestDestroyWithSkipConfirmIncorrectEnvVar(c *gc.C) {
+	s.PatchEnvironment(osenv.JujuSkipConfirmationEnvKey, "incorrect_value")
+	_, err := s.runDestroyCommand(c, "test1")
+	c.Assert(err, gc.ErrorMatches, "Unexpected value of JUJU_SKIP_CONFIRMATION env var, needs to be bool.")
 }
 
 func (s *DestroySuite) TestDestroyAlias(c *gc.C) {
