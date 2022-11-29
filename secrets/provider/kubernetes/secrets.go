@@ -33,15 +33,22 @@ const (
 
 // NewProvider returns a Kubernetes secrets provider.
 func NewProvider() provider.SecretBackendProvider {
-	return k8sProvider{Backend}
+	return k8sProvider{}
 }
 
 type k8sProvider struct {
-	name string
+}
+
+// ValidateConfig implements SecretBackendProvider.
+func (p k8sProvider) ValidateConfig(oldCfg, newCfg provider.ProviderConfig) error {
+	if len(newCfg) > 0 {
+		return errors.New("the k8s secrets backend does not use any config")
+	}
+	return nil
 }
 
 func (p k8sProvider) Type() string {
-	return p.name
+	return Backend
 }
 
 // Initialise is not used.

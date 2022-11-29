@@ -4,6 +4,7 @@
 package juju
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/secrets/provider"
@@ -16,15 +17,22 @@ const (
 
 // NewProvider returns a Juju secrets provider.
 func NewProvider() provider.SecretBackendProvider {
-	return jujuProvider{Backend}
+	return jujuProvider{}
 }
 
 type jujuProvider struct {
-	name string
+}
+
+// ValidateConfig implements SecretBackendProvider.
+func (p jujuProvider) ValidateConfig(oldCfg, newCfg provider.ProviderConfig) error {
+	if len(newCfg) > 0 {
+		return errors.New("the juju secrets backend does not use any config")
+	}
+	return nil
 }
 
 func (p jujuProvider) Type() string {
-	return p.name
+	return Backend
 }
 
 // Initialise is not used.

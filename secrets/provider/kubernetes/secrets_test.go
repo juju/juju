@@ -51,6 +51,13 @@ func (*kubernetesSuite) TestBackendConfig(c *gc.C) {
 	})
 }
 
+func (*kubernetesSuite) TestValidateConfig(c *gc.C) {
+	p, err := provider.Provider(kubernetes.Backend)
+	c.Assert(err, jc.ErrorIsNil)
+	err = p.ValidateConfig(nil, map[string]interface{}{"foo": "bar"})
+	c.Assert(err, gc.ErrorMatches, "the k8s secrets backend does not use any config")
+}
+
 func (s *kubernetesSuite) assertBackendConfigWithTag(c *gc.C, isControllerCloud bool) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

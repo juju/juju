@@ -35,18 +35,18 @@ func (m *MockSecretsBackendState) EXPECT() *MockSecretsBackendStateMockRecorder 
 	return m.recorder
 }
 
-// AddSecretBackend mocks base method.
-func (m *MockSecretsBackendState) AddSecretBackend(arg0 state.CreateSecretBackendParams) error {
+// CreateSecretBackend mocks base method.
+func (m *MockSecretsBackendState) CreateSecretBackend(arg0 state.CreateSecretBackendParams) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddSecretBackend", arg0)
+	ret := m.ctrl.Call(m, "CreateSecretBackend", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// AddSecretBackend indicates an expected call of AddSecretBackend.
-func (mr *MockSecretsBackendStateMockRecorder) AddSecretBackend(arg0 interface{}) *gomock.Call {
+// CreateSecretBackend indicates an expected call of CreateSecretBackend.
+func (mr *MockSecretsBackendStateMockRecorder) CreateSecretBackend(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddSecretBackend", reflect.TypeOf((*MockSecretsBackendState)(nil).AddSecretBackend), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSecretBackend", reflect.TypeOf((*MockSecretsBackendState)(nil).CreateSecretBackend), arg0)
 }
 
 // ListSecretBackends mocks base method.

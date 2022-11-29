@@ -20,5 +20,8 @@ type SecretsBackend interface {
 type BackendConfig struct {
 	BackendType string
 	// TODO(wallyworld) - use a schema
-	Config map[string]interface{}
+	Config ProviderConfig
 }
+
+// ProviderConfig defines config for a secrets backend provider.
+type ProviderConfig map[string]interface{}

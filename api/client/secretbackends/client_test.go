@@ -29,6 +29,10 @@ func (s *SecretBackendsSuite) TestNewClient(c *gc.C) {
 	c.Assert(client, gc.NotNil)
 }
 
+func ptr[T any](v T) *T {
+	return &v
+}
+
 func (s *SecretBackendsSuite) TestListSecretBackends(c *gc.C) {
 	config := map[string]interface{}{"foo": "bar"}
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
@@ -42,7 +46,7 @@ func (s *SecretBackendsSuite) TestListSecretBackends(c *gc.C) {
 			[]params.SecretBackend{{
 				Name:                "foo",
 				Backend:             "vault",
-				TokenRotateInterval: 666 * time.Minute,
+				TokenRotateInterval: ptr(666 * time.Minute),
 				Config:              config,
 			}},
 		}
@@ -54,7 +58,7 @@ func (s *SecretBackendsSuite) TestListSecretBackends(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, []secretbackends.SecretBackend{{
 		Name:                "foo",
 		Backend:             "vault",
-		TokenRotateInterval: 666 * time.Minute,
+		TokenRotateInterval: ptr(666 * time.Minute),
 		Config:              config,
 	}})
 }
@@ -63,7 +67,7 @@ func (s *SecretBackendsSuite) TestAddSecretsBackend(c *gc.C) {
 	backend := secretbackends.SecretBackend{
 		Name:                "foo",
 		Backend:             "vault",
-		TokenRotateInterval: 666 * time.Minute,
+		TokenRotateInterval: ptr(666 * time.Minute),
 		Config:              map[string]interface{}{"foo": "bar"},
 	}
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {

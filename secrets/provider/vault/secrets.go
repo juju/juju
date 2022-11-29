@@ -30,15 +30,20 @@ const (
 
 // NewProvider returns a Vault secrets provider.
 func NewProvider() provider.SecretBackendProvider {
-	return vaultProvider{Backend}
+	return vaultProvider{}
 }
 
 type vaultProvider struct {
-	name string
 }
 
 func (p vaultProvider) Type() string {
-	return p.name
+	return Backend
+}
+
+// ValidateConfig implements SecretBackendProvider.
+func (p vaultProvider) ValidateConfig(oldCfg, newCfg provider.ProviderConfig) error {
+	// TODO(wallyworld)
+	return nil
 }
 
 // Initialise sets up a kv store mounted on the model uuid.

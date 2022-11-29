@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -54,6 +55,10 @@ func (s *SecretsSuite) TestListSecretBackendsReveal(c *gc.C) {
 	s.assertListSecretBackends(c, true)
 }
 
+func ptr[T any](v T) *T {
+	return &v
+}
+
 func (s *SecretsSuite) assertListSecretBackends(c *gc.C, reveal bool) {
 	defer s.setup(c).Finish()
 
@@ -71,7 +76,7 @@ func (s *SecretsSuite) assertListSecretBackends(c *gc.C, reveal bool) {
 		[]*coresecrets.SecretBackend{{
 			Name:                "myvault",
 			Backend:             "vault",
-			TokenRotateInterval: 666 * time.Minute,
+			TokenRotateInterval: ptr(666 * time.Minute),
 			Config:              config,
 		}}, nil,
 	)
@@ -82,7 +87,7 @@ func (s *SecretsSuite) assertListSecretBackends(c *gc.C, reveal bool) {
 		Results: []params.SecretBackend{{
 			Name:                "myvault",
 			Backend:             "vault",
-			TokenRotateInterval: 666 * time.Minute,
+			TokenRotateInterval: ptr(666 * time.Minute),
 			Config:              config,
 		}},
 	})
@@ -99,5 +104,57 @@ func (s *SecretsSuite) TestListSecretBackendsPermissionDeniedReveal(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = facade.ListSecretBackends(params.ListSecretBackendsArgs{Reveal: true})
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+}
+
+func (s *SecretsSuite) TestAddSecretBackends(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.expectAuthClient()
+	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
+		true, nil)
+
+	facade, err := secretbackends.NewTestAPI(s.secretsState, s.authorizer)
+	c.Assert(err, jc.ErrorIsNil)
+
+	config := map[string]interface{}{"foo": "bar"}
+	s.secretsState.EXPECT().CreateSecretBackend(state.CreateSecretBackendParams{
+		Name:                "myvault",
+		Backend:             "vault",
+		TokenRotateInterval: ptr(666 * time.Minute),
+		Config:              config,
+	}).Return(nil)
+
+	results, err := facade.AddSecretBackends(params.AddSecretBackendArgs{
+		Args: []params.SecretBackend{{
+			Name:                "myvault",
+			Backend:             "vault",
+			TokenRotateInterval: ptr(666 * time.Minute),
+			Config:              config,
+		}, {
+			Name:    "invalid",
+			Backend: "something",
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, jc.DeepEquals, []params.ErrorResult{
+		{},
+		{Error: &params.Error{
+			Code:    "not found",
+			Message: `creating backend provider type "something": no registered provider for "something"`}},
+	})
+}
+
+func (s *SecretsSuite) TestAddSecretBackendsPermissionDenied(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.expectAuthClient()
+	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
+		false, nil)
+
+	facade, err := secretbackends.NewTestAPI(s.secretsState, s.authorizer)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = facade.AddSecretBackends(params.AddSecretBackendArgs{})
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }

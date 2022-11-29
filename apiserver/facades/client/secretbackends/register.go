@@ -8,6 +8,7 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/state"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -22,12 +23,10 @@ func newSecretBackendsAPI(context facade.Context) (*SecretBackendsAPI, error) {
 	if !context.Auth().AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
-	// TODO(wallyworld)
-	// state := state.NewSecretBackends(context.State())
 
 	return &SecretBackendsAPI{
 		authorizer:     context.Auth(),
 		controllerUUID: context.State().ControllerUUID(),
-		//state:        state,
+		state:          state.NewSecretBackends(context.State()),
 	}, nil
 }

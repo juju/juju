@@ -11,6 +11,6 @@ import (
 type SecretBackend struct {
 	Name                string
 	Backend             string
-	TokenRotateInterval time.Duration
+	TokenRotateInterval *time.Duration
 	Config              map[string]interface{}
 }

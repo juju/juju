@@ -53,6 +53,11 @@ func (nm SecretRevisions) Names() (names []string) {
 type SecretBackendProvider interface {
 	// TODO(wallyworld) - add config schema methods
 
+	// ValidateConfig returns an error if the new
+	//provider config is not valid.
+	ValidateConfig(oldCfg, newCfg ProviderConfig) error
+
+	// Type is the type of the backend.
 	Type() string
 
 	// Initialise sets up the secrets backend to host secrets for

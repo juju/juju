@@ -210,6 +210,9 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// running within a unit. This is a new feature that is not
 		// backwards compatible with older controllers.
 		unitStatesC,
+
+		// Secret backends are per controller.
+		secretBackendsC,
 	)
 
 	// THIS SET WILL BE REMOVED WHEN MIGRATIONS ARE COMPLETE
