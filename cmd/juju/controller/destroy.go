@@ -184,9 +184,14 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	store := c.ClientStore()
-	if !c.assumeYes {
+
+	if err := c.ConfirmationCommandBase.Run(ctx); err != nil {
+		return errors.Trace(err)
+	}
+
+	if c.ConfirmationCommandBase.NeedsConfirmation() {
 		fmt.Fprintf(ctx.Stdout, destroySysMsg, controllerName)
-		if err := jujucmd.UserConfirmYes(ctx); err != nil {
+		if err := jujucmd.UserConfirmName(controllerName, "controller", ctx); err != nil {
 			return errors.Annotate(err, "controller destruction")
 		}
 	}
@@ -462,7 +467,7 @@ to be cleaned up.
 // destroy and controller kill commands require.
 type destroyCommandBase struct {
 	modelcmd.ControllerCommandBase
-	assumeYes bool
+	modelcmd.ConfirmationCommandBase
 
 	// The following fields are for mocking out
 	// api behavior for testing.
@@ -505,15 +510,14 @@ func (c *destroyCommand) getStorageAPI(modelName string) (storageAPI, error) {
 // SetFlags implements Command.SetFlags.
 func (c *destroyCommandBase) SetFlags(f *gnuflag.FlagSet) {
 	c.ControllerCommandBase.SetFlags(f)
-	f.BoolVar(&c.assumeYes, "y", false, "Do not ask for confirmation")
-	f.BoolVar(&c.assumeYes, "yes", false, "")
-	// This unused var is declared to pass a valid ptr into BoolVar
-	var noPromptHolder bool
-	f.BoolVar(&noPromptHolder, "no-prompt", false, "Does nothing. Option present for forward compatibility with Juju 3")
+	c.ConfirmationCommandBase.SetFlags(f)
 }
 
 // Init implements Command.Init.
 func (c *destroyCommandBase) Init(args []string) error {
+	if err := c.ConfirmationCommandBase.Init(args); err != nil {
+		return errors.Trace(err)
+	}
 	switch len(args) {
 	case 0:
 		return errors.New("no controller specified")
