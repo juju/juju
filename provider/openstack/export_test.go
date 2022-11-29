@@ -128,8 +128,9 @@ func GetNovaClient(e environs.Environ) *nova.Client {
 }
 
 // ResolveNetworks exposes environ helper function resolveNetwork for testing
-func ResolveNetworks(e environs.Environ, networkName string, external bool) ([]string, error) {
-	return e.(*Environ).networking.ResolveNetworks(networkName, external)
+func ResolveNetworkIDs(e environs.Environ, networkName string, external bool) ([]string, error) {
+	networks, err := e.(*Environ).networking.ResolveNetworks(networkName, external)
+	return idsFromNetworks(networks), err
 }
 
 // FindNetworks exposes environ helper function FindNetworks for testing

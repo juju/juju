@@ -21,8 +21,8 @@ type Networking interface {
 
 	// ResolveNetworks takes either a network ID or label
 	// with a string to specify whether the network is external
-	// and returns the corresponding matching network IDs.
-	ResolveNetworks(string, bool) ([]string, error)
+	// and returns the corresponding matching networks.
+	ResolveNetworks(string, bool) ([]neutron.NetworkV2, error)
 
 	// Subnets returns basic information about subnets known
 	// by OpenStack for the environment.

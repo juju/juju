@@ -150,10 +150,10 @@ func (mr *MockNetworkingMockRecorder) NetworkInterfaces(arg0 interface{}) *gomoc
 }
 
 // ResolveNetworks mocks base method.
-func (m *MockNetworking) ResolveNetworks(arg0 string, arg1 bool) ([]string, error) {
+func (m *MockNetworking) ResolveNetworks(arg0 string, arg1 bool) ([]neutron.NetworkV2, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ResolveNetworks", arg0, arg1)
-	ret0, _ := ret[0].([]string)
+	ret0, _ := ret[0].([]neutron.NetworkV2)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

@@ -910,7 +910,7 @@ func (s *providerUnitTests) TestNetworksForInstance(c *gc.C) {
 	defer ctrl.Finish()
 
 	mockNetworking := NewMockNetworking(ctrl)
-	mockNetworking.EXPECT().ResolveNetworks("network-id-foo", false).Return([]string{"network-id-foo"}, nil)
+	mockNetworking.EXPECT().ResolveNetworks("network-id-foo", false).Return([]neutron.NetworkV2{{Id: "network-id-foo"}}, nil)
 
 	netCfg := NewMockNetworkingConfig(ctrl)
 
@@ -935,7 +935,7 @@ func (s *providerUnitTests) TestNetworksForInstanceWithAZ(c *gc.C) {
 	defer ctrl.Finish()
 
 	mockNetworking := NewMockNetworking(ctrl)
-	mockNetworking.EXPECT().ResolveNetworks("network-id-foo", false).Return([]string{"network-id-foo"}, nil)
+	mockNetworking.EXPECT().ResolveNetworks("network-id-foo", false).Return([]neutron.NetworkV2{{Id: "network-id-foo"}}, nil)
 	mockNetworking.EXPECT().CreatePort("", "network-id-foo", network.Id("subnet-foo")).Return(
 		&neutron.PortV2{
 			FixedIPs: []neutron.PortFixedIPsV2{{
@@ -977,7 +977,7 @@ func (s *providerUnitTests) TestNetworksForInstanceWithNoMatchingAZ(c *gc.C) {
 	defer ctrl.Finish()
 
 	mockNetworking := NewMockNetworking(ctrl)
-	mockNetworking.EXPECT().ResolveNetworks("network-id-foo", false).Return([]string{"network-id-foo"}, nil)
+	mockNetworking.EXPECT().ResolveNetworks("network-id-foo", false).Return([]neutron.NetworkV2{{Id: "network-id-foo"}}, nil)
 
 	netCfg := NewMockNetworkingConfig(ctrl)
 
@@ -998,8 +998,9 @@ func (s *providerUnitTests) TestNetworksForInstanceNoSubnetAZsStillConsidered(c 
 	defer ctrl.Finish()
 
 	mockNetworking := NewMockNetworking(ctrl)
-	mockNetworking.EXPECT().ResolveNetworks("network-id-foo", false).Return([]string{"network-id-foo"}, nil)
-	mockNetworking.EXPECT().CreatePort("", "network-id-foo", network.Id("subnet-foo")).Return(
+	exp := mockNetworking.EXPECT()
+	exp.ResolveNetworks("network-id-foo", false).Return([]neutron.NetworkV2{{Id: "network-id-foo"}}, nil)
+	exp.CreatePort("", "network-id-foo", network.Id("subnet-foo")).Return(
 		&neutron.PortV2{
 			FixedIPs: []neutron.PortFixedIPsV2{{
 				IPAddress: "10.10.10.1",

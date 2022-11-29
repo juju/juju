@@ -144,12 +144,12 @@ func (n *NeutronNetworking) getExternalNetworkIDsFromHostAddrs(addrs map[string]
 	externalNetwork := n.ecfg().externalNetwork()
 	if externalNetwork != "" {
 		// The config specified an external network, try it first.
-		netIDs, err := n.ResolveNetworks(externalNetwork, true)
+		networks, err := n.ResolveNetworks(externalNetwork, true)
 		if err != nil {
 			logger.Warningf("resolving configured external network %q: %s", externalNetwork, err.Error())
 		} else {
 			logger.Debugf("using external network %q", externalNetwork)
-			extNetworkIds = netIDs
+			extNetworkIds = idsFromNetworks(networks)
 		}
 	}
 
@@ -285,30 +285,33 @@ func (n *NeutronNetworking) FindNetworks(internal bool) (set.Strings, error) {
 }
 
 // ResolveNetworks is part of the Networking interface.
-func (n *NeutronNetworking) ResolveNetworks(name string, external bool) ([]string, error) {
+func (n *NeutronNetworking) ResolveNetworks(name string, external bool) ([]neutron.NetworkV2, error) {
 	if utils.IsValidUUIDString(name) {
-		// NOTE: There is an OpenStack cloud, whitestack, which has the network
-		// used to create servers specified as an External network, contrary to
-		// how all the other OpenStacks that we know of work. Juju can use this
-		// OpenStack by setting the "network" config by UUID, which we do not
-		// verify, nor check to ensure it's an internal network.
-		// TODO hml 2021-08-03
-		// Verify that the UUID is of a valid network, without type.
-		return []string{name}, nil
+		// NOTE: There is an OpenStack cloud, "whitestack", which has the
+		// network used to create servers specified as an External network,
+		// contrary to how all the other OpenStacks that we know of work.
+		// Here we just retrieve the network, regardless of whether it is
+		// internal or external
+		net, err := n.neutron().GetNetworkV2(name)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return []neutron.NetworkV2{*net}, nil
 	}
-	// Mimic unintentional, now expected behavior. Prior to OpenStack Rocky,
-	// empty strings in the neutron filters were ignored. name == "" AND
-	// external-router=false, returned a list of all internal networks.
-	// If the list was length one, the OpenStack provider would use it,
+
+	// Prior to OpenStack Rocky, empty strings in the neutron filters were
+	// ignored. So name="" AND external-router=false returned a list of all
+	// internal networks.
+	// If the list was length one, the OpenStack provider would use it
 	// without explicit user configuration.
 	//
-	// Rocky introduced an optional extension to neutron: empty-string-filtering.
+	// Rocky introduced an optional extension to neutron:
+	// empty-string-filtering.
 	// If configured, it means the empty string must be explicitly matched.
-	// This reverses the prior expected behavior.
 	//
-	// To keep the expected behavior, if the provided name is empty, look for
-	// all networks matching external value for the configured OpenStack project
-	// juju is using.
+	// To preserve the prior behavior, if the configured name is empty,
+	// look for all networks matching the `external` argument for the
+	// OpenStack project Juju is using.
 	var filter *neutron.Filter
 	switch {
 	case name == "" && !external:
@@ -320,15 +323,7 @@ func (n *NeutronNetworking) ResolveNetworks(name string, external bool) ([]strin
 	}
 
 	networks, err := n.neutron().ListNetworksV2(filter)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var networkIds []string
-	for _, o7kNet := range networks {
-		networkIds = append(networkIds, o7kNet.Id)
-	}
-	return networkIds, nil
+	return networks, errors.Trace(err)
 }
 
 func generateUniquePortName(name string) string {
@@ -368,13 +363,13 @@ func (n *NeutronNetworking) Subnets(instId instance.Id, subnetIds []corenetwork.
 	internalNets := n.ecfg().networks()
 
 	for _, iNet := range internalNets {
-		netIDs, err := n.ResolveNetworks(iNet, false)
+		networks, err := n.ResolveNetworks(iNet, false)
 		if err != nil {
 			logger.Warningf("could not resolve internal network id for %q: %v", iNet, err)
 			continue
 		}
-		for _, netID := range netIDs {
-			netIds.Add(netID)
+		for _, net := range networks {
+			netIds.Add(net.Id)
 		}
 	}
 
@@ -384,12 +379,12 @@ func (n *NeutronNetworking) Subnets(instId instance.Id, subnetIds []corenetwork.
 	// on Openstack, we'll probably need to include better logic here.
 	externalNet := n.ecfg().externalNetwork()
 	if externalNet != "" {
-		netIDs, err := n.ResolveNetworks(externalNet, true)
+		networks, err := n.ResolveNetworks(externalNet, true)
 		if err != nil {
 			logger.Warningf("could not resolve external network id for %q: %v", externalNet, err)
 		} else {
-			for _, netID := range netIDs {
-				netIds.Add(netID)
+			for _, net := range networks {
+				netIds.Add(net.Id)
 			}
 		}
 	}
@@ -569,4 +564,12 @@ func mapInterfaceList(
 	}
 
 	return out
+}
+
+func idsFromNetworks(networks []neutron.NetworkV2) []string {
+	ids := make([]string, len(networks))
+	for i, neutronNet := range networks {
+		ids[i] = neutronNet.Id
+	}
+	return ids
 }

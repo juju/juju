@@ -1542,30 +1542,30 @@ func (e *Environ) DeletePorts(networks []nova.ServerNetworks) error {
 // configuration.
 func (e *Environ) networksForModel() ([]nova.ServerNetworks, error) {
 	cfgNets := e.ecfg().networks()
-	o7kNets := set.NewStrings()
+	networkIDs := set.NewStrings()
 
 	for _, cfgNet := range cfgNets {
-		networkIDs, err := e.networking.ResolveNetworks(cfgNet, false)
+		networks, err := e.networking.ResolveNetworks(cfgNet, false)
 		if err != nil {
 			logger.Warningf("filtering networks for %q", cfgNet)
 		}
 
-		for _, netID := range networkIDs {
-			o7kNets.Add(netID)
+		for _, net := range networks {
+			networkIDs.Add(net.Id)
 		}
 	}
 
-	if len(o7kNets) == 0 {
+	if len(networkIDs) == 0 {
 		if len(cfgNets) == 1 && cfgNets[0] == "" {
 			return nil, nil
 		}
 		return nil, errors.Errorf("unable to determine networks for configured list: %v", cfgNets)
 	}
 
-	logger.Debugf("using network IDs %v", o7kNets.Values())
+	logger.Debugf("using network IDs %v", networkIDs.Values())
 
-	result := make([]nova.ServerNetworks, o7kNets.Size())
-	for i, netID := range o7kNets.Values() {
+	result := make([]nova.ServerNetworks, networkIDs.Size())
+	for i, netID := range networkIDs.Values() {
 		result[i] = nova.ServerNetworks{NetworkId: netID}
 	}
 	return result, nil

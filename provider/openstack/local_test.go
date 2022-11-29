@@ -626,7 +626,7 @@ func (s *localServerSuite) TestStartInstanceExternalNetworkUnknownLabel(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *localServerSuite) TestStartInstanceNetworkUnknownId(c *gc.C) {
+func (s *localServerSuite) TestStartInstanceNetworkUnknownID(c *gc.C) {
 	cfg, err := s.env.Config().Apply(coretesting.Attrs{
 		// A valid UUID but no related network in the nova test service
 		"network": "f81d4fae-7dec-11d0-a765-00a0c91e6bf6",
@@ -637,12 +637,8 @@ func (s *localServerSuite) TestStartInstanceNetworkUnknownId(c *gc.C) {
 
 	inst, _, _, err := testing.StartInstance(s.env, s.callCtx, s.ControllerUUID, "100")
 	c.Check(inst, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "failed to get network detail\n"+
-		"caused by: "+
-		"Resource at http://.*/networks/.* not found\n"+
-		"caused by: "+
-		"request \\(http://.*/networks/.*\\) returned unexpected status: "+
-		"404; error info: .*itemNotFound.*")
+	c.Assert(err, gc.ErrorMatches,
+		`unable to determine networks for configured list: \[f81d4fae-7dec-11d0-a765-00a0c91e6bf6\]`)
 }
 
 func (s *localServerSuite) TestStartInstanceNoNetworksNetworkNotSetNoError(c *gc.C) {
@@ -2407,8 +2403,11 @@ func (s *localServerSuite) TestAllRunningInstancesIgnoresOtherMachines(c *gc.C) 
 
 func (s *localServerSuite) TestResolveNetworkUUID(c *gc.C) {
 	var sampleUUID = "f81d4fae-7dec-11d0-a765-00a0c91e6bf6"
-	networkIDs, err := openstack.ResolveNetworks(s.env, sampleUUID, false)
+
+	err := s.srv.Neutron.NeutronModel().AddNetwork(neutron.NetworkV2{Id: sampleUUID})
 	c.Assert(err, jc.ErrorIsNil)
+
+	networkIDs, err := openstack.ResolveNetworkIDs(s.env, sampleUUID, false)
 	c.Assert(networkIDs, gc.DeepEquals, []string{sampleUUID})
 }
 
@@ -2416,18 +2415,16 @@ func (s *localServerSuite) TestResolveNetworkLabel(c *gc.C) {
 	// For now this test has to cheat and use knowledge of goose internals
 	var networkLabel = "net"
 	var expectNetworkIDs = []string{"1"}
-	networkIDs, err := openstack.ResolveNetworks(s.env, networkLabel, false)
+	networkIDs, err := openstack.ResolveNetworkIDs(s.env, networkLabel, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(networkIDs, gc.DeepEquals, expectNetworkIDs)
 }
 
 func (s *localServerSuite) TestResolveNetworkNotPresent(c *gc.C) {
-	networkIDs, err := openstack.ResolveNetworks(s.env, "no-network-with-this-label", false)
+	networkIDs, err := openstack.ResolveNetworkIDs(s.env, "no-network-with-this-label", false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(networkIDs, gc.HasLen, 0)
 }
-
-// TODO(gz): TestResolveNetworkMultipleMatching when can inject new networks
 
 func (s *localServerSuite) TestStartInstanceAvailZone(c *gc.C) {
 	inst, err := s.testStartInstanceAvailZone(c, "test-available")
@@ -3312,7 +3309,9 @@ func (s *noSwiftSuite) TestBootstrap(c *gc.C) {
 	c.Assert(bootstrapEnv(c, s.env), jc.ErrorIsNil)
 }
 
-func newFullOpenstackService(cred *identity.Credentials, auth identity.AuthMode, useTSL bool) (*openstackservice.Openstack, []string) {
+func newFullOpenstackService(cred *identity.Credentials, auth identity.AuthMode, useTSL bool) (
+	*openstackservice.Openstack, []string,
+) {
 	service, logMsg := openstackservice.New(cred, auth, useTSL)
 	service.UseNeutronNetworking()
 	service.SetupHTTP(nil)
