@@ -962,6 +962,50 @@ func (s *mockHookContextSuite) TestMissingAction(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *mockHookContextSuite) assertSecretGetFromPendingChanges(c *gc.C,
+	setPendingSecretChanges func(hc *context.HookContext, uri *coresecrets.URI, label string, value map[string]string),
+) {
+	defer s.setupMocks(c).Finish()
+
+	hookContext := context.NewMockUnitHookContext(s.mockUnit, s.mockLeadership)
+
+	uri := coresecrets.NewURI()
+	label := "label"
+	data := map[string]string{"foo": "bar"}
+	setPendingSecretChanges(hookContext, uri, label, data)
+	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), nil, nil, nil)
+
+	value, err := hookContext.GetSecret(nil, label, false, false)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(value.EncodedValues(), jc.DeepEquals, data)
+}
+
+func (s *mockHookContextSuite) TestSecretGetFromPendingCreateChanges(c *gc.C) {
+	s.assertSecretGetFromPendingChanges(c,
+		func(hc *context.HookContext, uri *coresecrets.URI, label string, value map[string]string) {
+			arg := uniter.SecretCreateArg{OwnerTag: s.mockUnit.Tag()}
+			arg.URI = uri
+			arg.Label = ptr(label)
+			arg.Value = coresecrets.NewSecretValue(value)
+			hc.SetPendingSecretCreates(
+				[]uniter.SecretCreateArg{arg})
+		},
+	)
+}
+
+func (s *mockHookContextSuite) TestSecretGetFromPendingUpdateChanges(c *gc.C) {
+	s.assertSecretGetFromPendingChanges(c,
+		func(hc *context.HookContext, uri *coresecrets.URI, label string, value map[string]string) {
+			arg := uniter.SecretUpdateArg{}
+			arg.URI = uri
+			arg.Label = ptr(label)
+			arg.Value = coresecrets.NewSecretValue(value)
+			hc.SetPendingSecretUpdates(
+				[]uniter.SecretUpdateArg{arg})
+		},
+	)
+}
+
 func (s *mockHookContextSuite) TestSecretGet(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -1118,6 +1162,7 @@ func (s *mockHookContextSuite) TestSecretGetOwnedSecretURILookupFromPendingCreat
 			arg := uniter.SecretCreateArg{OwnerTag: s.mockUnit.Tag()}
 			arg.URI = uri
 			arg.Label = ptr(label)
+			arg.Value = coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
 			ctx.SetPendingSecretCreates(
 				[]uniter.SecretCreateArg{arg})
 		},
@@ -1130,6 +1175,7 @@ func (s *mockHookContextSuite) TestSecretGetOwnedSecretURILookupFromPendingUpdat
 			arg := uniter.SecretUpdateArg{}
 			arg.URI = uri
 			arg.Label = ptr(label)
+			arg.Value = coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
 			ctx.SetPendingSecretUpdates(
 				[]uniter.SecretUpdateArg{arg})
 		},
