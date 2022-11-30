@@ -77,7 +77,9 @@ func (s *secretsSuite) TestGetJujuSecret(c *gc.C) {
 
 	value, err := s.broker.GetJujuSecret(context.Background(), "provider-id")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(value.EncodedValues(), jc.DeepEquals, map[string]string{
+	data, err := value.Values()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(data, jc.DeepEquals, map[string]string{
 		"foo": "bar",
 	})
 }
@@ -123,7 +125,7 @@ func (s *secretsSuite) TestSaveJujuSecret(c *gc.C) {
 	uri := secrets.NewURI()
 	providerId, err := s.broker.SaveJujuSecret(context.Background(), uri.ID+"-666",
 		secrets.NewSecretValue(map[string]string{
-			"foo": "bar",
+			"foo": "YmFy",
 		}),
 	)
 	c.Assert(err, jc.ErrorIsNil)
