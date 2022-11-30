@@ -15,12 +15,10 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/client/charms"
 	"github.com/juju/juju/charmhub"
-	"github.com/juju/juju/charmstore"
 	corecharm "github.com/juju/juju/core/charm"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.resources")
@@ -56,11 +54,6 @@ func NewFacade(ctx facade.Context) (*API, error) {
 	st := ctx.State()
 	rst := st.Resources()
 
-	controllerCfg, err := st.ControllerConfig()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	m, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -83,16 +76,7 @@ func NewFacade(ctx facade.Context) (*API, error) {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			return newCharmHubClient(chClient, logger.ChildWithLabels("charmhub", corelogger.CHARMHUB)), nil
-
-		case charm.CharmStore.Matches(schema):
-			cl, err := charmstore.NewCachingClient(state.MacaroonCache{
-				MacaroonCacheState: st,
-			}, controllerCfg.CharmStoreURL())
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			return newCharmStoreClient(cl), nil
+			return NewCharmHubClient(chClient, logger.ChildWithLabels("charmhub", corelogger.CHARMHUB)), nil
 
 		case charm.Local.Matches(schema):
 			return &localClient{}, nil
@@ -159,7 +143,7 @@ func (a *API) ListResources(args params.ListResourcesArgs) (params.ResourcesResu
 
 // AddPendingResources adds the provided resources (info) to the Juju
 // model in a pending state, meaning they are not available until
-// resolved. Handles CharmHub, CharmStore and Local charms.
+// resolved. Handles CharmHub and Local charms.
 func (a *API) AddPendingResources(args params.AddPendingResourcesArgsV2) (params.AddPendingResourcesResult, error) {
 	var result params.AddPendingResourcesResult
 
