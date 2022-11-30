@@ -955,85 +955,10 @@ func (s *applicationSuite) TestBlockChangesApplicationUnexpose(c *gc.C) {
 	s.assertApplicationUnexposeBlocked(c, app, "TestBlockChangesApplicationUnexpose")
 }
 
-var applicationDestroyTests = []struct {
-	about       string
-	application string
-	err         string
-}{
-	{
-		about:       "unknown application name",
-		application: "unknown-application",
-		err:         `application "unknown-application" not found`,
-	},
-	{
-		about:       "destroy an application",
-		application: "dummy-application",
-	},
-	{
-		about:       "destroy an already destroyed application",
-		application: "dummy-application",
-		err:         `application "dummy-application" not found`,
-	},
-}
-
-func (s *applicationSuite) TestApplicationDestroy(c *gc.C) {
-	s.AddTestingApplication(c, "dummy-application", s.AddTestingCharm(c, "dummy"))
-	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name:        "remote-application",
-		SourceModel: s.Model.ModelTag(),
-		Token:       "t0",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	for i, t := range applicationDestroyTests {
-		c.Logf("test %d. %s", i, t.about)
-		err := s.applicationAPI.Destroy(params.ApplicationDestroy{ApplicationName: t.application})
-		if t.err != "" {
-			c.Assert(err, gc.ErrorMatches, t.err)
-		} else {
-			c.Assert(err, jc.ErrorIsNil)
-		}
-	}
-
-	// Now do Destroy on an application with units. Destroy will
-	// cause the application to be not-Alive, but will not remove its
-	// document.
-	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	applicationName := "wordpress"
-	app, err := s.State.Application(applicationName)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.applicationAPI.Destroy(params.ApplicationDestroy{ApplicationName: applicationName})
-	c.Assert(err, jc.ErrorIsNil)
-	err = app.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-}
-
 func assertLife(c *gc.C, entity state.Living, life state.Life) {
 	err := entity.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(entity.Life(), gc.Equals, life)
-}
-
-func (s *applicationSuite) TestBlockApplicationDestroy(c *gc.C) {
-	s.AddTestingApplication(c, "dummy-application", s.AddTestingCharm(c, "dummy"))
-
-	// block remove-objects
-	s.BlockRemoveObject(c, "TestBlockApplicationDestroy")
-	err := s.applicationAPI.Destroy(params.ApplicationDestroy{ApplicationName: "dummy-application"})
-	s.AssertBlocked(c, err, "TestBlockApplicationDestroy")
-	// Tests may have invalid application names.
-	app, err := s.State.Application("dummy-application")
-	if err == nil {
-		// For valid application names, check that application is alive :-)
-		assertLife(c, app, state.Alive)
-	}
-}
-
-func (s *applicationSuite) TestDestroyControllerApplicationNotAllowed(c *gc.C) {
-	s.AddTestingApplication(c, "controller-application", s.AddTestingCharm(c, "juju-controller"))
-
-	err := s.applicationAPI.Destroy(params.ApplicationDestroy{"controller-application"})
-	c.Assert(err, gc.ErrorMatches, "removing the controller application not supported")
 }
 
 func (s *applicationSuite) TestDestroyPrincipalUnits(c *gc.C) {

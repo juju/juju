@@ -366,8 +366,7 @@ func (s *ApplicationSuite) TestSetCharmWithBlockRemove(c *gc.C) {
 
 func (s *ApplicationSuite) TestSetCharmWithBlockChange(c *gc.C) {
 	s.changeAllowed = errors.New("change blocked")
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
+	defer s.setup(c).Finish()
 
 	err := s.api.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
@@ -912,6 +911,21 @@ func (s *ApplicationSuite) TestDestroyApplication(c *gc.C) {
 			},
 		},
 	})
+}
+
+func (s *ApplicationSuite) TestDestroyApplicationWithBlockChange(c *gc.C) {
+	s.changeAllowed = errors.New("change blocked")
+	s.TestDestroyApplication(c)
+}
+
+func (s *ApplicationSuite) TestDestroyApplicationWithBlockRemove(c *gc.C) {
+	s.removeAllowed = errors.New("remove blocked")
+	defer s.setup(c).Finish()
+
+	_, err := s.api.DestroyApplication(params.DestroyApplicationsParams{
+		Applications: []params.DestroyApplicationParams{{ApplicationTag: "application-postgresql"}},
+	})
+	c.Assert(err, gc.ErrorMatches, "remove blocked")
 }
 
 func (s *ApplicationSuite) TestForceDestroyApplication(c *gc.C) {
