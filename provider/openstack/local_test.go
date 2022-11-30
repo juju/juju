@@ -2408,6 +2408,7 @@ func (s *localServerSuite) TestResolveNetworkUUID(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	networkIDs, err := openstack.ResolveNetworkIDs(s.env, sampleUUID, false)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(networkIDs, gc.DeepEquals, []string{sampleUUID})
 }
 
@@ -2418,6 +2419,27 @@ func (s *localServerSuite) TestResolveNetworkLabel(c *gc.C) {
 	networkIDs, err := openstack.ResolveNetworkIDs(s.env, networkLabel, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(networkIDs, gc.DeepEquals, expectNetworkIDs)
+}
+
+func (s *localServerSuite) TestResolveNetworkLabelMultiple(c *gc.C) {
+	var networkLabel = "multi"
+
+	err := s.srv.Neutron.NeutronModel().AddNetwork(neutron.NetworkV2{
+		Id:   "multi-666",
+		Name: networkLabel,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.srv.Neutron.NeutronModel().AddNetwork(neutron.NetworkV2{
+		Id:   "multi-999",
+		Name: networkLabel,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	var expectNetworkIDs = []string{"multi-666", "multi-999"}
+	networkIDs, err := openstack.ResolveNetworkIDs(s.env, networkLabel, false)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(networkIDs, jc.SameContents, expectNetworkIDs)
 }
 
 func (s *localServerSuite) TestResolveNetworkNotPresent(c *gc.C) {

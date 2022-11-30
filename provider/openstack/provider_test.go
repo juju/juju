@@ -909,8 +909,10 @@ func (s *providerUnitTests) TestNetworksForInstance(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
+	netID := "network-id-foo"
+
 	mockNetworking := NewMockNetworking(ctrl)
-	mockNetworking.EXPECT().ResolveNetworks("network-id-foo", false).Return([]neutron.NetworkV2{{Id: "network-id-foo"}}, nil)
+	mockNetworking.EXPECT().ResolveNetworks(netID, false).Return([]neutron.NetworkV2{{Id: netID}}, nil)
 
 	netCfg := NewMockNetworkingConfig(ctrl)
 
@@ -918,15 +920,65 @@ func (s *providerUnitTests) TestNetworksForInstance(c *gc.C) {
 		AvailabilityZone: "eu-west-az",
 	}
 
-	result, err := envWithNetworking(mockNetworking).networksForInstance(siParams, netCfg)
+	result, err := envWithNetworking(mockNetworking, netID).networksForInstance(siParams, netCfg)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, []nova.ServerNetworks{
 		{
-			NetworkId: "network-id-foo",
+			NetworkId: netID,
 			FixedIp:   "",
 			PortId:    "",
 		},
+	})
+}
+
+func (s *providerUnitTests) TestNetworksForInstanceNoConfigMultiNet(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockNetworking := NewMockNetworking(ctrl)
+	mockNetworking.EXPECT().ResolveNetworks("", false).Return([]neutron.NetworkV2{
+		{Id: "network-id-foo"},
+		{Id: "network-id-bar"},
+	}, nil)
+
+	netCfg := NewMockNetworkingConfig(ctrl)
+
+	siParams := environs.StartInstanceParams{
+		AvailabilityZone: "eu-west-az",
+	}
+
+	result, err := envWithNetworking(mockNetworking, "").networksForInstance(siParams, netCfg)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, []nova.ServerNetworks{
+		{NetworkId: "network-id-foo"},
+		{NetworkId: "network-id-bar"},
+	})
+}
+
+func (s *providerUnitTests) TestNetworksForInstanceMultiConfigMultiNet(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockNetworking := NewMockNetworking(ctrl)
+	mockNetworking.EXPECT().ResolveNetworks("network-id-foo", false).Return([]neutron.NetworkV2{{
+		Id: "network-id-foo"}}, nil)
+	mockNetworking.EXPECT().ResolveNetworks("network-id-bar", false).Return([]neutron.NetworkV2{{
+		Id: "network-id-bar"}}, nil)
+
+	netCfg := NewMockNetworkingConfig(ctrl)
+
+	siParams := environs.StartInstanceParams{
+		AvailabilityZone: "eu-west-az",
+	}
+
+	result, err := envWithNetworking(mockNetworking, "network-id-foo,network-id-bar").networksForInstance(siParams, netCfg)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, []nova.ServerNetworks{
+		{NetworkId: "network-id-foo"},
+		{NetworkId: "network-id-bar"},
 	})
 }
 
@@ -934,13 +986,15 @@ func (s *providerUnitTests) TestNetworksForInstanceWithAZ(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
+	netID := "network-id-foo"
+
 	mockNetworking := NewMockNetworking(ctrl)
-	mockNetworking.EXPECT().ResolveNetworks("network-id-foo", false).Return([]neutron.NetworkV2{{
-		Id:        "network-id-foo",
+	mockNetworking.EXPECT().ResolveNetworks(netID, false).Return([]neutron.NetworkV2{{
+		Id:        netID,
 		SubnetIds: []string{"subnet-foo"},
 	}}, nil)
 
-	mockNetworking.EXPECT().CreatePort("", "network-id-foo", network.Id("subnet-foo")).Return(
+	mockNetworking.EXPECT().CreatePort("", netID, network.Id("subnet-foo")).Return(
 		&neutron.PortV2{
 			FixedIPs: []neutron.PortFixedIPsV2{{
 				IPAddress: "10.10.10.1",
@@ -964,14 +1018,90 @@ func (s *providerUnitTests) TestNetworksForInstanceWithAZ(c *gc.C) {
 		SubnetsToZones:   []map[network.Id][]string{{"subnet-foo": {"eu-west-az", "eu-east-az"}}},
 	}
 
-	result, err := envWithNetworking(mockNetworking).networksForInstance(siParams, netCfg)
+	result, err := envWithNetworking(mockNetworking, netID).networksForInstance(siParams, netCfg)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, []nova.ServerNetworks{
+		{
+			NetworkId: netID,
+			PortId:    "port-id",
+		},
+	})
+}
+
+func (s *providerUnitTests) TestNetworksForInstanceWithAZNoConfigMultiNet(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockNetworking := NewMockNetworking(ctrl)
+	mockNetworking.EXPECT().ResolveNetworks("", false).Return([]neutron.NetworkV2{
+		{
+			Id:        "network-id-foo",
+			SubnetIds: []string{"subnet-foo"},
+		},
+		{
+			Id:        "network-id-bar",
+			SubnetIds: []string{"subnet-bar"},
+		},
+	}, nil)
+
+	mockNetworking.EXPECT().CreatePort("", "network-id-foo", network.Id("subnet-foo")).Return(
+		&neutron.PortV2{
+			FixedIPs: []neutron.PortFixedIPsV2{{
+				IPAddress: "10.10.10.1",
+				SubnetID:  "subnet-foo",
+			}},
+			Id:         "port-id-foo",
+			MACAddress: "mac-address-foo",
+		}, nil)
+
+	mockNetworking.EXPECT().CreatePort("", "network-id-bar", network.Id("subnet-bar")).Return(
+		&neutron.PortV2{
+			FixedIPs: []neutron.PortFixedIPsV2{{
+				IPAddress: "10.10.20.1",
+				SubnetID:  "subnet-bar",
+			}},
+			Id:         "port-id-bar",
+			MACAddress: "mac-address-bar",
+		}, nil)
+
+	netCfg := NewMockNetworkingConfig(ctrl)
+	netCfg.EXPECT().AddNetworkConfig(network.InterfaceInfos{
+		{
+			InterfaceName: "eth0",
+			MACAddress:    "mac-address-foo",
+			Addresses:     network.NewMachineAddresses([]string{"10.10.10.1"}).AsProviderAddresses(),
+			ConfigType:    network.ConfigDHCP,
+			Origin:        network.OriginProvider,
+		},
+		{
+			InterfaceName: "eth1",
+			MACAddress:    "mac-address-bar",
+			Addresses:     network.NewMachineAddresses([]string{"10.10.20.1"}).AsProviderAddresses(),
+			ConfigType:    network.ConfigDHCP,
+			Origin:        network.OriginProvider,
+		},
+	}).Return(nil)
+
+	siParams := environs.StartInstanceParams{
+		AvailabilityZone: "eu-west-az",
+		SubnetsToZones: []map[network.Id][]string{
+			{"subnet-foo": {"eu-west-az", "eu-east-az"}},
+			{"subnet-bar": {"eu-west-az", "eu-east-az"}},
+		},
+	}
+
+	result, err := envWithNetworking(mockNetworking, "").networksForInstance(siParams, netCfg)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, []nova.ServerNetworks{
 		{
 			NetworkId: "network-id-foo",
-			FixedIp:   "",
-			PortId:    "port-id",
+			PortId:    "port-id-foo",
+		},
+		{
+			NetworkId: "network-id-bar",
+			PortId:    "port-id-bar",
 		},
 	})
 }
@@ -980,9 +1110,11 @@ func (s *providerUnitTests) TestNetworksForInstanceWithNoMatchingAZ(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
+	netID := "network-id-foo"
+
 	mockNetworking := NewMockNetworking(ctrl)
-	mockNetworking.EXPECT().ResolveNetworks("network-id-foo", false).Return([]neutron.NetworkV2{{
-		Id:        "network-id-foo",
+	mockNetworking.EXPECT().ResolveNetworks(netID, false).Return([]neutron.NetworkV2{{
+		Id:        netID,
 		SubnetIds: []string{"subnet-foo"},
 	}}, nil)
 
@@ -996,7 +1128,7 @@ func (s *providerUnitTests) TestNetworksForInstanceWithNoMatchingAZ(c *gc.C) {
 		},
 	}
 
-	_, err := envWithNetworking(mockNetworking).networksForInstance(siParams, netCfg)
+	_, err := envWithNetworking(mockNetworking, netID).networksForInstance(siParams, netCfg)
 	c.Assert(err, gc.ErrorMatches, "determining subnets in zone \"us-east-az\": subnets in AZ \"us-east-az\" not found")
 }
 
@@ -1004,15 +1136,17 @@ func (s *providerUnitTests) TestNetworksForInstanceNoSubnetAZsStillConsidered(c 
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
+	netID := "network-id-foo"
+
 	mockNetworking := NewMockNetworking(ctrl)
 	exp := mockNetworking.EXPECT()
 
-	exp.ResolveNetworks("network-id-foo", false).Return([]neutron.NetworkV2{{
-		Id:        "network-id-foo",
+	exp.ResolveNetworks(netID, false).Return([]neutron.NetworkV2{{
+		Id:        netID,
 		SubnetIds: []string{"subnet-foo", "subnet-with-az"},
 	}}, nil)
 
-	exp.CreatePort("", "network-id-foo", network.Id("subnet-foo")).Return(
+	exp.CreatePort("", netID, network.Id("subnet-foo")).Return(
 		&neutron.PortV2{
 			FixedIPs: []neutron.PortFixedIPsV2{{
 				IPAddress: "10.10.10.1",
@@ -1039,22 +1173,21 @@ func (s *providerUnitTests) TestNetworksForInstanceNoSubnetAZsStillConsidered(c 
 		}},
 	}
 
-	result, err := envWithNetworking(mockNetworking).networksForInstance(siParams, netCfg)
+	result, err := envWithNetworking(mockNetworking, netID).networksForInstance(siParams, netCfg)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, []nova.ServerNetworks{
 		{
-			NetworkId: "network-id-foo",
-			FixedIp:   "",
+			NetworkId: netID,
 			PortId:    "port-id",
 		},
 	})
 }
 
-func envWithNetworking(net Networking) *Environ {
+func envWithNetworking(net Networking, netCfg string) *Environ {
 	return &Environ{
 		ecfgUnlocked: &environConfig{
-			attrs: map[string]interface{}{NetworkKey: "network-id-foo"},
+			attrs: map[string]interface{}{NetworkKey: netCfg},
 		},
 		networking: net,
 	}
