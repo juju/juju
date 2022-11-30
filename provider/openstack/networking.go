@@ -11,6 +11,7 @@ import (
 	"github.com/go-goose/goose/v5/neutron"
 	"github.com/go-goose/goose/v5/nova"
 	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3"
 
@@ -149,7 +150,8 @@ func (n *NeutronNetworking) getExternalNetworkIDsFromHostAddrs(addrs map[string]
 			logger.Warningf("resolving configured external network %q: %s", externalNetwork, err.Error())
 		} else {
 			logger.Debugf("using external network %q", externalNetwork)
-			extNetworkIds = idsFromNetworks(networks)
+			toID := func(n neutron.NetworkV2) string { return n.Id }
+			extNetworkIds = transform.Slice(networks, toID)
 		}
 	}
 
@@ -566,10 +568,14 @@ func mapInterfaceList(
 	return out
 }
 
-func idsFromNetworks(networks []neutron.NetworkV2) []string {
-	ids := make([]string, len(networks))
-	for i, neutronNet := range networks {
-		ids[i] = neutronNet.Id
+func networkForSubnet(networks []neutron.NetworkV2, subnetID network.Id) (neutron.NetworkV2, error) {
+	for _, neutronNet := range networks {
+		for _, netSubnetID := range neutronNet.SubnetIds {
+			if netSubnetID == subnetID.String() {
+				return neutronNet, nil
+			}
+		}
 	}
-	return ids
+
+	return neutron.NetworkV2{}, errors.NotFoundf("network for subnet %q", subnetID)
 }

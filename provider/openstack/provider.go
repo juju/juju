@@ -27,6 +27,7 @@ import (
 	"github.com/go-goose/goose/v5/nova"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/http/v2"
 	"github.com/juju/jsonschema"
@@ -221,7 +222,7 @@ func (p EnvironProvider) getEnvironNetworkingFirewaller(e *Environ) (Networking,
 // DetectRegions implements environs.CloudRegionDetector.
 func (EnvironProvider) DetectRegions() ([]cloud.Region, error) {
 	// If OS_REGION_NAME and OS_AUTH_URL are both set,
-	// return return a region using them.
+	// return a region using them.
 	creds, err := identity.CredentialsFromEnv()
 	if err != nil {
 		return nil, errors.Errorf("failed to retrieve credential from env : %v", err)
@@ -1395,12 +1396,18 @@ func (e *Environ) networksForInstance(
 		return nil, errors.Trace(err)
 	}
 
+	// If there are no constraints or bindings to accommodate,
+	// the instance will have a NIC for each configured internal network.
+	// Note that uif there is no configured network, this means a NIC in
+	// all *available* networks.
 	if len(args.SubnetsToZones) == 0 {
-		return networks, nil
+		toServerNet := func(n neutron.NetworkV2) nova.ServerNetworks { return nova.ServerNetworks{NetworkId: n.Id} }
+		return transform.Slice(networks, toServerNet), nil
 	}
+
 	if len(networks) == 0 {
 		return nil, errors.New(
-			"space constraints and/or bindings were supplied, but no Openstack networks are configured")
+			"space constraints and/or bindings were supplied, but no OpenStack networks can be determined")
 	}
 
 	subnetIDForZone, err := subnetInZone(args.AvailabilityZone, args.SubnetsToZones)
@@ -1408,24 +1415,25 @@ func (e *Environ) networksForInstance(
 		return nil, errors.Trace(err)
 	}
 
-	// TODO: *** Assume multiple networks.
-	// We know that we are operating in the single configured network.
-	networkID := networks[0].NetworkId
-
 	// Set the subnetID on the network for all networks.
 	// For each of the subnetIDs selected, create a port for each one.
 	subnetNetworks := make([]nova.ServerNetworks, 0, len(subnetIDForZone))
 	netInfo := make(network.InterfaceInfos, len(subnetIDForZone))
 	for i, subnetID := range subnetIDForZone {
+		subnetNet, err := networkForSubnet(networks, subnetID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
 		var port *neutron.PortV2
-		port, err = e.networking.CreatePort(e.uuid, networkID, subnetID)
+		port, err = e.networking.CreatePort(e.uuid, subnetNet.Id, subnetID)
 		if err != nil {
 			break
 		}
 
 		logger.Infof("created new port %q connected to Openstack subnet %q", port.Id, subnetID)
 		subnetNetworks = append(subnetNetworks, nova.ServerNetworks{
-			NetworkId: networkID,
+			NetworkId: subnetNet.Id,
 			PortId:    port.Id,
 		})
 
@@ -1538,11 +1546,12 @@ func (e *Environ) DeletePorts(networks []nova.ServerNetworks) error {
 	return nil
 }
 
-// networksForModel returns the Openstack network list based on current model
-// configuration.
-func (e *Environ) networksForModel() ([]nova.ServerNetworks, error) {
-	cfgNets := e.ecfg().networks()
+// networksForModel returns the Openstack network list
+// based on current model configuration.
+func (e *Environ) networksForModel() ([]neutron.NetworkV2, error) {
+	var resolvedNetworks []neutron.NetworkV2
 	networkIDs := set.NewStrings()
+	cfgNets := e.ecfg().networks()
 
 	for _, cfgNet := range cfgNets {
 		networks, err := e.networking.ResolveNetworks(cfgNet, false)
@@ -1551,11 +1560,16 @@ func (e *Environ) networksForModel() ([]nova.ServerNetworks, error) {
 		}
 
 		for _, net := range networks {
+			if networkIDs.Contains(net.Id) {
+				continue
+			}
+
+			resolvedNetworks = append(resolvedNetworks, net)
 			networkIDs.Add(net.Id)
 		}
 	}
 
-	if len(networkIDs) == 0 {
+	if networkIDs.Size() == 0 {
 		if len(cfgNets) == 1 && cfgNets[0] == "" {
 			return nil, nil
 		}
@@ -1563,12 +1577,7 @@ func (e *Environ) networksForModel() ([]nova.ServerNetworks, error) {
 	}
 
 	logger.Debugf("using network IDs %v", networkIDs.Values())
-
-	result := make([]nova.ServerNetworks, networkIDs.Size())
-	for i, netID := range networkIDs.Values() {
-		result[i] = nova.ServerNetworks{NetworkId: netID}
-	}
-	return result, nil
+	return resolvedNetworks, nil
 }
 
 func (e *Environ) configureRootDisk(_ context.ProviderCallContext, args environs.StartInstanceParams,

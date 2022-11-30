@@ -10,6 +10,8 @@ import (
 	"github.com/go-goose/goose/v5/nova"
 	"github.com/go-goose/goose/v5/swift"
 	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
+	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
@@ -130,7 +132,8 @@ func GetNovaClient(e environs.Environ) *nova.Client {
 // ResolveNetworks exposes environ helper function resolveNetwork for testing
 func ResolveNetworkIDs(e environs.Environ, networkName string, external bool) ([]string, error) {
 	networks, err := e.(*Environ).networking.ResolveNetworks(networkName, external)
-	return idsFromNetworks(networks), err
+	toID := func(n neutron.NetworkV2) string { return n.Id }
+	return transform.Slice(networks, toID), errors.Trace(err)
 }
 
 // FindNetworks exposes environ helper function FindNetworks for testing

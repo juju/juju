@@ -1060,14 +1060,14 @@ func (s *localServerSuite) TestDestroyControllerSpaceConstraints(c *gc.C) {
 		Constraints:      constraints.MustParse("spaces=space-1 zones=zone-0"),
 		SubnetsToZones: []map[corenetwork.Id][]string{
 			{
-				"xxx-yyy-zzz": {"zone-0"},
+				"999-01": {"zone-0"},
 			},
 		},
 	}
 	_, err := testing.StartInstanceWithParams(env, s.callCtx, controllerInstanceName, params)
 	c.Assert(err, jc.ErrorIsNil)
 	assertPorts(c, env, []portAssertion{
-		{NamePrefix: fmt.Sprintf("juju-%s-", uuid), SubnetIDs: []string{"xxx-yyy-zzz"}},
+		{NamePrefix: fmt.Sprintf("juju-%s-", uuid), SubnetIDs: []string{"999-01"}},
 	})
 
 	// The openstack runtime would assign a device_id to a port when it's
