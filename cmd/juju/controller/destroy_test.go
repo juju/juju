@@ -462,7 +462,7 @@ func (s *DestroySuite) TestDestroyControllerReattempt(c *gc.C) {
 	// and reattempt the destroy the controller; this time
 	// it succeeds.
 	s.api.SetErrors(&params.Error{Code: params.CodeHasHostedModels})
-	_, err := s.runDestroyCommand(c, "test1", "-y")
+	_, err := s.runDestroyCommand(c, "test1", "--no-prompt")
 	c.Assert(err, jc.ErrorIsNil)
 	s.api.CheckCallNames(c,
 		"DestroyController",
