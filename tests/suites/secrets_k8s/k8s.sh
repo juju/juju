@@ -85,7 +85,7 @@ run_secrets() {
 
 	# TODO: destroy model properly once we fix the k8s teardown issue.
 	# We destroy with --force for now.
-	juju --show-log destroy-model -y --debug --force --destroy-storage "model-secrets-k8s"
+	juju --show-log destroy-model --no-prompt --debug --force --destroy-storage "model-secrets-k8s"
 	# destroy_model "model-secrets-k8s"
 }
 
