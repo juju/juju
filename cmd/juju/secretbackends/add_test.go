@@ -61,7 +61,7 @@ func (s *AddSuite) TestAddInitError(c *gc.C) {
 		args: []string{"myvault", "somevault", "foo=bar", "token-rotate=1s"},
 		err:  `token rotate interval "1s" not valid`,
 	}, {
-		args: []string{"myvault", "somevault", "foo=bar", "--file", "/path/to/nowhere"},
+		args: []string{"myvault", "somevault", "foo=bar", "--config", "/path/to/nowhere"},
 		err:  `open /path/to/nowhere: no such file or directory`,
 	}} {
 		_, err := cmdtesting.RunCommand(c, secretbackends.NewAddCommandForTest(s.store, s.addSecretBackendsAPI), t.args...)
@@ -106,7 +106,7 @@ func (s *AddSuite) TestAddFromFile(c *gc.C) {
 	s.addSecretBackendsAPI.EXPECT().Close().Return(nil)
 
 	_, err = cmdtesting.RunCommand(c, secretbackends.NewAddCommandForTest(s.store, s.addSecretBackendsAPI),
-		"myvault", "vault", "token=s.666", "token-rotate=666m", "--file", fname,
+		"myvault", "vault", "token=s.666", "token-rotate=666m", "--config", fname,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }

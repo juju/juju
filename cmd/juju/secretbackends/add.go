@@ -28,8 +28,8 @@ type addSecretBackendCommand struct {
 
 	AddSecretBackendsAPIFunc func() (AddSecretBackendsAPI, error)
 
-	Name    string
-	Backend string
+	Name        string
+	BackendType string
 
 	// Attributes from a file.
 	ConfigFile cmd.FileVar
@@ -38,10 +38,20 @@ type addSecretBackendCommand struct {
 }
 
 var addSecretBackendsDoc = `
-Displays the secret backends available for storing secret content.
+Adds a new secret backend for storing secret content.
+
+You must specify a name for the backend and its type,
+followed by any necessary backend specific config values.
+Config may be specified as key values ot read from a file.
+Any key values override file content if both are specified.
+
+To rotate the backend access credential/token (if specified), use
+the "token-rotate" config and supply a duration.
 
 Examples:
-    juju add-secret-backend
+    juju add-secret-backend myvault vault --config /path/to/cfg.yaml
+    juju add-secret-backend myvault vault token-rotate=10m --config /path/to/cfg.yaml
+    juju add-secret-backend myvault vault endpoint=https://vault.io:8200 token=s.1wshwhw
 `
 
 // AddSecretBackendsAPI is the secrets client API.
@@ -78,7 +88,7 @@ func (c *addSecretBackendCommand) Info() *cmd.Info {
 
 // SetFlags implements cmd.SetFlags.
 func (c *addSecretBackendCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.Var(&c.ConfigFile, "file", "path to yaml-formatted configuration file")
+	f.Var(&c.ConfigFile, "config", "path to yaml-formatted configuration file")
 }
 
 func (c *addSecretBackendCommand) Init(args []string) error {
@@ -86,7 +96,7 @@ func (c *addSecretBackendCommand) Init(args []string) error {
 		return errors.New("must specify backend name and type")
 	}
 	c.Name = args[0]
-	c.Backend = args[1]
+	c.BackendType = args[1]
 	args = args[2:]
 	// The remaining arguments are divided into keys to set.
 	c.KeyValueAttrs = make(map[string]interface{})
@@ -160,9 +170,9 @@ func (c *addSecretBackendCommand) Run(ctxt *cmd.Context) error {
 		tokenRotateInterval = &rotateInterval
 	}
 
-	p, err := provider.Provider(c.Backend)
+	p, err := provider.Provider(c.BackendType)
 	if err != nil {
-		return errors.Annotatef(err, "invalid secret backend %q", c.Backend)
+		return errors.Annotatef(err, "invalid secret backend %q", c.BackendType)
 	}
 	err = p.ValidateConfig(nil, attrs)
 	if err != nil {
@@ -171,7 +181,7 @@ func (c *addSecretBackendCommand) Run(ctxt *cmd.Context) error {
 
 	backend := secretbackends.SecretBackend{
 		Name:                c.Name,
-		BackendType:         c.Backend,
+		BackendType:         c.BackendType,
 		TokenRotateInterval: tokenRotateInterval,
 		Config:              attrs,
 	}

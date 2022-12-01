@@ -37,17 +37,17 @@ func ptr[T any](v T) *T {
 	return &v
 }
 
-func (s *SecretsSuite) TestGetSecretStoreConfig(c *gc.C) {
+func (s *SecretsSuite) TestGetSecretBackendConfig(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "SecretsManager")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "GetSecretStoreConfig")
+		c.Check(request, gc.Equals, "GetSecretBackendConfig")
 		c.Check(arg, gc.IsNil)
-		c.Assert(result, gc.FitsTypeOf, &params.SecretStoreConfig{})
-		*(result.(*params.SecretStoreConfig)) = params.SecretStoreConfig{
-			StoreType: "controller",
-			Params:    map[string]interface{}{"foo": "bar"},
+		c.Assert(result, gc.FitsTypeOf, &params.SecretBackendConfig{})
+		*(result.(*params.SecretBackendConfig)) = params.SecretBackendConfig{
+			BackendType: "controller",
+			Params:      map[string]interface{}{"foo": "bar"},
 		}
 		return nil
 	})

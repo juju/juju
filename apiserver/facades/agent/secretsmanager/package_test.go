@@ -47,16 +47,16 @@ func NewTestAPI(
 	}
 
 	return &SecretsManagerAPI{
-		authTag:           authTag,
-		modelUUID:         coretesting.ModelTag.Id(),
-		resources:         resources,
-		leadershipChecker: leadership,
-		secretsBackend:    backend,
-		secretsConsumer:   consumer,
-		secretsTriggers:   secretTriggers,
-		storeConfigGetter: storeConfigGetter,
-		providerGetter:    providerGetter,
-		clock:             clock,
+		authTag:             authTag,
+		modelUUID:           coretesting.ModelTag.Id(),
+		resources:           resources,
+		leadershipChecker:   leadership,
+		secretsBackend:      backend,
+		secretsConsumer:     consumer,
+		secretsTriggers:     secretTriggers,
+		backendConfigGetter: storeConfigGetter,
+		providerGetter:      providerGetter,
+		clock:               clock,
 	}, nil
 }
 

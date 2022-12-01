@@ -9,10 +9,10 @@ import (
 	"github.com/juju/juju/core/secrets"
 )
 
-// SecretStoreConfig holds config for creating a secret store client.
-type SecretStoreConfig struct {
-	StoreType string                 `json:"type"`
-	Params    map[string]interface{} `json:"params,omitempty"`
+// SecretBackendConfig holds config for creating a secret backend client.
+type SecretBackendConfig struct {
+	BackendType string                 `json:"type"`
+	Params      map[string]interface{} `json:"params,omitempty"`
 }
 
 // SecretContentParams holds params for representing the content of a secret.

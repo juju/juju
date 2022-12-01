@@ -122,7 +122,13 @@ func (mockModel) GetSecretBackend() (*secrets.SecretBackend, error) {
 		Name:        "myk8s",
 		BackendType: "vault",
 		Config: map[string]interface{}{
-			"endpoint": "http://vault",
+			"controller-uuid": coretesting.ControllerTag.Id(),
+			"model-uuid":      coretesting.ModelTag.Id(),
+			"endpoint":        "http://vault-ip:8200/",
+			"namespace":       "ns",
+			"token":           "vault-token",
+			"ca-cert":         coretesting.CACert,
+			"tls-server-name": "tls-server",
 		},
 	}, nil
 }

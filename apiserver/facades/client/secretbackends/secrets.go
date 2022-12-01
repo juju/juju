@@ -55,7 +55,7 @@ func (s *SecretBackendsAPI) createBackend(arg params.SecretBackend) error {
 	if arg.Name == "" {
 		return errors.NotValidf("missing backend name")
 	}
-	if arg.Name == juju.BackendName || arg.Name == "auto" {
+	if arg.Name == juju.BackendName || arg.Name == provider.Auto {
 		return errors.NotValidf("backend %q")
 	}
 	p, err := provider.Provider(arg.BackendType)

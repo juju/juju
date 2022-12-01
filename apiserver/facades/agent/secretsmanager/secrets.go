@@ -37,19 +37,25 @@ type SecretsManagerAPI struct {
 	authTag           names.Tag
 	clock             clock.Clock
 
-	storeConfigGetter commonsecrets.BackendConfigGetter
-	providerGetter    commonsecrets.ProviderInfoGetter
+	backendConfigGetter commonsecrets.BackendConfigGetter
+	providerGetter      commonsecrets.ProviderInfoGetter
 }
 
-// GetSecretStoreConfig gets the config needed to create a client to the model's secret store.
-func (s *SecretsManagerAPI) GetSecretStoreConfig() (params.SecretStoreConfig, error) {
-	cfg, err := s.storeConfigGetter()
+// GetSecretStoreConfig is for 3.0.x agents.
+// TODO(wallyworld) - remove when we auto upgrade migrated models.
+func (s *SecretsManagerAPI) GetSecretStoreConfig() (params.SecretBackendConfig, error) {
+	return s.GetSecretBackendConfig()
+}
+
+// GetSecretBackendConfig gets the config needed to create a client to the model's secret backend.
+func (s *SecretsManagerAPI) GetSecretBackendConfig() (params.SecretBackendConfig, error) {
+	cfg, err := s.backendConfigGetter()
 	if err != nil {
-		return params.SecretStoreConfig{}, errors.Trace(err)
+		return params.SecretBackendConfig{}, errors.Trace(err)
 	}
-	result := params.SecretStoreConfig{
-		StoreType: cfg.BackendType,
-		Params:    cfg.Config,
+	result := params.SecretBackendConfig{
+		BackendType: cfg.BackendType,
+		Params:      cfg.Config,
 	}
 	return result, nil
 }

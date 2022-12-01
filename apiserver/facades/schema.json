@@ -38839,6 +38839,15 @@
                     },
                     "description": "GetConsumerSecretsRevisionInfo returns the latest secret revisions for the specified secrets."
                 },
+                "GetSecretBackendConfig": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/SecretBackendConfig"
+                        }
+                    },
+                    "description": "GetSecretBackendConfig gets the config needed to create a client to the model's secret backend."
+                },
                 "GetSecretContentInfo": {
                     "type": "object",
                     "properties": {
@@ -38864,10 +38873,10 @@
                     "type": "object",
                     "properties": {
                         "Result": {
-                            "$ref": "#/definitions/SecretStoreConfig"
+                            "$ref": "#/definitions/SecretBackendConfig"
                         }
                     },
-                    "description": "GetSecretStoreConfig gets the config needed to create a client to the model's secret store."
+                    "description": "GetSecretStoreConfig is for 3.0.x agents.\nTODO(wallyworld) - remove when we auto upgrade migrated models."
                 },
                 "RemoveSecrets": {
                     "type": "object",
@@ -39332,6 +39341,27 @@
                         "results"
                     ]
                 },
+                "SecretBackendConfig": {
+                    "type": "object",
+                    "properties": {
+                        "params": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "type"
+                    ]
+                },
                 "SecretConsumerInfoResult": {
                     "type": "object",
                     "properties": {
@@ -39473,27 +39503,6 @@
                     "additionalProperties": false,
                     "required": [
                         "args"
-                    ]
-                },
-                "SecretStoreConfig": {
-                    "type": "object",
-                    "properties": {
-                        "params": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        },
-                        "type": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "type"
                     ]
                 },
                 "SecretTriggerChange": {
@@ -44505,6 +44514,15 @@
                     },
                     "description": "GetRawK8sSpec gets the raw k8s specs for a set of applications."
                 },
+                "GetSecretBackendConfig": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/SecretBackendConfig"
+                        }
+                    },
+                    "description": "GetSecretBackendConfig gets the config needed to create a client to the model's secret backend."
+                },
                 "GetSecretContentInfo": {
                     "type": "object",
                     "properties": {
@@ -44530,10 +44548,10 @@
                     "type": "object",
                     "properties": {
                         "Result": {
-                            "$ref": "#/definitions/SecretStoreConfig"
+                            "$ref": "#/definitions/SecretBackendConfig"
                         }
                     },
-                    "description": "GetSecretStoreConfig gets the config needed to create a client to the model's secret store."
+                    "description": "GetSecretStoreConfig is for 3.0.x agents.\nTODO(wallyworld) - remove when we auto upgrade migrated models."
                 },
                 "GoalStates": {
                     "type": "object",
@@ -47394,6 +47412,27 @@
                         "results"
                     ]
                 },
+                "SecretBackendConfig": {
+                    "type": "object",
+                    "properties": {
+                        "params": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "type"
+                    ]
+                },
                 "SecretConsumerInfoResult": {
                     "type": "object",
                     "properties": {
@@ -47535,27 +47574,6 @@
                     "additionalProperties": false,
                     "required": [
                         "args"
-                    ]
-                },
-                "SecretStoreConfig": {
-                    "type": "object",
-                    "properties": {
-                        "params": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        },
-                        "type": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "type"
                     ]
                 },
                 "SecretTriggerChange": {
