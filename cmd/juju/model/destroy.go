@@ -48,10 +48,10 @@ func NewDestroyCommand() cmd.Command {
 // destroyCommand destroys the specified model.
 type destroyCommand struct {
 	modelcmd.ModelCommandBase
+	modelcmd.ConfirmationCommandBase
 
 	clock jujuclock.Clock
 
-	assumeYes      bool
 	timeout        time.Duration
 	destroyStorage bool
 	releaseStorage bool
@@ -139,11 +139,7 @@ const defaultTimeout = 30 * time.Minute
 // SetFlags implements Command.SetFlags.
 func (c *destroyCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.BoolVar(&c.assumeYes, "y", false, "Do not prompt for confirmation")
-	f.BoolVar(&c.assumeYes, "yes", false, "")
-	// This unused var is declared to pass a valid ptr into BoolVar
-	var noPromptHolder bool
-	f.BoolVar(&noPromptHolder, "no-prompt", false, "Does nothing. Option present for forward compatibility with Juju 3")
+	c.ConfirmationCommandBase.SetFlags(f)
 	f.DurationVar(&c.timeout, "t", defaultTimeout, "Timeout before model destruction is aborted")
 	f.DurationVar(&c.timeout, "timeout", defaultTimeout, "")
 	f.BoolVar(&c.destroyStorage, "destroy-storage", false, "Destroy all storage instances in the model")
@@ -161,7 +157,9 @@ func (c *destroyCommand) Init(args []string) error {
 	if c.timeout < 0 {
 		return errors.New("timeout must be zero or greater")
 	}
-
+	if err := c.ConfirmationCommandBase.Init(args); err != nil {
+		return errors.Trace(err)
+	}
 	switch len(args) {
 	case 0:
 		return errors.New("no model specified")
@@ -236,7 +234,11 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 		return errors.Errorf("%q is a controller; use 'juju destroy-controller' to destroy it", modelName)
 	}
 
-	if !c.assumeYes {
+	if err := c.ConfirmationCommandBase.Run(ctx); err != nil {
+		return errors.Trace(err)
+	}
+
+	if c.ConfirmationCommandBase.NeedsConfirmation() {
 		modelType, err := c.ModelType()
 		if err != nil {
 			return errors.Trace(err)
@@ -247,7 +249,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 		}
 		fmt.Fprintf(ctx.Stdout, msg, modelName)
 
-		if err := jujucmd.UserConfirmYes(ctx); err != nil {
+		if err := jujucmd.UserConfirmName(modelName, "model", ctx); err != nil {
 			return errors.Annotate(err, "model destruction")
 		}
 	}
