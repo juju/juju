@@ -1833,8 +1833,8 @@
     },
     {
         "Name": "Application",
-        "Description": "APIv15 provides the Application API facade for version 15.",
-        "Version": 15,
+        "Description": "APIv16 provides the Application API facade for version 16.",
+        "Version": 16,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -3199,6 +3199,9 @@
                             "type": "string"
                         },
                         "destroy-storage": {
+                            "type": "boolean"
+                        },
+                        "dry-run": {
                             "type": "boolean"
                         },
                         "force": {
