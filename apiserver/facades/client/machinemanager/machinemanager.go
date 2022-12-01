@@ -695,9 +695,6 @@ func (mm *MachineManagerAPI) UpgradeSeriesComplete(arg params.UpdateChannelArg) 
 	if err := mm.check.ChangeAllowed(); err != nil {
 		return params.ErrorResult{}, err
 	}
-	if err := mm.check.ChangeAllowed(); err != nil {
-		return params.ErrorResult{}, err
-	}
 	err := mm.upgradeSeriesAPI.Complete(arg.Entity.Tag)
 	if err != nil {
 		return params.ErrorResult{Error: apiservererrors.ServerError(err)}, nil

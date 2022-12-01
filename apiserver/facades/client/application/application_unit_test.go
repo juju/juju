@@ -366,8 +366,7 @@ func (s *ApplicationSuite) TestSetCharmWithBlockRemove(c *gc.C) {
 
 func (s *ApplicationSuite) TestSetCharmWithBlockChange(c *gc.C) {
 	s.changeAllowed = errors.New("change blocked")
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
+	defer s.setup(c).Finish()
 
 	err := s.api.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
@@ -914,6 +913,21 @@ func (s *ApplicationSuite) TestDestroyApplication(c *gc.C) {
 	})
 }
 
+func (s *ApplicationSuite) TestDestroyApplicationWithBlockChange(c *gc.C) {
+	s.changeAllowed = errors.New("change blocked")
+	s.TestDestroyApplication(c)
+}
+
+func (s *ApplicationSuite) TestDestroyApplicationWithBlockRemove(c *gc.C) {
+	s.removeAllowed = errors.New("remove blocked")
+	defer s.setup(c).Finish()
+
+	_, err := s.api.DestroyApplication(params.DestroyApplicationsParams{
+		Applications: []params.DestroyApplicationParams{{ApplicationTag: "application-postgresql"}},
+	})
+	c.Assert(err, gc.ErrorMatches, "remove blocked")
+}
+
 func (s *ApplicationSuite) TestForceDestroyApplication(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
@@ -1106,7 +1120,7 @@ func (s *ApplicationSuite) TestDestroyUnit(c *gc.C) {
 	defer ctrl.Finish()
 
 	app := s.expectDefaultApplication(ctrl)
-	s.backend.EXPECT().Application("postgresql").AnyTimes().Return(app, nil)
+	s.backend.EXPECT().Application("postgresql").MinTimes(1).Return(app, nil)
 
 	// unit 0 loop
 	unit0 := s.expectUnit(ctrl, "postgresql/0")
@@ -1159,12 +1173,29 @@ func (s *ApplicationSuite) TestDestroyUnit(c *gc.C) {
 	}})
 }
 
+func (s *ApplicationSuite) TestDestroyUnitWithChangeBlock(c *gc.C) {
+	s.changeAllowed = errors.New("change blocked")
+	s.TestDestroyUnit(c)
+}
+
+func (s *ApplicationSuite) TestDestroyUnitWithRemoveBlock(c *gc.C) {
+	s.removeAllowed = errors.New("remove blocked")
+	defer s.setup(c).Finish()
+
+	_, err := s.api.DestroyUnit(params.DestroyUnitsParams{
+		Units: []params.DestroyUnitParams{{
+			UnitTag: "unit-postgresql-1",
+		}},
+	})
+	c.Assert(err, gc.ErrorMatches, "remove blocked")
+}
+
 func (s *ApplicationSuite) TestForceDestroyUnit(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
 	app := s.expectDefaultApplication(ctrl)
-	s.backend.EXPECT().Application("postgresql").AnyTimes().Return(app, nil)
+	s.backend.EXPECT().Application("postgresql").MinTimes(1).Return(app, nil)
 
 	// unit 0 loop
 	unit0 := s.expectUnit(ctrl, "postgresql/0")
@@ -1221,6 +1252,24 @@ func (s *ApplicationSuite) TestForceDestroyUnit(c *gc.C) {
 	}, {
 		Info: &params.DestroyUnitInfo{},
 	}})
+}
+
+func (s *ApplicationSuite) TestDestroySubordinateUnits(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	unit0 := s.expectUnit(ctrl, "subordinate/0")
+	unit0.EXPECT().IsPrincipal().Return(false)
+	s.backend.EXPECT().Unit("subordinate/0").Return(unit0, nil)
+
+	results, err := s.api.DestroyUnit(params.DestroyUnitsParams{
+		Units: []params.DestroyUnitParams{{
+			UnitTag: "unit-subordinate-0",
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches, `unit "subordinate/0" is a subordinate, .*`)
 }
 
 func (s *ApplicationSuite) TestDeployAttachStorage(c *gc.C) {
