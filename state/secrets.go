@@ -16,6 +16,7 @@ import (
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
 	jujutxn "github.com/juju/txn/v3"
+	"github.com/kr/pretty"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/leadership"
@@ -253,7 +254,7 @@ func (s *secretsStore) CreateSecret(uri *secrets.URI, p CreateSecretParams) (*se
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		var ops []txn.Op
 		if p.Label != nil {
-			uniqueLabelOps, err := s.st.uniqueSecretOwnerLabelOps(metadataDoc.OwnerTag, *p.Label)
+			uniqueLabelOps, err := s.st.uniqueSecretOwnerLabelOps(owner, *p.Label)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -341,7 +342,9 @@ func (s *secretsStore) UpdateSecret(uri *secrets.URI, p UpdateSecretParams) (*se
 		}
 		var ops []txn.Op
 		if p.Label != nil && *p.Label != metadataDoc.Label {
-			uniqueLabelOps, err := s.st.uniqueSecretOwnerLabelOps(metadataDoc.OwnerTag, *p.Label)
+			// OwnerTag has already been validated.
+			owner, _ := names.ParseTag(metadataDoc.OwnerTag)
+			uniqueLabelOps, err := s.st.uniqueSecretOwnerLabelOps(owner, *p.Label)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -892,47 +895,116 @@ func (st *State) checkConsumerCountOps(uri *secrets.URI, inc int) ([]txn.Op, err
 	return []txn.Op{countOp, incOp}, nil
 }
 
+const (
+	secretOwnerLabelKeyPrefix    = "secretOwnerlabel"
+	secretConsumerLabelKeyPrefix = "secretConsumerlabel"
+)
+
 func secretOwnerLabelKey(ownerTag string, label string) string {
-	return fmt.Sprintf("secretOwnerlabel#%s#%s", ownerTag, label)
+	return fmt.Sprintf("%s#%s#%s", secretOwnerLabelKeyPrefix, ownerTag, label)
 }
 
-func secretConsumerLabelKey(ownerTag string, label string) string {
-	return fmt.Sprintf("secretConsumerlabel#%s#%s", ownerTag, label)
+func secretConsumerLabelKey(consumerTag string, label string) string {
+	return fmt.Sprintf("%s#%s#%s", secretConsumerLabelKeyPrefix, consumerTag, label)
 }
 
-func (st *State) uniqueSecretOwnerLabelOps(ownerTag string, label string) ([]txn.Op, error) {
+func (st *State) uniqueSecretOwnerLabelOps(ownerTag names.Tag, label string) (ops []txn.Op, err error) {
+	defer func() {
+		logger.Criticalf("uniqueSecretOwnerLabelOps: %s", pretty.Sprint(ops))
+	}()
+
+	if ops, err = st.uniqueSecretLabelBaseOps(ownerTag, label); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	// Check that there is no consumer with the same label.
 	assertNoConsumerLabel, err := st.uniqueSecretLabelOpsRaw(ownerTag, label, "consumer", secretConsumerLabelKey, true)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	ops = append(ops, assertNoConsumerLabel...)
 	// Check that there is no owner with the same label.
 	ops2, err := st.uniqueSecretLabelOpsRaw(ownerTag, label, "owner", secretOwnerLabelKey, false)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return append(assertNoConsumerLabel, ops2...), nil
+	return append(ops, ops2...), nil
 }
 
-func (st *State) uniqueSecretConsumerLabelOps(consumerTag string, label string) ([]txn.Op, error) {
+func (st *State) uniqueSecretConsumerLabelOps(consumerTag names.Tag, label string) (ops []txn.Op, err error) {
+	defer func() {
+		logger.Criticalf("uniqueSecretConsumerLabelOps: %s", pretty.Sprint(ops))
+	}()
+
+	if ops, err = st.uniqueSecretLabelBaseOps(consumerTag, label); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	// Check that there is no owner with the same label.
 	assertNoOwnerLabel, err := st.uniqueSecretLabelOpsRaw(consumerTag, label, "owner", secretOwnerLabelKey, true)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	ops = append(ops, assertNoOwnerLabel...)
 	// Check that there is no consumer with the same label.
 	ops2, err := st.uniqueSecretLabelOpsRaw(consumerTag, label, "consumer", secretConsumerLabelKey, false)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return append(assertNoOwnerLabel, ops2...), nil
+	return append(ops, ops2...), nil
 }
 
-func (st *State) uniqueSecretLabelOpsRaw(tag, label, role string, keyGenerator func(string, string) string, assertionOnly bool) ([]txn.Op, error) {
+func (st *State) uniqueSecretLabelBaseOps(tag names.Tag, label string) (ops []txn.Op, _ error) {
+	defer func() {
+		logger.Criticalf("uniqueSecretLabelBaseOps: %s", pretty.Sprint(ops))
+	}()
+
+	col, close := st.db().GetCollection(refcountsC)
+	defer close()
+
+	var keyPattern string
+	switch tag := tag.(type) {
+	case names.ApplicationTag:
+		// Ensure no units use this label for both owner and consumer label..
+		keyPattern = fmt.Sprintf(
+			"^%s:(%s|%s)#unit-%s-[0-9]+#%s$",
+			st.ModelUUID(), secretOwnerLabelKeyPrefix, secretConsumerLabelKeyPrefix, tag.Name, label,
+		)
+	case names.UnitTag:
+		// Ensure no application owned secret uses this label.
+		applicationName, _ := names.UnitApplication(tag.Id())
+		appTag := names.NewApplicationTag(applicationName)
+
+		keyPattern = fmt.Sprintf(
+			"^%s:(%s|%s)#%s#%s$",
+			st.ModelUUID(), secretOwnerLabelKeyPrefix, secretConsumerLabelKeyPrefix, appTag.String(), label,
+		)
+	default:
+		return nil, errors.NotSupportedf("tag type %T", tag)
+	}
+
+	count, err := col.Find(bson.M{"_id": bson.M{"$regex": keyPattern}}).Count()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if count > 0 {
+		return nil, errors.AlreadyExistsf("secret label %q", label)
+	}
+
+	return []txn.Op{
+		{
+			C:      col.Name(),
+			Id:     bson.M{"$regex": keyPattern},
+			Assert: txn.DocMissing,
+		},
+	}, nil
+}
+
+func (st *State) uniqueSecretLabelOpsRaw(tag names.Tag, label, role string, keyGenerator func(string, string) string, assertionOnly bool) ([]txn.Op, error) {
 	refCountCollection, ccloser := st.db().GetCollection(refcountsC)
 	defer ccloser()
 
-	key := keyGenerator(tag, label)
+	key := keyGenerator(tag.String(), label)
 	countOp, count, err := nsRefcounts.CurrentOp(refCountCollection, key)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1091,7 +1163,7 @@ func (st *State) SaveSecretConsumer(uri *secrets.URI, consumer names.Tag, metada
 		var ops []txn.Op
 
 		if metadata.Label != "" && (create || metadata.Label != doc.Label) {
-			uniqueLabelOps, err := st.uniqueSecretConsumerLabelOps(consumer.String(), metadata.Label)
+			uniqueLabelOps, err := st.uniqueSecretConsumerLabelOps(consumer, metadata.Label)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

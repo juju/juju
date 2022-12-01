@@ -461,8 +461,8 @@ func (s *SecretsManagerAPI) getSecretContent(arg params.GetSecretContentArg) (*s
 		return nil, errors.Trace(err)
 	}
 	if md != nil {
-		// 1. secrets can be accesed by owners;
-		// 2. application owned secrets can be accessed by the leader unit of the application using owner label or URI.
+		// 1. secrets can be accesed by the owner;
+		// 2. application owned secrets can be accessed by all the units of the application using owner label or URI.
 		return getSecretValue(md.URI, md.LatestRevision)
 	}
 
