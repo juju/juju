@@ -5,7 +5,6 @@ package model_test
 
 import (
 	"bytes"
-	"github.com/juju/juju/juju/osenv"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -23,6 +22,7 @@ import (
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/cmd/modelcmd"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/rpc/params"
