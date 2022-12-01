@@ -16,7 +16,7 @@ import (
 )
 
 // NewCharmRepository defines methods required by the resources
-// facade specific to an individual respository type.
+// facade specific to an individual repository type.
 type NewCharmRepository interface {
 	ResolveResources(resources []charmresource.Resource, id CharmID) ([]charmresource.Resource, error)
 }
@@ -60,7 +60,7 @@ func NewCharmHubClient(client CharmHub, logger Logger) *CharmHubClient {
 }
 
 // TODO 30-Nov-2022
-// ResolveResources can be made more effecient, some choices left over from
+// ResolveResources can be made more efficient, some choices left over from
 // integration with charmstore style of working.
 
 // ResolveResources looks at the provided charmhub and backend (already
