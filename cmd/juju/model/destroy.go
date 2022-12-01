@@ -234,10 +234,6 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 		return errors.Errorf("%q is a controller; use 'juju destroy-controller' to destroy it", modelName)
 	}
 
-	if err := c.ConfirmationCommandBase.Run(ctx); err != nil {
-		return errors.Trace(err)
-	}
-
 	if c.ConfirmationCommandBase.NeedsConfirmation() {
 		modelType, err := c.ModelType()
 		if err != nil {
