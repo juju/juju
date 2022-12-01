@@ -25,10 +25,10 @@ func (c *ConfirmationCommandBase) SetFlags(f *gnuflag.FlagSet) {
 func (c *ConfirmationCommandBase) Init(args []string) error {
 	if !c.assumeNoPrompt {
 		assumeNoPrompt, skipErr := jujucmd.CheckSkipConfirmationEnvVar()
-		if skipErr != nil && !errors.Is(skipErr, errors.NotFound) {
+		if skipErr != nil && !errors.IsNotFound(skipErr) {
 			return errors.Trace(skipErr)
 		}
-		if !errors.Is(skipErr, errors.NotFound) {
+		if !errors.IsNotFound(skipErr) {
 			c.assumeNoPrompt = assumeNoPrompt
 		}
 	}
