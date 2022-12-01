@@ -5,8 +5,6 @@ package machine
 
 import (
 	"fmt"
-	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -20,7 +18,6 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -30,9 +27,8 @@ func NewRemoveCommand() cmd.Command {
 }
 
 // removeCommand causes an existing machine to be destroyed.
-// TODO(jack-w-shaw) This should inherit from ConfirmationCommandBase
-// in 3.1, once behaviours have converged
 type removeCommand struct {
+	modelcmd.ConfirmationCommandBase
 	baseMachinesCommand
 	apiRoot      api.Connection
 	machineAPI   RemoveMachineAPI
@@ -40,7 +36,6 @@ type removeCommand struct {
 	Force        bool
 	KeepInstance bool
 	NoWait       bool
-	NoPrompt     bool
 	DryRun       bool
 	fs           *gnuflag.FlagSet
 }
@@ -95,7 +90,7 @@ func (c *removeCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *removeCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.BoolVar(&c.NoPrompt, "no-prompt", false, "Do not prompt for approval")
+	c.ConfirmationCommandBase.SetFlags(f)
 	f.BoolVar(&c.DryRun, "dry-run", false, "Print what this command would be removed without removing")
 	f.BoolVar(&c.Force, "force", false, "Completely remove a machine and all its dependencies")
 	f.BoolVar(&c.KeepInstance, "keep-instance", false, "Do not stop the running cloud instance")
@@ -104,6 +99,9 @@ func (c *removeCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *removeCommand) Init(args []string) error {
+	if err := c.ConfirmationCommandBase.Init(args); err != nil {
+		return errors.Trace(err)
+	}
 	if len(args) == 0 {
 		return errors.Errorf("no machines specified")
 	}
@@ -114,22 +112,6 @@ func (c *removeCommand) Init(args []string) error {
 	}
 	if !c.Force && c.NoWait {
 		return errors.NotValidf("--no-wait without --force")
-	}
-	// To maintain compatibility, in 3.0 NoPrompt should default to true.
-	// However, we still need to take into account the env var and the
-	// flag. So default initially to false, but if the env var and flag
-	// are not present, set to true.
-	// TODO(jack-w-shaw) use CheckSkipConfirmEnvVar in 3.1
-	if !c.NoPrompt {
-		if skipConf, ok := os.LookupEnv(osenv.JujuSkipConfirmationEnvKey); ok {
-			skipConfBool, err := strconv.ParseBool(skipConf)
-			if err != nil {
-				return errors.Annotatef(err, "value %q of env var %q is not a valid bool", skipConf, osenv.JujuSkipConfirmationEnvKey)
-			}
-			c.NoPrompt = skipConfBool
-		} else {
-			c.NoPrompt = true
-		}
 	}
 
 	c.MachineIds = args
@@ -178,7 +160,7 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 		return c.performDryRun(ctx, client)
 	}
 
-	if !c.NoPrompt {
+	if c.NeedsConfirmation() {
 		err := c.performDryRun(ctx, client)
 		if err == errDryRunNotSupported {
 			ctx.Warningf(removeMachineMsgNoDryRun, strings.Join(c.MachineIds, ", "))
@@ -195,7 +177,7 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	logAll := c.NoPrompt || client.BestAPIVersion() < 10
+	logAll := !c.NeedsConfirmation() || client.BestAPIVersion() < 10
 	if logAll {
 		return c.logResults(ctx, results)
 	} else {
