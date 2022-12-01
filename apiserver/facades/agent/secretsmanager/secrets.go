@@ -357,15 +357,18 @@ func (s *SecretsManagerAPI) handleAppOwnedSecretForPeerUnts(md *coresecrets.Secr
 	// If the secret is owned by the app, and the caller is a peer unit, we create a fake consumer doc for triggering events to notify the uniters.
 	// The peer units should get the secret using owner label but should not set a consumer label.
 	consumer, err := s.secretsConsumer.GetSecretConsumer(md.URI, s.authTag)
+	logger.Criticalf("handleAppOwnedSecretForPeerUnts: consumer: %+v, err: %+v", consumer, err)
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
 	}
+
 	if consumer == nil {
+		logger.Criticalf("creating fake consumer for %q", md.URI)
 		consumer = &coresecrets.SecretConsumerMetadata{
 			LatestRevision: md.LatestRevision,
 		}
 	}
-	consumer.CurrentRevision = md.LatestRevision
+	// consumer.CurrentRevision = md.LatestRevision
 	if err := s.secretsConsumer.SaveSecretConsumer(md.URI, s.authTag, consumer); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -379,6 +382,7 @@ func (s *SecretsManagerAPI) getAppOwnedOrUnitOwnedSecretMetadata(uri *coresecret
 	}
 	defer func() {
 		if md == nil || md.OwnerTag == s.authTag.String() {
+			logger.Criticalf("found %q owned secret %+v", s.authTag, md)
 			// Either not found or found a secret owned by the caller.
 			return
 		}
@@ -389,6 +393,7 @@ func (s *SecretsManagerAPI) getAppOwnedOrUnitOwnedSecretMetadata(uri *coresecret
 			return
 		}
 		if isLeader {
+			logger.Criticalf("found app owned secret %+v for leader unit %q", md, s.authTag)
 			return
 		}
 		md, err = s.handleAppOwnedSecretForPeerUnts(md)
@@ -408,9 +413,11 @@ func (s *SecretsManagerAPI) getAppOwnedOrUnitOwnedSecretMetadata(uri *coresecret
 	}
 	for _, md := range mds {
 		if uri != nil && md.URI.ID == uri.ID {
+			logger.Criticalf("found secret %q", uri)
 			return md, nil
 		}
 		if label != "" && md.Label == label {
+			logger.Criticalf("found secret %q", label)
 			return md, nil
 		}
 	}
