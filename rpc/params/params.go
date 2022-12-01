@@ -513,12 +513,6 @@ type ApplicationMergeBindings struct {
 	Force          bool              `json:"force"`
 }
 
-// DestroyApplicationUnits holds parameters for the deprecated
-// Application.DestroyUnits call.
-type DestroyApplicationUnits struct {
-	UnitNames []string `json:"unit-names"`
-}
-
 // DestroyUnitsParams holds bulk parameters for the Application.DestroyUnit call.
 type DestroyUnitsParams struct {
 	Units []DestroyUnitParams `json:"units"`
