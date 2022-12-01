@@ -13,22 +13,20 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/secrets"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/secrets/provider"
 	_ "github.com/juju/juju/secrets/provider/all"
 	jujuvault "github.com/juju/juju/secrets/provider/vault"
 	coretesting "github.com/juju/juju/testing"
 )
 
-type vaultSuite struct {
+type providerSuite struct {
 	testing.IsolationSuite
 	coretesting.JujuOSEnvSuite
 }
 
-var _ = gc.Suite(&vaultSuite{})
+var _ = gc.Suite(&providerSuite{})
 
-func (s *vaultSuite) SetUpTest(c *gc.C) {
-	s.SetInitialFeatureFlags(feature.DeveloperMode)
+func (s *providerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.JujuOSEnvSuite.SetUpTest(c)
 	s.PatchValue(&jujuvault.NewVaultClient, func(addr string, tlsConf *vault.TLSConfig, opts ...vault.ClientOpts) (*vault.Client, error) {
@@ -49,14 +47,14 @@ func (s *vaultSuite) SetUpTest(c *gc.C) {
 	})
 }
 
-func (s *vaultSuite) TestBackendConfig(c *gc.C) {
+func (s *providerSuite) TestBackendConfig(c *gc.C) {
 	p, err := provider.Provider(jujuvault.BackendType)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = p.BackendConfig(mockModel{}, nil, nil, nil)
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
-func (s *vaultSuite) TestValidateConfig(c *gc.C) {
+func (s *providerSuite) TestValidateConfig(c *gc.C) {
 	p, err := provider.Provider(jujuvault.BackendType)
 	c.Assert(err, jc.ErrorIsNil)
 	for _, t := range []struct {
@@ -71,7 +69,7 @@ func (s *vaultSuite) TestValidateConfig(c *gc.C) {
 	}
 }
 
-func (s *vaultSuite) TestNewBackend(c *gc.C) {
+func (s *providerSuite) TestNewBackend(c *gc.C) {
 	p, err := provider.Provider(jujuvault.BackendType)
 	c.Assert(err, jc.ErrorIsNil)
 

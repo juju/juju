@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/caas"
 	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -231,23 +230,4 @@ func cloudSpecForModel(m provider.Model) (cloudspec.CloudSpec, error) {
 		return cloudspec.CloudSpec{}, errors.NotValidf("cloud credential for %s is empty", m.UUID())
 	}
 	return cloudspec.MakeCloudSpec(c, "", cloudCredential)
-}
-
-type k8sBackend struct {
-	broker caas.SecretsBackend
-}
-
-// GetContent implements SecretsBackend.
-func (k k8sBackend) GetContent(ctx context.Context, backendId string) (secrets.SecretValue, error) {
-	return k.broker.GetJujuSecret(ctx, backendId)
-}
-
-// DeleteContent implements SecretsBackend.
-func (k k8sBackend) DeleteContent(ctx context.Context, backendId string) error {
-	return k.broker.DeleteJujuSecret(ctx, backendId)
-}
-
-// SaveContent implements SecretsBackend.
-func (k k8sBackend) SaveContent(ctx context.Context, uri *secrets.URI, revision int, value secrets.SecretValue) (string, error) {
-	return k.broker.SaveJujuSecret(ctx, uri.Name(revision), value)
 }

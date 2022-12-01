@@ -27,13 +27,13 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-type kubernetesSuite struct {
+type providerSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&kubernetesSuite{})
+var _ = gc.Suite(&providerSuite{})
 
-func (*kubernetesSuite) TestBackendConfig(c *gc.C) {
+func (*providerSuite) TestBackendConfig(c *gc.C) {
 	p, err := provider.Provider(kubernetes.BackendType)
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := p.BackendConfig(mockModel{}, nil, nil, nil)
@@ -52,14 +52,14 @@ func (*kubernetesSuite) TestBackendConfig(c *gc.C) {
 	})
 }
 
-func (*kubernetesSuite) TestValidateConfig(c *gc.C) {
+func (*providerSuite) TestValidateConfig(c *gc.C) {
 	p, err := provider.Provider(kubernetes.BackendType)
 	c.Assert(err, jc.ErrorIsNil)
 	err = p.ValidateConfig(nil, map[string]interface{}{"foo": "bar"})
 	c.Assert(err, gc.ErrorMatches, "the k8s secrets backend does not use any config")
 }
 
-func (s *kubernetesSuite) assertBackendConfigWithTag(c *gc.C, isControllerCloud bool) {
+func (s *providerSuite) assertBackendConfigWithTag(c *gc.C, isControllerCloud bool) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -118,15 +118,15 @@ func (s *kubernetesSuite) assertBackendConfigWithTag(c *gc.C, isControllerCloud 
 	c.Assert(backendCfg, jc.DeepEquals, expected)
 }
 
-func (s *kubernetesSuite) TestBackendConfigWithTag(c *gc.C) {
+func (s *providerSuite) TestBackendConfigWithTag(c *gc.C) {
 	s.assertBackendConfigWithTag(c, false)
 }
 
-func (s *kubernetesSuite) TestBackendConfigWithTagWithControllerCloud(c *gc.C) {
+func (s *providerSuite) TestBackendConfigWithTagWithControllerCloud(c *gc.C) {
 	s.assertBackendConfigWithTag(c, true)
 }
 
-func (s *kubernetesSuite) TestCleanupSecrets(c *gc.C) {
+func (s *providerSuite) TestCleanupSecrets(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -163,7 +163,7 @@ func (s *kubernetesSuite) TestCleanupSecrets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *kubernetesSuite) TestNewBackend(c *gc.C) {
+func (s *providerSuite) TestNewBackend(c *gc.C) {
 	model := mockModel{}
 	s.PatchValue(&kubernetes.NewCaas, func(ctx context.Context, args environs.OpenParams) (kubernetes.Broker, error) {
 		cred := cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{"foo": "bar"})
