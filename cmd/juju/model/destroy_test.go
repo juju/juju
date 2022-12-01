@@ -5,6 +5,7 @@ package model_test
 
 import (
 	"bytes"
+	"github.com/juju/juju/juju/osenv"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -191,6 +192,25 @@ func (s *DestroySuite) TestDestroy(c *gc.C) {
 		{"DestroyModel",
 			[]interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil), (*bool)(nil), (*time.Duration)(nil), timeout}},
 	})
+}
+
+func (s *DestroySuite) TestDestroyWithSkipConfirmEnvVar(c *gc.C) {
+	s.PatchEnvironment(osenv.JujuSkipConfirmationEnvKey, "true")
+	checkModelExistsInStore(c, "test1:admin/test2", s.store)
+	_, err := s.runDestroyCommand(c, "test2")
+	c.Assert(err, jc.ErrorIsNil)
+	checkModelRemovedFromStore(c, "test1:admin/test2", s.store)
+	s.stub.CheckCalls(c, []jutesting.StubCall{
+		{"DestroyModel",
+			[]interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil), (*bool)(nil), (*time.Duration)(nil), timeout}},
+	})
+}
+
+func (s *DestroySuite) TestDestroyWithSkipConfirmIncorrectEnvVar(c *gc.C) {
+	s.PatchEnvironment(osenv.JujuSkipConfirmationEnvKey, "incorrect_value")
+	checkModelExistsInStore(c, "test1:admin/test2", s.store)
+	_, err := s.runDestroyCommand(c, "test2")
+	c.Assert(err, gc.ErrorMatches, "Unexpected value of JUJU_SKIP_CONFIRMATION env var, needs to be bool.")
 }
 
 func (s *DestroySuite) TestDestroyWithPartModelUUID(c *gc.C) {
