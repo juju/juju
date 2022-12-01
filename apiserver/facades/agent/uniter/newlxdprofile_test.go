@@ -289,9 +289,10 @@ func (s *newLxdProfileSuite) expectModelTypeCAAS() {
 
 func (s *newLxdProfileSuite) expectProviderType(c *gc.C, pType string) {
 	attrs := map[string]interface{}{
-		config.TypeKey: pType,
-		config.NameKey: "testmodel",
-		config.UUIDKey: "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		config.TypeKey:          pType,
+		config.NameKey:          "testmodel",
+		config.UUIDKey:          "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		config.SecretBackendKey: "auto",
 	}
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)

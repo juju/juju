@@ -246,14 +246,14 @@ func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err
 }
 
 // modelConfig creates a config for the model being imported.
-// If the tools version is before 2.9.35, the default-series
-// value is cleared. This matches an upgrade step for 2.9.35
-// as well. Ensuring that the default-series value is set by
-// the user rather than a hold over from an old juju set value.
-// Related to using the default-series value in the same way
-// as a series flag at deploy.
 func modelConfig(attrs map[string]interface{}) (*config.Config, error) {
-	v, ok := attrs["agent-version"].(string)
+	// If the tools version is before 2.9.35, the default-series
+	// value is cleared. This matches an upgrade step for 2.9.35
+	// as well. Ensuring that the default-series value is set by
+	// the user rather than a hold over from an old juju set value.
+	// Related to using the default-series value in the same way
+	// as a series flag at deploy.
+	v, ok := attrs[config.AgentVersionKey].(string)
 	if !ok {
 		return nil, errors.New("model config missing agent-version")
 	}
@@ -263,10 +263,15 @@ func modelConfig(attrs map[string]interface{}) (*config.Config, error) {
 	}
 	// Using MustParse as the value parsed will never change.
 	newer := version.MustParse("2.9.35")
-	if comp := toolsVersion.Compare(newer); comp >= 0 {
-		return config.New(config.NoDefaults, attrs)
+	if comp := toolsVersion.Compare(newer); comp < 0 {
+		attrs[config.DefaultSeriesKey] = ""
 	}
-	attrs["default-series"] = ""
+
+	// Ensure the expected default secret-backend value is set.
+	if v, ok := attrs[config.SecretBackendKey].(string); v == "" || !ok {
+		attrs[config.SecretBackendKey] = config.DefaultSecretBackend
+	}
+
 	return config.New(config.NoDefaults, attrs)
 }
 

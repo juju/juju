@@ -1021,7 +1021,7 @@ func (s *mockHookContextSuite) TestSecretGet(c *gc.C) {
 			c.Assert(arg, gc.IsNil)
 			c.Assert(result, gc.FitsTypeOf, &params.SecretStoreConfig{})
 			*(result.(*params.SecretStoreConfig)) = params.SecretStoreConfig{
-				StoreType: "juju",
+				StoreType: "controller",
 			}
 			return nil
 		}
@@ -1104,7 +1104,7 @@ func (s *mockHookContextSuite) assertSecretGetOwnedSecretURILookup(
 			c.Assert(arg, gc.IsNil)
 			c.Assert(result, gc.FitsTypeOf, &params.SecretStoreConfig{})
 			*(result.(*params.SecretStoreConfig)) = params.SecretStoreConfig{
-				StoreType: "juju",
+				StoreType: "controller",
 			}
 			return nil
 		}

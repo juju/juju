@@ -2727,8 +2727,8 @@ func (s *MigrationImportSuite) TestImportingModelWithBlankType(c *gc.C) {
 		CloudRegion:        testModel.CloudRegion(),
 	})
 	imported, newSt, err := s.Controller.Import(noTypeModel)
-	defer func() { _ = newSt.Close() }()
 	c.Assert(err, jc.ErrorIsNil)
+	defer func() { _ = newSt.Close() }()
 
 	c.Assert(imported.Type(), gc.Equals, state.ModelTypeIAAS)
 }
@@ -2763,8 +2763,8 @@ func (s *MigrationImportSuite) testImportingModelWithDefaultSeries(c *gc.C, tool
 		CloudRegion:    testModel.CloudRegion(),
 	})
 	imported, newSt, err := s.Controller.Import(importModel)
-	defer func() { _ = newSt.Close() }()
 	c.Assert(err, jc.ErrorIsNil)
+	defer func() { _ = newSt.Close() }()
 
 	importedCfg, err := imported.Config()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2934,6 +2934,32 @@ func (s *MigrationImportSuite) TestSecrets(c *gc.C) {
 		CurrentRevision: 666,
 		LatestRevision:  2,
 	})
+}
+
+func (s *MigrationImportSuite) TestDefaultSecretBackend(c *gc.C) {
+	testModel, err := s.State.Export(map[string]string{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	newConfig := testModel.Config()
+	newConfig["uuid"] = "aabbccdd-1234-8765-abcd-0123456789ab"
+	newConfig["name"] = "something-new"
+	delete(newConfig, "secret-backend")
+	importModel := description.NewModel(description.ModelArgs{
+		Type:           string(state.ModelTypeIAAS),
+		Owner:          testModel.Owner(),
+		Config:         newConfig,
+		EnvironVersion: testModel.EnvironVersion(),
+		Blocks:         testModel.Blocks(),
+		Cloud:          testModel.Cloud(),
+		CloudRegion:    testModel.CloudRegion(),
+	})
+	imported, newSt, err := s.Controller.Import(importModel)
+	c.Assert(err, jc.ErrorIsNil)
+	defer func() { _ = newSt.Close() }()
+
+	importedCfg, err := imported.Config()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(importedCfg.SecretBackend(), gc.Equals, "auto")
 }
 
 // newModel replaces the uuid and name of the config attributes so we

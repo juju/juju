@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/secrets"
-	"github.com/juju/juju/environs/config"
 )
 
 // Model exposes the methods needed to create a secrets backend config.
@@ -19,8 +18,9 @@ type Model interface {
 	ControllerUUID() string
 	Cloud() (cloud.Cloud, error)
 	CloudCredential() (*cloud.Credential, error)
-	Config() (*config.Config, error)
+	Name() string
 	UUID() string
+	GetSecretBackend() (*secrets.SecretBackend, error)
 }
 
 // SecretRevisions backends information for generating resource name for a list of secrets.
@@ -48,6 +48,15 @@ func (nm SecretRevisions) Names() (names []string) {
 	sort.Strings(names) // for testing.
 	return names
 }
+
+const (
+	// Auto uses either controller or k8s backends
+	// depending on the model type.
+	Auto = "auto"
+
+	// Internal is the controller backend.
+	Internal = "internal"
+)
 
 // SecretBackendProvider instances create secret backends.
 type SecretBackendProvider interface {

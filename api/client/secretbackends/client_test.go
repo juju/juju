@@ -43,11 +43,14 @@ func (s *SecretBackendsSuite) TestListSecretBackends(c *gc.C) {
 		c.Check(arg, jc.DeepEquals, params.ListSecretBackendsArgs{Reveal: true})
 		c.Assert(result, gc.FitsTypeOf, &params.ListSecretBackendsResults{})
 		*(result.(*params.ListSecretBackendsResults)) = params.ListSecretBackendsResults{
-			[]params.SecretBackend{{
-				Name:                "foo",
-				Backend:             "vault",
-				TokenRotateInterval: ptr(666 * time.Minute),
-				Config:              config,
+			[]params.SecretBackendResult{{
+				Result: params.SecretBackend{
+					Name:                "foo",
+					BackendType:         "vault",
+					TokenRotateInterval: ptr(666 * time.Minute),
+					Config:              config,
+				},
+				NumSecrets: 666,
 			}},
 		}
 		return nil
@@ -57,16 +60,17 @@ func (s *SecretBackendsSuite) TestListSecretBackends(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, []secretbackends.SecretBackend{{
 		Name:                "foo",
-		Backend:             "vault",
+		BackendType:         "vault",
 		TokenRotateInterval: ptr(666 * time.Minute),
 		Config:              config,
+		NumSecrets:          666,
 	}})
 }
 
 func (s *SecretBackendsSuite) TestAddSecretsBackend(c *gc.C) {
 	backend := secretbackends.SecretBackend{
 		Name:                "foo",
-		Backend:             "vault",
+		BackendType:         "vault",
 		TokenRotateInterval: ptr(666 * time.Minute),
 		Config:              map[string]interface{}{"foo": "bar"},
 	}
@@ -78,7 +82,7 @@ func (s *SecretBackendsSuite) TestAddSecretsBackend(c *gc.C) {
 		c.Check(arg, jc.DeepEquals, params.AddSecretBackendArgs{
 			Args: []params.SecretBackend{{
 				Name:                backend.Name,
-				Backend:             backend.Backend,
+				BackendType:         backend.BackendType,
 				TokenRotateInterval: backend.TokenRotateInterval,
 				Config:              backend.Config,
 			}},

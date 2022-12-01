@@ -494,6 +494,9 @@ const (
 
 	// DefaultLxdSnapChannel is the default lxd snap channel to install on host vms.
 	DefaultLxdSnapChannel = "5.0/stable"
+
+	// DefaultSecretBackend is the default secret backend to use.
+	DefaultSecretBackend = "auto"
 )
 
 var defaultConfigValues = map[string]interface{}{
@@ -587,8 +590,8 @@ var defaultConfigValues = map[string]interface{}{
 	MaxActionResultsAge:  DefaultActionResultsAge,
 	MaxActionResultsSize: DefaultActionResultsSize,
 
-	// By default the Juju backend is used.
-	SecretBackendKey: "",
+	// Secret settings.
+	SecretBackendKey: DefaultSecretBackend,
 }
 
 // defaultLoggingConfig is the default value for logging-config if it is otherwise not set.
@@ -1009,8 +1012,8 @@ func (c *Config) DefaultSeries() (string, bool) {
 	}
 }
 
-// SecretStore returns the secret store name.
-func (c *Config) SecretStore() string {
+// SecretBackend returns the secret backend name.
+func (c *Config) SecretBackend() string {
 	value, _ := c.defined[SecretBackendKey].(string)
 	return value
 }
@@ -1795,7 +1798,6 @@ var alwaysOptional = schema.Defaults{
 	DefaultSpace:                    schema.Omit,
 	LXDSnapChannel:                  schema.Omit,
 	CharmHubURLKey:                  schema.Omit,
-	SecretBackendKey:                schema.Omit,
 }
 
 func allowEmpty(attr string) bool {

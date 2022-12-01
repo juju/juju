@@ -42,7 +42,7 @@ func (s *SecretBackendsSuite) TestCreate(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(backend, jc.DeepEquals, &secrets.SecretBackend{
 		Name:                "myvault",
-		Backend:             "vault",
+		BackendType:         "vault",
 		TokenRotateInterval: ptr(666 * time.Minute),
 		Config:              config,
 	})
@@ -80,12 +80,12 @@ func (s *SecretBackendsSuite) TestList(c *gc.C) {
 	})
 
 	c.Assert(backends, jc.DeepEquals, []*secrets.SecretBackend{{
-		Name:    "myk8s",
-		Backend: "kubernetes",
-		Config:  config,
+		Name:        "myk8s",
+		BackendType: "kubernetes",
+		Config:      config,
 	}, {
 		Name:                "myvault",
-		Backend:             "vault",
+		BackendType:         "vault",
 		TokenRotateInterval: ptr(666 * time.Minute),
 		Config:              config,
 	}})

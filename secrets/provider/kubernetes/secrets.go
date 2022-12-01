@@ -22,13 +22,14 @@ import (
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/secrets/provider"
+	"github.com/juju/juju/state"
 )
 
 var logger = loggo.GetLogger("juju.secrets.provider.kubernetes")
 
 const (
-	// Backend is the name of the Kubernetes secrets backend.
-	Backend = "kubernetes"
+	// BackendType is the type of the Kubernetes secrets backend.
+	BackendType = "kubernetes"
 )
 
 // NewProvider returns a Kubernetes secrets provider.
@@ -48,7 +49,7 @@ func (p k8sProvider) ValidateConfig(oldCfg, newCfg provider.ProviderConfig) erro
 }
 
 func (p k8sProvider) Type() string {
-	return Backend
+	return BackendType
 }
 
 // Initialise is not used.
@@ -59,6 +60,24 @@ func (p k8sProvider) Initialise(m provider.Model) error {
 // CleanupModel is not used.
 func (p k8sProvider) CleanupModel(m provider.Model) error {
 	return nil
+}
+
+func (p k8sProvider) getBroker(
+	controllerUUID, modelUUID, modelName string, cloudSpec cloudspec.CloudSpec,
+) (Broker, error) {
+	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
+		config.NameKey: modelName,
+		config.UUIDKey: modelUUID,
+		config.TypeKey: state.ModelTypeCAAS,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return NewCaas(context.TODO(), environs.OpenParams{
+		ControllerUUID: controllerUUID,
+		Cloud:          cloudSpec,
+		Config:         cfg,
+	})
 }
 
 // CleanupSecrets removes rules of the role associated with the removed secrets.
@@ -75,16 +94,7 @@ func (p k8sProvider) CleanupSecrets(m provider.Model, tag names.Tag, removed pro
 	if err != nil {
 		return errors.Trace(err)
 	}
-	cfg, err := m.Config()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	broker, err := NewCaas(context.TODO(), environs.OpenParams{
-		ControllerUUID: m.ControllerUUID(),
-		Cloud:          cloudSpec,
-		Config:         cfg,
-	})
+	broker, err := p.getBroker(m.ControllerUUID(), m.UUID(), m.Name(), cloudSpec)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -92,18 +102,17 @@ func (p k8sProvider) CleanupSecrets(m provider.Model, tag names.Tag, removed pro
 	return errors.Trace(err)
 }
 
-func cloudSpecToBackendConfig(controllerUUID string, cfg *config.Config, spec cloudspec.CloudSpec) (*provider.BackendConfig, error) {
+func cloudSpecToBackendConfig(m provider.Model, spec cloudspec.CloudSpec) (*provider.BackendConfig, error) {
 	cred, err := json.Marshal(spec.Credential)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &provider.BackendConfig{
-		BackendType: Backend,
+		BackendType: BackendType,
 		Config: map[string]interface{}{
-			"controller-uuid":     controllerUUID,
-			"model-name":          cfg.Name(),
-			"model-type":          cfg.Type(),
-			"model-uuid":          cfg.UUID(),
+			"controller-uuid":     m.ControllerUUID(),
+			"model-name":          m.Name(),
+			"model-uuid":          m.UUID(),
 			"endpoint":            spec.Endpoint,
 			"ca-certs":            spec.CACertificates,
 			"is-controller-cloud": spec.IsControllerCloud,
@@ -114,31 +123,22 @@ func cloudSpecToBackendConfig(controllerUUID string, cfg *config.Config, spec cl
 
 // BackendConfig returns the config needed to create a k8s secrets backend.
 // TODO(wallyworld) - only allow access to the specified secrets
-func (p k8sProvider) BackendConfig(m provider.Model, tag names.Tag, owned provider.SecretRevisions, read provider.SecretRevisions) (*provider.BackendConfig, error) {
-	logger.Tracef("getting k8s backend config for %q, owned %v, read %v", tag, owned, read)
+func (p k8sProvider) BackendConfig(m provider.Model, consumer names.Tag, owned provider.SecretRevisions, read provider.SecretRevisions) (*provider.BackendConfig, error) {
+	logger.Tracef("getting k8s backend config for %q, owned %v, read %v", consumer, owned, read)
+
 	cloudSpec, err := cloudSpecForModel(m)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	if consumer == nil {
+		return cloudSpecToBackendConfig(m, cloudSpec)
+	}
 
-	cfg, err := m.Config()
+	broker, err := p.getBroker(m.ControllerUUID(), m.UUID(), m.Name(), cloudSpec)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	controllerUUID := m.ControllerUUID()
-	if tag == nil {
-		return cloudSpecToBackendConfig(controllerUUID, cfg, cloudSpec)
-	}
-
-	broker, err := NewCaas(context.TODO(), environs.OpenParams{
-		ControllerUUID: controllerUUID,
-		Cloud:          cloudSpec,
-		Config:         cfg,
-	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	token, err := broker.EnsureSecretAccessToken(tag, owned.Names(), read.Names(), nil)
+	token, err := broker.EnsureSecretAccessToken(consumer, owned.Names(), read.Names(), nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -160,7 +160,7 @@ func (p k8sProvider) BackendConfig(m provider.Model, tag names.Tag, owned provid
 			cloudSpec.IsControllerCloud = false
 		}
 	}
-	return cloudSpecToBackendConfig(controllerUUID, cfg, cloudSpec)
+	return cloudSpecToBackendConfig(m, cloudSpec)
 }
 
 type Broker interface {
@@ -177,17 +177,6 @@ func newCaas(ctx context.Context, args environs.OpenParams) (Broker, error) {
 
 // NewBackend returns a k8s backed secrets backend.
 func (p k8sProvider) NewBackend(cfg *provider.BackendConfig) (provider.SecretsBackend, error) {
-	modelName := cfg.Config["model-name"].(string)
-	modelType := cfg.Config["model-type"].(string)
-	modelUUID := cfg.Config["model-uuid"].(string)
-	modelCfg, err := config.New(config.UseDefaults, map[string]interface{}{
-		config.NameKey: modelName,
-		config.TypeKey: modelType,
-		config.UUIDKey: modelUUID,
-	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	cloudSpec := cloudspec.CloudSpec{
 		Type:              "kubernetes",
 		Name:              "secret-access",
@@ -204,17 +193,25 @@ func (p k8sProvider) NewBackend(cfg *provider.BackendConfig) (provider.SecretsBa
 		}
 	}
 	var cred cloud.Credential
-	err = json.Unmarshal([]byte(cfg.Config["credential"].(string)), &cred)
+	err := json.Unmarshal([]byte(cfg.Config["credential"].(string)), &cred)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	cloudSpec.Credential = &cred
 
-	broker, err := NewCaas(context.TODO(), environs.OpenParams{
-		ControllerUUID: cfg.Config["controller-uuid"].(string),
-		Cloud:          cloudSpec,
-		Config:         modelCfg,
-	})
+	controllerUUID, ok := cfg.Config["controller-uuid"].(string)
+	if !ok {
+		return nil, errors.New("k8s secret backend config missing controller uuid")
+	}
+	modelUUID, ok := cfg.Config["model-uuid"].(string)
+	if !ok {
+		return nil, errors.New("k8s secret backend config missing model uuid")
+	}
+	modelName, ok := cfg.Config["model-name"].(string)
+	if !ok {
+		return nil, errors.New("k8s secret backend config missing model name")
+	}
+	broker, err := p.getBroker(controllerUUID, modelUUID, modelName, cloudSpec)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

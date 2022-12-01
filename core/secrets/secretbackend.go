@@ -10,7 +10,7 @@ import (
 // SecretBackend defines a secrets backend.
 type SecretBackend struct {
 	Name                string
-	Backend             string
+	BackendType         string
 	TokenRotateInterval *time.Duration
 	Config              map[string]interface{}
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -27,9 +28,11 @@ func NewClient(caller base.APICallCloser) *Client {
 // SecretBackend holds details for a secret backend.
 type SecretBackend struct {
 	Name                string
-	Backend             string
+	BackendType         string
 	TokenRotateInterval *time.Duration
 	Config              map[string]interface{}
+	NumSecrets          int
+	Error               error
 }
 
 // ListSecretBackends lists the available secret backends.
@@ -42,10 +45,12 @@ func (api *Client) ListSecretBackends(reveal bool) ([]SecretBackend, error) {
 	result := make([]SecretBackend, len(response.Results))
 	for i, r := range response.Results {
 		details := SecretBackend{
-			Name:                r.Name,
-			Backend:             r.Backend,
-			TokenRotateInterval: r.TokenRotateInterval,
-			Config:              r.Config,
+			Name:                r.Result.Name,
+			BackendType:         r.Result.BackendType,
+			TokenRotateInterval: r.Result.TokenRotateInterval,
+			Config:              r.Result.Config,
+			NumSecrets:          r.NumSecrets,
+			Error:               apiservererrors.RestoreError(r.Error),
 		}
 		result[i] = details
 	}
@@ -59,7 +64,7 @@ func (api *Client) AddSecretBackend(backend SecretBackend) error {
 		Args: []params.SecretBackend{{
 			Name:                backend.Name,
 			TokenRotateInterval: backend.TokenRotateInterval,
-			Backend:             backend.Backend,
+			BackendType:         backend.BackendType,
 			Config:              backend.Config,
 		}},
 	}

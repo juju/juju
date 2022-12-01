@@ -61,6 +61,7 @@ var sampleConfig = testing.Attrs{
 	"automatically-retry-hooks":  true,
 	"proxy-ssh":                  false,
 	"resource-tags":              []string{},
+	"secret-backend":             "auto",
 }
 
 type configTest struct {
@@ -423,6 +424,7 @@ var configTests = []configTest{
 			"resource-tags":              []string{},
 			"type":                       "ec2",
 			"uuid":                       testing.ModelTag.Id(),
+			"secret-backend":             "auto",
 		},
 	}, {
 		about:       "TestMode flag specified",
@@ -854,6 +856,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 		"proxy-ssh":                  false,
 		"development":                false,
 		"test-mode":                  false,
+		"secret-backend":             "auto",
 	}
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1600,7 +1603,7 @@ func (s *ConfigSuite) TestTelemetryConfigDoesNotExist(c *gc.C) {
 		"uuid": testing.ModelTag.Id(),
 	}
 
-	cfg, err := config.New(config.NoDefaults, final)
+	cfg, err := config.New(config.UseDefaults, final)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.Telemetry(), jc.IsTrue)
 }

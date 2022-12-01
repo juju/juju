@@ -46,7 +46,7 @@ func (s *SecretsSuite) TestGetSecretStoreConfig(c *gc.C) {
 		c.Check(arg, gc.IsNil)
 		c.Assert(result, gc.FitsTypeOf, &params.SecretStoreConfig{})
 		*(result.(*params.SecretStoreConfig)) = params.SecretStoreConfig{
-			StoreType: "juju",
+			StoreType: "controller",
 			Params:    map[string]interface{}{"foo": "bar"},
 		}
 		return nil
@@ -55,7 +55,7 @@ func (s *SecretsSuite) TestGetSecretStoreConfig(c *gc.C) {
 	result, err := client.GetSecretBackendConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, &provider.BackendConfig{
-		BackendType: "juju",
+		BackendType: "controller",
 		Config:      map[string]interface{}{"foo": "bar"},
 	})
 }

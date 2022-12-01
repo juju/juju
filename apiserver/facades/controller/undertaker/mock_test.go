@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/apiserver/facades/controller/undertaker"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/secrets/provider"
@@ -114,6 +115,8 @@ type mockModel struct {
 	statusData map[string]interface{}
 }
 
+var _ undertaker.Model = (*mockModel)(nil)
+
 func (m *mockModel) ControllerUUID() string {
 	return coretesting.ControllerTag.Id()
 }
@@ -126,11 +129,9 @@ func (m *mockModel) CloudCredential() (*cloud.Credential, error) {
 	return nil, errors.NotImplemented
 }
 
-func (m *mockModel) Config() (*config.Config, error) {
+func (m *mockModel) GetSecretBackend() (*secrets.SecretBackend, error) {
 	return nil, errors.NotImplemented
 }
-
-var _ undertaker.Model = (*mockModel)(nil)
 
 func (m *mockModel) Owner() names.UserTag {
 	return m.owner

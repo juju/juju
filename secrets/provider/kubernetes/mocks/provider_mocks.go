@@ -9,7 +9,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	cloud "github.com/juju/juju/cloud"
-	config "github.com/juju/juju/environs/config"
+	secrets "github.com/juju/juju/core/secrets"
 )
 
 // MockModel is a mock of Model interface.
@@ -65,21 +65,6 @@ func (mr *MockModelMockRecorder) CloudCredential() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudCredential", reflect.TypeOf((*MockModel)(nil).CloudCredential))
 }
 
-// Config mocks base method.
-func (m *MockModel) Config() (*config.Config, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Config")
-	ret0, _ := ret[0].(*config.Config)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Config indicates an expected call of Config.
-func (mr *MockModelMockRecorder) Config() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Config", reflect.TypeOf((*MockModel)(nil).Config))
-}
-
 // ControllerUUID mocks base method.
 func (m *MockModel) ControllerUUID() string {
 	m.ctrl.T.Helper()
@@ -92,6 +77,35 @@ func (m *MockModel) ControllerUUID() string {
 func (mr *MockModelMockRecorder) ControllerUUID() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerUUID", reflect.TypeOf((*MockModel)(nil).ControllerUUID))
+}
+
+// GetSecretBackend mocks base method.
+func (m *MockModel) GetSecretBackend() (*secrets.SecretBackend, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSecretBackend")
+	ret0, _ := ret[0].(*secrets.SecretBackend)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSecretBackend indicates an expected call of GetSecretBackend.
+func (mr *MockModelMockRecorder) GetSecretBackend() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretBackend", reflect.TypeOf((*MockModel)(nil).GetSecretBackend))
+}
+
+// Name mocks base method.
+func (m *MockModel) Name() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Name")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Name indicates an expected call of Name.
+func (mr *MockModelMockRecorder) Name() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockModel)(nil).Name))
 }
 
 // UUID mocks base method.

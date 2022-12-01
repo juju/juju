@@ -38526,7 +38526,7 @@
                         "results": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/SecretBackend"
+                                "$ref": "#/definitions/SecretBackendResult"
                             }
                         }
                     },
@@ -38538,7 +38538,7 @@
                 "SecretBackend": {
                     "type": "object",
                     "properties": {
-                        "backend": {
+                        "backend-type": {
                             "type": "string"
                         },
                         "config": {
@@ -38560,8 +38560,28 @@
                     "additionalProperties": false,
                     "required": [
                         "name",
-                        "backend",
+                        "backend-type",
                         "config"
+                    ]
+                },
+                "SecretBackendResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "num-secrets": {
+                            "type": "integer"
+                        },
+                        "result": {
+                            "$ref": "#/definitions/SecretBackend"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "result",
+                        "num-secrets",
+                        "error"
                     ]
                 }
             }
