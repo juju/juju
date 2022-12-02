@@ -37243,7 +37243,7 @@
                             "$ref": "#/definitions/AddPendingResourcesResult"
                         }
                     },
-                    "description": "AddPendingResources adds the provided resources (info) to the Juju\nmodel in a pending state, meaning they are not available until\nresolved. Handles CharmHub, CharmStore and Local charms."
+                    "description": "AddPendingResources adds the provided resources (info) to the Juju\nmodel in a pending state, meaning they are not available until\nresolved. Handles CharmHub and Local charms."
                 },
                 "ListResources": {
                     "type": "object",
