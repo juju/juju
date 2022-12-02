@@ -174,25 +174,6 @@ func (p vaultProvider) adminConfig(m provider.Model) (*provider.BackendConfig, e
 	for k, v := range b.Config {
 		backendCfg.Config[k] = v
 	}
-	keys, _ := b.Config[UnsealKeysKey].([]string)
-	// If keys are provided, we need to unseal the vault.
-	// (If not, the vault needs to be unsealed already).
-	if len(keys) == 0 {
-		return backendCfg, nil
-	}
-
-	vaultClient, err := p.newBackend(backendCfg)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	sys := vaultClient.client.Sys()
-	for _, key := range keys {
-		_, err := sys.Unseal(key)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-
 	return backendCfg, nil
 }
 

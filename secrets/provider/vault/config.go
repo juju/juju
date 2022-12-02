@@ -22,7 +22,6 @@ const (
 	ClientCertKey    = "client-cert"
 	ClientKeyKey     = "client-key"
 	TLSServerNameKey = "tls-server-name"
-	UnsealKeysKey    = "unseal-keys"
 )
 
 var configSchema = environschema.Fields{
@@ -54,11 +53,6 @@ var configSchema = environschema.Fields{
 		Type:        environschema.Tstring,
 		Secret:      true,
 	},
-	UnsealKeysKey: {
-		Description: "The keys used to unseal the vault.",
-		Type:        environschema.Tlist,
-		Secret:      true,
-	},
 	TLSServerNameKey: {
 		Description: "The vault TLS server name.",
 		Type:        environschema.Tstring,
@@ -83,10 +77,6 @@ func (c *backendConfig) namespace() string {
 func (c *backendConfig) token() string {
 	v, _ := c.validAttrs[TokenKey].(string)
 	return v
-}
-
-func (c *backendConfig) unsealKeys() []string {
-	return c.validAttrs[UnsealKeysKey].([]string)
 }
 
 func (c *backendConfig) clientCert() string {
