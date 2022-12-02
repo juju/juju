@@ -600,8 +600,9 @@ func (st *State) deleteSecrets(uris []*secrets.URI, revisions ...int) (removed b
 			return false, errors.Annotatef(err, "deleting consumer refcounts for %s", uri.String())
 		}
 		if md.Label != "" {
+			owner, _ := names.ParseTag(md.OwnerTag)
 			_, err = refCountsCollection.Writeable().RemoveAll(bson.D{{
-				"_id", secretOwnerLabelKey(md.OwnerTag, md.Label),
+				"_id", secretOwnerLabelKey(owner, md.Label),
 			}})
 			if err != nil {
 				return false, errors.Annotatef(err, "deleting owner label refcounts for %s", uri.String())
@@ -900,12 +901,12 @@ const (
 	secretConsumerLabelKeyPrefix = "secretConsumerlabel"
 )
 
-func secretOwnerLabelKey(ownerTag string, label string) string {
-	return fmt.Sprintf("%s#%s#%s", secretOwnerLabelKeyPrefix, ownerTag, label)
+func secretOwnerLabelKey(ownerTag names.Tag, label string) string {
+	return fmt.Sprintf("%s#%s#%s", secretOwnerLabelKeyPrefix, ownerTag.String(), label)
 }
 
-func secretConsumerLabelKey(consumerTag string, label string) string {
-	return fmt.Sprintf("%s#%s#%s", secretConsumerLabelKeyPrefix, consumerTag, label)
+func secretConsumerLabelKey(consumerTag names.Tag, label string) string {
+	return fmt.Sprintf("%s#%s#%s", secretConsumerLabelKeyPrefix, consumerTag.String(), label)
 }
 
 func (st *State) uniqueSecretOwnerLabelOps(ownerTag names.Tag, label string) (ops []txn.Op, err error) {
@@ -988,7 +989,7 @@ func (st *State) uniqueSecretLabelBaseOps(tag names.Tag, label string) (ops []tx
 		return nil, errors.Trace(err)
 	}
 	if count > 0 {
-		return nil, errors.AlreadyExistsf("secret label %q", label)
+		return nil, errors.WithType(errors.Errorf("secret label %q for %q already exists", label, tag), LabelExists)
 	}
 
 	return []txn.Op{
@@ -1000,11 +1001,11 @@ func (st *State) uniqueSecretLabelBaseOps(tag names.Tag, label string) (ops []tx
 	}, nil
 }
 
-func (st *State) uniqueSecretLabelOpsRaw(tag names.Tag, label, role string, keyGenerator func(string, string) string, assertionOnly bool) ([]txn.Op, error) {
+func (st *State) uniqueSecretLabelOpsRaw(tag names.Tag, label, role string, keyGenerator func(names.Tag, string) string, assertionOnly bool) ([]txn.Op, error) {
 	refCountCollection, ccloser := st.db().GetCollection(refcountsC)
 	defer ccloser()
 
-	key := keyGenerator(tag.String(), label)
+	key := keyGenerator(tag, label)
 	countOp, count, err := nsRefcounts.CurrentOp(refCountCollection, key)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1031,7 +1032,7 @@ func (st *State) removeConsumerSecretLabelOps(consumerTag names.Tag) ([]txn.Op, 
 	return st.removeSecretLabelOps(consumerTag, secretConsumerLabelKey)
 }
 
-func (st *State) removeSecretLabelOps(tag names.Tag, keyGenerator func(string, string) string) ([]txn.Op, error) {
+func (st *State) removeSecretLabelOps(tag names.Tag, keyGenerator func(names.Tag, string) string) ([]txn.Op, error) {
 	refCountsCollection, closer := st.db().GetCollection(refcountsC)
 	defer closer()
 
@@ -1039,7 +1040,7 @@ func (st *State) removeSecretLabelOps(tag names.Tag, keyGenerator func(string, s
 		doc bson.M
 		ops []txn.Op
 	)
-	id := keyGenerator(tag.String(), ".*")
+	id := keyGenerator(tag, ".*")
 	q := bson.D{{"_id", bson.D{{"$regex", id}}}}
 	iter := refCountsCollection.Find(q).Iter()
 	for iter.Next(&doc) {
@@ -1125,7 +1126,8 @@ func (st *State) removeSecretConsumer(uri *secrets.URI) error {
 	refCountsCollection, closer := st.db().GetCollection(refcountsC)
 	defer closer()
 	for _, doc := range docs {
-		key := secretConsumerLabelKey(doc.ConsumerTag, doc.Label)
+		consumer, _ := names.ParseTag(doc.ConsumerTag)
+		key := secretConsumerLabelKey(consumer, doc.Label)
 		_, err = refCountsCollection.Writeable().RemoveAll(bson.D{{
 			"_id", key,
 		}})
