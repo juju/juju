@@ -231,9 +231,10 @@ func (s *containerWorkerSuite) stubOutProvisioner(ctrl *gomock.Controller) {
 
 	modelCfgSource := params.ModelConfigResult{
 		Config: map[string]interface{}{
-			"uuid": s.modelUUID.String(),
-			"type": "maas",
-			"name": "container-init-test-model",
+			"uuid":           s.modelUUID.String(),
+			"type":           "maas",
+			"name":           "container-init-test-model",
+			"secret-backend": "auto",
 		},
 	}
 	fExp.FacadeCall("ModelConfig", nil, gomock.Any()).SetArg(2, modelCfgSource).Return(nil).AnyTimes()

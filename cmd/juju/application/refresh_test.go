@@ -391,9 +391,10 @@ func (s *RefreshErrorsStateSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
 
 	cfgAttrs := map[string]interface{}{
-		"name": "name",
-		"uuid": coretesting.ModelTag.Id(),
-		"type": "foo",
+		"name":           "name",
+		"uuid":           coretesting.ModelTag.Id(),
+		"type":           "foo",
+		"secret-backend": "auto",
 	}
 	s.fakeAPI = vanillaFakeModelAPI(cfgAttrs)
 	s.cmd = NewRefreshCommandForStateTest(

@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/secrets/provider/juju"
@@ -21,12 +22,17 @@ var logger = loggo.GetLogger("juju.apiserver.common.secrets")
 
 // For testing.
 var (
-	GetProvider     = provider.Provider
-	GetStateBackEnd = getStateBackEnd
+	GetProvider            = provider.Provider
+	GetSecretsState        = getSecretsState
+	GetSecretBackendsState = getSecretBackendsState
 )
 
-func getStateBackEnd(m Model) state.SecretsStore {
+func getSecretsState(m Model) state.SecretsStore {
 	return state.NewSecrets(m.State())
+}
+
+func getSecretBackendsState(m Model) state.SecretBackendsStorage {
+	return state.NewSecretBackends(m.State())
 }
 
 // Model defines a subset of state model methods.
@@ -36,6 +42,7 @@ type Model interface {
 	CloudCredential() (state.Credential, bool, error)
 	Config() (*config.Config, error)
 	UUID() string
+	Name() string
 	Type() state.ModelType
 	State() *state.State
 }
@@ -56,21 +63,35 @@ func ProviderInfoForModel(model Model) (provider.SecretBackendProvider, provider
 }
 
 // providerForModel returns the secret backend provider for the specified model.
-// If no backend is configured, the "juju" backend is used for machine models and
+// If no backend is configured, the "internal" backend is used for machine models and
 // the k8s backend is used for k8s models.
 func providerForModel(model Model) (provider.SecretBackendProvider, error) {
 	cfg, err := model.Config()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	backendType := cfg.SecretStore()
-	if backendType == "" {
-		backendType = juju.Backend
+	backend := cfg.SecretBackend()
+
+	var backendType string
+	switch backend {
+	case provider.Auto:
+		backendType = juju.BackendType
 		if model.Type() == state.ModelTypeCAAS {
-			backendType = kubernetes.Backend
+			backendType = kubernetes.BackendType
 		}
+	case provider.Internal:
+		backendType = juju.BackendType
 	}
-	return GetProvider(backendType)
+
+	if backendType != "" {
+		return GetProvider(backendType)
+	}
+	backendState := GetSecretBackendsState(model)
+	b, err := backendState.GetSecretBackend(backend)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return GetProvider(b.BackendType)
 }
 
 // BackendConfig returns the config to create a secret backend.
@@ -88,7 +109,7 @@ func BackendConfig(model Model, authTag names.Tag, leadershipChecker leadership.
 	if err != nil {
 		return nil, errors.Annotate(err, "initialising secrets provider")
 	}
-	backend := GetStateBackEnd(model)
+	secretsState := GetSecretsState(model)
 
 	// Find secrets owned by the agent
 	// (or its app if the agent is a leader).
@@ -127,17 +148,17 @@ func BackendConfig(model Model, authTag names.Tag, leadershipChecker leadership.
 	}
 
 	ownedRevisions := provider.SecretRevisions{}
-	if err := getRevisions(backend, ownedFilter, ownedRevisions); err != nil {
+	if err := getRevisions(secretsState, ownedFilter, ownedRevisions); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	readRevisions := provider.SecretRevisions{}
-	if err := getRevisions(backend, readFilter, readRevisions); err != nil {
+	if err := getRevisions(secretsState, readFilter, readRevisions); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	if len(readAppOwnedFilter.OwnerTags) > 0 {
-		if err := getRevisions(backend, readAppOwnedFilter, readRevisions); err != nil {
+		if err := getRevisions(secretsState, readAppOwnedFilter, readRevisions); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
@@ -205,4 +226,14 @@ func (m *modelAdaptor) CloudCredential() (*cloud.Credential, error) {
 		cred.Revoked,
 	)
 	return &cloudCredentialValue, nil
+}
+
+// GetSecretBackend implements Model.
+func (m *modelAdaptor) GetSecretBackend() (*secrets.SecretBackend, error) {
+	cfg, err := m.Config()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	backendStore := state.NewSecretBackends(m.State())
+	return backendStore.GetSecretBackend(cfg.SecretBackend())
 }

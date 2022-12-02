@@ -35,6 +35,7 @@ import (
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/cmd/juju/payload"
 	"github.com/juju/juju/cmd/juju/resource"
+	"github.com/juju/juju/cmd/juju/secretbackends"
 	"github.com/juju/juju/cmd/juju/secrets"
 	"github.com/juju/juju/cmd/juju/setmeterstatus"
 	"github.com/juju/juju/cmd/juju/space"
@@ -565,6 +566,10 @@ func registerCommands(r commandRegistry) {
 	// Secrets.
 	r.Register(secrets.NewListSecretsCommand())
 	r.Register(secrets.NewShowSecretsCommand())
+
+	// Secret backends.
+	r.Register(secretbackends.NewListSecretBackendsCommand())
+	r.Register(secretbackends.NewAddSecretBackendCommand())
 
 	// Payload commands.
 	r.Register(payload.NewListCommand())

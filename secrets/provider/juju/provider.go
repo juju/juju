@@ -11,8 +11,10 @@ import (
 )
 
 const (
-	// Backend is the name of the Juju secrets backend.
-	Backend = "juju"
+	// BackendName is the name of the Juju secrets backend.
+	BackendName = "internal"
+	// BackendType is the type of the Juju secrets backend.
+	BackendType = "controller"
 )
 
 // NewProvider returns a Juju secrets provider.
@@ -26,13 +28,13 @@ type jujuProvider struct {
 // ValidateConfig implements SecretBackendProvider.
 func (p jujuProvider) ValidateConfig(oldCfg, newCfg provider.ProviderConfig) error {
 	if len(newCfg) > 0 {
-		return errors.New("the juju secrets backend does not use any config")
+		return errors.New("the internal secrets backend does not use any config")
 	}
 	return nil
 }
 
 func (p jujuProvider) Type() string {
-	return Backend
+	return BackendType
 }
 
 // Initialise is not used.
@@ -55,7 +57,7 @@ func (p jujuProvider) CleanupSecrets(m provider.Model, tag names.Tag, removed pr
 func (p jujuProvider) BackendConfig(
 	m provider.Model, tag names.Tag, owned provider.SecretRevisions, read provider.SecretRevisions,
 ) (*provider.BackendConfig, error) {
-	return &provider.BackendConfig{BackendType: Backend}, nil
+	return &provider.BackendConfig{BackendType: BackendType}, nil
 }
 
 // NewBackend returns a nil backend since the Juju backend saves

@@ -9,10 +9,10 @@ import (
 	"github.com/juju/juju/core/secrets"
 )
 
-// SecretStoreConfig holds config for creating a secret store client.
-type SecretStoreConfig struct {
-	StoreType string                 `json:"type"`
-	Params    map[string]interface{} `json:"params,omitempty"`
+// SecretBackendConfig holds config for creating a secret backend client.
+type SecretBackendConfig struct {
+	BackendType string                 `json:"type"`
+	Params      map[string]interface{} `json:"params,omitempty"`
 }
 
 // SecretContentParams holds params for representing the content of a secret.
@@ -225,7 +225,14 @@ type GrantRevokeSecretArg struct {
 
 // ListSecretBackendsResults holds secret backend results.
 type ListSecretBackendsResults struct {
-	Results []SecretBackend `json:"results"`
+	Results []SecretBackendResult `json:"results"`
+}
+
+// SecretBackendResult holds a secret backend and related info.
+type SecretBackendResult struct {
+	Result     SecretBackend `json:"result"`
+	NumSecrets int           `json:"num-secrets"`
+	Error      *Error        `json:"error"`
 }
 
 // AddSecretBackendArgs holds args for adding secret backends.
@@ -244,7 +251,7 @@ type SecretBackend struct {
 	Name string `json:"name"`
 
 	// Backend is the backend provider, eg "vault".
-	Backend string `json:"backend"`
+	BackendType string `json:"backend-type"`
 
 	// TokenRotateInterval is the interval to rotate
 	// the backend master access token.

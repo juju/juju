@@ -33,7 +33,7 @@ func NewSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	secretStoreConfigGetter := func() (*provider.BackendConfig, error) {
+	secretBackendConfigGetter := func() (*provider.BackendConfig, error) {
 		model, err := context.State().Model()
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -48,15 +48,15 @@ func NewSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 		return secrets.ProviderInfoForModel(model)
 	}
 	return &SecretsManagerAPI{
-		authTag:           context.Auth().GetAuthTag(),
-		modelUUID:         context.State().ModelUUID(),
-		leadershipChecker: leadershipChecker,
-		secretsBackend:    secretsBackend,
-		resources:         context.Resources(),
-		secretsTriggers:   context.State(),
-		secretsConsumer:   context.State(),
-		clock:             clock.WallClock,
-		storeConfigGetter: secretStoreConfigGetter,
-		providerGetter:    providerGetter,
+		authTag:             context.Auth().GetAuthTag(),
+		modelUUID:           context.State().ModelUUID(),
+		leadershipChecker:   leadershipChecker,
+		secretsBackend:      secretsBackend,
+		resources:           context.Resources(),
+		secretsTriggers:     context.State(),
+		secretsConsumer:     context.State(),
+		clock:               clock.WallClock,
+		backendConfigGetter: secretBackendConfigGetter,
+		providerGetter:      providerGetter,
 	}, nil
 }

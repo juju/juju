@@ -103,6 +103,7 @@ func (s *diffSuite) TestNotABundle(c *gc.C) {
 			"type":           {Value: "iaas"},
 			"name":           {Value: "horse"},
 			"default-series": {Value: "xenial"},
+			"secret-backend": {Value: "auto"},
 		},
 	}
 	s.charmStore.stub.SetErrors(nil, errors.NotValidf("not a bundle"))
@@ -494,6 +495,7 @@ func makeAPIResponsesWithRelations(relations []params.RelationStatus) map[string
 				"type":           {Value: "iaas"},
 				"name":           {Value: "horse"},
 				"default-series": {Value: "xenial"},
+				"secret-backend": {Value: "auto"},
 			},
 		},
 		"Client.FullStatus": params.FullStatus{
@@ -563,6 +565,7 @@ func makeAPIResponsesWithExposedEndpoints(exposedEndpoints map[string]params.Exp
 				"type":           {Value: "iaas"},
 				"name":           {Value: "horse"},
 				"default-series": {Value: "xenial"},
+				"secret-backend": {Value: "auto"},
 			},
 		},
 		"Client.FullStatus": params.FullStatus{

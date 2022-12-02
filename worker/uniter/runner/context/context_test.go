@@ -1017,11 +1017,11 @@ func (s *mockHookContextSuite) TestSecretGet(c *gc.C) {
 			c.Assert(objType, gc.Equals, "SecretsManager")
 			c.Assert(version, gc.Equals, 0)
 			c.Assert(id, gc.Equals, "")
-			c.Assert(request, gc.Equals, "GetSecretStoreConfig")
+			c.Assert(request, gc.Equals, "GetSecretBackendConfig")
 			c.Assert(arg, gc.IsNil)
-			c.Assert(result, gc.FitsTypeOf, &params.SecretStoreConfig{})
-			*(result.(*params.SecretStoreConfig)) = params.SecretStoreConfig{
-				StoreType: "juju",
+			c.Assert(result, gc.FitsTypeOf, &params.SecretBackendConfig{})
+			*(result.(*params.SecretBackendConfig)) = params.SecretBackendConfig{
+				BackendType: "controller",
 			}
 			return nil
 		}
@@ -1100,11 +1100,11 @@ func (s *mockHookContextSuite) assertSecretGetOwnedSecretURILookup(
 			c.Assert(objType, gc.Equals, "SecretsManager")
 			c.Assert(version, gc.Equals, 0)
 			c.Assert(id, gc.Equals, "")
-			c.Assert(request, gc.Equals, "GetSecretStoreConfig")
+			c.Assert(request, gc.Equals, "GetSecretBackendConfig")
 			c.Assert(arg, gc.IsNil)
-			c.Assert(result, gc.FitsTypeOf, &params.SecretStoreConfig{})
-			*(result.(*params.SecretStoreConfig)) = params.SecretStoreConfig{
-				StoreType: "juju",
+			c.Assert(result, gc.FitsTypeOf, &params.SecretBackendConfig{})
+			*(result.(*params.SecretBackendConfig)) = params.SecretBackendConfig{
+				BackendType: "controller",
 			}
 			return nil
 		}

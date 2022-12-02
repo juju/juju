@@ -80,7 +80,7 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 
 	storeConfigGetter := func() (*provider.BackendConfig, error) {
 		return &provider.BackendConfig{
-			BackendType: "juju",
+			BackendType: "controller",
 			Config:      map[string]interface{}{"foo": "bar"},
 		}, nil
 	}
@@ -121,14 +121,14 @@ func ptr[T any](v T) *T {
 	return &v
 }
 
-func (s *SecretsManagerSuite) TestGetSecretStoreConfig(c *gc.C) {
+func (s *SecretsManagerSuite) TestGetSecretBackendConfig(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	result, err := s.facade.GetSecretStoreConfig()
+	result, err := s.facade.GetSecretBackendConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.SecretStoreConfig{
-		StoreType: "juju",
-		Params:    map[string]interface{}{"foo": "bar"},
+	c.Assert(result, jc.DeepEquals, params.SecretBackendConfig{
+		BackendType: "controller",
+		Params:      map[string]interface{}{"foo": "bar"},
 	})
 }
 

@@ -75,7 +75,7 @@ func (s *SecretsSuite) assertListSecretBackends(c *gc.C, reveal bool) {
 	s.secretsState.EXPECT().ListSecretBackends().Return(
 		[]*coresecrets.SecretBackend{{
 			Name:                "myvault",
-			Backend:             "vault",
+			BackendType:         "vault",
 			TokenRotateInterval: ptr(666 * time.Minute),
 			Config:              config,
 		}}, nil,
@@ -84,11 +84,20 @@ func (s *SecretsSuite) assertListSecretBackends(c *gc.C, reveal bool) {
 	results, err := facade.ListSecretBackends(params.ListSecretBackendsArgs{Reveal: reveal})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ListSecretBackendsResults{
-		Results: []params.SecretBackend{{
-			Name:                "myvault",
-			Backend:             "vault",
-			TokenRotateInterval: ptr(666 * time.Minute),
-			Config:              config,
+		Results: []params.SecretBackendResult{{
+			Result: params.SecretBackend{
+				Name:                "myvault",
+				BackendType:         "vault",
+				TokenRotateInterval: ptr(666 * time.Minute),
+				Config:              config,
+			},
+			NumSecrets: 666,
+		}, {
+			Result: params.SecretBackend{
+				Name:        "internal",
+				BackendType: "controller",
+			},
+			NumSecrets: 666,
 		}},
 	})
 }
@@ -117,7 +126,7 @@ func (s *SecretsSuite) TestAddSecretBackends(c *gc.C) {
 	facade, err := secretbackends.NewTestAPI(s.secretsState, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 
-	config := map[string]interface{}{"foo": "bar"}
+	config := map[string]interface{}{"endpoint": "http://vault"}
 	s.secretsState.EXPECT().CreateSecretBackend(state.CreateSecretBackendParams{
 		Name:                "myvault",
 		Backend:             "vault",
@@ -128,12 +137,12 @@ func (s *SecretsSuite) TestAddSecretBackends(c *gc.C) {
 	results, err := facade.AddSecretBackends(params.AddSecretBackendArgs{
 		Args: []params.SecretBackend{{
 			Name:                "myvault",
-			Backend:             "vault",
+			BackendType:         "vault",
 			TokenRotateInterval: ptr(666 * time.Minute),
 			Config:              config,
 		}, {
-			Name:    "invalid",
-			Backend: "something",
+			Name:        "invalid",
+			BackendType: "something",
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)

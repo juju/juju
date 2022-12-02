@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -22,22 +23,23 @@ import (
 	_ "github.com/juju/juju/secrets/provider/all"
 	"github.com/juju/juju/secrets/provider/kubernetes"
 	"github.com/juju/juju/secrets/provider/kubernetes/mocks"
+	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
 
-type kubernetesSuite struct {
+type providerSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&kubernetesSuite{})
+var _ = gc.Suite(&providerSuite{})
 
-func (*kubernetesSuite) TestBackendConfig(c *gc.C) {
-	p, err := provider.Provider(kubernetes.Backend)
+func (*providerSuite) TestBackendConfig(c *gc.C) {
+	p, err := provider.Provider(kubernetes.BackendType)
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := p.BackendConfig(mockModel{}, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg, jc.DeepEquals, &provider.BackendConfig{
-		BackendType: kubernetes.Backend,
+		BackendType: kubernetes.BackendType,
 		Config: map[string]interface{}{
 			"ca-certs":            []string{"cert-data"},
 			"controller-uuid":     coretesting.ControllerTag.Id(),
@@ -45,20 +47,19 @@ func (*kubernetesSuite) TestBackendConfig(c *gc.C) {
 			"endpoint":            "http://nowhere",
 			"is-controller-cloud": true,
 			"model-name":          "fred",
-			"model-type":          "kubernetes",
 			"model-uuid":          coretesting.ModelTag.Id(),
 		},
 	})
 }
 
-func (*kubernetesSuite) TestValidateConfig(c *gc.C) {
-	p, err := provider.Provider(kubernetes.Backend)
+func (*providerSuite) TestValidateConfig(c *gc.C) {
+	p, err := provider.Provider(kubernetes.BackendType)
 	c.Assert(err, jc.ErrorIsNil)
 	err = p.ValidateConfig(nil, map[string]interface{}{"foo": "bar"})
 	c.Assert(err, gc.ErrorMatches, "the k8s secrets backend does not use any config")
 }
 
-func (s *kubernetesSuite) assertBackendConfigWithTag(c *gc.C, isControllerCloud bool) {
+func (s *providerSuite) assertBackendConfigWithTag(c *gc.C, isControllerCloud bool) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -78,25 +79,20 @@ func (s *kubernetesSuite) assertBackendConfigWithTag(c *gc.C, isControllerCloud 
 		IsControllerCloud: isControllerCloud,
 	}
 	cred := cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{"username": "bar", "password": "bar"})
-	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
-		"name": "fred",
-		"type": "kubernetes",
-		"uuid": coretesting.ModelTag.Id(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
 
+	model.EXPECT().ControllerUUID().Return(coretesting.ControllerTag.Id()).AnyTimes()
+	model.EXPECT().UUID().Return(coretesting.ModelTag.Id()).AnyTimes()
+	model.EXPECT().Name().Return("fred").AnyTimes()
 	gomock.InOrder(
 		model.EXPECT().Cloud().Return(cld, nil),
 		model.EXPECT().CloudCredential().Return(&cred, nil),
-		model.EXPECT().Config().Return(cfg, nil),
-		model.EXPECT().ControllerUUID().Return(coretesting.ControllerTag.Id()),
 
 		broker.EXPECT().EnsureSecretAccessToken(
 			tag, []string{"owned-a-1"}, []string{"read-b-1", "read-b-2"}, nil,
 		).Return("token", nil),
 	)
 
-	p, err := provider.Provider(kubernetes.Backend)
+	p, err := provider.Provider(kubernetes.BackendType)
 	c.Assert(err, jc.ErrorIsNil)
 	backendCfg, err := p.BackendConfig(model, tag,
 		provider.SecretRevisions{"owned-a": set.NewInts(1)},
@@ -104,7 +100,7 @@ func (s *kubernetesSuite) assertBackendConfigWithTag(c *gc.C, isControllerCloud 
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := &provider.BackendConfig{
-		BackendType: kubernetes.Backend,
+		BackendType: kubernetes.BackendType,
 		Config: map[string]interface{}{
 			"ca-certs":            []string{"cert-data"},
 			"controller-uuid":     coretesting.ControllerTag.Id(),
@@ -112,7 +108,6 @@ func (s *kubernetesSuite) assertBackendConfigWithTag(c *gc.C, isControllerCloud 
 			"endpoint":            "http://nowhere",
 			"is-controller-cloud": isControllerCloud,
 			"model-name":          "fred",
-			"model-type":          "kubernetes",
 			"model-uuid":          coretesting.ModelTag.Id(),
 		},
 	}
@@ -123,15 +118,15 @@ func (s *kubernetesSuite) assertBackendConfigWithTag(c *gc.C, isControllerCloud 
 	c.Assert(backendCfg, jc.DeepEquals, expected)
 }
 
-func (s *kubernetesSuite) TestBackendConfigWithTag(c *gc.C) {
+func (s *providerSuite) TestBackendConfigWithTag(c *gc.C) {
 	s.assertBackendConfigWithTag(c, false)
 }
 
-func (s *kubernetesSuite) TestBackendConfigWithTagWithControllerCloud(c *gc.C) {
+func (s *providerSuite) TestBackendConfigWithTagWithControllerCloud(c *gc.C) {
 	s.assertBackendConfigWithTag(c, true)
 }
 
-func (s *kubernetesSuite) TestCleanupSecrets(c *gc.C) {
+func (s *providerSuite) TestCleanupSecrets(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -149,35 +144,34 @@ func (s *kubernetesSuite) TestCleanupSecrets(c *gc.C) {
 		IsControllerCloud: true,
 	}
 	cred := cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{"username": "bar", "password": "bar"})
-	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
-		"name": "fred",
-		"type": "kubernetes",
-		"uuid": coretesting.ModelTag.Id(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
 
 	gomock.InOrder(
 		model.EXPECT().Cloud().Return(cld, nil),
 		model.EXPECT().CloudCredential().Return(&cred, nil),
-		model.EXPECT().Config().Return(cfg, nil),
 		model.EXPECT().ControllerUUID().Return(coretesting.ControllerTag.Id()),
+		model.EXPECT().UUID().Return(coretesting.ModelTag.Id()),
+		model.EXPECT().Name().Return("fred"),
 
 		broker.EXPECT().EnsureSecretAccessToken(
 			tag, nil, nil, []string{"removed-1", "removed-2"},
 		).Return("token", nil),
 	)
 
-	p, err := provider.Provider(kubernetes.Backend)
+	p, err := provider.Provider(kubernetes.BackendType)
 	c.Assert(err, jc.ErrorIsNil)
 	err = p.CleanupSecrets(model, tag, provider.SecretRevisions{"removed": set.NewInts(1, 2)})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *kubernetesSuite) TestNewBackend(c *gc.C) {
+func (s *providerSuite) TestNewBackend(c *gc.C) {
 	model := mockModel{}
 	s.PatchValue(&kubernetes.NewCaas, func(ctx context.Context, args environs.OpenParams) (kubernetes.Broker, error) {
 		cred := cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{"foo": "bar"})
-		cfg, err := model.Config()
+		modelCfg, err := config.New(config.UseDefaults, map[string]interface{}{
+			config.TypeKey: state.ModelTypeCAAS,
+			config.NameKey: "fred",
+			config.UUIDKey: coretesting.ModelTag.Id(),
+		})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(args, jc.DeepEquals, environs.OpenParams{
 			ControllerUUID: coretesting.ControllerTag.Id(),
@@ -189,11 +183,11 @@ func (s *kubernetesSuite) TestNewBackend(c *gc.C) {
 				CACertificates:    []string{"cert-data"},
 				IsControllerCloud: true,
 			},
-			Config: cfg,
+			Config: modelCfg,
 		})
 		return nil, errors.New("boom")
 	})
-	p, err := provider.Provider(kubernetes.Backend)
+	p, err := provider.Provider(kubernetes.BackendType)
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := p.BackendConfig(model, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -211,6 +205,10 @@ func (mockModel) UUID() string {
 	return coretesting.ModelTag.Id()
 }
 
+func (mockModel) Name() string {
+	return "fred"
+}
+
 func (mockModel) Cloud() (cloud.Cloud, error) {
 	return cloud.Cloud{
 		Name:              "test",
@@ -226,10 +224,9 @@ func (mockModel) CloudCredential() (*cloud.Credential, error) {
 	return &cred, nil
 }
 
-func (mockModel) Config() (*config.Config, error) {
-	return config.New(config.UseDefaults, map[string]interface{}{
-		"name": "fred",
-		"type": "kubernetes",
-		"uuid": coretesting.ModelTag.Id(),
-	})
+func (mockModel) GetSecretBackend() (*secrets.SecretBackend, error) {
+	return &secrets.SecretBackend{
+		Name:        "myk8s",
+		BackendType: "kubernetes",
+	}, nil
 }

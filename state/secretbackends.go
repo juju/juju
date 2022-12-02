@@ -39,7 +39,7 @@ type secretBackendDoc struct {
 	DocID string `bson:"_id"`
 
 	Name                string           `bson:"name"`
-	Backend             string           `bson:"backend"`
+	BackendType         string           `bson:"backend-type"`
 	TokenRotateInterval *time.Duration   `bson:"token-rotate-interval,omitempty"`
 	Config              backendConfigMap `bson:"config,omitempty"`
 }
@@ -68,7 +68,7 @@ func (s *secretBackendsStorage) secretBackendDoc(p *CreateSecretBackendParams) (
 	backend := &secretBackendDoc{
 		DocID:               bson.NewObjectId().Hex(),
 		Name:                p.Name,
-		Backend:             p.Backend,
+		BackendType:         p.Backend,
 		TokenRotateInterval: p.TokenRotateInterval,
 		Config:              p.Config,
 	}
@@ -105,7 +105,7 @@ func (s *secretBackendsStorage) CreateSecretBackend(p CreateSecretBackendParams)
 func (s *secretBackendsStorage) toSecretBackend(doc *secretBackendDoc) *secrets.SecretBackend {
 	return &secrets.SecretBackend{
 		Name:                doc.Name,
-		Backend:             doc.Backend,
+		BackendType:         doc.BackendType,
 		TokenRotateInterval: doc.TokenRotateInterval,
 		Config:              doc.Config,
 	}

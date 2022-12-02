@@ -182,9 +182,10 @@ func (s *DeploySuiteBase) SetUpTest(c *gc.C) {
 		return deployResources(s.State, applicationID, resources)
 	}
 	cfgAttrs := map[string]interface{}{
-		"name": "name",
-		"uuid": coretesting.ModelTag.Id(),
-		"type": "foo",
+		"name":           "name",
+		"uuid":           coretesting.ModelTag.Id(),
+		"type":           "foo",
+		"secret-backend": "auto",
 	}
 	s.fakeAPI = vanillaFakeModelAPI(cfgAttrs)
 	s.fakeAPI.CharmStoreAdaptor = &store.CharmStoreAdaptor{
@@ -1088,6 +1089,7 @@ func (s *CAASDeploySuiteBase) fakeAPI() *fakeDeployAPI {
 		"uuid":             coretesting.ModelTag.Id(),
 		"type":             model.CAAS,
 		"operator-storage": "k8s-storage",
+		"secret-backend":   "auto",
 	}
 	fakeAPI := vanillaFakeModelAPI(cfgAttrs)
 	fakeAPI.deployerFactoryFunc = func(dep deployer.DeployerDependencies) deployer.DeployerFactory {
@@ -2357,9 +2359,10 @@ func (s *DeployUnitTestSuite) SetUpTest(c *gc.C) {
 
 func (s *DeployUnitTestSuite) cfgAttrs() map[string]interface{} {
 	return map[string]interface{}{
-		"name": "name",
-		"uuid": "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-		"type": "foo",
+		"name":           "name",
+		"uuid":           "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		"type":           "foo",
+		"secret-backend": "auto",
 	}
 }
 

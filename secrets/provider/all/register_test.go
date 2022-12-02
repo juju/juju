@@ -23,9 +23,9 @@ var _ = gc.Suite(&allSuite{})
 
 func (s *allSuite) TestInit(c *gc.C) {
 	for _, name := range []string{
-		juju.Backend,
-		kubernetes.Backend,
-		vault.Backend,
+		juju.BackendType,
+		kubernetes.BackendType,
+		vault.BackendType,
 	} {
 		p, err := provider.Provider(name)
 		c.Check(err, jc.ErrorIsNil)

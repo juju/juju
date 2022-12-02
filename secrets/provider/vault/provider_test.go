@@ -12,23 +12,21 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/secrets/provider"
 	_ "github.com/juju/juju/secrets/provider/all"
 	jujuvault "github.com/juju/juju/secrets/provider/vault"
 	coretesting "github.com/juju/juju/testing"
 )
 
-type vaultSuite struct {
+type providerSuite struct {
 	testing.IsolationSuite
 	coretesting.JujuOSEnvSuite
 }
 
-var _ = gc.Suite(&vaultSuite{})
+var _ = gc.Suite(&providerSuite{})
 
-func (s *vaultSuite) SetUpTest(c *gc.C) {
-	s.SetInitialFeatureFlags(feature.DeveloperMode)
+func (s *providerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.JujuOSEnvSuite.SetUpTest(c)
 	s.PatchValue(&jujuvault.NewVaultClient, func(addr string, tlsConf *vault.TLSConfig, opts ...vault.ClientOpts) (*vault.Client, error) {
@@ -49,19 +47,34 @@ func (s *vaultSuite) SetUpTest(c *gc.C) {
 	})
 }
 
-func (s *vaultSuite) TestBackendConfig(c *gc.C) {
-	p, err := provider.Provider(jujuvault.Backend)
+func (s *providerSuite) TestBackendConfig(c *gc.C) {
+	p, err := provider.Provider(jujuvault.BackendType)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = p.BackendConfig(mockModel{}, nil, nil, nil)
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
-func (s *vaultSuite) TestNewBackend(c *gc.C) {
-	p, err := provider.Provider(jujuvault.Backend)
+func (s *providerSuite) TestValidateConfig(c *gc.C) {
+	p, err := provider.Provider(jujuvault.BackendType)
+	c.Assert(err, jc.ErrorIsNil)
+	for _, t := range []struct {
+		cfg map[string]interface{}
+		err string
+	}{{
+		cfg: map[string]interface{}{},
+		err: "missing endpoint not valid",
+	}} {
+		err = p.ValidateConfig(nil, t.cfg)
+		c.Assert(err, gc.ErrorMatches, t.err)
+	}
+}
+
+func (s *providerSuite) TestNewBackend(c *gc.C) {
+	p, err := provider.Provider(jujuvault.BackendType)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg := &provider.BackendConfig{
-		BackendType: jujuvault.Backend,
+		BackendType: jujuvault.BackendType,
 		Config: map[string]interface{}{
 			"controller-uuid": coretesting.ControllerTag.Id(),
 			"model-uuid":      coretesting.ModelTag.Id(),
@@ -82,6 +95,10 @@ func (mockModel) ControllerUUID() string {
 	return coretesting.ControllerTag.Id()
 }
 
+func (mockModel) Name() string {
+	return "fred"
+}
+
 func (mockModel) UUID() string {
 	return coretesting.ModelTag.Id()
 }
@@ -100,11 +117,18 @@ func (mockModel) CloudCredential() (*cloud.Credential, error) {
 	return &cred, nil
 }
 
-func (mockModel) Config() (*config.Config, error) {
-	return config.New(config.UseDefaults, map[string]interface{}{
-		"name":           "fred",
-		"type":           "lxd",
-		"uuid":           coretesting.ModelTag.Id(),
-		"secret-backend": "vault",
-	})
+func (mockModel) GetSecretBackend() (*secrets.SecretBackend, error) {
+	return &secrets.SecretBackend{
+		Name:        "myk8s",
+		BackendType: "vault",
+		Config: map[string]interface{}{
+			"controller-uuid": coretesting.ControllerTag.Id(),
+			"model-uuid":      coretesting.ModelTag.Id(),
+			"endpoint":        "http://vault-ip:8200/",
+			"namespace":       "ns",
+			"token":           "vault-token",
+			"ca-cert":         coretesting.CACert,
+			"tls-server-name": "tls-server",
+		},
+	}, nil
 }

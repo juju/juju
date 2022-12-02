@@ -5,8 +5,8 @@ package vault
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 
@@ -15,17 +15,15 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	vault "github.com/mittwald/vaultgo"
-	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/secrets/provider"
 )
 
 var logger = loggo.GetLogger("juju.secrets.vault")
 
 const (
-	// Backend is the name of the Vault secrets backend.
-	Backend = "vault"
+	// BackendType is the type of the Vault secrets backend.
+	BackendType = "vault"
 )
 
 // NewProvider returns a Vault secrets provider.
@@ -37,12 +35,20 @@ type vaultProvider struct {
 }
 
 func (p vaultProvider) Type() string {
-	return Backend
+	return BackendType
 }
 
 // ValidateConfig implements SecretBackendProvider.
 func (p vaultProvider) ValidateConfig(oldCfg, newCfg provider.ProviderConfig) error {
-	// TODO(wallyworld)
+	// TODO(wallyworld) - enhance with schema
+	endpoint, ok := newCfg["endpoint"].(string)
+	if !ok || endpoint == "" {
+		return errors.NotValidf("missing endpoint")
+	}
+	_, err := url.Parse(endpoint)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }
 
@@ -166,69 +172,43 @@ func (p vaultProvider) CleanupSecrets(m provider.Model, tag names.Tag, removed p
 	return nil
 }
 
-type vaultConfig struct {
-	Endpoint      string   `yaml:"endpoint" json:"endpoint"`
-	Namespace     string   `yaml:"namespace" json:"namespace"`
-	Token         string   `yaml:"token" json:"token"`
-	CACert        string   `yaml:"ca-cert" json:"ca-cert"`
-	ClientCert    string   `yaml:"client-cert" json:"client-cert"`
-	ClientKey     string   `yaml:"client-key" json:"client-key"`
-	TLSServerName string   `yaml:"tls-server-name" json:"tls-server-name"`
-	Keys          []string `yaml:"keys" json:"keys"`
-}
-
 // adminConfig returns the config needed to create a vault secrets backend client
 // with full admin rights.
 func (p vaultProvider) adminConfig(m provider.Model) (*provider.BackendConfig, error) {
-	cfg, err := m.Config()
+	b, err := m.GetSecretBackend()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// TODO(wallyworld) - look up from controller
-	vaultCfgStr := ""
-	//if vaultCfgStr == "" {
-	//	return nil, errors.NotValidf("empty vault config")
-	//}
-	var vaultCfg vaultConfig
-	if errJ := json.Unmarshal([]byte(vaultCfgStr), &vaultCfg); errJ != nil {
-		if errY := yaml.Unmarshal([]byte(vaultCfgStr), &vaultCfg); errY != nil {
-			return nil, errors.NewNotValid(errY, "invalid vault config")
-		}
-	}
-	modelUUID := cfg.UUID()
-	BackendCfg := &provider.BackendConfig{
-		BackendType: Backend,
+	backendCfg := &provider.BackendConfig{
+		BackendType: BackendType,
 		Config: map[string]interface{}{
 			"controller-uuid": m.ControllerUUID(),
-			"model-uuid":      modelUUID,
-			"endpoint":        vaultCfg.Endpoint,
-			"namespace":       vaultCfg.Namespace,
-			"token":           vaultCfg.Token,
-			"ca-cert":         vaultCfg.CACert,
-			"client-cert":     vaultCfg.ClientCert,
-			"client-key":      vaultCfg.ClientKey,
-			"tls-server-name": vaultCfg.TLSServerName,
+			"model-uuid":      m.UUID(),
 		},
 	}
+	for k, v := range b.Config {
+		backendCfg.Config[k] = v
+	}
+	keys, _ := b.Config["keys"].([]string)
 	// If keys are provided, we need to unseal the vault.
 	// (If not, the vault needs to be unsealed already).
-	if len(vaultCfg.Keys) == 0 {
-		return BackendCfg, nil
+	if len(keys) == 0 {
+		return backendCfg, nil
 	}
 
-	vaultClient, err := p.newBackend(BackendCfg)
+	vaultClient, err := p.newBackend(backendCfg)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	sys := vaultClient.client.Sys()
-	for _, key := range vaultCfg.Keys {
+	for _, key := range keys {
 		_, err := sys.Unseal(key)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
 
-	return BackendCfg, nil
+	return backendCfg, nil
 }
 
 // BackendConfig returns the config needed to create a vault secrets backend client.
@@ -314,6 +294,7 @@ func (p vaultProvider) NewBackend(cfg *provider.BackendConfig) (provider.Secrets
 func (p vaultProvider) newBackend(cfg *provider.BackendConfig) (*vaultBackend, error) {
 	modelUUID := cfg.Config["model-uuid"].(string)
 	address := cfg.Config["endpoint"].(string)
+	token, _ := cfg.Config["token"].(string)
 
 	var clientCertPath, clientKeyPath string
 	clientCert, _ := cfg.Config["client-cert"].(string)
@@ -346,73 +327,25 @@ func (p vaultProvider) newBackend(cfg *provider.BackendConfig) (*vaultBackend, e
 		}
 	}
 
+	caCert, _ := cfg.Config["ca-cert"].(string)
+	tlsServerName, _ := cfg.Config["tls-server-name"].(string)
 	tlsConfig := vault.TLSConfig{
 		TLSConfig: &api.TLSConfig{
-			CACertBytes:   []byte(cfg.Config["ca-cert"].(string)),
+			CACertBytes:   []byte(caCert),
 			ClientCert:    clientCertPath,
 			ClientKey:     clientKeyPath,
-			TLSServerName: cfg.Config["tls-server-name"].(string),
+			TLSServerName: tlsServerName,
 		},
 	}
 	c, err := NewVaultClient(address,
 		&tlsConfig,
-		vault.WithAuthToken(cfg.Config["token"].(string)),
+		vault.WithAuthToken(token),
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if ns := cfg.Config["namespace"].(string); ns != "" {
+	if ns, _ := cfg.Config["namespace"].(string); ns != "" {
 		c.SetNamespace(ns)
 	}
 	return &vaultBackend{modelUUID: modelUUID, client: c}, nil
-}
-
-type vaultBackend struct {
-	modelUUID string
-	client    *vault.Client
-}
-
-// GetContent implements SecretsBackend.
-func (k vaultBackend) GetContent(ctx context.Context, backendId string) (_ secrets.SecretValue, err error) {
-	defer func() {
-		err = maybePermissionDenied(err)
-	}()
-
-	s, err := k.client.KVv1(k.modelUUID).Get(ctx, backendId)
-	if err != nil {
-		return nil, errors.Annotatef(err, "getting secret %q", backendId)
-	}
-	val := make(map[string]string)
-	for k, v := range s.Data {
-		val[k] = fmt.Sprintf("%s", v)
-	}
-	return secrets.NewSecretValue(val), nil
-}
-
-// DeleteContent implements SecretsBackend.
-func (k vaultBackend) DeleteContent(ctx context.Context, backendId string) (err error) {
-	defer func() {
-		err = maybePermissionDenied(err)
-	}()
-
-	err = k.client.KVv1(k.modelUUID).Delete(ctx, backendId)
-	if isNotFound(err) {
-		return nil
-	}
-	return err
-}
-
-// SaveContent implements SecretsBackend.
-func (k vaultBackend) SaveContent(ctx context.Context, uri *secrets.URI, revision int, value secrets.SecretValue) (_ string, err error) {
-	defer func() {
-		err = maybePermissionDenied(err)
-	}()
-
-	path := uri.Name(revision)
-	val := make(map[string]interface{})
-	for k, v := range value.EncodedValues() {
-		val[k] = v
-	}
-	err = k.client.KVv1(k.modelUUID).Put(ctx, path, val)
-	return path, errors.Annotatef(err, "saving secret content for %q", uri)
 }
