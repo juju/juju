@@ -79,7 +79,7 @@ func (s *charmDownloaderSuite) TestDownloadApplicationCharms(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	charmURL := charm.MustParseURL("cs:focal/dummy-1")
+	charmURL := charm.MustParseURL("ch:amd64/focal/dummy-1")
 	resolvedOrigin := corecharm.Origin{
 		Source: "charm-hub",
 		Platform: corecharm.Platform{
@@ -124,7 +124,7 @@ func (s *charmDownloaderSuite) TestDownloadApplicationCharmsSetStatusIfDownloadF
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	charmURL := charm.MustParseURL("cs:focal/dummy-1")
+	charmURL := charm.MustParseURL("ch:amd64/focal/dummy-1")
 	resolvedOrigin := corecharm.Origin{
 		Source: "charm-hub",
 		Platform: corecharm.Platform{

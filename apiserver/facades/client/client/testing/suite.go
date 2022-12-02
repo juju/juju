@@ -88,11 +88,11 @@ func (s *CharmSuite) SetUpSuite(c *gc.C, jcSuite *jujutesting.JujuConnSuite) {
 
 func (s *CharmSuite) SetUpTest(c *gc.C) {
 	urls := map[string]string{
-		"mysql":     "cs:quantal/mysql-23",
-		"dummy":     "cs:quantal/dummy-24",
-		"riak":      "cs:quantal/riak-25",
-		"wordpress": "cs:quantal/wordpress-26",
-		"logging":   "cs:quantal/logging-27",
+		"mysql":     "ch:amd64/jammy/mysql-23",
+		"dummy":     "ch:amd64/jammy/dummy-24",
+		"riak":      "ch:amd64/jammy/riak-25",
+		"wordpress": "ch:amd64/jammy/wordpress-26",
+		"logging":   "ch:amd64/jammy/logging-27",
 	}
 	var logger loggo.Logger
 	s.Store = &mockStore{
@@ -144,28 +144,11 @@ func (s *CharmSuite) AddMachine(c *gc.C, machineId string, job state.MachineJob)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-// AddCharmWithRevision adds a charmstore charm with the specified revision to state.
-func (s *CharmSuite) AddCharmstoreCharmWithRevision(c *gc.C, charmName string, rev int) *state.Charm {
-	ch := testcharms.Repo.CharmDir(charmName)
-	name := ch.Meta().Name
-	curl := charm.MustParseURL(fmt.Sprintf("cs:quantal/%s-%d", name, rev))
-	info := state.CharmInfo{
-		Charm:       ch,
-		ID:          curl,
-		StoragePath: "dummy-path",
-		SHA256:      fmt.Sprintf("%s-%d-sha256", name, rev),
-	}
-	dummy, err := s.jcSuite.State.AddCharm(info)
-	c.Assert(err, jc.ErrorIsNil)
-	s.charms[name] = dummy
-	return dummy
-}
-
 // AddCharmhubCharmWithRevision adds a charmhub charm with the specified revision to state.
 func (s *CharmSuite) AddCharmhubCharmWithRevision(c *gc.C, charmName string, rev int) *state.Charm {
 	ch := testcharms.Hub.CharmDir(charmName)
 	name := ch.Meta().Name
-	curl := charm.MustParseURL(fmt.Sprintf("ch:%s-%d", name, rev))
+	curl := charm.MustParseURL(fmt.Sprintf("ch:amd64/jammy/%s-%d", name, rev))
 	info := state.CharmInfo{
 		Charm:       ch,
 		ID:          curl,
@@ -187,8 +170,9 @@ func (s *CharmSuite) AddApplication(c *gc.C, charmName, applicationName string) 
 		Name:  applicationName,
 		Charm: ch,
 		CharmOrigin: &state.CharmOrigin{
-			ID:   "mycharmhubid",
-			Hash: "mycharmhash",
+			ID:     "mycharmhubid",
+			Hash:   "mycharmhash",
+			Source: "charm-hub",
 			Platform: &state.Platform{
 				Architecture: "amd64",
 				OS:           "ubuntu",
@@ -222,7 +206,7 @@ func (s *CharmSuite) SetUnitRevision(c *gc.C, unitName string, rev int) {
 	c.Assert(err, jc.ErrorIsNil)
 	svc, err := u.Application()
 	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL(fmt.Sprintf("cs:quantal/%s-%d", svc.Name(), rev))
+	curl := charm.MustParseURL(fmt.Sprintf("ch:amd64/jammy/%s-%d", svc.Name(), rev))
 	err = u.SetCharmURL(curl)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -235,12 +219,12 @@ func (s *CharmSuite) SetupScenario(c *gc.C) {
 	s.AddMachine(c, "3", state.JobHostUnits)
 
 	// mysql is out of date
-	s.AddCharmstoreCharmWithRevision(c, "mysql", 22)
+	s.AddCharmhubCharmWithRevision(c, "mysql", 22)
 	s.AddApplication(c, "mysql", "mysql")
 	s.AddUnit(c, "mysql", "1")
 
 	// wordpress is up to date
-	s.AddCharmstoreCharmWithRevision(c, "wordpress", 26)
+	s.AddCharmhubCharmWithRevision(c, "wordpress", 26)
 	s.AddApplication(c, "wordpress", "wordpress")
 	s.AddUnit(c, "wordpress", "2")
 	s.AddUnit(c, "wordpress", "2")
@@ -248,7 +232,7 @@ func (s *CharmSuite) SetupScenario(c *gc.C) {
 	s.SetUnitRevision(c, "wordpress/0", 26)
 
 	// varnish is a charm that does not have a version in the mock store.
-	s.AddCharmstoreCharmWithRevision(c, "varnish", 5)
+	s.AddCharmhubCharmWithRevision(c, "varnish", 5)
 	s.AddApplication(c, "varnish", "varnish")
 	s.AddUnit(c, "varnish", "3")
 }

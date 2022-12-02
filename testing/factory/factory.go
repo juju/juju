@@ -413,7 +413,7 @@ func (factory *Factory) MakeCharm(c *gc.C, params *CharmParams) *state.Charm {
 		params.Revision = fmt.Sprintf("%d", uniqueInteger())
 	}
 	if params.URL == "" {
-		params.URL = fmt.Sprintf("cs:%s/%s-%s", params.Series, params.Name, params.Revision)
+		params.URL = fmt.Sprintf("ch:amd64/%s/%s-%s", params.Series, params.Name, params.Revision)
 	}
 
 	ch := testcharms.RepoForSeries(params.Series).CharmDir(params.Name)
@@ -503,12 +503,17 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 		base, err := coreseries.GetBaseFromSeries(chSeries)
 		c.Assert(err, jc.ErrorIsNil)
 		var channel *state.Channel
+		var source string
 		// local charms cannot have a channel
 		if charm.CharmHub.Matches(curl.Schema) {
 			channel = &state.Channel{Risk: "stable"}
+			source = "charm-hub"
+		} else if charm.Local.Matches(curl.Schema) {
+			source = "local"
 		}
 		params.CharmOrigin = &state.CharmOrigin{
 			Channel: channel,
+			Source:  source,
 			Platform: &state.Platform{
 				Architecture: params.Charm.URL().Architecture,
 				OS:           base.OS,

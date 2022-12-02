@@ -188,7 +188,7 @@ func (s *bundleSuite) TestGetChangesSuccessV2(c *gc.C) {
 	}, {
 		Id:     "addCharm-2",
 		Method: "addCharm",
-		Args:   []interface{}{"cs:haproxy-42", "jammy", ""},
+		Args:   []interface{}{"ch:haproxy-42", "jammy", ""},
 	}, {
 		Id:     "deploy-3",
 		Method: "deploy",
@@ -315,7 +315,7 @@ func (s *bundleSuite) TestGetChangesKubernetes(c *gc.C) {
 	}, {
 		Id:     "addCharm-2",
 		Method: "addCharm",
-		Args:   []interface{}{"cs:haproxy-42", "", ""},
+		Args:   []interface{}{"ch:haproxy-42", "", ""},
 	}, {
 		Id:     "deploy-3",
 		Method: "deploy",
@@ -517,7 +517,7 @@ func (s *bundleSuite) TestGetChangesMapArgsSuccess(c *gc.C) {
 		Id:     "addCharm-2",
 		Method: "addCharm",
 		Args: map[string]interface{}{
-			"charm":  "cs:haproxy-42",
+			"charm":  "ch:haproxy-42",
 			"series": "jammy",
 		},
 	}, {
@@ -625,7 +625,7 @@ func (s *bundleSuite) TestGetChangesMapArgsKubernetes(c *gc.C) {
 		Id:     "addCharm-2",
 		Method: "addCharm",
 		Args: map[string]interface{}{
-			"charm": "cs:haproxy-42",
+			"charm": "ch:haproxy-42",
 		},
 	}, {
 		Id:     "deploy-3",
@@ -1313,7 +1313,7 @@ func (s *bundleSuite) addApplicationToModel(model description.Model, name string
 		curl := charm.MustParseURL(name)
 		name = curl.Name
 	} else {
-		charmURL = "cs:" + name
+		charmURL = "ch:" + name
 	}
 	application := model.AddApplication(description.ApplicationArgs{
 		Tag:                names.NewApplicationTag(name),
@@ -1553,7 +1553,7 @@ func (s *bundleSuite) TestExportBundleSubordinateApplication(c *gc.C) {
 	application := s.st.model.AddApplication(description.ApplicationArgs{
 		Tag:                  names.NewApplicationTag("magic"),
 		Subordinate:          true,
-		CharmURL:             "cs:magic",
+		CharmURL:             "ch:magic",
 		Channel:              "stable",
 		CharmModifiedVersion: 1,
 		ForceCharm:           true,
@@ -1619,7 +1619,7 @@ func (s *bundleSuite) setupExportBundleEndpointBindingsPrinted(all, oneOff strin
 	app = s.st.model.AddApplication(description.ApplicationArgs{
 		Tag:                  names.NewApplicationTag("magic"),
 		Subordinate:          true,
-		CharmURL:             "cs:magic",
+		CharmURL:             "ch:magic",
 		Channel:              "stable",
 		CharmModifiedVersion: 1,
 		ForceCharm:           true,
@@ -1696,7 +1696,7 @@ func (s *bundleSuite) TestExportBundleSubordinateApplicationAndMachine(c *gc.C) 
 	application := s.st.model.AddApplication(description.ApplicationArgs{
 		Tag:         names.NewApplicationTag("magic"),
 		Subordinate: true,
-		CharmURL:    "cs:zesty/magic",
+		CharmURL:    "ch:amd64/zesty/magic",
 		Channel:     "stable",
 		Exposed:     true,
 		CharmConfig: map[string]interface{}{
@@ -1860,7 +1860,7 @@ func (s *bundleSuite) TestExportBundleWithContainers(c *gc.C) {
 
 	application0 := s.st.model.AddApplication(description.ApplicationArgs{
 		Tag:      names.NewApplicationTag("wordpress"),
-		CharmURL: "cs:wordpress",
+		CharmURL: "ch:wordpress",
 	})
 	application0.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
 	application0.SetStatus(minimalStatusArgs())
@@ -1883,7 +1883,7 @@ func (s *bundleSuite) TestExportBundleWithContainers(c *gc.C) {
 
 	application1 := s.st.model.AddApplication(description.ApplicationArgs{
 		Tag:      names.NewApplicationTag("mysql"),
-		CharmURL: "cs:mysql",
+		CharmURL: "ch:mysql",
 	})
 	application1.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
 	application1.SetStatus(minimalStatusArgs())
@@ -1942,7 +1942,7 @@ func (s *bundleSuite) TestMixedSeries(c *gc.C) {
 
 	application := s.st.model.AddApplication(description.ApplicationArgs{
 		Tag:      names.NewApplicationTag("magic"),
-		CharmURL: "cs:magic",
+		CharmURL: "ch:magic",
 	})
 	application.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/18.04/stable"})
 	application.AddUnit(description.UnitArgs{
@@ -2287,7 +2287,7 @@ applications:
 
 		application := s.st.model.AddApplication(description.ApplicationArgs{
 			Tag:                  names.NewApplicationTag("magic"),
-			CharmURL:             "cs:focal/magic",
+			CharmURL:             "ch:amd64/focal/magic",
 			Channel:              "stable",
 			CharmModifiedVersion: 1,
 			ForceCharm:           true,

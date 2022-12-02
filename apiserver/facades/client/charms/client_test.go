@@ -92,7 +92,7 @@ func (s *charmsSuite) SetUpTest(c *gc.C) {
 
 func (s *charmsSuite) TestMeteredCharmInfo(c *gc.C) {
 	meteredCharm := s.Factory.MakeCharm(
-		c, &factory.CharmParams{Name: "metered", URL: "cs:xenial/metered"})
+		c, &factory.CharmParams{Name: "metered", URL: "ch:amd64/xenial/metered"})
 	info, err := s.api.CharmInfo(params.CharmURL{
 		URL: meteredCharm.String(),
 	})
@@ -146,7 +146,7 @@ func (s *charmsSuite) TestIsMeteredFalse(c *gc.C) {
 }
 
 func (s *charmsSuite) TestIsMeteredTrue(c *gc.C) {
-	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
+	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:amd/64quantal/metered"})
 	metered, err := s.api.IsMetered(params.CharmURL{
 		URL: meteredCharm.String(),
 	})
@@ -177,21 +177,21 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 	s.expectControllerConfig(c)
 	api := s.api(c)
 
-	curl, err := charm.ParseURL("cs:testme")
+	curl, err := charm.ParseURL("ch:testme")
 	c.Assert(err, jc.ErrorIsNil)
-	seriesCurl, err := charm.ParseURL("cs:focal/testme")
+	seriesCurl, err := charm.ParseURL("ch:amd64/focal/testme")
 	c.Assert(err, jc.ErrorIsNil)
 
 	edge := string(csparams.EdgeChannel)
 	stable := string(csparams.StableChannel)
 	edgeOrigin := params.CharmOrigin{
-		Source:       corecharm.CharmStore.String(),
+		Source:       corecharm.CharmHub.String(),
 		Type:         "charm",
 		Risk:         edge,
 		Architecture: "amd64",
 	}
 	stableOrigin := params.CharmOrigin{
-		Source:       corecharm.CharmStore.String(),
+		Source:       corecharm.CharmHub.String(),
 		Type:         "charm",
 		Risk:         stable,
 		Architecture: "amd64",
@@ -252,12 +252,12 @@ func (s *charmsMockSuite) TestResolveCharmNoDefinedSeries(c *gc.C) {
 	s.expectControllerConfig(c)
 	api := s.api(c)
 
-	seriesCurl, err := charm.ParseURL("cs:focal/testme")
+	seriesCurl, err := charm.ParseURL("ch:focal/testme")
 	c.Assert(err, jc.ErrorIsNil)
 
 	edge := string(csparams.EdgeChannel)
 	edgeOrigin := params.CharmOrigin{
-		Source:       corecharm.CharmStore.String(),
+		Source:       corecharm.CharmHub.String(),
 		Type:         "charm",
 		Risk:         edge,
 		Architecture: "amd64",
@@ -300,17 +300,17 @@ func (s *charmsMockSuite) TestAddCharmWithLocalSource(c *gc.C) {
 func (s *charmsMockSuite) TestAddCharmCharmstore(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	curl, err := charm.ParseURL("cs:testme-8")
+	curl, err := charm.ParseURL("ch:testme-8")
 	c.Assert(err, jc.ErrorIsNil)
 
 	requestedOrigin := corecharm.Origin{
-		Source: "charm-store",
+		Source: "charm-hub",
 		Channel: &charm.Channel{
 			Risk: "stable",
 		},
 	}
 	resolvedOrigin := corecharm.Origin{
-		Source: "charm-store",
+		Source: "charm-hub",
 		Channel: &charm.Channel{
 			Risk: "stable",
 		},
@@ -323,7 +323,7 @@ func (s *charmsMockSuite) TestAddCharmCharmstore(c *gc.C) {
 	args := params.AddCharmWithOrigin{
 		URL: curl.String(),
 		Origin: params.CharmOrigin{
-			Source: "charm-store",
+			Source: "charm-hub",
 			Risk:   "stable",
 		},
 	}
@@ -331,7 +331,7 @@ func (s *charmsMockSuite) TestAddCharmCharmstore(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, params.CharmOriginResult{
 		Origin: params.CharmOrigin{
-			Source: "charm-store",
+			Source: "charm-hub",
 			Risk:   "stable",
 		},
 	})
@@ -340,17 +340,17 @@ func (s *charmsMockSuite) TestAddCharmCharmstore(c *gc.C) {
 func (s *charmsMockSuite) TestAddCharmCharmstoreWithAuthorization(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	curl, err := charm.ParseURL("cs:testme-8")
+	curl, err := charm.ParseURL("ch:testme-8")
 	c.Assert(err, jc.ErrorIsNil)
 
 	requestedOrigin := corecharm.Origin{
-		Source: "charm-store",
+		Source: "charm-hub",
 		Channel: &charm.Channel{
 			Risk: "stable",
 		},
 	}
 	resolvedOrigin := corecharm.Origin{
-		Source: "charm-store",
+		Source: "charm-hub",
 		Channel: &charm.Channel{
 			Risk: "stable",
 		},
@@ -367,7 +367,7 @@ func (s *charmsMockSuite) TestAddCharmCharmstoreWithAuthorization(c *gc.C) {
 	args := params.AddCharmWithAuth{
 		URL: curl.String(),
 		Origin: params.CharmOrigin{
-			Source: "charm-store",
+			Source: "charm-hub",
 			Risk:   "stable",
 		},
 		Force:              false,
@@ -377,7 +377,7 @@ func (s *charmsMockSuite) TestAddCharmCharmstoreWithAuthorization(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, params.CharmOriginResult{
 		Origin: params.CharmOrigin{
-			Source: "charm-store",
+			Source: "charm-hub",
 			Risk:   "stable",
 		},
 	})

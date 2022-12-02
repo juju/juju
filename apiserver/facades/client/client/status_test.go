@@ -331,7 +331,7 @@ func (s *statusUnitTestSuite) TestModelMeterStatus(c *gc.C) {
 }
 
 func (s *statusUnitTestSuite) TestMeterStatus(c *gc.C) {
-	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
+	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:amd64/quantal/metered"})
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
 
 	units, err := app.AllUnits()
@@ -434,7 +434,7 @@ func (s *statusUnitTestSuite) TestMeterStatusWithCredentials(c *gc.C) {
 }
 
 func (s *statusUnitTestSuite) TestApplicationWithExposedEndpoints(c *gc.C) {
-	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
+	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:amd64/quantal/metered"})
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
 	err := app.MergeExposeSettings(map[string]state.ExposedEndpoint{
 		"": {
@@ -460,8 +460,8 @@ func (s *statusUnitTestSuite) TestApplicationWithExposedEndpoints(c *gc.C) {
 }
 
 func (s *statusUnitTestSuite) TestPrincipalUpgradingFrom(c *gc.C) {
-	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered-3"})
-	meteredCharmNew := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered-5"})
+	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:amd64/quantal/metered-3"})
+	meteredCharmNew := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:amd64/quantal/metered-5"})
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
 	u := s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: app,
@@ -485,13 +485,13 @@ func (s *statusUnitTestSuite) TestPrincipalUpgradingFrom(c *gc.C) {
 	c.Assert(status, gc.NotNil)
 	unitStatus, ok = status.Applications[app.Name()].Units[u.Name()]
 	c.Assert(ok, gc.Equals, true)
-	c.Assert(unitStatus.Charm, gc.Equals, "cs:quantal/metered-3")
+	c.Assert(unitStatus.Charm, gc.Equals, "ch:amd64/quantal/metered-3")
 }
 
 func (s *statusUnitTestSuite) TestSubordinateUpgradingFrom(c *gc.C) {
-	principalCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "mysql", URL: "cs:quantal/mysql"})
-	subordCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "logging", URL: "cs:quantal/logging-1"})
-	subordCharmNew := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "logging", URL: "cs:quantal/logging-2"})
+	principalCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "mysql", URL: "ch:amd64/quantal/mysql"})
+	subordCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "logging", URL: "ch:amd64/quantal/logging-1"})
+	subordCharmNew := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "logging", URL: "ch:amd64/quantal/logging-2"})
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: principalCharm,
 		Name:  "principal",
@@ -537,7 +537,7 @@ func (s *statusUnitTestSuite) TestSubordinateUpgradingFrom(c *gc.C) {
 	c.Assert(status, gc.NotNil)
 	unitStatus, ok = status.Applications["principal"].Units["principal/0"].Subordinates["subord/0"]
 	c.Assert(ok, gc.Equals, true)
-	c.Assert(unitStatus.Charm, gc.Equals, "cs:quantal/logging-1")
+	c.Assert(unitStatus.Charm, gc.Equals, "ch:amd64/quantal/logging-1")
 }
 
 func addUnitWithVersion(c *gc.C, application *state.Application, version string) *state.Unit {
@@ -947,7 +947,7 @@ func (s *statusUpgradeUnitSuite) TestUpdateRevisionsCharmstore(c *gc.C) {
 	status, _ = client.Status(nil)
 	appStatus, ok = status.Applications["mysql"]
 	c.Assert(ok, gc.Equals, true)
-	c.Assert(appStatus.CanUpgradeTo, gc.Equals, "cs:quantal/mysql-23")
+	c.Assert(appStatus.CanUpgradeTo, gc.Equals, "ch:amd64/jammy/mysql-23")
 }
 
 func (s *statusUpgradeUnitSuite) TestUpdateRevisionsCharmhub(c *gc.C) {

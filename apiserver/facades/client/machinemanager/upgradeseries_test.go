@@ -433,7 +433,7 @@ func (s StateValidatorSuite) TestValidateApplicationsWithFallbackSeries(c *gc.C)
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	url := charm.MustParseURL("cs:focal/foo-1")
+	url := charm.MustParseURL("ch:amd64/focal/foo-1")
 
 	ch := mocks.NewMockCharm(ctrl)
 	ch.EXPECT().Meta().Return(&charm.Meta{}).MinTimes(2)
@@ -457,7 +457,7 @@ func (s StateValidatorSuite) TestValidateApplicationsWithUnsupportedSeries(c *gc
 	ch := mocks.NewMockCharm(ctrl)
 	ch.EXPECT().Meta().Return(&charm.Meta{Series: []string{"xenial", "bionic"}}).MinTimes(2)
 	ch.EXPECT().Manifest().Return(nil).AnyTimes()
-	ch.EXPECT().String().Return("cs:foo-1")
+	ch.EXPECT().String().Return("ch:foo-1")
 
 	application := mocks.NewMockApplication(ctrl)
 	application.EXPECT().Charm().Return(ch, false, nil)
@@ -466,7 +466,7 @@ func (s StateValidatorSuite) TestValidateApplicationsWithUnsupportedSeries(c *gc
 
 	validator := machinemanager.NewTestStateSeriesValidator()
 	err := validator.ValidateApplications(applications, coreseries.MakeDefaultBase("ubuntu", "20.04"), false)
-	c.Assert(err, gc.ErrorMatches, `series "focal" not supported by charm "cs:foo-1", supported series are: xenial, bionic`)
+	c.Assert(err, gc.ErrorMatches, `series "focal" not supported by charm "ch:foo-1", supported series are: xenial, bionic`)
 }
 
 func (s StateValidatorSuite) TestValidateApplicationsWithUnsupportedSeriesWithForce(c *gc.C) {
