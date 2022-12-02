@@ -16,7 +16,6 @@ import (
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
 	jujutxn "github.com/juju/txn/v3"
-	"github.com/kr/pretty"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/leadership"
@@ -910,10 +909,6 @@ func secretConsumerLabelKey(consumerTag names.Tag, label string) string {
 }
 
 func (st *State) uniqueSecretOwnerLabelOps(ownerTag names.Tag, label string) (ops []txn.Op, err error) {
-	defer func() {
-		logger.Criticalf("uniqueSecretOwnerLabelOps: %s", pretty.Sprint(ops))
-	}()
-
 	if ops, err = st.uniqueSecretLabelBaseOps(ownerTag, label); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -933,10 +928,6 @@ func (st *State) uniqueSecretOwnerLabelOps(ownerTag names.Tag, label string) (op
 }
 
 func (st *State) uniqueSecretConsumerLabelOps(consumerTag names.Tag, label string) (ops []txn.Op, err error) {
-	defer func() {
-		logger.Criticalf("uniqueSecretConsumerLabelOps: %s", pretty.Sprint(ops))
-	}()
-
 	if ops, err = st.uniqueSecretLabelBaseOps(consumerTag, label); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -956,10 +947,6 @@ func (st *State) uniqueSecretConsumerLabelOps(consumerTag names.Tag, label strin
 }
 
 func (st *State) uniqueSecretLabelBaseOps(tag names.Tag, label string) (ops []txn.Op, _ error) {
-	defer func() {
-		logger.Criticalf("uniqueSecretLabelBaseOps: %s", pretty.Sprint(ops))
-	}()
-
 	col, close := st.db().GetCollection(refcountsC)
 	defer close()
 
