@@ -174,9 +174,12 @@ func (c *addSecretBackendCommand) Run(ctxt *cmd.Context) error {
 	if err != nil {
 		return errors.Annotatef(err, "invalid secret backend %q", c.BackendType)
 	}
-	err = p.ValidateConfig(nil, attrs)
-	if err != nil {
-		return errors.Annotate(err, "invalid provider config")
+	configValidator, ok := p.(provider.ProviderConfig)
+	if ok {
+		err = configValidator.ValidateConfig(nil, attrs)
+		if err != nil {
+			return errors.Annotate(err, "invalid provider config")
+		}
 	}
 
 	backend := secretbackends.SecretBackend{

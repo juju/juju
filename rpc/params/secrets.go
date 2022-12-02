@@ -11,8 +11,11 @@ import (
 
 // SecretBackendConfig holds config for creating a secret backend client.
 type SecretBackendConfig struct {
-	BackendType string                 `json:"type"`
-	Params      map[string]interface{} `json:"params,omitempty"`
+	ControllerUUID string                 `json:"model-controller"`
+	ModelUUID      string                 `json:"model-uuid"`
+	ModelName      string                 `json:"model-name"`
+	BackendType    string                 `json:"type"`
+	Params         map[string]interface{} `json:"params,omitempty"`
 }
 
 // SecretContentParams holds params for representing the content of a secret.

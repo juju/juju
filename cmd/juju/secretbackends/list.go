@@ -83,12 +83,12 @@ func (c *listSecretBackendsCommand) SetFlags(f *gnuflag.FlagSet) {
 type secretBackendsByName map[string]secretBackendDisplayDetails
 
 type secretBackendDisplayDetails struct {
-	Name                string                  `json:"name" yaml:"name"`
-	Backend             string                  `json:"backend" yaml:"backend"`
-	TokenRotateInterval *time.Duration          `json:"token-rotate-interval,omitempty" yaml:"token-rotate-interval,omitempty"`
-	Config              provider.ProviderConfig `json:"config,omitempty" yaml:"config,omitempty"`
-	NumSecrets          int                     `json:"secrets,omitempty" yaml:"secrets,omitempty"`
-	Error               error                   `json:"error,omitempty" yaml:"error,omitempty"`
+	Name                string               `json:"name" yaml:"name"`
+	Backend             string               `json:"backend" yaml:"backend"`
+	TokenRotateInterval *time.Duration       `json:"token-rotate-interval,omitempty" yaml:"token-rotate-interval,omitempty"`
+	Config              provider.ConfigAttrs `json:"config,omitempty" yaml:"config,omitempty"`
+	NumSecrets          int                  `json:"secrets,omitempty" yaml:"secrets,omitempty"`
+	Error               error                `json:"error,omitempty" yaml:"error,omitempty"`
 }
 
 // Run implements cmd.Run.
@@ -126,7 +126,7 @@ func gatherSecretBackendInfo(backends []secretbackends.SecretBackend) map[string
 			Error:               b.Error,
 		}
 		if len(b.Config) > 0 {
-			info.Config = make(provider.ProviderConfig)
+			info.Config = make(provider.ConfigAttrs)
 			for k, v := range b.Config {
 				info.Config[k] = v
 			}

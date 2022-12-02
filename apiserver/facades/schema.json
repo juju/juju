@@ -39299,6 +39299,15 @@
                 "SecretBackendConfig": {
                     "type": "object",
                     "properties": {
+                        "model-controller": {
+                            "type": "string"
+                        },
+                        "model-name": {
+                            "type": "string"
+                        },
+                        "model-uuid": {
+                            "type": "string"
+                        },
                         "params": {
                             "type": "object",
                             "patternProperties": {
@@ -39314,6 +39323,9 @@
                     },
                     "additionalProperties": false,
                     "required": [
+                        "model-controller",
+                        "model-uuid",
+                        "model-name",
                         "type"
                     ]
                 },
@@ -47370,6 +47382,15 @@
                 "SecretBackendConfig": {
                     "type": "object",
                     "properties": {
+                        "model-controller": {
+                            "type": "string"
+                        },
+                        "model-name": {
+                            "type": "string"
+                        },
+                        "model-uuid": {
+                            "type": "string"
+                        },
                         "params": {
                             "type": "object",
                             "patternProperties": {
@@ -47385,6 +47406,9 @@
                     },
                     "additionalProperties": false,
                     "required": [
+                        "model-controller",
+                        "model-uuid",
+                        "model-name",
                         "type"
                     ]
                 },

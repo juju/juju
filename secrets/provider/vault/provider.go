@@ -6,7 +6,6 @@ package vault
 import (
 	"context"
 	"fmt"
-	"net/url"
 	"os"
 	"strings"
 
@@ -38,20 +37,6 @@ func (p vaultProvider) Type() string {
 	return BackendType
 }
 
-// ValidateConfig implements SecretBackendProvider.
-func (p vaultProvider) ValidateConfig(oldCfg, newCfg provider.ProviderConfig) error {
-	// TODO(wallyworld) - enhance with schema
-	endpoint, ok := newCfg["endpoint"].(string)
-	if !ok || endpoint == "" {
-		return errors.NotValidf("missing endpoint")
-	}
-	_, err := url.Parse(endpoint)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
 // Initialise sets up a kv store mounted on the model uuid.
 func (p vaultProvider) Initialise(m provider.Model) error {
 	cfg, err := p.adminConfig(m)
@@ -70,7 +55,7 @@ func (p vaultProvider) Initialise(m provider.Model) error {
 		return errors.Trace(err)
 	}
 	logger.Debugf("kv mounts: %v", mounts)
-	modelUUID := cfg.Config["model-uuid"].(string)
+	modelUUID := m.UUID()
 	if _, ok := mounts[modelUUID]; !ok {
 		err = sys.MountWithContext(ctx, modelUUID, &api.MountInput{
 			Type:    "kv",
@@ -180,16 +165,16 @@ func (p vaultProvider) adminConfig(m provider.Model) (*provider.BackendConfig, e
 		return nil, errors.Trace(err)
 	}
 	backendCfg := &provider.BackendConfig{
-		BackendType: BackendType,
-		Config: map[string]interface{}{
-			"controller-uuid": m.ControllerUUID(),
-			"model-uuid":      m.UUID(),
-		},
+		ControllerUUID: m.ControllerUUID(),
+		ModelUUID:      m.UUID(),
+		ModelName:      m.Name(),
+		BackendType:    BackendType,
+		Config:         make(map[string]interface{}),
 	}
 	for k, v := range b.Config {
 		backendCfg.Config[k] = v
 	}
-	keys, _ := b.Config["keys"].([]string)
+	keys, _ := b.Config[UnsealKeysKey].([]string)
 	// If keys are provided, we need to unseal the vault.
 	// (If not, the vault needs to be unsealed already).
 	if len(keys) == 0 {
@@ -226,7 +211,7 @@ func (p vaultProvider) BackendConfig(m provider.Model, tag names.Tag, owned prov
 	sys := backend.client.Sys()
 
 	ctx := context.Background()
-	modelUUID := m.UUID()
+	modelUUID := backendCfg.ModelUUID
 	var policies []string
 	if adminUser {
 		// For admin users, all secrets for the model can be read.
@@ -278,7 +263,7 @@ func (p vaultProvider) BackendConfig(m provider.Model, tag names.Tag, owned prov
 	if err != nil {
 		return nil, errors.Annotate(err, "creating secret access token")
 	}
-	backendCfg.Config["token"] = s.Auth.ClientToken
+	backendCfg.Config[TokenKey] = s.Auth.ClientToken
 
 	return backendCfg, nil
 }
@@ -292,19 +277,14 @@ func (p vaultProvider) NewBackend(cfg *provider.BackendConfig) (provider.Secrets
 }
 
 func (p vaultProvider) newBackend(cfg *provider.BackendConfig) (*vaultBackend, error) {
-	modelUUID := cfg.Config["model-uuid"].(string)
-	address := cfg.Config["endpoint"].(string)
-	token, _ := cfg.Config["token"].(string)
+	validCfg, err := newConfig(cfg.Config)
+	if err != nil {
+		return nil, errors.Annotatef(err, "invalid vault config")
+	}
 
 	var clientCertPath, clientKeyPath string
-	clientCert, _ := cfg.Config["client-cert"].(string)
-	clientKey, _ := cfg.Config["client-key"].(string)
-	if clientCert != "" && clientKey == "" {
-		return nil, errors.NotValidf("vault config missing client key")
-	}
-	if clientCert == "" && clientKey != "" {
-		return nil, errors.NotValidf("vault config missing client certificate")
-	}
+	clientCert := validCfg.clientCert()
+	clientKey := validCfg.clientKey()
 	if clientCert != "" {
 		clientCertFile, err := os.CreateTemp("", "client-cert")
 		if err != nil {
@@ -327,25 +307,23 @@ func (p vaultProvider) newBackend(cfg *provider.BackendConfig) (*vaultBackend, e
 		}
 	}
 
-	caCert, _ := cfg.Config["ca-cert"].(string)
-	tlsServerName, _ := cfg.Config["tls-server-name"].(string)
 	tlsConfig := vault.TLSConfig{
 		TLSConfig: &api.TLSConfig{
-			CACertBytes:   []byte(caCert),
+			CACertBytes:   []byte(validCfg.caCert()),
 			ClientCert:    clientCertPath,
 			ClientKey:     clientKeyPath,
-			TLSServerName: tlsServerName,
+			TLSServerName: validCfg.tlsServerName(),
 		},
 	}
-	c, err := NewVaultClient(address,
+	c, err := NewVaultClient(validCfg.endpoint(),
 		&tlsConfig,
-		vault.WithAuthToken(token),
+		vault.WithAuthToken(validCfg.token()),
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if ns, _ := cfg.Config["namespace"].(string); ns != "" {
+	if ns := validCfg.namespace(); ns != "" {
 		c.SetNamespace(ns)
 	}
-	return &vaultBackend{modelUUID: modelUUID, client: c}, nil
+	return &vaultBackend{modelUUID: cfg.ModelUUID, client: c}, nil
 }

@@ -54,21 +54,6 @@ func (s *providerSuite) TestBackendConfig(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
-func (s *providerSuite) TestValidateConfig(c *gc.C) {
-	p, err := provider.Provider(jujuvault.BackendType)
-	c.Assert(err, jc.ErrorIsNil)
-	for _, t := range []struct {
-		cfg map[string]interface{}
-		err string
-	}{{
-		cfg: map[string]interface{}{},
-		err: "missing endpoint not valid",
-	}} {
-		err = p.ValidateConfig(nil, t.cfg)
-		c.Assert(err, gc.ErrorMatches, t.err)
-	}
-}
-
 func (s *providerSuite) TestNewBackend(c *gc.C) {
 	p, err := provider.Provider(jujuvault.BackendType)
 	c.Assert(err, jc.ErrorIsNil)
@@ -76,8 +61,6 @@ func (s *providerSuite) TestNewBackend(c *gc.C) {
 	cfg := &provider.BackendConfig{
 		BackendType: jujuvault.BackendType,
 		Config: map[string]interface{}{
-			"controller-uuid": coretesting.ControllerTag.Id(),
-			"model-uuid":      coretesting.ModelTag.Id(),
 			"endpoint":        "http://vault-ip:8200/",
 			"namespace":       "ns",
 			"token":           "vault-token",
@@ -122,8 +105,6 @@ func (mockModel) GetSecretBackend() (*secrets.SecretBackend, error) {
 		Name:        "myk8s",
 		BackendType: "vault",
 		Config: map[string]interface{}{
-			"controller-uuid": coretesting.ControllerTag.Id(),
-			"model-uuid":      coretesting.ModelTag.Id(),
 			"endpoint":        "http://vault-ip:8200/",
 			"namespace":       "ns",
 			"token":           "vault-token",

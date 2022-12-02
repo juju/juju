@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/leadership"
 	coresecrets "github.com/juju/juju/core/secrets"
-	coretesting "github.com/juju/juju/testing"
 )
 
 func TestPackage(t *testing.T) {
@@ -48,7 +47,6 @@ func NewTestAPI(
 
 	return &SecretsManagerAPI{
 		authTag:             authTag,
-		modelUUID:           coretesting.ModelTag.Id(),
 		resources:           resources,
 		leadershipChecker:   leadership,
 		secretsBackend:      backend,

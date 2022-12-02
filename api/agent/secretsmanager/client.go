@@ -37,8 +37,11 @@ func (c *Client) GetSecretBackendConfig() (*provider.BackendConfig, error) {
 		return nil, errors.Trace(err)
 	}
 	return &provider.BackendConfig{
-		BackendType: result.BackendType,
-		Config:      result.Params,
+		ControllerUUID: result.ControllerUUID,
+		ModelUUID:      result.ModelUUID,
+		ModelName:      result.ModelName,
+		BackendType:    result.BackendType,
+		Config:         result.Params,
 	}, nil
 }
 

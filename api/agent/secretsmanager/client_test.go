@@ -46,8 +46,11 @@ func (s *SecretsSuite) TestGetSecretBackendConfig(c *gc.C) {
 		c.Check(arg, gc.IsNil)
 		c.Assert(result, gc.FitsTypeOf, &params.SecretBackendConfig{})
 		*(result.(*params.SecretBackendConfig)) = params.SecretBackendConfig{
-			BackendType: "controller",
-			Params:      map[string]interface{}{"foo": "bar"},
+			ControllerUUID: coretesting.ControllerTag.Id(),
+			ModelUUID:      coretesting.ModelTag.Id(),
+			ModelName:      "fred",
+			BackendType:    "controller",
+			Params:         map[string]interface{}{"foo": "bar"},
 		}
 		return nil
 	})
@@ -55,8 +58,11 @@ func (s *SecretsSuite) TestGetSecretBackendConfig(c *gc.C) {
 	result, err := client.GetSecretBackendConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, &provider.BackendConfig{
-		BackendType: "controller",
-		Config:      map[string]interface{}{"foo": "bar"},
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      coretesting.ModelTag.Id(),
+		ModelName:      "fred",
+		BackendType:    "controller",
+		Config:         map[string]interface{}{"foo": "bar"},
 	})
 }
 
