@@ -102,6 +102,9 @@ func (c *removeApplicationCommand) Init(args []string) error {
 			return errors.Errorf("invalid application name %q", arg)
 		}
 	}
+	if !c.Force && c.NoWait {
+		return errors.NotValidf("--no-wait without --force")
+	}
 	c.ApplicationNames = args
 	return nil
 }
@@ -170,18 +173,6 @@ func (c *removeApplicationCommand) applicationsHaveStorage(appNames []string) (b
 }
 
 func (c *removeApplicationCommand) Run(ctx *cmd.Context) error {
-	noWaitSet := false
-	forceSet := false
-	c.fs.Visit(func(flag *gnuflag.Flag) {
-		if flag.Name == "no-wait" {
-			noWaitSet = true
-		} else if flag.Name == "force" {
-			forceSet = true
-		}
-	})
-	if !forceSet && noWaitSet {
-		return errors.NotValidf("--no-wait without --force")
-	}
 
 	client, err := c.newAPIFunc()
 	if err != nil {
@@ -197,11 +188,9 @@ func (c *removeApplicationCommand) removeApplications(
 	client RemoveApplicationAPI,
 ) error {
 	var maxWait *time.Duration
-	if c.Force {
-		if c.NoWait {
-			zeroSec := 0 * time.Second
-			maxWait = &zeroSec
-		}
+	if c.NoWait {
+		zeroSec := 0 * time.Second
+		maxWait = &zeroSec
 	}
 
 	results, err := client.DestroyApplications(application.DestroyApplicationsParams{
