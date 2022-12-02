@@ -274,8 +274,8 @@ func (api *APIBase) Deploy(args params.ApplicationsDeploy) (params.ErrorResults,
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		if arg.CharmOrigin != nil && !corecharm.CharmHub.Matches(arg.CharmOrigin.Source) && !corecharm.Local.Matches(arg.CharmOrigin.Source) {
-			result.Results[i].Error = apiservererrors.ServerError(errors.BadRequestf("%s not a valid charm origin source", arg.CharmOrigin.Source))
+		if err := common.ValidateCharmOrigin(arg.CharmOrigin); err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		err := deployApplication(
@@ -897,8 +897,8 @@ func (api *APIBase) SetCharm(args params.ApplicationSetCharm) error {
 		return err
 	}
 
-	if args.CharmOrigin != nil && !corecharm.CharmHub.Matches(args.CharmOrigin.Source) && !corecharm.Local.Matches(args.CharmOrigin.Source) {
-		return errors.BadRequestf("%q not a valid charm origin source", args.CharmOrigin.Source)
+	if err := common.ValidateCharmOrigin(args.CharmOrigin); err != nil {
+		return err
 	}
 
 	// when forced units in error, don't block

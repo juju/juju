@@ -1336,7 +1336,7 @@ func (s *ApplicationSuite) TestDeployCharmOrigin(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 3)
 	c.Assert(results.Results[0].Error, gc.IsNil)
-	c.Assert(results.Results[1].Error, gc.ErrorMatches, "charm-store not a valid charm origin source")
+	c.Assert(results.Results[1].Error, gc.ErrorMatches, `"charm-store" not a valid charm origin source`)
 	c.Assert(results.Results[2].Error, gc.IsNil)
 
 	c.Assert(s.deployParams["foo"].CharmOrigin.Source, gc.Equals, corecharm.Source("local"))
@@ -1455,6 +1455,10 @@ func (s *ApplicationSuite) TestApplicationDeployPlacement(c *gc.C) {
 	c.Assert(s.deployParams["my-app"].Placement, gc.DeepEquals, placement)
 }
 
+func validCharmOriginForTest() *params.CharmOrigin {
+	return &params.CharmOrigin{Source: "charm-hub"}
+}
+
 func (s *ApplicationSuite) TestApplicationDeployWithPlacementLockedError(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
@@ -1471,14 +1475,17 @@ func (s *ApplicationSuite) TestApplicationDeployWithPlacementLockedError(c *gc.C
 	args := []params.ApplicationDeploy{{
 		ApplicationName: "machine-placement",
 		CharmURL:        curl.String(),
+		CharmOrigin:     validCharmOriginForTest(),
 		Placement:       []*instance.Placement{{Scope: "#", Directive: "0"}},
 	}, {
 		ApplicationName: "container-placement",
 		CharmURL:        curl.String(),
+		CharmOrigin:     validCharmOriginForTest(),
 		Placement:       []*instance.Placement{{Scope: "lxd", Directive: "0"}},
 	}, {
 		ApplicationName: "container-placement-locked-parent",
 		CharmURL:        curl.String(),
+		CharmOrigin:     validCharmOriginForTest(),
 		Placement:       []*instance.Placement{{Scope: "#", Directive: "0/lxd/0"}},
 	}}
 	results, err := s.api.Deploy(params.ApplicationsDeploy{
@@ -1527,6 +1534,7 @@ func (s *ApplicationSuite) TestApplicationDeploymentRemovesPendingResourcesOnFai
 			// CharmURL is missing to ensure deployApplication fails
 			// so that we can assert pending app resources are removed
 			ApplicationName: "my-app",
+			CharmOrigin:     validCharmOriginForTest(),
 			Resources:       resources,
 		}},
 	})
