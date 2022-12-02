@@ -121,7 +121,7 @@ This includes all machines, applications, data and other resources.
 `[1:]
 
 var destroySysMsgWithDetails = `
-WARNING! This command will destroy the %q controller with %d models.
+WARNING! This command will destroy the %q controller with %d model(s).
 The following models will be destroyed: %s.
 This includes all machines, applications, data and other resources.
 `[1:]
@@ -184,12 +184,26 @@ func (c *destroyCommand) Init(args []string) error {
 	return c.destroyCommandBase.Init(args)
 }
 
+// getModelNames gets slice of model names from modelData.
 func getModelNames(data []modelData) []string {
 	res := make([]string, len(data))
 	for i := 0; i < len(data); i++ {
 		res[i] = data[i].Name
 	}
 	return res
+}
+
+// printDestroyWarning prints to stdout the warning with additional info about destroying controller.
+func printDestroyWarning(ctx *cmd.Context, api destroyControllerAPI, controllerModelUUID string, controllerName string, clock clock.Clock) error {
+	updateStatus := newTimedStatusUpdater(ctx, api, controllerModelUUID, clock)
+	modelStatus := updateStatus(0)
+	modelNames := getModelNames(modelStatus.models)
+	if len(modelNames) > 0 {
+		fmt.Fprintf(ctx.Stdout, destroySysMsgWithDetails, controllerName, len(modelNames), strings.Join(modelNames, ", "))
+	} else {
+		fmt.Fprintf(ctx.Stdout, destroySysMsg, controllerName)
+	}
+	return nil
 }
 
 // Run implements Command.Run
@@ -219,13 +233,8 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if c.ConfirmationCommandBase.NeedsConfirmation() {
-		updateStatus := newTimedStatusUpdater(ctx, api, controllerEnviron.Config().UUID(), clock.WallClock)
-		modelStatus := updateStatus(0)
-		modelNames := getModelNames(modelStatus.models)
-		if len(modelNames) > 0 {
-			fmt.Fprintf(ctx.Stdout, destroySysMsgWithDetails, controllerName, len(modelNames), strings.Join(modelNames, ", "))
-		} else {
-			fmt.Fprintf(ctx.Stdout, destroySysMsg, controllerName)
+		if err := printDestroyWarning(ctx, api, controllerEnviron.Config().UUID(), controllerName, clock.WallClock); err != nil {
+			return errors.Trace(err)
 		}
 		if err := jujucmd.UserConfirmName(controllerName, "controller", ctx); err != nil {
 			return errors.Annotate(err, "controller destruction")
