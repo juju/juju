@@ -7,6 +7,7 @@ import (
 	"bytes"
 	stdcontext "context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/juju/clock"
@@ -119,6 +120,12 @@ WARNING! This command will destroy the %q controller.
 This includes all machines, applications, data and other resources.
 `[1:]
 
+var destroySysMsgWithDetails = `
+WARNING! This command will destroy the %q controller with %d models.
+The following models will be destroyed: %s.
+This includes all machines, applications, data and other resources.
+`[1:]
+
 // destroyControllerAPI defines the methods on the controller API endpoint
 // that the destroy command calls.
 type destroyControllerAPI interface {
@@ -177,6 +184,14 @@ func (c *destroyCommand) Init(args []string) error {
 	return c.destroyCommandBase.Init(args)
 }
 
+func getModelNames(data []modelData) []string {
+	res := make([]string, len(data))
+	for i := 0; i < len(data); i++ {
+		res[i] = data[i].Name
+	}
+	return res
+}
+
 // Run implements Command.Run
 func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	controllerName, err := c.ControllerName()
@@ -184,17 +199,6 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	store := c.ClientStore()
-
-	if err := c.ConfirmationCommandBase.Run(ctx); err != nil {
-		return errors.Trace(err)
-	}
-
-	if c.ConfirmationCommandBase.NeedsConfirmation() {
-		fmt.Fprintf(ctx.Stdout, destroySysMsg, controllerName)
-		if err := jujucmd.UserConfirmName(controllerName, "controller", ctx); err != nil {
-			return errors.Annotate(err, "controller destruction")
-		}
-	}
 
 	// Attempt to connect to the API.  If we can't, fail the destroy.  Users will
 	// need to use the controller kill command if we can't connect.
@@ -208,6 +212,26 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	controllerEnviron, err := c.getControllerEnviron(ctx, store, controllerName, api)
 	if err != nil {
 		return errors.Annotate(err, "getting controller environ")
+	}
+
+	updateStatus := newTimedStatusUpdater(ctx, api, controllerEnviron.Config().UUID(), clock.WallClock)
+	// wait for 2 seconds to let empty hosted models changed from alive to dying.
+	modelStatus := updateStatus(0)
+
+	if err := c.ConfirmationCommandBase.Run(ctx); err != nil {
+		return errors.Trace(err)
+	}
+
+	if c.ConfirmationCommandBase.NeedsConfirmation() {
+		modelNames := getModelNames(modelStatus.models)
+		if len(modelNames) > 0 {
+			fmt.Fprintf(ctx.Stdout, destroySysMsgWithDetails, controllerName, len(modelNames), strings.Join(modelNames, ", "))
+		} else {
+			fmt.Fprintf(ctx.Stdout, destroySysMsg, controllerName)
+		}
+		if err := jujucmd.UserConfirmName(controllerName, "controller", ctx); err != nil {
+			return errors.Annotate(err, "controller destruction")
+		}
 	}
 
 	cloudCallCtx := cloudCallContext(c.controllerCredentialAPIFunc)
@@ -255,9 +279,6 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 			}
 		}
 
-		updateStatus := newTimedStatusUpdater(ctx, api, controllerEnviron.Config().UUID(), clock.WallClock)
-		// wait for 2 seconds to let empty hosted models changed from alive to dying.
-		modelStatus := updateStatus(0)
 		if !c.destroyModels {
 			if err := c.checkNoAliveHostedModels(ctx, modelStatus.models); err != nil {
 				return errors.Trace(err)
