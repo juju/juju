@@ -214,15 +214,13 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "getting controller environ")
 	}
 
-	updateStatus := newTimedStatusUpdater(ctx, api, controllerEnviron.Config().UUID(), clock.WallClock)
-	// wait for 2 seconds to let empty hosted models changed from alive to dying.
-	modelStatus := updateStatus(0)
-
 	if err := c.ConfirmationCommandBase.Run(ctx); err != nil {
 		return errors.Trace(err)
 	}
 
 	if c.ConfirmationCommandBase.NeedsConfirmation() {
+		updateStatus := newTimedStatusUpdater(ctx, api, controllerEnviron.Config().UUID(), clock.WallClock)
+		modelStatus := updateStatus(0)
 		modelNames := getModelNames(modelStatus.models)
 		if len(modelNames) > 0 {
 			fmt.Fprintf(ctx.Stdout, destroySysMsgWithDetails, controllerName, len(modelNames), strings.Join(modelNames, ", "))
@@ -279,6 +277,9 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 			}
 		}
 
+		updateStatus := newTimedStatusUpdater(ctx, api, controllerEnviron.Config().UUID(), clock.WallClock)
+		// wait for 2 seconds to let empty hosted models changed from alive to dying.
+		modelStatus := updateStatus(0)
 		if !c.destroyModels {
 			if err := c.checkNoAliveHostedModels(ctx, modelStatus.models); err != nil {
 				return errors.Trace(err)
