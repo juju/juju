@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/charmhub/transport"
-	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"
@@ -903,10 +902,6 @@ func (s *statusUpgradeUnitSuite) SetUpTest(c *gc.C) {
 	s.CharmSuite.SetUpTest(c)
 
 	state := charmrevisionupdater.StateShim{State: s.State}
-	newCharmstoreClient := func(st charmrevisionupdater.State) (charmstore.Client, error) {
-		return charmstore.NewCustomClient(s.Store), nil
-	}
-
 	s.ctrl = gomock.NewController(c)
 	charmhubClient := mocks.NewMockCharmhubRefreshClient(s.ctrl)
 	charmhubClient.EXPECT().RefreshWithRequestMetrics(gomock.Any(), gomock.Any(),
@@ -919,35 +914,13 @@ func (s *statusUpgradeUnitSuite) SetUpTest(c *gc.C) {
 
 	var err error
 	s.charmrevisionupdater, err = charmrevisionupdater.NewCharmRevisionUpdaterAPIState(state, clock.WallClock,
-		newCharmstoreClient, newCharmhubClient)
+		newCharmhubClient)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *statusUpgradeUnitSuite) TearDownTest(c *gc.C) {
 	s.JujuConnSuite.TearDownTest(c)
 	s.ctrl.Finish()
-}
-
-func (s *statusUpgradeUnitSuite) TestUpdateRevisionsCharmstore(c *gc.C) {
-	s.AddMachine(c, "0", state.JobManageModel)
-	s.SetupScenario(c)
-	client := apiclient.NewClient(s.APIState)
-	status, _ := client.Status(nil)
-
-	appStatus, ok := status.Applications["mysql"]
-	c.Assert(ok, gc.Equals, true)
-	c.Assert(appStatus.CanUpgradeTo, gc.Equals, "")
-
-	// Update to the latest available charm revision.
-	result, err := s.charmrevisionupdater.UpdateLatestRevisions()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
-
-	// Check if CanUpgradeTo suggests the latest revision.
-	status, _ = client.Status(nil)
-	appStatus, ok = status.Applications["mysql"]
-	c.Assert(ok, gc.Equals, true)
-	c.Assert(appStatus.CanUpgradeTo, gc.Equals, "ch:amd64/jammy/mysql-23")
 }
 
 func (s *statusUpgradeUnitSuite) TestUpdateRevisionsCharmhub(c *gc.C) {
