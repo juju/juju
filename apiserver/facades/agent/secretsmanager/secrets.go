@@ -353,7 +353,7 @@ func (s *SecretsManagerAPI) isLeaderUnit() (bool, error) {
 	return err == nil, nil
 }
 
-func (s *SecretsManagerAPI) handleAppOwnedSecretForPeerUnts(md *coresecrets.SecretMetadata) (*coresecrets.SecretMetadata, error) {
+func (s *SecretsManagerAPI) handleAppOwnedSecretForUnits(md *coresecrets.SecretMetadata) (*coresecrets.SecretMetadata, error) {
 	// If the secret is owned by the app, and the caller is a peer unit, we create a fake consumer doc for triggering events to notify the uniters.
 	// The peer units should get the secret using owner label but should not set a consumer label.
 	consumer, err := s.secretsConsumer.GetSecretConsumer(md.URI, s.authTag)
@@ -362,9 +362,8 @@ func (s *SecretsManagerAPI) handleAppOwnedSecretForPeerUnts(md *coresecrets.Secr
 	}
 
 	if consumer == nil {
-		consumer = &coresecrets.SecretConsumerMetadata{
-			LatestRevision: md.LatestRevision,
-		}
+		// Create a fake consumer doc for triggering secret-changed event for uniter.
+		consumer = &coresecrets.SecretConsumerMetadata{}
 	}
 	logger.Debugf("saving consumer doc for application owned secret %q for peer units %q", md.URI, s.authTag)
 	if err := s.secretsConsumer.SaveSecretConsumer(md.URI, s.authTag, consumer); err != nil {
@@ -380,20 +379,10 @@ func (s *SecretsManagerAPI) getAppOwnedOrUnitOwnedSecretMetadata(uri *coresecret
 	}
 	defer func() {
 		if md == nil || md.OwnerTag == s.authTag.String() {
-			// Either not found or found a secret owned by the caller.
+			// Either errored out or found a secret owned by the caller.
 			return
 		}
-		// If the secret is owned by the app, check if the unit is a leader.
-		var isLeader bool
-		if isLeader, err = s.isLeaderUnit(); err != nil {
-			md = nil
-			return
-		}
-		if isLeader {
-			logger.Debugf("found application owned secret %q for leader unit %q", md.URI, s.authTag)
-			return
-		}
-		md, err = s.handleAppOwnedSecretForPeerUnts(md)
+		md, err = s.handleAppOwnedSecretForUnits(md)
 	}()
 
 	filter := state.SecretsFilter{

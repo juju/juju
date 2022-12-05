@@ -20,7 +20,6 @@ import (
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/agent/secretsmanager"
 	"github.com/juju/juju/apiserver/facades/agent/secretsmanager/mocks"
-	"github.com/juju/juju/core/leadership"
 	coresecrets "github.com/juju/juju/core/secrets"
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
@@ -506,7 +505,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentForOwnerSecretURIArg(c *gc.C) 
 			names.NewApplicationTag("mariadb"),
 		},
 	}).Return([]*coresecrets.SecretMetadata{
-		&coresecrets.SecretMetadata{
+		{
 			URI:            uri,
 			LatestRevision: 668,
 			OwnerTag:       s.authTag.String(),
@@ -542,7 +541,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentForOwnerSecretLabelArg(c *gc.C
 			names.NewApplicationTag("mariadb"),
 		},
 	}).Return([]*coresecrets.SecretMetadata{
-		&coresecrets.SecretMetadata{
+		{
 			URI:            uri,
 			LatestRevision: 668,
 			Label:          "foo",
@@ -566,7 +565,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentForOwnerSecretLabelArg(c *gc.C
 	})
 }
 
-func (s *SecretsManagerSuite) assertGetSecretContentForLeaderUnitAccessApplicationOwnedSecret(c *gc.C, isLeader bool) {
+func (s *SecretsManagerSuite) TestGetSecretContentForUnitAccessApplicationOwnedSecret(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	data := map[string]string{"foo": "bar"}
@@ -579,7 +578,7 @@ func (s *SecretsManagerSuite) assertGetSecretContentForLeaderUnitAccessApplicati
 			names.NewApplicationTag("mariadb"),
 		},
 	}).Return([]*coresecrets.SecretMetadata{
-		&coresecrets.SecretMetadata{
+		{
 			URI:            uri,
 			LatestRevision: 668,
 			Label:          "foo",
@@ -587,19 +586,10 @@ func (s *SecretsManagerSuite) assertGetSecretContentForLeaderUnitAccessApplicati
 		},
 	}, nil)
 
-	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
-	if isLeader {
-		s.token.EXPECT().Check().Return(nil)
-	} else {
-		s.token.EXPECT().Check().Return(leadership.NewNotLeaderError("mariadb/0", "mariadb"))
-		s.secretsConsumer.EXPECT().GetSecretConsumer(uri, s.authTag).
-			Return(nil, errors.NotFoundf("secret consumer"))
-
-		s.secretsConsumer.EXPECT().SaveSecretConsumer(
-			uri, names.NewUnitTag("mariadb/0"), &coresecrets.SecretConsumerMetadata{
-				LatestRevision: 668,
-			}).Return(nil)
-	}
+	s.secretsConsumer.EXPECT().GetSecretConsumer(uri, s.authTag).
+		Return(nil, errors.NotFoundf("secret consumer"))
+	s.secretsConsumer.EXPECT().SaveSecretConsumer(
+		uri, names.NewUnitTag("mariadb/0"), &coresecrets.SecretConsumerMetadata{}).Return(nil)
 
 	s.secretsBackend.EXPECT().GetSecretValue(uri, 668).Return(
 		val, nil, nil,
@@ -616,14 +606,6 @@ func (s *SecretsManagerSuite) assertGetSecretContentForLeaderUnitAccessApplicati
 			Content: params.SecretContentParams{Data: data},
 		}},
 	})
-}
-
-func (s *SecretsManagerSuite) TestGetSecretContentForLeaderUnitAccessApplicationOwnedSecret(c *gc.C) {
-	s.assertGetSecretContentForLeaderUnitAccessApplicationOwnedSecret(c, true)
-}
-
-func (s *SecretsManagerSuite) TestGetSecretContentForPeerUnitsAccessApplicationOwnedSecret(c *gc.C) {
-	s.assertGetSecretContentForLeaderUnitAccessApplicationOwnedSecret(c, false)
 }
 
 func (s *SecretsManagerSuite) assertGetSecretContentConsumer(c *gc.C, isUnitAgent bool) {
