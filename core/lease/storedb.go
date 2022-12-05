@@ -38,6 +38,15 @@ func NewDBStore(db *sql.DB, logger StoreLogger) *DBStore {
 // Leases (lease.Store) returns all leases in the database,
 // optionally filtering using the input keys.
 func (s *DBStore) Leases(keys ...Key) (map[Key]Info, error) {
+	// TODO (manadart 2022-11-30): We expect the variadic `keys` argument to be
+	// length 0 or 1. It was a work-around for design constraints at the time.
+	// Either filter the result here for len(keys) > 1, or fix the design.
+	// As it is, there are no upstream usages for more than on key,
+	// so we just lock in that behaviour.
+	if len(keys) > 1 {
+		return nil, errors.NotSupportedf("filtering with more than one lease key")
+	}
+
 	q := `
 SELECT t.type, l.model_uuid, l.name, l.holder, l.expiry
 FROM   lease l JOIN lease_type t ON l.lease_type_id = t.id`[1:]
@@ -60,12 +69,6 @@ AND    l.name = ?`
 	}
 
 	result, err := leasesFromRows(rows)
-
-	// TODO (manadart 2022-11-30): We expect the variadic `keys` argument to be
-	// length 0 or 1. It was a work-around for design constraints at the time
-	// that it was instituted. Either filter the result here for len(keys) > 1,
-	// or fix the design.
-
 	return result, errors.Trace(rows.Err())
 }
 
