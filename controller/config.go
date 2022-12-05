@@ -261,9 +261,6 @@ const (
 	// PublicDNSAddress is the public DNS address (and port) of the controller.
 	PublicDNSAddress = "public-dns-address"
 
-	// SkipConfirmation determines whether destroying/killing/unregistering controller require confirmation or not
-	SkipConfirmation = "skip-confirmation"
-
 	// Attribute Defaults
 
 	// DefaultApplicationResourceDownloadLimit allows unlimited
@@ -385,9 +382,6 @@ const (
 
 	// DefaultMigrationMinionWaitMax is the default value for
 	DefaultMigrationMinionWaitMax = "15m"
-
-	// DefaultSkipConfirmation is default value for skip-confirmation
-	DefaultSkipConfirmation = true
 )
 
 var (
@@ -494,7 +488,6 @@ var (
 		MigrationMinionWaitMax,
 		ApplicationResourceDownloadLimit,
 		ControllerResourceDownloadLimit,
-		SkipConfirmation,
 	)
 
 	// DefaultAuditLogExcludeMethods is the default list of methods to
@@ -1056,15 +1049,6 @@ func (c Config) MigrationMinionWaitMax() time.Duration {
 	return val
 }
 
-// SkipConfirmation returns whether or not skip controller destroying/killing/unregistering confirmation.
-// The default is true.
-func (c Config) SkipConfirmation() bool {
-	if v, ok := c[SkipConfirmation]; ok {
-		return v.(bool)
-	}
-	return DefaultSkipConfirmation
-}
-
 // Validate ensures that config is a valid configuration.
 func Validate(c Config) error {
 	if v, ok := c[IdentityPublicKey].(string); ok {
@@ -1400,7 +1384,6 @@ var configChecker = schema.FieldMap(schema.Fields{
 	MigrationMinionWaitMax:           schema.String(),
 	ApplicationResourceDownloadLimit: schema.ForceInt(),
 	ControllerResourceDownloadLimit:  schema.ForceInt(),
-	SkipConfirmation:                 schema.Bool(),
 }, schema.Defaults{
 	AgentRateLimitMax:                schema.Omit,
 	AgentRateLimitRate:               schema.Omit,
@@ -1448,7 +1431,6 @@ var configChecker = schema.FieldMap(schema.Fields{
 	MigrationMinionWaitMax:           DefaultMigrationMinionWaitMax,
 	ApplicationResourceDownloadLimit: schema.Omit,
 	ControllerResourceDownloadLimit:  schema.Omit,
-	SkipConfirmation:                 DefaultSkipConfirmation,
 })
 
 // ConfigSchema holds information on all the fields defined by
@@ -1643,9 +1625,5 @@ Use "caas-image-repo" instead.`,
 	MigrationMinionWaitMax: {
 		Type:        environschema.Tstring,
 		Description: `The maximum during model migrations that the migration worker will wait for agents to report on phases of the migration`,
-	},
-	SkipConfirmation: {
-		Description: "Determines determines whether destroying/killing/unregistering controller require confirmation or not",
-		Type:        environschema.Tbool,
 	},
 }
