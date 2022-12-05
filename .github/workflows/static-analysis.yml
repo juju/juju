@@ -41,6 +41,7 @@ jobs:
       uses: actions/setup-go@v3
       with:
         go-version-file: 'go.mod'
+        cache: true
 
     - name: Install Dependencies
       run: |
@@ -110,6 +111,7 @@ jobs:
       uses: actions/setup-go@v3
       with:
         go-version-file: 'go.mod'
+        cache: true
 
     - name: Install Dependencies
       if: steps.filter.outputs.schema == 'true'
