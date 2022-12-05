@@ -35,10 +35,12 @@ func (s *storeDBSuite) SetUpTest(c *gc.C) {
 
 	s.primeDB(c)
 	s.store = lease.NewDBStore(s.db, lease.StubLogger{})
-	s.stopCh = make(chan struct{})
+
+	// Single-buffered to allow us to queue up a stoppage.
+	s.stopCh = make(chan struct{}, 1)
 }
 
-func (s *storeDBSuite) TestClaimLeaseSuccessAndLeaseListings(c *gc.C) {
+func (s *storeDBSuite) TestClaimLeaseSuccessAndLeaseQueries(c *gc.C) {
 	pgKey := lease.Key{
 		Namespace: "application",
 		ModelUUID: "model-uuid",
@@ -98,9 +100,7 @@ func (s *storeDBSuite) TestClaimLeaseSuccessAndLeaseListings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(leases, gc.HasLen, 2)
 	c.Check(leases[pgKey].Holder, gc.Equals, "postgresql/0")
-	c.Check(leases[pgKey].Expiry.After(time.Now().UTC()), jc.IsTrue)
 	c.Check(leases[mmKey].Holder, gc.Equals, "mattermost/0")
-	c.Check(leases[mmKey].Expiry.After(time.Now().UTC()), jc.IsTrue)
 }
 
 func (s *storeDBSuite) TestClaimLeaseAlreadyHeld(c *gc.C) {
@@ -121,6 +121,48 @@ func (s *storeDBSuite) TestClaimLeaseAlreadyHeld(c *gc.C) {
 	err = s.store.ClaimLease(key, req, s.stopCh)
 	// TODO (manadart 2022-12-01): Check for the right type; ErrHeld?
 	c.Assert(err, gc.NotNil)
+}
+
+func (s *storeDBSuite) TestPinUnpinLeaseAndPinQueries(c *gc.C) {
+	pgKey := lease.Key{
+		Namespace: "application",
+		ModelUUID: "model-uuid",
+		Lease:     "postgresql",
+	}
+
+	pgReq := lease.Request{
+		Holder:   "postgresql/0",
+		Duration: time.Minute,
+	}
+
+	err := s.store.ClaimLease(pgKey, pgReq, s.stopCh)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// One entity pins the lease.
+	err = s.store.PinLease(pgKey, "machine/6", s.stopCh)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The same lease/entity is a no-op without error.
+	err = s.store.PinLease(pgKey, "machine/6", s.stopCh)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Another entity pinning the same lease.
+	err = s.store.PinLease(pgKey, "machine/7", s.stopCh)
+	c.Assert(err, jc.ErrorIsNil)
+
+	pins, err := s.store.Pinned()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(pins, gc.HasLen, 1)
+	c.Check(pins[pgKey], jc.SameContents, []string{"machine/6", "machine/7"})
+
+	// Unpin and check the leases.
+	err = s.store.UnpinLease(pgKey, "machine/7", s.stopCh)
+	c.Assert(err, jc.ErrorIsNil)
+
+	pins, err = s.store.Pinned()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(pins, gc.HasLen, 1)
+	c.Check(pins[pgKey], jc.SameContents, []string{"machine/6"})
 }
 
 func (s *storeDBSuite) primeDB(c *gc.C) {

@@ -51,9 +51,11 @@ CREATE TABLE lease_pin (
         REFERENCES  lease(uuid)
 );
 
+CREATE UNIQUE INDEX idx_lease_pin_lease_entity
+ON lease_pin (lease_uuid, entity_id);
+
 CREATE INDEX idx_lease_pin_lease
 ON lease_pin (lease_uuid);
-
 `[1:]
 
 	return strings.Split(delta, ";\n\n")
