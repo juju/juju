@@ -7,6 +7,8 @@ import (
 	"database/sql"
 	"time"
 
+	"github.com/juju/errors"
+
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	_ "github.com/mattn/go-sqlite3"
@@ -119,8 +121,7 @@ func (s *storeDBSuite) TestClaimLeaseAlreadyHeld(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.store.ClaimLease(key, req, s.stopCh)
-	// TODO (manadart 2022-12-01): Check for the right type; ErrHeld?
-	c.Assert(err, gc.NotNil)
+	c.Assert(errors.Is(err, lease.ErrHeld), jc.IsTrue)
 }
 
 func (s *storeDBSuite) TestPinUnpinLeaseAndPinQueries(c *gc.C) {

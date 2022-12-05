@@ -27,6 +27,7 @@ type DBStore struct {
 	logger StoreLogger
 }
 
+// NewDBStore returns a reference to a new database-backed lease sore.
 func NewDBStore(db *sql.DB, logger StoreLogger) *DBStore {
 	return &DBStore{
 		db:     db,
@@ -100,7 +101,9 @@ WHERE  type = ?`[1:]
 		return errors.New("claim cancelled")
 	case err := <-errCh:
 		cancel()
-		// TODO (manadart 2022-12-01): Interpret this such that a UK violation means ErrHeld.
+		if isUniquenessViolation(err) {
+			return ErrHeld
+		}
 		return errors.Trace(err)
 	}
 }
