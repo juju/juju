@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	jujuclock "github.com/juju/clock"
@@ -22,6 +23,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/core/model"
 	corestatus "github.com/juju/juju/core/status"
@@ -96,14 +98,19 @@ Examples:
 See also:
     destroy-controller
 `
-var destroyIAASModelMsg = `
+
+var destroyIAASModelMsgWithDetails = `
 WARNING! This command will destroy the %q model.
-This includes all machines, applications, data and other resources.
+This includes %d machine(s), %d application(s), data and other resources.
+
+The following machines will be destroyed: %s
 `[1:]
 
-var destroyCAASModelMsg = `
+var destroyCAASModelMsgWithDetails = `
 WARNING! This command will destroy the %q model.
-This includes all containers, applications, data and other resources.
+This includes %d container(s), %d application(s), data and other resources.
+
+The following containers will be destroyed: %s
 `[1:]
 
 // DestroyModelAPI defines the methods on the modelmanager
@@ -171,6 +178,34 @@ func (c *destroyCommand) getAPI() (DestroyModelAPI, error) {
 	return modelmanager.NewClient(root), nil
 }
 
+// getMachineIds gets slice of machine ids from modelData.
+func getMachineIds(data base.ModelStatus) []string {
+	res := make([]string, len(data.Machines))
+	for i := 0; i < len(data.Machines); i++ {
+		res[i] = data.Machines[i].Id + " (\"" + data.Machines[i].InstanceId + "\")"
+	}
+	return res
+}
+
+// printDestroyWarning prints to stdout the warning with additional info about destroying model.
+func printDestroyWarning(ctx *cmd.Context, api DestroyModelAPI, modelName string, modelDetails *jujuclient.ModelDetails) error {
+	modelStatuses, err := api.ModelStatus(names.NewModelTag(modelDetails.ModelUUID))
+	if err != nil {
+		return errors.Annotate(err, "getting model status")
+	}
+
+	msg := destroyIAASModelMsgWithDetails
+	if modelDetails.ModelType == model.CAAS {
+		msg = destroyCAASModelMsgWithDetails
+	}
+
+	machineIds := getMachineIds(modelStatuses[0])
+
+	fmt.Fprintf(ctx.Stdout, msg, modelName, modelStatuses[0].TotalMachineCount, modelStatuses[0].ApplicationCount, strings.Join(machineIds, ", "))
+
+	return nil
+}
+
 // Run implements Command.Run
 func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	noWaitSet := false
@@ -200,29 +235,8 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-
 	if modelDetails.ModelUUID == controllerDetails.ControllerUUID {
 		return errors.Errorf("%q is a controller; use 'juju destroy-controller' to destroy it", modelName)
-	}
-
-	if err := c.ConfirmationCommandBase.Run(ctx); err != nil {
-		return errors.Trace(err)
-	}
-
-	if c.ConfirmationCommandBase.NeedsConfirmation() {
-		modelType, err := c.ModelType()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		msg := destroyIAASModelMsg
-		if modelType == model.CAAS {
-			msg = destroyCAASModelMsg
-		}
-		fmt.Fprintf(ctx.Stdout, msg, modelName)
-
-		if err := jujucmd.UserConfirmName(modelName, "model", ctx); err != nil {
-			return errors.Annotate(err, "model destruction")
-		}
 	}
 
 	// Attempt to connect to the API.  If we can't, fail the destroy.
@@ -231,6 +245,19 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "cannot connect to API")
 	}
 	defer api.Close()
+
+	if err := c.ConfirmationCommandBase.Run(ctx); err != nil {
+		return errors.Trace(err)
+	}
+
+	if c.ConfirmationCommandBase.NeedsConfirmation() {
+		if err := printDestroyWarning(ctx, api, modelName, modelDetails); err != nil {
+			return errors.Trace(err)
+		}
+		if err := jujucmd.UserConfirmName(modelName, "model", ctx); err != nil {
+			return errors.Annotate(err, "model destruction")
+		}
+	}
 
 	// Attempt to destroy the model.
 	fmt.Fprint(ctx.Stderr, "Destroying model")
