@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -44,13 +43,17 @@ func (api *Client) ListSecretBackends(reveal bool) ([]SecretBackend, error) {
 	}
 	result := make([]SecretBackend, len(response.Results))
 	for i, r := range response.Results {
+		var resultErr error
+		if r.Error != nil {
+			resultErr = r.Error
+		}
 		details := SecretBackend{
 			Name:                r.Result.Name,
 			BackendType:         r.Result.BackendType,
 			TokenRotateInterval: r.Result.TokenRotateInterval,
 			Config:              r.Result.Config,
 			NumSecrets:          r.NumSecrets,
-			Error:               apiservererrors.RestoreError(r.Error),
+			Error:               resultErr,
 		}
 		result[i] = details
 	}

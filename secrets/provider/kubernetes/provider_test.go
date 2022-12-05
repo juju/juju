@@ -39,24 +39,17 @@ func (*providerSuite) TestBackendConfig(c *gc.C) {
 	cfg, err := p.BackendConfig(mockModel{}, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg, jc.DeepEquals, &provider.BackendConfig{
-		BackendType: kubernetes.BackendType,
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      coretesting.ModelTag.Id(),
+		ModelName:      "fred",
+		BackendType:    kubernetes.BackendType,
 		Config: map[string]interface{}{
 			"ca-certs":            []string{"cert-data"},
-			"controller-uuid":     coretesting.ControllerTag.Id(),
 			"credential":          `{"auth-type":"access-key","Attributes":{"foo":"bar"}}`,
 			"endpoint":            "http://nowhere",
 			"is-controller-cloud": true,
-			"model-name":          "fred",
-			"model-uuid":          coretesting.ModelTag.Id(),
 		},
 	})
-}
-
-func (*providerSuite) TestValidateConfig(c *gc.C) {
-	p, err := provider.Provider(kubernetes.BackendType)
-	c.Assert(err, jc.ErrorIsNil)
-	err = p.ValidateConfig(nil, map[string]interface{}{"foo": "bar"})
-	c.Assert(err, gc.ErrorMatches, "the k8s secrets backend does not use any config")
 }
 
 func (s *providerSuite) assertBackendConfigWithTag(c *gc.C, isControllerCloud bool) {
@@ -100,15 +93,15 @@ func (s *providerSuite) assertBackendConfigWithTag(c *gc.C, isControllerCloud bo
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := &provider.BackendConfig{
-		BackendType: kubernetes.BackendType,
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      coretesting.ModelTag.Id(),
+		ModelName:      "fred",
+		BackendType:    kubernetes.BackendType,
 		Config: map[string]interface{}{
 			"ca-certs":            []string{"cert-data"},
-			"controller-uuid":     coretesting.ControllerTag.Id(),
 			"credential":          `{"auth-type":"access-key","Attributes":{"Token":"token","password":"","username":""}}`,
 			"endpoint":            "http://nowhere",
 			"is-controller-cloud": isControllerCloud,
-			"model-name":          "fred",
-			"model-uuid":          coretesting.ModelTag.Id(),
 		},
 	}
 	if isControllerCloud {

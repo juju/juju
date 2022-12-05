@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/secrets"
 	"github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type SecretsManagerSuite struct {
@@ -80,8 +81,11 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 
 	storeConfigGetter := func() (*provider.BackendConfig, error) {
 		return &provider.BackendConfig{
-			BackendType: "controller",
-			Config:      map[string]interface{}{"foo": "bar"},
+			ControllerUUID: coretesting.ControllerTag.Id(),
+			ModelUUID:      coretesting.ModelTag.Id(),
+			ModelName:      "fred",
+			BackendType:    "controller",
+			Config:         map[string]interface{}{"foo": "bar"},
 		}, nil
 	}
 	providerGetter := func() (provider.SecretBackendProvider, provider.Model, error) {
@@ -127,8 +131,11 @@ func (s *SecretsManagerSuite) TestGetSecretBackendConfig(c *gc.C) {
 	result, err := s.facade.GetSecretBackendConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.SecretBackendConfig{
-		BackendType: "controller",
-		Params:      map[string]interface{}{"foo": "bar"},
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      coretesting.ModelTag.Id(),
+		ModelName:      "fred",
+		BackendType:    "controller",
+		Params:         map[string]interface{}{"foo": "bar"},
 	})
 }
 

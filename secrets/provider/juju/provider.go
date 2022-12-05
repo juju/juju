@@ -4,7 +4,6 @@
 package juju
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/secrets/provider"
@@ -23,14 +22,6 @@ func NewProvider() provider.SecretBackendProvider {
 }
 
 type jujuProvider struct {
-}
-
-// ValidateConfig implements SecretBackendProvider.
-func (p jujuProvider) ValidateConfig(oldCfg, newCfg provider.ProviderConfig) error {
-	if len(newCfg) > 0 {
-		return errors.New("the internal secrets backend does not use any config")
-	}
-	return nil
 }
 
 func (p jujuProvider) Type() string {
@@ -57,7 +48,12 @@ func (p jujuProvider) CleanupSecrets(m provider.Model, tag names.Tag, removed pr
 func (p jujuProvider) BackendConfig(
 	m provider.Model, tag names.Tag, owned provider.SecretRevisions, read provider.SecretRevisions,
 ) (*provider.BackendConfig, error) {
-	return &provider.BackendConfig{BackendType: BackendType}, nil
+	return &provider.BackendConfig{
+		ControllerUUID: m.ControllerUUID(),
+		ModelUUID:      m.UUID(),
+		ModelName:      m.Name(),
+		BackendType:    BackendType,
+	}, nil
 }
 
 // NewBackend returns a nil backend since the Juju backend saves

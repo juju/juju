@@ -18,10 +18,9 @@ type SecretsBackend interface {
 
 // BackendConfig is used when constructing a secrets backend.
 type BackendConfig struct {
-	BackendType string
-	// TODO(wallyworld) - use a schema
-	Config ProviderConfig
+	ControllerUUID string
+	ModelUUID      string
+	ModelName      string
+	BackendType    string
+	Config         ConfigAttrs
 }
-
-// ProviderConfig defines config for a secrets backend provider.
-type ProviderConfig map[string]interface{}

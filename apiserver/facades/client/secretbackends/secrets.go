@@ -62,9 +62,12 @@ func (s *SecretBackendsAPI) createBackend(arg params.SecretBackend) error {
 	if err != nil {
 		return errors.Annotatef(err, "creating backend provider type %q", arg.BackendType)
 	}
-	err = p.ValidateConfig(nil, arg.Config)
-	if err != nil {
-		return errors.Annotatef(err, "invalid config for provider %q", arg.BackendType)
+	configValidator, ok := p.(provider.ProviderConfig)
+	if ok {
+		err = configValidator.ValidateConfig(nil, arg.Config)
+		if err != nil {
+			return errors.Annotatef(err, "invalid config for provider %q", arg.BackendType)
+		}
 	}
 	return s.state.CreateSecretBackend(state.CreateSecretBackendParams{
 		Name:                arg.Name,
@@ -88,13 +91,31 @@ func (s *SecretBackendsAPI) ListSecretBackends(arg params.ListSecretBackendsArgs
 	}
 	result.Results = make([]params.SecretBackendResult, len(backends))
 	for i, b := range backends {
-		// TODO(wallyworld) - filter out tokens etc if reveal == false
-		backendResult := params.SecretBackendResult{
+		cfg := make(map[string]interface{})
+		for k, v := range b.Config {
+			cfg[k] = v
+		}
+		backendResult := params.SecretBackendResult{}
+		p, err := provider.Provider(b.BackendType)
+		if err != nil {
+			backendResult.Error = apiservererrors.ServerError(err)
+			result.Results[i] = backendResult
+			continue
+		}
+		configValidator, ok := p.(provider.ProviderConfig)
+		if ok {
+			for n, f := range configValidator.ConfigSchema() {
+				if f.Secret && !arg.Reveal {
+					delete(cfg, n)
+				}
+			}
+		}
+		backendResult = params.SecretBackendResult{
 			Result: params.SecretBackend{
 				Name:                b.Name,
 				BackendType:         b.BackendType,
 				TokenRotateInterval: b.TokenRotateInterval,
-				Config:              b.Config,
+				Config:              cfg,
 			},
 			// TODO(wallyworld) - count the number of secrets
 			NumSecrets: 666,

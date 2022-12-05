@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v4"
+	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/secrets"
@@ -58,14 +59,21 @@ const (
 	Internal = "internal"
 )
 
-// SecretBackendProvider instances create secret backends.
-type SecretBackendProvider interface {
-	// TODO(wallyworld) - add config schema methods
+// ConfigAttrs defines config attributes for a secrets backend provider.
+type ConfigAttrs map[string]interface{}
+
+// ProviderConfig is implemented by providers that support config validation.
+type ProviderConfig interface {
+	// ConfigSchema returns the fields defining the provider config.
+	ConfigSchema() environschema.Fields
 
 	// ValidateConfig returns an error if the new
 	//provider config is not valid.
-	ValidateConfig(oldCfg, newCfg ProviderConfig) error
+	ValidateConfig(oldCfg, newCfg ConfigAttrs) error
+}
 
+// SecretBackendProvider instances create secret backends.
+type SecretBackendProvider interface {
 	// Type is the type of the backend.
 	Type() string
 

@@ -120,17 +120,3 @@ func (mr *MockSecretBackendProviderMockRecorder) Type() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Type", reflect.TypeOf((*MockSecretBackendProvider)(nil).Type))
 }
-
-// ValidateConfig mocks base method.
-func (m *MockSecretBackendProvider) ValidateConfig(arg0, arg1 provider.ProviderConfig) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ValidateConfig", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// ValidateConfig indicates an expected call of ValidateConfig.
-func (mr *MockSecretBackendProviderMockRecorder) ValidateConfig(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateConfig", reflect.TypeOf((*MockSecretBackendProvider)(nil).ValidateConfig), arg0, arg1)
-}

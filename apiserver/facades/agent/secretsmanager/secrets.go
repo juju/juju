@@ -27,8 +27,6 @@ var logger = loggo.GetLogger("juju.apiserver.secretsmanager")
 
 // SecretsManagerAPI is the implementation for the SecretsManager facade.
 type SecretsManagerAPI struct {
-	modelUUID string
-
 	leadershipChecker leadership.Checker
 	secretsBackend    SecretsBackend
 	resources         facade.Resources
@@ -54,8 +52,11 @@ func (s *SecretsManagerAPI) GetSecretBackendConfig() (params.SecretBackendConfig
 		return params.SecretBackendConfig{}, errors.Trace(err)
 	}
 	result := params.SecretBackendConfig{
-		BackendType: cfg.BackendType,
-		Params:      cfg.Config,
+		ControllerUUID: cfg.ControllerUUID,
+		ModelUUID:      cfg.ModelUUID,
+		ModelName:      cfg.ModelName,
+		BackendType:    cfg.BackendType,
+		Params:         cfg.Config,
 	}
 	return result, nil
 }

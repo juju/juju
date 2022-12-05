@@ -71,7 +71,10 @@ func (s *SecretsSuite) assertListSecretBackends(c *gc.C, reveal bool) {
 	facade, err := secretbackends.NewTestAPI(s.secretsState, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 
-	config := map[string]interface{}{"foo": "bar"}
+	config := map[string]interface{}{
+		"endpoint": "http://vault",
+		"token":    "s.ajehjdee",
+	}
 	s.secretsState.EXPECT().ListSecretBackends().Return(
 		[]*coresecrets.SecretBackend{{
 			Name:                "myvault",
@@ -83,6 +86,9 @@ func (s *SecretsSuite) assertListSecretBackends(c *gc.C, reveal bool) {
 
 	results, err := facade.ListSecretBackends(params.ListSecretBackendsArgs{Reveal: reveal})
 	c.Assert(err, jc.ErrorIsNil)
+	if !reveal {
+		delete(config, "token")
+	}
 	c.Assert(results, jc.DeepEquals, params.ListSecretBackendsResults{
 		Results: []params.SecretBackendResult{{
 			Result: params.SecretBackend{

@@ -39,14 +39,6 @@ func NewProvider() provider.SecretBackendProvider {
 type k8sProvider struct {
 }
 
-// ValidateConfig implements SecretBackendProvider.
-func (p k8sProvider) ValidateConfig(oldCfg, newCfg provider.ProviderConfig) error {
-	if len(newCfg) > 0 {
-		return errors.New("the k8s secrets backend does not use any config")
-	}
-	return nil
-}
-
 func (p k8sProvider) Type() string {
 	return BackendType
 }
@@ -107,11 +99,11 @@ func cloudSpecToBackendConfig(m provider.Model, spec cloudspec.CloudSpec) (*prov
 		return nil, errors.Trace(err)
 	}
 	return &provider.BackendConfig{
-		BackendType: BackendType,
+		ControllerUUID: m.ControllerUUID(),
+		ModelUUID:      m.UUID(),
+		ModelName:      m.Name(),
+		BackendType:    BackendType,
 		Config: map[string]interface{}{
-			"controller-uuid":     m.ControllerUUID(),
-			"model-name":          m.Name(),
-			"model-uuid":          m.UUID(),
 			"endpoint":            spec.Endpoint,
 			"ca-certs":            spec.CACertificates,
 			"is-controller-cloud": spec.IsControllerCloud,
@@ -121,7 +113,6 @@ func cloudSpecToBackendConfig(m provider.Model, spec cloudspec.CloudSpec) (*prov
 }
 
 // BackendConfig returns the config needed to create a k8s secrets backend.
-// TODO(wallyworld) - only allow access to the specified secrets
 func (p k8sProvider) BackendConfig(m provider.Model, consumer names.Tag, owned provider.SecretRevisions, read provider.SecretRevisions) (*provider.BackendConfig, error) {
 	logger.Tracef("getting k8s backend config for %q, owned %v, read %v", consumer, owned, read)
 
@@ -198,19 +189,7 @@ func (p k8sProvider) NewBackend(cfg *provider.BackendConfig) (provider.SecretsBa
 	}
 	cloudSpec.Credential = &cred
 
-	controllerUUID, ok := cfg.Config["controller-uuid"].(string)
-	if !ok {
-		return nil, errors.New("k8s secret backend config missing controller uuid")
-	}
-	modelUUID, ok := cfg.Config["model-uuid"].(string)
-	if !ok {
-		return nil, errors.New("k8s secret backend config missing model uuid")
-	}
-	modelName, ok := cfg.Config["model-name"].(string)
-	if !ok {
-		return nil, errors.New("k8s secret backend config missing model name")
-	}
-	broker, err := p.getBroker(controllerUUID, modelUUID, modelName, cloudSpec)
+	broker, err := p.getBroker(cfg.ControllerUUID, cfg.ModelUUID, cfg.ModelName, cloudSpec)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
