@@ -281,8 +281,8 @@ pre_bootstrap() {
 	fi
 
 	if [[ -n ${OPERATOR_IMAGE_ACCOUNT:-} ]]; then
-  	export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --config caas-image-repo=${OPERATOR_IMAGE_ACCOUNT}"
-  fi
+		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --config caas-image-repo=${OPERATOR_IMAGE_ACCOUNT}"
+	fi
 
 	echo "BOOTSTRAP_ADDITIONAL_ARGS => ${BOOTSTRAP_ADDITIONAL_ARGS}"
 }

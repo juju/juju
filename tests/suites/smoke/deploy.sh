@@ -18,6 +18,8 @@ run_local_deploy() {
 	# Wait for the refresh to happen and then wait again.
 	wait_for "upgrade hook ran v2" "$(workload_status "refresher" 0)"
 
+	# On microk8s, there's a bug where the application blocks the model teardown
+	# TODO: remove the next line once this bug is fixed.
 	juju remove-application refresher
 	destroy_model "test-local-deploy"
 }
@@ -35,6 +37,8 @@ run_charmstore_deploy() {
 	juju refresh ubuntu-lite
 	wait_for "ubuntu-lite" "$(idle_condition_for_rev "ubuntu-lite" "10")"
 
+	# On microk8s, there's a bug where the application blocks the model teardown
+	# TODO: remove the next line once this bug is fixed.
 	juju remove-application ubuntu-lite
 	destroy_model "test-charmstore-deploy"
 }
