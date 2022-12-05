@@ -88,12 +88,12 @@ without delay waiting for each step to complete.
 Examples:
 
     juju destroy-model test
-    juju destroy-model -y mymodel
-    juju destroy-model -y mymodel --timeout 5m
-    juju destroy-model -y mymodel --destroy-storage
-    juju destroy-model -y mymodel --release-storage
-    juju destroy-model -y mymodel --force
-    juju destroy-model -y mymodel --force --no-wait
+    juju destroy-model --no-prompt mymodel
+    juju destroy-model --no-prompt mymodel --timeout 5m
+    juju destroy-model --no-prompt mymodel --destroy-storage
+    juju destroy-model --no-prompt mymodel --release-storage
+    juju destroy-model --no-prompt mymodel --force
+    juju destroy-model --no-prompt mymodel --force --no-wait
 
 See also:
     destroy-controller
