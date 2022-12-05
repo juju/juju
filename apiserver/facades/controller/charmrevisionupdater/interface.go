@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 )
@@ -21,7 +20,6 @@ type State interface {
 	AllApplications() ([]Application, error)
 	Charm(curl *charm.URL) (*state.Charm, error)
 	Cloud(name string) (cloud.Cloud, error)
-	ControllerConfig() (controller.Config, error)
 	ControllerUUID() string
 	Model() (Model, error)
 	Resources() state.Resources

@@ -7,13 +7,10 @@ import (
 	"reflect"
 
 	"github.com/juju/clock"
-	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/charmstore"
-	"github.com/juju/juju/state"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -28,13 +25,6 @@ func newCharmRevisionUpdaterAPI(ctx facade.Context) (*CharmRevisionUpdaterAPI, e
 	if !ctx.Auth().AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
-	newCharmstoreClient := func(st State) (charmstore.Client, error) {
-		controllerCfg, err := st.ControllerConfig()
-		if err != nil {
-			return charmstore.Client{}, errors.Trace(err)
-		}
-		return charmstore.NewCachingClient(state.MacaroonCache{MacaroonCacheState: st}, controllerCfg.CharmStoreURL())
-	}
 	newCharmhubClient := func(st State) (CharmhubRefreshClient, error) {
 		httpClient := ctx.HTTPClient(facade.CharmhubHTTPClient)
 		return common.CharmhubClient(charmhubClientStateShim{state: st}, httpClient, logger)
@@ -42,7 +32,6 @@ func newCharmRevisionUpdaterAPI(ctx facade.Context) (*CharmRevisionUpdaterAPI, e
 	return NewCharmRevisionUpdaterAPIState(
 		StateShim{State: ctx.State()},
 		clock.WallClock,
-		newCharmstoreClient,
 		newCharmhubClient,
 	)
 }
