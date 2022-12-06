@@ -187,7 +187,7 @@ func (c *destroyCommand) getAPI() (DestroyModelAPI, error) {
 // getMachineIds gets slice of machine ids from modelData.
 func getMachineIds(data base.ModelStatus) []string {
 	return transform.Slice(data.Machines, func(f base.Machine) string {
-		return f.Id + " (\"" + f.InstanceId + "\")"
+		return fmt.Sprintf("%s (%q)", f.Id, f.InstanceId)
 	})
 }
 
@@ -204,13 +204,13 @@ func printDestroyWarning(ctx *cmd.Context, api DestroyModelAPI, modelName string
 		if modelDetails.ModelType == model.CAAS {
 			msg = destroyCAASModelMsgWithDetails
 		}
-		fmt.Fprintf(ctx.Stdout, msg, modelName,
+		_, _ = fmt.Fprintf(ctx.Stdout, msg, modelName,
 			modelStatuses[0].TotalMachineCount,
 			modelStatuses[0].ApplicationCount,
 			strings.Join(machineIds, ", "),
 		)
 	} else {
-		fmt.Fprintf(ctx.Stdout, msg, modelName)
+		_, _ = fmt.Fprintf(ctx.Stdout, msg, modelName)
 	}
 	return nil
 }
@@ -253,7 +253,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Annotate(err, "cannot connect to API")
 	}
-	defer api.Close()
+	defer func() { _ = api.Close() }()
 
 	if err := c.ConfirmationCommandBase.Run(ctx); err != nil {
 		return errors.Trace(err)
