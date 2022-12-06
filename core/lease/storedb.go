@@ -111,12 +111,97 @@ WHERE  type = ?`[1:]
 	}
 }
 
+// ExtendLease (lease.Store) ensures the input lease will be held for at least
+// the requested duration starting from now.
+// If the input holder does not currently hold the lease, as error is returned.
 func (s *DBStore) ExtendLease(lease Key, request Request, stop <-chan struct{}) error {
-	panic("implement me")
+	if err := request.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	errCh := make(chan error)
+
+	go func() {
+		q := `
+UPDATE lease
+SET    expiry = datetime('now', ?)
+WHERE  uuid = (
+    SELECT l.uuid
+    FROM   lease l JOIN lease_type t ON l.lease_type_id = t.id
+    WHERE  t.type = ?
+    AND    l.model_uuid = ?
+    AND    l.name = ?
+    AND    l.holder = ?
+)`[1:]
+
+		d := fmt.Sprintf("+%d seconds", int64(math.Ceil(request.Duration.Seconds())))
+
+		result, err := s.db.ExecContext(
+			ctx, q, d, lease.Namespace, lease.ModelUUID, lease.Lease, request.Holder)
+
+		// If no rows were affected, then either this lease does not exist or
+		// it is not held by the input holder, constituting an invalid request.
+		if err == nil {
+			var affected int64
+			affected, err = result.RowsAffected()
+			if affected == 0 && err == nil {
+				err = ErrInvalid
+			}
+		}
+		errCh <- err
+	}()
+
+	select {
+	case <-stop:
+		cancel()
+		return errors.New("extend cancelled")
+	case err := <-errCh:
+		cancel()
+		return errors.Trace(err)
+	}
 }
 
+// RevokeLease deletes the lease from the store,
+// provided it exists and is held by the input holder.
+// If either of these conditions is false, an error is returned.
 func (s *DBStore) RevokeLease(lease Key, holder string, stop <-chan struct{}) error {
-	panic("implement me")
+	ctx, cancel := context.WithCancel(context.Background())
+	errCh := make(chan error)
+
+	go func() {
+		q := `
+DELETE FROM lease
+WHERE  uuid = (
+    SELECT l.uuid
+    FROM   lease l JOIN lease_type t ON l.lease_type_id = t.id
+    WHERE  t.type = ?
+    AND    l.model_uuid = ?
+    AND    l.name = ?
+    AND    l.holder = ?
+)`[1:]
+
+		result, err := s.db.ExecContext(
+			ctx, q, lease.Namespace, lease.ModelUUID, lease.Lease, holder)
+
+		if err == nil {
+			var affected int64
+			affected, err = result.RowsAffected()
+			if affected == 0 && err == nil {
+				err = ErrInvalid
+			}
+		}
+		errCh <- err
+	}()
+
+	select {
+	case <-stop:
+		cancel()
+		return errors.New("revoke cancelled")
+	case err := <-errCh:
+		cancel()
+		return errors.Trace(err)
+	}
 }
 
 // LeaseGroup (lease.Store) returns all leases

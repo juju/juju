@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	_ "github.com/mattn/go-sqlite3"
@@ -124,6 +123,86 @@ func (s *storeDBSuite) TestClaimLeaseAlreadyHeld(c *gc.C) {
 	c.Assert(errors.Is(err, lease.ErrHeld), jc.IsTrue)
 }
 
+func (s *storeDBSuite) TestExtendLeaseSuccess(c *gc.C) {
+	key := lease.Key{
+		Namespace: "application",
+		ModelUUID: "model-uuid",
+		Lease:     "postgresql",
+	}
+
+	req := lease.Request{
+		Holder:   "postgresql/0",
+		Duration: time.Minute,
+	}
+
+	err := s.store.ClaimLease(key, req, s.stopCh)
+	c.Assert(err, jc.ErrorIsNil)
+
+	leases, err := s.store.Leases(key)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(leases, gc.HasLen, 1)
+
+	// Save the expiry for later comparison.
+	originalExpiry := leases[key].Expiry
+
+	req.Duration = 2 * time.Minute
+	err = s.store.ExtendLease(key, req, s.stopCh)
+	c.Assert(err, jc.ErrorIsNil)
+
+	leases, err = s.store.Leases(key)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(leases, gc.HasLen, 1)
+
+	// Check that we extended.
+	c.Check(leases[key].Expiry.After(originalExpiry), jc.IsTrue)
+}
+
+func (s *storeDBSuite) TestExtendLeaseNotHeldInvalid(c *gc.C) {
+	key := lease.Key{
+		Namespace: "application",
+		ModelUUID: "model-uuid",
+		Lease:     "postgresql",
+	}
+
+	req := lease.Request{
+		Holder:   "postgresql/0",
+		Duration: time.Minute,
+	}
+
+	err := s.store.ExtendLease(key, req, s.stopCh)
+	c.Assert(errors.Is(err, lease.ErrInvalid), jc.IsTrue)
+}
+
+func (s *storeDBSuite) TestRevokeLeaseSuccess(c *gc.C) {
+	key := lease.Key{
+		Namespace: "application",
+		ModelUUID: "model-uuid",
+		Lease:     "postgresql",
+	}
+
+	req := lease.Request{
+		Holder:   "postgresql/0",
+		Duration: time.Minute,
+	}
+
+	err := s.store.ClaimLease(key, req, s.stopCh)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.store.RevokeLease(key, req.Holder, s.stopCh)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *storeDBSuite) TestRevokeLeaseNotHeldInvalid(c *gc.C) {
+	key := lease.Key{
+		Namespace: "application",
+		ModelUUID: "model-uuid",
+		Lease:     "postgresql",
+	}
+
+	err := s.store.RevokeLease(key, "not-the-holder", s.stopCh)
+	c.Assert(errors.Is(err, lease.ErrInvalid), jc.IsTrue)
+}
+
 func (s *storeDBSuite) TestPinUnpinLeaseAndPinQueries(c *gc.C) {
 	pgKey := lease.Key{
 		Namespace: "application",
@@ -164,6 +243,24 @@ func (s *storeDBSuite) TestPinUnpinLeaseAndPinQueries(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pins, gc.HasLen, 1)
 	c.Check(pins[pgKey], jc.SameContents, []string{"machine/6"})
+}
+
+func (s *storeDBSuite) TestLeaseOperationCancellation(c *gc.C) {
+	s.stopCh <- struct{}{}
+
+	key := lease.Key{
+		Namespace: "application",
+		ModelUUID: "model-uuid",
+		Lease:     "postgresql",
+	}
+
+	req := lease.Request{
+		Holder:   "postgresql/0",
+		Duration: time.Minute,
+	}
+
+	err := s.store.ClaimLease(key, req, s.stopCh)
+	c.Assert(err, gc.ErrorMatches, "claim cancelled")
 }
 
 func (s *storeDBSuite) primeDB(c *gc.C) {
