@@ -18,9 +18,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/client/modelconfig"
 	"github.com/juju/juju/api/client/modelmanager"
-	"github.com/juju/juju/api/client/storage"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -56,7 +54,6 @@ type destroyCommand struct {
 	destroyStorage bool
 	releaseStorage bool
 	api            DestroyModelAPI
-	storageAPI     StorageAPI
 
 	Force  bool
 	NoWait bool
@@ -117,13 +114,6 @@ type DestroyModelAPI interface {
 	ModelStatus(models ...names.ModelTag) ([]base.ModelStatus, error)
 }
 
-// ModelConfigAPI defines the methods on the modelconfig
-// API that the destroy command calls. It is exported for mocking in tests.
-type ModelConfigAPI interface {
-	Close() error
-	SLALevel() (string, error)
-}
-
 // Info implements Command.Info.
 func (c *destroyCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
@@ -179,25 +169,6 @@ func (c *destroyCommand) getAPI() (DestroyModelAPI, error) {
 		return nil, errors.Trace(err)
 	}
 	return modelmanager.NewClient(root), nil
-}
-
-func (c *destroyCommand) getModelConfigAPI() (ModelConfigAPI, error) {
-	root, err := c.NewAPIRoot()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return modelconfig.NewClient(root), nil
-}
-
-func (c *destroyCommand) getStorageAPI() (StorageAPI, error) {
-	if c.storageAPI != nil {
-		return c.storageAPI, nil
-	}
-	root, err := c.NewAPIRoot()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return storage.NewClient(root), nil
 }
 
 // Run implements Command.Run
@@ -627,10 +598,4 @@ option instead. The storage can then be imported
 into another Juju model.
 
 `, modelName, buf.String())
-}
-
-// StorageAPI defines the storage client API interface.
-type StorageAPI interface {
-	Close() error
-	ListStorageDetails() ([]params.StorageDetails, error)
 }
