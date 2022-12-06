@@ -26619,37 +26619,9 @@
                 "DestroyMachinesParams": {
                     "type": "object",
                     "properties": {
-                        "DestroyMachinesParamsV9": {
-                            "$ref": "#/definitions/DestroyMachinesParamsV9"
-                        },
                         "dry-run": {
                             "type": "boolean"
                         },
-                        "force": {
-                            "type": "boolean"
-                        },
-                        "keep": {
-                            "type": "boolean"
-                        },
-                        "machine-tags": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
-                        "max-wait": {
-                            "type": "integer"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "machine-tags",
-                        "DestroyMachinesParamsV9"
-                    ]
-                },
-                "DestroyMachinesParamsV9": {
-                    "type": "object",
-                    "properties": {
                         "force": {
                             "type": "boolean"
                         },

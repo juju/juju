@@ -354,10 +354,8 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedAllStorageRetrieval
 
 	noWait := 0 * time.Second
 	results, err := s.api.DestroyMachineWithParams(params.DestroyMachinesParams{
-		DestroyMachinesParamsV9: params.DestroyMachinesParamsV9{
-			MachineTags: []string{"machine-0"},
-			MaxWait:     &noWait,
-		},
+		MachineTags: []string{"machine-0"},
+		MaxWait:     &noWait,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
@@ -381,10 +379,8 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedSomeUnitStorageRetr
 
 	noWait := 0 * time.Second
 	results, err := s.api.DestroyMachineWithParams(params.DestroyMachinesParams{
-		DestroyMachinesParamsV9: params.DestroyMachinesParamsV9{
-			MachineTags: []string{"machine-0"},
-			MaxWait:     &noWait,
-		},
+		MachineTags: []string{"machine-0"},
+		MaxWait:     &noWait,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
@@ -412,10 +408,8 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedSomeStorageRetrieva
 
 	noWait := 0 * time.Second
 	results, err := s.api.DestroyMachineWithParams(params.DestroyMachinesParams{
-		DestroyMachinesParamsV9: params.DestroyMachinesParamsV9{
-			MachineTags: []string{"machine-0", "machine-1"},
-			MaxWait:     &noWait,
-		},
+		MachineTags: []string{"machine-0", "machine-1"},
+		MaxWait:     &noWait,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -450,11 +444,9 @@ func (s *DestroyMachineManagerSuite) TestForceDestroyMachineFailedSomeStorageRet
 
 	noWait := 0 * time.Second
 	results, err := s.api.DestroyMachineWithParams(params.DestroyMachinesParams{
-		DestroyMachinesParamsV9: params.DestroyMachinesParamsV9{
-			Force:       true,
-			MachineTags: []string{"machine-0", "machine-1"},
-			MaxWait:     &noWait,
-		},
+		Force:       true,
+		MachineTags: []string{"machine-0", "machine-1"},
+		MaxWait:     &noWait,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -490,10 +482,8 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineDryRun(c *gc.C) {
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
 	results, err := s.api.DestroyMachineWithParams(params.DestroyMachinesParams{
-		DestroyMachinesParamsV9: params.DestroyMachinesParamsV9{
-			MachineTags: []string{"machine-0"},
-		},
-		DryRun: true,
+		MachineTags: []string{"machine-0"},
+		DryRun:      true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -527,10 +517,8 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainersDryRun(c *g
 	s.st.EXPECT().Machine("0/lxd/0").Return(container0, nil)
 
 	results, err := s.api.DestroyMachineWithParams(params.DestroyMachinesParams{
-		DestroyMachinesParamsV9: params.DestroyMachinesParamsV9{
-			MachineTags: []string{"machine-0"},
-		},
-		DryRun: true,
+		MachineTags: []string{"machine-0"},
+		DryRun:      true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
@@ -580,12 +568,10 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithParamsNoWait(c *gc.C)
 
 	noWait := 0 * time.Second
 	results, err := s.api.DestroyMachineWithParams(params.DestroyMachinesParams{
-		DestroyMachinesParamsV9: params.DestroyMachinesParamsV9{
-			Keep:        true,
-			Force:       true,
-			MachineTags: []string{"machine-0"},
-			MaxWait:     &noWait,
-		},
+		Keep:        true,
+		Force:       true,
+		MachineTags: []string{"machine-0"},
+		MaxWait:     &noWait,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
@@ -618,12 +604,10 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithParamsNilWait(c *gc.C
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
 	results, err := s.api.DestroyMachineWithParams(params.DestroyMachinesParams{
-		DestroyMachinesParamsV9: params.DestroyMachinesParamsV9{
-			Keep:        true,
-			Force:       true,
-			MachineTags: []string{"machine-0"},
-			// This will use max wait of system default for delay between cleanup operations.
-		},
+		Keep:        true,
+		Force:       true,
+		MachineTags: []string{"machine-0"},
+		// This will use max wait of system default for delay between cleanup operations.
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
@@ -656,10 +640,8 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainers(c *gc.C) {
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
 	results, err := s.api.DestroyMachineWithParams(params.DestroyMachinesParams{
-		DestroyMachinesParamsV9: params.DestroyMachinesParamsV9{
-			Force:       false,
-			MachineTags: []string{"machine-0"},
-		},
+		Force:       false,
+		MachineTags: []string{"machine-0"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
@@ -683,10 +665,8 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainersWithForce(c
 	s.st.EXPECT().Machine("0/lxd/0").Return(container0, nil)
 
 	results, err := s.api.DestroyMachineWithParams(params.DestroyMachinesParams{
-		DestroyMachinesParamsV9: params.DestroyMachinesParamsV9{
-			Force:       true,
-			MachineTags: []string{"machine-0"},
-		},
+		Force:       true,
+		MachineTags: []string{"machine-0"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{

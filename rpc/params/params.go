@@ -284,10 +284,17 @@ type DestroyMachinesParamsV9 struct {
 	MaxWait *time.Duration `json:"max-wait,omitempty"`
 }
 
-// DestroyMachinesParams holds parameters for the v9 DestroyMachinesWithParams call.
+// DestroyMachinesParams holds parameters for the latest DestroyMachinesWithParams call.
 type DestroyMachinesParams struct {
-	DestroyMachinesParamsV9
-	DryRun bool `json:"dry-run,omitempty"`
+	MachineTags []string `json:"machine-tags"`
+	Force       bool     `json:"force,omitempty"`
+	Keep        bool     `json:"keep,omitempty"`
+	DryRun      bool     `json:"dry-run,omitempty"`
+
+	// MaxWait specifies the amount of time that each step in machine destroy process
+	// will wait before forcing the next step to kick-off. This parameter
+	// only makes sense in combination with 'force' set to 'true'.
+	MaxWait *time.Duration `json:"max-wait,omitempty"`
 }
 
 // RecordAgentStartInformationArgs holds the parameters for updating the
