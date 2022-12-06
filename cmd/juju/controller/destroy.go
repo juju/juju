@@ -17,7 +17,6 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/client/credentialmanager"
-	"github.com/juju/juju/api/client/storage"
 	controllerapi "github.com/juju/juju/api/controller/controller"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
@@ -54,7 +53,6 @@ func NewDestroyCommand() cmd.Command {
 // destroyCommand destroys the specified controller.
 type destroyCommand struct {
 	destroyCommandBase
-	storageAPI     storageAPI
 	destroyModels  bool
 	destroyStorage bool
 	releaseStorage bool
@@ -131,11 +129,6 @@ type destroyControllerAPI interface {
 	ModelStatus(models ...names.ModelTag) ([]base.ModelStatus, error)
 	AllModels() ([]base.UserModel, error)
 	ControllerConfig() (controller.Config, error)
-}
-
-type storageAPI interface {
-	Close() error
-	ListStorageDetails() ([]params.StorageDetails, error)
 }
 
 // destroyClientAPI defines the methods on the client API endpoint that the
@@ -295,20 +288,6 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 		ctx.Infof("All models reclaimed, cleaning up controller machines")
 		return c.environsDestroy(controllerName, controllerEnviron, cloudCallCtx, store)
 	}
-}
-
-func (c *destroyCommand) modelHasStorage(modelName string) (bool, error) {
-	client, err := c.getStorageAPI(modelName)
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	defer client.Close()
-
-	storage, err := client.ListStorageDetails()
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	return len(storage) > 0, nil
 }
 
 // checkNoAliveHostedModels ensures that the given set of hosted models
@@ -494,17 +473,6 @@ func (c *destroyCommandBase) getControllerAPI() (destroyControllerAPI, error) {
 		return nil, errors.Trace(err)
 	}
 	return controllerapi.NewClient(root), nil
-}
-
-func (c *destroyCommand) getStorageAPI(modelName string) (storageAPI, error) {
-	if c.storageAPI != nil {
-		return c.storageAPI, nil
-	}
-	root, err := c.NewModelAPIRoot(modelName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return storage.NewClient(root), nil
 }
 
 // SetFlags implements Command.SetFlags.
