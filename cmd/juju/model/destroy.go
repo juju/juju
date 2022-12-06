@@ -101,7 +101,7 @@ See also:
     destroy-controller
 `
 
-var destroyIAASMsg = `
+var destroyModelMsg = `
 WARNING! This command will destroy the %q model.
 `[1:]
 
@@ -197,16 +197,21 @@ func printDestroyWarning(ctx *cmd.Context, api DestroyModelAPI, modelName string
 	if err != nil {
 		return errors.Annotate(err, "getting model status")
 	}
-
-	msg := destroyIAASModelMsgWithDetails
-	if modelDetails.ModelType == model.CAAS {
-		msg = destroyCAASModelMsgWithDetails
-	}
-
 	machineIds := getMachineIds(modelStatuses[0])
-
-	fmt.Fprintf(ctx.Stdout, msg, modelName, modelStatuses[0].TotalMachineCount, modelStatuses[0].ApplicationCount, strings.Join(machineIds, ", "))
-
+	msg := destroyModelMsg
+	if len(machineIds) > 0 {
+		msg = destroyIAASModelMsgWithDetails
+		if modelDetails.ModelType == model.CAAS {
+			msg = destroyCAASModelMsgWithDetails
+		}
+		fmt.Fprintf(ctx.Stdout, msg, modelName,
+			modelStatuses[0].TotalMachineCount,
+			modelStatuses[0].ApplicationCount,
+			strings.Join(machineIds, ", "),
+		)
+	} else {
+		fmt.Fprintf(ctx.Stdout, msg, modelName)
+	}
 	return nil
 }
 
