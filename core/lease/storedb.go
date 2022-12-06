@@ -27,7 +27,7 @@ type DBStore struct {
 	logger StoreLogger
 }
 
-// NewDBStore returns a reference to a new database-backed lease sore.
+// NewDBStore returns a reference to a new database-backed lease store.
 func NewDBStore(db *sql.DB, logger StoreLogger) *DBStore {
 	return &DBStore{
 		db:     db,
@@ -41,7 +41,7 @@ func (s *DBStore) Leases(keys ...Key) (map[Key]Info, error) {
 	// TODO (manadart 2022-11-30): We expect the variadic `keys` argument to be
 	// length 0 or 1. It was a work-around for design constraints at the time.
 	// Either filter the result here for len(keys) > 1, or fix the design.
-	// As it is, there are no upstream usages for more than on key,
+	// As it is, there are no upstream usages for more than one key,
 	// so we just lock in that behaviour.
 	if len(keys) > 1 {
 		return nil, errors.NotSupportedf("filtering with more than one lease key")
@@ -73,7 +73,7 @@ AND    l.name = ?`
 }
 
 // ClaimLease (lease.Store) claims the lease indicated by the input key,
-// for the holder indicated by the input duration.
+// for the holder and duration indicated by the input request.
 // The lease must not already be held, otherwise an error is returned.
 func (s *DBStore) ClaimLease(lease Key, request Request, stop <-chan struct{}) error {
 	if err := request.Validate(); err != nil {
@@ -113,7 +113,7 @@ WHERE  type = ?`[1:]
 
 // ExtendLease (lease.Store) ensures the input lease will be held for at least
 // the requested duration starting from now.
-// If the input holder does not currently hold the lease, as error is returned.
+// If the input holder does not currently hold the lease, an error is returned.
 func (s *DBStore) ExtendLease(lease Key, request Request, stop <-chan struct{}) error {
 	if err := request.Validate(); err != nil {
 		return errors.Trace(err)
@@ -162,7 +162,7 @@ WHERE  uuid = (
 	}
 }
 
-// RevokeLease deletes the lease from the store,
+// RevokeLease (lease.Store) deletes the lease from the store,
 // provided it exists and is held by the input holder.
 // If either of these conditions is false, an error is returned.
 func (s *DBStore) RevokeLease(lease Key, holder string, stop <-chan struct{}) error {
