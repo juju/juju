@@ -24,7 +24,6 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/core/model"
 	corestatus "github.com/juju/juju/core/status"
