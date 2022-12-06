@@ -216,15 +216,13 @@ func (s *MachinemanagerSuite) clientToTestDestroyMachinesWithParams(c *gc.C, max
 		basetesting.APICallerFunc(func(objType string, version int, id, request string, a, response interface{}) error {
 			c.Assert(request, gc.Equals, "DestroyMachineWithParams")
 			c.Assert(a, jc.DeepEquals, params.DestroyMachinesParams{
-				DestroyMachinesParamsV9: params.DestroyMachinesParamsV9{
-					Keep:  true,
-					Force: true,
-					MachineTags: []string{
-						"machine-0",
-						"machine-0-lxd-1",
-					},
-					MaxWait: maxWait,
+				Keep:  true,
+				Force: true,
+				MachineTags: []string{
+					"machine-0",
+					"machine-0-lxd-1",
 				},
+				MaxWait: maxWait,
 			})
 			c.Assert(response, gc.FitsTypeOf, &params.DestroyMachineResults{})
 			out := response.(*params.DestroyMachineResults)

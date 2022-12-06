@@ -65,13 +65,11 @@ func (client *Client) AddMachines(machineParams []params.AddMachineParams) ([]pa
 // is determined by the force and keep parameters.
 func (client *Client) DestroyMachinesWithParams(force, keep, dryRun bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error) {
 	args := params.DestroyMachinesParams{
-		DestroyMachinesParamsV9: params.DestroyMachinesParamsV9{
-			Force:       force,
-			Keep:        keep,
-			MachineTags: make([]string, 0, len(machines)),
-			MaxWait:     maxWait,
-		},
-		DryRun: dryRun,
+		Force:       force,
+		Keep:        keep,
+		DryRun:      dryRun,
+		MachineTags: make([]string, 0, len(machines)),
+		MaxWait:     maxWait,
 	}
 	allResults := make([]params.DestroyMachineResult, len(machines))
 	index := make([]int, 0, len(machines))
