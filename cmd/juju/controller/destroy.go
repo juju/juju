@@ -199,11 +199,9 @@ func printDestroyWarning(ctx *cmd.Context, api destroyControllerAPI, controllerM
 	modelStatus := updateStatus(0)
 	modelNames := getModelNames(modelStatus.models)
 	if len(modelNames) > 0 {
-		// Here is used application-1 in counter not to confuse user with controller-app itself. Controller model is
-		// not taken in consideration in destroy-controller warning statistics.
 		_, _ = fmt.Fprintf(ctx.Stdout, destroySysMsgWithDetails, controllerName,
 			modelStatus.controller.HostedMachineCount,
-			modelStatus.controller.ApplicationCount - 1,
+			modelStatus.controller.ApplicationCount-1, // - 1 not to confuse user with controller-app itself
 			strings.Join(modelNames, ", "),
 		)
 	} else {
