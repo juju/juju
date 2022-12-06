@@ -135,6 +135,6 @@ func (s *cmdApplicationSuite) TestRemoveApplication(c *gc.C) {
 
 	ctx, err := cmdtesting.RunCommand(c, application.NewRemoveApplicationCommand(), "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "removing application wordpress\n")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "removing application wordpress\n")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
 }
