@@ -13,6 +13,7 @@ import (
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd/v3"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
@@ -27,6 +28,7 @@ import (
 	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/core/model"
 	corestatus "github.com/juju/juju/core/status"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -98,6 +100,10 @@ Examples:
 See also:
     destroy-controller
 `
+
+var destroyIAASMsg = `
+WARNING! This command will destroy the %q model.
+`[1:]
 
 var destroyIAASModelMsgWithDetails = `
 WARNING! This command will destroy the %q model.
@@ -180,11 +186,9 @@ func (c *destroyCommand) getAPI() (DestroyModelAPI, error) {
 
 // getMachineIds gets slice of machine ids from modelData.
 func getMachineIds(data base.ModelStatus) []string {
-	res := make([]string, len(data.Machines))
-	for i := 0; i < len(data.Machines); i++ {
-		res[i] = data.Machines[i].Id + " (\"" + data.Machines[i].InstanceId + "\")"
-	}
-	return res
+	return transform.Slice(data.Machines, func(f base.Machine) string {
+		return f.Id + " (\"" + f.InstanceId + "\")"
+	})
 }
 
 // printDestroyWarning prints to stdout the warning with additional info about destroying model.
