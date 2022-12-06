@@ -319,6 +319,7 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	ctx.Stdout = &stdout
 	ctx.Stdin = &stdin
+	s.api.modelInfoErr = []*params.Error{nil, nil, nil}
 
 	// Ensure confirmation is requested if "--no-prompt" is not specified.
 	stdin.WriteString("n")
