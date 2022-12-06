@@ -122,8 +122,8 @@ This includes all machines, applications, data and other resources.
 `[1:]
 
 var destroySysMsgWithDetails = `
-WARNING! This command will destroy the %q controller with %d model(s).
-This includes all machines, applications, data and other resources.
+WARNING! This command will destroy the %q controller.
+This includes %d machine(s), %d application(s), data and other resources.
 
 The following models will be destroyed: %s.
 `[1:]
@@ -193,13 +193,37 @@ func getModelNames(data []modelData) []string {
 	})
 }
 
+// getTotalApplicationCount gets total number of application among all models from modelData.
+func getTotalApplicationCount(data []modelData) int {
+	totalApplicationCount := 0
+	for _, mData := range data {
+		totalApplicationCount += mData.ApplicationCount
+	}
+	return totalApplicationCount
+}
+
+// getTotalMachineCount gets total number of machines among all models from modelData.
+func getTotalMachineCount(data []modelData) int {
+	totalMachineCount := 0
+	for _, mData := range data {
+		totalMachineCount += mData.HostedMachineCount
+	}
+	return totalMachineCount
+}
+
 // printDestroyWarning prints to stdout the warning with additional info about destroying controller.
 func printDestroyWarning(ctx *cmd.Context, api destroyControllerAPI, controllerModelUUID string, controllerName string, clock clock.Clock) error {
 	updateStatus := newTimedStatusUpdater(ctx, api, controllerModelUUID, clock)
 	modelStatus := updateStatus(0)
 	modelNames := getModelNames(modelStatus.models)
 	if len(modelNames) > 0 {
-		fmt.Fprintf(ctx.Stdout, destroySysMsgWithDetails, controllerName, len(modelNames), strings.Join(modelNames, ", "))
+		appCount := getTotalApplicationCount(modelStatus.models)
+		machineCount := getTotalMachineCount(modelStatus.models)
+		fmt.Fprintf(ctx.Stdout, destroySysMsgWithDetails, controllerName,
+			machineCount,
+			appCount,
+			strings.Join(modelNames, ", "),
+		)
 	} else {
 		fmt.Fprintf(ctx.Stdout, destroySysMsg, controllerName)
 	}
