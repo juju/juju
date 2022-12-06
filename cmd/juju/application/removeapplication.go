@@ -198,6 +198,7 @@ func (c *removeApplicationCommand) removeApplications(
 		DestroyStorage: c.DestroyStorage,
 		Force:          c.Force,
 		MaxWait:        maxWait,
+		DryRun:         false,
 	})
 	if err := block.ProcessBlockedError(err, block.BlockRemove); err != nil {
 		return errors.Trace(err)
