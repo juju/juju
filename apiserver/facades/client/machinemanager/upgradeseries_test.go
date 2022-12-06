@@ -271,22 +271,17 @@ func (s ValidatorSuite) TestValidateApplications(c *gc.C) {
 	localApp.EXPECT().CharmOrigin().Return(&state.CharmOrigin{
 		Source: corecharm.Local.String(),
 	})
-	storeApp := mocks.NewMockApplication(ctrl)
-	storeApp.EXPECT().CharmOrigin().Return(&state.CharmOrigin{
-		Source: corecharm.CharmStore.String(),
-	})
 	charmhubApp := mocks.NewMockApplication(ctrl)
 	charmhubApp.EXPECT().CharmOrigin().Return(&state.CharmOrigin{
 		Source: corecharm.CharmHub.String(),
 	})
 	applications := []machinemanager.Application{
 		localApp,
-		storeApp,
 		charmhubApp,
 	}
 
 	localValidator := mocks.NewMockUpgradeBaseValidator(ctrl)
-	localValidator.EXPECT().ValidateApplications([]machinemanager.Application{localApp, storeApp}, coreseries.MakeDefaultBase("ubuntu", "20.04"), false)
+	localValidator.EXPECT().ValidateApplications([]machinemanager.Application{localApp}, coreseries.MakeDefaultBase("ubuntu", "20.04"), false)
 	remoteValidator := mocks.NewMockUpgradeBaseValidator(ctrl)
 	remoteValidator.EXPECT().ValidateApplications([]machinemanager.Application{charmhubApp}, coreseries.MakeDefaultBase("ubuntu", "20.04"), false)
 
