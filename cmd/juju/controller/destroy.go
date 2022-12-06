@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
@@ -122,8 +123,9 @@ This includes all machines, applications, data and other resources.
 
 var destroySysMsgWithDetails = `
 WARNING! This command will destroy the %q controller with %d model(s).
-The following models will be destroyed: %s.
 This includes all machines, applications, data and other resources.
+
+The following models will be destroyed: %s.
 `[1:]
 
 // destroyControllerAPI defines the methods on the controller API endpoint
@@ -186,11 +188,9 @@ func (c *destroyCommand) Init(args []string) error {
 
 // getModelNames gets slice of model names from modelData.
 func getModelNames(data []modelData) []string {
-	res := make([]string, len(data))
-	for i := 0; i < len(data); i++ {
-		res[i] = data[i].Name
-	}
-	return res
+	return transform.Slice(data, func(f modelData) string {
+		return f.Name
+	})
 }
 
 // printDestroyWarning prints to stdout the warning with additional info about destroying controller.
