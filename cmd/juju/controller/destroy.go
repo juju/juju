@@ -128,7 +128,7 @@ This includes all data and other resources:
   - model list: %q
  - %d machine(s) will be destroyed
  - %d application(s) will be removed
- - %d storage(s) will be %s
+ - %d filesystem(s) and %d volume(s) will be %s
 `[1:]
 
 // destroyControllerAPI defines the methods on the controller API endpoint
@@ -211,6 +211,7 @@ func printDestroyWarning(ctx *cmd.Context, modelStatus environmentStatus, contro
 			strings.Join(modelNames, ", "),
 			modelStatus.controller.HostedMachineCount,
 			modelStatus.controller.ApplicationCount-1, // - 1 not to confuse user with controller-app itself
+			modelStatus.controller.TotalFilesystemCount,
 			modelStatus.controller.TotalVolumeCount,
 			actionStorageStr,
 		)
