@@ -111,11 +111,12 @@ func (s *removeApplicationSuite) TestRemoveApplicationDryRun(c *gc.C) {
 	ctx, err := s.runRemoveApplication(c, "real-app", "--dry-run")
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
 WARNING! This command:
+`[1:])
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
 will remove application real-app
 `[1:])
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
 }
 
 func (s *removeApplicationSuite) TestRemoveApplicationDryRunOldFacade(c *gc.C) {
@@ -158,11 +159,12 @@ func (s *removeApplicationSuite) TestRemoveApplicationPrompt(c *gc.C) {
 		c.Fatal("command took too long")
 	}
 
-	c.Assert(cmdtesting.Stdout(ctx), gc.Matches, `
+	c.Assert(cmdtesting.Stderr(ctx), gc.Matches, `
 (?s)WARNING! This command:
-will remove application real-app
+`[1:])
+	c.Assert(cmdtesting.Stdout(ctx), gc.Matches, `
+(?s)will remove application real-app
 .*`[1:])
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
 }
 
 func (s *removeApplicationSuite) TestRemoveApplicationPromptOldFacade(c *gc.C) {
@@ -191,8 +193,7 @@ func (s *removeApplicationSuite) TestRemoveApplicationPromptOldFacade(c *gc.C) {
 		c.Fatal("command took too long")
 	}
 
-	c.Assert(cmdtesting.Stdout(ctx), gc.Matches, `(?s).*Your controller does not support a more in depth dry run.*`)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Matches, `(?s).*Your controller does not support a more in depth dry run.*`)
 }
 
 func setupRace(raceyApplications []string) func(args apiapplication.DestroyApplicationsParams) ([]params.DestroyApplicationResult, error) {

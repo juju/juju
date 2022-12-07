@@ -237,7 +237,7 @@ func (c *removeApplicationCommand) removeApplications(
 	if !c.NoPrompt {
 		err := c.performDryRun(ctx, client)
 		if err == errDryRunNotSupported {
-			fmt.Fprintf(ctx.Stdout, removeApplicationMsgNoDryRun, strings.Join(c.ApplicationNames, ", "))
+			fmt.Fprintf(ctx.Stderr, removeApplicationMsgNoDryRun, strings.Join(c.ApplicationNames, ", "))
 		} else if err != nil {
 			return errors.Trace(err)
 		}
@@ -275,7 +275,7 @@ func (c *removeApplicationCommand) performDryRun(
 	if err := block.ProcessBlockedError(err, block.BlockRemove); err != nil {
 		return errors.Trace(err)
 	}
-	fmt.Fprintf(ctx.Stdout, removeApplicationMsgPrefix)
+	fmt.Fprintf(ctx.Stderr, removeApplicationMsgPrefix)
 	if err := c.logResults(ctx, results, false); err != nil {
 		return errors.Trace(err)
 	}
