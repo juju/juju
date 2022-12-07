@@ -117,19 +117,15 @@ var usageSummary = `
 Destroys a controller.`[1:]
 
 var destroySysMsg = `
-WARNING! This command will destroy the %q controller.
-This includes all machines, applications, data and other resources.
-`[1:]
+WARNING! This command with destroy the %q controller and all it's resources`[1:]
 
-var destroySysMsgWithDetails = `
-WARNING! This command will destroy the %q controller.
-This includes all data and other resources:
- - %d model(s) will be destroyed
-  - model list: %q
- - %d machine(s) will be destroyed
- - %d application(s) will be removed
- - %d filesystem(s) and %d volume(s) will be %s
-`[1:]
+var destroySysMsgDetails = `
+:
+ - %d model(s) will be destroyed;
+  - model list: %q;
+ - %d machine(s) will be destroyed;
+ - %d application(s) will be removed;
+ - %d filesystem(s) and %d volume(s) will be %s`[1:]
 
 // destroyControllerAPI defines the methods on the controller API endpoint
 // that the destroy command calls.
@@ -205,8 +201,9 @@ func printDestroyWarning(ctx *cmd.Context, modelStatus environmentStatus, contro
 	} else {
 		actionStorageStr = "destroyed"
 	}
+	_, _ = fmt.Fprintf(ctx.Stderr, destroySysMsg, controllerName)
 	if len(modelNames) > 0 {
-		_, _ = fmt.Fprintf(ctx.Stdout, destroySysMsgWithDetails, controllerName,
+		_, _ = fmt.Fprintf(ctx.Stdout, destroySysMsgDetails,
 			modelStatus.controller.HostedModelCount,
 			strings.Join(modelNames, ", "),
 			modelStatus.controller.HostedMachineCount,
@@ -215,9 +212,8 @@ func printDestroyWarning(ctx *cmd.Context, modelStatus environmentStatus, contro
 			modelStatus.controller.TotalVolumeCount,
 			actionStorageStr,
 		)
-	} else {
-		_, _ = fmt.Fprintf(ctx.Stdout, destroySysMsg, controllerName)
 	}
+	_, _ = fmt.Fprintf(ctx.Stderr, ".")
 	return nil
 }
 
