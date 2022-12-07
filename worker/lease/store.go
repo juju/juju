@@ -12,7 +12,9 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3"
-	"github.com/mattn/go-sqlite3"
+
+	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/database"
 )
 
 // StoreLogger describes methods for logging lease store concerns.
@@ -20,16 +22,16 @@ type StoreLogger interface {
 	Errorf(string, ...interface{})
 }
 
-// DBStore implements lease.Store using a database
+// Store implements lease.Store using a database
 // supporting SQLite-compatible dialects.
-type DBStore struct {
+type Store struct {
 	db     *sql.DB
 	logger StoreLogger
 }
 
-// NewDBStore returns a reference to a new database-backed lease store.
-func NewDBStore(db *sql.DB, logger StoreLogger) *DBStore {
-	return &DBStore{
+// NewStore returns a reference to a new database-backed lease store.
+func NewStore(db *sql.DB, logger StoreLogger) *Store {
+	return &Store{
 		db:     db,
 		logger: logger,
 	}
@@ -37,7 +39,7 @@ func NewDBStore(db *sql.DB, logger StoreLogger) *DBStore {
 
 // Leases (lease.Store) returns all leases in the database,
 // optionally filtering using the input keys.
-func (s *DBStore) Leases(keys ...Key) (map[Key]Info, error) {
+func (s *Store) Leases(keys ...lease.Key) (map[lease.Key]lease.Info, error) {
 	// TODO (manadart 2022-11-30): We expect the variadic `keys` argument to be
 	// length 0 or 1. It was a work-around for design constraints at the time.
 	// Either filter the result here for len(keys) > 1, or fix the design.
@@ -75,8 +77,8 @@ AND    l.name = ?`
 // ClaimLease (lease.Store) claims the lease indicated by the input key,
 // for the holder and duration indicated by the input request.
 // The lease must not already be held, otherwise an error is returned.
-func (s *DBStore) ClaimLease(lease Key, request Request, stop <-chan struct{}) error {
-	if err := request.Validate(); err != nil {
+func (s *Store) ClaimLease(key lease.Key, req lease.Request, stop <-chan struct{}) error {
+	if err := req.Validate(); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -90,10 +92,10 @@ SELECT ?, id, ?, ?, ?, datetime('now'), datetime('now', ?)
 FROM   lease_type
 WHERE  type = ?`[1:]
 
-		d := fmt.Sprintf("+%d seconds", int64(math.Ceil(request.Duration.Seconds())))
+		d := fmt.Sprintf("+%d seconds", int64(math.Ceil(req.Duration.Seconds())))
 
 		_, err := s.db.ExecContext(
-			ctx, q, utils.MustNewUUID().String(), lease.ModelUUID, lease.Lease, request.Holder, d, lease.Namespace)
+			ctx, q, utils.MustNewUUID().String(), key.ModelUUID, key.Lease, req.Holder, d, key.Namespace)
 
 		errCh <- err
 	}()
@@ -104,8 +106,8 @@ WHERE  type = ?`[1:]
 		return errors.New("claim cancelled")
 	case err := <-errCh:
 		cancel()
-		if isUniquenessViolation(err) {
-			return ErrHeld
+		if database.IsErrConstraintUnique(err) {
+			return lease.ErrHeld
 		}
 		return errors.Trace(err)
 	}
@@ -114,8 +116,8 @@ WHERE  type = ?`[1:]
 // ExtendLease (lease.Store) ensures the input lease will be held for at least
 // the requested duration starting from now.
 // If the input holder does not currently hold the lease, an error is returned.
-func (s *DBStore) ExtendLease(lease Key, request Request, stop <-chan struct{}) error {
-	if err := request.Validate(); err != nil {
+func (s *Store) ExtendLease(key lease.Key, req lease.Request, stop <-chan struct{}) error {
+	if err := req.Validate(); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -135,18 +137,18 @@ WHERE  uuid = (
     AND    l.holder = ?
 )`[1:]
 
-		d := fmt.Sprintf("+%d seconds", int64(math.Ceil(request.Duration.Seconds())))
+		d := fmt.Sprintf("+%d seconds", int64(math.Ceil(req.Duration.Seconds())))
 
 		result, err := s.db.ExecContext(
-			ctx, q, d, lease.Namespace, lease.ModelUUID, lease.Lease, request.Holder)
+			ctx, q, d, key.Namespace, key.ModelUUID, key.Lease, req.Holder)
 
-		// If no rows were affected, then either this lease does not exist or
+		// If no rows were affected, then either this key does not exist or
 		// it is not held by the input holder, constituting an invalid request.
 		if err == nil {
 			var affected int64
 			affected, err = result.RowsAffected()
 			if affected == 0 && err == nil {
-				err = ErrInvalid
+				err = lease.ErrInvalid
 			}
 		}
 		errCh <- err
@@ -165,7 +167,7 @@ WHERE  uuid = (
 // RevokeLease (lease.Store) deletes the lease from the store,
 // provided it exists and is held by the input holder.
 // If either of these conditions is false, an error is returned.
-func (s *DBStore) RevokeLease(lease Key, holder string, stop <-chan struct{}) error {
+func (s *Store) RevokeLease(key lease.Key, holder string, stop <-chan struct{}) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	errCh := make(chan error)
 
@@ -182,13 +184,13 @@ WHERE  uuid = (
 )`[1:]
 
 		result, err := s.db.ExecContext(
-			ctx, q, lease.Namespace, lease.ModelUUID, lease.Lease, holder)
+			ctx, q, key.Namespace, key.ModelUUID, key.Lease, holder)
 
 		if err == nil {
 			var affected int64
 			affected, err = result.RowsAffected()
 			if affected == 0 && err == nil {
-				err = ErrInvalid
+				err = lease.ErrInvalid
 			}
 		}
 		errCh <- err
@@ -206,7 +208,7 @@ WHERE  uuid = (
 
 // LeaseGroup (lease.Store) returns all leases
 // for the input namespace and model.
-func (s *DBStore) LeaseGroup(namespace, modelUUID string) (map[Key]Info, error) {
+func (s *Store) LeaseGroup(namespace, modelUUID string) (map[lease.Key]lease.Info, error) {
 	q := `
 SELECT t.type, l.model_uuid, l.name, l.holder, l.expiry
 FROM   lease l JOIN lease_type t ON l.lease_type_id = t.id
@@ -225,7 +227,7 @@ AND    l.model_uuid = ?`[1:]
 // PinLease (lease.Store) adds the input entity into the lease_pin table
 // to indicate that the lease indicated by the input key must not expire,
 // and that this entity requires such behaviour.
-func (s *DBStore) PinLease(lease Key, entity string, stop <-chan struct{}) error {
+func (s *Store) PinLease(key lease.Key, entity string, stop <-chan struct{}) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	errCh := make(chan error)
 
@@ -239,7 +241,7 @@ AND    l.model_uuid = ?
 AND    l.name = ?`[1:]
 
 		_, err := s.db.ExecContext(
-			ctx, q, utils.MustNewUUID().String(), entity, lease.Namespace, lease.ModelUUID, lease.Lease)
+			ctx, q, utils.MustNewUUID().String(), entity, key.Namespace, key.ModelUUID, key.Lease)
 
 		errCh <- err
 	}()
@@ -250,7 +252,7 @@ AND    l.name = ?`[1:]
 		return errors.New("pin lease cancelled")
 	case err := <-errCh:
 		cancel()
-		if isUniquenessViolation(err) {
+		if database.IsErrConstraintUnique(err) {
 			return nil
 		}
 		return errors.Trace(err)
@@ -262,7 +264,7 @@ AND    l.name = ?`[1:]
 // no longer requires the lease to be pinned.
 // When there are no entities associated with a particular lease,
 // it is determined not to be pinned, and can expire normally.
-func (s *DBStore) UnpinLease(lease Key, entity string, stop <-chan struct{}) error {
+func (s *Store) UnpinLease(key lease.Key, entity string, stop <-chan struct{}) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	errCh := make(chan error)
 
@@ -281,7 +283,7 @@ WHERE  uuid = (
 )`[1:]
 
 		_, err := s.db.ExecContext(
-			ctx, q, lease.Namespace, lease.ModelUUID, lease.Lease, entity)
+			ctx, q, key.Namespace, key.ModelUUID, key.Lease, entity)
 
 		errCh <- err
 	}()
@@ -298,7 +300,7 @@ WHERE  uuid = (
 
 // Pinned (lease.Store) returns all leases that are currently pinned,
 // and the entities requiring such behaviour for them.
-func (s *DBStore) Pinned() (map[Key][]string, error) {
+func (s *Store) Pinned() (map[lease.Key][]string, error) {
 	q := `
 SELECT   l.uuid, t.type, l.model_uuid, l.name, p.entity_id
 FROM     lease l 
@@ -312,10 +314,10 @@ ORDER BY l.uuid`[1:]
 	}
 
 	seen := set.NewStrings()
-	result := make(map[Key][]string)
+	result := make(map[lease.Key][]string)
 	for rows.Next() {
 		var leaseUUID string
-		var key Key
+		var key lease.Key
 		var entity string
 
 		if err := rows.Scan(&leaseUUID, &key.Namespace, &key.ModelUUID, &key.Lease, &entity); err != nil {
@@ -335,12 +337,12 @@ ORDER BY l.uuid`[1:]
 }
 
 // leasesFromRows returns lease info from rows returned from the backing DB.
-func leasesFromRows(rows *sql.Rows) (map[Key]Info, error) {
-	result := map[Key]Info{}
+func leasesFromRows(rows *sql.Rows) (map[lease.Key]lease.Info, error) {
+	result := map[lease.Key]lease.Info{}
 
 	for rows.Next() {
-		var key Key
-		var info Info
+		var key lease.Key
+		var info lease.Info
 
 		if err := rows.Scan(&key.Namespace, &key.ModelUUID, &key.Lease, &info.Holder, &info.Expiry); err != nil {
 			_ = rows.Close()
@@ -350,16 +352,4 @@ func leasesFromRows(rows *sql.Rows) (map[Key]Info, error) {
 	}
 
 	return result, errors.Trace(rows.Err())
-}
-
-// TODO (manadart 2022-12-05): Utilities like this will reside in
-// the database package for general use.
-func isUniquenessViolation(err error) bool {
-	var sqliteErr sqlite3.Error
-	if errors.As(err, &sqliteErr) {
-		if errors.Is(sqliteErr.ExtendedCode, sqlite3.ErrConstraintUnique) {
-			return true
-		}
-	}
-	return false
 }
