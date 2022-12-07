@@ -138,9 +138,12 @@ func (env *environ) imageURLBase(os jujuos.OSType) (string, error) {
 
 	switch os {
 	case jujuos.Ubuntu:
-		if env.Config().ImageStream() == "daily" {
+		switch env.Config().ImageStream() {
+		case "daily":
 			base = ubuntuDailyImageBasePath
-		} else {
+		case "pro":
+			base = ubuntuProImageBasePath
+		default:
 			base = ubuntuImageBasePath
 		}
 	case jujuos.Windows:
