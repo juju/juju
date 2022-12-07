@@ -46,7 +46,7 @@ type UpdateSecretParams struct {
 	Label          *string
 	Params         map[string]interface{}
 	Data           secrets.SecretData
-	BackendId      *string
+	ValueRef       *secrets.ValueRef
 }
 
 func (u *UpdateSecretParams) hasUpdate() bool {
@@ -56,7 +56,7 @@ func (u *UpdateSecretParams) hasUpdate() bool {
 		u.Label != nil ||
 		u.ExpireTime != nil ||
 		len(u.Data) > 0 ||
-		u.BackendId != nil ||
+		u.ValueRef != nil ||
 		len(u.Params) > 0
 }
 
@@ -71,9 +71,9 @@ type SecretsFilter struct {
 type SecretsStore interface {
 	CreateSecret(*secrets.URI, CreateSecretParams) (*secrets.SecretMetadata, error)
 	UpdateSecret(*secrets.URI, UpdateSecretParams) (*secrets.SecretMetadata, error)
-	DeleteSecret(*secrets.URI, ...int) (bool, error)
+	DeleteSecret(*secrets.URI, ...int) ([]secrets.ValueRef, error)
 	GetSecret(*secrets.URI) (*secrets.SecretMetadata, error)
-	GetSecretValue(*secrets.URI, int) (secrets.SecretValue, *string, error)
+	GetSecretValue(*secrets.URI, int) (secrets.SecretValue, *secrets.ValueRef, error)
 	ListSecrets(SecretsFilter) ([]*secrets.SecretMetadata, error)
 	ListSecretRevisions(uri *secrets.URI) ([]*secrets.SecretRevisionMetadata, error)
 	GetSecretRevision(uri *secrets.URI, revision int) (*secrets.SecretRevisionMetadata, error)
@@ -107,6 +107,11 @@ type secretMetadataDoc struct {
 	UpdateTime time.Time `bson:"update-time"`
 }
 
+type valueRefDoc struct {
+	BackendID  string `bson:"backend-id"`
+	RevisionID string `bson:"revision-id"`
+}
+
 type secretRevisionDoc struct {
 	DocID    string `bson:"_id"`
 	TxnRevno int64  `bson:"txn-revno"`
@@ -117,7 +122,7 @@ type secretRevisionDoc struct {
 	ExpireTime *time.Time     `bson:"expire-time,omitempty"`
 	Obsolete   bool           `bson:"obsolete"`
 	Data       secretsDataMap `bson:"data"`
-	BackendId  *string        `bson:"backend-id,omitempty"`
+	ValueRef   *valueRefDoc   `bson:"value-reference,omitempty"`
 
 	// OwnerTag is denormalised here so that watchers do not need
 	// to do an extra query on the secret metadata collection to
@@ -183,7 +188,7 @@ func (s *secretsStore) updateSecretMetadataDoc(doc *secretMetadataDoc, p *Update
 	if p.RotatePolicy != nil {
 		doc.RotatePolicy = string(toValue(p.RotatePolicy))
 	}
-	hasData := len(p.Data) > 0 || p.BackendId != nil
+	hasData := len(p.Data) > 0 || p.ValueRef != nil
 	if p.ExpireTime != nil || hasData {
 		if p.ExpireTime == nil || p.ExpireTime.IsZero() {
 			doc.LatestExpireTime = nil
@@ -202,12 +207,19 @@ func secretRevisionKey(uri *secrets.URI, revision int) string {
 	return fmt.Sprintf("%s/%d", uri.ID, revision)
 }
 
-func (s *secretsStore) secretRevisionDoc(uri *secrets.URI, owner string, revision int, expireTime *time.Time, data secrets.SecretData, backendId *string) *secretRevisionDoc {
+func (s *secretsStore) secretRevisionDoc(uri *secrets.URI, owner string, revision int, expireTime *time.Time, data secrets.SecretData, valueRef *secrets.ValueRef) *secretRevisionDoc {
 	dataCopy := make(secretsDataMap)
 	for k, v := range data {
 		dataCopy[k] = v
 	}
 	now := s.st.nowToTheSecond()
+	var valRefDoc *valueRefDoc
+	if valueRef != nil {
+		valRefDoc = &valueRefDoc{
+			BackendID:  valueRef.BackendID,
+			RevisionID: valueRef.RevisionID,
+		}
+	}
 	doc := &secretRevisionDoc{
 		DocID:      secretRevisionKey(uri, revision),
 		Revision:   revision,
@@ -215,7 +227,7 @@ func (s *secretsStore) secretRevisionDoc(uri *secrets.URI, owner string, revisio
 		CreateTime: now,
 		UpdateTime: now,
 		Data:       dataCopy,
-		BackendId:  backendId,
+		ValueRef:   valRefDoc,
 	}
 	if expireTime != nil {
 		expire := expireTime.Round(time.Second).UTC()
@@ -226,7 +238,7 @@ func (s *secretsStore) secretRevisionDoc(uri *secrets.URI, owner string, revisio
 
 // CreateSecret creates a new secret.
 func (s *secretsStore) CreateSecret(uri *secrets.URI, p CreateSecretParams) (*secrets.SecretMetadata, error) {
-	if len(p.Data) == 0 && p.BackendId == nil {
+	if len(p.Data) == 0 && p.ValueRef == nil {
 		return nil, errors.New("cannot create a secret without content")
 	}
 	metadataDoc, err := s.secretMetadataDoc(uri, &p)
@@ -234,7 +246,7 @@ func (s *secretsStore) CreateSecret(uri *secrets.URI, p CreateSecretParams) (*se
 		return nil, errors.Trace(err)
 	}
 	revision := 1
-	valueDoc := s.secretRevisionDoc(uri, p.Owner.String(), revision, p.ExpireTime, p.Data, p.BackendId)
+	valueDoc := s.secretRevisionDoc(uri, p.Owner.String(), revision, p.ExpireTime, p.Data, p.ValueRef)
 	// OwnerTag has already been validated.
 	owner, _ := names.ParseTag(metadataDoc.OwnerTag)
 	entity, scopeCollName, scopeDocID, err := s.st.findSecretEntity(owner)
@@ -366,11 +378,11 @@ func (s *secretsStore) UpdateSecret(uri *secrets.URI, p UpdateSecretParams) (*se
 		if !revisionExists && !errors.IsNotFound(err) {
 			return nil, errors.Trace(err)
 		}
-		if len(p.Data) > 0 || p.BackendId != nil {
+		if len(p.Data) > 0 || p.ValueRef != nil {
 			if revisionExists {
 				return nil, errors.AlreadyExistsf("secret value with revision %d for %q", metadataDoc.LatestRevision, uri.String())
 			}
-			revisionDoc := s.secretRevisionDoc(uri, metadataDoc.OwnerTag, metadataDoc.LatestRevision, newExpireTime, p.Data, p.BackendId)
+			revisionDoc := s.secretRevisionDoc(uri, metadataDoc.OwnerTag, metadataDoc.LatestRevision, newExpireTime, p.Data, p.ValueRef)
 			ops = append(ops, txn.Op{
 				C:      secretRevisionsC,
 				Id:     revisionDoc.DocID,
@@ -476,11 +488,13 @@ func (s *secretsStore) toSecretMetadata(doc *secretMetadataDoc, nextRotateTime *
 // DeleteSecret deletes the specified secret revisions.
 // If revisions is nil or the last remaining revisions are
 // removed, the entire secret is deleted and the return bool is true.
-func (s *secretsStore) DeleteSecret(uri *secrets.URI, revisions ...int) (removed bool, err error) {
+// Also returned are any references to content stored in an external
+// backend for any deleted revisions.
+func (s *secretsStore) DeleteSecret(uri *secrets.URI, revisions ...int) (external []secrets.ValueRef, err error) {
 	return s.st.deleteSecrets([]*secrets.URI{uri}, revisions...)
 }
 
-func (st *State) deleteSecrets(uris []*secrets.URI, revisions ...int) (removed bool, err error) {
+func (st *State) deleteSecrets(uris []*secrets.URI, revisions ...int) (external []secrets.ValueRef, err error) {
 	// We will bulk delete the various artefacts, starting with the secret itself.
 	// Deleting the parent secret metadata first will ensure that any consumers of
 	// the secret get notified and subsequent attempts to access any secret
@@ -488,16 +502,16 @@ func (st *State) deleteSecrets(uris []*secrets.URI, revisions ...int) (removed b
 	// It is not practical to do this record by record in a legacy client side mgo txn operation.
 	if len(uris) == 0 && len(revisions) == 0 {
 		// Nothing to remove.
-		return false, nil
+		return nil, nil
 	}
 
 	if len(uris) == 0 || len(uris) > 1 && len(revisions) > 0 {
-		return false, errors.Errorf("PROGRAMMING ERROR: invalid secret deletion args uris=%v, revisions=%v", uris, revisions)
+		return nil, errors.Errorf("PROGRAMMING ERROR: invalid secret deletion args uris=%v, revisions=%v", uris, revisions)
 	}
 	session := st.MongoSession()
 	err = session.StartTransaction()
 	if err != nil {
-		return false, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	defer func() {
 		if err == nil {
@@ -511,21 +525,32 @@ func (st *State) deleteSecrets(uris []*secrets.URI, revisions ...int) (removed b
 
 	// If we're not deleting all revisions for a secret, just remove the affected
 	// revision docs and exit early.
-	secretRevisionsCollection, closer := st.db().GetCollection(secretRevisionsC)
-	defer closer()
-
 	if len(revisions) > 0 {
 		uri := uris[0]
+
+		secretRevisionsCollection, closer := st.db().GetCollection(secretRevisionsC)
+		defer closer()
+
 		var savedRevisionDocs []secretRevisionDoc
 		err := secretRevisionsCollection.Find(bson.D{{"_id",
-			bson.D{{"$regex", fmt.Sprintf("%s/.*", uri.ID)}}}}).Select(bson.D{{"revision", 1}}).All(&savedRevisionDocs)
+			bson.D{{"$regex", fmt.Sprintf("%s/.*", uri.ID)}}}}).Select(
+			bson.D{{"revision", 1}, {"value-reference", 1}}).All(&savedRevisionDocs)
 		if err != nil {
-			return false, errors.Annotatef(err, "counting revisions for %s", uri.String())
+			return nil, errors.Annotatef(err, "counting revisions for %s", uri.String())
 		}
 		toDelete := set.NewInts(revisions...)
 		savedRevisions := set.NewInts()
 		for _, r := range savedRevisionDocs {
 			savedRevisions.Add(r.Revision)
+			if !toDelete.Contains(r.Revision) {
+				continue
+			}
+			if r.ValueRef != nil {
+				external = append(external, secrets.ValueRef{
+					BackendID:  r.ValueRef.BackendID,
+					RevisionID: r.ValueRef.RevisionID,
+				})
+			}
 		}
 		if savedRevisions.Difference(toDelete).Size() > 0 {
 			revs := make([]string, len(revisions))
@@ -536,93 +561,116 @@ func (st *State) deleteSecrets(uris []*secrets.URI, revisions ...int) (removed b
 			_, err = secretRevisionsCollection.Writeable().RemoveAll(bson.D{{
 				"_id", bson.D{{"$regex", fmt.Sprintf("%s/%s", uri.ID, revisionRegexp)}},
 			}})
-			return false, errors.Annotatef(err, "deleting revisions for %s", uri.String())
+			return nil, errors.Annotatef(err, "deleting revisions for %s", uri.String())
 		}
 	}
 
+	for _, uri := range uris {
+		deletedExternal, err := st.deleteOne(uri)
+		if err != nil {
+			return nil, errors.Annotatef(err, "deleting secret %q", uri.String())
+		}
+		// Don't collate the external revisions twice.
+		// If specific revisions are being removed, the external
+		// references have already been added.
+		if len(revisions) == 0 {
+			external = append(external, deletedExternal...)
+		}
+	}
+	return external, nil
+}
+
+func (st *State) deleteOne(uri *secrets.URI) (external []secrets.ValueRef, _ error) {
 	secretMetadataCollection, closer := st.db().GetCollection(secretMetadataC)
 	defer closer()
 
-	deleteOne := func(uri *secrets.URI) (bool, error) {
-		var md secretMetadataDoc
-		err = secretMetadataCollection.FindId(uri.ID).One(&md)
-		if err == mgo.ErrNotFound {
-			return true, nil
-		}
-		if err != nil {
-			return false, errors.Trace(err)
-		}
-		_, err = secretMetadataCollection.Writeable().RemoveAll(bson.D{{
-			"_id", uri.ID,
-		}})
-		if err != nil {
-			return false, errors.Annotatef(err, "deleting revisions for %s", uri.String())
-		}
+	secretRevisionsCollection, closer := st.db().GetCollection(secretRevisionsC)
+	defer closer()
 
-		secretRotateCollection, closer := st.db().GetCollection(secretRotateC)
-		defer closer()
-		_, err = secretRotateCollection.Writeable().RemoveAll(bson.D{{
-			"_id", uri.ID,
-		}})
-		if err != nil {
-			return false, errors.Annotatef(err, "deleting revisions for %s", uri.String())
-		}
+	var md secretMetadataDoc
+	err := secretMetadataCollection.FindId(uri.ID).One(&md)
+	if err == mgo.ErrNotFound {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	_, err = secretMetadataCollection.Writeable().RemoveAll(bson.D{{
+		"_id", uri.ID,
+	}})
+	if err != nil {
+		return nil, errors.Annotatef(err, "deleting revisions for %s", uri.String())
+	}
 
-		_, err = secretRevisionsCollection.Writeable().RemoveAll(bson.D{{
-			"_id", bson.D{{"$regex", fmt.Sprintf("%s/.*", uri.ID)}},
-		}})
-		if err != nil {
-			return false, errors.Annotatef(err, "deleting revisions for %s", uri.String())
-		}
+	secretRotateCollection, closer := st.db().GetCollection(secretRotateC)
+	defer closer()
+	_, err = secretRotateCollection.Writeable().RemoveAll(bson.D{{
+		"_id", uri.ID,
+	}})
+	if err != nil {
+		return nil, errors.Annotatef(err, "deleting revisions for %s", uri.String())
+	}
 
-		secretPermissionsCollection, closer := st.db().GetCollection(secretPermissionsC)
-		defer closer()
-		_, err = secretPermissionsCollection.Writeable().RemoveAll(bson.D{{
-			"_id", bson.D{{"$regex", fmt.Sprintf("%s#.*", uri.ID)}},
-		}})
-		if err != nil {
-			return false, errors.Annotatef(err, "deleting permissions for %s", uri.String())
+	var savedRevisionDocs []secretRevisionDoc
+	err = secretRevisionsCollection.Find(bson.D{{"_id",
+		bson.D{{"$regex", fmt.Sprintf("%s/.*", uri.ID)}}}}).Select(
+		bson.D{{"revision", 1}, {"value-reference", 1}}).All(&savedRevisionDocs)
+	if err != nil {
+		return nil, errors.Annotatef(err, "reading revisions for %s", uri.String())
+	}
+	for _, r := range savedRevisionDocs {
+		if r.ValueRef != nil {
+			external = append(external, secrets.ValueRef{
+				BackendID:  r.ValueRef.BackendID,
+				RevisionID: r.ValueRef.RevisionID,
+			})
 		}
+	}
+	_, err = secretRevisionsCollection.Writeable().RemoveAll(bson.D{{
+		"_id", bson.D{{"$regex", fmt.Sprintf("%s/.*", uri.ID)}},
+	}})
+	if err != nil {
+		return nil, errors.Annotatef(err, "deleting revisions for %s", uri.String())
+	}
 
-		if err = st.removeSecretConsumer(uri); err != nil {
-			return false, errors.Trace(err)
-		}
+	secretPermissionsCollection, closer := st.db().GetCollection(secretPermissionsC)
+	defer closer()
+	_, err = secretPermissionsCollection.Writeable().RemoveAll(bson.D{{
+		"_id", bson.D{{"$regex", fmt.Sprintf("%s#.*", uri.ID)}},
+	}})
+	if err != nil {
+		return nil, errors.Annotatef(err, "deleting permissions for %s", uri.String())
+	}
 
-		refCountsCollection, closer := st.db().GetCollection(refcountsC)
-		defer closer()
+	if err = st.removeSecretConsumer(uri); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	refCountsCollection, closer := st.db().GetCollection(refcountsC)
+	defer closer()
+	_, err = refCountsCollection.Writeable().RemoveAll(bson.D{{
+		"_id", fmt.Sprintf("%s#%s", uri.ID, "consumer"),
+	}})
+	if err != nil {
+		return nil, errors.Annotatef(err, "deleting consumer refcounts for %s", uri.String())
+	}
+	if md.Label != "" {
 		_, err = refCountsCollection.Writeable().RemoveAll(bson.D{{
-			"_id", fmt.Sprintf("%s#%s", uri.ID, "consumer"),
+			"_id", secretOwnerLabelKey(md.OwnerTag, md.Label),
 		}})
 		if err != nil {
-			return false, errors.Annotatef(err, "deleting consumer refcounts for %s", uri.String())
+			return nil, errors.Annotatef(err, "deleting owner label refcounts for %s", uri.String())
 		}
-		if md.Label != "" {
-			_, err = refCountsCollection.Writeable().RemoveAll(bson.D{{
-				"_id", secretOwnerLabelKey(md.OwnerTag, md.Label),
-			}})
-			if err != nil {
-				return false, errors.Annotatef(err, "deleting owner label refcounts for %s", uri.String())
-			}
-		}
-		return true, nil
 	}
-	anyRemoved := false
-	for _, uri := range uris {
-		removed, err := deleteOne(uri)
-		if err != nil {
-			return false, errors.Annotatef(err, "deleting secret %q", uri.String())
-		}
-		anyRemoved = anyRemoved || removed
-	}
-	return anyRemoved, nil
+	return external, nil
 }
 
 // GetSecretValue gets the secret value for the specified URL.
-func (s *secretsStore) GetSecretValue(uri *secrets.URI, revision int) (secrets.SecretValue, *string, error) {
+func (s *secretsStore) GetSecretValue(uri *secrets.URI, revision int) (secrets.SecretValue, *secrets.ValueRef, error) {
 	return s.getSecretValue(uri, revision, true)
 }
 
-func (s *secretsStore) getSecretValue(uri *secrets.URI, revision int, checkExists bool) (secrets.SecretValue, *string, error) {
+func (s *secretsStore) getSecretValue(uri *secrets.URI, revision int, checkExists bool) (secrets.SecretValue, *secrets.ValueRef, error) {
 	if checkExists {
 		if err := s.st.checkExists(uri); err != nil {
 			return nil, nil, errors.Trace(err)
@@ -644,7 +692,14 @@ func (s *secretsStore) getSecretValue(uri *secrets.URI, revision int, checkExist
 	for k, v := range doc.Data {
 		data[k] = fmt.Sprintf("%v", v)
 	}
-	return secrets.NewSecretValue(data), doc.BackendId, nil
+	var valueRef *secrets.ValueRef
+	if doc.ValueRef != nil {
+		valueRef = &secrets.ValueRef{
+			BackendID:  doc.ValueRef.BackendID,
+			RevisionID: doc.ValueRef.RevisionID,
+		}
+	}
+	return secrets.NewSecretValue(data), valueRef, nil
 }
 
 // GetSecret gets the secret metadata for the specified URL.
@@ -816,9 +871,16 @@ func (s *secretsStore) listSecretRevisions(uri *secrets.URI, revision *int) ([]*
 	}
 	result := make([]*secrets.SecretRevisionMetadata, len(docs))
 	for i, doc := range docs {
+		var valueRef *secrets.ValueRef
+		if doc.ValueRef != nil {
+			valueRef = &secrets.ValueRef{
+				BackendID:  doc.ValueRef.BackendID,
+				RevisionID: doc.ValueRef.RevisionID,
+			}
+		}
 		result[i] = &secrets.SecretRevisionMetadata{
 			Revision:   doc.Revision,
-			BackendId:  doc.BackendId,
+			ValueRef:   valueRef,
 			CreateTime: doc.CreateTime,
 			UpdateTime: doc.UpdateTime,
 			ExpireTime: doc.ExpireTime,

@@ -40,6 +40,8 @@ func (s *SecretBackendsSuite) TestCreate(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	backend, err := s.storage.GetSecretBackend("myvault")
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(backend.ID, gc.NotNil)
+	backend.ID = ""
 	c.Assert(backend, jc.DeepEquals, &secrets.SecretBackend{
 		Name:                "myvault",
 		BackendType:         "vault",
@@ -79,7 +81,9 @@ func (s *SecretBackendsSuite) TestList(c *gc.C) {
 		return backends[i].Name < backends[j].Name
 	})
 
-	c.Assert(backends, jc.DeepEquals, []*secrets.SecretBackend{{
+	mc := jc.NewMultiChecker()
+	mc.AddExpr(`_.ID`, gc.NotNil)
+	c.Assert(backends, mc, []*secrets.SecretBackend{{
 		Name:        "myk8s",
 		BackendType: "kubernetes",
 		Config:      config,

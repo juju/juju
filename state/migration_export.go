@@ -1739,7 +1739,8 @@ func (e *exporter) secrets() error {
 			Created:    rev.CreateTime,
 			Updated:    rev.UpdateTime,
 			ExpireTime: rev.ExpireTime,
-			BackendId:  rev.BackendId,
+			// TOOD(wallyworld)
+			//BackendId:  rev.BackendId,
 		}
 		if len(rev.Data) > 0 {
 			revArg.Content = make(secrets.SecretData)
