@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"fmt"
 	"math"
+	"sync"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -27,6 +28,9 @@ type StoreLogger interface {
 type Store struct {
 	db     *sql.DB
 	logger StoreLogger
+
+	cache   map[string]*sql.Stmt
+	cacheMu sync.RWMutex
 }
 
 // NewStore returns a reference to a new database-backed lease store.
@@ -34,6 +38,7 @@ func NewStore(db *sql.DB, logger StoreLogger) *Store {
 	return &Store{
 		db:     db,
 		logger: logger,
+		cache:  make(map[string]*sql.Stmt),
 	}
 }
 
@@ -49,6 +54,7 @@ func (s *Store) Leases(keys ...lease.Key) (map[lease.Key]lease.Info, error) {
 		return nil, errors.NotSupportedf("filtering with more than one lease key")
 	}
 
+	name := "Leases"
 	q := `
 SELECT t.type, l.model_uuid, l.name, l.holder, l.expiry
 FROM   lease l JOIN lease_type t ON l.lease_type_id = t.id`[1:]
@@ -61,11 +67,17 @@ WHERE  t.type = ?
 AND    l.model_uuid = ?
 AND    l.name = ?`
 
+		name = "LeasesForKey"
 		key := keys[0]
 		args = []any{key.Namespace, key.ModelUUID, key.Lease}
 	}
 
-	rows, err := s.db.Query(q, args...)
+	stmt, err := s.getPrepared(context.Background(), name, q)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	rows, err := stmt.Query(args...)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -92,11 +104,16 @@ SELECT ?, id, ?, ?, ?, datetime('now'), datetime('now', ?)
 FROM   lease_type
 WHERE  type = ?`[1:]
 
+		stmt, err := s.getPrepared(ctx, "ClaimLease", q)
+		if err != nil {
+			errCh <- err
+			return
+		}
+
 		d := fmt.Sprintf("+%d seconds", int64(math.Ceil(req.Duration.Seconds())))
 
-		_, err := s.db.ExecContext(
-			ctx, q, utils.MustNewUUID().String(), key.ModelUUID, key.Lease, req.Holder, d, key.Namespace)
-
+		_, err = stmt.ExecContext(
+			ctx, utils.MustNewUUID().String(), key.ModelUUID, key.Lease, req.Holder, d, key.Namespace)
 		errCh <- err
 	}()
 
@@ -137,10 +154,15 @@ WHERE  uuid = (
     AND    l.holder = ?
 )`[1:]
 
+		stmt, err := s.getPrepared(ctx, "ExtendLease", q)
+		if err != nil {
+			errCh <- err
+			return
+		}
+
 		d := fmt.Sprintf("+%d seconds", int64(math.Ceil(req.Duration.Seconds())))
 
-		result, err := s.db.ExecContext(
-			ctx, q, d, key.Namespace, key.ModelUUID, key.Lease, req.Holder)
+		result, err := stmt.ExecContext(ctx, d, key.Namespace, key.ModelUUID, key.Lease, req.Holder)
 
 		// If no rows were affected, then either this key does not exist or
 		// it is not held by the input holder, constituting an invalid request.
@@ -183,9 +205,13 @@ WHERE  uuid = (
     AND    l.holder = ?
 )`[1:]
 
-		result, err := s.db.ExecContext(
-			ctx, q, key.Namespace, key.ModelUUID, key.Lease, holder)
+		stmt, err := s.getPrepared(ctx, "RevokeLease", q)
+		if err != nil {
+			errCh <- err
+			return
+		}
 
+		result, err := stmt.ExecContext(ctx, key.Namespace, key.ModelUUID, key.Lease, holder)
 		if err == nil {
 			var affected int64
 			affected, err = result.RowsAffected()
@@ -215,7 +241,12 @@ FROM   lease l JOIN lease_type t ON l.lease_type_id = t.id
 WHERE  t.type = ?
 AND    l.model_uuid = ?`[1:]
 
-	rows, err := s.db.Query(q, namespace, modelUUID)
+	stmt, err := s.getPrepared(context.Background(), "LeaseGroup", q)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	rows, err := stmt.Query(namespace, modelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -240,9 +271,13 @@ WHERE  t.type = ?
 AND    l.model_uuid = ?
 AND    l.name = ?`[1:]
 
-		_, err := s.db.ExecContext(
-			ctx, q, utils.MustNewUUID().String(), entity, key.Namespace, key.ModelUUID, key.Lease)
+		stmt, err := s.getPrepared(ctx, "PinLease", q)
+		if err != nil {
+			errCh <- err
+			return
+		}
 
+		_, err = stmt.ExecContext(ctx, utils.MustNewUUID().String(), entity, key.Namespace, key.ModelUUID, key.Lease)
 		errCh <- err
 	}()
 
@@ -282,9 +317,13 @@ WHERE  uuid = (
     AND    p.entity_id = ?   
 )`[1:]
 
-		_, err := s.db.ExecContext(
-			ctx, q, key.Namespace, key.ModelUUID, key.Lease, entity)
+		stmt, err := s.getPrepared(ctx, "UnpinLease", q)
+		if err != nil {
+			errCh <- err
+			return
+		}
 
+		_, err = stmt.ExecContext(ctx, key.Namespace, key.ModelUUID, key.Lease, entity)
 		errCh <- err
 	}()
 
@@ -308,7 +347,12 @@ FROM     lease l
          JOIN lease_pin p on l.uuid = p.lease_uuid
 ORDER BY l.uuid`[1:]
 
-	rows, err := s.db.Query(q)
+	stmt, err := s.getPrepared(context.Background(), "Pinned", q)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	rows, err := stmt.Query()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -334,6 +378,29 @@ ORDER BY l.uuid`[1:]
 	}
 
 	return result, errors.Trace(rows.Err())
+}
+
+// getPrepared returns a prepared statement for the input name,
+// ensuring that the first call for a given name caches the statement.
+// thereafter the statement is returned from the cache.
+func (s *Store) getPrepared(ctx context.Context, name string, stmt string) (*sql.Stmt, error) {
+	s.cacheMu.RLock()
+	if cachedStmt, ok := s.cache[name]; ok {
+		s.cacheMu.RUnlock()
+		return cachedStmt, nil
+	}
+	s.cacheMu.RUnlock()
+
+	s.cacheMu.Lock()
+	defer s.cacheMu.Unlock()
+
+	prepared, err := s.db.PrepareContext(ctx, stmt)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	s.cache[name] = prepared
+	return prepared, nil
 }
 
 // leasesFromRows returns lease info from rows returned from the backing DB.
