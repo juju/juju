@@ -106,7 +106,7 @@ func (c *unregisterCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if c.ConfirmationCommandBase.NeedsConfirmation() {
-		fmt.Fprintf(ctx.Stdout, unregisterMsg, c.controllerName)
+		fmt.Fprintf(ctx.Stderr, unregisterMsg, c.controllerName)
 		if err := jujucmd.UserConfirmName(c.controllerName, "controller", ctx); err != nil {
 			return errors.Annotate(err, "unregistering controller")
 		}

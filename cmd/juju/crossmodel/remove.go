@@ -149,7 +149,7 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if !c.assumeYes && c.force {
-		fmt.Fprintf(ctx.Stdout, removeOfferMsg, strings.Join(c.offers, ", "))
+		fmt.Fprintf(ctx.Stderr, removeOfferMsg, strings.Join(c.offers, ", "))
 
 		if err := jujucmd.UserConfirmYes(ctx); err != nil {
 			return errors.Annotate(err, "offer removal")
