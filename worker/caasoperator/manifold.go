@@ -201,7 +201,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				}
 			}
 			jujuSecretsAPI := secretsmanager.NewClient(apiCaller)
-			secretsBackendGetter := func() (secrets.Backend, error) {
+			secretsBackendGetter := func() (secrets.BackendsClient, error) {
 				return secrets.NewClient(jujuSecretsAPI)
 			}
 			secretRotateWatcherFunc := func(unitTag names.UnitTag, isLeader bool, rotateSecrets chan []string) (worker.Worker, error) {

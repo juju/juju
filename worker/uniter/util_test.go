@@ -142,7 +142,7 @@ type testContext struct {
 	secretsRotateCh        chan []string
 	secretsExpireCh        chan []string
 	secretsClient          *secretsmanager.Client
-	secretsStore           jujusecrets.Backend
+	secretBackends         jujusecrets.BackendsClient
 	err                    string
 
 	wg             sync.WaitGroup
@@ -221,7 +221,7 @@ func (ctx *testContext) apiLogin(c *gc.C) {
 	ctx.leaderTracker = newMockLeaderTracker(ctx)
 	ctx.leaderTracker.setLeader(c, true)
 	ctx.secretsClient = secretsmanager.NewClient(apiConn)
-	ctx.secretsStore, err = jujusecrets.NewClient(ctx.secretsClient)
+	ctx.secretBackends, err = jujusecrets.NewClient(ctx.secretsClient)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -605,8 +605,8 @@ func (s startUniter) step(c *gc.C, ctx *testContext) {
 			return watchertest.NewMockStringsWatcher(ctx.secretsExpireCh), nil
 		},
 		SecretsClient: ctx.secretsClient,
-		SecretsBackendGetter: func() (jujusecrets.Backend, error) {
-			return ctx.secretsStore, nil
+		SecretsBackendGetter: func() (jujusecrets.BackendsClient, error) {
+			return ctx.secretBackends, nil
 		},
 	}
 	ctx.uniter, err = uniter.NewUniter(&uniterParams)
@@ -1708,7 +1708,7 @@ func (s changeSecret) step(c *gc.C, ctx *testContext) {
 type getSecret struct{}
 
 func (s getSecret) step(c *gc.C, ctx *testContext) {
-	val, err := ctx.secretsStore.GetContent(ctx.createdSecretURI, "foorbar", false, false)
+	val, err := ctx.secretBackends.GetContent(ctx.createdSecretURI, "foorbar", false, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(val.EncodedValues(), jc.DeepEquals, map[string]string{"foo": "bar"})
 }

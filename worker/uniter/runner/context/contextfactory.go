@@ -78,7 +78,7 @@ type SecretsAccessor interface {
 }
 
 // SecretsBackendGetter creates a secrets backend client.
-type SecretsBackendGetter func() (jujusecrets.Backend, error)
+type SecretsBackendGetter func() (jujusecrets.BackendsClient, error)
 
 // RelationsFunc is used to get snapshots of relation membership at context
 // creation time.
@@ -426,9 +426,9 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 	ctx.secretMetadata = make(map[string]jujuc.SecretMetadata)
 	for _, v := range info {
 		md := v.Metadata
-		backendIds := make(map[int]string)
-		for rev, id := range v.BackendIds {
-			backendIds[rev] = id
+		valueRefs := make(map[int]secrets.ValueRef)
+		for rev, ref := range v.ValueRefs {
+			valueRefs[rev] = ref
 		}
 		ownerTag, err := names.ParseTag(md.OwnerTag)
 		if err != nil {
@@ -442,7 +442,7 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 			LatestRevision:   md.LatestRevision,
 			LatestExpireTime: md.LatestExpireTime,
 			NextRotateTime:   md.NextRotateTime,
-			BackendIds:       backendIds,
+			ValueRefs:        valueRefs,
 		}
 	}
 

@@ -37,7 +37,7 @@ type HookContextParams struct {
 	Storage             StorageContextAccessor
 	StorageTag          names.StorageTag
 	SecretsClient       SecretsAccessor
-	SecretsStore        jujusecrets.Backend
+	SecretsStore        jujusecrets.BackendsClient
 	SecretMetadata      map[string]jujuc.SecretMetadata
 	Paths               Paths
 	Clock               Clock
@@ -71,7 +71,7 @@ func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 		storage:              hcParams.Storage,
 		storageTag:           hcParams.StorageTag,
 		secretsClient:        hcParams.SecretsClient,
-		secretsBackendGetter: func() (jujusecrets.Backend, error) { return hcParams.SecretsStore, nil },
+		secretsBackendGetter: func() (jujusecrets.BackendsClient, error) { return hcParams.SecretsStore, nil },
 		secretMetadata:       hcParams.SecretMetadata,
 		clock:                hcParams.Clock,
 		logger:               loggo.GetLogger("test"),
@@ -135,7 +135,7 @@ func NewMockUnitHookContextWithState(mockUnit *mocks.MockHookUnit, state *uniter
 
 // SetEnvironmentHookContextSecret exists purely to set the fields used in hookVars.
 func SetEnvironmentHookContextSecret(
-	context *HookContext, secretURI string, metadata map[string]jujuc.SecretMetadata, client SecretsAccessor, backend jujusecrets.Backend,
+	context *HookContext, secretURI string, metadata map[string]jujuc.SecretMetadata, client SecretsAccessor, backend jujusecrets.BackendsClient,
 ) {
 	context.secretURI = secretURI
 	context.secretLabel = "label-" + secretURI
