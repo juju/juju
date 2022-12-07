@@ -21,7 +21,7 @@ func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretsbackend.go github.com/juju/juju/apiserver/facades/agent/secretsmanager SecretsBackend
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretsstate.go github.com/juju/juju/apiserver/facades/agent/secretsmanager SecretsState
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretsconsumer.go github.com/juju/juju/apiserver/facades/agent/secretsmanager SecretsConsumer
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretswatcher.go github.com/juju/juju/state StringsWatcher
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secrettriggers.go github.com/juju/juju/apiserver/facades/agent/secretsmanager SecretTriggers
@@ -33,11 +33,10 @@ func NewTestAPI(
 	authorizer facade.Authorizer,
 	resources facade.Resources,
 	leadership leadership.Checker,
-	backend SecretsBackend,
+	secretsState SecretsState,
 	consumer SecretsConsumer,
 	secretTriggers SecretTriggers,
-	storeConfigGetter commonsecrets.BackendConfigGetter,
-	providerGetter commonsecrets.ProviderInfoGetter,
+	backendConfigGetter commonsecrets.BackendConfigGetter,
 	authTag names.Tag,
 	clock clock.Clock,
 ) (*SecretsManagerAPI, error) {
@@ -49,11 +48,10 @@ func NewTestAPI(
 		authTag:             authTag,
 		resources:           resources,
 		leadershipChecker:   leadership,
-		secretsBackend:      backend,
+		secretsState:        secretsState,
 		secretsConsumer:     consumer,
 		secretsTriggers:     secretTriggers,
-		backendConfigGetter: storeConfigGetter,
-		providerGetter:      providerGetter,
+		backendConfigGetter: backendConfigGetter,
 		clock:               clock,
 	}, nil
 }

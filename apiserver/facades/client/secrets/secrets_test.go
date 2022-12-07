@@ -78,7 +78,8 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, reveal, withStore bool) {
 			true, nil)
 	}
 
-	facade, err := apisecrets.NewTestAPI(s.secretsState, func() (provider.SecretsBackend, error) {
+	facade, err := apisecrets.NewTestAPI(s.secretsState, func(backendId string) (provider.SecretsBackend, error) {
+		c.Assert(backendId, gc.Equals, "backend-id")
 		return s.secretsBackend, nil
 	}, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
@@ -123,9 +124,12 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, reveal, withStore bool) {
 		}
 		if withStore {
 			s.secretsState.EXPECT().GetSecretValue(uri, 2).Return(
-				nil, ptr("provider-id"), nil,
+				nil, &coresecrets.ValueRef{
+					BackendID:  "backend-id",
+					RevisionID: "rev-id",
+				}, nil,
 			)
-			s.secretsBackend.EXPECT().GetContent(gomock.Any(), "provider-id").Return(
+			s.secretsBackend.EXPECT().GetContent(gomock.Any(), "rev-id").Return(
 				coresecrets.NewSecretValue(valueResult.Data), nil,
 			)
 		} else {

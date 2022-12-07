@@ -1739,7 +1739,7 @@ func (e *exporter) secrets() error {
 			Created:    rev.CreateTime,
 			Updated:    rev.UpdateTime,
 			ExpireTime: rev.ExpireTime,
-			// TOOD(wallyworld)
+			// TODO(secrets)
 			//BackendId:  rev.BackendId,
 		}
 		if len(rev.Data) > 0 {

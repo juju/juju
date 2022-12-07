@@ -51,11 +51,11 @@ func (mr *MockSecretsStateMockRecorder) GetSecretRevision(arg0, arg1 interface{}
 }
 
 // GetSecretValue mocks base method.
-func (m *MockSecretsState) GetSecretValue(arg0 *secrets.URI, arg1 int) (secrets.SecretValue, *string, error) {
+func (m *MockSecretsState) GetSecretValue(arg0 *secrets.URI, arg1 int) (secrets.SecretValue, *secrets.ValueRef, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetSecretValue", arg0, arg1)
 	ret0, _ := ret[0].(secrets.SecretValue)
-	ret1, _ := ret[1].(*string)
+	ret1, _ := ret[1].(*secrets.ValueRef)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }

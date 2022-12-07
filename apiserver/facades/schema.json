@@ -38686,9 +38686,6 @@
                 "SecretRevision": {
                     "type": "object",
                     "properties": {
-                        "backend-id": {
-                            "type": "string"
-                        },
                         "create-time": {
                             "type": "string",
                             "format": "date-time"
@@ -38703,11 +38700,30 @@
                         "update-time": {
                             "type": "string",
                             "format": "date-time"
+                        },
+                        "value-ref": {
+                            "$ref": "#/definitions/SecretValueRef"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
                         "revision"
+                    ]
+                },
+                "SecretValueRef": {
+                    "type": "object",
+                    "properties": {
+                        "backend-id": {
+                            "type": "string"
+                        },
+                        "revision-id": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "backend-id",
+                        "revision-id"
                     ]
                 },
                 "SecretValueResult": {
@@ -38798,10 +38814,10 @@
                     "type": "object",
                     "properties": {
                         "Result": {
-                            "$ref": "#/definitions/SecretBackendConfig"
+                            "$ref": "#/definitions/SecretBackendConfigResults"
                         }
                     },
-                    "description": "GetSecretBackendConfig gets the config needed to create a client to the model's secret backend."
+                    "description": "GetSecretBackendConfig gets the config needed to create a client to secret backends."
                 },
                 "GetSecretContentInfo": {
                     "type": "object",
@@ -39299,15 +39315,6 @@
                 "SecretBackendConfig": {
                     "type": "object",
                     "properties": {
-                        "model-controller": {
-                            "type": "string"
-                        },
-                        "model-name": {
-                            "type": "string"
-                        },
-                        "model-uuid": {
-                            "type": "string"
-                        },
                         "params": {
                             "type": "object",
                             "patternProperties": {
@@ -39323,10 +39330,39 @@
                     },
                     "additionalProperties": false,
                     "required": [
+                        "type"
+                    ]
+                },
+                "SecretBackendConfigResults": {
+                    "type": "object",
+                    "properties": {
+                        "active-id": {
+                            "type": "string"
+                        },
+                        "configs": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/SecretBackendConfig"
+                                }
+                            }
+                        },
+                        "model-controller": {
+                            "type": "string"
+                        },
+                        "model-name": {
+                            "type": "string"
+                        },
+                        "model-uuid": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
                         "model-controller",
                         "model-uuid",
                         "model-name",
-                        "type"
+                        "active-id"
                     ]
                 },
                 "SecretConsumerInfoResult": {
@@ -39366,9 +39402,6 @@
                 "SecretContentParams": {
                     "type": "object",
                     "properties": {
-                        "backend-id": {
-                            "type": "string"
-                        },
                         "data": {
                             "type": "object",
                             "patternProperties": {
@@ -39376,6 +39409,9 @@
                                     "type": "string"
                                 }
                             }
+                        },
+                        "value-ref": {
+                            "$ref": "#/definitions/SecretValueRef"
                         }
                     },
                     "additionalProperties": false
@@ -39413,9 +39449,6 @@
                 "SecretRevision": {
                     "type": "object",
                     "properties": {
-                        "backend-id": {
-                            "type": "string"
-                        },
                         "create-time": {
                             "type": "string",
                             "format": "date-time"
@@ -39430,6 +39463,9 @@
                         "update-time": {
                             "type": "string",
                             "format": "date-time"
+                        },
+                        "value-ref": {
+                            "$ref": "#/definitions/SecretValueRef"
                         }
                     },
                     "additionalProperties": false,
@@ -39512,6 +39548,22 @@
                     "required": [
                         "watcher-id",
                         "changes"
+                    ]
+                },
+                "SecretValueRef": {
+                    "type": "object",
+                    "properties": {
+                        "backend-id": {
+                            "type": "string"
+                        },
+                        "revision-id": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "backend-id",
+                        "revision-id"
                     ]
                 },
                 "SecretValueResult": {
@@ -44485,10 +44537,10 @@
                     "type": "object",
                     "properties": {
                         "Result": {
-                            "$ref": "#/definitions/SecretBackendConfig"
+                            "$ref": "#/definitions/SecretBackendConfigResults"
                         }
                     },
-                    "description": "GetSecretBackendConfig gets the config needed to create a client to the model's secret backend."
+                    "description": "GetSecretBackendConfig gets the config needed to create a client to secret backends."
                 },
                 "GetSecretContentInfo": {
                     "type": "object",
@@ -47382,15 +47434,6 @@
                 "SecretBackendConfig": {
                     "type": "object",
                     "properties": {
-                        "model-controller": {
-                            "type": "string"
-                        },
-                        "model-name": {
-                            "type": "string"
-                        },
-                        "model-uuid": {
-                            "type": "string"
-                        },
                         "params": {
                             "type": "object",
                             "patternProperties": {
@@ -47406,10 +47449,39 @@
                     },
                     "additionalProperties": false,
                     "required": [
+                        "type"
+                    ]
+                },
+                "SecretBackendConfigResults": {
+                    "type": "object",
+                    "properties": {
+                        "active-id": {
+                            "type": "string"
+                        },
+                        "configs": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/SecretBackendConfig"
+                                }
+                            }
+                        },
+                        "model-controller": {
+                            "type": "string"
+                        },
+                        "model-name": {
+                            "type": "string"
+                        },
+                        "model-uuid": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
                         "model-controller",
                         "model-uuid",
                         "model-name",
-                        "type"
+                        "active-id"
                     ]
                 },
                 "SecretConsumerInfoResult": {
@@ -47449,9 +47521,6 @@
                 "SecretContentParams": {
                     "type": "object",
                     "properties": {
-                        "backend-id": {
-                            "type": "string"
-                        },
                         "data": {
                             "type": "object",
                             "patternProperties": {
@@ -47459,6 +47528,9 @@
                                     "type": "string"
                                 }
                             }
+                        },
+                        "value-ref": {
+                            "$ref": "#/definitions/SecretValueRef"
                         }
                     },
                     "additionalProperties": false
@@ -47496,9 +47568,6 @@
                 "SecretRevision": {
                     "type": "object",
                     "properties": {
-                        "backend-id": {
-                            "type": "string"
-                        },
                         "create-time": {
                             "type": "string",
                             "format": "date-time"
@@ -47513,6 +47582,9 @@
                         "update-time": {
                             "type": "string",
                             "format": "date-time"
+                        },
+                        "value-ref": {
+                            "$ref": "#/definitions/SecretValueRef"
                         }
                     },
                     "additionalProperties": false,
@@ -47595,6 +47667,22 @@
                     "required": [
                         "watcher-id",
                         "changes"
+                    ]
+                },
+                "SecretValueRef": {
+                    "type": "object",
+                    "properties": {
+                        "backend-id": {
+                            "type": "string"
+                        },
+                        "revision-id": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "backend-id",
+                        "revision-id"
                     ]
                 },
                 "SecretValueResult": {
