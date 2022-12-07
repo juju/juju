@@ -492,9 +492,10 @@ func (s *DestroySuite) resetController(c *gc.C) {
 }
 
 func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
-	var stdin, stdout bytes.Buffer
+	var stdin, stdout, stderr bytes.Buffer
 	ctx := cmdtesting.Context(c)
 	ctx.Stdout = &stdout
+	ctx.Stderr = &stderr
 	ctx.Stdin = &stdin
 
 	// Ensure confirmation is requested if "--no-prompt" is not specified.
@@ -506,12 +507,13 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 	case <-time.After(testing.LongWait):
 		c.Fatalf("command took too long")
 	}
-	c.Check(cmdtesting.Stdout(ctx), gc.Matches, "WARNING!.*test1(.|\n)*")
+	c.Check(cmdtesting.Stderr(ctx), gc.Matches, "WARNING!.*test1(.|\n)*")
 	checkControllerExistsInStore(c, "test1", s.store)
 
 	// EOF on stdin: equivalent to answering no.
 	stdin.Reset()
 	stdout.Reset()
+	stderr.Reset()
 	_, errc = cmdtest.RunCommandWithDummyProvider(ctx, s.newDestroyCommand(), "test1")
 	select {
 	case err := <-errc:
@@ -519,12 +521,13 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 	case <-time.After(testing.LongWait):
 		c.Fatalf("command took too long")
 	}
-	c.Check(cmdtesting.Stdout(ctx), gc.Matches, "WARNING!.*test1(.|\n)*")
+	c.Check(cmdtesting.Stderr(ctx), gc.Matches, "WARNING!.*test1(.|\n)*")
 	checkControllerExistsInStore(c, "test1", s.store)
 
 	answer := "test1"
 	stdin.Reset()
 	stdout.Reset()
+	stderr.Reset()
 	stdin.WriteString(answer)
 	_, errc = cmdtest.RunCommandWithDummyProvider(ctx, s.newDestroyCommand(), "test1")
 	select {
