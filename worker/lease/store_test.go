@@ -261,7 +261,7 @@ func (s *storeSuite) TestLeaseOperationCancellation(c *gc.C) {
 	}
 
 	err := s.store.ClaimLease(key, req, s.stopCh)
-	c.Assert(err, gc.ErrorMatches, "claim cancelled")
+	c.Assert(err, gc.ErrorMatches, "context canceled")
 }
 
 func (s *storeSuite) primeDB(c *gc.C) {

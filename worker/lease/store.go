@@ -103,7 +103,7 @@ WHERE  type = ?`[1:]
 	select {
 	case <-stop:
 		cancel()
-		return errors.New("claim cancelled")
+		return errors.Trace(<-errCh)
 	case err := <-errCh:
 		cancel()
 		if database.IsErrConstraintUnique(err) {
@@ -157,7 +157,7 @@ WHERE  uuid = (
 	select {
 	case <-stop:
 		cancel()
-		return errors.New("extend cancelled")
+		return errors.Trace(<-errCh)
 	case err := <-errCh:
 		cancel()
 		return errors.Trace(err)
@@ -199,7 +199,7 @@ WHERE  uuid = (
 	select {
 	case <-stop:
 		cancel()
-		return errors.New("revoke cancelled")
+		return errors.Trace(<-errCh)
 	case err := <-errCh:
 		cancel()
 		return errors.Trace(err)
@@ -249,7 +249,7 @@ AND    l.name = ?`[1:]
 	select {
 	case <-stop:
 		cancel()
-		return errors.New("pin lease cancelled")
+		return errors.Trace(<-errCh)
 	case err := <-errCh:
 		cancel()
 		if database.IsErrConstraintUnique(err) {
@@ -291,7 +291,7 @@ WHERE  uuid = (
 	select {
 	case <-stop:
 		cancel()
-		return errors.New("unpin lease cancelled")
+		return errors.Trace(<-errCh)
 	case err := <-errCh:
 		cancel()
 		return errors.Trace(err)
