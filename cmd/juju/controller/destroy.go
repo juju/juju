@@ -123,9 +123,12 @@ This includes all machines, applications, data and other resources.
 
 var destroySysMsgWithDetails = `
 WARNING! This command will destroy the %q controller.
-This includes %d machine(s), %d application(s), data and other resources.
-
-The following models will be destroyed: %s.
+This includes all data and other resources:
+ - %d model(s) will be destroyed
+  - model list: %q
+ - %d machine(s) will be destroyed
+ - %d application(s) will be removed
+ - %d storage(s) will be %s
 `[1:]
 
 // destroyControllerAPI defines the methods on the controller API endpoint
@@ -194,15 +197,22 @@ func getModelNames(data []modelData) []string {
 }
 
 // printDestroyWarning prints to stdout the warning with additional info about destroying controller.
-func printDestroyWarning(ctx *cmd.Context, api destroyControllerAPI, controllerModelUUID string, controllerName string, clock clock.Clock) error {
-	updateStatus := newTimedStatusUpdater(ctx, api, controllerModelUUID, clock)
-	modelStatus := updateStatus(0)
+func printDestroyWarning(ctx *cmd.Context, modelStatus environmentStatus, controllerName string, releaseStorage bool) error {
 	modelNames := getModelNames(modelStatus.models)
+	var actionStorageStr string
+	if releaseStorage {
+		actionStorageStr = "released"
+	} else {
+		actionStorageStr = "destroyed"
+	}
 	if len(modelNames) > 0 {
 		_, _ = fmt.Fprintf(ctx.Stdout, destroySysMsgWithDetails, controllerName,
+			modelStatus.controller.HostedModelCount,
+			strings.Join(modelNames, ", "),
 			modelStatus.controller.HostedMachineCount,
 			modelStatus.controller.ApplicationCount-1, // - 1 not to confuse user with controller-app itself
-			strings.Join(modelNames, ", "),
+			modelStatus.controller.TotalVolumeCount,
+			actionStorageStr,
 		)
 	} else {
 		_, _ = fmt.Fprintf(ctx.Stdout, destroySysMsg, controllerName)
@@ -237,7 +247,9 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if c.ConfirmationCommandBase.NeedsConfirmation() {
-		if err := printDestroyWarning(ctx, api, controllerEnviron.Config().UUID(), controllerName, clock.WallClock); err != nil {
+		updateStatus := newTimedStatusUpdater(ctx, api, controllerEnviron.Config().UUID(), clock.WallClock)
+		modelStatus := updateStatus(0)
+		if err := printDestroyWarning(ctx, modelStatus, controllerName, c.releaseStorage); err != nil {
 			return errors.Trace(err)
 		}
 		if err := jujucmd.UserConfirmName(controllerName, "controller", ctx); err != nil {
