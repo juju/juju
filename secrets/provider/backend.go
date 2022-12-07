@@ -18,9 +18,25 @@ type SecretsBackend interface {
 
 // BackendConfig is used when constructing a secrets backend.
 type BackendConfig struct {
+	BackendType string
+	Config      ConfigAttrs
+}
+
+// ModelBackendConfig is used when constructing a secrets backend
+// for a particular model.
+type ModelBackendConfig struct {
 	ControllerUUID string
 	ModelUUID      string
 	ModelName      string
-	BackendType    string
-	Config         ConfigAttrs
+	BackendConfig
+}
+
+// ModelBackendConfigInfo holds all the secret backends relevant
+// for a particular model.
+type ModelBackendConfigInfo struct {
+	ControllerUUID string
+	ModelUUID      string
+	ModelName      string
+	ActiveID       string
+	Configs        map[string]BackendConfig
 }

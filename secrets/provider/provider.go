@@ -10,44 +10,32 @@ import (
 	"github.com/juju/names/v4"
 	"gopkg.in/juju/environschema.v1"
 
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/secrets"
 )
 
-// Model exposes the methods needed to create a secrets backend config.
-type Model interface {
-	ControllerUUID() string
-	Cloud() (cloud.Cloud, error)
-	CloudCredential() (*cloud.Credential, error)
-	Name() string
-	UUID() string
-	GetSecretBackend() (*secrets.SecretBackend, error)
-}
-
-// SecretRevisions backends information for generating resource name for a list of secrets.
-type SecretRevisions map[string]set.Ints
+// SecretRevisions holds external revision ids for a list of secrets.
+type SecretRevisions map[string]set.Strings
 
 // Add adds a secret with revisions.
-func (nm SecretRevisions) Add(uri *secrets.URI, revisions ...int) {
+func (nm SecretRevisions) Add(uri *secrets.URI, revisionIDs ...string) {
 	if _, ok := nm[uri.ID]; !ok {
-		nm[uri.ID] = set.NewInts(revisions...)
+		nm[uri.ID] = set.NewStrings(revisionIDs...)
 		return
 	}
-	for _, rev := range revisions {
+	for _, rev := range revisionIDs {
 		nm[uri.ID].Add(rev)
 	}
 }
 
-// Names returns the names of the secrets.
-func (nm SecretRevisions) Names() (names []string) {
-	for id, revisions := range nm {
+// RevisionIDs returns all the secret revisions.
+func (nm SecretRevisions) RevisionIDs() (result []string) {
+	for _, revisions := range nm {
 		for _, rev := range revisions.SortedValues() {
-			uri := secrets.URI{ID: id}
-			names = append(names, uri.Name(rev))
+			result = append(result, rev)
 		}
 	}
-	sort.Strings(names) // for testing.
-	return names
+	sort.Strings(result) // for testing.
+	return result
 }
 
 const (
@@ -78,22 +66,23 @@ type SecretBackendProvider interface {
 	Type() string
 
 	// Initialise sets up the secrets backend to host secrets for
-	// the specified model.
-	Initialise(m Model) error
+	// the specified model config.
+	Initialise(cfg *ModelBackendConfig) error
 
 	// CleanupSecrets removes any ACLs / resources associated
 	// with the removed secrets.
-	CleanupSecrets(m Model, tag names.Tag, removed SecretRevisions) error
+	CleanupSecrets(cfg *ModelBackendConfig, tag names.Tag, removed SecretRevisions) error
 
 	// CleanupModel removes any secrets / ACLs / resources
-	// associated with the model.
-	CleanupModel(m Model) error
+	// associated with the model config.
+	CleanupModel(cfg *ModelBackendConfig) error
 
-	// BackendConfig returns the config needed to create a vault secrets backend client
-	// used to manage owned secrets and read shared secrets.
-	BackendConfig(m Model, tag names.Tag, owned SecretRevisions, read SecretRevisions) (*BackendConfig, error)
+	// RestrictedConfig returns the config needed to create a vault
+	// secrets backend client restricted to manage the specified
+	// owned secrets and read shared secrets for the given entity tag.
+	RestrictedConfig(adminCfg *ModelBackendConfig, tag names.Tag, owned SecretRevisions, read SecretRevisions) (*BackendConfig, error)
 
 	// NewBackend creates a secrets backend client using the
-	// specified config.
-	NewBackend(cfg *BackendConfig) (SecretsBackend, error)
+	// specified model config.
+	NewBackend(cfg *ModelBackendConfig) (SecretsBackend, error)
 }

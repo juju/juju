@@ -44,35 +44,38 @@ func (p k8sProvider) Type() string {
 }
 
 // Initialise is not used.
-func (p k8sProvider) Initialise(m provider.Model) error {
+func (p k8sProvider) Initialise(*provider.ModelBackendConfig) error {
 	return nil
 }
 
 // CleanupModel is not used.
-func (p k8sProvider) CleanupModel(m provider.Model) error {
+func (p k8sProvider) CleanupModel(*provider.ModelBackendConfig) error {
 	return nil
 }
 
-func (p k8sProvider) getBroker(
-	controllerUUID, modelUUID, modelName string, cloudSpec cloudspec.CloudSpec,
-) (Broker, error) {
-	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
-		config.NameKey: modelName,
-		config.UUIDKey: modelUUID,
+func (p k8sProvider) getBroker(cfg *provider.ModelBackendConfig) (Broker, cloudspec.CloudSpec, error) {
+	cloudSpec, err := p.configToCloudSpec(&cfg.BackendConfig)
+	if err != nil {
+		return nil, cloudspec.CloudSpec{}, errors.Trace(err)
+	}
+	envCfg, err := config.New(config.UseDefaults, map[string]interface{}{
+		config.NameKey: cfg.ModelName,
+		config.UUIDKey: cfg.ModelUUID,
 		config.TypeKey: state.ModelTypeCAAS,
 	})
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, cloudspec.CloudSpec{}, errors.Trace(err)
 	}
-	return NewCaas(context.TODO(), environs.OpenParams{
-		ControllerUUID: controllerUUID,
+	broker, err := NewCaas(context.TODO(), environs.OpenParams{
+		ControllerUUID: cfg.ControllerUUID,
 		Cloud:          cloudSpec,
-		Config:         cfg,
+		Config:         envCfg,
 	})
+	return broker, cloudSpec, errors.Trace(err)
 }
 
 // CleanupSecrets removes rules of the role associated with the removed secrets.
-func (p k8sProvider) CleanupSecrets(m provider.Model, tag names.Tag, removed provider.SecretRevisions) error {
+func (p k8sProvider) CleanupSecrets(cfg *provider.ModelBackendConfig, tag names.Tag, removed provider.SecretRevisions) error {
 	if tag == nil {
 		// This should never happen.
 		// Because this method is used for uniter facade only.
@@ -81,28 +84,21 @@ func (p k8sProvider) CleanupSecrets(m provider.Model, tag names.Tag, removed pro
 	if len(removed) == 0 {
 		return nil
 	}
-	cloudSpec, err := cloudSpecForModel(m)
+	broker, _, err := p.getBroker(cfg)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	broker, err := p.getBroker(m.ControllerUUID(), m.UUID(), m.Name(), cloudSpec)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	_, err = broker.EnsureSecretAccessToken(tag, nil, nil, removed.Names())
+	_, err = broker.EnsureSecretAccessToken(tag, nil, nil, removed.RevisionIDs())
 	return errors.Trace(err)
 }
 
-func cloudSpecToBackendConfig(m provider.Model, spec cloudspec.CloudSpec) (*provider.BackendConfig, error) {
+func cloudSpecToBackendConfig(spec cloudspec.CloudSpec) (*provider.BackendConfig, error) {
 	cred, err := json.Marshal(spec.Credential)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &provider.BackendConfig{
-		ControllerUUID: m.ControllerUUID(),
-		ModelUUID:      m.UUID(),
-		ModelName:      m.Name(),
-		BackendType:    BackendType,
+		BackendType: BackendType,
 		Config: map[string]interface{}{
 			"endpoint":            spec.Endpoint,
 			"ca-certs":            spec.CACertificates,
@@ -112,23 +108,27 @@ func cloudSpecToBackendConfig(m provider.Model, spec cloudspec.CloudSpec) (*prov
 	}, nil
 }
 
-// BackendConfig returns the config needed to create a k8s secrets backend.
-func (p k8sProvider) BackendConfig(m provider.Model, consumer names.Tag, owned provider.SecretRevisions, read provider.SecretRevisions) (*provider.BackendConfig, error) {
+// BuiltInConfig returns the config needed to create a k8s secrets backend
+// using the same namespace as the specified model.
+func BuiltInConfig(cloudSpec cloudspec.CloudSpec) (*provider.BackendConfig, error) {
+	return cloudSpecToBackendConfig(cloudSpec)
+}
+
+// RestrictedConfig returns the config needed to create a vault
+// secrets backend client restricted to manage the specified
+// owned secrets and read shared secrets for the given entity tag.
+func (p k8sProvider) RestrictedConfig(adminCfg *provider.ModelBackendConfig, consumer names.Tag, owned provider.SecretRevisions, read provider.SecretRevisions) (*provider.BackendConfig, error) {
 	logger.Tracef("getting k8s backend config for %q, owned %v, read %v", consumer, owned, read)
 
-	cloudSpec, err := cloudSpecForModel(m)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	if consumer == nil {
-		return cloudSpecToBackendConfig(m, cloudSpec)
+		return &adminCfg.BackendConfig, nil
 	}
 
-	broker, err := p.getBroker(m.ControllerUUID(), m.UUID(), m.Name(), cloudSpec)
+	broker, cloudSpec, err := p.getBroker(adminCfg)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	token, err := broker.EnsureSecretAccessToken(consumer, owned.Names(), read.Names(), nil)
+	token, err := broker.EnsureSecretAccessToken(consumer, owned.RevisionIDs(), read.RevisionIDs(), nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -150,7 +150,7 @@ func (p k8sProvider) BackendConfig(m provider.Model, consumer names.Tag, owned p
 			cloudSpec.IsControllerCloud = false
 		}
 	}
-	return cloudSpecToBackendConfig(m, cloudSpec)
+	return cloudSpecToBackendConfig(cloudSpec)
 }
 
 type Broker interface {
@@ -166,7 +166,15 @@ func newCaas(ctx context.Context, args environs.OpenParams) (Broker, error) {
 }
 
 // NewBackend returns a k8s backed secrets backend.
-func (p k8sProvider) NewBackend(cfg *provider.BackendConfig) (provider.SecretsBackend, error) {
+func (p k8sProvider) NewBackend(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
+	broker, _, err := p.getBroker(cfg)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &k8sBackend{broker: broker}, nil
+}
+
+func (p k8sProvider) configToCloudSpec(cfg *provider.BackendConfig) (cloudspec.CloudSpec, error) {
 	cloudSpec := cloudspec.CloudSpec{
 		Type:              "kubernetes",
 		Name:              "secret-access",
@@ -185,28 +193,8 @@ func (p k8sProvider) NewBackend(cfg *provider.BackendConfig) (provider.SecretsBa
 	var cred cloud.Credential
 	err := json.Unmarshal([]byte(cfg.Config["credential"].(string)), &cred)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return cloudspec.CloudSpec{}, errors.Trace(err)
 	}
 	cloudSpec.Credential = &cred
-
-	broker, err := p.getBroker(cfg.ControllerUUID, cfg.ModelUUID, cfg.ModelName, cloudSpec)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &k8sBackend{broker: broker}, nil
-}
-
-func cloudSpecForModel(m provider.Model) (cloudspec.CloudSpec, error) {
-	c, err := m.Cloud()
-	if err != nil {
-		return cloudspec.CloudSpec{}, errors.Trace(err)
-	}
-	cloudCredential, err := m.CloudCredential()
-	if err != nil {
-		return cloudspec.CloudSpec{}, errors.Trace(err)
-	}
-	if cloudCredential == nil {
-		return cloudspec.CloudSpec{}, errors.NotValidf("cloud credential for %s is empty", m.UUID())
-	}
-	return cloudspec.MakeCloudSpec(c, "", cloudCredential)
+	return cloudSpec, nil
 }

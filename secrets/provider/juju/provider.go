@@ -29,35 +29,37 @@ func (p jujuProvider) Type() string {
 }
 
 // Initialise is not used.
-func (p jujuProvider) Initialise(m provider.Model) error {
+func (p jujuProvider) Initialise(*provider.ModelBackendConfig) error {
 	return nil
 }
 
 // CleanupModel is not used.
-func (p jujuProvider) CleanupModel(m provider.Model) error {
+func (p jujuProvider) CleanupModel(*provider.ModelBackendConfig) error {
 	return nil
 }
 
 // CleanupSecrets is not used.
-func (p jujuProvider) CleanupSecrets(m provider.Model, tag names.Tag, removed provider.SecretRevisions) error {
+func (p jujuProvider) CleanupSecrets(cfg *provider.ModelBackendConfig, tag names.Tag, removed provider.SecretRevisions) error {
 	return nil
 }
 
-// BackendConfig returns nil config params since the Juju backend saves
-// secret content to the Juju database.
-func (p jujuProvider) BackendConfig(
-	m provider.Model, tag names.Tag, owned provider.SecretRevisions, read provider.SecretRevisions,
+// BuiltInConfig returns a minimal config for the Juju backend.
+func BuiltInConfig() provider.BackendConfig {
+	return provider.BackendConfig{BackendType: BackendType}
+}
+
+// RestrictedConfig returns the config needed to create a vault
+// secrets backend client restricted to manage the specified
+// owned secrets and read shared secrets for the given entity tag.
+func (p jujuProvider) RestrictedConfig(adminCfg *provider.ModelBackendConfig, tag names.Tag, owned provider.SecretRevisions, read provider.SecretRevisions,
 ) (*provider.BackendConfig, error) {
 	return &provider.BackendConfig{
-		ControllerUUID: m.ControllerUUID(),
-		ModelUUID:      m.UUID(),
-		ModelName:      m.Name(),
-		BackendType:    BackendType,
+		BackendType: BackendType,
 	}, nil
 }
 
 // NewBackend returns a nil backend since the Juju backend saves
 // secret content to the Juju database.
-func (jujuProvider) NewBackend(*provider.BackendConfig) (provider.SecretsBackend, error) {
+func (jujuProvider) NewBackend(*provider.ModelBackendConfig) (provider.SecretsBackend, error) {
 	return nil, nil
 }
