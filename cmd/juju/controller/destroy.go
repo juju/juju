@@ -7,10 +7,12 @@ import (
 	"bytes"
 	stdcontext "context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
@@ -113,9 +115,15 @@ var usageSummary = `
 Destroys a controller.`[1:]
 
 var destroySysMsg = `
-WARNING! This command will destroy the %q controller.
-This includes all machines, applications, data and other resources.
-`[1:]
+WARNING! This command with destroy the %q controller and all it's resources`[1:]
+
+var destroySysMsgDetails = `
+:
+ - %d model(s) will be destroyed;
+  - model list: %q;
+ - %d machine(s) will be destroyed;
+ - %d application(s) will be removed;
+ - %d filesystem(s) and %d volume(s) will be %s`[1:]
 
 // destroyControllerAPI defines the methods on the controller API endpoint
 // that the destroy command calls.
@@ -170,6 +178,38 @@ func (c *destroyCommand) Init(args []string) error {
 	return c.destroyCommandBase.Init(args)
 }
 
+// getModelNames gets slice of model names from modelData.
+func getModelNames(data []modelData) []string {
+	return transform.Slice(data, func(f modelData) string {
+		return f.Name
+	})
+}
+
+// printDestroyWarning prints to stdout the warning with additional info about destroying controller.
+func printDestroyWarning(ctx *cmd.Context, modelStatus environmentStatus, controllerName string, releaseStorage bool) error {
+	modelNames := getModelNames(modelStatus.models)
+	var actionStorageStr string
+	if releaseStorage {
+		actionStorageStr = "released"
+	} else {
+		actionStorageStr = "destroyed"
+	}
+	_, _ = fmt.Fprintf(ctx.Stderr, destroySysMsg, controllerName)
+	if len(modelNames) > 0 {
+		_, _ = fmt.Fprintf(ctx.Stdout, destroySysMsgDetails,
+			modelStatus.controller.HostedModelCount,
+			strings.Join(modelNames, ", "),
+			modelStatus.controller.HostedMachineCount,
+			modelStatus.controller.ApplicationCount-1, // - 1 not to confuse user with controller-app itself
+			modelStatus.controller.TotalFilesystemCount,
+			modelStatus.controller.TotalVolumeCount,
+			actionStorageStr,
+		)
+	}
+	_, _ = fmt.Fprintf(ctx.Stderr, ".")
+	return nil
+}
+
 // Run implements Command.Run
 func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	controllerName, err := c.ControllerName()
@@ -178,29 +218,33 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	}
 	store := c.ClientStore()
 
-	if err := c.ConfirmationCommandBase.Run(ctx); err != nil {
-		return errors.Trace(err)
-	}
-
-	if c.ConfirmationCommandBase.NeedsConfirmation() {
-		fmt.Fprintf(ctx.Stdout, destroySysMsg, controllerName)
-		if err := jujucmd.UserConfirmName(controllerName, "controller", ctx); err != nil {
-			return errors.Annotate(err, "controller destruction")
-		}
-	}
-
 	// Attempt to connect to the API.  If we can't, fail the destroy.  Users will
 	// need to use the controller kill command if we can't connect.
 	api, err := c.getControllerAPI()
 	if err != nil {
 		return c.ensureUserFriendlyErrorLog(errors.Annotate(err, "cannot connect to API"), ctx, nil)
 	}
-	defer api.Close()
+	defer func() { _ = api.Close() }()
 
 	// Obtain controller environ so we can clean up afterwards.
 	controllerEnviron, err := c.getControllerEnviron(ctx, store, controllerName, api)
 	if err != nil {
 		return errors.Annotate(err, "getting controller environ")
+	}
+
+	if err := c.ConfirmationCommandBase.Run(ctx); err != nil {
+		return errors.Trace(err)
+	}
+
+	if c.ConfirmationCommandBase.NeedsConfirmation() {
+		updateStatus := newTimedStatusUpdater(ctx, api, controllerEnviron.Config().UUID(), clock.WallClock)
+		modelStatus := updateStatus(0)
+		if err := printDestroyWarning(ctx, modelStatus, controllerName, c.releaseStorage); err != nil {
+			return errors.Trace(err)
+		}
+		if err := jujucmd.UserConfirmName(controllerName, "controller", ctx); err != nil {
+			return errors.Annotate(err, "controller destruction")
+		}
 	}
 
 	cloudCallCtx := cloudCallContext(c.controllerCredentialAPIFunc)
