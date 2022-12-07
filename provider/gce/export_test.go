@@ -19,6 +19,7 @@ var (
 	GetDisks                                          = getDisks
 	UbuntuImageBasePath                               = ubuntuImageBasePath
 	UbuntuDailyImageBasePath                          = ubuntuDailyImageBasePath
+	UbuntuProImageBasePath                            = ubuntuProImageBasePath
 	WindowsImageBasePath                              = windowsImageBasePath
 )
 
