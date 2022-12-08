@@ -1606,6 +1606,11 @@ func (api *APIBase) DestroyApplication(args params.DestroyApplicationsParams) (p
 				info.DetachedStorage = append(info.DetachedStorage, detached...)
 			}
 		}
+
+		if arg.DryRun {
+			return &info, nil
+		}
+
 		op := app.DestroyOperation()
 		op.DestroyStorage = arg.DestroyStorage
 		op.Force = arg.Force

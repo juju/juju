@@ -859,31 +859,17 @@ func (s *ApplicationSuite) expectStorageInstance(ctrl *gomock.Controller, name s
 	return storageInstace
 }
 
-func (s *ApplicationSuite) TestDestroyApplication(c *gc.C) {
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
-
-	app := s.expectDefaultApplication(ctrl)
-	app.EXPECT().AllUnits().Return([]application.Unit{
-		s.expectUnit(ctrl, "postgresql/0"),
-		s.expectUnit(ctrl, "postgresql/1"),
-	}, nil)
-	app.EXPECT().DestroyOperation().Return(&state.DestroyApplicationOperation{})
-	s.backend.EXPECT().Application("postgresql").Return(app, nil)
-
+func (s *ApplicationSuite) expectDefaultStorageAttachments(ctrl *gomock.Controller) {
 	s.storageAccess.EXPECT().UnitStorageAttachments(names.NewUnitTag("postgresql/0")).Return([]state.StorageAttachment{
 		s.expectStorageAttachment(ctrl, "pgdata/0"),
 		s.expectStorageAttachment(ctrl, "pgdata/1"),
 	}, nil)
 	s.storageAccess.EXPECT().StorageInstance(names.NewStorageTag("pgdata/0")).Return(s.expectStorageInstance(ctrl, "pgdata/0"), nil)
 	s.storageAccess.EXPECT().StorageInstance(names.NewStorageTag("pgdata/1")).Return(s.expectStorageInstance(ctrl, "pgdata/1"), nil)
-	s.storageAccess.EXPECT().UnitStorageAttachments(names.NewUnitTag("postgresql/1")).Return(nil, nil)
+	s.storageAccess.EXPECT().UnitStorageAttachments(names.NewUnitTag("postgresql/1")).Return([]state.StorageAttachment{}, nil)
+}
 
-	s.backend.EXPECT().ApplyOperation(&state.DestroyApplicationOperation{}).Return(nil)
-
-	results, err := s.api.DestroyApplication(params.DestroyApplicationsParams{
-		Applications: []params.DestroyApplicationParams{{ApplicationTag: "application-postgresql"}},
-	})
+func (s *ApplicationSuite) assertDefaultDestruction(c *gc.C, results params.DestroyApplicationResults, err error) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0], jc.DeepEquals, params.DestroyApplicationResult{
@@ -900,6 +886,30 @@ func (s *ApplicationSuite) TestDestroyApplication(c *gc.C) {
 			},
 		},
 	})
+}
+
+func (s *ApplicationSuite) TestDestroyApplication(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	app := s.expectDefaultApplication(ctrl)
+	app.EXPECT().AllUnits().Return([]application.Unit{
+		s.expectUnit(ctrl, "postgresql/0"),
+		s.expectUnit(ctrl, "postgresql/1"),
+	}, nil)
+	app.EXPECT().DestroyOperation().Return(&state.DestroyApplicationOperation{})
+	s.backend.EXPECT().Application("postgresql").Return(app, nil)
+
+	s.expectDefaultStorageAttachments(ctrl)
+
+	s.backend.EXPECT().ApplyOperation(&state.DestroyApplicationOperation{}).Return(nil)
+
+	results, err := s.api.DestroyApplication(params.DestroyApplicationsParams{
+		Applications: []params.DestroyApplicationParams{{
+			ApplicationTag: "application-postgresql",
+		}},
+	})
+	s.assertDefaultDestruction(c, results, err)
 }
 
 func (s *ApplicationSuite) TestDestroyApplicationWithBlockChange(c *gc.C) {
@@ -931,13 +941,7 @@ func (s *ApplicationSuite) TestForceDestroyApplication(c *gc.C) {
 	app.EXPECT().DestroyOperation().Return(&state.DestroyApplicationOperation{})
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
-	s.storageAccess.EXPECT().UnitStorageAttachments(names.NewUnitTag("postgresql/0")).Return([]state.StorageAttachment{
-		s.expectStorageAttachment(ctrl, "pgdata/0"),
-		s.expectStorageAttachment(ctrl, "pgdata/1"),
-	}, nil)
-	s.storageAccess.EXPECT().StorageInstance(names.NewStorageTag("pgdata/0")).Return(s.expectStorageInstance(ctrl, "pgdata/0"), nil)
-	s.storageAccess.EXPECT().StorageInstance(names.NewStorageTag("pgdata/1")).Return(s.expectStorageInstance(ctrl, "pgdata/1"), nil)
-	s.storageAccess.EXPECT().UnitStorageAttachments(names.NewUnitTag("postgresql/1")).Return(nil, nil)
+	s.expectDefaultStorageAttachments(ctrl)
 
 	zero := time.Duration(0)
 
@@ -953,22 +957,7 @@ func (s *ApplicationSuite) TestForceDestroyApplication(c *gc.C) {
 			MaxWait:        &zero,
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0], jc.DeepEquals, params.DestroyApplicationResult{
-		Info: &params.DestroyApplicationInfo{
-			DestroyedUnits: []params.Entity{
-				{Tag: "unit-postgresql-0"},
-				{Tag: "unit-postgresql-1"},
-			},
-			DetachedStorage: []params.Entity{
-				{Tag: "storage-pgdata-0"},
-			},
-			DestroyedStorage: []params.Entity{
-				{Tag: "storage-pgdata-1"},
-			},
-		},
-	})
+	s.assertDefaultDestruction(c, results, err)
 }
 
 func (s *ApplicationSuite) TestDestroyApplicationDestroyStorage(c *gc.C) {
@@ -983,13 +972,7 @@ func (s *ApplicationSuite) TestDestroyApplicationDestroyStorage(c *gc.C) {
 	app.EXPECT().DestroyOperation().Return(&state.DestroyApplicationOperation{})
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
-	s.storageAccess.EXPECT().UnitStorageAttachments(names.NewUnitTag("postgresql/0")).Return([]state.StorageAttachment{
-		s.expectStorageAttachment(ctrl, "pgdata/0"),
-		s.expectStorageAttachment(ctrl, "pgdata/1"),
-	}, nil)
-	s.storageAccess.EXPECT().StorageInstance(names.NewStorageTag("pgdata/0")).Return(s.expectStorageInstance(ctrl, "pgdata/0"), nil)
-	s.storageAccess.EXPECT().StorageInstance(names.NewStorageTag("pgdata/1")).Return(s.expectStorageInstance(ctrl, "pgdata/1"), nil)
-	s.storageAccess.EXPECT().UnitStorageAttachments(names.NewUnitTag("postgresql/1")).Return(nil, nil)
+	s.expectDefaultStorageAttachments(ctrl)
 
 	s.backend.EXPECT().ApplyOperation(&state.DestroyApplicationOperation{
 		DestroyStorage: true,
@@ -1015,6 +998,27 @@ func (s *ApplicationSuite) TestDestroyApplicationDestroyStorage(c *gc.C) {
 			},
 		},
 	})
+}
+
+func (s *ApplicationSuite) TestDestroyApplicationDryRun(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	app := s.expectDefaultApplication(ctrl)
+	app.EXPECT().AllUnits().Return([]application.Unit{
+		s.expectUnit(ctrl, "postgresql/0"),
+		s.expectUnit(ctrl, "postgresql/1"),
+	}, nil)
+	s.backend.EXPECT().Application("postgresql").Return(app, nil)
+
+	s.expectDefaultStorageAttachments(ctrl)
+	results, err := s.api.DestroyApplication(params.DestroyApplicationsParams{
+		Applications: []params.DestroyApplicationParams{{
+			ApplicationTag: "application-postgresql",
+			DryRun:         true,
+		}},
+	})
+	s.assertDefaultDestruction(c, results, err)
 }
 
 func (s *ApplicationSuite) TestDestroyApplicationNotFound(c *gc.C) {
@@ -1118,14 +1122,6 @@ func (s *ApplicationSuite) TestDestroyUnit(c *gc.C) {
 	unit0.EXPECT().IsPrincipal().Return(true)
 	unit0.EXPECT().DestroyOperation().Return(&state.DestroyUnitOperation{})
 	s.backend.EXPECT().Unit("postgresql/0").Return(unit0, nil)
-
-	s.storageAccess.EXPECT().UnitStorageAttachments(names.NewUnitTag("postgresql/0")).Return([]state.StorageAttachment{
-		s.expectStorageAttachment(ctrl, "pgdata/0"),
-		s.expectStorageAttachment(ctrl, "pgdata/1"),
-	}, nil)
-	s.storageAccess.EXPECT().StorageInstance(names.NewStorageTag("pgdata/0")).Return(s.expectStorageInstance(ctrl, "pgdata/0"), nil)
-	s.storageAccess.EXPECT().StorageInstance(names.NewStorageTag("pgdata/1")).Return(s.expectStorageInstance(ctrl, "pgdata/1"), nil)
-
 	s.backend.EXPECT().ApplyOperation(&state.DestroyUnitOperation{}).Return(nil)
 
 	// unit 1 loop
@@ -1133,10 +1129,9 @@ func (s *ApplicationSuite) TestDestroyUnit(c *gc.C) {
 	unit1.EXPECT().IsPrincipal().Return(true)
 	unit1.EXPECT().DestroyOperation().Return(&state.DestroyUnitOperation{})
 	s.backend.EXPECT().Unit("postgresql/1").Return(unit1, nil)
-
-	s.storageAccess.EXPECT().UnitStorageAttachments(names.NewUnitTag("postgresql/1")).Return([]state.StorageAttachment{}, nil)
-
 	s.backend.EXPECT().ApplyOperation(&state.DestroyUnitOperation{DestroyStorage: true}).Return(nil)
+
+	s.expectDefaultStorageAttachments(ctrl)
 
 	results, err := s.api.DestroyUnit(params.DestroyUnitsParams{
 		Units: []params.DestroyUnitParams{
@@ -1194,13 +1189,6 @@ func (s *ApplicationSuite) TestForceDestroyUnit(c *gc.C) {
 	unit0.EXPECT().DestroyOperation().Return(&state.DestroyUnitOperation{})
 	s.backend.EXPECT().Unit("postgresql/0").Return(unit0, nil)
 
-	s.storageAccess.EXPECT().UnitStorageAttachments(names.NewUnitTag("postgresql/0")).Return([]state.StorageAttachment{
-		s.expectStorageAttachment(ctrl, "pgdata/0"),
-		s.expectStorageAttachment(ctrl, "pgdata/1"),
-	}, nil)
-	s.storageAccess.EXPECT().StorageInstance(names.NewStorageTag("pgdata/0")).Return(s.expectStorageInstance(ctrl, "pgdata/0"), nil)
-	s.storageAccess.EXPECT().StorageInstance(names.NewStorageTag("pgdata/1")).Return(s.expectStorageInstance(ctrl, "pgdata/1"), nil)
-
 	zero := time.Duration(0)
 	s.backend.EXPECT().ApplyOperation(&state.DestroyUnitOperation{ForcedOperation: state.ForcedOperation{
 		Force:   true,
@@ -1212,10 +1200,9 @@ func (s *ApplicationSuite) TestForceDestroyUnit(c *gc.C) {
 	unit1.EXPECT().IsPrincipal().Return(true)
 	unit1.EXPECT().DestroyOperation().Return(&state.DestroyUnitOperation{})
 	s.backend.EXPECT().Unit("postgresql/1").Return(unit1, nil)
-
-	s.storageAccess.EXPECT().UnitStorageAttachments(names.NewUnitTag("postgresql/1")).Return([]state.StorageAttachment{}, nil)
-
 	s.backend.EXPECT().ApplyOperation(&state.DestroyUnitOperation{DestroyStorage: true}).Return(nil)
+
+	s.expectDefaultStorageAttachments(ctrl)
 
 	results, err := s.api.DestroyUnit(params.DestroyUnitsParams{
 		Units: []params.DestroyUnitParams{
