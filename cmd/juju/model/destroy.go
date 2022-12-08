@@ -190,6 +190,7 @@ func getMachineIds(data base.ModelStatus) []string {
 // printDestroyWarning prints to stdout the warning with additional info about destroying model.
 func printDestroyWarning(ctx *cmd.Context, api DestroyModelAPI, modelName string, modelDetails *jujuclient.ModelDetails) error {
 	modelStatuses, err := api.ModelStatus(names.NewModelTag(modelDetails.ModelUUID))
+	fmt.Fprintf(ctx.Stdout, "modelStatuses = %+v\n", modelStatuses)
 	if err != nil {
 		return errors.Annotate(err, "getting model status")
 	}

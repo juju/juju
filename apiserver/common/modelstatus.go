@@ -99,6 +99,11 @@ func (c *ModelStatusAPI) modelStatus(tag string) (params.ModelStatus, error) {
 		return status, errors.Trace(err)
 	}
 
+	modelApplications, err := ModelApplicationInfo(st)
+	if err != nil {
+		return status, errors.Trace(err)
+	}
+
 	result := params.ModelStatus{
 		ModelTag:           tag,
 		OwnerTag:           model.Owner().String(),
@@ -107,6 +112,7 @@ func (c *ModelStatusAPI) modelStatus(tag string) (params.ModelStatus, error) {
 		HostedMachineCount: len(hostedMachines),
 		ApplicationCount:   len(applications),
 		UnitCount:          unitCount,
+		Applications:       modelApplications,
 		Machines:           modelMachines,
 	}
 

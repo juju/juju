@@ -179,6 +179,7 @@ func getModelNames(data []modelData) []string {
 
 // printDestroyWarning prints to stdout the warning with additional info about destroying controller.
 func printDestroyWarning(ctx *cmd.Context, modelStatus environmentStatus, controllerName string, releaseStorage bool) error {
+	fmt.Fprintf(ctx.Stdout, "modelStatus = %+v\n", modelStatus)
 	modelNames := getModelNames(modelStatus.models)
 	var actionStorageStr string
 	if releaseStorage {

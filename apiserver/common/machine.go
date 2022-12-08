@@ -103,6 +103,21 @@ func destroyMachines(st stateInterface, force bool, maxWait time.Duration, ids .
 	return apiservererrors.DestroyErr("machines", ids, errs)
 }
 
+// ModelApplicationInfo returns information about applications.
+func ModelApplicationInfo(st ModelManagerBackend) (applicationInfo []params.ModelApplicationInfo, _ error) {
+	applications, err := st.AllApplications()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, app := range applications {
+		appInfo := params.ModelApplicationInfo{
+			Name: app.Name(),
+		}
+		applicationInfo = append(applicationInfo, appInfo)
+	}
+	return applicationInfo, nil
+}
+
 // ModelMachineInfo returns information about machine hardware for
 // alive top level machines (not containers).
 func ModelMachineInfo(st ModelManagerBackend) (machineInfo []params.ModelMachineInfo, _ error) {
@@ -135,6 +150,7 @@ func ModelMachineInfo(st ModelManagerBackend) (machineInfo []params.ModelMachine
 	}
 
 	for _, m := range machines {
+		m.Id()
 		if m.Life() != state.Alive {
 			continue
 		}
