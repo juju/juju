@@ -123,6 +123,7 @@ var destroySysMsgDetails = `
   - model list: %q;
  - %d machine(s) will be destroyed;
  - %d application(s) will be removed;
+  - application list: %q;
  - %d filesystem(s) and %d volume(s) will be %s`[1:]
 
 // destroyControllerAPI defines the methods on the controller API endpoint
@@ -177,10 +178,17 @@ func getModelNames(data []modelData) []string {
 	})
 }
 
+// getApplicationNames gets slice of application names from modelData.
+func getApplicationNames(data []base.Application) []string {
+	return transform.Slice(data, func(app base.Application) string {
+		return app.Name
+	})
+}
+
 // printDestroyWarning prints to stdout the warning with additional info about destroying controller.
 func printDestroyWarning(ctx *cmd.Context, modelStatus environmentStatus, controllerName string, releaseStorage bool) error {
-	fmt.Fprintf(ctx.Stdout, "modelStatus = %+v\n", modelStatus)
 	modelNames := getModelNames(modelStatus.models)
+	applicationNames := getApplicationNames(modelStatus.applications)
 	var actionStorageStr string
 	if releaseStorage {
 		actionStorageStr = "released"
@@ -194,12 +202,13 @@ func printDestroyWarning(ctx *cmd.Context, modelStatus environmentStatus, contro
 			strings.Join(modelNames, ", "),
 			modelStatus.controller.HostedMachineCount,
 			modelStatus.controller.ApplicationCount-1, // - 1 not to confuse user with controller-app itself
+			strings.Join(applicationNames, ", "),
 			modelStatus.controller.TotalFilesystemCount,
 			modelStatus.controller.TotalVolumeCount,
 			actionStorageStr,
 		)
 	}
-	_, _ = fmt.Fprintf(ctx.Stderr, ".")
+	_, _ = fmt.Fprintf(ctx.Stderr, ".\n")
 	return nil
 }
 

@@ -510,7 +510,7 @@ func (s *KillSuite) TestControllerStatus(c *gc.C) {
 		}
 	}
 
-	ctrStatus, envsStatus, err := controller.NewData(s.api, "123")
+	ctrStatus, envsStatus, _, err := controller.NewData(s.api, "123")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctrStatus.HostedModelCount, gc.Equals, 2)
 	c.Assert(ctrStatus.HostedMachineCount, gc.Equals, 6)

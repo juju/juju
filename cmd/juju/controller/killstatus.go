@@ -5,7 +5,6 @@ package controller
 
 import (
 	"fmt"
-	"github.com/juju/juju/api/base"
 	"time"
 
 	"github.com/juju/clock"
@@ -13,6 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/life"
 )
 
