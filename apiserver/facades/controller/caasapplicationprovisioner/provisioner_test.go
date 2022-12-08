@@ -140,7 +140,7 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfoPendingCharmError(
 	}
 	result, err := s.api.ProvisioningInfo(params.Entities{Entities: []params.Entity{{"application-gitlab"}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results[0].Error, gc.ErrorMatches, `charm "cs:gitlab" pending not provisioned`)
+	c.Assert(result.Results[0].Error, gc.ErrorMatches, `charm "ch:gitlab" pending not provisioned`)
 }
 
 func (s *CAASApplicationProvisionerSuite) TestSetOperatorStatus(c *gc.C) {
