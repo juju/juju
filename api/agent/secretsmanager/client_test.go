@@ -44,25 +44,33 @@ func (s *SecretsSuite) TestGetSecretBackendConfig(c *gc.C) {
 		c.Check(id, gc.Equals, "")
 		c.Check(request, gc.Equals, "GetSecretBackendConfig")
 		c.Check(arg, gc.IsNil)
-		c.Assert(result, gc.FitsTypeOf, &params.SecretBackendConfig{})
-		*(result.(*params.SecretBackendConfig)) = params.SecretBackendConfig{
+		c.Assert(result, gc.FitsTypeOf, &params.SecretBackendConfigResults{})
+		*(result.(*params.SecretBackendConfigResults)) = params.SecretBackendConfigResults{
 			ControllerUUID: coretesting.ControllerTag.Id(),
 			ModelUUID:      coretesting.ModelTag.Id(),
 			ModelName:      "fred",
-			BackendType:    "controller",
-			Params:         map[string]interface{}{"foo": "bar"},
+			Configs: map[string]params.SecretBackendConfig{
+				"some-id": {
+					BackendType: "controller",
+					Params:      map[string]interface{}{"foo": "bar"},
+				},
+			},
 		}
 		return nil
 	})
 	client := secretsmanager.NewClient(apiCaller)
 	result, err := client.GetSecretBackendConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, &provider.BackendConfig{
+	c.Assert(result, jc.DeepEquals, &provider.ModelBackendConfigInfo{
 		ControllerUUID: coretesting.ControllerTag.Id(),
 		ModelUUID:      coretesting.ModelTag.Id(),
 		ModelName:      "fred",
-		BackendType:    "controller",
-		Config:         map[string]interface{}{"foo": "bar"},
+		Configs: map[string]provider.BackendConfig{
+			"some-id": {
+				BackendType: "controller",
+				Config:      map[string]interface{}{"foo": "bar"},
+			},
+		},
 	})
 }
 
@@ -188,8 +196,11 @@ func (s *SecretsSuite) TestGetSecretMetadata(c *gc.C) {
 				NextRotateTime:   &now,
 				LatestExpireTime: &now,
 				Revisions: []params.SecretRevision{{
-					Revision:  666,
-					BackendId: ptr("backend-id"),
+					Revision: 666,
+					ValueRef: &params.SecretValueRef{
+						BackendID:  "backend-id",
+						RevisionID: "rev-id",
+					},
 				}, {
 					Revision: 667,
 				}},
@@ -210,7 +221,9 @@ func (s *SecretsSuite) TestGetSecretMetadata(c *gc.C) {
 		c.Assert(info.Metadata.LatestRevision, gc.Equals, 666)
 		c.Assert(info.Metadata.LatestExpireTime, gc.Equals, &now)
 		c.Assert(info.Metadata.NextRotateTime, gc.Equals, &now)
-		c.Assert(info.BackendIds, jc.DeepEquals, map[int]string{666: "backend-id"})
+		c.Assert(info.ValueRefs, jc.DeepEquals, map[int]coresecrets.ValueRef{
+			666: {"backend-id", "rev-id"},
+		})
 	}
 }
 

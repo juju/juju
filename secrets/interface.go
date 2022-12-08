@@ -18,17 +18,17 @@ const (
 )
 
 // ContentParams represents the content of a secret,
-// which is either a secret value or an id used to
+// which is either a secret value or a reference used to
 // access the content from an external provider like vault.
 type ContentParams struct {
 	secrets.SecretValue
-	BackendId *string
+	ValueRef *secrets.ValueRef
 }
 
 // Validate returns an error if the content is invalid.
 func (p *ContentParams) Validate() error {
-	if p.BackendId == nil && p.SecretValue == nil {
-		return errors.NotValidf("secret content without value or provider id")
+	if p.ValueRef == nil && p.SecretValue == nil {
+		return errors.NotValidf("secret content without value or backend reference")
 	}
 	return nil
 }
@@ -76,19 +76,19 @@ func (p *UpdateParams) Validate() error {
 type jujuAPIClient interface {
 	// GetContentInfo returns info about the content of a secret.
 	GetContentInfo(uri *secrets.URI, label string, refresh, peek bool) (*ContentParams, error)
-	// GetSecretBackendConfig fetches the config needed to make a secret backend client.
-	GetSecretBackendConfig() (*provider.BackendConfig, error)
+	// GetSecretBackendConfig fetches the config needed to make secret backend clients.
+	GetSecretBackendConfig() (*provider.ModelBackendConfigInfo, error)
 }
 
-// Backend provides access to a secrets backend.
-type Backend interface {
+// BackendsClient provides access to a client which can access secret backends.
+type BackendsClient interface {
 	// GetContent returns the content of a secret, either from an external backend if
 	// one is configured, or from Juju.
 	GetContent(uri *secrets.URI, label string, refresh, peek bool) (secrets.SecretValue, error)
 
 	// SaveContent saves the content of a secret to an external backend returning the backend id.
-	SaveContent(uri *secrets.URI, revision int, value secrets.SecretValue) (string, error)
+	SaveContent(uri *secrets.URI, revision int, value secrets.SecretValue) (secrets.ValueRef, error)
 
 	// DeleteContent deletes a secret from an external backend.
-	DeleteContent(backendId string) error
+	DeleteContent(ref secrets.ValueRef) error
 }

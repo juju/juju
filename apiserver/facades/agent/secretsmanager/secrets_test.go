@@ -38,7 +38,7 @@ type SecretsManagerSuite struct {
 	provider              *mocks.MockSecretBackendProvider
 	leadership            *mocks.MockChecker
 	token                 *mocks.MockToken
-	secretsBackend        *mocks.MockSecretsBackend
+	secretsState          *mocks.MockSecretsState
 	secretsConsumer       *mocks.MockSecretsConsumer
 	secretsWatcher        *mocks.MockStringsWatcher
 	secretTriggers        *mocks.MockSecretTriggers
@@ -57,10 +57,6 @@ func (s *SecretsManagerSuite) SetUpTest(c *gc.C) {
 	s.authTag = names.NewUnitTag("mariadb/0")
 }
 
-type mockModel struct {
-	provider.Model
-}
-
 func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
@@ -70,31 +66,34 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 	s.provider = mocks.NewMockSecretBackendProvider(ctrl)
 	s.leadership = mocks.NewMockChecker(ctrl)
 	s.token = mocks.NewMockToken(ctrl)
-	s.secretsBackend = mocks.NewMockSecretsBackend(ctrl)
+	s.secretsState = mocks.NewMockSecretsState(ctrl)
 	s.secretsConsumer = mocks.NewMockSecretsConsumer(ctrl)
 	s.secretsWatcher = mocks.NewMockStringsWatcher(ctrl)
 	s.secretTriggers = mocks.NewMockSecretTriggers(ctrl)
 	s.secretsTriggerWatcher = mocks.NewMockSecretsTriggerWatcher(ctrl)
 	s.expectAuthUnitAgent()
 
+	s.PatchValue(&secretsmanager.GetProvider, func(string) (provider.SecretBackendProvider, error) { return s.provider, nil })
+
 	s.clock = testclock.NewClock(time.Now())
 
-	storeConfigGetter := func() (*provider.BackendConfig, error) {
-		return &provider.BackendConfig{
+	backendConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
+		return &provider.ModelBackendConfigInfo{
 			ControllerUUID: coretesting.ControllerTag.Id(),
 			ModelUUID:      coretesting.ModelTag.Id(),
 			ModelName:      "fred",
-			BackendType:    "controller",
-			Config:         map[string]interface{}{"foo": "bar"},
+			Configs: map[string]provider.BackendConfig{
+				"backend-id": {
+					BackendType: "some-backend",
+					Config:      map[string]interface{}{"foo": "bar"},
+				},
+			},
 		}, nil
-	}
-	providerGetter := func() (provider.SecretBackendProvider, provider.Model, error) {
-		return s.provider, mockModel{}, nil
 	}
 	var err error
 	s.facade, err = secretsmanager.NewTestAPI(
-		s.authorizer, s.resources, s.leadership, s.secretsBackend, s.secretsConsumer, s.secretTriggers,
-		storeConfigGetter, providerGetter, s.authTag, s.clock)
+		s.authorizer, s.resources, s.leadership, s.secretsState, s.secretsConsumer, s.secretTriggers,
+		backendConfigGetter, s.authTag, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return ctrl
@@ -130,12 +129,16 @@ func (s *SecretsManagerSuite) TestGetSecretBackendConfig(c *gc.C) {
 
 	result, err := s.facade.GetSecretBackendConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.SecretBackendConfig{
+	c.Assert(result, jc.DeepEquals, params.SecretBackendConfigResults{
 		ControllerUUID: coretesting.ControllerTag.Id(),
 		ModelUUID:      coretesting.ModelTag.Id(),
 		ModelName:      "fred",
-		BackendType:    "controller",
-		Params:         map[string]interface{}{"foo": "bar"},
+		Configs: map[string]params.SecretBackendConfig{
+			"backend-id": {
+				BackendType: "some-backend",
+				Params:      map[string]interface{}{"foo": "bar"},
+			},
+		},
 	})
 }
 
@@ -173,7 +176,7 @@ func (s *SecretsManagerSuite) TestCreateSecrets(c *gc.C) {
 	var gotURI *coresecrets.URI
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
 	s.token.EXPECT().Check().Return(nil)
-	s.secretsBackend.EXPECT().CreateSecret(gomock.Any(), p).DoAndReturn(
+	s.secretsState.EXPECT().CreateSecret(gomock.Any(), p).DoAndReturn(
 		func(uri *coresecrets.URI, p state.CreateSecretParams) (*coresecrets.SecretMetadata, error) {
 			ownerTag := names.NewApplicationTag("mariadb")
 			s.secretsConsumer.EXPECT().GrantSecretAccess(uri, state.SecretAccessParams{
@@ -239,7 +242,7 @@ func (s *SecretsManagerSuite) TestCreateSecretDuplicateLabel(c *gc.C) {
 	}
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
 	s.token.EXPECT().Check().Return(nil)
-	s.secretsBackend.EXPECT().CreateSecret(gomock.Any(), p).Return(
+	s.secretsState.EXPECT().CreateSecret(gomock.Any(), p).Return(
 		nil, fmt.Errorf("dup label %w", state.LabelExists),
 	)
 
@@ -274,12 +277,15 @@ func (s *SecretsManagerSuite) TestUpdateSecrets(c *gc.C) {
 		Data:           map[string]string{"foo": "bar"},
 	}
 	pWithBackendId := p
-	p.BackendId = ptr("backend-id")
+	p.ValueRef = &coresecrets.ValueRef{
+		BackendID:  "backend-id",
+		RevisionID: "rev-id",
+	}
 	p.Data = nil
 	uri := coresecrets.NewURI()
 	expectURI := *uri
-	s.secretsBackend.EXPECT().GetSecret(&expectURI).Return(&coresecrets.SecretMetadata{}, nil).Times(2)
-	s.secretsBackend.EXPECT().UpdateSecret(&expectURI, p).DoAndReturn(
+	s.secretsState.EXPECT().GetSecret(&expectURI).Return(&coresecrets.SecretMetadata{}, nil).Times(2)
+	s.secretsState.EXPECT().UpdateSecret(&expectURI, p).DoAndReturn(
 		func(uri *coresecrets.URI, p state.UpdateSecretParams) (*coresecrets.SecretMetadata, error) {
 			md := &coresecrets.SecretMetadata{
 				URI:            uri,
@@ -288,7 +294,7 @@ func (s *SecretsManagerSuite) TestUpdateSecrets(c *gc.C) {
 			return md, nil
 		},
 	)
-	s.secretsBackend.EXPECT().UpdateSecret(&expectURI, pWithBackendId).DoAndReturn(
+	s.secretsState.EXPECT().UpdateSecret(&expectURI, pWithBackendId).DoAndReturn(
 		func(uri *coresecrets.URI, p state.UpdateSecretParams) (*coresecrets.SecretMetadata, error) {
 			md := &coresecrets.SecretMetadata{
 				URI:            uri,
@@ -320,7 +326,10 @@ func (s *SecretsManagerSuite) TestUpdateSecrets(c *gc.C) {
 				Description:  ptr("my secret"),
 				Label:        ptr("foobar"),
 				Params:       map[string]interface{}{"param": 1},
-				Content:      params.SecretContentParams{BackendId: ptr("backend-id")},
+				Content: params.SecretContentParams{ValueRef: &params.SecretValueRef{
+					BackendID:  "backend-id",
+					RevisionID: "rev-id",
+				}},
 			},
 		}, {
 			URI: uri.String(),
@@ -343,8 +352,8 @@ func (s *SecretsManagerSuite) TestUpdateSecretDuplicateLabel(c *gc.C) {
 	}
 	uri := coresecrets.NewURI()
 	expectURI := *uri
-	s.secretsBackend.EXPECT().GetSecret(&expectURI).Return(&coresecrets.SecretMetadata{}, nil)
-	s.secretsBackend.EXPECT().UpdateSecret(&expectURI, p).Return(
+	s.secretsState.EXPECT().GetSecret(&expectURI).Return(&coresecrets.SecretMetadata{}, nil)
+	s.secretsState.EXPECT().UpdateSecret(&expectURI, p).Return(
 		nil, fmt.Errorf("dup label %w", state.LabelExists),
 	)
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
@@ -372,13 +381,25 @@ func (s *SecretsManagerSuite) TestRemoveSecrets(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	expectURI := *uri
-	s.secretsBackend.EXPECT().DeleteSecret(&expectURI, []int{666}).Return(true, nil)
+	s.secretsState.EXPECT().DeleteSecret(&expectURI, []int{666}).Return([]coresecrets.ValueRef{{
+		BackendID:  "backend-id",
+		RevisionID: "rev-666",
+	}}, nil)
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
 	s.token.EXPECT().Check().Return(nil)
 	s.expectSecretAccessQuery(2)
+	cfg := &provider.ModelBackendConfig{
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      coretesting.ModelTag.Id(),
+		ModelName:      "fred",
+		BackendConfig: provider.BackendConfig{
+			BackendType: "some-backend",
+			Config:      map[string]interface{}{"foo": "bar"},
+		},
+	}
 	s.provider.EXPECT().CleanupSecrets(
-		mockModel{}, names.NewUnitTag("mariadb/0"),
-		provider.SecretRevisions{uri.ID: set.NewInts(666)},
+		cfg, names.NewUnitTag("mariadb/0"),
+		provider.SecretRevisions{uri.ID: set.NewStrings("rev-666")},
 	).Return(nil)
 
 	results, err := s.facade.RemoveSecrets(params.DeleteSecretArgs{
@@ -398,7 +419,7 @@ func (s *SecretsManagerSuite) TestRemoveSecretRevision(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	expectURI := *uri
-	s.secretsBackend.EXPECT().DeleteSecret(&expectURI, []int{666}).Return(false, nil)
+	s.secretsState.EXPECT().DeleteSecret(&expectURI, []int{666}).Return(nil, nil)
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
 	s.token.EXPECT().Check().Return(nil)
 	s.expectSecretAccessQuery(2)
@@ -447,7 +468,7 @@ func (s *SecretsManagerSuite) TestGetSecretMetadata(c *gc.C) {
 
 	now := time.Now()
 	uri := coresecrets.NewURI()
-	s.secretsBackend.EXPECT().ListSecrets(
+	s.secretsState.EXPECT().ListSecrets(
 		state.SecretsFilter{
 			OwnerTags: []names.Tag{names.NewUnitTag("mariadb/0"), names.NewApplicationTag("mariadb")},
 		}).Return([]*coresecrets.SecretMetadata{{
@@ -460,9 +481,12 @@ func (s *SecretsManagerSuite) TestGetSecretMetadata(c *gc.C) {
 		LatestExpireTime: &now,
 		NextRotateTime:   &now,
 	}}, nil)
-	s.secretsBackend.EXPECT().ListSecretRevisions(uri).Return([]*coresecrets.SecretRevisionMetadata{{
-		Revision:  666,
-		BackendId: ptr("backend-id"),
+	s.secretsState.EXPECT().ListSecretRevisions(uri).Return([]*coresecrets.SecretRevisionMetadata{{
+		Revision: 666,
+		ValueRef: &coresecrets.ValueRef{
+			BackendID:  "backend-id",
+			RevisionID: "rev-id",
+		},
 	}, {
 		Revision: 667,
 	}}, nil)
@@ -480,8 +504,11 @@ func (s *SecretsManagerSuite) TestGetSecretMetadata(c *gc.C) {
 			LatestExpireTime: &now,
 			NextRotateTime:   &now,
 			Revisions: []params.SecretRevision{{
-				Revision:  666,
-				BackendId: ptr("backend-id"),
+				Revision: 666,
+				ValueRef: &params.SecretValueRef{
+					BackendID:  "backend-id",
+					RevisionID: "rev-id",
+				},
 			}, {
 				Revision: 667,
 			}},
@@ -506,14 +533,14 @@ func (s *SecretsManagerSuite) TestGetSecretContentOwnerArgURI(c *gc.C) {
 	val := coresecrets.NewSecretValue(data)
 	uri := coresecrets.NewURI()
 	s.expectSecretAccessQuery(1)
-	s.secretsBackend.EXPECT().GetSecret(uri).Return(
+	s.secretsState.EXPECT().GetSecret(uri).Return(
 		&coresecrets.SecretMetadata{
 			URI:            uri,
 			LatestRevision: 668,
 			OwnerTag:       "unit-mariadb-0",
 		}, nil,
 	)
-	s.secretsBackend.EXPECT().GetSecretValue(uri, 668).Return(
+	s.secretsState.EXPECT().GetSecretValue(uri, 668).Return(
 		val, nil, nil,
 	)
 
@@ -539,7 +566,7 @@ func (s *SecretsManagerSuite) assertGetSecretContentConsumer(c *gc.C, notOwner b
 	s.expectSecretAccessQuery(1)
 
 	if notOwner {
-		s.secretsBackend.EXPECT().GetSecret(uri).Return(
+		s.secretsState.EXPECT().GetSecret(uri).Return(
 			&coresecrets.SecretMetadata{
 				URI:            uri,
 				LatestRevision: 668,
@@ -547,12 +574,12 @@ func (s *SecretsManagerSuite) assertGetSecretContentConsumer(c *gc.C, notOwner b
 			}, nil,
 		)
 	} else {
-		s.secretsBackend.EXPECT().GetSecret(uri).Return(nil, errors.NotFoundf("secret"))
+		s.secretsState.EXPECT().GetSecret(uri).Return(nil, errors.NotFoundf("secret"))
 	}
 
 	s.secretsConsumer.EXPECT().GetSecretConsumer(uri, names.NewUnitTag("mariadb/0")).
 		Return(&coresecrets.SecretConsumerMetadata{CurrentRevision: 666}, nil)
-	s.secretsBackend.EXPECT().GetSecretValue(uri, 666).Return(
+	s.secretsState.EXPECT().GetSecretValue(uri, 666).Return(
 		val, nil, nil,
 	)
 
@@ -588,7 +615,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentConsumerLabelOnly(c *gc.C) {
 	s.secretsConsumer.EXPECT().GetURIByConsumerLabel("label", names.NewUnitTag("mariadb/0")).Return(uri, nil)
 	s.secretsConsumer.EXPECT().GetSecretConsumer(uri, names.NewUnitTag("mariadb/0")).
 		Return(&coresecrets.SecretConsumerMetadata{CurrentRevision: 666}, nil)
-	s.secretsBackend.EXPECT().GetSecretValue(uri, 666).Return(
+	s.secretsState.EXPECT().GetSecretValue(uri, 666).Return(
 		val, nil, nil,
 	)
 
@@ -615,7 +642,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentConsumerFirstTime(c *gc.C) {
 
 	s.secretsConsumer.EXPECT().GetSecretConsumer(uri, names.NewUnitTag("mariadb/0")).
 		Return(nil, errors.NotFoundf("secret"))
-	s.secretsBackend.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{LatestRevision: 668}, nil)
+	s.secretsState.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{LatestRevision: 668}, nil)
 	s.secretsConsumer.EXPECT().SaveSecretConsumer(
 		uri, names.NewUnitTag("mariadb/0"), &coresecrets.SecretConsumerMetadata{
 			Label:           "label",
@@ -623,7 +650,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentConsumerFirstTime(c *gc.C) {
 			LatestRevision:  668,
 		}).Return(nil)
 
-	s.secretsBackend.EXPECT().GetSecretValue(uri, 668).Return(
+	s.secretsState.EXPECT().GetSecretValue(uri, 668).Return(
 		val, nil, nil,
 	)
 
@@ -662,7 +689,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentConsumerUpdateLabel(c *gc.C) {
 			LatestRevision:  668,
 		}).Return(nil)
 
-	s.secretsBackend.EXPECT().GetSecretValue(uri, 668).Return(
+	s.secretsState.EXPECT().GetSecretValue(uri, 668).Return(
 		val, nil, nil,
 	)
 
@@ -704,7 +731,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentConsumerUpdateArg(c *gc.C) {
 	s.secretsConsumer.EXPECT().GetSecretConsumer(uri, names.NewUnitTag("mariadb/0")).Return(
 		&coresecrets.SecretConsumerMetadata{CurrentRevision: 666, LatestRevision: 666}, nil,
 	)
-	s.secretsBackend.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{LatestRevision: 668}, nil)
+	s.secretsState.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{LatestRevision: 668}, nil)
 	s.secretsConsumer.EXPECT().SaveSecretConsumer(
 		uri, names.NewUnitTag("mariadb/0"), &coresecrets.SecretConsumerMetadata{
 			Label:           "label",
@@ -712,7 +739,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentConsumerUpdateArg(c *gc.C) {
 			LatestRevision:  666,
 		}).Return(nil)
 
-	s.secretsBackend.EXPECT().GetSecretValue(uri, 668).Return(
+	s.secretsState.EXPECT().GetSecretValue(uri, 668).Return(
 		val, nil, nil,
 	)
 
@@ -737,12 +764,12 @@ func (s *SecretsManagerSuite) TestGetSecretContentConsumerPeekArg(c *gc.C) {
 	uri := coresecrets.NewURI()
 	s.expectSecretAccessQuery(1)
 
-	s.secretsBackend.EXPECT().GetSecret(uri).Return(nil, errors.NotFoundf("secret"))
+	s.secretsState.EXPECT().GetSecret(uri).Return(nil, errors.NotFoundf("secret"))
 	s.secretsConsumer.EXPECT().GetSecretConsumer(uri, names.NewUnitTag("mariadb/0")).Return(
 		&coresecrets.SecretConsumerMetadata{CurrentRevision: 666, LatestRevision: 666}, nil,
 	)
-	s.secretsBackend.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{LatestRevision: 668}, nil)
-	s.secretsBackend.EXPECT().GetSecretValue(uri, 668).Return(
+	s.secretsState.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{LatestRevision: 668}, nil)
+	s.secretsState.EXPECT().GetSecretValue(uri, 668).Return(
 		val, nil, nil,
 	)
 
@@ -795,7 +822,7 @@ func (s *SecretsManagerSuite) TestWatchObsolete(c *gc.C) {
 
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
 	s.token.EXPECT().Check().Return(nil)
-	s.secretsBackend.EXPECT().WatchObsolete(
+	s.secretsState.EXPECT().WatchObsolete(
 		[]names.Tag{names.NewUnitTag("mariadb/0"), names.NewApplicationTag("mariadb")}).Return(
 		s.secretsWatcher, nil,
 	)
@@ -863,7 +890,7 @@ func (s *SecretsManagerSuite) TestSecretsRotated(c *gc.C) {
 	uri := coresecrets.NewURI()
 	nextRotateTime := s.clock.Now().Add(time.Hour)
 	s.secretTriggers.EXPECT().SecretRotated(uri, nextRotateTime).Return(errors.New("boom"))
-	s.secretsBackend.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{
+	s.secretsState.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{
 		OwnerTag:       "application-mariadb",
 		RotatePolicy:   coresecrets.RotateHourly,
 		LatestRevision: 667,
@@ -896,7 +923,7 @@ func (s *SecretsManagerSuite) TestSecretsRotatedRetry(c *gc.C) {
 	uri := coresecrets.NewURI()
 	nextRotateTime := s.clock.Now().Add(coresecrets.RotateRetryDelay)
 	s.secretTriggers.EXPECT().SecretRotated(uri, nextRotateTime).Return(errors.New("boom"))
-	s.secretsBackend.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{
+	s.secretsState.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{
 		OwnerTag:       "application-mariadb",
 		RotatePolicy:   coresecrets.RotateHourly,
 		LatestRevision: 666,
@@ -924,7 +951,7 @@ func (s *SecretsManagerSuite) TestSecretsRotatedForce(c *gc.C) {
 	uri := coresecrets.NewURI()
 	nextRotateTime := s.clock.Now().Add(coresecrets.RotateRetryDelay)
 	s.secretTriggers.EXPECT().SecretRotated(uri, nextRotateTime).Return(errors.New("boom"))
-	s.secretsBackend.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{
+	s.secretsState.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{
 		OwnerTag:         "application-mariadb",
 		RotatePolicy:     coresecrets.RotateHourly,
 		LatestExpireTime: ptr(s.clock.Now().Add(50 * time.Minute)),
@@ -951,7 +978,7 @@ func (s *SecretsManagerSuite) TestSecretsRotatedThenNever(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
-	s.secretsBackend.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{
+	s.secretsState.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{
 		OwnerTag:       "application-mariadb",
 		RotatePolicy:   coresecrets.RotateNever,
 		LatestRevision: 667,
@@ -1015,7 +1042,7 @@ func (s *SecretsManagerSuite) TestSecretsGrant(c *gc.C) {
 	uri := coresecrets.NewURI()
 	subjectTag := names.NewUnitTag("wordpress/0")
 	scopeTag := names.NewRelationTag("wordpress:db mysql:server")
-	s.secretsBackend.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{
+	s.secretsState.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{
 		OwnerTag: "application-mariadb",
 	}, nil).AnyTimes()
 	s.secretsConsumer.EXPECT().GrantSecretAccess(uri, state.SecretAccessParams{
@@ -1059,7 +1086,7 @@ func (s *SecretsManagerSuite) TestSecretsRevoke(c *gc.C) {
 	uri := coresecrets.NewURI()
 	subjectTag := names.NewUnitTag("wordpress/0")
 	scopeTag := names.NewRelationTag("wordpress:db mysql:server")
-	s.secretsBackend.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{
+	s.secretsState.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{
 		OwnerTag: "application-mariadb",
 	}, nil).AnyTimes()
 	s.secretsConsumer.EXPECT().RevokeSecretAccess(uri, state.SecretAccessParams{

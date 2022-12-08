@@ -30,19 +30,26 @@ func NewClient(caller base.APICaller) *Client {
 }
 
 // GetSecretBackendConfig fetches the config needed to make a secret backend client.
-func (c *Client) GetSecretBackendConfig() (*provider.BackendConfig, error) {
-	var result params.SecretBackendConfig
-	err := c.facade.FacadeCall("GetSecretBackendConfig", nil, &result)
+func (c *Client) GetSecretBackendConfig() (*provider.ModelBackendConfigInfo, error) {
+	var results params.SecretBackendConfigResults
+	err := c.facade.FacadeCall("GetSecretBackendConfig", nil, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &provider.BackendConfig{
-		ControllerUUID: result.ControllerUUID,
-		ModelUUID:      result.ModelUUID,
-		ModelName:      result.ModelName,
-		BackendType:    result.BackendType,
-		Config:         result.Params,
-	}, nil
+	info := &provider.ModelBackendConfigInfo{
+		ControllerUUID: results.ControllerUUID,
+		ModelUUID:      results.ModelUUID,
+		ModelName:      results.ModelName,
+		ActiveID:       results.ActiveID,
+		Configs:        make(map[string]provider.BackendConfig),
+	}
+	for id, cfg := range results.Configs {
+		info.Configs[id] = provider.BackendConfig{
+			BackendType: cfg.BackendType,
+			Config:      cfg.Params,
+		}
+	}
+	return info, nil
 }
 
 // CreateSecretURIs generates new secret URIs.
@@ -99,8 +106,14 @@ func (c *Client) GetContentInfo(uri *coresecrets.URI, label string, refresh, pee
 	if err := results.Results[0].Error; err != nil {
 		return nil, apiservererrors.RestoreError(err)
 	}
+	content := &secrets.ContentParams{}
 	result := results.Results[0].Content
-	content := &secrets.ContentParams{BackendId: result.BackendId}
+	if result.ValueRef != nil {
+		content.ValueRef = &coresecrets.ValueRef{
+			BackendID:  result.ValueRef.BackendID,
+			RevisionID: result.ValueRef.RevisionID,
+		}
+	}
 	if len(result.Data) > 0 {
 		content.SecretValue = coresecrets.NewSecretValue(result.Data)
 	}
@@ -219,16 +232,19 @@ func (c *Client) SecretMetadata(filter coresecrets.Filter) ([]coresecrets.Secret
 			LatestExpireTime: info.LatestExpireTime,
 			NextRotateTime:   info.NextRotateTime,
 		}
-		backendIds := make(map[int]string)
+		valueRefs := make(map[int]coresecrets.ValueRef)
 		for _, r := range info.Revisions {
-			if r.BackendId == nil {
+			if r.ValueRef == nil {
 				continue
 			}
-			backendIds[r.Revision] = *r.BackendId
+			valueRefs[r.Revision] = coresecrets.ValueRef{
+				BackendID:  r.ValueRef.BackendID,
+				RevisionID: r.ValueRef.RevisionID,
+			}
 		}
 		result = append(result, coresecrets.SecretOwnerMetadata{
-			Metadata:   md,
-			BackendIds: backendIds,
+			Metadata:  md,
+			ValueRefs: valueRefs,
 		})
 	}
 	return result, nil

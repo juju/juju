@@ -52,14 +52,14 @@ func (mr *MockSecretsStoreMockRecorder) CreateSecret(arg0, arg1 interface{}) *go
 }
 
 // DeleteSecret mocks base method.
-func (m *MockSecretsStore) DeleteSecret(arg0 *secrets.URI, arg1 ...int) (bool, error) {
+func (m *MockSecretsStore) DeleteSecret(arg0 *secrets.URI, arg1 ...int) ([]secrets.ValueRef, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0}
 	for _, a := range arg1 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "DeleteSecret", varargs...)
-	ret0, _ := ret[0].(bool)
+	ret0, _ := ret[0].([]secrets.ValueRef)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -102,11 +102,11 @@ func (mr *MockSecretsStoreMockRecorder) GetSecretRevision(arg0, arg1 interface{}
 }
 
 // GetSecretValue mocks base method.
-func (m *MockSecretsStore) GetSecretValue(arg0 *secrets.URI, arg1 int) (secrets.SecretValue, *string, error) {
+func (m *MockSecretsStore) GetSecretValue(arg0 *secrets.URI, arg1 int) (secrets.SecretValue, *secrets.ValueRef, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetSecretValue", arg0, arg1)
 	ret0, _ := ret[0].(secrets.SecretValue)
-	ret1, _ := ret[1].(*string)
+	ret1, _ := ret[1].(*secrets.ValueRef)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }
@@ -227,6 +227,21 @@ func (m *MockSecretBackendsStorage) GetSecretBackend(arg0 string) (*secrets.Secr
 func (mr *MockSecretBackendsStorageMockRecorder) GetSecretBackend(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretBackend", reflect.TypeOf((*MockSecretBackendsStorage)(nil).GetSecretBackend), arg0)
+}
+
+// GetSecretBackendByID mocks base method.
+func (m *MockSecretBackendsStorage) GetSecretBackendByID(arg0 string) (*secrets.SecretBackend, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSecretBackendByID", arg0)
+	ret0, _ := ret[0].(*secrets.SecretBackend)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSecretBackendByID indicates an expected call of GetSecretBackendByID.
+func (mr *MockSecretBackendsStorageMockRecorder) GetSecretBackendByID(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretBackendByID", reflect.TypeOf((*MockSecretBackendsStorage)(nil).GetSecretBackendByID), arg0)
 }
 
 // ListSecretBackends mocks base method.

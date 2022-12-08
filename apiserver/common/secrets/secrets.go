@@ -10,8 +10,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/core/secrets"
-	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/secrets/provider/juju"
 	"github.com/juju/juju/secrets/provider/kubernetes"
@@ -35,45 +34,21 @@ func getSecretBackendsState(m Model) state.SecretBackendsStorage {
 	return state.NewSecretBackends(m.State())
 }
 
-// Model defines a subset of state model methods.
-type Model interface {
-	ControllerUUID() string
-	Cloud() (cloud.Cloud, error)
-	CloudCredential() (state.Credential, bool, error)
-	Config() (*config.Config, error)
-	UUID() string
-	Name() string
-	Type() state.ModelType
-	State() *state.State
-}
-
 // BackendConfigGetter is a func used to get secret backend config.
-type BackendConfigGetter func() (*provider.BackendConfig, error)
+type BackendConfigGetter func() (*provider.ModelBackendConfigInfo, error)
 
-// ProviderInfoGetter is a func used to get a secret backend provider.
-type ProviderInfoGetter func() (provider.SecretBackendProvider, provider.Model, error)
-
-// ProviderInfoForModel returns the secret backend provider for the specified model.
-func ProviderInfoForModel(model Model) (provider.SecretBackendProvider, provider.Model, error) {
-	p, err := providerForModel(model)
-	if err != nil {
-		return nil, nil, errors.Annotate(err, "getting configured secrets provider")
-	}
-	return p, &modelAdaptor{model}, nil
-}
-
-// providerForModel returns the secret backend provider for the specified model.
+// backendsForModel returns the secret backends is use by the specified model.
 // If no backend is configured, the "internal" backend is used for machine models and
-// the k8s backend is used for k8s models.
-func providerForModel(model Model) (provider.SecretBackendProvider, error) {
+// a k8s backend with the same namespace is used for k8s models.
+func backendsForModel(model Model) (configs map[string]provider.BackendConfig, activeID string, _ error) {
 	cfg, err := model.Config()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, "", errors.Trace(err)
 	}
-	backend := cfg.SecretBackend()
+	backendName := cfg.SecretBackend()
 
 	var backendType string
-	switch backend {
+	switch backendName {
 	case provider.Auto:
 		backendType = juju.BackendType
 		if model.Type() == state.ModelTypeCAAS {
@@ -83,29 +58,84 @@ func providerForModel(model Model) (provider.SecretBackendProvider, error) {
 		backendType = juju.BackendType
 	}
 
+	configs = make(map[string]provider.BackendConfig)
 	if backendType != "" {
-		return GetProvider(backendType)
+		if backendType == juju.BackendType {
+			activeID = model.ControllerUUID()
+			configs[activeID] = juju.BuiltInConfig()
+		} else {
+			spec, err := cloudSpecForModel(model)
+			if err != nil {
+				return nil, "", errors.Trace(err)
+			}
+			k8sConfig, err := kubernetes.BuiltInConfig(spec)
+			if err != nil {
+				return nil, "", errors.Trace(err)
+			}
+			activeID = model.UUID()
+			configs[activeID] = *k8sConfig
+		}
 	}
+	// TODO(secrets) - only use those in use by model
+	// For now, we'll return all backends on the controller.
 	backendState := GetSecretBackendsState(model)
-	b, err := backendState.GetSecretBackend(backend)
+	backends, err := backendState.ListSecretBackends()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, "", errors.Trace(err)
 	}
-	return GetProvider(b.BackendType)
+	for _, b := range backends {
+		if b.Name == backendName {
+			activeID = b.ID
+		}
+		configs[b.ID] = provider.BackendConfig{
+			BackendType: b.BackendType,
+			Config:      b.Config,
+		}
+	}
+	if activeID == "" {
+		return nil, "", errors.NotFoundf("secret backend %q", backendName)
+	}
+	return configs, activeID, nil
 }
 
-// BackendConfig returns the config to create a secret backend.
+// AdminBackendConfigInfo returns admin config for secret backends used by the model.
+func AdminBackendConfigInfo(model Model) (*provider.ModelBackendConfigInfo, string, error) {
+	configs, activeID, err := backendsForModel(model)
+	if err != nil {
+		return nil, "", errors.Annotate(err, "getting configured secrets providers")
+	}
+	return &provider.ModelBackendConfigInfo{
+		ControllerUUID: model.ControllerUUID(),
+		ModelUUID:      model.UUID(),
+		ModelName:      model.Name(),
+		Configs:        configs,
+	}, activeID, nil
+}
+
+// BackendConfigInfo returns the config to create a secret backend.
 // This is called to provide config to a client like a unit agent which
 // needs to access secrets. The authTag is the agent which needs access.
 // The client is expected to be restricted to write only those secrets
 // owned by the agent, and read only those secrets shared with the agent.
-func BackendConfig(model Model, authTag names.Tag, leadershipChecker leadership.Checker) (*provider.BackendConfig, error) {
-	ma := &modelAdaptor{model}
-	p, err := providerForModel(model)
+// The result includes config for all relevant backends, including the id
+// of the current active backend.
+func BackendConfigInfo(model Model, authTag names.Tag, leadershipChecker leadership.Checker) (*provider.ModelBackendConfigInfo, error) {
+	configs, activeID, err := AdminBackendConfigInfo(model)
 	if err != nil {
-		return nil, errors.Annotate(err, "getting configured secrets provider")
+		return nil, errors.Annotate(err, "getting configured secrets providers")
 	}
-	err = p.Initialise(ma)
+	activeCfg := configs.Configs[activeID]
+	adminModelCfg := &provider.ModelBackendConfig{
+		ControllerUUID: model.ControllerUUID(),
+		ModelUUID:      model.UUID(),
+		ModelName:      model.Name(),
+		BackendConfig:  activeCfg,
+	}
+	p, err := GetProvider(activeCfg.BackendType)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	err = p.Initialise(adminModelCfg)
 	if err != nil {
 		return nil, errors.Annotate(err, "initialising secrets provider")
 	}
@@ -147,28 +177,52 @@ func BackendConfig(model Model, authTag names.Tag, leadershipChecker leadership.
 		return nil, errors.NotSupportedf("login as %q", authTag)
 	}
 
-	ownedRevisions := provider.SecretRevisions{}
-	if err := getRevisions(secretsState, ownedFilter, ownedRevisions); err != nil {
+	ownedRevisions := map[string]provider.SecretRevisions{}
+	if err := getExternalRevisions(secretsState, ownedFilter, ownedRevisions); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	readRevisions := provider.SecretRevisions{}
-	if err := getRevisions(secretsState, readFilter, readRevisions); err != nil {
+	readRevisions := map[string]provider.SecretRevisions{}
+	if err := getExternalRevisions(secretsState, readFilter, readRevisions); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	if len(readAppOwnedFilter.OwnerTags) > 0 {
-		if err := getRevisions(secretsState, readAppOwnedFilter, readRevisions); err != nil {
+		if err := getExternalRevisions(secretsState, readAppOwnedFilter, readRevisions); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
 
 	logger.Debugf("secrets for %v:\nowned: %v\nconsumed:%v", authTag.String(), ownedRevisions, readRevisions)
-	cfg, err := p.BackendConfig(ma, authTag, ownedRevisions, readRevisions)
-	return cfg, errors.Trace(err)
+	clientConfigs := make(map[string]provider.BackendConfig)
+	for id, adminCfg := range configs.Configs {
+		modelCfg := &provider.ModelBackendConfig{
+			ControllerUUID: model.ControllerUUID(),
+			ModelUUID:      model.UUID(),
+			ModelName:      model.Name(),
+			BackendConfig:  adminCfg,
+		}
+		p, err := GetProvider(adminCfg.BackendType)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		cfg, err := p.RestrictedConfig(modelCfg, authTag, ownedRevisions[id], readRevisions[id])
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		clientConfigs[id] = *cfg
+	}
+	info := &provider.ModelBackendConfigInfo{
+		ControllerUUID: model.ControllerUUID(),
+		ModelUUID:      model.UUID(),
+		ModelName:      model.Name(),
+		ActiveID:       activeID,
+		Configs:        clientConfigs,
+	}
+	return info, nil
 }
 
-func getRevisions(backend state.SecretsStore, filter state.SecretsFilter, revisions provider.SecretRevisions) error {
+func getExternalRevisions(backend state.SecretsStore, filter state.SecretsFilter, revisions map[string]provider.SecretRevisions) error {
 	secrets, err := backend.ListSecrets(filter)
 	if err != nil {
 		return errors.Trace(err)
@@ -179,61 +233,70 @@ func getRevisions(backend state.SecretsStore, filter state.SecretsFilter, revisi
 			return errors.Annotatef(err, "cannot get revisions for secret %q", md.URI)
 		}
 		for _, rev := range revs {
-			revisions.Add(md.URI, rev.Revision)
+			if rev.ValueRef == nil {
+				continue
+			}
+			revs, ok := revisions[rev.ValueRef.BackendID]
+			if !ok {
+				revs = provider.SecretRevisions{}
+			}
+			revs.Add(md.URI, rev.ValueRef.RevisionID)
+			revisions[rev.ValueRef.BackendID] = revs
 		}
 	}
 	return nil
 }
 
-// StoreForInspect returns the config to create a secret backend client able
+// BackendForInspect returns the config to create a secret backend client able
 // to read any secrets for that model.
 // This is called by the show-secret facade for admin users.
-func StoreForInspect(model Model) (provider.SecretsBackend, error) {
-	p, err := providerForModel(model)
+func BackendForInspect(model Model, backendID string) (provider.SecretsBackend, error) {
+	backendStorage := GetSecretBackendsState(model)
+	backend, err := backendStorage.GetSecretBackendByID(backendID)
 	if err != nil {
-		return nil, errors.Annotate(err, "getting configured secrets provider")
+		return nil, errors.Annotatef(err, "getting secrets backend %q", backendID)
 	}
-	ma := &modelAdaptor{model}
-
-	err = p.Initialise(ma)
+	p, err := GetProvider(backend.BackendType)
 	if err != nil {
-		return nil, errors.Annotate(err, "initialising secrets provider")
+		return nil, errors.Annotatef(err, "getting %q secrets provider for backend %q", backend.BackendType, backendID)
+	}
+	adminCfg := provider.ModelBackendConfig{
+		ControllerUUID: model.ControllerUUID(),
+		ModelUUID:      model.UUID(),
+		ModelName:      model.Name(),
+		BackendConfig: provider.BackendConfig{
+			BackendType: backend.BackendType,
+			Config:      backend.Config,
+		},
 	}
 
-	cfg, err := p.BackendConfig(ma, nil, nil, nil)
+	cfg, err := p.RestrictedConfig(&adminCfg, nil, nil, nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "creating secrets backend config")
 	}
-	return p.NewBackend(cfg)
+	return p.NewBackend(&provider.ModelBackendConfig{
+		ControllerUUID: model.ControllerUUID(),
+		ModelUUID:      model.UUID(),
+		ModelName:      model.Name(),
+		BackendConfig:  *cfg,
+	})
 }
 
-type modelAdaptor struct {
-	Model
-}
-
-// CloudCredential implements Model.
-func (m *modelAdaptor) CloudCredential() (*cloud.Credential, error) {
-	cred, ok, err := m.Model.CloudCredential()
+func cloudSpecForModel(m Model) (cloudspec.CloudSpec, error) {
+	c, err := m.Cloud()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return cloudspec.CloudSpec{}, errors.Trace(err)
 	}
-	if !ok {
-		return nil, nil
+	cred, err := m.CloudCredential()
+	if err != nil {
+		return cloudspec.CloudSpec{}, errors.Trace(err)
 	}
-	cloudCredentialValue := cloud.NewNamedCredential(cred.Name,
-		cloud.AuthType(cred.AuthType),
-		cred.Attributes,
-		cred.Revoked,
+	if cred == nil {
+		return cloudspec.CloudSpec{}, errors.NotValidf("cloud credential for %s is empty", m.UUID())
+	}
+	cloudCredential := cloud.NewCredential(
+		cloud.AuthType(cred.AuthType()),
+		cred.Attributes(),
 	)
-	return &cloudCredentialValue, nil
-}
-
-// GetSecretBackend implements Model.
-func (m *modelAdaptor) GetSecretBackend() (*secrets.SecretBackend, error) {
-	cfg, err := m.Config()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	backendStore := state.NewSecretBackends(m.State())
-	return backendStore.GetSecretBackend(cfg.SecretBackend())
+	return cloudspec.MakeCloudSpec(c, "", &cloudCredential)
 }

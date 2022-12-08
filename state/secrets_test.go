@@ -96,23 +96,29 @@ func (s *SecretsSuite) TestCreate(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
 }
 
-func (s *SecretsSuite) TestCreateBackendId(c *gc.C) {
+func (s *SecretsSuite) TestCreateBackendRef(c *gc.C) {
 	uri := secrets.NewURI()
 	p := state.CreateSecretParams{
 		Version: 1,
 		Owner:   s.owner.Tag(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
-			BackendId:   ptr("backend-id"),
+			ValueRef: &secrets.ValueRef{
+				BackendID:  "backend-id",
+				RevisionID: "rev-id",
+			},
 		},
 	}
 	_, err := s.store.CreateSecret(uri, p)
 	c.Assert(err, jc.ErrorIsNil)
-	v, backendId, err := s.store.GetSecretValue(uri, 1)
+	v, valueRef, err := s.store.GetSecretValue(uri, 1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(v.EncodedValues(), gc.HasLen, 0)
-	c.Assert(backendId, gc.NotNil)
-	c.Assert(*backendId, gc.Equals, "backend-id")
+	c.Assert(valueRef, gc.NotNil)
+	c.Assert(*valueRef, jc.DeepEquals, secrets.ValueRef{
+		BackendID:  "backend-id",
+		RevisionID: "rev-id",
+	})
 }
 
 func (s *SecretsSuite) TestCreateDuplicateLabel(c *gc.C) {
@@ -663,13 +669,13 @@ func (s *SecretsSuite) assertUpdatedSecret(c *gc.C, original *secrets.SecretMeta
 	if update.Data != nil {
 		expectedData = update.Data
 	}
-	val, backendId, err := s.store.GetSecretValue(md.URI, expectedRevision)
+	val, valueRef, err := s.store.GetSecretValue(md.URI, expectedRevision)
 	c.Assert(err, jc.ErrorIsNil)
-	if update.BackendId != nil {
-		c.Assert(backendId, gc.NotNil)
-		c.Assert(*update.BackendId, gc.Equals, *backendId)
+	if update.ValueRef != nil {
+		c.Assert(valueRef, gc.NotNil)
+		c.Assert(*update.ValueRef, jc.DeepEquals, *valueRef)
 	} else {
-		c.Assert(backendId, gc.IsNil)
+		c.Assert(valueRef, gc.IsNil)
 		c.Assert(val.EncodedValues(), jc.DeepEquals, expectedData)
 	}
 	if update.ExpireTime != nil {
@@ -784,7 +790,10 @@ func (s *SecretsSuite) TestListSecretRevisions(c *gc.C) {
 	updateTime := s.Clock.Now().Round(time.Second).UTC()
 	s.assertUpdatedSecret(c, md, 3, state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
-		BackendId:   ptr("backend-id"),
+		ValueRef: &secrets.ValueRef{
+			BackendID:  "backend-id",
+			RevisionID: "rev-id",
+		},
 	})
 	updateTime2 := s.Clock.Now().Round(time.Second).UTC()
 	r, err := s.store.ListSecretRevisions(uri)
@@ -802,8 +811,11 @@ func (s *SecretsSuite) TestListSecretRevisions(c *gc.C) {
 		CreateTime: updateTime,
 		UpdateTime: updateTime,
 	}, {
-		Revision:   3,
-		BackendId:  ptr("backend-id"),
+		Revision: 3,
+		ValueRef: &secrets.ValueRef{
+			BackendID:  "backend-id",
+			RevisionID: "rev-id",
+		},
 		CreateTime: updateTime2,
 		UpdateTime: updateTime2,
 	}})
@@ -1155,16 +1167,29 @@ func (s *SecretsSuite) TestDelete(c *gc.C) {
 		return uri
 	}
 	uri1 := create("label1")
+	up := state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		ValueRef: &secrets.ValueRef{
+			BackendID:  "backend-id",
+			RevisionID: "rev-id",
+		},
+	}
+	_, err := s.store.UpdateSecret(uri1, up)
+	c.Assert(err, jc.ErrorIsNil)
+
 	uri2 := create("label2")
 
-	removed, err := s.store.DeleteSecret(uri1)
+	external, err := s.store.DeleteSecret(uri1)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(removed, jc.IsTrue)
+	c.Assert(external, jc.DeepEquals, []secrets.ValueRef{{
+		BackendID:  "backend-id",
+		RevisionID: "rev-id",
+	}})
 	_, _, err = s.store.GetSecretValue(uri1, 1)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	removed, err = s.store.DeleteSecret(uri1)
+	external, err = s.store.DeleteSecret(uri1)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(removed, jc.IsTrue)
+	c.Assert(external, gc.HasLen, 0)
 
 	// Check that other secret info remains intact.
 	secretRevisionsCollection, closer := state.GetCollection(s.State, "secretRevisions")
@@ -1235,25 +1260,35 @@ func (s *SecretsSuite) TestDeleteRevisions(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.store.UpdateSecret(uri, state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
-		Data:        map[string]string{"foo": "bar3"},
+		ValueRef: &secrets.ValueRef{
+			BackendID:  "backend-id",
+			RevisionID: "rev-id",
+		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	removed, err := s.store.DeleteSecret(uri, 1)
+	external, err := s.store.DeleteSecret(uri, 1)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(removed, jc.IsFalse)
+	c.Assert(external, gc.HasLen, 0)
 	_, _, err = s.store.GetSecretValue(uri, 1)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	val, _, err := s.store.GetSecretValue(uri, 2)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(val.EncodedValues(), jc.DeepEquals, map[string]string{"foo": "bar2"})
-	val, _, err = s.store.GetSecretValue(uri, 3)
+	_, ref, err := s.store.GetSecretValue(uri, 3)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(val.EncodedValues(), jc.DeepEquals, map[string]string{"foo": "bar3"})
+	c.Assert(ref, gc.NotNil)
+	c.Assert(ref, jc.DeepEquals, &secrets.ValueRef{
+		BackendID:  "backend-id",
+		RevisionID: "rev-id",
+	})
 
-	removed, err = s.store.DeleteSecret(uri, 1, 2, 3)
+	external, err = s.store.DeleteSecret(uri, 1, 2, 3)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(removed, jc.IsTrue)
+	c.Assert(external, jc.DeepEquals, []secrets.ValueRef{{
+		BackendID:  "backend-id",
+		RevisionID: "rev-id",
+	}})
 	_, _, err = s.store.GetSecretValue(uri, 3)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	_, err = s.store.GetSecret(uri)

@@ -28,6 +28,7 @@ type SecretBackendsStorage interface {
 	CreateSecretBackend(params CreateSecretBackendParams) error
 	ListSecretBackends() ([]*secrets.SecretBackend, error)
 	GetSecretBackend(name string) (*secrets.SecretBackend, error)
+	GetSecretBackendByID(ID string) (*secrets.SecretBackend, error)
 }
 
 // NewSecretBackends creates a new mongo backed secrets storage.
@@ -104,6 +105,7 @@ func (s *secretBackendsStorage) CreateSecretBackend(p CreateSecretBackendParams)
 
 func (s *secretBackendsStorage) toSecretBackend(doc *secretBackendDoc) *secrets.SecretBackend {
 	return &secrets.SecretBackend{
+		ID:                  doc.DocID,
 		Name:                doc.Name,
 		BackendType:         doc.BackendType,
 		TokenRotateInterval: doc.TokenRotateInterval,
@@ -120,6 +122,22 @@ func (s *secretBackendsStorage) GetSecretBackend(name string) (*secrets.SecretBa
 	err := secretBackendsColl.Find(bson.D{{"name", name}}).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("secret backend %q", name)
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return s.toSecretBackend(&doc), nil
+}
+
+// GetSecretBackendByID gets the secret backend with the given ID.
+func (s *secretBackendsStorage) GetSecretBackendByID(ID string) (*secrets.SecretBackend, error) {
+	secretBackendsColl, closer := s.st.db().GetCollection(secretBackendsC)
+	defer closer()
+
+	var doc secretBackendDoc
+	err := secretBackendsColl.FindId(ID).One(&doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("secret backend %q", ID)
 	}
 	if err != nil {
 		return nil, errors.Trace(err)

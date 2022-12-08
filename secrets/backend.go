@@ -19,28 +19,42 @@ const PermissionDenied = errors.ConstError("permission denied")
 // If a backend is specified, the secret content is managed
 // by the backend instead of being stored in the Juju database.
 type secretsClient struct {
-	jujuAPI jujuAPIClient
-	backend provider.SecretsBackend
+	jujuAPI         jujuAPIClient
+	activeBackendID string
+	backends        map[string]provider.SecretsBackend
+}
+
+func getBackend(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
+	p, err := provider.Provider(cfg.BackendType)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return p.NewBackend(cfg)
 }
 
 // NewClient returns a new secret client configured to use the specified
 // secret backend as a content backend.
 func NewClient(jujuAPI jujuAPIClient) (*secretsClient, error) {
-	cfg, err := jujuAPI.GetSecretBackendConfig()
+	info, err := jujuAPI.GetSecretBackendConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	p, err := provider.Provider(cfg.BackendType)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	backend, err := p.NewBackend(cfg)
-	if err != nil {
-		return nil, errors.Trace(err)
+	backends := make(map[string]provider.SecretsBackend)
+	for id, cfg := range info.Configs {
+		backends[id], err = getBackend(&provider.ModelBackendConfig{
+			ControllerUUID: info.ControllerUUID,
+			ModelUUID:      info.ModelUUID,
+			ModelName:      info.ModelName,
+			BackendConfig:  cfg,
+		})
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 	return &secretsClient{
-		jujuAPI: jujuAPI,
-		backend: backend,
+		jujuAPI:         jujuAPI,
+		activeBackendID: info.ActiveID,
+		backends:        backends,
 	}, nil
 }
 
@@ -53,29 +67,37 @@ func (c *secretsClient) GetContent(uri *secrets.URI, label string, refresh, peek
 	if err = content.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	// We just support the juju backend for now.
-	// In the future, we'll use the backend to lookup the secret content based on id.
-	if content.BackendId != nil && c.backend == nil {
-		return nil, errors.NotSupportedf("secret content from external backend")
+	if content.ValueRef == nil {
+		return content.SecretValue, nil
 	}
-	if content.BackendId != nil {
-		return c.backend.GetContent(context.Background(), *content.BackendId)
+	backend, ok := c.backends[content.ValueRef.BackendID]
+	if !ok {
+		return nil, errors.NotFoundf("external secret backend %q", content.ValueRef.BackendID)
 	}
-	return content.SecretValue, nil
+	return backend.GetContent(context.TODO(), content.ValueRef.RevisionID)
 }
 
 // SaveContent implements Client.
-func (c *secretsClient) SaveContent(uri *secrets.URI, revision int, value secrets.SecretValue) (string, error) {
-	if c.backend == nil {
-		return "", errors.NotSupportedf("saving secret content to external backend")
+func (c *secretsClient) SaveContent(uri *secrets.URI, revision int, value secrets.SecretValue) (secrets.ValueRef, error) {
+	activeBackend := c.backends[c.activeBackendID]
+	if activeBackend == nil {
+		return secrets.ValueRef{}, errors.NotSupportedf("saving secret content to external backend")
 	}
-	return c.backend.SaveContent(context.Background(), uri, revision, value)
+	revId, err := activeBackend.SaveContent(context.TODO(), uri, revision, value)
+	if err != nil {
+		return secrets.ValueRef{}, errors.Trace(err)
+	}
+	return secrets.ValueRef{
+		BackendID:  c.activeBackendID,
+		RevisionID: revId,
+	}, nil
 }
 
 // DeleteContent implements Client.
-func (c *secretsClient) DeleteContent(backendId string) error {
-	if c.backend == nil {
-		return errors.NotSupportedf("deleting secret content from external backend")
+func (c *secretsClient) DeleteContent(ref secrets.ValueRef) error {
+	backend, ok := c.backends[ref.BackendID]
+	if !ok {
+		return errors.NotFoundf("external secret backend %q", ref.BackendID)
 	}
-	return c.backend.DeleteContent(context.Background(), backendId)
+	return backend.DeleteContent(context.TODO(), ref.RevisionID)
 }

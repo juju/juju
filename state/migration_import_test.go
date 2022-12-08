@@ -11,7 +11,6 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v9"
-	"github.com/juju/description/v4"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -21,6 +20,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/yaml.v2"
+
+	"github.com/juju/description/v4"
 
 	corearch "github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
@@ -2875,7 +2876,10 @@ func (s *MigrationImportSuite) TestSecrets(c *gc.C) {
 	updateTime := time.Now().UTC().Round(time.Second)
 	md, err = store.UpdateSecret(md.URI, state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
-		BackendId:   ptr("backend-id"),
+		ValueRef: &secrets.ValueRef{
+			BackendID:  "backend-id",
+			RevisionID: "rev-id",
+		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.GrantSecretAccess(uri, state.SecretAccessParams{
@@ -2912,13 +2916,16 @@ func (s *MigrationImportSuite) TestSecrets(c *gc.C) {
 	mc.AddExpr(`_.UpdateTime`, jc.Almost, jc.ExpectedValue)
 	c.Assert(revs, mc, []*secrets.SecretRevisionMetadata{{
 		Revision:   1,
-		BackendId:  nil,
+		ValueRef:   nil,
 		CreateTime: createTime,
 		UpdateTime: updateTime,
 		ExpireTime: &expire,
 	}, {
-		Revision:   2,
-		BackendId:  ptr("backend-id"),
+		Revision: 2,
+		ValueRef: &secrets.ValueRef{
+			BackendID:  "backend-id",
+			RevisionID: "rev-id",
+		},
 		CreateTime: createTime,
 		UpdateTime: createTime,
 	}})

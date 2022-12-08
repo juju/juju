@@ -58,7 +58,7 @@ func (s *SecretsSuite) TestListSecretsReveal(c *gc.C) {
 	s.assertListSecrets(c, true, false)
 }
 
-func (s *SecretsSuite) TestListSecretsRevealFromStore(c *gc.C) {
+func (s *SecretsSuite) TestListSecretsRevealFromBackend(c *gc.C) {
 	s.assertListSecrets(c, true, true)
 }
 
@@ -66,7 +66,7 @@ func ptr[T any](v T) *T {
 	return &v
 }
 
-func (s *SecretsSuite) assertListSecrets(c *gc.C, reveal, withStore bool) {
+func (s *SecretsSuite) assertListSecrets(c *gc.C, reveal, withBackend bool) {
 	defer s.setup(c).Finish()
 
 	s.expectAuthClient()
@@ -78,7 +78,8 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, reveal, withStore bool) {
 			true, nil)
 	}
 
-	facade, err := apisecrets.NewTestAPI(s.secretsState, func() (provider.SecretsBackend, error) {
+	facade, err := apisecrets.NewTestAPI(s.secretsState, func(backendId string) (provider.SecretsBackend, error) {
+		c.Assert(backendId, gc.Equals, "backend-id")
 		return s.secretsBackend, nil
 	}, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
@@ -121,11 +122,14 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, reveal, withStore bool) {
 		valueResult = &params.SecretValueResult{
 			Data: map[string]string{"foo": "bar"},
 		}
-		if withStore {
+		if withBackend {
 			s.secretsState.EXPECT().GetSecretValue(uri, 2).Return(
-				nil, ptr("provider-id"), nil,
+				nil, &coresecrets.ValueRef{
+					BackendID:  "backend-id",
+					RevisionID: "rev-id",
+				}, nil,
 			)
-			s.secretsBackend.EXPECT().GetContent(gomock.Any(), "provider-id").Return(
+			s.secretsBackend.EXPECT().GetContent(gomock.Any(), "rev-id").Return(
 				coresecrets.NewSecretValue(valueResult.Data), nil,
 			)
 		} else {

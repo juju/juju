@@ -9,21 +9,29 @@ import (
 	"github.com/juju/juju/core/secrets"
 )
 
+// SecretBackendConfigResults holds config info for creating
+// secret backend clients for a specific model.
+type SecretBackendConfigResults struct {
+	ControllerUUID string                         `json:"model-controller"`
+	ModelUUID      string                         `json:"model-uuid"`
+	ModelName      string                         `json:"model-name"`
+	ActiveID       string                         `json:"active-id"`
+	Configs        map[string]SecretBackendConfig `json:"configs,omitempty"`
+}
+
 // SecretBackendConfig holds config for creating a secret backend client.
 type SecretBackendConfig struct {
-	ControllerUUID string                 `json:"model-controller"`
-	ModelUUID      string                 `json:"model-uuid"`
-	ModelName      string                 `json:"model-name"`
-	BackendType    string                 `json:"type"`
-	Params         map[string]interface{} `json:"params,omitempty"`
+	BackendType string                 `json:"type"`
+	Params      map[string]interface{} `json:"params,omitempty"`
 }
 
 // SecretContentParams holds params for representing the content of a secret.
 type SecretContentParams struct {
 	// Data is the key values of the secret value itself.
 	Data map[string]string `json:"data,omitempty"`
-	// BackendId is the content id for when a secret store like vault is used.
-	BackendId *string `json:"backend-id,omitempty"`
+	// ValueRef is the content reference for when a secret
+	// backend like vault is used.
+	ValueRef *SecretValueRef `json:"value-ref,omitempty"`
 }
 
 // UpsertSecretArg holds the args for creating or updating a secret.
@@ -155,12 +163,20 @@ type ListSecretResults struct {
 	Results []ListSecretResult `json:"results"`
 }
 
+// SecretValueRef holds a reference to a secret
+// value in a secret backend.
+type SecretValueRef struct {
+	BackendID  string `json:"backend-id"`
+	RevisionID string `json:"revision-id"`
+}
+
+// SecretRevision holds secret revision metadata.
 type SecretRevision struct {
-	Revision   int        `json:"revision"`
-	BackendId  *string    `json:"backend-id,omitempty"`
-	CreateTime time.Time  `json:"create-time,omitempty"`
-	UpdateTime time.Time  `json:"update-time,omitempty"`
-	ExpireTime *time.Time `json:"expire-time,omitempty"`
+	Revision   int             `json:"revision"`
+	ValueRef   *SecretValueRef `json:"value-ref,omitempty"`
+	CreateTime time.Time       `json:"create-time,omitempty"`
+	UpdateTime time.Time       `json:"update-time,omitempty"`
+	ExpireTime *time.Time      `json:"expire-time,omitempty"`
 }
 
 // ListSecretResult is the result of getting secret metadata.

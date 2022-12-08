@@ -25,10 +25,15 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.secretsmanager")
 
+// For testing.
+var (
+	GetProvider = secretsprovider.Provider
+)
+
 // SecretsManagerAPI is the implementation for the SecretsManager facade.
 type SecretsManagerAPI struct {
 	leadershipChecker leadership.Checker
-	secretsBackend    SecretsBackend
+	secretsState      SecretsState
 	resources         facade.Resources
 	secretsTriggers   SecretTriggers
 	secretsConsumer   SecretsConsumer
@@ -36,27 +41,36 @@ type SecretsManagerAPI struct {
 	clock             clock.Clock
 
 	backendConfigGetter commonsecrets.BackendConfigGetter
-	providerGetter      commonsecrets.ProviderInfoGetter
 }
 
 // GetSecretStoreConfig is for 3.0.x agents.
 // TODO(wallyworld) - remove when we auto upgrade migrated models.
 func (s *SecretsManagerAPI) GetSecretStoreConfig() (params.SecretBackendConfig, error) {
-	return s.GetSecretBackendConfig()
-}
-
-// GetSecretBackendConfig gets the config needed to create a client to the model's secret backend.
-func (s *SecretsManagerAPI) GetSecretBackendConfig() (params.SecretBackendConfig, error) {
-	cfg, err := s.backendConfigGetter()
+	cfgInfo, err := s.GetSecretBackendConfig()
 	if err != nil {
 		return params.SecretBackendConfig{}, errors.Trace(err)
 	}
-	result := params.SecretBackendConfig{
-		ControllerUUID: cfg.ControllerUUID,
-		ModelUUID:      cfg.ModelUUID,
-		ModelName:      cfg.ModelName,
-		BackendType:    cfg.BackendType,
-		Params:         cfg.Config,
+	return cfgInfo.Configs[cfgInfo.ActiveID], nil
+}
+
+// GetSecretBackendConfig gets the config needed to create a client to secret backends.
+func (s *SecretsManagerAPI) GetSecretBackendConfig() (params.SecretBackendConfigResults, error) {
+	cfgInfo, err := s.backendConfigGetter()
+	if err != nil {
+		return params.SecretBackendConfigResults{}, errors.Trace(err)
+	}
+	result := params.SecretBackendConfigResults{
+		ControllerUUID: cfgInfo.ControllerUUID,
+		ModelUUID:      cfgInfo.ModelUUID,
+		ModelName:      cfgInfo.ModelName,
+		ActiveID:       cfgInfo.ActiveID,
+		Configs:        make(map[string]params.SecretBackendConfig),
+	}
+	for id, cfg := range cfgInfo.Configs {
+		result.Configs[id] = params.SecretBackendConfig{
+			BackendType: cfg.BackendType,
+			Params:      cfg.Config,
+		}
 	}
 	return result, nil
 }
@@ -92,7 +106,7 @@ func (s *SecretsManagerAPI) CreateSecrets(args params.CreateSecretArgs) (params.
 }
 
 func (s *SecretsManagerAPI) createSecret(arg params.CreateSecretArg) (string, error) {
-	if len(arg.Content.Data) == 0 && arg.Content.BackendId == nil {
+	if len(arg.Content.Data) == 0 && arg.Content.ValueRef == nil {
 		return "", errors.NotValidf("empty secret value")
 	}
 	// A unit can only create secrets owned by its app.
@@ -117,7 +131,7 @@ func (s *SecretsManagerAPI) createSecret(arg params.CreateSecretArg) (string, er
 	if arg.RotatePolicy.WillRotate() {
 		nextRotateTime = arg.RotatePolicy.NextRotateTime(s.clock.Now())
 	}
-	md, err := s.secretsBackend.CreateSecret(uri, state.CreateSecretParams{
+	md, err := s.secretsState.CreateSecret(uri, state.CreateSecretParams{
 		Version:            secrets.Version,
 		Owner:              secretOwner,
 		UpdateSecretParams: fromUpsertParams(arg.UpsertSecretArg, token, nextRotateTime),
@@ -132,7 +146,7 @@ func (s *SecretsManagerAPI) createSecret(arg params.CreateSecretArg) (string, er
 		Role:        coresecrets.RoleManage,
 	})
 	if err != nil {
-		if _, err2 := s.secretsBackend.DeleteSecret(uri); err2 != nil {
+		if _, err2 := s.secretsState.DeleteSecret(uri); err2 != nil {
 			logger.Warningf("cleaning up secret %q", uri)
 		}
 		return "", errors.Annotate(err, "granting secret owner permission to manage the secret")
@@ -141,6 +155,13 @@ func (s *SecretsManagerAPI) createSecret(arg params.CreateSecretArg) (string, er
 }
 
 func fromUpsertParams(p params.UpsertSecretArg, token leadership.Token, nextRotateTime *time.Time) state.UpdateSecretParams {
+	var valueRef *coresecrets.ValueRef
+	if p.Content.ValueRef != nil {
+		valueRef = &coresecrets.ValueRef{
+			BackendID:  p.Content.ValueRef.BackendID,
+			RevisionID: p.Content.ValueRef.RevisionID,
+		}
+	}
 	return state.UpdateSecretParams{
 		LeaderToken:    token,
 		RotatePolicy:   p.RotatePolicy,
@@ -150,7 +171,7 @@ func fromUpsertParams(p params.UpsertSecretArg, token leadership.Token, nextRota
 		Label:          p.Label,
 		Params:         p.Params,
 		Data:           p.Content.Data,
-		BackendId:      p.Content.BackendId,
+		ValueRef:       valueRef,
 	}
 }
 
@@ -175,14 +196,14 @@ func (s *SecretsManagerAPI) updateSecret(arg params.UpdateSecretArg) error {
 		return errors.Trace(err)
 	}
 	if arg.RotatePolicy == nil && arg.Description == nil && arg.ExpireTime == nil &&
-		arg.Label == nil && len(arg.Params) == 0 && len(arg.Content.Data) == 0 && arg.Content.BackendId == nil {
+		arg.Label == nil && len(arg.Params) == 0 && len(arg.Content.Data) == 0 && arg.Content.ValueRef == nil {
 		return errors.New("at least one attribute to update must be specified")
 	}
 	token, err := s.canManage(uri)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	md, err := s.secretsBackend.GetSecret(uri)
+	md, err := s.secretsState.GetSecret(uri)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -190,7 +211,7 @@ func (s *SecretsManagerAPI) updateSecret(arg params.UpdateSecretArg) error {
 	if !md.RotatePolicy.WillRotate() && arg.RotatePolicy.WillRotate() {
 		nextRotateTime = arg.RotatePolicy.NextRotateTime(s.clock.Now())
 	}
-	_, err = s.secretsBackend.UpdateSecret(uri, fromUpsertParams(arg.UpsertSecretArg, token, nextRotateTime))
+	_, err = s.secretsState.UpdateSecret(uri, fromUpsertParams(arg.UpsertSecretArg, token, nextRotateTime))
 	return errors.Trace(err)
 }
 
@@ -211,36 +232,56 @@ func (s *SecretsManagerAPI) RemoveSecrets(args params.DeleteSecretArgs) (params.
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
-	removedRevisions := secretsprovider.SecretRevisions{}
+	externalRevisions := make(map[string]secretsprovider.SecretRevisions)
 	for i, d := range toDelete {
-		removed, err := s.removeSecret(d.uri, d.revisions...)
+		external, err := s.removeSecret(d.uri, d.revisions...)
 		result.Results[i].Error = apiservererrors.ServerError(err)
-		if err == nil && removed {
-			removedRevisions.Add(d.uri, d.revisions...)
+		if err == nil {
+			for _, rev := range external {
+				if _, ok := externalRevisions[rev.BackendID]; !ok {
+					externalRevisions[rev.BackendID] = secretsprovider.SecretRevisions{}
+				}
+				externalRevisions[rev.BackendID].Add(d.uri, rev.RevisionID)
+			}
 		}
 	}
-	if len(removedRevisions) == 0 {
+	if len(externalRevisions) == 0 {
 		return result, nil
 	}
 
-	provider, model, err := s.providerGetter()
+	cfgInfo, err := s.backendConfigGetter()
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
-	// TODO: include unitTag in params.DeleteSecretArgs for operator uniters?
-	// This should be resolved once lp:1991213 and lp:1991854 are fixed.
-	if err := provider.CleanupSecrets(model, s.authTag, removedRevisions); err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
+	for backendID, r := range externalRevisions {
+		// TODO: include unitTag in params.DeleteSecretArgs for operator uniters?
+		// This should be resolved once lp:1991213 and lp:1991854 are fixed.
+		backendCfg, ok := cfgInfo.Configs[backendID]
+		if !ok {
+			return params.ErrorResults{}, errors.NotFoundf("secret backend %q", backendID)
+		}
+		provider, err := GetProvider(backendCfg.BackendType)
+		if err != nil {
+			return params.ErrorResults{}, errors.Trace(err)
+		}
+		if err := provider.CleanupSecrets(&secretsprovider.ModelBackendConfig{
+			ControllerUUID: cfgInfo.ControllerUUID,
+			ModelUUID:      cfgInfo.ModelUUID,
+			ModelName:      cfgInfo.ModelName,
+			BackendConfig:  backendCfg,
+		}, s.authTag, r); err != nil {
+			return params.ErrorResults{}, errors.Trace(err)
+		}
 	}
 	return result, nil
 }
 
-func (s *SecretsManagerAPI) removeSecret(uri *coresecrets.URI, revisions ...int) (bool, error) {
+func (s *SecretsManagerAPI) removeSecret(uri *coresecrets.URI, revisions ...int) ([]coresecrets.ValueRef, error) {
 	_, err := s.canManage(uri)
 	if err != nil {
-		return false, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	return s.secretsBackend.DeleteSecret(uri, revisions...)
+	return s.secretsState.DeleteSecret(uri, revisions...)
 }
 
 // GetConsumerSecretsRevisionInfo returns the latest secret revisions for the specified secrets.
@@ -296,7 +337,7 @@ func (s *SecretsManagerAPI) GetSecretMetadata() (params.ListSecretResults, error
 		}
 	}
 
-	secrets, err := s.secretsBackend.ListSecrets(filter)
+	secrets, err := s.secretsState.ListSecrets(filter)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -315,14 +356,21 @@ func (s *SecretsManagerAPI) GetSecretMetadata() (params.ListSecretResults, error
 			CreateTime:       md.CreateTime,
 			UpdateTime:       md.UpdateTime,
 		}
-		revs, err := s.secretsBackend.ListSecretRevisions(md.URI)
+		revs, err := s.secretsState.ListSecretRevisions(md.URI)
 		if err != nil {
 			return params.ListSecretResults{}, errors.Trace(err)
 		}
 		for _, r := range revs {
+			var valueRef *params.SecretValueRef
+			if r.ValueRef != nil {
+				valueRef = &params.SecretValueRef{
+					BackendID:  r.ValueRef.BackendID,
+					RevisionID: r.ValueRef.RevisionID,
+				}
+			}
 			result.Results[i].Revisions = append(result.Results[i].Revisions, params.SecretRevision{
-				Revision:  r.Revision,
-				BackendId: r.BackendId,
+				Revision: r.Revision,
+				ValueRef: valueRef,
 			})
 		}
 	}
@@ -340,8 +388,12 @@ func (s *SecretsManagerAPI) GetSecretContentInfo(args params.GetSecretContentArg
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		contentParams := params.SecretContentParams{
-			BackendId: content.BackendId,
+		contentParams := params.SecretContentParams{}
+		if content.ValueRef != nil {
+			contentParams.ValueRef = &params.SecretValueRef{
+				BackendID:  content.ValueRef.BackendID,
+				RevisionID: content.ValueRef.RevisionID,
+			}
 		}
 		if content.SecretValue != nil {
 			contentParams.Data = content.SecretValue.EncodedValues()
@@ -352,7 +404,7 @@ func (s *SecretsManagerAPI) GetSecretContentInfo(args params.GetSecretContentArg
 }
 
 func (s *SecretsManagerAPI) getOwnerSecretMetadata(uri *coresecrets.URI) (*coresecrets.SecretMetadata, error) {
-	md, err := s.secretsBackend.GetSecret(uri)
+	md, err := s.secretsState.GetSecret(uri)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -378,11 +430,11 @@ func (s *SecretsManagerAPI) getSecretContent(arg params.GetSecretContentArg) (*s
 			return nil, apiservererrors.ErrPerm
 		}
 
-		val, backendId, err := s.secretsBackend.GetSecretValue(uri, revision)
+		val, valueRef, err := s.secretsState.GetSecretValue(uri, revision)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return &secrets.ContentParams{SecretValue: val, BackendId: backendId}, nil
+		return &secrets.ContentParams{SecretValue: val, ValueRef: valueRef}, nil
 	}
 
 	var uri *coresecrets.URI
@@ -430,7 +482,7 @@ func (s *SecretsManagerAPI) getSecretContent(arg params.GetSecretContentArg) (*s
 
 	// Use the latest revision as the current one if --refresh or --peek.
 	if refresh || peek {
-		md, err := s.secretsBackend.GetSecret(uri)
+		md, err := s.secretsState.GetSecret(uri)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -516,7 +568,7 @@ func (s *SecretsManagerAPI) WatchObsolete(args params.Entities) (params.StringsW
 		}
 		owners[i] = ownerTag
 	}
-	w, err := s.secretsBackend.WatchObsolete(owners)
+	w, err := s.secretsState.WatchObsolete(owners)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -583,7 +635,7 @@ func (s *SecretsManagerAPI) SecretsRotated(args params.SecretRotatedArgs) (param
 		if err != nil {
 			return errors.Trace(err)
 		}
-		md, err := s.secretsBackend.GetSecret(uri)
+		md, err := s.secretsState.GetSecret(uri)
 		if err != nil {
 			return errors.Trace(err)
 		}

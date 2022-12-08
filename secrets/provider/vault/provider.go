@@ -38,12 +38,8 @@ func (p vaultProvider) Type() string {
 }
 
 // Initialise sets up a kv store mounted on the model uuid.
-func (p vaultProvider) Initialise(m provider.Model) error {
-	cfg, err := p.adminConfig(m)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	client, err := p.newBackend(cfg)
+func (p vaultProvider) Initialise(cfg *provider.ModelBackendConfig) error {
+	client, err := p.newBackend(cfg.ModelUUID, &cfg.BackendConfig)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -55,7 +51,7 @@ func (p vaultProvider) Initialise(m provider.Model) error {
 		return errors.Trace(err)
 	}
 	logger.Debugf("kv mounts: %v", mounts)
-	modelUUID := m.UUID()
+	modelUUID := cfg.ModelUUID
 	if _, ok := mounts[modelUUID]; !ok {
 		err = sys.MountWithContext(ctx, modelUUID, &api.MountInput{
 			Type:    "kv",
@@ -69,12 +65,8 @@ func (p vaultProvider) Initialise(m provider.Model) error {
 }
 
 // CleanupModel deletes all secrets and policies associated with the model.
-func (p vaultProvider) CleanupModel(m provider.Model) error {
-	cfg, err := p.adminConfig(m)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	k, err := p.newBackend(cfg)
+func (p vaultProvider) CleanupModel(cfg *provider.ModelBackendConfig) error {
+	k, err := p.newBackend(cfg.ModelUUID, &cfg.BackendConfig)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -115,16 +107,12 @@ func (p vaultProvider) CleanupModel(m provider.Model) error {
 			return errors.Annotatef(err, "deleting secret %q", id)
 		}
 	}
-	return nil
+	return sys.UnmountWithContext(ctx, k.modelUUID)
 }
 
 // CleanupSecrets removes policies associated with the removed secrets.
-func (p vaultProvider) CleanupSecrets(m provider.Model, tag names.Tag, removed provider.SecretRevisions) error {
-	cfg, err := p.adminConfig(m)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	client, err := p.newBackend(cfg)
+func (p vaultProvider) CleanupSecrets(cfg *provider.ModelBackendConfig, tag names.Tag, removed provider.SecretRevisions) error {
+	client, err := p.newBackend(cfg.ModelUUID, &cfg.BackendConfig)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -132,7 +120,7 @@ func (p vaultProvider) CleanupSecrets(m provider.Model, tag names.Tag, removed p
 
 	isRelevantPolicy := func(p string) bool {
 		for id := range removed {
-			if strings.HasPrefix(p, fmt.Sprintf("model-%s-%s-", m.UUID(), id)) {
+			if strings.HasPrefix(p, fmt.Sprintf("model-%s-%s-", cfg.ModelUUID, id)) {
 				return true
 			}
 		}
@@ -157,42 +145,22 @@ func (p vaultProvider) CleanupSecrets(m provider.Model, tag names.Tag, removed p
 	return nil
 }
 
-// adminConfig returns the config needed to create a vault secrets backend client
-// with full admin rights.
-func (p vaultProvider) adminConfig(m provider.Model) (*provider.BackendConfig, error) {
-	b, err := m.GetSecretBackend()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	backendCfg := &provider.BackendConfig{
-		ControllerUUID: m.ControllerUUID(),
-		ModelUUID:      m.UUID(),
-		ModelName:      m.Name(),
-		BackendType:    BackendType,
-		Config:         make(map[string]interface{}),
-	}
-	for k, v := range b.Config {
-		backendCfg.Config[k] = v
-	}
-	return backendCfg, nil
-}
-
-// BackendConfig returns the config needed to create a vault secrets backend client.
-func (p vaultProvider) BackendConfig(m provider.Model, tag names.Tag, owned provider.SecretRevisions, read provider.SecretRevisions) (*provider.BackendConfig, error) {
+// RestrictedConfig returns the config needed to create a
+// secrets backend client restricted to manage the specified
+// owned secrets and read shared secrets for the given entity tag.
+func (p vaultProvider) RestrictedConfig(
+	adminCfg *provider.ModelBackendConfig, tag names.Tag, owned provider.SecretRevisions, read provider.SecretRevisions,
+) (*provider.BackendConfig, error) {
 	adminUser := tag == nil
 	// Get an admin backend client so we can set up the policies.
-	backendCfg, err := p.adminConfig(m)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	backend, err := p.newBackend(backendCfg)
+	backend, err := p.newBackend(adminCfg.ModelUUID, &adminCfg.BackendConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	sys := backend.client.Sys()
 
 	ctx := context.Background()
-	modelUUID := backendCfg.ModelUUID
+	modelUUID := adminCfg.ModelUUID
 	var policies []string
 	if adminUser {
 		// For admin users, all secrets for the model can be read.
@@ -244,20 +212,21 @@ func (p vaultProvider) BackendConfig(m provider.Model, tag names.Tag, owned prov
 	if err != nil {
 		return nil, errors.Annotate(err, "creating secret access token")
 	}
-	backendCfg.Config[TokenKey] = s.Auth.ClientToken
 
-	return backendCfg, nil
+	cfg := adminCfg.BackendConfig
+	cfg.Config[TokenKey] = s.Auth.ClientToken
+	return &cfg, nil
 }
 
 // NewVaultClient is patched for testing.
 var NewVaultClient = vault.NewClient
 
 // NewBackend returns a vault backed secrets backend client.
-func (p vaultProvider) NewBackend(cfg *provider.BackendConfig) (provider.SecretsBackend, error) {
-	return p.newBackend(cfg)
+func (p vaultProvider) NewBackend(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
+	return p.newBackend(cfg.ModelUUID, &cfg.BackendConfig)
 }
 
-func (p vaultProvider) newBackend(cfg *provider.BackendConfig) (*vaultBackend, error) {
+func (p vaultProvider) newBackend(modelUUID string, cfg *provider.BackendConfig) (*vaultBackend, error) {
 	validCfg, err := newConfig(cfg.Config)
 	if err != nil {
 		return nil, errors.Annotatef(err, "invalid vault config")
@@ -306,5 +275,5 @@ func (p vaultProvider) newBackend(cfg *provider.BackendConfig) (*vaultBackend, e
 	if ns := validCfg.namespace(); ns != "" {
 		c.SetNamespace(ns)
 	}
-	return &vaultBackend{modelUUID: cfg.ModelUUID, client: c}, nil
+	return &vaultBackend{modelUUID: modelUUID, client: c}, nil
 }

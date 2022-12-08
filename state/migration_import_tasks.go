@@ -4,10 +4,11 @@
 package state
 
 import (
-	"github.com/juju/description/v4"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
+
+	"github.com/juju/description/v4"
 
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/permission"
@@ -569,6 +570,13 @@ func (ImportSecrets) Execute(src SecretsInput, runner TransactionRunner) error {
 			for k, v := range rev.Content() {
 				dataCopy[k] = v
 			}
+			var valueRef *valueRefDoc
+			if len(dataCopy) == 0 {
+				valueRef = &valueRefDoc{
+					BackendID:  rev.ValueRef().BackendID(),
+					RevisionID: rev.ValueRef().RevisionID(),
+				}
+			}
 			ops = append(ops, txn.Op{
 				C:      secretRevisionsC,
 				Id:     key,
@@ -581,7 +589,7 @@ func (ImportSecrets) Execute(src SecretsInput, runner TransactionRunner) error {
 					ExpireTime: rev.ExpireTime(),
 					Obsolete:   rev.Obsolete(),
 					Data:       dataCopy,
-					BackendId:  rev.BackendId(),
+					ValueRef:   valueRef,
 					OwnerTag:   owner.String(),
 				},
 			})
