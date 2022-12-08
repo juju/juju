@@ -23,6 +23,7 @@ const (
 	// simplestreams)?
 	ubuntuImageBasePath      = "projects/ubuntu-os-cloud/global/images/"
 	ubuntuDailyImageBasePath = "projects/ubuntu-os-cloud-devel/global/images/"
+	ubuntuProImageBasePath   = "projects/ubuntu-os-pro-cloud/global/images/"
 )
 
 var (

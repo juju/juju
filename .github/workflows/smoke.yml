@@ -22,6 +22,10 @@ jobs:
     name: Smoke
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft == false
+    strategy:
+      fail-fast: false
+      matrix:
+        cloud: ["localhost", "microk8s"]
     steps:
 
     - name: Install Dependencies
@@ -35,12 +39,21 @@ jobs:
       uses: actions/checkout@v3
 
     - name: Setup LXD
+      if: matrix.cloud == 'localhost'
       uses: canonical/setup-lxd@90d76101915da56a42a562ba766b1a77019242fd
+
+    - name: Setup MicroK8s
+      if: matrix.cloud == 'microk8s'
+      uses: balchua/microk8s-actions@v0.3.1
+      with:
+        channel: "1.25-strict/stable"
+        addons: '["dns", "hostpath-storage", "rbac"]'
 
     - name: Set up Go
       uses: actions/setup-go@v3
       with:
         go-version-file: 'go.mod'
+        cache: true
 
     - name: setup env
       shell: bash
@@ -53,8 +66,22 @@ jobs:
       run: |
         make go-install
 
-    - name: Smoke Test
+    - name: Update microk8s operator image
+      if: matrix.cloud == 'microk8s'
+      run: |
+        # TODO: use temporary Docker account (set DOCKER_USERNAME env var)
+        sg snap_microk8s 'make microk8s-operator-update'
+
+    - name: Smoke test (LXD)
+      if: matrix.cloud == 'localhost'
       shell: bash
       run: |
         cd tests
         ./main.sh -v -s 'test_build' smoke
+
+    - name: Smoke test (MicroK8s)
+      if: matrix.cloud == 'microk8s'
+      shell: bash
+      run: |
+        cd tests
+        sg snap_microk8s './main.sh -c microk8s -s test_build -v smoke'

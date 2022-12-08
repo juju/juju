@@ -11,9 +11,6 @@ test_coslite() {
 
 	file="${TEST_DIR}/test_coslite.log"
 
-	if [[ -n ${OPERATOR_IMAGE_ACCOUNT:-} ]]; then
-		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --config caas-image-repo=${OPERATOR_IMAGE_ACCOUNT}"
-	fi
 	bootstrap "test-coslite" "${file}"
 
 	case "${BOOTSTRAP_PROVIDER:-}" in
