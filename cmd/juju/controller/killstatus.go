@@ -5,6 +5,7 @@ package controller
 
 import (
 	"fmt"
+	"github.com/juju/juju/api/base"
 	"time"
 
 	"github.com/juju/clock"
@@ -45,7 +46,8 @@ type environmentStatus struct {
 	controller ctrData
 	// models contains only the hosted models. controller.Model
 	// contains data specific to the controller model.
-	models []modelData
+	models       []modelData
+	applications []base.Application
 }
 
 // newTimedStatusUpdater returns a function which waits a given period of time
@@ -58,25 +60,26 @@ func newTimedStatusUpdater(ctx *cmd.Context, api destroyControllerAPI, controlle
 
 		// If we hit an error, status.HostedModelCount will be 0, the polling
 		// loop will stop and we'll go directly to destroying the model.
-		ctrStatus, modelsStatus, err := newData(api, controllerModelUUID)
+		ctrStatus, modelsStatus, applications, err := newData(api, controllerModelUUID)
 		if err != nil {
 			ctx.Infof("Unable to get the controller summary from the API: %s.", err)
 		}
 
 		return environmentStatus{
-			controller: ctrStatus,
-			models:     modelsStatus,
+			controller:   ctrStatus,
+			models:       modelsStatus,
+			applications: applications,
 		}
 	}
 }
 
-func newData(api destroyControllerAPI, controllerModelUUID string) (ctrData, []modelData, error) {
+func newData(api destroyControllerAPI, controllerModelUUID string) (ctrData, []modelData, []base.Application, error) {
 	models, err := api.AllModels()
 	if err != nil {
-		return ctrData{}, nil, errors.Trace(err)
+		return ctrData{}, nil, nil, errors.Trace(err)
 	}
 	if len(models) == 0 {
-		return ctrData{}, nil, errors.New("no models found")
+		return ctrData{}, nil, nil, errors.New("no models found")
 	}
 
 	modelTags := make([]names.ModelTag, len(models))
@@ -88,7 +91,7 @@ func newData(api destroyControllerAPI, controllerModelUUID string) (ctrData, []m
 
 	status, err := api.ModelStatus(modelTags...)
 	if err != nil {
-		return ctrData{}, nil, errors.Trace(err)
+		return ctrData{}, nil, nil, errors.Trace(err)
 	}
 
 	var hostedMachinesCount int
@@ -98,6 +101,7 @@ func newData(api destroyControllerAPI, controllerModelUUID string) (ctrData, []m
 	var modelsData []modelData
 	var aliveModelCount int
 	var ctrModelData modelData
+	var applications []base.Application
 	for _, model := range status {
 		if model.Error != nil {
 			if errors.IsNotFound(model.Error) {
@@ -107,7 +111,7 @@ func newData(api destroyControllerAPI, controllerModelUUID string) (ctrData, []m
 				// to assume that we want to filter these models here too.
 				continue
 			}
-			return ctrData{}, nil, errors.Trace(model.Error)
+			return ctrData{}, nil, nil, errors.Trace(model.Error)
 		}
 		var persistentVolumeCount int
 		var persistentFilesystemCount int
@@ -142,6 +146,7 @@ func newData(api destroyControllerAPI, controllerModelUUID string) (ctrData, []m
 			}
 			modelsData = append(modelsData, modelData)
 			aliveModelCount++
+			applications = append(applications, model.Applications...)
 		}
 		hostedMachinesCount += model.HostedMachineCount
 		applicationsCount += model.ApplicationCount
@@ -159,7 +164,7 @@ func newData(api destroyControllerAPI, controllerModelUUID string) (ctrData, []m
 		ctrModelData,
 	}
 
-	return ctrFinalStatus, modelsData, nil
+	return ctrFinalStatus, modelsData, applications, nil
 }
 
 func hasUnreclaimedResources(env environmentStatus) bool {
