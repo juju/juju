@@ -371,7 +371,7 @@ func (s *ActionSuite) TestLastActionFinishCompletesOperation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Finishing only one action does not complete the operation.
-	anAction, err = anAction.Finish(state.ActionResults{
+	_, err = anAction.Finish(state.ActionResults{
 		Status: state.ActionFailed,
 	})
 	c.Assert(err, jc.ErrorIsNil)

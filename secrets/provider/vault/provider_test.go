@@ -27,7 +27,12 @@ var _ = gc.Suite(&providerSuite{})
 func (s *providerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.JujuOSEnvSuite.SetUpTest(c)
-	s.PatchValue(&jujuvault.NewVaultClient, func(addr string, tlsConf *vault.TLSConfig, opts ...vault.ClientOpts) (*vault.Client, error) {
+}
+
+type newVaultClientFunc func(addr string, tlsConf *vault.TLSConfig, opts ...vault.ClientOpts) (*vault.Client, error)
+
+func (s *providerSuite) newVaultClient(c *gc.C) newVaultClientFunc {
+	return func(addr string, tlsConf *vault.TLSConfig, opts ...vault.ClientOpts) (*vault.Client, error) {
 		c.Assert(addr, gc.Equals, "http://vault-ip:8200/")
 		c.Assert(tlsConf, jc.DeepEquals, &vault.TLSConfig{
 			TLSConfig: &api.TLSConfig{
@@ -42,10 +47,11 @@ func (s *providerSuite) SetUpTest(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(client.Token(), gc.Equals, "vault-token")
 		return nil, errors.New("boom")
-	})
+	}
 }
 
 func (s *providerSuite) TestBackendConfig(c *gc.C) {
+	s.PatchValue(&jujuvault.NewVaultClient, s.newVaultClient(c))
 	p, err := provider.Provider(jujuvault.BackendType)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -56,7 +62,11 @@ func (s *providerSuite) TestBackendConfig(c *gc.C) {
 		BackendConfig: provider.BackendConfig{
 			BackendType: "vault",
 			Config: map[string]interface{}{
-				"endpoint": "http://vault-ip:8200/",
+				"endpoint":        "http://vault-ip:8200/",
+				"namespace":       "ns",
+				"token":           "vault-token",
+				"ca-cert":         coretesting.CACert,
+				"tls-server-name": "tls-server",
 			},
 		},
 	}
@@ -65,6 +75,7 @@ func (s *providerSuite) TestBackendConfig(c *gc.C) {
 }
 
 func (s *providerSuite) TestNewBackend(c *gc.C) {
+	s.PatchValue(&jujuvault.NewVaultClient, s.newVaultClient(c))
 	p, err := provider.Provider(jujuvault.BackendType)
 	c.Assert(err, jc.ErrorIsNil)
 

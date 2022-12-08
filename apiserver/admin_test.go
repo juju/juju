@@ -1163,9 +1163,7 @@ func (s *loginSuite) TestAuditLoggingUsesExcludeMethods(c *gc.C) {
 
 	// Call something else.
 	destroyReq := &params.DestroyMachinesParams{
-		DestroyMachinesParamsV9: params.DestroyMachinesParamsV9{
-			MachineTags: []string{addResults.Machines[0].Machine},
-		},
+		MachineTags: []string{addResults.Machines[0].Machine},
 	}
 	err = conn.APICall("MachineManager", machineManagerFacadeVersion, "", "DestroyMachineWithParams", destroyReq, nil)
 	c.Assert(err, jc.ErrorIsNil)

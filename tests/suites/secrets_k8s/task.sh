@@ -11,10 +11,6 @@ test_secrets_k8s() {
 
 	file="${TEST_DIR}/test-secrets-k8s.log"
 
-	if [[ -n ${OPERATOR_IMAGE_ACCOUNT:-} ]]; then
-		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --config caas-image-repo=${OPERATOR_IMAGE_ACCOUNT}"
-	fi
-
 	# TODO: remove feature flag when secret is fully ready.
 	export JUJU_DEV_FEATURE_FLAGS=developer-mode
 

@@ -11,10 +11,6 @@ test_kubeflow() {
 
 	file="${TEST_DIR}/test-deploy-kubeflow.log"
 
-	if [[ -n ${OPERATOR_IMAGE_ACCOUNT:-} ]]; then
-		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --config caas-image-repo=${OPERATOR_IMAGE_ACCOUNT}"
-	fi
-
 	case "${BOOTSTRAP_PROVIDER:-}" in
 	"k8s")
 		# Charmed kubeflow 1.6 only supports k8s 1.22
