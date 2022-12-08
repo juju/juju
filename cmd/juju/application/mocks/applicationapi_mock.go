@@ -115,6 +115,20 @@ func (m *MockRemoveApplicationAPI) EXPECT() *MockRemoveApplicationAPIMockRecorde
 	return m.recorder
 }
 
+// BestAPIVersion mocks base method.
+func (m *MockRemoveApplicationAPI) BestAPIVersion() int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BestAPIVersion")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// BestAPIVersion indicates an expected call of BestAPIVersion.
+func (mr *MockRemoveApplicationAPIMockRecorder) BestAPIVersion() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BestAPIVersion", reflect.TypeOf((*MockRemoveApplicationAPI)(nil).BestAPIVersion))
+}
+
 // Close mocks base method.
 func (m *MockRemoveApplicationAPI) Close() error {
 	m.ctrl.T.Helper()
