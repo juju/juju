@@ -64,10 +64,8 @@ run_secrets() {
 	microk8s kubectl -n model-secrets-k8s get roles/unit-nginx-0 -o json | jq ".rules[] | select( has(\"resourceNames\") ) | select( .resourceNames[] | contains(\"${secret_owned_by_hello_0}-1\") ) | .verbs[0] " | grep 'get'
 	microk8s kubectl -n model-secrets-k8s get roles/unit-nginx-0 -o json | jq ".rules[] | select( has(\"resourceNames\") ) | select( .resourceNames[] | contains(\"${secret_owned_by_hello}-1\") ) | .verbs[0] " | grep 'get'
 
-	# TODO: this is a bug in the k8s secret provider. We should not need to do base64 encoding twice. Remove the 2nd decoding once the bug is fixed.
-	# Check secret content via k8s API to ensure we are using the k8s secret provider.
-	microk8s kubectl -n model-secrets-k8s get "secrets/${secret_owned_by_hello_0}-1" -o json | jq -r '.data["owned-by"]' | base64 -d | base64 -d | grep "hello/0"
-	microk8s kubectl -n model-secrets-k8s get "secrets/${secret_owned_by_hello}-1" -o json | jq -r '.data["owned-by"]' | base64 -d | base64 -d | grep "hello-app"
+	microk8s kubectl -n model-secrets-k8s get "secrets/${secret_owned_by_hello_0}-1" -o json | jq -r '.data["owned-by"]' | base64 -d | grep "hello/0"
+	microk8s kubectl -n model-secrets-k8s get "secrets/${secret_owned_by_hello}-1" -o json | jq -r '.data["owned-by"]' | base64 -d | grep "hello-app"
 
 	# secret-revoke by relation ID.
 	juju exec --unit hello/0 -- secret-revoke "$secret_owned_by_hello" --relation "$relation_id"

@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/charm/v9"
 	csparams "github.com/juju/charmrepo/v7/csclient/params"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -59,15 +60,18 @@ var ClassifyDetachedStorage = storagecommon.ClassifyDetachedStorage
 
 var logger = loggo.GetLogger("juju.apiserver.application")
 
+// APIv16 provides the Application API facade for version 16.
+type APIv16 struct {
+	*APIBase
+}
+
 // APIv15 provides the Application API facade for version 15.
 type APIv15 struct {
-	*APIBase
+	*APIv16
 }
 
 // APIBase implements the shared application interface and is the concrete
 // implementation of the api end point.
-//
-// API provides the Application API facade for version 5.
 type APIBase struct {
 	backend       Backend
 	storageAccess StorageInterface
@@ -1511,6 +1515,22 @@ func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyU
 	return params.DestroyUnitResults{
 		Results: results,
 	}, nil
+}
+
+// DestroyApplication removes a given set of applications.
+func (api *APIv15) DestroyApplication(argsV15 params.DestroyApplicationsParamsV15) (params.DestroyApplicationResults, error) {
+	args := params.DestroyApplicationsParams{
+		Applications: transform.Slice(argsV15.Applications, func(p params.DestroyApplicationParamsV15) params.DestroyApplicationParams {
+			return params.DestroyApplicationParams{
+				ApplicationTag: p.ApplicationTag,
+				DestroyStorage: p.DestroyStorage,
+				Force:          p.Force,
+				MaxWait:        p.MaxWait,
+				DryRun:         false,
+			}
+		}),
+	}
+	return api.APIBase.DestroyApplication(args)
 }
 
 // DestroyApplication removes a given set of applications.

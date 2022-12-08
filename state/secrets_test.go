@@ -121,7 +121,7 @@ func (s *SecretsSuite) TestCreateBackendRef(c *gc.C) {
 	})
 }
 
-func (s *SecretsSuite) TestCreateDuplicateLabel(c *gc.C) {
+func (s *SecretsSuite) TestCreateDuplicateLabelApplicationOwned(c *gc.C) {
 	uri := secrets.NewURI()
 	now := s.Clock.Now().Round(time.Second).UTC()
 	next := now.Add(time.Minute).Round(time.Second).UTC()
@@ -140,10 +140,108 @@ func (s *SecretsSuite) TestCreateDuplicateLabel(c *gc.C) {
 			Data:           map[string]string{"foo": "bar"},
 		},
 	}
-	_, err := s.store.CreateSecret(uri, p)
+	md, err := s.store.CreateSecret(uri, p)
 	c.Assert(err, jc.ErrorIsNil)
 	uri2 := secrets.NewURI()
 	_, err = s.store.CreateSecret(uri2, p)
+	c.Assert(errors.Is(err, state.LabelExists), jc.IsTrue)
+
+	// Existing application owner label should not be used for owner label for its units.
+	uri3 := secrets.NewURI()
+	p.Owner = s.ownerUnit.Tag()
+	_, err = s.store.CreateSecret(uri3, p)
+	c.Assert(errors.Is(err, state.LabelExists), jc.IsTrue)
+
+	// Existing application owner label should not be used for consumer label for its units.
+	cmd := &secrets.SecretConsumerMetadata{
+		Label:           "foobar",
+		CurrentRevision: md.LatestRevision,
+	}
+	err = s.State.SaveSecretConsumer(uri, s.ownerUnit.Tag(), cmd)
+	c.Assert(errors.Is(err, state.LabelExists), jc.IsTrue)
+}
+
+func (s *SecretsSuite) TestCreateDuplicateLabelUnitOwned(c *gc.C) {
+	uri := secrets.NewURI()
+	now := s.Clock.Now().Round(time.Second).UTC()
+	next := now.Add(time.Minute).Round(time.Second).UTC()
+	expire := now.Add(time.Hour).Round(time.Second).UTC()
+	p := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.ownerUnit.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken:    &fakeToken{},
+			RotatePolicy:   ptr(secrets.RotateDaily),
+			NextRotateTime: ptr(next),
+			Description:    ptr("my secret"),
+			Label:          ptr("foobar"),
+			ExpireTime:     ptr(expire),
+			Params:         nil,
+			Data:           map[string]string{"foo": "bar"},
+		},
+	}
+	md, err := s.store.CreateSecret(uri, p)
+	c.Assert(err, jc.ErrorIsNil)
+	uri2 := secrets.NewURI()
+	_, err = s.store.CreateSecret(uri2, p)
+	c.Assert(errors.Is(err, state.LabelExists), jc.IsTrue)
+
+	// Existing unit owner label should not be used for owner label for the application.
+	uri3 := secrets.NewURI()
+	p.Owner = s.owner.Tag()
+	_, err = s.store.CreateSecret(uri3, p)
+	c.Assert(errors.Is(err, state.LabelExists), jc.IsTrue)
+
+	// Existing unit owner label should not be used for consumer label for the application.
+	cmd := &secrets.SecretConsumerMetadata{
+		Label:           "foobar",
+		CurrentRevision: md.LatestRevision,
+	}
+	err = s.State.SaveSecretConsumer(uri, s.owner.Tag(), cmd)
+	c.Assert(errors.Is(err, state.LabelExists), jc.IsTrue)
+}
+
+func (s *SecretsSuite) TestCreateDuplicateLabelUnitConsumed(c *gc.C) {
+	uri := secrets.NewURI()
+	p := state.CreateSecretParams{
+		Version: 1,
+		Owner:   names.NewApplicationTag("wordpress"),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Params:      nil,
+			Data:        map[string]string{"foo": "bar"},
+		},
+	}
+	md, err := s.store.CreateSecret(uri, p)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cmd := &secrets.SecretConsumerMetadata{
+		Label:           "foobar",
+		CurrentRevision: md.LatestRevision,
+	}
+	err = s.State.SaveSecretConsumer(uri, s.ownerUnit.Tag(), cmd)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Existing unit consumer label should not be used for owner label.
+	uri2 := secrets.NewURI()
+	p.Owner = s.ownerUnit.Tag()
+	p.Label = ptr("foobar")
+	_, err = s.store.CreateSecret(uri2, p)
+	c.Assert(errors.Is(err, state.LabelExists), jc.IsTrue)
+
+	// Existing unit consumer label should not be used for owner label for the application.
+	uri3 := secrets.NewURI()
+	p.Owner = s.owner.Tag()
+	p.Label = ptr("foobar")
+	_, err = s.store.CreateSecret(uri3, p)
+	c.Assert(errors.Is(err, state.LabelExists), jc.IsTrue)
+
+	// Existing unit consumer label should not be used for consumer label for the application.
+	cmd = &secrets.SecretConsumerMetadata{
+		Label:           "foobar",
+		CurrentRevision: md.LatestRevision,
+	}
+	err = s.State.SaveSecretConsumer(uri, s.owner.Tag(), cmd)
 	c.Assert(errors.Is(err, state.LabelExists), jc.IsTrue)
 }
 

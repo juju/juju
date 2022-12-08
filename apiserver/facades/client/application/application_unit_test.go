@@ -61,7 +61,7 @@ type mockLXDProfilerCharm struct {
 type ApplicationSuite struct {
 	testing.CleanupSuite
 
-	api *application.APIv15
+	api *application.APIBase
 
 	backend            *mocks.MockBackend
 	storageAccess      *mocks.MockStorageInterface
@@ -206,7 +206,7 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 		s.caasBroker,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.api = &application.APIv15{api}
+	s.api = api
 	return ctrl
 }
 
@@ -912,7 +912,9 @@ func (s *ApplicationSuite) TestDestroyApplicationWithBlockRemove(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	_, err := s.api.DestroyApplication(params.DestroyApplicationsParams{
-		Applications: []params.DestroyApplicationParams{{ApplicationTag: "application-postgresql"}},
+		Applications: []params.DestroyApplicationParams{{
+			ApplicationTag: "application-postgresql",
+		}},
 	})
 	c.Assert(err, gc.ErrorMatches, "remove blocked")
 }
@@ -1021,9 +1023,9 @@ func (s *ApplicationSuite) TestDestroyApplicationNotFound(c *gc.C) {
 	s.backend.EXPECT().Application("postgresql").Return(nil, errors.NotFoundf(`application "postgresql"`))
 
 	results, err := s.api.DestroyApplication(params.DestroyApplicationsParams{
-		Applications: []params.DestroyApplicationParams{
-			{ApplicationTag: "application-postgresql"},
-		},
+		Applications: []params.DestroyApplicationParams{{
+			ApplicationTag: "application-postgresql",
+		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
