@@ -34,6 +34,7 @@ func NewTestAPI(
 		controllerUUID: coretesting.ControllerTag.Id(),
 		modelUUID:      coretesting.ModelTag.Id(),
 		state:          state,
+		backends:       make(map[string]provider.SecretsBackend),
 		backendGetter:  backendGetter,
 	}, nil
 }

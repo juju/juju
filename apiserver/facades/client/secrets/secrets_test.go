@@ -58,7 +58,7 @@ func (s *SecretsSuite) TestListSecretsReveal(c *gc.C) {
 	s.assertListSecrets(c, true, false)
 }
 
-func (s *SecretsSuite) TestListSecretsRevealFromStore(c *gc.C) {
+func (s *SecretsSuite) TestListSecretsRevealFromBackend(c *gc.C) {
 	s.assertListSecrets(c, true, true)
 }
 
@@ -66,7 +66,7 @@ func ptr[T any](v T) *T {
 	return &v
 }
 
-func (s *SecretsSuite) assertListSecrets(c *gc.C, reveal, withStore bool) {
+func (s *SecretsSuite) assertListSecrets(c *gc.C, reveal, withBackend bool) {
 	defer s.setup(c).Finish()
 
 	s.expectAuthClient()
@@ -122,7 +122,7 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, reveal, withStore bool) {
 		valueResult = &params.SecretValueResult{
 			Data: map[string]string{"foo": "bar"},
 		}
-		if withStore {
+		if withBackend {
 			s.secretsState.EXPECT().GetSecretValue(uri, 2).Return(
 				nil, &coresecrets.ValueRef{
 					BackendID:  "backend-id",

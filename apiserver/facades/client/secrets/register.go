@@ -40,6 +40,7 @@ func newSecretsAPI(context facade.Context) (*SecretsAPI, error) {
 		controllerUUID: context.State().ControllerUUID(),
 		modelUUID:      context.State().ModelUUID(),
 		state:          state.NewSecrets(context.State()),
+		backends:       make(map[string]provider.SecretsBackend),
 		backendGetter:  backendGetter,
 	}, nil
 }

@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/charm/v9"
 	charmresource "github.com/juju/charm/v9/resource"
-	"github.com/juju/description/v4"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -22,6 +21,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/macaroon.v2"
+
+	"github.com/juju/description/v4"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
@@ -2722,8 +2723,9 @@ func (s *MigrationExportSuite) TestSecrets(c *gc.C) {
 	c.Assert(revisions, gc.HasLen, 2)
 	c.Assert(revisions[0].Content(), jc.DeepEquals, map[string]string{"foo": "bar"})
 	c.Assert(revisions[0].ExpireTime(), jc.DeepEquals, ptr(expire))
-	// TODO(wallyworld)
-	//c.Assert(revisions[1].BackendId(), jc.DeepEquals, ptr("backend-id"))
+	c.Assert(revisions[1].ValueRef(), gc.NotNil)
+	c.Assert(revisions[1].ValueRef().BackendID(), jc.DeepEquals, "backend-id")
+	c.Assert(revisions[1].ValueRef().RevisionID(), jc.DeepEquals, "rev-id")
 	consumers := secret.Consumers()
 	c.Assert(consumers, gc.HasLen, 1)
 	info := consumers[0]

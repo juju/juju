@@ -10,12 +10,13 @@ import (
 
 	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
-	"github.com/juju/description/v4"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/names/v4"
+
+	"github.com/juju/description/v4"
 
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
@@ -1739,13 +1740,17 @@ func (e *exporter) secrets() error {
 			Created:    rev.CreateTime,
 			Updated:    rev.UpdateTime,
 			ExpireTime: rev.ExpireTime,
-			// TODO(secrets)
-			//BackendId:  rev.BackendId,
 		}
 		if len(rev.Data) > 0 {
 			revArg.Content = make(secrets.SecretData)
 			for k, v := range rev.Data {
 				revArg.Content[k] = fmt.Sprintf("%v", v)
+			}
+		}
+		if rev.ValueRef != nil {
+			revArg.ValueRef = &description.SecretValueRefArgs{
+				BackendID:  rev.ValueRef.BackendID,
+				RevisionID: rev.ValueRef.RevisionID,
 			}
 		}
 		revisionArgsByID[id] = append(revisionArgsByID[id], revArg)

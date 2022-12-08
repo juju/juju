@@ -107,7 +107,7 @@ func (p vaultProvider) CleanupModel(cfg *provider.ModelBackendConfig) error {
 			return errors.Annotatef(err, "deleting secret %q", id)
 		}
 	}
-	return nil
+	return sys.UnmountWithContext(ctx, k.modelUUID)
 }
 
 // CleanupSecrets removes policies associated with the removed secrets.
