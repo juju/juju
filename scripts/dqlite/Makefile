@@ -17,6 +17,15 @@ DQLITE_S3_ARCHIVE_PATH=${DQLITE_S3_BUCKET}/${DQLITE_S3_ARCHIVE_NAME}
 DQLITE_EXTRACTED_DEPS_PATH=${PROJECT_DIR}/_deps
 DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH=${DQLITE_EXTRACTED_DEPS_PATH}/juju-dqlite-static-lib-deps
 
+# Versions for Dqlite and upstream dependencies.
+TAG_LIBTIRPC=upstream/1.3.3
+TAG_LIBNSL=v2.0.0
+TAG_LIBUV=v1.44.2
+TAG_LIBLZ4=v1.9.4
+TAG_RAFT=v0.16.0
+TAG_SQLITE=version-3.40.0
+TAG_DQLITE=v1.12.0
+
 .PHONY: install-deps-on-controller build-and-install-jujud
 
 ${DQLITE_ARCHIVE_PATH}:
@@ -59,7 +68,7 @@ ${DQLITE_ARCHIVE_PATH}:
 		cd ..
 
 		# Setup symlinks so we can access additional headers that 
-		# don't ship with muscl but are needed for our builds
+		# don't ship with musl but are needed for our builds
 		ln -s /usr/include/x86_64-linux-gnu/asm /usr/local/musl/include/asm
 		ln -s /usr/include/asm-generic /usr/local/musl/include/asm-generic
 		ln -s /usr/include/linux /usr/local/musl/include/linux
@@ -78,7 +87,7 @@ ${DQLITE_ARCHIVE_PATH}:
 		# dqlite
 		
 		# libtirpc
-		git clone git://linux-nfs.org/~steved/libtirpc
+		git clone https://salsa.debian.org/debian/libtirpc.git --depth 1 --branch ${TAG_LIBTIRPC}
 		cd libtirpc
 		chmod +x autogen.sh
 		./autogen.sh
@@ -87,7 +96,7 @@ ${DQLITE_ARCHIVE_PATH}:
 		cd ../
 
 		# libnsl
-		git clone https://github.com/thkukuk/libnsl
+		git clone https://github.com/thkukuk/libnsl --depth 1 --branch ${TAG_LIBNSL}
 		cd libnsl
 		./autogen.sh
 		autoreconf -i
@@ -101,7 +110,7 @@ ${DQLITE_ARCHIVE_PATH}:
 		cd ../
 
 		# libuv
-		git clone https://github.com/libuv/libuv.git --depth 1
+		git clone https://github.com/libuv/libuv.git --depth 1 --branch ${TAG_LIBUV}
 		cd libuv
 		./autogen.sh
 		./configure # we need the .so files as well; see note below
@@ -109,13 +118,13 @@ ${DQLITE_ARCHIVE_PATH}:
 		cd ../
 
 		# liblz4
-		git clone https://github.com/lz4/lz4.git --depth 1
+		git clone https://github.com/lz4/lz4.git --depth 1 --branch ${TAG_LIBLZ4}
 		cd lz4
 		make lib
 		cd ../
 
 		# raft
-		git clone https://github.com/canonical/raft.git --depth 1
+		git clone https://github.com/canonical/raft.git --depth 1 --branch ${TAG_RAFT}
 		cd raft
 		autoreconf -i
 		CFLAGS="-I$${PWD}/../libuv/include -I$${PWD}/../lz4/lib" \
@@ -129,14 +138,14 @@ ${DQLITE_ARCHIVE_PATH}:
 		cd ../
 
 		# sqlite3
-		git clone https://github.com/sqlite/sqlite.git --depth 1
+		git clone https://github.com/sqlite/sqlite.git --depth 1 --branch ${TAG_SQLITE}
 		cd sqlite
 		./configure --disable-shared
 		make
 		cd ../
 	
 		# dqlite
-		git clone https://github.com/canonical/dqlite.git  --depth 1
+		git clone https://github.com/canonical/dqlite.git --depth 1 --branch ${TAG_DQLITE}
 		cd dqlite
 		autoreconf -i
 		CFLAGS="-I$${PWD}/../raft/include -I$${PWD}/../sqlite -I$${PWD}/../libuv/include -I$${PWD}/../lz4/lib -I/usr/local/musl/include -Werror=implicit-function-declaration" \
@@ -227,7 +236,7 @@ musl-install:
 
 	cd -
 	# Setup symlinks so we can access additional headers that 
-	# don't ship with muscl but are needed for our builds
+	# don't ship with musl but are needed for our builds
 	ln -s /usr/include/$(shell uname -m)-linux-gnu/asm /usr/local/musl/include/asm
 	ln -s /usr/include/asm-generic /usr/local/musl/include/asm-generic
 	ln -s /usr/include/linux /usr/local/musl/include/linux
