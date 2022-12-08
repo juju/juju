@@ -9031,6 +9031,18 @@
                     },
                     "description": "CharmInfo returns information about the requested charm."
                 },
+                "GetApplicationOpenedPorts": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entity"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ApplicationOpenedPortsResults"
+                        }
+                    },
+                    "description": "GetApplicationOpenedPorts returns all the opened ports for each given application tag."
+                },
                 "IsExposed": {
                     "type": "object",
                     "properties": {
@@ -9103,6 +9115,58 @@
                     "additionalProperties": false,
                     "required": [
                         "Results"
+                    ]
+                },
+                "ApplicationOpenedPorts": {
+                    "type": "object",
+                    "properties": {
+                        "endpoint": {
+                            "type": "string"
+                        },
+                        "port-ranges": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/PortRange"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "endpoint",
+                        "port-ranges"
+                    ]
+                },
+                "ApplicationOpenedPortsResult": {
+                    "type": "object",
+                    "properties": {
+                        "application-port-ranges": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ApplicationOpenedPorts"
+                            }
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "application-port-ranges"
+                    ]
+                },
+                "ApplicationOpenedPortsResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ApplicationOpenedPortsResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
                     ]
                 },
                 "BoolResult": {
@@ -9829,6 +9893,26 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "PortRange": {
+                    "type": "object",
+                    "properties": {
+                        "from-port": {
+                            "type": "integer"
+                        },
+                        "protocol": {
+                            "type": "string"
+                        },
+                        "to-port": {
+                            "type": "integer"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "from-port",
+                        "to-port",
+                        "protocol"
                     ]
                 },
                 "StringsWatchResult": {
@@ -44412,6 +44496,18 @@
                     },
                     "description": "NetworkInfo returns network interfaces/addresses for specified bindings."
                 },
+                "OpenedApplicationPortRangesByEndpoint": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entity"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ApplicationOpenedPortsResults"
+                        }
+                    },
+                    "description": "OpenedApplicationPortRangesByEndpoint returns the port ranges opened by each\napplication grouped by application endpoint."
+                },
                 "OpenedMachinePortRangesByEndpoint": {
                     "type": "object",
                     "properties": {
@@ -45300,6 +45396,58 @@
                         "value",
                         "type",
                         "scope"
+                    ]
+                },
+                "ApplicationOpenedPorts": {
+                    "type": "object",
+                    "properties": {
+                        "endpoint": {
+                            "type": "string"
+                        },
+                        "port-ranges": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/PortRange"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "endpoint",
+                        "port-ranges"
+                    ]
+                },
+                "ApplicationOpenedPortsResult": {
+                    "type": "object",
+                    "properties": {
+                        "application-port-ranges": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ApplicationOpenedPorts"
+                            }
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "application-port-ranges"
+                    ]
+                },
+                "ApplicationOpenedPortsResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ApplicationOpenedPortsResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
                     ]
                 },
                 "ApplicationStatusResult": {
