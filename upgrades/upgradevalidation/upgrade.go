@@ -25,6 +25,9 @@ func ValidatorsForControllerUpgrade(
 				checkForDeprecatedUbuntuSeriesForModel,
 				getCheckForLXDVersion(cloudspec),
 			)
+			if targetVersion.Minor >= 1 {
+				validators = append(validators, checkForCharmStoreCharms)
+			}
 		}
 		return validators
 	}
@@ -39,6 +42,10 @@ func ValidatorsForControllerUpgrade(
 			getCheckForLXDVersion(cloudspec),
 		)
 	}
+	if targetVersion.Major >= 3 && targetVersion.Minor >= 1 {
+		validators = append(validators, checkForCharmStoreCharms)
+	}
+
 	return validators
 }
 
@@ -55,6 +62,9 @@ func ValidatorsForModelUpgrade(
 			checkForDeprecatedUbuntuSeriesForModel,
 			getCheckForLXDVersion(cloudspec),
 		)
+		if targetVersion.Minor >= 1 {
+			validators = append(validators, checkForCharmStoreCharms)
+		}
 	}
 	return validators
 }
