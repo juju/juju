@@ -51,11 +51,10 @@ var _ = gc.Suite(&DestroySuite{})
 
 type baseDestroySuite struct {
 	testing.FakeJujuXDGDataHomeSuite
-	api        *fakeDestroyAPI
-	clientapi  *fakeDestroyAPIClient
-	storageAPI *mockStorageAPI
-	store      *jujuclient.MemStore
-	apierror   error
+	api       *fakeDestroyAPI
+	clientapi *fakeDestroyAPIClient
+	store     *jujuclient.MemStore
+	apierror  error
 
 	controllerCredentialAPI *mockCredentialAPI
 	environsDestroy         func(string, environs.ControllerDestroyer, context.ProviderCallContext, jujuclient.ControllerStore) error
@@ -176,7 +175,6 @@ func (s *baseDestroySuite) SetUpTest(c *gc.C) {
 	}
 	s.apierror = nil
 
-	s.storageAPI = &mockStorageAPI{}
 	s.controllerCredentialAPI = &mockCredentialAPI{}
 	s.environsDestroy = environs.Destroy
 
@@ -256,7 +254,7 @@ func (s *DestroySuite) runDestroyCommand(c *gc.C, args ...string) (*cmd.Context,
 
 func (s *DestroySuite) newDestroyCommand() cmd.Command {
 	return controller.NewDestroyCommandForTest(
-		s.api, s.clientapi, s.storageAPI, s.store, s.apierror,
+		s.api, s.clientapi, s.store, s.apierror,
 		func() (controller.CredentialAPI, error) { return s.controllerCredentialAPI, nil },
 		s.environsDestroy,
 	)
@@ -492,9 +490,10 @@ func (s *DestroySuite) resetController(c *gc.C) {
 }
 
 func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
-	var stdin, stdout bytes.Buffer
+	var stdin, stdout, stderr bytes.Buffer
 	ctx := cmdtesting.Context(c)
 	ctx.Stdout = &stdout
+	ctx.Stderr = &stderr
 	ctx.Stdin = &stdin
 
 	// Ensure confirmation is requested if "--no-prompt" is not specified.
@@ -506,12 +505,13 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 	case <-time.After(testing.LongWait):
 		c.Fatalf("command took too long")
 	}
-	c.Check(cmdtesting.Stdout(ctx), gc.Matches, "WARNING!.*test1(.|\n)*")
+	c.Check(cmdtesting.Stderr(ctx), gc.Matches, "WARNING!.*test1(.|\n)*")
 	checkControllerExistsInStore(c, "test1", s.store)
 
 	// EOF on stdin: equivalent to answering no.
 	stdin.Reset()
 	stdout.Reset()
+	stderr.Reset()
 	_, errc = cmdtest.RunCommandWithDummyProvider(ctx, s.newDestroyCommand(), "test1")
 	select {
 	case err := <-errc:
@@ -519,12 +519,13 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 	case <-time.After(testing.LongWait):
 		c.Fatalf("command took too long")
 	}
-	c.Check(cmdtesting.Stdout(ctx), gc.Matches, "WARNING!.*test1(.|\n)*")
+	c.Check(cmdtesting.Stderr(ctx), gc.Matches, "WARNING!.*test1(.|\n)*")
 	checkControllerExistsInStore(c, "test1", s.store)
 
 	answer := "test1"
 	stdin.Reset()
 	stdout.Reset()
+	stderr.Reset()
 	stdin.WriteString(answer)
 	_, errc = cmdtest.RunCommandWithDummyProvider(ctx, s.newDestroyCommand(), "test1")
 	select {
@@ -636,21 +637,6 @@ func (s *DestroySuite) TestDestroyWithInvalidCredentialCallbackFailingToCloseAPI
 	// As we are throwing the error on api.Close for callback,
 	// the actual call to destroy should succeed.
 	s.destroyAndInvalidateCredential(c)
-}
-
-type mockStorageAPI struct {
-	gitjujutesting.Stub
-	storage []params.StorageDetails
-}
-
-func (m *mockStorageAPI) Close() error {
-	m.MethodCall(m, "Close")
-	return m.NextErr()
-}
-
-func (m *mockStorageAPI) ListStorageDetails() ([]params.StorageDetails, error) {
-	m.MethodCall(m, "ListStorageDetails")
-	return m.storage, m.NextErr()
 }
 
 type mockCredentialAPI struct {

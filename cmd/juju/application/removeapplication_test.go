@@ -4,154 +4,224 @@
 package application
 
 import (
-	"fmt"
-	"runtime"
-	"time"
-
+	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
-	"github.com/juju/collections/set"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/juju/application/deployer"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/testcharms"
-	"github.com/juju/juju/testing"
+	apiapplication "github.com/juju/juju/api/client/application"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/cmd/juju/application/mocks"
+	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
+	"github.com/juju/juju/rpc/params"
 )
 
-type RemoveApplicationSuite struct {
-	jujutesting.RepoSuite
-	testing.CmdBlockHelper
+type removeApplicationSuite struct {
+	mockApi *mocks.MockRemoveApplicationAPI
+
+	apiFunc func() (RemoveApplicationAPI, error)
+	store   *jujuclient.MemStore
 }
 
-var _ = gc.Suite(&RemoveApplicationSuite{})
+var _ = gc.Suite(&removeApplicationSuite{})
 
-func (s *RemoveApplicationSuite) SetUpTest(c *gc.C) {
-	if runtime.GOOS == "darwin" {
-		c.Skip("Mongo failures on macOS")
+func (s *removeApplicationSuite) SetUpTest(c *gc.C) {
+	s.store = jujuclienttesting.MinimalStore()
+	s.apiFunc = func() (RemoveApplicationAPI, error) {
+		return s.mockApi, nil
 	}
-	s.RepoSuite.SetUpTest(c)
-	s.CmdBlockHelper = testing.NewCmdBlockHelper(s.APIState)
-	c.Assert(s.CmdBlockHelper, gc.NotNil)
-	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
-
-	// TODO: remove this patch once we removed all the old series from tests in current package.
-	s.PatchValue(&deployer.SupportedJujuSeries,
-		func(time.Time, string, string) (set.Strings, error) {
-			return set.NewStrings(
-				"centos7", "centos8", "centos9", "genericlinux", "kubernetes", "opensuseleap",
-				"jammy", "focal", "bionic", "xenial",
-			), nil
-		},
-	)
 }
 
-func runRemoveApplication(c *gc.C, args ...string) (*cmd.Context, error) {
-	return cmdtesting.RunCommand(c, NewRemoveApplicationCommand(), args...)
+func (s *removeApplicationSuite) setup(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.mockApi = mocks.NewMockRemoveApplicationAPI(ctrl)
+	s.mockApi.EXPECT().Close()
+
+	return ctrl
 }
 
-func (s *RemoveApplicationSuite) setupTestApplication(c *gc.C) {
-	// Destroy an application that exists.
-	ch := testcharms.RepoWithSeries("bionic").CharmArchivePath(c.MkDir(), "multi-series")
-	err := runDeploy(c, ch, "multi-series")
+func (s *removeApplicationSuite) runRemoveApplication(c *gc.C, args ...string) (*cmd.Context, error) {
+	return cmdtesting.RunCommand(c, NewRemoveApplicationCommandForTest(s.apiFunc, s.store), args...)
+}
+
+func (s *removeApplicationSuite) TestForceFlagUnset(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.mockApi.EXPECT().DestroyApplications(apiapplication.DestroyApplicationsParams{
+		Applications: []string{"real-app"},
+	}).Return([]params.DestroyApplicationResult{{
+		Info: &params.DestroyApplicationInfo{},
+	}}, nil)
+
+	ctx, err := s.runRemoveApplication(c, "real-app")
+
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "removing application real-app\n")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 }
 
-func (s *RemoveApplicationSuite) TestLocalApplication(c *gc.C) {
-	s.setupTestApplication(c)
-	ctx, err := runRemoveApplication(c, "multi-series")
+func (s *removeApplicationSuite) TestForceFlagSet(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.mockApi.EXPECT().DestroyApplications(apiapplication.DestroyApplicationsParams{
+		Applications: []string{"real-app"},
+		Force:        true,
+	}).Return([]params.DestroyApplicationResult{{
+		Info: &params.DestroyApplicationInfo{},
+	}}, nil)
+
+	ctx, err := s.runRemoveApplication(c, "real-app", "--force")
+
 	c.Assert(err, jc.ErrorIsNil)
-	stderr := cmdtesting.Stderr(ctx)
-	c.Assert(stderr, gc.Equals, "removing application multi-series\n")
-	multiSeries, err := s.State.Application("multi-series")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(multiSeries.Life(), gc.Equals, state.Dying)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "removing application real-app\n")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 }
 
-func (s *RemoveApplicationSuite) TestDetachStorage(c *gc.C) {
-	s.testStorageRemoval(c, false)
-}
-
-func (s *RemoveApplicationSuite) TestDestroyStorage(c *gc.C) {
-	s.testStorageRemoval(c, true)
-}
-
-func (s *RemoveApplicationSuite) testStorageRemoval(c *gc.C, destroy bool) {
-	ch := testcharms.RepoWithSeries("bionic").CharmArchivePath(c.MkDir(), "storage-filesystem-multi-series")
-	err := runDeploy(c, ch, "storage-filesystem-multi-series", "-n2", "--storage", "data=2,modelscoped")
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Materialise the storage by assigning units to machines.
-	for _, id := range []string{"storage-filesystem-multi-series/0", "storage-filesystem-multi-series/1"} {
-		u, err := s.State.Unit(id)
-		c.Assert(err, jc.ErrorIsNil)
-		err = s.State.AssignUnit(u, state.AssignCleanEmpty)
-		c.Assert(err, jc.ErrorIsNil)
+func setupRace(raceyApplications []string) func(args apiapplication.DestroyApplicationsParams) ([]params.DestroyApplicationResult, error) {
+	return func(args apiapplication.DestroyApplicationsParams) ([]params.DestroyApplicationResult, error) {
+		results := make([]params.DestroyApplicationResult, len(args.Applications))
+		for i, app := range args.Applications {
+			results[i].Info = &params.DestroyApplicationInfo{}
+			for _, poison := range raceyApplications {
+				if app == poison {
+					err := errors.NewNotSupported(nil, "change detected")
+					results[i].Error = apiservererrors.ServerError(err)
+				}
+			}
+		}
+		return results, nil
 	}
-
-	args := []string{"storage-filesystem-multi-series"}
-	action := "detach"
-	if destroy {
-		args = append(args, "--destroy-storage")
-		action = "remove"
-	}
-	ctx, err := runRemoveApplication(c, args...)
-	c.Assert(err, jc.ErrorIsNil)
-	stderr := cmdtesting.Stderr(ctx)
-	c.Assert(stderr, gc.Equals, fmt.Sprintf(`
-removing application storage-filesystem-multi-series
-- will %[1]s storage data/0
-- will %[1]s storage data/1
-- will %[1]s storage data/2
-- will %[1]s storage data/3
-`[1:], action))
 }
 
-func (s *RemoveApplicationSuite) TestRemoveLocalMetered(c *gc.C) {
-	ch := testcharms.RepoWithSeries("bionic").CharmArchivePath(c.MkDir(), "metered-multi-series")
-	deploy := NewDeployCommand()
-	_, err := cmdtesting.RunCommand(c, deploy, ch)
+func (s *removeApplicationSuite) TestHandlingNotSupportedDoesNotAffectBaseCase(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.mockApi.EXPECT().DestroyApplications(apiapplication.DestroyApplicationsParams{
+		Applications: []string{"real-app"},
+	}).DoAndReturn(setupRace([]string{"do-not-remove"}))
+
+	ctx, err := s.runRemoveApplication(c, "real-app")
+
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = runRemoveApplication(c, "metered-multi-series")
-	c.Assert(err, jc.ErrorIsNil)
-	multiSeries, err := s.State.Application("metered-multi-series")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(multiSeries.Life(), gc.Equals, state.Dying)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "removing application real-app\n")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 }
 
-func (s *RemoveApplicationSuite) TestBlockRemoveApplication(c *gc.C) {
-	s.setupTestApplication(c)
+func (s *removeApplicationSuite) TestHandlingNotSupported(c *gc.C) {
+	defer s.setup(c).Finish()
 
-	// block operation
-	s.BlockRemoveObject(c, "TestBlockRemoveApplication")
-	_, err := runRemoveApplication(c, "multi-series")
-	s.AssertBlocked(c, err, ".*TestBlockRemoveApplication.*")
-	multiSeries, err := s.State.Application("multi-series")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(multiSeries.Life(), gc.Equals, state.Alive)
-}
+	s.mockApi.EXPECT().DestroyApplications(apiapplication.DestroyApplicationsParams{
+		Applications: []string{"do-not-remove"},
+	}).DoAndReturn(setupRace([]string{"do-not-remove"}))
 
-func (s *RemoveApplicationSuite) TestFailure(c *gc.C) {
-	// Destroy an application that does not exist.
-	ctx, err := runRemoveApplication(c, "gargleblaster")
+	ctx, err := s.runRemoveApplication(c, "do-not-remove")
+
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, ""+
+		"removing application do-not-remove failed: "+
+		"another user was updating application; please try again\n")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
+}
 
+func (s *removeApplicationSuite) TestHandlingNotSupportedMultipleApps(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.mockApi.EXPECT().DestroyApplications(apiapplication.DestroyApplicationsParams{
+		Applications: []string{"real-app", "do-not-remove", "another"},
+	}).DoAndReturn(setupRace([]string{"do-not-remove"}))
+
+	ctx, err := s.runRemoveApplication(c, "real-app", "do-not-remove", "another")
+
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, ""+
+		"removing application real-app\n"+
+		"removing application do-not-remove failed: "+
+		"another user was updating application; please try again\n"+
+		"removing application another\n")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
+}
+
+func (s *removeApplicationSuite) TestDetachStorage(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.mockApi.EXPECT().DestroyApplications(apiapplication.DestroyApplicationsParams{
+		Applications: []string{"storage-app"},
+	}).Return([]params.DestroyApplicationResult{{
+		Info: &params.DestroyApplicationInfo{
+			DetachedStorage: []params.Entity{{Tag: "storage-data-0"}, {Tag: "storage-data-1"}, {Tag: "storage-data-2"}, {Tag: "storage-data-3"}},
+		},
+	}}, nil)
+
+	ctx, err := s.runRemoveApplication(c, "storage-app")
+
+	c.Assert(err, jc.ErrorIsNil)
 	stderr := cmdtesting.Stderr(ctx)
 	c.Assert(stderr, gc.Equals, `
-removing application gargleblaster failed: application "gargleblaster" not found
+removing application storage-app
+- will detach storage data/0
+- will detach storage data/1
+- will detach storage data/2
+- will detach storage data/3
 `[1:])
 }
 
-func (s *RemoveApplicationSuite) TestInvalidArgs(c *gc.C) {
-	_, err := runRemoveApplication(c)
+func (s *removeApplicationSuite) TestDestroyStorage(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.mockApi.EXPECT().DestroyApplications(apiapplication.DestroyApplicationsParams{
+		Applications:   []string{"storage-app"},
+		DestroyStorage: true,
+	}).Return([]params.DestroyApplicationResult{{
+		Info: &params.DestroyApplicationInfo{
+			DestroyedStorage: []params.Entity{{Tag: "storage-data-0"}, {Tag: "storage-data-1"}, {Tag: "storage-data-2"}, {Tag: "storage-data-3"}},
+		},
+	}}, nil)
+
+	ctx, err := s.runRemoveApplication(c, "storage-app", "--destroy-storage")
+
+	c.Assert(err, jc.ErrorIsNil)
+	stderr := cmdtesting.Stderr(ctx)
+	c.Assert(stderr, gc.Equals, `
+removing application storage-app
+- will remove storage data/0
+- will remove storage data/1
+- will remove storage data/2
+- will remove storage data/3
+`[1:])
+}
+
+func (s *removeApplicationSuite) TestFailure(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.mockApi.EXPECT().DestroyApplications(apiapplication.DestroyApplicationsParams{
+		Applications: []string{"gargleblaster"},
+	}).Return([]params.DestroyApplicationResult{{
+		Error: &params.Error{
+			Message: "doink",
+		},
+	}}, nil)
+
+	ctx, err := s.runRemoveApplication(c, "gargleblaster")
+
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
+	stderr := cmdtesting.Stderr(ctx)
+	c.Assert(stderr, gc.Equals, `
+removing application gargleblaster failed: doink
+`[1:])
+}
+
+func (s *removeApplicationSuite) TestInvalidArgs(c *gc.C) {
+	_, err := s.runRemoveApplication(c)
 	c.Assert(err, gc.ErrorMatches, `no application specified`)
-	_, err = runRemoveApplication(c, "invalid:name")
+
+	_, err = s.runRemoveApplication(c, "invalid:name")
 	c.Assert(err, gc.ErrorMatches, `invalid application name "invalid:name"`)
 }
 
-func (s *RemoveApplicationSuite) TestNoWaitWithoutForce(c *gc.C) {
-	_, err := runRemoveApplication(c, "gargleblaster", "--no-wait")
+func (s *removeApplicationSuite) TestNoWaitWithoutForce(c *gc.C) {
+	_, err := s.runRemoveApplication(c, "gargleblaster", "--no-wait")
 	c.Assert(err, gc.ErrorMatches, `--no-wait without --force not valid`)
 }

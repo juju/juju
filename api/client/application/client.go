@@ -496,6 +496,10 @@ type DestroyApplicationsParams struct {
 	// will wait before forcing the next step to kick-off. This parameter
 	// only makes sense in combination with 'force' set to 'true'.
 	MaxWait *time.Duration
+
+	// DryRun specifies whether this should perform this destroy
+	// action or just return what this action will destroy
+	DryRun bool
 }
 
 // DestroyApplications destroys the given applications.
@@ -518,6 +522,7 @@ func (c *Client) DestroyApplications(in DestroyApplicationsParams) ([]params.Des
 			DestroyStorage: in.DestroyStorage,
 			Force:          in.Force,
 			MaxWait:        in.MaxWait,
+			DryRun:         in.DryRun,
 		})
 	}
 	if len(args.Applications) == 0 {

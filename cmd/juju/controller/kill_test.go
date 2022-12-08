@@ -412,11 +412,12 @@ func (s *KillSuite) TestKillDestroysControllerWithAPIError(c *gc.C) {
 }
 
 func (s *KillSuite) TestKillCommandConfirmation(c *gc.C) {
-	var stdin, stdout bytes.Buffer
+	var stdin, stdout, stderr bytes.Buffer
 	ctx, err := cmd.DefaultContext()
 	c.Assert(err, jc.ErrorIsNil)
 	ctx.Stdout = &stdout
 	ctx.Stdin = &stdin
+	ctx.Stderr = &stderr
 
 	// Ensure confirmation is requested if "--no-prompt" is not specified.
 	stdin.WriteString("n")
@@ -427,7 +428,7 @@ func (s *KillSuite) TestKillCommandConfirmation(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("command took too long")
 	}
-	c.Check(cmdtesting.Stdout(ctx), gc.Matches, "WARNING!.*test1(.|\n)*")
+	c.Check(cmdtesting.Stderr(ctx), gc.Matches, "WARNING!.*test1(.|\n)*")
 	checkControllerExistsInStore(c, "test1", s.store)
 }
 

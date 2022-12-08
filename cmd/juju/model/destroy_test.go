@@ -32,7 +32,6 @@ import (
 type DestroySuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 	api             *fakeAPI
-	storageAPI      *mockStorageAPI
 	stub            *jutesting.Stub
 	budgetAPIClient *mockBudgetAPIClient
 	store           *jujuclient.MemStore
@@ -89,7 +88,6 @@ func (s *DestroySuite) SetUpTest(c *gc.C) {
 	s.api = &fakeAPI{
 		Stub: s.stub,
 	}
-	s.storageAPI = &mockStorageAPI{Stub: s.stub}
 	s.clock = testclock.NewClock(time.Now())
 
 	s.store = jujuclient.NewMemStore()
@@ -109,12 +107,12 @@ func (s *DestroySuite) SetUpTest(c *gc.C) {
 }
 
 func (s *DestroySuite) runDestroyCommand(c *gc.C, args ...string) (*cmd.Context, error) {
-	command := model.NewDestroyCommandForTest(s.api, s.storageAPI, s.clock, noOpRefresh, s.store)
+	command := model.NewDestroyCommandForTest(s.api, s.clock, noOpRefresh, s.store)
 	return cmdtesting.RunCommand(c, command, args...)
 }
 
 func (s *DestroySuite) NewDestroyCommand() cmd.Command {
-	return model.NewDestroyCommandForTest(s.api, s.storageAPI, s.clock, noOpRefresh, s.store)
+	return model.NewDestroyCommandForTest(s.api, s.clock, noOpRefresh, s.store)
 }
 
 func checkModelExistsInStore(c *gc.C, name string, store jujuclient.ClientStore) {
@@ -161,7 +159,7 @@ func (s *DestroySuite) TestDestroyUnknownModelCallsRefresh(c *gc.C) {
 		return nil
 	}
 
-	command := model.NewDestroyCommandForTest(s.api, s.storageAPI, s.clock, refresh, s.store)
+	command := model.NewDestroyCommandForTest(s.api, s.clock, refresh, s.store)
 	_, err := cmdtesting.RunCommand(c, command, "foo")
 	c.Check(called, jc.IsTrue)
 	c.Check(err, gc.ErrorMatches, `model test1:admin/foo not found`)
@@ -321,6 +319,7 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	ctx.Stdout = &stdout
 	ctx.Stdin = &stdin
+	s.api.modelInfoErr = []*params.Error{nil, nil, nil}
 
 	// Ensure confirmation is requested if "--no-prompt" is not specified.
 	stdin.WriteString("n")
@@ -491,16 +490,4 @@ type mockBudgetAPIClient struct {
 func (c *mockBudgetAPIClient) DeleteBudget(model string) (string, error) {
 	c.MethodCall(c, "DeleteBudget", model)
 	return "Budget removed.", c.NextErr()
-}
-
-type mockStorageAPI struct {
-	*jutesting.Stub
-	storage []params.StorageDetails
-}
-
-func (*mockStorageAPI) Close() error { return nil }
-
-func (m *mockStorageAPI) ListStorageDetails() ([]params.StorageDetails, error) {
-	m.MethodCall(m, "ListStorageDetails")
-	return m.storage, m.NextErr()
 }

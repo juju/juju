@@ -285,15 +285,13 @@ func (s *SecretsManagerAPI) GetSecretMetadata() (params.ListSecretResults, error
 	}
 	// Unit leaders can also get metadata for secrets owned by the app.
 	// TODO(wallyworld) - temp fix for old podspec charms
-	if s.authTag.Kind() != names.ApplicationTagKind {
-		_, err := s.leadershipToken()
-		if err != nil && !leadership.IsNotLeaderError(err) {
-			return result, errors.Trace(err)
-		}
-		if err == nil {
-			appOwner := names.NewApplicationTag(authTagApp(s.authTag))
-			filter.OwnerTags = append(filter.OwnerTags, appOwner)
-		}
+	isLeader, err := s.isLeaderUnit()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	if isLeader {
+		appOwner := names.NewApplicationTag(authTagApp(s.authTag))
+		filter.OwnerTags = append(filter.OwnerTags, appOwner)
 	}
 
 	secrets, err := s.secretsBackend.ListSecrets(filter)
@@ -351,16 +349,70 @@ func (s *SecretsManagerAPI) GetSecretContentInfo(args params.GetSecretContentArg
 	return result, nil
 }
 
-func (s *SecretsManagerAPI) getOwnerSecretMetadata(uri *coresecrets.URI) (*coresecrets.SecretMetadata, error) {
-	md, err := s.secretsBackend.GetSecret(uri)
+func (s *SecretsManagerAPI) isLeaderUnit() (bool, error) {
+	if s.authTag.Kind() != names.UnitTagKind {
+		return false, nil
+	}
+	_, err := s.leadershipToken()
+	if err != nil && !leadership.IsNotLeaderError(err) {
+		return false, errors.Trace(err)
+	}
+	return err == nil, nil
+}
+
+func (s *SecretsManagerAPI) handleAppOwnedSecretForUnits(md *coresecrets.SecretMetadata) (*coresecrets.SecretMetadata, error) {
+	// If the secret is owned by the app, and the caller is a peer unit, we create a fake consumer doc for triggering events to notify the uniters.
+	// The peer units should get the secret using owner label but should not set a consumer label.
+	consumer, err := s.secretsConsumer.GetSecretConsumer(md.URI, s.authTag)
+	if err != nil && !errors.Is(err, errors.NotFound) {
+		return nil, errors.Trace(err)
+	}
+
+	if consumer == nil {
+		// Create a fake consumer doc for triggering secret-changed event for uniter.
+		consumer = &coresecrets.SecretConsumerMetadata{}
+	}
+	logger.Debugf("saving consumer doc for application owned secret %q for peer units %q", md.URI, s.authTag)
+	if err := s.secretsConsumer.SaveSecretConsumer(md.URI, s.authTag, consumer); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return md, nil
+}
+
+func (s *SecretsManagerAPI) getAppOwnedOrUnitOwnedSecretMetadata(uri *coresecrets.URI, label string) (md *coresecrets.SecretMetadata, err error) {
+	notFoundErr := errors.NotFoundf("secret %q", uri)
+	if label != "" {
+		notFoundErr = errors.NotFoundf("secret with label %q", label)
+	}
+	defer func() {
+		if md == nil || md.OwnerTag == s.authTag.String() {
+			// Either errored out or found a secret owned by the caller.
+			return
+		}
+		md, err = s.handleAppOwnedSecretForUnits(md)
+	}()
+
+	filter := state.SecretsFilter{
+		OwnerTags: []names.Tag{s.authTag},
+	}
+	if s.authTag.Kind() == names.UnitTagKind {
+		// Units can access application owned secrets.
+		appOwner := names.NewApplicationTag(authTagApp(s.authTag))
+		filter.OwnerTags = append(filter.OwnerTags, appOwner)
+	}
+	mds, err := s.secretsBackend.ListSecrets(filter)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if s.authTag.String() != md.OwnerTag {
-		// Invisible for non owner users.
-		return nil, errors.NotFoundf("secret %s", uri)
+	for _, md := range mds {
+		if uri != nil && md.URI.ID == uri.ID {
+			return md, nil
+		}
+		if label != "" && md.Label == label {
+			return md, nil
+		}
 	}
-	return md, nil
+	return nil, notFoundErr
 }
 
 func (s *SecretsManagerAPI) getSecretContent(arg params.GetSecretContentArg) (*secrets.ContentParams, error) {
@@ -394,16 +446,15 @@ func (s *SecretsManagerAPI) getSecretContent(arg params.GetSecretContentArg) (*s
 			return nil, errors.Trace(err)
 		}
 	}
-
-	if uri != nil && arg.Label == "" {
-		md, err := s.getOwnerSecretMetadata(uri)
-		if err != nil && !errors.Is(err, errors.NotFound) {
-			return nil, errors.Trace(err)
-		}
-		if md != nil {
-			// Owner can access the content directly.
-			return getSecretValue(md.URI, md.LatestRevision)
-		}
+	// Owner units should always have the UIR because we resolved the label to URI on uniter side already.
+	md, err := s.getAppOwnedOrUnitOwnedSecretMetadata(uri, arg.Label)
+	if err != nil && !errors.Is(err, errors.NotFound) {
+		return nil, errors.Trace(err)
+	}
+	if md != nil {
+		// 1. secrets can be accesed by the owner;
+		// 2. application owned secrets can be accessed by all the units of the application using owner label or URI.
+		return getSecretValue(md.URI, md.LatestRevision)
 	}
 
 	// arg.Label is the consumer label for consumers.
