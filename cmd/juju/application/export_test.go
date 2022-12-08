@@ -34,7 +34,6 @@ func NewRefreshCommandForTest(
 	newSpacesClient func(base.APICallCloser) SpacesAPI,
 	newModelConfigClient func(base.APICallCloser) ModelConfigClient,
 	newCharmHubClient func(string) (store.DownloadBundleClient, error),
-
 ) cmd.Command {
 	cmd := &refreshCommand{
 		DeployResources:       deployResources,
@@ -204,9 +203,6 @@ func NewDiffBundleCommandForTest(api base.APICallCloser,
 ) modelcmd.ModelCommand {
 	cmd := &diffBundleCommand{
 		newAPIRootFn: func() (base.APICallCloser, error) {
-			return api, nil
-		},
-		newControllerAPIRootFn: func() (base.APICallCloser, error) {
 			return api, nil
 		},
 		modelConstraintsClientFunc: modelConsFn,

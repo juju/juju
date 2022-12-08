@@ -562,6 +562,7 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithHeterogeneous(c *gc.C) {
 	s.expectMachine()
 	s.expectMachineConstraints(constraints.Value{})
 	s.expectHardwareCharacteristics()
+	s.expectHardwareCharacteristics()
 
 	s.expectUnit2MachineID()
 	s.expectMachine2()
