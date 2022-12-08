@@ -92,6 +92,9 @@ func backendsForModel(model Model) (configs map[string]provider.BackendConfig, a
 			Config:      b.Config,
 		}
 	}
+	if activeID == "" {
+		return nil, "", errors.NotFoundf("secret backend %q", backendName)
+	}
 	return configs, activeID, nil
 }
 

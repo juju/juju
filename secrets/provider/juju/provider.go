@@ -48,10 +48,11 @@ func BuiltInConfig() provider.BackendConfig {
 	return provider.BackendConfig{BackendType: BackendType}
 }
 
-// RestrictedConfig returns the config needed to create a vault
+// RestrictedConfig returns the config needed to create a
 // secrets backend client restricted to manage the specified
 // owned secrets and read shared secrets for the given entity tag.
-func (p jujuProvider) RestrictedConfig(adminCfg *provider.ModelBackendConfig, tag names.Tag, owned provider.SecretRevisions, read provider.SecretRevisions,
+func (p jujuProvider) RestrictedConfig(
+	adminCfg *provider.ModelBackendConfig, tag names.Tag, owned provider.SecretRevisions, read provider.SecretRevisions,
 ) (*provider.BackendConfig, error) {
 	return &provider.BackendConfig{
 		BackendType: BackendType,

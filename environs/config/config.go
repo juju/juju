@@ -1833,7 +1833,6 @@ var immutableAttributes = []string{
 	UUIDKey,
 	"firewall-mode",
 	CharmHubURLKey,
-	SecretBackendKey,
 }
 
 var (

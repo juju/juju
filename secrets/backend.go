@@ -74,7 +74,7 @@ func (c *secretsClient) GetContent(uri *secrets.URI, label string, refresh, peek
 	if !ok {
 		return nil, errors.NotFoundf("external secret backend %q", content.ValueRef.BackendID)
 	}
-	return backend.GetContent(context.Background(), content.ValueRef.RevisionID)
+	return backend.GetContent(context.TODO(), content.ValueRef.RevisionID)
 }
 
 // SaveContent implements Client.
@@ -83,7 +83,7 @@ func (c *secretsClient) SaveContent(uri *secrets.URI, revision int, value secret
 	if activeBackend == nil {
 		return secrets.ValueRef{}, errors.NotSupportedf("saving secret content to external backend")
 	}
-	revId, err := activeBackend.SaveContent(context.Background(), uri, revision, value)
+	revId, err := activeBackend.SaveContent(context.TODO(), uri, revision, value)
 	if err != nil {
 		return secrets.ValueRef{}, errors.Trace(err)
 	}
@@ -96,8 +96,8 @@ func (c *secretsClient) SaveContent(uri *secrets.URI, revision int, value secret
 // DeleteContent implements Client.
 func (c *secretsClient) DeleteContent(ref secrets.ValueRef) error {
 	backend, ok := c.backends[ref.BackendID]
-	if ok {
+	if !ok {
 		return errors.NotFoundf("external secret backend %q", ref.BackendID)
 	}
-	return backend.DeleteContent(context.Background(), ref.RevisionID)
+	return backend.DeleteContent(context.TODO(), ref.RevisionID)
 }

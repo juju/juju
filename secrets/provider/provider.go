@@ -77,7 +77,7 @@ type SecretBackendProvider interface {
 	// associated with the model config.
 	CleanupModel(cfg *ModelBackendConfig) error
 
-	// RestrictedConfig returns the config needed to create a vault
+	// RestrictedConfig returns the config needed to create a
 	// secrets backend client restricted to manage the specified
 	// owned secrets and read shared secrets for the given entity tag.
 	RestrictedConfig(adminCfg *ModelBackendConfig, tag names.Tag, owned SecretRevisions, read SecretRevisions) (*BackendConfig, error)

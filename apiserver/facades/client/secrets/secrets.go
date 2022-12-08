@@ -134,7 +134,7 @@ func (s *SecretsAPI) ListSecrets(arg params.ListSecretsArgs) (params.ListSecretR
 			}
 			val, ref, err := s.state.GetSecretValue(m.URI, rev)
 			if ref != nil {
-				val, err = s.secretContentFromStore(ref)
+				val, err = s.secretContentFromBackend(ref)
 			}
 			valueResult := &params.SecretValueResult{
 				Error: apiservererrors.ServerError(err),
@@ -165,10 +165,10 @@ func (s *SecretsAPI) getBackend(ID string) (provider.SecretsBackend, error) {
 	return b, nil
 }
 
-func (s *SecretsAPI) secretContentFromStore(ref *coresecrets.ValueRef) (coresecrets.SecretValue, error) {
+func (s *SecretsAPI) secretContentFromBackend(ref *coresecrets.ValueRef) (coresecrets.SecretValue, error) {
 	backend, err := s.getBackend(ref.BackendID)
 	if err != nil {
 		return nil, err
 	}
-	return backend.GetContent(context.Background(), ref.RevisionID)
+	return backend.GetContent(context.TODO(), ref.RevisionID)
 }

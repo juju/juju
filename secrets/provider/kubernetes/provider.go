@@ -114,10 +114,12 @@ func BuiltInConfig(cloudSpec cloudspec.CloudSpec) (*provider.BackendConfig, erro
 	return cloudSpecToBackendConfig(cloudSpec)
 }
 
-// RestrictedConfig returns the config needed to create a vault
+// RestrictedConfig returns the config needed to create a
 // secrets backend client restricted to manage the specified
 // owned secrets and read shared secrets for the given entity tag.
-func (p k8sProvider) RestrictedConfig(adminCfg *provider.ModelBackendConfig, consumer names.Tag, owned provider.SecretRevisions, read provider.SecretRevisions) (*provider.BackendConfig, error) {
+func (p k8sProvider) RestrictedConfig(
+	adminCfg *provider.ModelBackendConfig, consumer names.Tag, owned provider.SecretRevisions, read provider.SecretRevisions,
+) (*provider.BackendConfig, error) {
 	logger.Tracef("getting k8s backend config for %q, owned %v, read %v", consumer, owned, read)
 
 	if consumer == nil {
