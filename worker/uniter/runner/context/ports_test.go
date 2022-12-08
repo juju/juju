@@ -25,9 +25,10 @@ type portRangeTest struct {
 	targetEndpoint  string
 	targetPortRange network.PortRange
 
-	machinePortRanges  map[names.UnitTag]network.GroupedPortRanges
-	pendingOpenRanges  network.GroupedPortRanges
-	pendingCloseRanges network.GroupedPortRanges
+	machinePortRanges     map[names.UnitTag]network.GroupedPortRanges
+	applicationPortRanges network.GroupedPortRanges
+	pendingOpenRanges     network.GroupedPortRanges
+	pendingCloseRanges    network.GroupedPortRanges
 
 	expectErr          string
 	expectPendingOpen  network.GroupedPortRanges
@@ -141,12 +142,13 @@ func (s *PortRangeChangeRecorderSuite) TestOpenPortRange(c *gc.C) {
 			},
 			expectErr: `cannot open 1-200/tcp \(unit "u/0"\): port range conflicts with 10-20/tcp \(unit "u/0"\) requested earlier`,
 		},
+		// TODO: add tests for applicationPortRanges !!!!!!!!!!!!
 	}
 
 	for i, test := range tests {
 		c.Logf("test %d: %s", i, test.about)
 
-		rec := newPortRangeChangeRecorder(loggo.GetLogger("test"), targetUnit, test.machinePortRanges)
+		rec := newPortRangeChangeRecorder(loggo.GetLogger("test"), targetUnit, test.machinePortRanges, test.applicationPortRanges)
 		rec.pendingOpenRanges = test.pendingOpenRanges
 		rec.pendingCloseRanges = test.pendingCloseRanges
 
@@ -285,7 +287,7 @@ func (s *PortRangeChangeRecorderSuite) TestClosePortRange(c *gc.C) {
 	for i, test := range tests {
 		c.Logf("test %d: %s", i, test.about)
 
-		rec := newPortRangeChangeRecorder(loggo.GetLogger("test"), targetUnit, test.machinePortRanges)
+		rec := newPortRangeChangeRecorder(loggo.GetLogger("test"), targetUnit, test.machinePortRanges, test.applicationPortRanges)
 		rec.pendingOpenRanges = test.pendingOpenRanges
 		rec.pendingCloseRanges = test.pendingCloseRanges
 
