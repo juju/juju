@@ -1408,14 +1408,21 @@ func (ctx *HookContext) doFlush(process string) error {
 		b.UpdateRelationUnitSettings(rctx.RelationTag().String(), unitSettings, appSettings)
 	}
 
-	for endpointName, portRanges := range ctx.portRangeChanges.pendingOpenRanges {
-		for _, pr := range portRanges {
-			b.OpenPortRange(endpointName, pr)
+	if len(ctx.portRangeChanges.pendingOpenRanges)+len(ctx.portRangeChanges.pendingCloseRanges) > 0 {
+		// Open/Close port can be done on leaders only for CAAS model.
+		if err := ctx.caasLeaderShipCheck(); err != nil {
+			return errors.Trace(err)
 		}
-	}
-	for endpointName, portRanges := range ctx.portRangeChanges.pendingCloseRanges {
-		for _, pr := range portRanges {
-			b.ClosePortRange(endpointName, pr)
+
+		for endpointName, portRanges := range ctx.portRangeChanges.pendingOpenRanges {
+			for _, pr := range portRanges {
+				b.OpenPortRange(endpointName, pr)
+			}
+		}
+		for endpointName, portRanges := range ctx.portRangeChanges.pendingCloseRanges {
+			for _, pr := range portRanges {
+				b.ClosePortRange(endpointName, pr)
+			}
 		}
 	}
 
@@ -1534,6 +1541,20 @@ func (ctx *HookContext) doFlush(process string) error {
 	// Call completed successfully; update local state
 	ctx.charmStateCacheDirty = false
 	return nil
+}
+
+func (ctx *HookContext) caasLeaderShipCheck() error {
+	if ctx.modelType == model.IAAS {
+		return nil
+	}
+	isLeader, err := ctx.IsLeader()
+	if err != nil {
+		return errors.Annotatef(err, "cannot determine leadership")
+	}
+	if isLeader {
+		return nil
+	}
+	return ErrIsNotLeader
 }
 
 // If we're running the upgrade-charm hook and no podspec update was done,
