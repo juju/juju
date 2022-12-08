@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/juju/charm/v9"
-	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -1082,7 +1081,6 @@ type AddApplicationArgs struct {
 	Name              string
 	Charm             *Charm
 	CharmOrigin       *CharmOrigin
-	Channel           csparams.Channel
 	Storage           map[string]StorageConstraints
 	Devices           map[string]DeviceConstraints
 	AttachStorage     []names.StorageTag
@@ -1254,7 +1252,6 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		Subordinate:   subordinate,
 		CharmURL:      &cURL,
 		CharmOrigin:   *args.CharmOrigin,
-		Channel:       string(args.Channel),
 		RelationCount: len(peers),
 		Life:          Alive,
 		UnitCount:     args.NumUnits,

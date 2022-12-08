@@ -1320,7 +1320,6 @@ func (i *importer) makeApplicationDoc(a description.Application) (*applicationDo
 		Name:                 a.Name(),
 		Subordinate:          a.Subordinate(),
 		CharmURL:             &cURL,
-		Channel:              a.Channel(),
 		CharmModifiedVersion: a.CharmModifiedVersion(),
 		CharmOrigin:          *origin,
 		ForceCharm:           a.ForceCharm(),
@@ -1375,22 +1374,20 @@ func (i *importer) loadInstanceHardwareFromUnits(units []description.Unit) ([]in
 }
 
 func (i *importer) makeCharmOrigin(a description.Application) (*CharmOrigin, error) {
-	curl, err := charm.ParseURL(a.CharmURL())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	co := a.CharmOrigin()
 	rev := co.Revision()
 
 	var channel *Channel
-	if serialized := co.Channel(); serialized != "" {
+	// Only charmhub charms will have a channel. Local charms
+	// should not have a channel, so drop even if provided.
+	serialized := co.Channel()
+	if serialized != "" && corecharm.CharmHub.Matches(co.Source()) {
 		c, err := charm.ParseChannelNormalize(serialized)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		track := c.Track
-		if corecharm.CharmHub.Matches(co.Source()) && track == "" {
+		if track == "" {
 			track = "latest"
 		}
 		channel = &Channel{
@@ -1398,9 +1395,8 @@ func (i *importer) makeCharmOrigin(a description.Application) (*CharmOrigin, err
 			Risk:   string(c.Risk),
 			Branch: c.Branch,
 		}
-	} else {
-		// Attempt to fallback to get the channel if it's missing.
-		_, channel = getApplicationSourceChannel(a, curl)
+	} else if serialized != "" && corecharm.Local.Matches(co.Source()) {
+		i.logger.Warningf("Dropping channel: %q for application %q, should not exist", serialized, a.Name())
 	}
 
 	p, err := corecharm.ParsePlatformNormalize(co.Platform())
@@ -1423,43 +1419,6 @@ func (i *importer) makeCharmOrigin(a description.Application) (*CharmOrigin, err
 		Channel:  channel,
 		Platform: platform,
 	}, nil
-}
-
-// Attempt to get as much information from the appChannel where possible.
-func getApplicationSourceChannel(a description.Application, url *charm.URL) (corecharm.Source, *Channel) {
-	var source corecharm.Source
-	switch url.Schema {
-	case "cs":
-		source = corecharm.CharmStore
-	case "local":
-		source = corecharm.Local
-	default:
-		source = corecharm.CharmHub
-	}
-
-	c := a.Channel()
-	if c == "" || source == corecharm.Local {
-		return source, nil
-	}
-
-	if source == corecharm.CharmStore {
-		return source, &Channel{Risk: a.Channel()}
-	}
-
-	norm, err := charm.ParseChannelNormalize(a.Channel())
-	if err != nil {
-		return source, nil
-	}
-
-	if norm.Track == "" {
-		norm.Track = "latest"
-	}
-
-	return source, &Channel{
-		Track:  norm.Track,
-		Risk:   string(norm.Risk),
-		Branch: norm.Branch,
-	}
 }
 
 func (i *importer) relationCount(application string) int {

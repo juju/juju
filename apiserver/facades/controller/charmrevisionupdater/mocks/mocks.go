@@ -10,7 +10,6 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v9"
-	params "github.com/juju/charmrepo/v7/csclient/params"
 	charmrevisionupdater "github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	charmhub "github.com/juju/juju/charmhub"
 	transport "github.com/juju/juju/charmhub/transport"
@@ -57,20 +56,6 @@ func (m *MockApplication) ApplicationTag() names.ApplicationTag {
 func (mr *MockApplicationMockRecorder) ApplicationTag() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationTag", reflect.TypeOf((*MockApplication)(nil).ApplicationTag))
-}
-
-// Channel mocks base method.
-func (m *MockApplication) Channel() params.Channel {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Channel")
-	ret0, _ := ret[0].(params.Channel)
-	return ret0
-}
-
-// Channel indicates an expected call of Channel.
-func (mr *MockApplicationMockRecorder) Channel() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Channel", reflect.TypeOf((*MockApplication)(nil).Channel))
 }
 
 // CharmOrigin mocks base method.

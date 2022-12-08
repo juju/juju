@@ -12,7 +12,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v9"
 	"github.com/juju/charm/v9/assumes"
-	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
@@ -2793,7 +2792,6 @@ func (s *ApplicationSuite) TestApplicationsInfoOne(c *gc.C) {
 	}).MinTimes(1)
 	app.EXPECT().ApplicationConfig().Return(coreconfig.ConfigAttributes{}, nil).MinTimes(1)
 	app.EXPECT().CharmConfig("master").Return(map[string]interface{}{"stringOption": "", "intOption": int(123)}, nil).MinTimes(1)
-	app.EXPECT().Channel().Return(csparams.DevelopmentChannel).MinTimes(1)
 
 	bindings := mocks.NewMockBindings(ctrl)
 	bindings.EXPECT().MapWithSpaceNames(gomock.Any()).Return(map[string]string{"juju-info": "myspace"}, nil).MinTimes(1)
@@ -2830,7 +2828,6 @@ func (s *ApplicationSuite) TestApplicationsInfoOneWithExposedEndpoints(c *gc.C) 
 	}).MinTimes(1)
 	app.EXPECT().ApplicationConfig().Return(coreconfig.ConfigAttributes{}, nil).MinTimes(1)
 	app.EXPECT().CharmConfig("master").Return(map[string]interface{}{"stringOption": "", "intOption": int(123)}, nil).MinTimes(1)
-	app.EXPECT().Channel().Return(csparams.DevelopmentChannel).MinTimes(1)
 
 	bindings := mocks.NewMockBindings(ctrl)
 	bindings.EXPECT().MapWithSpaceNames(gomock.Any()).Return(map[string]string{"juju-info": "myspace"}, nil).MinTimes(1)
@@ -2851,7 +2848,6 @@ func (s *ApplicationSuite) TestApplicationsInfoOneWithExposedEndpoints(c *gc.C) 
 		Tag:         "application-postgresql",
 		Charm:       "charm-postgresql",
 		Base:        params.Base{Name: "ubuntu", Channel: "22.04/stable"},
-		Channel:     "development",
 		Constraints: constraints.MustParse("arch=amd64 mem=4G cores=1 root-disk=8G"),
 		Principal:   true,
 		Life:        state.Alive.String(),
@@ -2910,7 +2906,6 @@ func (s *ApplicationSuite) TestApplicationsInfoMany(c *gc.C) {
 	}).MinTimes(1)
 	app.EXPECT().ApplicationConfig().Return(coreconfig.ConfigAttributes{}, nil).MinTimes(1)
 	app.EXPECT().CharmConfig("master").Return(map[string]interface{}{"stringOption": "", "intOption": int(123)}, nil).MinTimes(1)
-	app.EXPECT().Channel().Return(csparams.DevelopmentChannel).MinTimes(1)
 
 	bindings := mocks.NewMockBindings(ctrl)
 	bindings.EXPECT().MapWithSpaceNames(gomock.Any()).Return(map[string]string{"juju-info": "myspace"}, nil).MinTimes(1)
@@ -2929,7 +2924,6 @@ func (s *ApplicationSuite) TestApplicationsInfoMany(c *gc.C) {
 		Tag:         "application-postgresql",
 		Charm:       "charm-postgresql",
 		Base:        params.Base{Name: "ubuntu", Channel: "22.04/stable"},
-		Channel:     "development",
 		Constraints: constraints.MustParse("arch=amd64 mem=4G cores=1 root-disk=8G"),
 		Principal:   true,
 		Life:        state.Alive.String(),

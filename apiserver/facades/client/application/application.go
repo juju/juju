@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/juju/charm/v9"
-	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -549,7 +548,6 @@ func deployApplication(
 		ApplicationName:   args.ApplicationName,
 		Charm:             stateCharm(ch),
 		CharmOrigin:       origin,
-		Channel:           csparams.Channel(args.Channel),
 		NumUnits:          args.NumUnits,
 		ApplicationConfig: appConfig,
 		CharmConfig:       charmSettings,
@@ -797,7 +795,6 @@ type setCharmParams struct {
 	AppName               string
 	Application           Application
 	CharmOrigin           *params.CharmOrigin
-	Channel               csparams.Channel
 	ConfigSettingsStrings map[string]string
 	ConfigSettingsYAML    string
 	ResourceIDs           map[string]string
@@ -915,13 +912,11 @@ func (api *APIBase) SetCharm(args params.ApplicationSetCharm) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	channel := csparams.Channel(args.Channel)
 	return api.setCharmWithAgentValidation(
 		setCharmParams{
 			AppName:               args.ApplicationName,
 			Application:           oneApplication,
 			CharmOrigin:           args.CharmOrigin,
-			Channel:               channel,
 			ConfigSettingsStrings: args.ConfigSettings,
 			ConfigSettingsYAML:    args.ConfigSettingsYAML,
 			ResourceIDs:           args.ResourceIDs,
@@ -1085,7 +1080,6 @@ func (api *APIBase) applicationSetCharm(
 	cfg := state.SetCharmConfig{
 		Charm:              api.stateCharm(newCharm),
 		CharmOrigin:        newOrigin,
-		Channel:            params.Channel,
 		ConfigSettings:     settings,
 		ForceBase:          force.ForceBase,
 		ForceUnits:         force.ForceUnits,

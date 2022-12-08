@@ -203,8 +203,7 @@ func (api *CharmRevisionUpdaterAPI) retrieveLatestCharmInfo() ([]latestCharmInfo
 				continue
 			}
 			cid := charmstore.CharmID{
-				URL:     curl,
-				Channel: application.Channel(),
+				URL: curl,
 			}
 			if telemetry {
 				series, err := coreseries.GetSeriesFromChannel(origin.Platform.OS, origin.Platform.Channel)
