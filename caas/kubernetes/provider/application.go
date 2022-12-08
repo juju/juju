@@ -4,10 +4,6 @@
 package provider
 
 import (
-	"github.com/juju/errors"
-	"github.com/juju/names/v4"
-	"github.com/juju/version/v2"
-
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/application"
 )
@@ -25,16 +21,4 @@ func (k *kubernetesClient) Application(name string, deploymentType caas.Deployme
 		k.clock,
 		k.randomPrefix,
 	)
-}
-
-func (k *kubernetesClient) upgradeApplication(agentTag names.Tag, vers version.Number) error {
-	appName, err := names.UnitApplication(agentTag.Id())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	app := k.Application(
-		appName,
-		caas.DeploymentStateful, // TODO(sidecar): we hardcode it to stateful for now, it needs to be fixed soon!
-	)
-	return app.Upgrade(vers)
 }

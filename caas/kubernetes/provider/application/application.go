@@ -66,7 +66,11 @@ const (
 	// containerProbeSuccess is the number of successful probes to mark the check as healthy.
 	containerProbeSuccess = 1
 	// containerProbeFailure is the number of failed probes to mark the check as unhealthy.
-	containerProbeFailure = 3
+	containerProbeFailure = 1
+)
+
+var (
+	containerAgentPebbleVersion = version.MustParse("2.9.37")
 )
 
 type app struct {
@@ -493,38 +497,6 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 	return applier.Run(context.Background(), a.client, false)
 }
 
-// Upgrade upgrades the app to the specified version.
-func (a *app) Upgrade(ver version.Number) error {
-	// TODO(sidecar): Unify this with Ensure
-	applier := a.newApplier()
-
-	if err := a.upgradeMainResource(applier, ver); err != nil {
-		return errors.Trace(err)
-	}
-
-	// TODO(sidecar):  we could query the cluster for all resources with the `app.juju.is/created-by` and `app.kubernetes.io/name` labels instead
-	// (so longer as the resource also does have the juju version annotation already).
-	// Then we don't have to worry about missing anything if something is added later and not also updated here.
-	for _, r := range []annotationUpdater{
-		resources.NewSecret(a.secretName(), a.namespace, nil),
-		resources.NewServiceAccount(a.serviceAccountName(), a.namespace, nil),
-		resources.NewRole(a.serviceAccountName(), a.namespace, nil),
-		resources.NewRoleBinding(a.serviceAccountName(), a.namespace, nil),
-		resources.NewClusterRole(a.qualifiedClusterName(), nil),
-		resources.NewClusterRoleBinding(a.qualifiedClusterName(), nil),
-		resources.NewService(a.name, a.namespace, nil),
-	} {
-		if err := r.Get(context.Background(), a.client); err != nil {
-			return errors.Trace(err)
-		}
-		existingAnnotations := annotations.New(r.GetAnnotations())
-		r.SetAnnotations(a.upgradeAnnotations(existingAnnotations, ver))
-		applier.Apply(r)
-	}
-
-	return applier.Run(context.Background(), a.client, false)
-}
-
 type annotationUpdater interface {
 	resources.Resource
 	GetAnnotations() map[string]string
@@ -665,10 +637,7 @@ func (a *app) configureDefaultService(annotation annotations.Annotation) (err er
 			}},
 		},
 	})
-	if err = svc.Get(context.Background(), a.client); errors.IsNotFound(err) {
-		return svc.Apply(context.Background(), a.client)
-	}
-	return errors.Trace(err)
+	return svc.Apply(context.Background(), a.client)
 }
 
 // UpdateService updates the default service with specific service type and port mappings.
@@ -1255,54 +1224,115 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			Value: features,
 		})
 	}
+	charmContainerCommand := []string{"/charm/bin/pebble"}
+	charmContainerArgs := []string{
+		"run",
+		"--http", fmt.Sprintf(":%s", containerAgentPebblePort),
+		"--verbose",
+	}
+	charmContainerLivenessProbe := &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: "/v1/health?level=alive",
+				Port: intstr.Parse(containerAgentPebblePort),
+			},
+		},
+		InitialDelaySeconds: containerProbeInitialDelay,
+		TimeoutSeconds:      containerProbeTimeout,
+		PeriodSeconds:       containerProbePeriod,
+		SuccessThreshold:    containerProbeSuccess,
+		FailureThreshold:    containerProbeFailure,
+	}
+	charmContainerReadinessProbe := &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: "/v1/health?level=ready",
+				Port: intstr.Parse(containerAgentPebblePort),
+			},
+		},
+		InitialDelaySeconds: containerProbeInitialDelay,
+		TimeoutSeconds:      containerProbeTimeout,
+		PeriodSeconds:       containerProbePeriod,
+		SuccessThreshold:    containerProbeSuccess,
+		FailureThreshold:    containerProbeFailure,
+	}
+	charmContainerStartupProbe := charmContainerLivenessProbe
+	charmContainerExtraVolumeMounts := []corev1.VolumeMount{
+		{
+			Name:      charmVolumeName,
+			MountPath: constants.DefaultPebbleDir,
+			SubPath:   "containeragent/pebble",
+		},
+	}
+
+	// (tlm) lp1997253. If the agent version is less than
+	// containerAgentPebbleVersion we need to keep still using the old args
+	// supported by the init command and the associated probes. By not doing
+	// this we will have full container restarts.
+	if config.AgentVersion.Compare(containerAgentPebbleVersion) < 0 {
+		charmContainerExtraVolumeMounts = []corev1.VolumeMount{}
+		charmContainerLivenessProbe = &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Path: constants.AgentHTTPPathLiveness,
+					Port: intstr.Parse(constants.AgentHTTPProbePort),
+				},
+			},
+			InitialDelaySeconds: 30,
+			PeriodSeconds:       10,
+			SuccessThreshold:    1,
+			FailureThreshold:    2,
+		}
+		charmContainerReadinessProbe = &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Path: constants.AgentHTTPPathReadiness,
+					Port: intstr.Parse(constants.AgentHTTPProbePort),
+				},
+			},
+			InitialDelaySeconds: 30,
+			PeriodSeconds:       10,
+			SuccessThreshold:    1,
+			FailureThreshold:    2,
+		}
+		charmContainerStartupProbe = &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Path: constants.AgentHTTPPathStartup,
+					Port: intstr.Parse(constants.AgentHTTPProbePort),
+				},
+			},
+			InitialDelaySeconds: 30,
+			PeriodSeconds:       10,
+			SuccessThreshold:    1,
+			FailureThreshold:    2,
+		}
+		charmContainerCommand = []string{"/charm/bin/containeragent"}
+		charmContainerArgs = []string{
+			"unit",
+			"--data-dir", jujuDataDir,
+			"--charm-modified-version", strconv.Itoa(config.CharmModifiedVersion),
+			"--append-env", "PATH=$PATH:/charm/bin",
+			"--show-log",
+		}
+	}
+
 	containerSpecs := []corev1.Container{{
 		Name:            unitContainerName,
 		ImagePullPolicy: corev1.PullIfNotPresent,
 		Image:           config.CharmBaseImagePath,
 		WorkingDir:      jujuDataDir,
-		Command:         []string{"/charm/bin/pebble"},
-		Args: []string{
-			"run",
-			"--http", fmt.Sprintf(":%s", containerAgentPebblePort),
-			"--verbose",
-		},
-		Env: env,
+		Command:         charmContainerCommand,
+		Args:            charmContainerArgs,
+		Env:             env,
 		SecurityContext: &corev1.SecurityContext{
 			RunAsUser:  pointer.Int64Ptr(0),
 			RunAsGroup: pointer.Int64Ptr(0),
 		},
-		LivenessProbe: &corev1.Probe{
-			ProbeHandler: corev1.ProbeHandler{
-				HTTPGet: &corev1.HTTPGetAction{
-					Path: "/v1/health?level=alive",
-					Port: intstr.Parse(containerAgentPebblePort),
-				},
-			},
-			InitialDelaySeconds: containerProbeInitialDelay,
-			TimeoutSeconds:      containerProbeTimeout,
-			PeriodSeconds:       containerProbePeriod,
-			SuccessThreshold:    containerProbeSuccess,
-			FailureThreshold:    containerProbeFailure,
-		},
-		ReadinessProbe: &corev1.Probe{
-			ProbeHandler: corev1.ProbeHandler{
-				HTTPGet: &corev1.HTTPGetAction{
-					Path: "/v1/health?level=ready",
-					Port: intstr.Parse(containerAgentPebblePort),
-				},
-			},
-			InitialDelaySeconds: containerProbeInitialDelay,
-			TimeoutSeconds:      containerProbeTimeout,
-			PeriodSeconds:       containerProbePeriod,
-			SuccessThreshold:    containerProbeSuccess,
-			FailureThreshold:    containerProbeFailure,
-		},
-		VolumeMounts: []corev1.VolumeMount{
-			{
-				Name:      charmVolumeName,
-				MountPath: constants.DefaultPebbleDir,
-				SubPath:   "containeragent/pebble",
-			},
+		LivenessProbe:  charmContainerLivenessProbe,
+		ReadinessProbe: charmContainerReadinessProbe,
+		StartupProbe:   charmContainerStartupProbe,
+		VolumeMounts: append([]corev1.VolumeMount{
 			{
 				Name:      charmVolumeName,
 				MountPath: "/charm/bin",
@@ -1319,7 +1349,7 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 				MountPath: "/charm/containers",
 				SubPath:   "charm/containers",
 			},
-		},
+		}, charmContainerExtraVolumeMounts...),
 	}}
 
 	imagePullSecrets := []corev1.LocalObjectReference(nil)
@@ -1400,6 +1430,31 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		containerSpecs = append(containerSpecs, container)
 	}
 
+	containerAgentArgs := []string{
+		"init",
+		"--containeragent-pebble-dir", "/containeragent/pebble",
+		"--charm-modified-version", strconv.Itoa(config.CharmModifiedVersion),
+		"--data-dir", jujuDataDir,
+		"--bin-dir", "/charm/bin",
+	}
+	charmInitAdditionalMounts := []corev1.VolumeMount{
+		{
+			Name:      charmVolumeName,
+			MountPath: "/containeragent/pebble",
+			SubPath:   "containeragent/pebble",
+		},
+	}
+	// (tlm) lp1997253. If the agent version is less then containerAgentPebbleVersion
+	// we need to keep still using the old args supported by the init command
+	if config.AgentVersion.Compare(containerAgentPebbleVersion) < 0 {
+		charmInitAdditionalMounts = []corev1.VolumeMount{}
+		containerAgentArgs = []string{
+			"init",
+			"--data-dir", jujuDataDir,
+			"--bin-dir", "/charm/bin",
+		}
+	}
+
 	automountToken := true
 	spec := &corev1.PodSpec{
 		AutomountServiceAccountToken:  &automountToken,
@@ -1412,13 +1467,7 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			Image:           config.AgentImagePath,
 			WorkingDir:      jujuDataDir,
 			Command:         []string{"/opt/containeragent"},
-			Args: []string{
-				"init",
-				"--containeragent-pebble-dir", "/containeragent/pebble",
-				"--charm-modified-version", strconv.Itoa(config.CharmModifiedVersion),
-				"--data-dir", jujuDataDir,
-				"--bin-dir", "/charm/bin",
-			},
+			Args:            containerAgentArgs,
 			Env: []corev1.EnvVar{
 				{
 					Name:  "JUJU_CONTAINER_NAMES",
@@ -1450,16 +1499,11 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 					},
 				},
 			},
-			VolumeMounts: []corev1.VolumeMount{
+			VolumeMounts: append([]corev1.VolumeMount{
 				{
 					Name:      charmVolumeName,
 					MountPath: jujuDataDir,
 					SubPath:   strings.TrimPrefix(jujuDataDir, "/"),
-				},
-				{
-					Name:      charmVolumeName,
-					MountPath: "/containeragent/pebble",
-					SubPath:   "containeragent/pebble",
 				},
 				{
 					Name:      charmVolumeName,
@@ -1471,7 +1515,7 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 					MountPath: "/charm/containers",
 					SubPath:   "charm/containers",
 				},
-			},
+			}, charmInitAdditionalMounts...),
 		}},
 		Containers: containerSpecs,
 		Volumes: []corev1.Volume{
