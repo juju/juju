@@ -36,7 +36,10 @@ func (s *storeSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.primeDB(c)
-	s.store = lease.NewStore(s.db, lease.StubLogger{})
+	s.store = lease.NewStore(lease.StoreConfig{
+		DB:     s.db,
+		Logger: lease.StubLogger{},
+	})
 
 	// Single-buffered to allow us to queue up a stoppage.
 	s.stopCh = make(chan struct{}, 1)
