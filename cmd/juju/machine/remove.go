@@ -194,7 +194,7 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 	if !c.NoPrompt {
 		err := c.performDryRun(ctx, client)
 		if err == errDryRunNotSupported {
-			fmt.Fprintf(ctx.Stdout, removeMachineMsgNoDryRun, strings.Join(c.MachineIds, ", "))
+			fmt.Fprintf(ctx.Stderr, removeMachineMsgNoDryRun, strings.Join(c.MachineIds, ", "))
 		} else if err != nil {
 			return errors.Trace(err)
 		}
@@ -221,7 +221,7 @@ func (c *removeCommand) performDryRun(ctx *cmd.Context, client RemoveMachineAPI)
 	if err := block.ProcessBlockedError(err, block.BlockRemove); err != nil {
 		return errors.Trace(err)
 	}
-	fmt.Fprint(ctx.Stdout, removeMachineMsgPrefix)
+	fmt.Fprint(ctx.Stderr, removeMachineMsgPrefix)
 	if err := c.logResults(ctx, results, false); err != nil {
 		return errors.Trace(err)
 	}
