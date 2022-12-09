@@ -49,8 +49,7 @@ func NewCharmHubRepository(logger Logger, chClient CharmHubClient) *CharmHubRepo
 // There are a few things to note in the attempt to resolve the charm and it's
 // supporting series.
 //
-//  1. The algorithm for this is terrible. For charmstore lookups, only one
-//     request is required, unfortunately for Charmhub the worst case for this
+//  1. The algorithm for this is terrible. For Charmhub the worst case for this
 //     will be 2.
 //     Most of the initial requests from the client will hit this first time
 //     around (think `juju deploy foo`) without a series (client can then
@@ -63,6 +62,7 @@ func NewCharmHubRepository(logger Logger, chClient CharmHubClient) *CharmHubRepo
 //     re-request, but we end up with missing data and potential incorrect
 //     charm downloads later.
 //
+// TODO:
 // When charmstore goes, we could potentially rework how the client requests
 // the store.
 func (c *CharmHubRepository) ResolveWithPreferredChannel(charmURL *charm.URL, argOrigin corecharm.Origin, macaroons macaroon.Slice) (*charm.URL, corecharm.Origin, []string, error) {
@@ -242,7 +242,7 @@ type retryResolveResult struct {
 }
 
 // retryResolveWithPreferredChannel will attempt to inspect the transport
-// APIError and deterimine if a retry is possible with the information gathered
+// APIError and determine if a retry is possible with the information gathered
 // from the error.
 func (c *CharmHubRepository) retryResolveWithPreferredChannel(charmURL *charm.URL, origin corecharm.Origin, macaroons macaroon.Slice, resErr *transport.APIError) (*retryResolveResult, error) {
 	var (

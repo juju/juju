@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/charms/mocks"
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/cache"
 	corecharm "github.com/juju/juju/core/charm"
@@ -37,7 +36,6 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -174,7 +172,6 @@ var _ = gc.Suite(&charmsMockSuite{})
 func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectResolveWithPreferredChannel(3, nil)
-	s.expectControllerConfig(c)
 	api := s.api(c)
 
 	curl, err := charm.ParseURL("cs:testme")
@@ -249,7 +246,6 @@ func (s *charmsMockSuite) TestResolveCharmsUnknownSchema(c *gc.C) {
 func (s *charmsMockSuite) TestResolveCharmNoDefinedSeries(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectResolveWithPreferredChannelNoSeries()
-	s.expectControllerConfig(c)
 	api := s.api(c)
 
 	seriesCurl, err := charm.ParseURL("cs:focal/testme")
@@ -767,15 +763,6 @@ func (s *charmsMockSuite) expectResolveWithPreferredChannelNoSeries() {
 
 			return curl, resolvedOrigin, []string{}, nil
 		})
-}
-
-func (s *charmsMockSuite) expectControllerConfig(c *gc.C) {
-	cfg, err := controller.NewConfig("deadbeef-1bad-500d-9000-4b1d0d06f00d", testing.CACert,
-		map[string]interface{}{
-			controller.CharmStoreURL: "http://www.testme.com",
-		})
-	c.Assert(err, jc.ErrorIsNil)
-	s.state.EXPECT().ControllerConfig().Return(cfg, nil).AnyTimes()
 }
 
 func (s *charmsMockSuite) expectMongoSession() {
