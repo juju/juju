@@ -74,6 +74,23 @@ func (s *removeApplicationSuite) TestRemoveApplication(c *gc.C) {
 		Info: &params.DestroyApplicationInfo{},
 	}}, nil)
 
+	ctx, err := s.runRemoveApplication(c, "--no-prompt", "real-app")
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "will remove application real-app\n")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
+}
+
+func (s *removeApplicationSuite) TestRemoveApplicationWithSkipConfEnvvar(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.PatchEnvironment(osenv.JujuSkipConfirmationEnvKey, "1")
+	s.mockApi.EXPECT().DestroyApplications(apiapplication.DestroyApplicationsParams{
+		Applications: []string{"real-app"},
+	}).Return([]params.DestroyApplicationResult{{
+		Info: &params.DestroyApplicationInfo{},
+	}}, nil)
+
 	ctx, err := s.runRemoveApplication(c, "real-app")
 
 	c.Assert(err, jc.ErrorIsNil)
@@ -91,7 +108,7 @@ func (s *removeApplicationSuite) TestRemoveApplicationForce(c *gc.C) {
 		Info: &params.DestroyApplicationInfo{},
 	}}, nil)
 
-	ctx, err := s.runRemoveApplication(c, "real-app", "--force")
+	ctx, err := s.runRemoveApplication(c, "--no-prompt", "real-app", "--force")
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "will remove application real-app\n")
@@ -128,8 +145,6 @@ func (s *removeApplicationSuite) TestRemoveApplicationDryRunOldFacade(c *gc.C) {
 func (s *removeApplicationSuite) TestRemoveApplicationPrompt(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.PatchEnvironment(osenv.JujuSkipConfirmationEnvKey, "0")
-
 	var stdin bytes.Buffer
 	ctx := cmdtesting.Context(c)
 	ctx.Stdin = &stdin
@@ -163,8 +178,6 @@ func (s *removeApplicationSuite) TestRemoveApplicationPrompt(c *gc.C) {
 func (s *removeApplicationSuite) TestRemoveApplicationPromptOldFacade(c *gc.C) {
 	s.facadeVersion = 15
 	defer s.setup(c).Finish()
-
-	s.PatchEnvironment(osenv.JujuSkipConfirmationEnvKey, "0")
 
 	var stdin bytes.Buffer
 	ctx := cmdtesting.Context(c)
@@ -212,7 +225,7 @@ func (s *removeApplicationSuite) TestHandlingNotSupportedDoesNotAffectBaseCase(c
 		Applications: []string{"real-app"},
 	}).DoAndReturn(setupRace([]string{"do-not-remove"}))
 
-	ctx, err := s.runRemoveApplication(c, "real-app")
+	ctx, err := s.runRemoveApplication(c, "--no-prompt", "real-app")
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "will remove application real-app\n")
@@ -226,7 +239,7 @@ func (s *removeApplicationSuite) TestHandlingNotSupported(c *gc.C) {
 		Applications: []string{"do-not-remove"},
 	}).DoAndReturn(setupRace([]string{"do-not-remove"}))
 
-	ctx, err := s.runRemoveApplication(c, "do-not-remove")
+	ctx, err := s.runRemoveApplication(c, "--no-prompt", "do-not-remove")
 
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
@@ -242,7 +255,7 @@ func (s *removeApplicationSuite) TestHandlingNotSupportedMultipleApps(c *gc.C) {
 		Applications: []string{"real-app", "do-not-remove", "another"},
 	}).DoAndReturn(setupRace([]string{"do-not-remove"}))
 
-	ctx, err := s.runRemoveApplication(c, "real-app", "do-not-remove", "another")
+	ctx, err := s.runRemoveApplication(c, "--no-prompt", "real-app", "do-not-remove", "another")
 
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
@@ -265,7 +278,7 @@ func (s *removeApplicationSuite) TestDetachStorage(c *gc.C) {
 		},
 	}}, nil)
 
-	ctx, err := s.runRemoveApplication(c, "storage-app")
+	ctx, err := s.runRemoveApplication(c, "--no-prompt", "storage-app")
 
 	c.Assert(err, jc.ErrorIsNil)
 	stdout := cmdtesting.Stdout(ctx)
@@ -290,7 +303,7 @@ func (s *removeApplicationSuite) TestDestroyStorage(c *gc.C) {
 		},
 	}}, nil)
 
-	ctx, err := s.runRemoveApplication(c, "storage-app", "--destroy-storage")
+	ctx, err := s.runRemoveApplication(c, "--no-prompt", "storage-app", "--destroy-storage")
 
 	c.Assert(err, jc.ErrorIsNil)
 	stdout := cmdtesting.Stdout(ctx)
@@ -314,7 +327,7 @@ func (s *removeApplicationSuite) TestFailure(c *gc.C) {
 		},
 	}}, nil)
 
-	ctx, err := s.runRemoveApplication(c, "gargleblaster")
+	ctx, err := s.runRemoveApplication(c, "--no-prompt", "gargleblaster")
 
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	stderr := cmdtesting.Stderr(ctx)
