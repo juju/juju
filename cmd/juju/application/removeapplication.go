@@ -5,8 +5,6 @@ package application
 
 import (
 	"fmt"
-	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -21,7 +19,6 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -38,6 +35,7 @@ func NewRemoveApplicationCommand() cmd.Command {
 // TODO(jack-w-shaw) This should inherit from ConfirmationCommandBase in
 // 3.1, once hebaviours have converged
 type removeApplicationCommand struct {
+	modelcmd.ConfirmationCommandBase
 	modelcmd.ModelCommandBase
 
 	newAPIFunc func() (RemoveApplicationAPI, error)
@@ -102,8 +100,7 @@ func (c *removeApplicationCommand) Info() *cmd.Info {
 
 func (c *removeApplicationCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	// This unused var is declared so we can pass a valid ptr into BoolVar
-	f.BoolVar(&c.NoPrompt, "no-prompt", false, "Do not prompt for approval")
+	c.ConfirmationCommandBase.SetFlags(f)
 	f.BoolVar(&c.DryRun, "dry-run", false, "Print what this command would remove without removing")
 	f.BoolVar(&c.DestroyStorage, "destroy-storage", false, "Destroy storage attached to application units")
 	f.BoolVar(&c.Force, "force", false, "Completely remove an application and all its dependencies")
@@ -112,6 +109,9 @@ func (c *removeApplicationCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *removeApplicationCommand) Init(args []string) error {
+	if err := c.ConfirmationCommandBase.Init(args); err != nil {
+		return errors.Trace(err)
+	}
 	if len(args) == 0 {
 		return errors.Errorf("no application specified")
 	}
@@ -123,24 +123,6 @@ func (c *removeApplicationCommand) Init(args []string) error {
 	if !c.Force && c.NoWait {
 		return errors.NotValidf("--no-wait without --force")
 	}
-
-	// To maintain compatibility, in 3.0 NoPrompt should default to true.
-	// However, we still need to take into account the env var and the
-	// flag. So default initially to false, but if the env var and flag
-	// are not present, set to true.
-	// TODO(jack-w-shaw) use CheckSkipConfirmEnvVar in 3.1
-	if !c.NoPrompt {
-		if skipConf, ok := os.LookupEnv(osenv.JujuSkipConfirmationEnvKey); ok {
-			skipConfBool, err := strconv.ParseBool(skipConf)
-			if err != nil {
-				return errors.Annotatef(err, "value %q of env var %q is not a valid bool", skipConf, osenv.JujuSkipConfirmationEnvKey)
-			}
-			c.NoPrompt = skipConfBool
-		} else {
-			c.NoPrompt = true
-		}
-	}
-
 	c.ApplicationNames = args
 	return nil
 }
@@ -234,7 +216,7 @@ func (c *removeApplicationCommand) removeApplications(
 		return c.performDryRun(ctx, client)
 	}
 
-	if !c.NoPrompt {
+	if c.NeedsConfirmation() {
 		err := c.performDryRun(ctx, client)
 		if err == errDryRunNotSupported {
 			fmt.Fprintf(ctx.Stderr, removeApplicationMsgNoDryRun, strings.Join(c.ApplicationNames, ", "))
@@ -256,7 +238,7 @@ func (c *removeApplicationCommand) removeApplications(
 	if err := block.ProcessBlockedError(err, block.BlockRemove); err != nil {
 		return errors.Trace(err)
 	}
-	logAll := c.NoPrompt || client.BestAPIVersion() < 16
+	logAll := !c.NeedsConfirmation() || client.BestAPIVersion() < 16
 	return c.logResults(ctx, results, !logAll)
 }
 
