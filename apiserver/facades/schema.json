@@ -3337,6 +3337,9 @@
                         "destroy-storage": {
                             "type": "boolean"
                         },
+                        "dry-run": {
+                            "type": "boolean"
+                        },
                         "force": {
                             "type": "boolean"
                         },
@@ -3349,8 +3352,7 @@
                     },
                     "additionalProperties": false,
                     "required": [
-                        "unit-tag",
-                        "force"
+                        "unit-tag"
                     ]
                 },
                 "DestroyUnitResult": {

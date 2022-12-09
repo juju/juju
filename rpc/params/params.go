@@ -520,6 +520,30 @@ type ApplicationMergeBindings struct {
 	Force          bool              `json:"force"`
 }
 
+// DestroyUnitsParamsV15 holds bulk parameters for the Application.DestroyUnit call.
+type DestroyUnitsParamsV15 struct {
+	Units []DestroyUnitParamsV15 `json:"units"`
+}
+
+// DestroyUnitParams holds parameters for the Application.DestroyUnit call.
+type DestroyUnitParamsV15 struct {
+	// UnitTag holds the tag of the unit to destroy.
+	UnitTag string `json:"unit-tag"`
+
+	// DestroyStorage controls whether or not storage
+	// attached to the unit should be destroyed.
+	DestroyStorage bool `json:"destroy-storage,omitempty"`
+
+	// Force controls whether or not the destruction of an application
+	// will be forced, i.e. ignore operational errors.
+	Force bool `json:"force"`
+
+	// MaxWait specifies the amount of time that each step in unit removal
+	// will wait before forcing the next step to kick-off. This parameter
+	// only makes sense in combination with 'force' set to 'true'.
+	MaxWait *time.Duration `json:"max-wait,omitempty"`
+}
+
 // DestroyUnitsParams holds bulk parameters for the Application.DestroyUnit call.
 type DestroyUnitsParams struct {
 	Units []DestroyUnitParams `json:"units"`
@@ -536,12 +560,16 @@ type DestroyUnitParams struct {
 
 	// Force controls whether or not the destruction of an application
 	// will be forced, i.e. ignore operational errors.
-	Force bool `json:"force"`
+	Force bool `json:"force,omitempty"`
 
 	// MaxWait specifies the amount of time that each step in unit removal
 	// will wait before forcing the next step to kick-off. This parameter
 	// only makes sense in combination with 'force' set to 'true'.
 	MaxWait *time.Duration `json:"max-wait,omitempty"`
+
+	// DryRun specifies whether to perform the destroy action or
+	// just return what this action will destroy
+	DryRun bool `json:"dry-run,omitempty"`
 }
 
 // Creds holds credentials for identifying an entity.

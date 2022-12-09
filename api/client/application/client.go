@@ -436,6 +436,10 @@ type DestroyUnitsParams struct {
 	// will wait before forcing the next step to kick-off. This parameter
 	// only makes sense in combination with 'force' set to 'true'.
 	MaxWait *time.Duration
+
+	// DryRun specifies whether to perform the destroy action or
+	// just return what this action will destroy
+	DryRun bool
 }
 
 // DestroyUnits decreases the number of units dedicated to one or more
@@ -459,6 +463,7 @@ func (c *Client) DestroyUnits(in DestroyUnitsParams) ([]params.DestroyUnitResult
 			DestroyStorage: in.DestroyStorage,
 			Force:          in.Force,
 			MaxWait:        in.MaxWait,
+			DryRun:         in.DryRun,
 		})
 	}
 	if len(args.Units) == 0 {

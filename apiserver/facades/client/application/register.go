@@ -17,7 +17,7 @@ func Register(registry facade.FacadeRegistry) {
 		return newFacadeV15(ctx)
 	}, reflect.TypeOf((*APIv15)(nil)))
 	registry.MustRegister("Application", 16, func(ctx facade.Context) (facade.Facade, error) {
-		return newFacadeV16(ctx) // DestroyApplication gains dry-run
+		return newFacadeV16(ctx) // DestroyApplication & DestroyUnit gains dry-run
 	}, reflect.TypeOf((*APIv16)(nil)))
 }
 
