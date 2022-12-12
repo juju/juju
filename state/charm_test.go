@@ -738,16 +738,13 @@ func (s *CharmSuite) TestAddCharmMetadata(c *gc.C) {
 }
 
 func (s *CharmSuite) TestAllCharmURLs(c *gc.C) {
-	ch1 := s.AddTestingCharm(c, "dummy")
-	state.AddTestingApplication(c, s.State, "testme", ch1)
-
 	ch2 := state.AddTestingCharmhubCharmForSeries(c, s.State, "jammy", "dummy")
 	state.AddTestingApplication(c, s.State, "testme-jammy", ch2)
 
 	curls, err := s.State.AllCharmURLs()
 	c.Assert(err, jc.ErrorIsNil)
 	// One application from SetUpTest
-	c.Assert(len(curls), gc.Equals, 3, gc.Commentf("%v", curls))
+	c.Assert(len(curls), gc.Equals, 2, gc.Commentf("%v", curls))
 }
 
 type CharmTestHelperSuite struct {
