@@ -66,12 +66,12 @@ func (s *toolsSuite) TestValidateUploadAllowed(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	// Host runs arm64, environment supports arm64.
 	arm64 := "arm64"
-	centos7 := "centos7"
+	ubuntuFocal := series.MustParseBaseFromString("ubuntu@20.04")
 	s.PatchValue(&arch.HostArch, func() string { return arm64 })
-	s.PatchValue(&os.HostOS, func() os.OSType { return os.CentOS })
+	s.PatchValue(&os.HostOS, func() os.OSType { return os.Ubuntu })
 	validator, err := env.ConstraintsValidator(context.NewEmptyCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
-	err = bootstrap.ValidateUploadAllowed(env, &arm64, &centos7, validator)
+	err = bootstrap.ValidateUploadAllowed(env, &arm64, &ubuntuFocal, validator)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -95,7 +95,7 @@ func (s *toolsSuite) TestFindBootstrapTools(c *gc.C) {
 	type test struct {
 		version *version.Number
 		arch    *string
-		series  *string
+		base    *series.Base
 		dev     bool
 		filter  tools.Filter
 		streams []string
@@ -103,35 +103,35 @@ func (s *toolsSuite) TestFindBootstrapTools(c *gc.C) {
 	tests := []test{{
 		version: nil,
 		arch:    nil,
-		series:  nil,
+		base:    nil,
 		dev:     true,
 		filter:  tools.Filter{},
 	}, {
 		version: &vers,
 		arch:    nil,
-		series:  nil,
+		base:    nil,
 		dev:     false,
 		filter:  tools.Filter{Number: vers},
 	}, {
 		version: &vers,
 		arch:    &arm64,
-		series:  nil,
+		base:    nil,
 		filter:  tools.Filter{Arch: arm64, Number: vers},
 	}, {
 		version: &vers,
 		arch:    &arm64,
-		series:  nil,
+		base:    nil,
 		dev:     true,
 		filter:  tools.Filter{Arch: arm64, Number: vers},
 	}, {
 		version: &devVers,
 		arch:    &arm64,
-		series:  nil,
+		base:    nil,
 		filter:  tools.Filter{Arch: arm64, Number: devVers},
 	}, {
 		version: &devVers,
 		arch:    &arm64,
-		series:  nil,
+		base:    nil,
 		filter:  tools.Filter{Arch: arm64, Number: devVers},
 		streams: []string{"devel", "proposed", "released"},
 	}}
@@ -144,7 +144,7 @@ func (s *toolsSuite) TestFindBootstrapTools(c *gc.C) {
 			extra["agent-stream"] = test.streams[0]
 		}
 		env := newEnviron("foo", useDefaultKeys, extra)
-		bootstrap.FindBootstrapTools(env, ss, test.version, test.arch, test.series)
+		bootstrap.FindBootstrapTools(env, ss, test.version, test.arch, test.base)
 		c.Assert(called, gc.Equals, i+1)
 		c.Assert(filter, gc.Equals, test.filter)
 		if test.streams != nil {

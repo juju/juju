@@ -2740,14 +2740,14 @@ func (s *MigrationImportSuite) TestImportingModelWithBlankType(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) TestImportingModelWithDefaultSeriesBefore2935(c *gc.C) {
-	defaultSeries, ok := s.testImportingModelWithDefaultSeries(c, version.MustParse("2.7.8"))
-	c.Assert(ok, jc.IsFalse, gc.Commentf("value: %q", defaultSeries))
+	defaultBase, ok := s.testImportingModelWithDefaultSeries(c, version.MustParse("2.7.8"))
+	c.Assert(ok, jc.IsFalse, gc.Commentf("value: %q", defaultBase))
 }
 
 func (s *MigrationImportSuite) TestImportingModelWithDefaultSeriesAfter2935(c *gc.C) {
-	defaultSeries, ok := s.testImportingModelWithDefaultSeries(c, version.MustParse("2.9.35"))
+	defaultBase, ok := s.testImportingModelWithDefaultSeries(c, version.MustParse("2.9.35"))
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(defaultSeries, gc.Equals, "jammy")
+	c.Assert(defaultBase, gc.Equals, "ubuntu@22.04/stable")
 }
 
 func (s *MigrationImportSuite) testImportingModelWithDefaultSeries(c *gc.C, toolsVer version.Number) (string, bool) {
@@ -2774,7 +2774,7 @@ func (s *MigrationImportSuite) testImportingModelWithDefaultSeries(c *gc.C, tool
 
 	importedCfg, err := imported.Config()
 	c.Assert(err, jc.ErrorIsNil)
-	return importedCfg.DefaultSeries()
+	return importedCfg.DefaultBase()
 }
 
 func (s *MigrationImportSuite) TestImportingRelationApplicationSettings(c *gc.C) {

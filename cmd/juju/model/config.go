@@ -342,11 +342,6 @@ func (c *configCommand) setConfig(client configCommandAPI, attrs config.Attrs) e
 
 // getConfig writes the value of a single model config key to the cmd.Context.
 func (c *configCommand) getConfig(client configCommandAPI, ctx *cmd.Context) error {
-	// if certBytes != nil {
-	// 	_, _ = ctx.Stdout.Write(certBytes)
-	// 	return nil
-	// }
-
 	attrs, err := c.getFilteredModel(client)
 	if err != nil {
 		return err
@@ -355,7 +350,9 @@ func (c *configCommand) getConfig(client configCommandAPI, ctx *cmd.Context) err
 	if len(c.configBase.KeysToGet) == 0 {
 		return errors.New("c.configBase.KeysToGet is empty")
 	}
-	if value, found := attrs[c.configBase.KeysToGet[0]]; found {
+
+	key := c.configBase.KeysToGet[0]
+	if value, found := attrs[key]; found {
 		if c.out.Name() == "tabular" {
 			// The user has not specified that they want
 			// YAML or JSON formatting, so we print out
@@ -371,7 +368,7 @@ func (c *configCommand) getConfig(client configCommandAPI, ctx *cmd.Context) err
 	// Key not found - error
 	mod, _ := c.ModelIdentifier()
 	return errors.Errorf("%q is not a key of the currently targeted model: %q",
-		c.configBase.KeysToGet[0], mod)
+		key, mod)
 }
 
 // getAllConfig writes the full model config to the cmd.Context.

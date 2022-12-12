@@ -48,9 +48,24 @@ func ParseBaseFromString(b string) (Base, error) {
 	return Base{OS: parts[0], Channel: channel}, nil
 }
 
+// MustParseBaseFromString is like ParseBaseFromString but panics if the string
+// is invalid.
+func MustParseBaseFromString(b string) Base {
+	base, err := ParseBaseFromString(b)
+	if err != nil {
+		panic(err)
+	}
+	return base
+}
+
 // MakeDefaultBase creates a base from an os and simple version string, eg "22.04".
 func MakeDefaultBase(os string, channel string) Base {
 	return Base{OS: os, Channel: MakeDefaultChannel(channel)}
+}
+
+// Empty returns true if the base is empty.
+func (b Base) Empty() bool {
+	return b.OS == "" && b.Channel.Empty()
 }
 
 func (b Base) String() string {

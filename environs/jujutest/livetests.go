@@ -217,12 +217,12 @@ func (t *LiveTests) bootstrapParams() bootstrap.BootstrapParams {
 			Regions:   regions,
 			Endpoint:  t.CloudEndpoint,
 		},
-		CloudRegion:              t.CloudRegion,
-		CloudCredential:          &credential,
-		CloudCredentialName:      "credential",
-		AdminSecret:              AdminSecret,
-		CAPrivateKey:             coretesting.CAKey,
-		SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+		CloudRegion:             t.CloudRegion,
+		CloudCredential:         &credential,
+		CloudCredentialName:     "credential",
+		AdminSecret:             AdminSecret,
+		CAPrivateKey:            coretesting.CAKey,
+		SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
 	}
 }
 

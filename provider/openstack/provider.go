@@ -45,7 +45,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
-	coreseries "github.com/juju/juju/core/series"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -2210,14 +2210,19 @@ func (e *Environ) terminateInstanceNetworkPorts(id instance.Id) error {
 
 // AgentMetadataLookupParams returns parameters which are used to query agent simple-streams metadata.
 func (e *Environ) AgentMetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
-	series := config.PreferredSeries(e.ecfg())
-	hostOSType := coreseries.DefaultOSTypeNameFromSeries(series)
-	return e.metadataLookupParams(region, hostOSType)
+	base := config.PreferredBase(e.ecfg())
+	return e.metadataLookupParams(region, base.OS)
 }
 
 // ImageMetadataLookupParams returns parameters which are used to query image simple-streams metadata.
 func (e *Environ) ImageMetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
-	release, err := imagemetadata.ImageRelease(config.PreferredSeries(e.ecfg()))
+	base := config.PreferredBase(e.ecfg())
+	baseSeries, err := series.GetSeriesFromBase(base)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	release, err := imagemetadata.ImageRelease(baseSeries)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

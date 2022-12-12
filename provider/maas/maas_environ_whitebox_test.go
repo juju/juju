@@ -698,10 +698,10 @@ func (suite *maasEnvironSuite) TestWaitForNodeDeploymentError(c *gc.C) {
 	env := suite.makeEnviron(c, nil)
 	err := bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
 		suite.callCtx, bootstrap.BootstrapParams{
-			ControllerConfig:         coretesting.FakeControllerConfig(),
-			AdminSecret:              jujutesting.AdminSecret,
-			CAPrivateKey:             coretesting.CAKey,
-			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+			ControllerConfig:        coretesting.FakeControllerConfig(),
+			AdminSecret:             jujutesting.AdminSecret,
+			CAPrivateKey:            coretesting.CAKey,
+			SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
 			DialOpts: environs.BootstrapDialOpts{
 				Timeout: coretesting.LongWait,
 			},
@@ -722,10 +722,10 @@ func (suite *maasEnvironSuite) TestWaitForNodeDeploymentRetry(c *gc.C) {
 	env := suite.makeEnviron(c, nil)
 	bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
 		suite.callCtx, bootstrap.BootstrapParams{
-			ControllerConfig:         coretesting.FakeControllerConfig(),
-			AdminSecret:              jujutesting.AdminSecret,
-			CAPrivateKey:             coretesting.CAKey,
-			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+			ControllerConfig:        coretesting.FakeControllerConfig(),
+			AdminSecret:             jujutesting.AdminSecret,
+			CAPrivateKey:            coretesting.CAKey,
+			SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
 			DialOpts: environs.BootstrapDialOpts{
 				Timeout: coretesting.LongWait,
 			},
@@ -746,10 +746,10 @@ func (suite *maasEnvironSuite) TestWaitForNodeDeploymentSucceeds(c *gc.C) {
 	env := suite.makeEnviron(c, nil)
 	err := bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
 		suite.callCtx, bootstrap.BootstrapParams{
-			ControllerConfig:         coretesting.FakeControllerConfig(),
-			AdminSecret:              jujutesting.AdminSecret,
-			CAPrivateKey:             coretesting.CAKey,
-			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+			ControllerConfig:        coretesting.FakeControllerConfig(),
+			AdminSecret:             jujutesting.AdminSecret,
+			CAPrivateKey:            coretesting.CAKey,
+			SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
 			DialOpts: environs.BootstrapDialOpts{
 				Timeout: coretesting.LongWait,
 			},
@@ -2261,10 +2261,10 @@ func (suite *maasEnvironSuite) TestStartInstanceEndToEnd(c *gc.C) {
 	env := suite.makeEnviron(c, controller)
 	err := bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
 		suite.callCtx, bootstrap.BootstrapParams{
-			ControllerConfig:         coretesting.FakeControllerConfig(),
-			AdminSecret:              jujutesting.AdminSecret,
-			CAPrivateKey:             coretesting.CAKey,
-			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+			ControllerConfig:        coretesting.FakeControllerConfig(),
+			AdminSecret:             jujutesting.AdminSecret,
+			CAPrivateKey:            coretesting.CAKey,
+			SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
 			DialOpts: environs.BootstrapDialOpts{
 				Timeout: coretesting.LongWait,
 			},
@@ -2395,8 +2395,8 @@ func (suite *maasEnvironSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
 			CAPrivateKey:     coretesting.CAKey,
 			// Disable auto-uploading by setting the agent version
 			// to something that's not the current version.
-			AgentVersion:             &vers,
-			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+			AgentVersion:            &vers,
+			SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
 			DialOpts: environs.BootstrapDialOpts{
 				Timeout: coretesting.LongWait,
 			},
@@ -2411,10 +2411,10 @@ func (suite *maasEnvironSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {
 	env := suite.makeEnviron(c, controller)
 	err := bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
 		suite.callCtx, bootstrap.BootstrapParams{
-			ControllerConfig:         coretesting.FakeControllerConfig(),
-			AdminSecret:              jujutesting.AdminSecret,
-			CAPrivateKey:             coretesting.CAKey,
-			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+			ControllerConfig:        coretesting.FakeControllerConfig(),
+			AdminSecret:             jujutesting.AdminSecret,
+			CAPrivateKey:            coretesting.CAKey,
+			SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
 			DialOpts: environs.BootstrapDialOpts{
 				Timeout: coretesting.LongWait,
 			},
