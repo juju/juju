@@ -45,7 +45,6 @@ type ManifoldConfig struct {
 	UpgradeGateName        string
 	AuditConfigUpdaterName string
 	LeaseManagerName       string
-	RaftTransportName      string
 	SyslogName             string
 	CharmhubHTTPClientName string
 
@@ -53,7 +52,6 @@ type ManifoldConfig struct {
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
 	Hub                               *pubsub.StructuredHub
 	Presence                          presence.Recorder
-	RaftOpQueue                       Queue
 
 	NewWorker           func(Config) (worker.Worker, error)
 	NewMetricsCollector func() *apiserver.Collector
@@ -91,9 +89,6 @@ func (config ManifoldConfig) Validate() error {
 	if config.LeaseManagerName == "" {
 		return errors.NotValidf("empty LeaseManagerName")
 	}
-	if config.RaftTransportName == "" {
-		return errors.NotValidf("empty RaftTransportName")
-	}
 	if config.PrometheusRegisterer == nil {
 		return errors.NotValidf("nil PrometheusRegisterer")
 	}
@@ -118,9 +113,6 @@ func (config ManifoldConfig) Validate() error {
 	if config.NewMetricsCollector == nil {
 		return errors.NotValidf("nil NewMetricsCollector")
 	}
-	if config.RaftOpQueue == nil {
-		return errors.NotValidf("nil RaftOpQueue")
-	}
 	return nil
 }
 
@@ -140,7 +132,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.UpgradeGateName,
 			config.AuditConfigUpdaterName,
 			config.LeaseManagerName,
-			config.RaftTransportName,
 			config.SyslogName,
 			config.CharmhubHTTPClientName,
 		},
@@ -209,13 +200,6 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
-	// We don't need anything from the raft-transport but we need to
-	// tie the lifetime of this worker to it - otherwise http-server
-	// will hang waiting for this to release the mux.
-	if err := context.Get(config.RaftTransportName, nil); err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	var charmhubHTTPClient HTTPClient
 	if err := context.Get(config.CharmhubHTTPClientName, &charmhubHTTPClient); err != nil {
 		return nil, errors.Trace(err)
@@ -256,7 +240,6 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		NewServer:                         newServerShim,
 		MetricsCollector:                  metricsCollector,
 		EmbeddedCommand:                   execEmbeddedCommand,
-		RaftOpQueue:                       config.RaftOpQueue,
 		SysLogger:                         sysLogger,
 		CharmhubHTTPClient:                charmhubHTTPClient,
 	})
