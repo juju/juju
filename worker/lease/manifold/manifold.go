@@ -21,36 +21,16 @@ import (
 
 	"github.com/juju/juju/agent"
 	corelease "github.com/juju/juju/core/lease"
-	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/lease"
 )
-
-type Logger interface {
-	Errorf(string, ...interface{})
-	Warningf(string, ...interface{})
-	Infof(string, ...interface{})
-	Debugf(string, ...interface{})
-	Tracef(string, ...interface{})
-}
 
 const (
 	// MaxSleep is the longest the manager will sleep before checking
 	// whether any leases should be expired. If it can see a lease
 	// expiring sooner than that it will still wake up earlier.
 	MaxSleep = time.Minute
-
-	// ForwardTimeout is how long the store should wait for a response
-	// after sending a lease operation over the hub before deciding a
-	// a response is never coming back (for example if we send the
-	// request during a raft-leadership election). This should be long
-	// enough that we can be very confident the request was missed.
-	ForwardTimeout = 5 * time.Second
 )
-
-// TODO(raftlease): This manifold does too much - split out a worker
-// that holds the lease store and a manifold that creates it. Then
-// make this one depend on that.
 
 // ManifoldConfig holds the resources needed to start the lease
 // manager in a dependency engine.
@@ -59,14 +39,12 @@ type ManifoldConfig struct {
 	ClockName      string
 	CentralHubName string
 
-	FSM                  *raftlease.FSM
 	RequestTopic         string
 	Logger               lease.Logger
 	LogDir               string
 	PrometheusRegisterer prometheus.Registerer
 	NewWorker            func(lease.ManagerConfig) (worker.Worker, error)
-	NewStore             func(raftlease.StoreConfig) *raftlease.Store
-	NewClient            ClientFunc
+	NewStore             func(lease.StoreConfig) *lease.Store
 }
 
 // Validate checks that the config has all the required values.
@@ -79,9 +57,6 @@ func (c ManifoldConfig) Validate() error {
 	}
 	if c.CentralHubName == "" {
 		return errors.NotValidf("empty CentralHubName")
-	}
-	if c.FSM == nil {
-		return errors.NotValidf("nil FSM")
 	}
 	if c.RequestTopic == "" {
 		return errors.NotValidf("empty RequestTopic")
@@ -98,15 +73,12 @@ func (c ManifoldConfig) Validate() error {
 	if c.NewStore == nil {
 		return errors.NotValidf("nil NewStore")
 	}
-	if c.NewClient == nil {
-		return errors.NotValidf("nil NewClient")
-	}
 	return nil
 }
 
 type manifoldState struct {
 	config ManifoldConfig
-	store  *raftlease.Store
+	store  *lease.Store
 }
 
 func (s *manifoldState) start(context dependency.Context) (worker.Worker, error) {
@@ -129,13 +101,9 @@ func (s *manifoldState) start(context dependency.Context) (worker.Worker, error)
 		return nil, errors.Trace(err)
 	}
 
-	metrics := raftlease.NewOperationClientMetrics(clock)
-	client := s.config.NewClient(hub, s.config.RequestTopic, clock, metrics)
-	s.store = s.config.NewStore(raftlease.StoreConfig{
-		FSM:              s.config.FSM,
-		Client:           client,
-		Clock:            clock,
-		MetricsCollector: metrics,
+	s.store = s.config.NewStore(lease.StoreConfig{
+		DB:     nil,
+		Logger: s.config.Logger,
 	})
 
 	controllerUUID := agent.CurrentConfig().Controller().Id()
@@ -188,25 +156,7 @@ func NewWorker(config lease.ManagerConfig) (worker.Worker, error) {
 	return lease.NewManager(config)
 }
 
-// NewStore is a shim to make a raftlease.Store for testability.
-func NewStore(config raftlease.StoreConfig) *raftlease.Store {
-	return raftlease.NewStore(config)
-}
-
-type ClientFunc = func(*pubsub.StructuredHub, string, clock.Clock, *raftlease.OperationClientMetrics) raftlease.Client
-
-// NewClientFunc returns a lease API client based on pub/sub.
-func NewClientFunc(
-	hub *pubsub.StructuredHub,
-	requestTopic string,
-	clock clock.Clock,
-	metrics *raftlease.OperationClientMetrics,
-) raftlease.Client {
-	return raftlease.NewPubsubClient(raftlease.PubsubClientConfig{
-		Hub:            hub,
-		RequestTopic:   requestTopic,
-		Clock:          clock,
-		ForwardTimeout: ForwardTimeout,
-		ClientMetrics:  metrics,
-	})
+// NewStore returns a new lease store based on the input config.
+func NewStore(config lease.StoreConfig) *lease.Store {
+	return lease.NewStore(config)
 }
