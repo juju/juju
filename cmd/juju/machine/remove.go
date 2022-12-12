@@ -194,7 +194,7 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 	if !c.NoPrompt {
 		err := c.performDryRun(ctx, client)
 		if err == errDryRunNotSupported {
-			fmt.Fprintf(ctx.Stderr, removeMachineMsgNoDryRun, strings.Join(c.MachineIds, ", "))
+			_, _ = fmt.Fprintf(ctx.Stderr, removeMachineMsgNoDryRun, strings.Join(c.MachineIds, ", "))
 		} else if err != nil {
 			return errors.Trace(err)
 		}
@@ -259,44 +259,44 @@ func (c *removeCommand) logResults(ctx *cmd.Context, results []params.DestroyMac
 func (c *removeCommand) logResult(ctx *cmd.Context, result params.DestroyMachineResult, errorOnly bool) error {
 	if result.Error != nil {
 		err := errors.Annotate(result.Error, "removing machine failed")
-		fmt.Fprintf(ctx.Stderr, "%s\n", err)
+		_, _ = fmt.Fprintf(ctx.Stderr, "%s\n", err)
 		return errors.Trace(err)
 	}
 	if !errorOnly {
-		c.logRemovedMachine(ctx, result)
+		c.logRemovedMachine(ctx, result.Info)
 	}
 	return c.logResults(ctx, result.Info.DestroyedContainers, errorOnly)
 }
 
-func (c *removeCommand) logRemovedMachine(ctx *cmd.Context, result params.DestroyMachineResult) {
-	id := result.Info.MachineId
+func (c *removeCommand) logRemovedMachine(ctx *cmd.Context, info *params.DestroyMachineInfo) {
+	id := info.MachineId
 	if c.KeepInstance {
-		fmt.Fprintf(ctx.Stdout, "will remove machine %s (but retaining cloud instance)\n", id)
+		_, _ = fmt.Fprintf(ctx.Stdout, "will remove machine %s (but retaining cloud instance)\n", id)
 	} else {
-		fmt.Fprintf(ctx.Stdout, "will remove machine %s\n", id)
+		_, _ = fmt.Fprintf(ctx.Stdout, "will remove machine %s\n", id)
 	}
-	for _, entity := range result.Info.DestroyedUnits {
+	for _, entity := range info.DestroyedUnits {
 		unitTag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
 			logger.Warningf("%s", err)
 			continue
 		}
-		fmt.Fprintf(ctx.Stdout, "- will remove %s\n", names.ReadableString(unitTag))
+		_, _ = fmt.Fprintf(ctx.Stdout, "- will remove %s\n", names.ReadableString(unitTag))
 	}
-	for _, entity := range result.Info.DestroyedStorage {
+	for _, entity := range info.DestroyedStorage {
 		storageTag, err := names.ParseStorageTag(entity.Tag)
 		if err != nil {
 			logger.Warningf("%s", err)
 			continue
 		}
-		fmt.Fprintf(ctx.Stdout, "- will remove %s\n", names.ReadableString(storageTag))
+		_, _ = fmt.Fprintf(ctx.Stdout, "- will remove %s\n", names.ReadableString(storageTag))
 	}
-	for _, entity := range result.Info.DetachedStorage {
+	for _, entity := range info.DetachedStorage {
 		storageTag, err := names.ParseStorageTag(entity.Tag)
 		if err != nil {
 			logger.Warningf("%s", err)
 			continue
 		}
-		fmt.Fprintf(ctx.Stdout, "- will detach %s\n", names.ReadableString(storageTag))
+		_, _ = fmt.Fprintf(ctx.Stdout, "- will detach %s\n", names.ReadableString(storageTag))
 	}
 }
