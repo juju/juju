@@ -26,7 +26,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/iam v1.9.0
 	github.com/aws/smithy-go v1.8.0
 	github.com/bmizerany/pat v0.0.0-20160217103242-c068ca2f0aac
-	github.com/canonical/go-dqlite v1.11.1
+	github.com/canonical/go-dqlite v1.11.5
 	github.com/canonical/pebble v0.0.0-20221010231311-dfff36380603
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
 	github.com/coreos/go-systemd/v22 v22.3.2
@@ -95,7 +95,7 @@ require (
 	github.com/kr/pretty v0.3.1-0.20220829230305-3cd153a126da
 	github.com/lxc/lxd v0.0.0-20220816180258-7e0418163fa9
 	github.com/mattn/go-isatty v0.0.14
-	github.com/mattn/go-sqlite3 v1.14.14
+	github.com/mattn/go-sqlite3 v1.14.16
 	github.com/mitchellh/go-linereader v0.0.0-20190213213312-1b945b3263eb
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/mittwald/vaultgo v0.1.1
