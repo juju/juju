@@ -126,8 +126,8 @@ func (s *uniterSuiteBase) setupState(c *gc.C) {
 	})
 
 	s.wpCharm = s.Factory.MakeCharm(c, &factory.CharmParams{
-		Name: "wordpress",
-		URL:  "ch:quantal/wordpress-3",
+		Name:     "wordpress",
+		Revision: "3",
 	})
 	s.wordpress = s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "wordpress",
@@ -1039,7 +1039,7 @@ func (s *uniterSuite) TestWatchConfigSettingsHash(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 			{
 				StringsWatcherId: "1",
-				Changes:          []string{"af35e298300150f2c357b4a1c40c1109bde305841c6343113b634b9dada22d00"},
+				Changes:          []string{"7579d9a32a0af2e5459c21b9a6ada743db4ed33662f5230d3ca8283518268746"},
 			},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
