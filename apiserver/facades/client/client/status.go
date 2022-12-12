@@ -1265,8 +1265,6 @@ func (context *statusContext) processApplication(application *state.Application)
 			Risk:   charm.Risk(stChannel.Risk),
 			Branch: stChannel.Branch,
 		}).Normalize().String()
-	} else {
-		channel = string(application.Channel())
 	}
 
 	origin := application.CharmOrigin()

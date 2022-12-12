@@ -24,6 +24,7 @@ import (
 	"github.com/juju/description/v4"
 
 	corearch "github.com/juju/juju/core/arch"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
@@ -513,7 +514,7 @@ func (s *MigrationImportSuite) setupSourceApplications(
 	application, pwd := f.MakeApplicationReturningPassword(c, &factory.ApplicationParams{
 		Charm: testCharm,
 		CharmOrigin: &state.CharmOrigin{
-			Source:   testCharm.URL().Schema,
+			Source:   "charm-hub",
 			Type:     "charm",
 			Revision: &testCharm.URL().Revision,
 			Channel: &state.Channel{
@@ -571,7 +572,11 @@ func (s *MigrationImportSuite) assertImportedApplication(
 	c.Assert(imported.ExposedEndpoints(), gc.DeepEquals, exported.ExposedEndpoints())
 	c.Assert(imported.MetricCredentials(), jc.DeepEquals, exported.MetricCredentials())
 	c.Assert(imported.PasswordValid(pwd), jc.IsTrue)
-	c.Assert(imported.CharmOrigin(), jc.DeepEquals, exported.CharmOrigin())
+	exportedOrigin := exported.CharmOrigin()
+	if corecharm.CharmHub.Matches(exportedOrigin.Source) && exportedOrigin.Channel.Track == "" {
+		exportedOrigin.Channel.Track = "latest"
+	}
+	c.Assert(imported.CharmOrigin(), jc.DeepEquals, exportedOrigin)
 
 	exportedCharmConfig, err := exported.CharmConfig(model.GenerationMaster)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2822,7 +2827,7 @@ func (s *MigrationImportSuite) TestApplicationAddLatestCharmChannelTrack(c *gc.C
 	})
 	c.Assert(testCharm.Meta().Resources, gc.HasLen, 3)
 	origin := &state.CharmOrigin{
-		Source:   testCharm.URL().Schema,
+		Source:   "charm-hub",
 		Type:     "charm",
 		Revision: &testCharm.URL().Revision,
 		Channel: &state.Channel{

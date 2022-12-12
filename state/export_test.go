@@ -351,10 +351,17 @@ func addTestingApplication(c *gc.C, params addTestingApplicationParams) *Applica
 	if origin == nil {
 		base, err := coreseries.GetBaseFromSeries(params.ch.URL().Series)
 		c.Assert(err, jc.ErrorIsNil)
-		origin = &CharmOrigin{Platform: &Platform{
-			OS:      base.OS,
-			Channel: base.Channel.String(),
-		}}
+		var channel *Channel
+		// local charms cannot have a channel
+		if charm.CharmHub.Matches(params.ch.URL().Schema) {
+			channel = &Channel{Risk: "stable"}
+		}
+		origin = &CharmOrigin{
+			Channel: channel,
+			Platform: &Platform{
+				OS:      base.OS,
+				Channel: base.Channel.String(),
+			}}
 	}
 	app, err := params.st.AddApplication(AddApplicationArgs{
 		Name:             params.name,

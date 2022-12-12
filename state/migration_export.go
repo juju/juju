@@ -838,7 +838,6 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		Type:                 e.model.Type(),
 		Subordinate:          application.doc.Subordinate,
 		CharmURL:             *application.doc.CharmURL,
-		Channel:              application.doc.Channel,
 		CharmModifiedVersion: application.doc.CharmModifiedVersion,
 		ForceCharm:           application.doc.ForceCharm,
 		Exposed:              application.doc.Exposed,

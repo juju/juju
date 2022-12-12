@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"github.com/juju/charm/v9"
-	csparams "github.com/juju/charmrepo/v7/csclient/params"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
@@ -85,7 +85,6 @@ type applicationDoc struct {
 	// When moving to CharmHub or removing CharmStore from Juju it should be
 	// tackled then.
 	CharmURL             *string      `bson:"charmurl"`
-	Channel              string       `bson:"cs-channel"`
 	CharmOrigin          CharmOrigin  `bson:"charm-origin"`
 	CharmModifiedVersion int          `bson:"charmmodifiedversion"`
 	ForceCharm           bool         `bson:"forcecharm"`
@@ -966,13 +965,6 @@ func (a *Application) CharmURL() (*string, bool) {
 	return a.doc.CharmURL, a.doc.ForceCharm
 }
 
-// Channel identifies the charm store channel from which the application's
-// charm was deployed. It is only needed when interacting with the charm
-// store.
-func (a *Application) Channel() csparams.Channel {
-	return csparams.Channel(a.doc.Channel)
-}
-
 // Endpoints returns the application's currently available relation endpoints.
 func (a *Application) Endpoints() (eps []Endpoint, err error) {
 	ch, _, err := a.Charm()
@@ -1190,7 +1182,6 @@ func (a *Application) IsSidecar() (bool, error) {
 // charm URL to a new value.
 func (a *Application) changeCharmOps(
 	ch *Charm,
-	channel string,
 	updatedSettings charm.Settings,
 	forceUnits bool,
 	resourceIDs map[string]string,
@@ -1296,7 +1287,6 @@ func (a *Application) changeCharmOps(
 			Id: a.doc.DocID,
 			Update: bson.D{{"$set", bson.D{
 				{"charmurl", cURL},
-				{"cs-channel", channel},
 				{"forcecharm", forceUnits},
 			}}},
 		},
@@ -1545,9 +1535,6 @@ type SetCharmConfig struct {
 	// Channel should be move there.
 	CharmOrigin *CharmOrigin
 
-	// Channel is the charm store channel from which charm was pulled.
-	Channel csparams.Channel
-
 	// ConfigSettings is the charm config settings to apply when upgrading
 	// the charm.
 	ConfigSettings charm.Settings
@@ -1635,7 +1622,6 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 	}
 
 	var newCharmModifiedVersion int
-	channel := string(cfg.Channel)
 	acopy := &Application{a.st, a.doc}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		a := acopy
@@ -1675,7 +1661,6 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 				Id:     a.doc.DocID,
 				Assert: txn.DocExists,
 				Update: bson.D{{"$set", bson.D{
-					{"cs-channel", channel},
 					{"forcecharm", cfg.ForceUnits},
 				}}},
 			})
@@ -1695,7 +1680,6 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 
 			chng, err := a.changeCharmOps(
 				cfg.Charm,
-				channel,
 				updatedSettings,
 				cfg.ForceUnits,
 				cfg.ResourceIDs,

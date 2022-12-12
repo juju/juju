@@ -84,7 +84,7 @@ func (api *APIBase) getConfig(
 		return params.ApplicationGetResults{}, err
 	}
 
-	appChannel := string(app.Channel())
+	var appChannel string
 
 	// If the applications charm origin is from charm-hub, then build the real
 	// channel and send that back.

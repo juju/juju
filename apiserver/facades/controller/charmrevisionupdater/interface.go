@@ -5,7 +5,6 @@ package charmrevisionupdater
 
 import (
 	"github.com/juju/charm/v9"
-	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -33,7 +32,6 @@ type State interface {
 type Application interface {
 	CharmURL() (curl *string, force bool)
 	CharmOrigin() *state.CharmOrigin
-	Channel() csparams.Channel
 	ApplicationTag() names.ApplicationTag
 	UnitCount() int
 }
