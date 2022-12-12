@@ -27,7 +27,6 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
-	"github.com/juju/juju/core/raft/queue"
 	"github.com/juju/juju/pubsub/centralhub"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -53,7 +52,6 @@ func DefaultServerConfig(c *gc.C, testclock clock.Clock) apiserver.ServerConfig 
 		GetAuditConfig:      func() auditlog.Config { return auditlog.Config{Enabled: false} },
 		UpgradeComplete:     func() bool { return true },
 		MetricsCollector:    apiserver.NewMetricsCollector(),
-		RaftOpQueue:         queue.NewOpQueue(testclock),
 		SysLogger:           noopSysLogger{},
 		CharmhubHTTPClient:  &http.Client{},
 	}
