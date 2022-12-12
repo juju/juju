@@ -6,9 +6,7 @@ package agentbootstrap
 import (
 	stdcontext "context"
 	"fmt"
-	"path/filepath"
 
-	coreraft "github.com/hashicorp/raft"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -27,7 +25,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/raft/queue"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/database"
 	"github.com/juju/juju/environs"
@@ -39,7 +36,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/worker/raft"
 )
 
 var logger = loggo.GetLogger("juju.agent.agentbootstrap")
@@ -109,10 +105,6 @@ func InitializeState(
 	}
 	info.Tag = nil
 	info.Password = c.OldPassword()
-
-	if err := initRaft(c); err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	if err := database.BootstrapDqlite(stdcontext.TODO(), database.NewOptionFactory(c, logger), logger); err != nil {
 		return nil, errors.Trace(err)
@@ -404,17 +396,6 @@ func getEnviron(
 		return caas.Open(stdcontext.TODO(), provider, openParams)
 	}
 	return environs.Open(stdcontext.TODO(), provider, openParams)
-}
-
-func initRaft(agentConfig agent.Config) error {
-	raftDir := filepath.Join(agentConfig.DataDir(), "raft")
-	return raft.Bootstrap(raft.Config{
-		Clock:      clock.WallClock,
-		StorageDir: raftDir,
-		Logger:     logger,
-		LocalID:    coreraft.ServerID(agentConfig.Tag().Id()),
-		Queue:      queue.NewOpQueue(clock.WallClock),
-	})
 }
 
 // initMongo dials the initial MongoDB connection, setting a
