@@ -32,7 +32,7 @@ func (s *storeSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	var err error
-	s.db, err = sql.Open("sqlite3", ":memory:")
+	s.db, err = sql.Open("sqlite3", ":memory:?_foreign_keys=1")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.primeDB(c)
