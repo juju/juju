@@ -71,6 +71,7 @@ type imageMetadataCommand struct {
 
 	Dir            string
 	Series         string
+	Base           string
 	Arch           string
 	ImageId        string
 	Region         string
@@ -87,7 +88,7 @@ generate-image creates simplestreams image metadata for the specified cloud.
 The cloud specification comes from the current Juju model, as specified in
 the usual way from either the -m option, or JUJU_MODEL.
 
-Using command arguments, it is possible to override cloud attributes region, endpoint, and series.
+Using command arguments, it is possible to override cloud attributes region, endpoint, and base.
 By default, "amd64" is used for the architecture but this may also be changed.
 `
 
@@ -101,6 +102,7 @@ func (c *imageMetadataCommand) Info() *cmd.Info {
 
 func (c *imageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Series, "s", "", "the charm series")
+	f.StringVar(&c.Base, "b", "", "the charm base")
 	f.StringVar(&c.Arch, "a", arch.AMD64, "the image achitecture")
 	f.StringVar(&c.Dir, "d", "", "the destination directory in which to place the metadata files")
 	f.StringVar(&c.ImageId, "i", "", "the image id")
@@ -114,6 +116,10 @@ func (c *imageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 // setParams sets parameters based on the environment configuration
 // for those which have not been explicitly specified.
 func (c *imageMetadataCommand) setParams(context *cmd.Context) error {
+	if c.Series != "" && c.Base != "" {
+		return errors.Errorf("cannot specify both base and series (series is deprecated)")
+	}
+
 	c.privateStorage = "<private storage name>"
 
 	controllerName, err := c.ControllerName()
@@ -121,6 +127,10 @@ func (c *imageMetadataCommand) setParams(context *cmd.Context) error {
 	if err != nil && err != modelcmd.ErrNoControllersDefined && !modelcmd.IsNoCurrentController(err) {
 		return errors.Trace(err)
 	}
+
+	// Setup the default base to be the LTS base and only update this base if
+	// we can get the base from the environment.
+	preferredBase := version.DefaultSupportedLTSBase()
 
 	var environ environs.Environ
 	if err == nil {
@@ -148,18 +158,14 @@ func (c *imageMetadataCommand) setParams(context *cmd.Context) error {
 				}
 			}
 			cfg := environ.Config()
-			if c.Series == "" {
-				c.Series = config.PreferredSeries(cfg)
-			}
+
+			preferredBase = config.PreferredBase(cfg)
 		} else {
 			logger.Warningf("bootstrap parameters could not be opened: %v", err)
 		}
 	}
 	if environ == nil {
 		logger.Infof("no model found, creating image metadata using user supplied data")
-	}
-	if c.Series == "" {
-		c.Series = version.DefaultSupportedLTS()
 	}
 	if c.ImageId == "" {
 		return errors.Errorf("image id must be specified")
@@ -175,6 +181,18 @@ func (c *imageMetadataCommand) setParams(context *cmd.Context) error {
 		var err error
 		if c.Dir, err = os.Getwd(); err != nil {
 			return err
+		}
+	}
+	if c.Base == "" {
+		c.Base = preferredBase.String()
+	}
+	// This is a fallback until we can remove series from the codebase.
+	if c.Series == "" {
+		if baseSeries, err := series.GetSeriesFromBase(preferredBase); err == nil {
+			c.Series = baseSeries
+		} else {
+			// This should never happen, but if it does, we'll just use the default LTS.
+			c.Series = version.DefaultSupportedLTS()
 		}
 	}
 	return nil

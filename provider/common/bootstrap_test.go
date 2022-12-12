@@ -81,10 +81,15 @@ func newStorage(suite cleaner, c *gc.C) storage.Storage {
 }
 
 func minimalConfig(c *gc.C) *config.Config {
-	return minimalConfigWithSeries(c, jujuversion.DefaultSupportedLTS())
+	return minimalConfigWithBase(c, jujuversion.DefaultSupportedLTSBase())
 }
 
-func minimalConfigWithSeries(c *gc.C, series string) *config.Config {
+func minimalConfigWithBase(c *gc.C, base coreseries.Base) *config.Config {
+	series, err := coreseries.GetSeriesFromBase(base)
+	if err != nil {
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
 	attrs := map[string]interface{}{
 		"name":               "whatever",
 		"type":               "anything, really",
@@ -94,6 +99,7 @@ func minimalConfigWithSeries(c *gc.C, series string) *config.Config {
 		"ca-private-key":     coretesting.CAKey,
 		"authorized-keys":    coretesting.FakeAuthKeys,
 		"default-series":     series,
+		"default-base":       base.String(),
 		"cloudinit-userdata": validCloudInitUserData,
 	}
 	cfg, err := config.New(config.UseDefaults, attrs)
@@ -276,11 +282,11 @@ func (s *BootstrapSuite) TestBootstrapSeriesWithForce(c *gc.C) {
 
 func (s *BootstrapSuite) TestBootstrapSeriesWithForceAndInvalidFallback(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
-	s.PatchValue(&config.GetDefaultSupportedLTS, func() string {
-		return ""
+	s.PatchValue(&config.GetDefaultSupportedLTSBase, func() coreseries.Base {
+		return coreseries.Base{}
 	})
 	// We want an invalid fallback to trigger the not valid bootstrap series.
-	var mocksConfig = minimalConfigWithSeries(c, "")
+	var mocksConfig = minimalConfigWithBase(c, coreseries.Base{})
 	getConfig := func() *config.Config {
 		return mocksConfig
 	}
@@ -634,9 +640,7 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Arch, gc.Equals, "ppc64el") // based on hardware characteristics
-	series, err := coreseries.GetSeriesFromBase(result.Base)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(series, gc.Equals, config.PreferredSeries(mocksConfig))
+	c.Assert(result.Base, gc.Equals, config.PreferredBase(mocksConfig))
 	c.Assert(result.CloudBootstrapFinalizer, gc.NotNil)
 
 	// Check that we make the SSH connection with desired options.

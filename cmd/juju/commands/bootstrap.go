@@ -217,6 +217,7 @@ type bootstrapCommand struct {
 	BootstrapConstraints     constraints.Value
 	BootstrapConstraintsStr  string
 	BootstrapSeries          string
+	BootstrapBase            string
 	BootstrapImage           string
 	BuildAgent               bool
 	JujuDbSnapPath           string
@@ -305,7 +306,8 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.StringVar(&c.ConstraintsStr, "constraints", "", "Set model constraints")
 	f.StringVar(&c.BootstrapConstraintsStr, "bootstrap-constraints", "", "Specify bootstrap machine constraints")
-	f.StringVar(&c.BootstrapSeries, "bootstrap-series", "", "Specify the series of the bootstrap machine")
+	f.StringVar(&c.BootstrapSeries, "bootstrap-series", "", "Specify the series of the bootstrap machine (deprecated use bootstrap-series)")
+	f.StringVar(&c.BootstrapBase, "bootstrap-base", "", "Specify the base of the bootstrap machine")
 	f.StringVar(&c.BootstrapImage, "bootstrap-image", "", "Specify the image of the bootstrap machine")
 	f.BoolVar(&c.BuildAgent, "build-agent", false, "Build local version of agent binary before bootstrapping")
 	f.StringVar(&c.JujuDbSnapPath, "db-snap", "",
@@ -344,6 +346,26 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 		}
 	}
 
+	if c.BootstrapSeries != "" && c.BootstrapBase != "" {
+		return errors.New("cannot specify both --bootstrap-series and --bootstrap-base")
+	}
+
+	if c.BootstrapSeries != "" {
+		base, err := series.GetBaseFromSeries(c.BootstrapSeries)
+		if err != nil {
+			return errors.Errorf("cannot determine base for series %q", c.BootstrapSeries)
+		}
+
+		c.BootstrapBase = base.String()
+		c.BootstrapSeries = ""
+	}
+	// Validate the bootstrap base looks like a base.
+	if c.BootstrapBase != "" {
+		if _, err := series.ParseBaseFromString(c.BootstrapBase); err != nil {
+			return errors.NotValidf("base %q", c.BootstrapBase)
+		}
+	}
+
 	// fill in JujuDbSnapAssertionsPath from the same directory as JujuDbSnapPath
 	if c.JujuDbSnapAssertionsPath == "" && c.JujuDbSnapPath != "" {
 		assertionsPath := strings.Replace(c.JujuDbSnapPath, path.Ext(c.JujuDbSnapPath), ".assert", -1)
@@ -376,10 +398,9 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 				return errors.Errorf("--controller-charm-path %q is not a %q charm", c.ControllerCharmPath,
 					bootstrap.ControllerCharmName)
 			}
-		} else {
-			// Assume this is a Charmhub URL
-			// TODO(barrettj12): validate the charm exists on CharmHub
 		}
+		// Assume this is a Charmhub URL
+		// TODO(barrettj12): validate the charm exists on CharmHub
 	}
 
 	c.ControllerCharmChannel, err = parseControllerCharmChannel(c.ControllerCharmChannelStr)
@@ -399,12 +420,6 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 	if c.AgentVersionParam != "" && c.BuildAgent {
 		return errors.New("--agent-version and --build-agent can't be used together")
 	}
-	// charm.IsValidSeries doesn't actually check against a list of bootstrap
-	// series, but instead, just validates if it conforms to a regexp.
-	if c.BootstrapSeries != "" && !charm.IsValidSeries(c.BootstrapSeries) {
-		return errors.NotValidf("series %q", c.BootstrapSeries)
-	}
-
 	if c.initialModelName == "" {
 		c.initialModelName = os.Getenv("JUJU_BOOTSTRAP_MODEL")
 	}
@@ -517,7 +532,7 @@ var getBootstrapFuncs = func() BootstrapInterface {
 	return &bootstrapFuncs{}
 }
 
-var supportedJujuSeries = series.ControllerSeries
+var supportedJujuBases = series.ControllerBases
 
 var (
 	bootstrapPrepareController = bootstrap.PrepareController
@@ -639,6 +654,12 @@ to create a new model to deploy %sworkloads.
 			ctx.Infof(msg)
 		}
 	}()
+
+	// TODO(stickupkid): Once default-series has been deprecated, it's safe to
+	// remove this.
+	if err := c.warnDeprecatedModelConfig(ctx); err != nil {
+		return err
+	}
 
 	if err := c.parseConstraints(ctx); err != nil {
 		return err
@@ -775,17 +796,26 @@ to create a new model to deploy %sworkloads.
 		}
 	}()
 
+	var bootstrapBase series.Base
+	if c.BootstrapBase != "" {
+		var err error
+		bootstrapBase, err = series.ParseBaseFromString(c.BootstrapBase)
+		if err != nil {
+			return errors.NotValidf("bootstrap base %q", c.BootstrapBase)
+		}
+	}
+
 	// Get the supported bootstrap series.
 	var imageStream string
 	if cfg, ok := bootstrapCfg.bootstrapModel["image-stream"]; ok {
 		imageStream = cfg.(string)
 	}
 	now := c.clock.Now()
-	supportedBootstrapSeries, err := supportedJujuSeries(now, c.BootstrapSeries, imageStream)
+	supportedBootstrapBases, err := supportedJujuBases(now, bootstrapBase, imageStream)
 	if err != nil {
 		return errors.Annotate(err, "error reading supported bootstrap series")
 	}
-	logger.Tracef("supported bootstrap series %s", supportedBootstrapSeries.SortedValues())
+	logger.Tracef("supported bootstrap bases %v", supportedBootstrapBases)
 
 	bootstrapCfg.controller[controller.ControllerName] = c.controllerName
 
@@ -854,8 +884,8 @@ to create a new model to deploy %sworkloads.
 
 	bootstrapParams := bootstrap.BootstrapParams{
 		ControllerName:            c.controllerName,
-		BootstrapSeries:           c.BootstrapSeries,
-		SupportedBootstrapSeries:  supportedBootstrapSeries,
+		BootstrapBase:             bootstrapBase,
+		SupportedBootstrapBases:   supportedBootstrapBases,
 		BootstrapImage:            c.BootstrapImage,
 		Placement:                 c.Placement,
 		BuildAgent:                c.BuildAgent,
@@ -1129,8 +1159,8 @@ func (c *bootstrapCommand) controllerDataRefresher(
 
 func (c *bootstrapCommand) handleCommandLineErrorsAndInfoRequests(ctx *cmd.Context) (bool, error) {
 	if c.BootstrapImage != "" {
-		if c.BootstrapSeries == "" {
-			return true, errors.Errorf("--bootstrap-image must be used with --bootstrap-series")
+		if c.BootstrapBase == "" {
+			return true, errors.Errorf("--bootstrap-image must be used with --bootstrap-base")
 		}
 		cons, err := constraints.Merge(c.Constraints, c.BootstrapConstraints)
 		if err != nil {
@@ -1657,6 +1687,32 @@ func (c *bootstrapCommand) runInteractive(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	return nil
+}
+
+func (c *bootstrapCommand) warnDeprecatedModelConfig(ctx *cmd.Context) error {
+	var reported bool
+	warn := func(attrs map[string]any) {
+		if _, ok := attrs["default-series"]; !reported && ok {
+			ctx.Warningf("default-series configuration option is deprecated, in favour of default-base")
+			reported = true
+		}
+	}
+
+	type read func(*cmd.Context) (map[string]any, error)
+
+	for _, read := range []read{
+		c.config.ReadAttrs,
+		c.modelDefaults.ReadAttrs,
+	} {
+		attrs, err := read(ctx)
+		if err != nil {
+			return err
+		}
+
+		warn(attrs)
+	}
+
 	return nil
 }
 

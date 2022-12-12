@@ -236,7 +236,6 @@ if [[ $# -eq 0 ]]; then
 		echo "$(red '---------------------------------------')"
 		echo ""
 		show_help
-		exit 1
 	fi
 fi
 

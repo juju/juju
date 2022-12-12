@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -35,6 +36,14 @@ var (
 	// FakeSupportedJujuSeries is used to provide a series of canned results
 	// of series to test bootstrap code against.
 	FakeSupportedJujuSeries = set.NewStrings("focal", "jammy", jujuversion.DefaultSupportedLTS())
+
+	// FakeSupportedJujuBases is used to provide a list of canned results
+	// of a base to test bootstrap code against.
+	FakeSupportedJujuBases = []series.Base{
+		series.MustParseBaseFromString("ubuntu@20.04"),
+		series.MustParseBaseFromString("ubuntu@22.04"),
+		jujuversion.DefaultSupportedLTSBase(),
+	}
 )
 
 // FakeVersionNumber is a valid version number that can be used in testing.
