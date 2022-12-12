@@ -61,7 +61,6 @@ import (
 	"github.com/juju/juju/worker/fanconfigurer"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/gate"
-	"github.com/juju/juju/worker/globalclockupdater"
 	"github.com/juju/juju/worker/hostkeyreporter"
 	"github.com/juju/juju/worker/httpserver"
 	"github.com/juju/juju/worker/httpserverargs"
@@ -565,18 +564,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:         migrationminion.NewWorker,
 			Logger:            loggo.GetLogger("juju.worker.migrationminion"),
 		}),
-
-		// We ensure the lease clock is updated monotonically and at a rate
-		// no faster than real time.
-		// This worker will only ever be running on the Raft leader node.
-		leaseClockUpdaterName: ifRaftLeader(globalclockupdater.Manifold(globalclockupdater.ManifoldConfig{
-			RaftName:       raftName,
-			Clock:          config.Clock,
-			FSM:            config.LeaseFSM,
-			NewWorker:      globalclockupdater.NewWorker,
-			UpdateInterval: globalClockUpdaterUpdateInterval,
-			Logger:         loggo.GetLogger("juju.worker.globalclockupdater.raft"),
-		})),
 
 		// Each controller machine runs a singular worker which will
 		// attempt to claim responsibility for running certain workers
@@ -1181,7 +1168,6 @@ const (
 	hostKeyReporterName           = "host-key-reporter"
 	fanConfigurerName             = "fan-configurer"
 	externalControllerUpdaterName = "external-controller-updater"
-	leaseClockUpdaterName         = "lease-clock-updater"
 	isPrimaryControllerFlagName   = "is-primary-controller-flag"
 	isControllerFlagName          = "is-controller-flag"
 	isNotControllerFlagName       = "is-not-controller-flag"
