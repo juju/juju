@@ -4,8 +4,7 @@
 package application_test
 
 import (
-	"strings"
-
+	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
@@ -15,6 +14,7 @@ import (
 	apiapplication "github.com/juju/juju/api/client/application"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cmd/juju/application"
+	"github.com/juju/juju/cmd/juju/application/mocks"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
@@ -24,7 +24,9 @@ import (
 
 type RemoveUnitSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
-	fake *fakeApplicationRemoveUnitAPI
+	mockApi *mocks.MockRemoveApplicationAPI
+
+	facadeVersion int
 
 	store *jujuclient.MemStore
 }
@@ -100,21 +102,37 @@ func (f *fakeApplicationRemoveUnitAPI) ScaleApplication(args apiapplication.Scal
 
 func (s *RemoveUnitSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	s.fake = &fakeApplicationRemoveUnitAPI{
-		scale: 5,
-	}
 	s.store = jujuclienttesting.MinimalStore()
 }
 
+func (s *RemoveUnitSuite) setup(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.mockApi = mocks.NewMockRemoveApplicationAPI(ctrl)
+	s.mockApi.EXPECT().BestAPIVersion().Return(s.facadeVersion).AnyTimes()
+	s.mockApi.EXPECT().Close()
+
+	return ctrl
+}
+
 func (s *RemoveUnitSuite) runRemoveUnit(c *gc.C, args ...string) (*cmd.Context, error) {
-	return cmdtesting.RunCommand(c, application.NewRemoveUnitCommandForTest(s.fake, s.store), args...)
+	return cmdtesting.RunCommand(c, application.NewRemoveUnitCommandForTest(s.mockApi, s.store), args...)
 }
 
 func (s *RemoveUnitSuite) TestRemoveUnit(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.mockApi.EXPECT().DestroyUnits(apiapplication.DestroyUnitsParams{
+		Units: []string{"unit/0", "unit/1", "unit/2"},
+	}).Return([]params.DestroyUnitResult{{
+		Info: &params.DestroyUnitInfo{DetachedStorage: []params.Entity{{Tag: "storage-data-0"}}},
+	}, {
+		Info: &params.DestroyUnitInfo{DetachedStorage: []params.Entity{{Tag: "storage-data-1"}}},
+	}, {
+		Error: apiservererrors.ServerError(errors.New("doink")),
+	}}, nil)
+
 	ctx, err := s.runRemoveUnit(c, "unit/0", "unit/1", "unit/2")
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
-	c.Assert(s.fake.units, jc.DeepEquals, []string{"unit/0", "unit/1", "unit/2"})
-	c.Assert(s.fake.destroyStorage, jc.IsFalse)
 
 	stderr := cmdtesting.Stderr(ctx)
 	c.Assert(stderr, gc.Equals, `
@@ -122,15 +140,26 @@ removing unit unit/0
 - will detach storage data/0
 removing unit unit/1
 - will detach storage data/1
-removing unit unit/2 failed: unit "unit/2" does not exist
+removing unit unit/2 failed: doink
 `[1:])
 }
 
 func (s *RemoveUnitSuite) TestRemoveUnitDestroyStorage(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.mockApi.EXPECT().DestroyUnits(apiapplication.DestroyUnitsParams{
+		Units:          []string{"unit/0", "unit/1", "unit/2"},
+		DestroyStorage: true,
+	}).Return([]params.DestroyUnitResult{{
+		Info: &params.DestroyUnitInfo{DestroyedStorage: []params.Entity{{Tag: "storage-data-0"}}},
+	}, {
+		Info: &params.DestroyUnitInfo{DestroyedStorage: []params.Entity{{Tag: "storage-data-1"}}},
+	}, {
+		Error: apiservererrors.ServerError(errors.New("doink")),
+	}}, nil)
+
 	ctx, err := s.runRemoveUnit(c, "unit/0", "unit/1", "unit/2", "--destroy-storage")
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
-	c.Assert(s.fake.units, jc.DeepEquals, []string{"unit/0", "unit/1", "unit/2"})
-	c.Assert(s.fake.destroyStorage, jc.IsTrue)
 
 	stderr := cmdtesting.Stderr(ctx)
 	c.Assert(stderr, gc.Equals, `
@@ -138,7 +167,7 @@ removing unit unit/0
 - will remove storage data/0
 removing unit unit/1
 - will remove storage data/1
-removing unit unit/2 failed: unit "unit/2" does not exist
+removing unit unit/2 failed: doink
 `[1:])
 }
 
@@ -148,19 +177,33 @@ func (s *RemoveUnitSuite) TestRemoveUnitNoWaitWithoutForce(c *gc.C) {
 }
 
 func (s *RemoveUnitSuite) TestBlockRemoveUnit(c *gc.C) {
-	// Block operation
-	s.fake.err = apiservererrors.OperationBlockedError("TestBlockRemoveUnit")
+	defer s.setup(c).Finish()
+
+	s.mockApi.EXPECT().DestroyUnits(apiapplication.DestroyUnitsParams{
+		Units: []string{"some-unit-name/0"},
+	}).Return(nil, apiservererrors.OperationBlockedError("TestBlockRemoveUnit"))
+
 	s.runRemoveUnit(c, "some-unit-name/0")
 
-	// msg is logged
-	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*TestBlockRemoveUnit.*")
+	c.Check(c.GetTestLog(), gc.Matches, "(?s).*TestBlockRemoveUnit.*")
 }
 
-func (s *RemoveUnitSuite) TestCAASRemoveUnit(c *gc.C) {
+func (s *RemoveUnitSuite) setCaasModel() {
 	m := s.store.Models["arthur"].Models["king/sword"]
 	m.ModelType = model.CAAS
 	s.store.Models["arthur"].Models["king/sword"] = m
+}
+
+func (s *RemoveUnitSuite) TestCAASRemoveUnit(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.setCaasModel()
+	s.mockApi.EXPECT().ScaleApplication(apiapplication.ScaleApplicationParams{
+		ApplicationName: "some-application-name",
+		ScaleChange:     -2,
+	}).Return(params.ScaleApplicationResult{
+		Info: &params.ScaleApplicationInfo{Scale: 3},
+	}, nil)
 
 	ctx, err := s.runRemoveUnit(c, "some-application-name", "--num-units", "2")
 	c.Assert(err, jc.ErrorIsNil)
@@ -172,20 +215,21 @@ scaling down to 3 units
 }
 
 func (s *RemoveUnitSuite) TestCAASRemoveUnitNotSupported(c *gc.C) {
-	m := s.store.Models["arthur"].Models["king/sword"]
-	m.ModelType = model.CAAS
-	s.store.Models["arthur"].Models["king/sword"] = m
+	defer s.setup(c).Finish()
 
-	s.fake.err = apiservererrors.ServerError(errors.NotSupportedf(`scale a "daemon" charm`))
+	s.setCaasModel()
+	s.mockApi.EXPECT().ScaleApplication(apiapplication.ScaleApplicationParams{
+		ApplicationName: "some-application-name",
+		ScaleChange:     -2,
+	}).Return(params.ScaleApplicationResult{}, apiservererrors.ServerError(errors.NotSupportedf(`scale a "daemon" charm`)))
 
 	_, err := s.runRemoveUnit(c, "some-application-name", "--num-units", "2")
+
 	c.Assert(err, gc.ErrorMatches, `can not remove unit: scale a "daemon" charm not supported`)
 }
 
 func (s *RemoveUnitSuite) TestCAASAllowsNumUnitsOnly(c *gc.C) {
-	m := s.store.Models["arthur"].Models["king/sword"]
-	m.ModelType = model.CAAS
-	s.store.Models["arthur"].Models["king/sword"] = m
+	s.setCaasModel()
 
 	_, err := s.runRemoveUnit(c, "some-application-name")
 	c.Assert(err, gc.ErrorMatches, `specify the number of units \(> 0\) to remove using --num-units`)
@@ -197,9 +241,7 @@ func (s *RemoveUnitSuite) TestCAASAllowsNumUnitsOnly(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "k8s models only support --num-units")
 
 	_, err = s.runRemoveUnit(c, "some-application-name/0")
-	c.Assert(err, gc.NotNil)
-	msg := strings.Replace(err.Error(), "\n", "", -1)
-	c.Assert(msg, gc.Matches, "k8s models do not support removing named units.*")
+	c.Assert(err, gc.ErrorMatches, "(?s)k8s models do not support removing named units.*")
 
 	_, err = s.runRemoveUnit(c, "some-application-name-", "--num-units", "2")
 	c.Assert(err, gc.ErrorMatches, "application name \"some-application-name-\" not valid")
