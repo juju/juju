@@ -4,6 +4,7 @@
 package common_test
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/names/v4"
@@ -52,7 +53,7 @@ func (*lifeSuite) TestLife(c *gc.C) {
 	entities := params.Entities{[]params.Entity{
 		{"unit-x-0"}, {"unit-x-1"}, {"unit-x-2"}, {"unit-x-3"}, {"unit-x-4"},
 	}}
-	results, err := lg.Life(entities)
+	results, err := lg.Life(context.TODO(), entities)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
@@ -70,7 +71,7 @@ func (*lifeSuite) TestLifeError(c *gc.C) {
 		return nil, fmt.Errorf("pow")
 	}
 	lg := common.NewLifeGetter(&fakeState{}, getCanRead)
-	_, err := lg.Life(params.Entities{[]params.Entity{{"x0"}}})
+	_, err := lg.Life(context.TODO(), params.Entities{[]params.Entity{{"x0"}}})
 	c.Assert(err, gc.ErrorMatches, "pow")
 }
 
@@ -79,7 +80,7 @@ func (*lifeSuite) TestLifeNoArgsNoError(c *gc.C) {
 		return nil, fmt.Errorf("pow")
 	}
 	lg := common.NewLifeGetter(&fakeState{}, getCanRead)
-	result, err := lg.Life(params.Entities{})
+	result, err := lg.Life(context.TODO(), params.Entities{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 0)
 }

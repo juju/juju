@@ -4,6 +4,7 @@
 package deployer
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -87,8 +88,8 @@ func NewDeployerAPI(ctx facade.Context) (*DeployerAPI, error) {
 
 // ConnectionInfo returns all the address information that the
 // deployer task needs in one call.
-func (d *DeployerAPI) ConnectionInfo() (result params.DeployerConnectionValues, err error) {
-	apiAddrs, err := d.APIAddresses()
+func (d *DeployerAPI) ConnectionInfo(ctx context.Context) (result params.DeployerConnectionValues, err error) {
+	apiAddrs, err := d.APIAddresses(ctx)
 	if err != nil {
 		return result, err
 	}
@@ -99,15 +100,15 @@ func (d *DeployerAPI) ConnectionInfo() (result params.DeployerConnectionValues, 
 }
 
 // SetStatus sets the status of the specified entities.
-func (d *DeployerAPI) SetStatus(args params.SetStatus) (params.ErrorResults, error) {
-	return d.StatusSetter.SetStatus(args)
+func (d *DeployerAPI) SetStatus(ctx context.Context, args params.SetStatus) (params.ErrorResults, error) {
+	return d.StatusSetter.SetStatus(ctx, args)
 }
 
 // ModelUUID returns the model UUID that this facade is deploying into.
 // It is implemented here directly as a result of removing it from
 // embedded APIAddresser *without* bumping the facade version.
 // It should be blanked when this facade version is next incremented.
-func (d *DeployerAPI) ModelUUID() params.StringResult {
+func (d *DeployerAPI) ModelUUID(ctx context.Context) params.StringResult {
 	return params.StringResult{Result: d.st.ModelUUID()}
 }
 

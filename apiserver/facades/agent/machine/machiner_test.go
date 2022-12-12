@@ -4,6 +4,7 @@
 package machine_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/loggo"
@@ -87,7 +88,7 @@ func (s *machinerSuite) TestSetStatus(c *gc.C) {
 			{Tag: "machine-0", Status: status.Stopped.String(), Info: "foobar"},
 			{Tag: "machine-42", Status: status.Started.String(), Info: "blah"},
 		}}
-	result, err := s.machiner.SetStatus(args)
+	result, err := s.machiner.SetStatus(context.TODO(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -121,7 +122,7 @@ func (s *machinerSuite) TestLife(c *gc.C) {
 		{Tag: "machine-0"},
 		{Tag: "machine-42"},
 	}}
-	result, err := s.machiner.Life(args)
+	result, err := s.machiner.Life(context.TODO(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
@@ -141,7 +142,7 @@ func (s *machinerSuite) TestEnsureDead(c *gc.C) {
 		{Tag: "machine-0"},
 		{Tag: "machine-42"},
 	}}
-	result, err := s.machiner.EnsureDead(args)
+	result, err := s.machiner.EnsureDead(context.TODO(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -162,7 +163,7 @@ func (s *machinerSuite) TestEnsureDead(c *gc.C) {
 	args = params.Entities{
 		Entities: []params.Entity{{Tag: "machine-1"}},
 	}
-	result, err = s.machiner.EnsureDead(args)
+	result, err = s.machiner.EnsureDead(context.TODO(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{nil}},
@@ -188,7 +189,7 @@ func (s *machinerSuite) TestSetMachineAddresses(c *gc.C) {
 		{Tag: "machine-42", Addresses: params.FromMachineAddresses(addresses...)},
 	}}
 
-	result, err := s.machiner.SetMachineAddresses(args)
+	result, err := s.machiner.SetMachineAddresses(context.TODO(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -217,7 +218,7 @@ func (s *machinerSuite) TestSetEmptyMachineAddresses(c *gc.C) {
 	args := params.SetMachinesAddresses{MachineAddresses: []params.MachineAddresses{
 		{Tag: "machine-1", Addresses: params.FromMachineAddresses(addresses...)},
 	}}
-	result, err := s.machiner.SetMachineAddresses(args)
+	result, err := s.machiner.SetMachineAddresses(context.TODO(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -229,7 +230,7 @@ func (s *machinerSuite) TestSetEmptyMachineAddresses(c *gc.C) {
 	c.Assert(s.machine1.MachineAddresses(), gc.HasLen, 2)
 
 	args.MachineAddresses[0].Addresses = nil
-	result, err = s.machiner.SetMachineAddresses(args)
+	result, err = s.machiner.SetMachineAddresses(context.TODO(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -274,7 +275,7 @@ func (s *machinerSuite) TestWatch(c *gc.C) {
 	// We just set up the machiner, make sure there aren't pending events
 	// before we set up the watcher.
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
-	result, err := s.machiner.Watch(args)
+	result, err := s.machiner.Watch(context.TODO(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{

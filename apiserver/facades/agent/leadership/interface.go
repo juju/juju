@@ -16,7 +16,7 @@ import (
 type LeadershipService interface {
 
 	// ClaimLeadership makes a leadership claim with the given parameters.
-	ClaimLeadership(params params.ClaimLeadershipBulkParams) (params.ClaimLeadershipBulkResults, error)
+	ClaimLeadership(ctx context.Context, params params.ClaimLeadershipBulkParams) (params.ClaimLeadershipBulkResults, error)
 
 	// BlockUntilLeadershipReleased blocks the caller until leadership is
 	// released for the given service.

@@ -7,6 +7,7 @@
 package networkingcommon
 
 import (
+	"context"
 	"net"
 	"strings"
 
@@ -65,7 +66,7 @@ func NewNetworkConfigAPI(st *state.State, getCanModify common.GetAuthFunc) (*Net
 // identified by the input args.
 // This config is merged with the new network config supplied in the
 // same args and updated if it has changed.
-func (api *NetworkConfigAPI) SetObservedNetworkConfig(args params.SetMachineNetworkConfig) error {
+func (api *NetworkConfigAPI) SetObservedNetworkConfig(ctx context.Context, args params.SetMachineNetworkConfig) error {
 	m, err := api.getMachineForSettingNetworkConfig(args.Tag)
 	if err != nil {
 		return errors.Trace(err)

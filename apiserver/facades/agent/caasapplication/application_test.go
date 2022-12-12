@@ -4,6 +4,7 @@
 package caasapplication_test
 
 import (
+	"context"
 	"time"
 
 	"gopkg.in/yaml.v2"
@@ -80,7 +81,7 @@ func (s *CAASApplicationSuite) TestAddUnit(c *gc.C) {
 		}},
 	}
 
-	results, err := s.facade.UnitIntroduction(args)
+	results, err := s.facade.UnitIntroduction(context.TODO(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Error, gc.IsNil)
 	c.Assert(results.Result.UnitName, gc.Equals, "gitlab/0")
@@ -119,7 +120,7 @@ func (s *CAASApplicationSuite) TestReuseUnitByName(c *gc.C) {
 		}},
 	}
 
-	results, err := s.facade.UnitIntroduction(args)
+	results, err := s.facade.UnitIntroduction(context.TODO(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Error, gc.IsNil)
 	c.Assert(results.Result.UnitName, gc.Equals, "gitlab/0")
@@ -153,7 +154,7 @@ func (s *CAASApplicationSuite) TestFindByProviderID(c *gc.C) {
 	}
 	s.st.units["gitlab/0"].SetErrors(errors.NotFoundf("cloud container"))
 
-	results, err := s.facade.UnitIntroduction(args)
+	results, err := s.facade.UnitIntroduction(context.TODO(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Error, gc.IsNil)
 	c.Assert(results.Result.UnitName, gc.Equals, "gitlab/0")
@@ -190,7 +191,7 @@ func (s *CAASApplicationSuite) TestAgentConf(c *gc.C) {
 		}},
 	}
 
-	results, err := s.facade.UnitIntroduction(args)
+	results, err := s.facade.UnitIntroduction(context.TODO(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Error, gc.IsNil)
 	c.Assert(results.Result.UnitName, gc.Equals, "gitlab/0")
@@ -233,7 +234,7 @@ func (s *CAASApplicationSuite) TestDyingApplication(c *gc.C) {
 
 	s.st.app.life = state.Dying
 
-	results, err := s.facade.UnitIntroduction(args)
+	results, err := s.facade.UnitIntroduction(context.TODO(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Error, gc.ErrorMatches, `application not provisioned`)
 }
@@ -245,7 +246,7 @@ func (s *CAASApplicationSuite) TestMissingArgUUID(c *gc.C) {
 
 	s.st.app.life = state.Dying
 
-	results, err := s.facade.UnitIntroduction(args)
+	results, err := s.facade.UnitIntroduction(context.TODO(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Error, gc.ErrorMatches, `pod-uuid not valid`)
 }
@@ -257,7 +258,7 @@ func (s *CAASApplicationSuite) TestMissingArgName(c *gc.C) {
 
 	s.st.app.life = state.Dying
 
-	results, err := s.facade.UnitIntroduction(args)
+	results, err := s.facade.UnitIntroduction(context.TODO(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Error, gc.ErrorMatches, `pod-name not valid`)
 }
@@ -287,7 +288,7 @@ func (s *CAASApplicationSuite) TestUnitTerminatingAgentWillRestart(c *gc.C) {
 	args := params.Entity{
 		Tag: "unit-gitlab-0",
 	}
-	results, err := s.facade.UnitTerminating(args)
+	results, err := s.facade.UnitTerminating(context.TODO(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Error, gc.IsNil)
 	c.Assert(results.WillRestart, jc.IsTrue)
@@ -318,7 +319,7 @@ func (s *CAASApplicationSuite) TestUnitTerminatingAgentDying(c *gc.C) {
 	args := params.Entity{
 		Tag: "unit-gitlab-0",
 	}
-	results, err := s.facade.UnitTerminating(args)
+	results, err := s.facade.UnitTerminating(context.TODO(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Error, gc.IsNil)
 	c.Assert(results.WillRestart, jc.IsFalse)

@@ -4,6 +4,7 @@
 package common
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -159,7 +160,7 @@ func (s *StatusSetter) setEntityStatus(tag names.Tag, entityStatus status.Status
 }
 
 // SetStatus sets the status of each given entity.
-func (s *StatusSetter) SetStatus(args params.SetStatus) (params.ErrorResults, error) {
+func (s *StatusSetter) SetStatus(ctx context.Context, args params.SetStatus) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
@@ -193,7 +194,7 @@ type UnitAgentFinder struct {
 }
 
 // FindEntity implements state.EntityFinder and returns unit agents.
-func (ua *UnitAgentFinder) FindEntity(tag names.Tag) (state.Entity, error) {
+func (ua *UnitAgentFinder) FindEntity(ctx context.Context, tag names.Tag) (state.Entity, error) {
 	_, ok := tag.(names.UnitTag)
 	if !ok {
 		return nil, errors.Errorf("unsupported tag %T", tag)

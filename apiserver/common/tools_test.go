@@ -4,6 +4,7 @@
 package common_test
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/golang/mock/gomock"
@@ -88,7 +89,7 @@ func (s *getToolsSuite) TestTools(c *gc.C) {
 
 	s.entityFinder.EXPECT().FindEntity(names.NewMachineTag("0")).Return(s.machine0, nil)
 	s.machine0.EXPECT().AgentTools().Return(&coretools.Tools{Version: current}, nil)
-	s.toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{
+	s.toolsFinder.EXPECT().FindAgents(context.TODO(), common.FindAgentsParams{
 		Number: current.Number,
 		OSType: current.Release,
 		Arch:   current.Arch,
@@ -99,7 +100,7 @@ func (s *getToolsSuite) TestTools(c *gc.C) {
 
 	s.entityFinder.EXPECT().FindEntity(names.NewMachineTag("42")).Return(nil, apiservertesting.NotFoundError("machine 42"))
 
-	result, err := tg.Tools(args)
+	result, err := tg.Tools(context.TODO(), args)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 3)
@@ -142,7 +143,7 @@ func (s *getToolsSuite) TestOSTools(c *gc.C) {
 
 	s.entityFinder.EXPECT().FindEntity(names.NewMachineTag("0")).Return(s.machine0, nil)
 	s.machine0.EXPECT().AgentTools().Return(&coretools.Tools{Version: currentCopy}, nil)
-	s.toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{
+	s.toolsFinder.EXPECT().FindAgents(context.TODO(), common.FindAgentsParams{
 		Number: currentCopy.Number,
 		OSType: currentCopy.Release,
 		Arch:   currentCopy.Arch,
@@ -155,7 +156,7 @@ func (s *getToolsSuite) TestOSTools(c *gc.C) {
 		Entities: []params.Entity{
 			{Tag: "machine-0"},
 		}}
-	result, err := tg.Tools(args)
+	result, err := tg.Tools(context.TODO(), args)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
@@ -181,7 +182,7 @@ func (s *getToolsSuite) TestToolsError(c *gc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: "machine-42"}},
 	}
-	result, err := tg.Tools(args)
+	result, err := tg.Tools(context.TODO(), args)
 	c.Assert(err, gc.ErrorMatches, "splat")
 	c.Assert(result.Results, gc.HasLen, 1)
 }
@@ -240,7 +241,7 @@ func (s *setToolsSuite) TestSetTools(c *gc.C) {
 
 	s.entityFinder.EXPECT().FindEntity(names.NewMachineTag("42")).Return(nil, apiservertesting.NotFoundError("machine 42"))
 
-	result, err := ts.SetTools(args)
+	result, err := ts.SetTools(context.TODO(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 3)
 	c.Assert(result.Results[0].Error, gc.IsNil)
@@ -263,7 +264,7 @@ func (s *setToolsSuite) TestToolsSetError(c *gc.C) {
 			},
 		}},
 	}
-	result, err := ts.SetTools(args)
+	result, err := ts.SetTools(context.TODO(), args)
 	c.Assert(err, gc.ErrorMatches, "splat")
 	c.Assert(result.Results, gc.HasLen, 1)
 }
@@ -361,7 +362,7 @@ func (s *findToolsSuite) TestFindToolsMatchMajor(c *gc.C) {
 		nil, s.toolsStorageGetter, s.urlGetter, s.newEnviron,
 	)
 
-	result, err := toolsFinder.FindAgents(common.FindAgentsParams{
+	result, err := toolsFinder.FindAgents(context.TODO(), common.FindAgentsParams{
 		MajorVersion: 123,
 		MinorVersion: 456,
 		OSType:       "windows",
@@ -416,7 +417,7 @@ func (s *findToolsSuite) TestFindToolsRequestAgentStream(c *gc.C) {
 	toolsFinder := common.NewToolsFinder(
 		nil, s.toolsStorageGetter, s.urlGetter, s.newEnviron,
 	)
-	result, err := toolsFinder.FindAgents(common.FindAgentsParams{
+	result, err := toolsFinder.FindAgents(context.TODO(), common.FindAgentsParams{
 		MajorVersion: 123,
 		MinorVersion: 456,
 		OSType:       "windows",
@@ -449,7 +450,7 @@ func (s *findToolsSuite) TestFindToolsNotFound(c *gc.C) {
 	s.expectBootstrapEnvironConfig(c)
 
 	toolsFinder := common.NewToolsFinder(nil, s.toolsStorageGetter, nil, s.newEnviron)
-	_, err := toolsFinder.FindAgents(common.FindAgentsParams{})
+	_, err := toolsFinder.FindAgents(context.TODO(), common.FindAgentsParams{})
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -502,7 +503,7 @@ func (s *findToolsSuite) testFindToolsExact(c *gc.C, inStorage bool, develVersio
 		return nil, errors.NotFoundf("tools")
 	})
 	toolsFinder := common.NewToolsFinder(nil, s.toolsStorageGetter, s.urlGetter, s.newEnviron)
-	_, err := toolsFinder.FindAgents(common.FindAgentsParams{
+	_, err := toolsFinder.FindAgents(context.TODO(), common.FindAgentsParams{
 		Number: jujuversion.Current,
 		OSType: current.Release,
 		Arch:   arch.HostArch(),
@@ -528,7 +529,7 @@ func (s *findToolsSuite) TestFindToolsToolsStorageError(c *gc.C) {
 	s.expectMatchingStorageTools(nil, errors.New("AllMetadata failed"))
 
 	toolsFinder := common.NewToolsFinder(nil, s.toolsStorageGetter, s.urlGetter, s.newEnviron)
-	_, err := toolsFinder.FindAgents(common.FindAgentsParams{})
+	_, err := toolsFinder.FindAgents(context.TODO(), common.FindAgentsParams{})
 	// ToolsStorage errors always cause FindAgents to bail. Only
 	// if AllMetadata succeeds but returns nothing that matches
 	// do we continue on to searching simplestreams.

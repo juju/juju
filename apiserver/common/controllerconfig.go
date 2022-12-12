@@ -4,6 +4,8 @@
 package common
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -26,7 +28,7 @@ func NewStateControllerConfig(st ControllerConfigState) *ControllerConfigAPI {
 }
 
 // ControllerConfig returns the controller's configuration.
-func (s *ControllerConfigAPI) ControllerConfig() (params.ControllerConfigResult, error) {
+func (s *ControllerConfigAPI) ControllerConfig(context.Context) (params.ControllerConfigResult, error) {
 	result := params.ControllerConfigResult{}
 	config, err := s.st.ControllerConfig()
 	if err != nil {
@@ -37,7 +39,7 @@ func (s *ControllerConfigAPI) ControllerConfig() (params.ControllerConfigResult,
 }
 
 // ControllerAPIInfoForModels returns the controller api connection details for the specified models.
-func (s *ControllerConfigAPI) ControllerAPIInfoForModels(args params.Entities) (params.ControllerAPIInfoResults, error) {
+func (s *ControllerConfigAPI) ControllerAPIInfoForModels(ctx context.Context, args params.Entities) (params.ControllerAPIInfoResults, error) {
 	var result params.ControllerAPIInfoResults
 	result.Results = make([]params.ControllerAPIInfoResult, len(args.Entities))
 	for i, entity := range args.Entities {

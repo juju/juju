@@ -4,6 +4,8 @@
 package credentialcommon
 
 import (
+	"context"
+
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/rpc/params"
 )
@@ -23,7 +25,7 @@ func NewCredentialManagerAPI(backend StateBackend) *CredentialManagerAPI {
 }
 
 // InvalidateModelCredential marks the cloud credential for this model as invalid.
-func (api *CredentialManagerAPI) InvalidateModelCredential(args params.InvalidateCredentialArg) (params.ErrorResult, error) {
+func (api *CredentialManagerAPI) InvalidateModelCredential(ctx context.Context, args params.InvalidateCredentialArg) (params.ErrorResult, error) {
 	err := api.backend.InvalidateModelCredential(args.Reason)
 	if err != nil {
 		return params.ErrorResult{Error: apiservererrors.ServerError(err)}, nil

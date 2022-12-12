@@ -4,6 +4,8 @@
 package resourceshookcontext
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/client/resources"
@@ -48,7 +50,7 @@ type UnitFacade struct {
 // GetResourceInfo returns the resource info for each of the given
 // resource names (for the implicit application). If any one is missing then
 // the corresponding result is set with errors.NotFound.
-func (uf UnitFacade) GetResourceInfo(args params.ListUnitResourcesArgs) (params.UnitResourcesResult, error) {
+func (uf UnitFacade) GetResourceInfo(ctx context.Context, args params.ListUnitResourcesArgs) (params.UnitResourcesResult, error) {
 	var r params.UnitResourcesResult
 	r.Resources = make([]params.UnitResourceResult, len(args.ResourceNames))
 

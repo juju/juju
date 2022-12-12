@@ -5,6 +5,8 @@
 package reboot_test
 
 import (
+	"context"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -60,7 +62,7 @@ func (s *rebootSuite) setUpMachine(c *gc.C, machine *state.Machine) *machines {
 		{Tag: machine.Tag().String()},
 	}}
 
-	resultMachine, err := rebootAPI.WatchForRebootEvent()
+	resultMachine, err := rebootAPI.WatchForRebootEvent(context.TODO())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(resultMachine.NotifyWatcherId, gc.Not(gc.Equals), "")
 	c.Check(resultMachine.Error, gc.IsNil)
@@ -141,7 +143,7 @@ func (s *rebootSuite) TestWatchForRebootEvent(c *gc.C) {
 }
 
 func (s *rebootSuite) TestRequestReboot(c *gc.C) {
-	errResult, err := s.machine.rebootAPI.RequestReboot(s.machine.args)
+	errResult, err := s.machine.rebootAPI.RequestReboot(context.TODO(), s.machine.args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errResult, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -150,7 +152,7 @@ func (s *rebootSuite) TestRequestReboot(c *gc.C) {
 
 	s.machine.wc.AssertOneChange()
 
-	res, err := s.machine.rebootAPI.GetRebootAction(s.machine.args)
+	res, err := s.machine.rebootAPI.GetRebootAction(context.TODO(), s.machine.args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.DeepEquals, params.RebootActionResults{
 		Results: []params.RebootActionResult{
@@ -159,7 +161,7 @@ func (s *rebootSuite) TestRequestReboot(c *gc.C) {
 }
 
 func (s *rebootSuite) TestClearReboot(c *gc.C) {
-	errResult, err := s.machine.rebootAPI.RequestReboot(s.machine.args)
+	errResult, err := s.machine.rebootAPI.RequestReboot(context.TODO(), s.machine.args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errResult, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -169,14 +171,14 @@ func (s *rebootSuite) TestClearReboot(c *gc.C) {
 
 	s.machine.wc.AssertOneChange()
 
-	res, err := s.machine.rebootAPI.GetRebootAction(s.machine.args)
+	res, err := s.machine.rebootAPI.GetRebootAction(context.TODO(), s.machine.args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.DeepEquals, params.RebootActionResults{
 		Results: []params.RebootActionResult{
 			{Result: params.ShouldReboot},
 		}})
 
-	errResult, err = s.machine.rebootAPI.ClearReboot(s.machine.args)
+	errResult, err = s.machine.rebootAPI.ClearReboot(context.TODO(), s.machine.args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errResult, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -184,7 +186,7 @@ func (s *rebootSuite) TestClearReboot(c *gc.C) {
 		},
 	})
 
-	res, err = s.machine.rebootAPI.GetRebootAction(s.machine.args)
+	res, err = s.machine.rebootAPI.GetRebootAction(context.TODO(), s.machine.args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.DeepEquals, params.RebootActionResults{
 		Results: []params.RebootActionResult{
@@ -197,7 +199,7 @@ func (s *rebootSuite) TestRebootRequestFromMachine(c *gc.C) {
 	// machine should reboot
 	// container should shutdown
 	// nested container should shutdown
-	errResult, err := s.machine.rebootAPI.RequestReboot(s.machine.args)
+	errResult, err := s.machine.rebootAPI.RequestReboot(context.TODO(), s.machine.args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errResult, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -208,28 +210,28 @@ func (s *rebootSuite) TestRebootRequestFromMachine(c *gc.C) {
 	s.container.wc.AssertOneChange()
 	s.nestedContainer.wc.AssertOneChange()
 
-	res, err := s.machine.rebootAPI.GetRebootAction(s.machine.args)
+	res, err := s.machine.rebootAPI.GetRebootAction(context.TODO(), s.machine.args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.DeepEquals, params.RebootActionResults{
 		Results: []params.RebootActionResult{
 			{Result: params.ShouldReboot},
 		}})
 
-	res, err = s.container.rebootAPI.GetRebootAction(s.container.args)
+	res, err = s.container.rebootAPI.GetRebootAction(context.TODO(), s.container.args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.DeepEquals, params.RebootActionResults{
 		Results: []params.RebootActionResult{
 			{Result: params.ShouldShutdown},
 		}})
 
-	res, err = s.nestedContainer.rebootAPI.GetRebootAction(s.nestedContainer.args)
+	res, err = s.nestedContainer.rebootAPI.GetRebootAction(context.TODO(), s.nestedContainer.args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.DeepEquals, params.RebootActionResults{
 		Results: []params.RebootActionResult{
 			{Result: params.ShouldShutdown},
 		}})
 
-	errResult, err = s.machine.rebootAPI.ClearReboot(s.machine.args)
+	errResult, err = s.machine.rebootAPI.ClearReboot(context.TODO(), s.machine.args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errResult, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -247,7 +249,7 @@ func (s *rebootSuite) TestRebootRequestFromContainer(c *gc.C) {
 	// machine should do nothing
 	// container should reboot
 	// nested container should shutdown
-	errResult, err := s.container.rebootAPI.RequestReboot(s.container.args)
+	errResult, err := s.container.rebootAPI.RequestReboot(context.TODO(), s.container.args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errResult, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -258,28 +260,28 @@ func (s *rebootSuite) TestRebootRequestFromContainer(c *gc.C) {
 	s.container.wc.AssertOneChange()
 	s.nestedContainer.wc.AssertOneChange()
 
-	res, err := s.machine.rebootAPI.GetRebootAction(s.machine.args)
+	res, err := s.machine.rebootAPI.GetRebootAction(context.TODO(), s.machine.args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.DeepEquals, params.RebootActionResults{
 		Results: []params.RebootActionResult{
 			{Result: params.ShouldDoNothing},
 		}})
 
-	res, err = s.container.rebootAPI.GetRebootAction(s.container.args)
+	res, err = s.container.rebootAPI.GetRebootAction(context.TODO(), s.container.args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.DeepEquals, params.RebootActionResults{
 		Results: []params.RebootActionResult{
 			{Result: params.ShouldReboot},
 		}})
 
-	res, err = s.nestedContainer.rebootAPI.GetRebootAction(s.nestedContainer.args)
+	res, err = s.nestedContainer.rebootAPI.GetRebootAction(context.TODO(), s.nestedContainer.args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.DeepEquals, params.RebootActionResults{
 		Results: []params.RebootActionResult{
 			{Result: params.ShouldShutdown},
 		}})
 
-	errResult, err = s.container.rebootAPI.ClearReboot(s.container.args)
+	errResult, err = s.container.rebootAPI.ClearReboot(context.TODO(), s.container.args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errResult, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -297,7 +299,7 @@ func (s *rebootSuite) TestRebootRequestFromNestedContainer(c *gc.C) {
 	// machine should do nothing
 	// container should do nothing
 	// nested container should reboot
-	errResult, err := s.nestedContainer.rebootAPI.RequestReboot(s.nestedContainer.args)
+	errResult, err := s.nestedContainer.rebootAPI.RequestReboot(context.TODO(), s.nestedContainer.args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errResult, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -308,28 +310,28 @@ func (s *rebootSuite) TestRebootRequestFromNestedContainer(c *gc.C) {
 	s.container.wc.AssertNoChange()
 	s.nestedContainer.wc.AssertOneChange()
 
-	res, err := s.machine.rebootAPI.GetRebootAction(s.machine.args)
+	res, err := s.machine.rebootAPI.GetRebootAction(context.TODO(), s.machine.args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.DeepEquals, params.RebootActionResults{
 		Results: []params.RebootActionResult{
 			{Result: params.ShouldDoNothing},
 		}})
 
-	res, err = s.container.rebootAPI.GetRebootAction(s.container.args)
+	res, err = s.container.rebootAPI.GetRebootAction(context.TODO(), s.container.args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.DeepEquals, params.RebootActionResults{
 		Results: []params.RebootActionResult{
 			{Result: params.ShouldDoNothing},
 		}})
 
-	res, err = s.nestedContainer.rebootAPI.GetRebootAction(s.nestedContainer.args)
+	res, err = s.nestedContainer.rebootAPI.GetRebootAction(context.TODO(), s.nestedContainer.args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.DeepEquals, params.RebootActionResults{
 		Results: []params.RebootActionResult{
 			{Result: params.ShouldReboot},
 		}})
 
-	errResult, err = s.nestedContainer.rebootAPI.ClearReboot(s.nestedContainer.args)
+	errResult, err = s.nestedContainer.rebootAPI.ClearReboot(context.TODO(), s.nestedContainer.args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errResult, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{

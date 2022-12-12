@@ -4,6 +4,7 @@
 package common_test
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/names/v4"
@@ -75,7 +76,7 @@ func (*unitsWatcherSuite) TestWatchUnits(c *gc.C) {
 	entities := params.Entities{[]params.Entity{
 		{"unit-x-0"}, {"unit-x-1"}, {"unit-x-2"}, {"unit-x-3"},
 	}}
-	result, err := w.WatchUnits(entities)
+	result, err := w.WatchUnits(context.TODO(), entities)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{
@@ -97,7 +98,7 @@ func (*unitsWatcherSuite) TestWatchUnitsError(c *gc.C) {
 		resources,
 		getCanWatch,
 	)
-	_, err := w.WatchUnits(params.Entities{[]params.Entity{{"x0"}}})
+	_, err := w.WatchUnits(context.TODO(), params.Entities{[]params.Entity{{"x0"}}})
 	c.Assert(err, gc.ErrorMatches, "pow")
 }
 
@@ -111,7 +112,7 @@ func (*unitsWatcherSuite) TestWatchNoArgsNoError(c *gc.C) {
 		resources,
 		getCanWatch,
 	)
-	result, err := w.WatchUnits(params.Entities{})
+	result, err := w.WatchUnits(context.TODO(), params.Entities{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 0)
 }

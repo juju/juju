@@ -4,6 +4,8 @@
 package fanconfigurer
 
 import (
+	"context"
+
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -14,8 +16,8 @@ import (
 
 // FanConfigurer defines the methods on fanconfigurer API endpoint.
 type FanConfigurer interface {
-	WatchForFanConfigChanges() (params.NotifyWatchResult, error)
-	FanConfig() (params.FanConfigResult, error)
+	WatchForFanConfigChanges(context.Context) (params.NotifyWatchResult, error)
+	FanConfig(context.Context) (params.FanConfigResult, error)
 }
 
 type FanConfigurerAPI struct {
@@ -41,7 +43,7 @@ func NewFanConfigurerAPIForModel(model state.ModelAccessor, resources facade.Res
 // changes to the FAN configuration.
 // so we use the regular error return.
 // TODO(wpk) 2017-09-21 We should use Model directly, and watch only for FanConfig changes.
-func (m *FanConfigurerAPI) WatchForFanConfigChanges() (params.NotifyWatchResult, error) {
+func (m *FanConfigurerAPI) WatchForFanConfigChanges(ctx context.Context) (params.NotifyWatchResult, error) {
 	result := params.NotifyWatchResult{}
 	watch := m.model.WatchForModelConfigChanges()
 	// Consume the initial event. Technically, API
@@ -57,7 +59,7 @@ func (m *FanConfigurerAPI) WatchForFanConfigChanges() (params.NotifyWatchResult,
 }
 
 // FanConfig returns current FAN configuration.
-func (m *FanConfigurerAPI) FanConfig() (params.FanConfigResult, error) {
+func (m *FanConfigurerAPI) FanConfig(ctx context.Context) (params.FanConfigResult, error) {
 	result := params.FanConfigResult{}
 	config, err := m.model.ModelConfig()
 	if err != nil {

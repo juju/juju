@@ -4,6 +4,7 @@
 package common_test
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/names/v4"
@@ -73,7 +74,7 @@ func (*removeSuite) TestRemove(c *gc.C) {
 	entities := params.Entities{[]params.Entity{
 		{"unit-x-0"}, {"unit-x-1"}, {"unit-x-2"}, {"unit-x-3"}, {"unit-x-4"}, {"unit-x-5"}, {"unit-x-6"},
 	}}
-	result, err := r.Remove(entities)
+	result, err := r.Remove(context.TODO(), entities)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(afterDeadCalled, jc.IsTrue)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
@@ -93,7 +94,7 @@ func (*removeSuite) TestRemove(c *gc.C) {
 	afterDeadCalled = false
 	r = common.NewRemover(st, afterDead, false, getCanModify)
 	entities = params.Entities{[]params.Entity{{"unit-x-0"}, {"unit-x-1"}}}
-	result, err = r.Remove(entities)
+	result, err = r.Remove(context.TODO(), entities)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(afterDeadCalled, jc.IsFalse)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
@@ -109,7 +110,7 @@ func (*removeSuite) TestRemoveError(c *gc.C) {
 		return nil, fmt.Errorf("pow")
 	}
 	r := common.NewRemover(&fakeState{}, nil, true, getCanModify)
-	_, err := r.Remove(params.Entities{[]params.Entity{{"x0"}}})
+	_, err := r.Remove(context.TODO(), params.Entities{[]params.Entity{{"x0"}}})
 	c.Assert(err, gc.ErrorMatches, "pow")
 }
 
@@ -118,7 +119,7 @@ func (*removeSuite) TestRemoveNoArgsNoError(c *gc.C) {
 		return nil, fmt.Errorf("pow")
 	}
 	r := common.NewRemover(&fakeState{}, nil, true, getCanModify)
-	result, err := r.Remove(params.Entities{})
+	result, err := r.Remove(context.TODO(), params.Entities{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 0)
 }

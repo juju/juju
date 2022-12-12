@@ -49,7 +49,7 @@ type leadershipService struct {
 }
 
 // ClaimLeadership is part of the LeadershipService interface.
-func (m *leadershipService) ClaimLeadership(args params.ClaimLeadershipBulkParams) (params.ClaimLeadershipBulkResults, error) {
+func (m *leadershipService) ClaimLeadership(ctx context.Context, args params.ClaimLeadershipBulkParams) (params.ClaimLeadershipBulkResults, error) {
 
 	results := make([]params.ErrorResult, len(args.Params))
 	for pIdx, p := range args.Params {

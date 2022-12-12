@@ -4,6 +4,8 @@
 package common_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -34,7 +36,7 @@ func (s *statusSetterSuite) SetUpTest(c *gc.C) {
 func (s *statusSetterSuite) TestUnauthorized(c *gc.C) {
 	tag := names.NewMachineTag("42")
 	s.badTag = tag
-	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
+	result, err := s.setter.SetStatus(context.TODO(), params.SetStatus{[]params.EntityStatusArgs{{
 		Tag:    tag.String(),
 		Status: status.Executing.String(),
 	}}})
@@ -44,7 +46,7 @@ func (s *statusSetterSuite) TestUnauthorized(c *gc.C) {
 }
 
 func (s *statusSetterSuite) TestNotATag(c *gc.C) {
-	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
+	result, err := s.setter.SetStatus(context.TODO(), params.SetStatus{[]params.EntityStatusArgs{{
 		Tag:    "not a tag",
 		Status: status.Executing.String(),
 	}}})
@@ -54,7 +56,7 @@ func (s *statusSetterSuite) TestNotATag(c *gc.C) {
 }
 
 func (s *statusSetterSuite) TestNotFound(c *gc.C) {
-	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
+	result, err := s.setter.SetStatus(context.TODO(), params.SetStatus{[]params.EntityStatusArgs{{
 		Tag:    names.NewMachineTag("42").String(),
 		Status: status.Down.String(),
 	}}})
@@ -65,7 +67,7 @@ func (s *statusSetterSuite) TestNotFound(c *gc.C) {
 
 func (s *statusSetterSuite) TestSetMachineStatus(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, nil)
-	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
+	result, err := s.setter.SetStatus(context.TODO(), params.SetStatus{[]params.EntityStatusArgs{{
 		Tag:    machine.Tag().String(),
 		Status: status.Started.String(),
 	}}})
@@ -87,7 +89,7 @@ func (s *statusSetterSuite) TestSetUnitStatus(c *gc.C) {
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Status: &status.StatusInfo{
 		Status: status.Maintenance,
 	}})
-	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
+	result, err := s.setter.SetStatus(context.TODO(), params.SetStatus{[]params.EntityStatusArgs{{
 		Tag:    unit.Tag().String(),
 		Status: status.Active.String(),
 	}}})
@@ -109,7 +111,7 @@ func (s *statusSetterSuite) TestSetServiceStatus(c *gc.C) {
 	service := s.Factory.MakeApplication(c, &factory.ApplicationParams{Status: &status.StatusInfo{
 		Status: status.Maintenance,
 	}})
-	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
+	result, err := s.setter.SetStatus(context.TODO(), params.SetStatus{[]params.EntityStatusArgs{{
 		Tag:    service.Tag().String(),
 		Status: status.Active.String(),
 	}}})
@@ -126,7 +128,7 @@ func (s *statusSetterSuite) TestSetServiceStatus(c *gc.C) {
 
 func (s *statusSetterSuite) TestBulk(c *gc.C) {
 	s.badTag = names.NewMachineTag("42")
-	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
+	result, err := s.setter.SetStatus(context.TODO(), params.SetStatus{[]params.EntityStatusArgs{{
 		Tag:    s.badTag.String(),
 		Status: status.Active.String(),
 	}, {
@@ -291,21 +293,21 @@ func (unitAgentFinderSuite) TestFindEntity(c *gc.C) {
 		},
 	}
 	ua := &common.UnitAgentFinder{f}
-	entity, err := ua.FindEntity(names.NewUnitTag("unit/0"))
+	entity, err := ua.FindEntity(context.TODO(), names.NewUnitTag("unit/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(entity, gc.DeepEquals, f.unit.agent)
 }
 
 func (unitAgentFinderSuite) TestFindEntityBadTag(c *gc.C) {
 	ua := &common.UnitAgentFinder{fakeEntityFinder{}}
-	_, err := ua.FindEntity(names.NewApplicationTag("foo"))
+	_, err := ua.FindEntity(context.TODO(), names.NewApplicationTag("foo"))
 	c.Assert(err, gc.ErrorMatches, "unsupported tag.*")
 }
 
 func (unitAgentFinderSuite) TestFindEntityErr(c *gc.C) {
 	f := fakeEntityFinder{err: errors.Errorf("boo")}
 	ua := &common.UnitAgentFinder{f}
-	_, err := ua.FindEntity(names.NewUnitTag("unit/0"))
+	_, err := ua.FindEntity(context.TODO(), names.NewUnitTag("unit/0"))
 	c.Assert(errors.Cause(err), gc.Equals, f.err)
 }
 

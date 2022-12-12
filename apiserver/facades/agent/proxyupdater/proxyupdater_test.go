@@ -4,6 +4,7 @@
 package proxyupdater_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/names/v4"
@@ -63,7 +64,7 @@ func (s *ProxyUpdaterSuite) SetUpTest(c *gc.C) {
 func (s *ProxyUpdaterSuite) TestWatchForProxyConfigAndAPIHostPortChanges(c *gc.C) {
 	// WatchForProxyConfigAndAPIHostPortChanges combines WatchForModelConfigChanges
 	// and WatchAPIHostPorts. Check that they are both called and we get the
-	result := s.facade.WatchForProxyConfigAndAPIHostPortChanges(s.oneEntity())
+	result := s.facade.WatchForProxyConfigAndAPIHostPortChanges(context.TODO(), s.oneEntity())
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.IsNil)
 
@@ -99,7 +100,7 @@ func (s *ProxyUpdaterSuite) TestMirrorConfig(c *gc.C) {
 		"apt-mirror": "http://mirror",
 	})
 	// Check that the ProxyConfig combines data from ModelConfig and APIHostPorts
-	cfg := s.facade.ProxyConfig(s.oneEntity())
+	cfg := s.facade.ProxyConfig(context.TODO(), s.oneEntity())
 
 	s.state.Stub.CheckCallNames(c,
 		"ModelConfig",
@@ -112,7 +113,7 @@ func (s *ProxyUpdaterSuite) TestMirrorConfig(c *gc.C) {
 
 func (s *ProxyUpdaterSuite) TestProxyConfig(c *gc.C) {
 	// Check that the ProxyConfig combines data from ModelConfig and APIHostPorts
-	cfg := s.facade.ProxyConfig(s.oneEntity())
+	cfg := s.facade.ProxyConfig(context.TODO(), s.oneEntity())
 
 	s.state.Stub.CheckCallNames(c,
 		"ModelConfig",
@@ -141,7 +142,7 @@ func (s *ProxyUpdaterSuite) TestProxyConfigJujuProxy(c *gc.C) {
 		"apt-https-proxy":  "apt https proxy",
 	})
 
-	cfg := s.facade.ProxyConfig(s.oneEntity())
+	cfg := s.facade.ProxyConfig(context.TODO(), s.oneEntity())
 
 	s.state.Stub.CheckCallNames(c,
 		"ModelConfig",
@@ -174,7 +175,7 @@ func (s *ProxyUpdaterSuite) TestProxyConfigExtendsExisting(c *gc.C) {
 		"apt-https-proxy": "apt https proxy",
 		"no-proxy":        "9.9.9.9",
 	})
-	cfg := s.facade.ProxyConfig(s.oneEntity())
+	cfg := s.facade.ProxyConfig(context.TODO(), s.oneEntity())
 	s.state.Stub.CheckCallNames(c,
 		"ModelConfig",
 		"APIHostPortsForAgents",
@@ -200,7 +201,7 @@ func (s *ProxyUpdaterSuite) TestProxyConfigNoDuplicates(c *gc.C) {
 		"apt-https-proxy": "apt https proxy",
 		"no-proxy":        "0.1.2.3",
 	})
-	cfg := s.facade.ProxyConfig(s.oneEntity())
+	cfg := s.facade.ProxyConfig(context.TODO(), s.oneEntity())
 	s.state.Stub.CheckCallNames(c,
 		"ModelConfig",
 		"APIHostPortsForAgents",
@@ -224,7 +225,7 @@ func (s *ProxyUpdaterSuite) TestSnapProxyConfig(c *gc.C) {
 		"snap-store-proxy":      "store proxy",
 		"snap-store-assertions": "trust us",
 	})
-	cfg := s.facade.ProxyConfig(s.oneEntity())
+	cfg := s.facade.ProxyConfig(context.TODO(), s.oneEntity())
 	s.state.Stub.CheckCallNames(c,
 		"ModelConfig",
 		"APIHostPortsForAgents",

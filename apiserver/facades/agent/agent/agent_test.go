@@ -4,6 +4,7 @@
 package agent_test
 
 import (
+	"context"
 	stdtesting "testing"
 
 	"github.com/juju/names/v4"
@@ -109,7 +110,7 @@ func (s *agentSuite) TestGetEntities(c *gc.C) {
 		Auth_:      s.authorizer,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	results := api.GetEntities(args)
+	results := api.GetEntities(context.TODO(), args)
 	c.Assert(results, gc.DeepEquals, params.AgentGetEntitiesResults{
 		Entities: []params.AgentGetEntitiesResult{
 			{
@@ -143,7 +144,7 @@ func (s *agentSuite) TestGetEntitiesContainer(c *gc.C) {
 			{Tag: "machine-42"},
 		},
 	}
-	results := api.GetEntities(args)
+	results := api.GetEntities(context.TODO(), args)
 	c.Assert(results, gc.DeepEquals, params.AgentGetEntitiesResults{
 		Entities: []params.AgentGetEntitiesResult{
 			{Error: apiservertesting.ErrUnauthorized},
@@ -180,7 +181,7 @@ func (s *agentSuite) TestGetEntitiesNotFound(c *gc.C) {
 		Auth_:      s.authorizer,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	results := api.GetEntities(params.Entities{
+	results := api.GetEntities(context.TODO(), params.Entities{
 		Entities: []params.Entity{{Tag: "machine-1"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -201,7 +202,7 @@ func (s *agentSuite) TestSetPasswords(c *gc.C) {
 		Auth_:      s.authorizer,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := api.SetPasswords(params.EntityPasswords{
+	results, err := api.SetPasswords(context.TODO(), params.EntityPasswords{
 		Changes: []params.EntityPassword{
 			{Tag: "machine-0", Password: "xxx-12345678901234567890"},
 			{Tag: "machine-1", Password: "yyy-12345678901234567890"},
@@ -229,7 +230,7 @@ func (s *agentSuite) TestSetPasswordsShort(c *gc.C) {
 		Auth_:      s.authorizer,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := api.SetPasswords(params.EntityPasswords{
+	results, err := api.SetPasswords(context.TODO(), params.EntityPasswords{
 		Changes: []params.EntityPassword{
 			{Tag: "machine-1", Password: "yyy"},
 		},
@@ -260,7 +261,7 @@ func (s *agentSuite) TestClearReboot(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rFlag, jc.IsTrue)
 
-	result, err := api.ClearReboot(args)
+	result, err := api.ClearReboot(context.TODO(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -286,7 +287,7 @@ func (s *agentSuite) TestWatchCredentials(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	tag := names.NewCloudCredentialTag("dummy/fred/default")
-	result, err := api.WatchCredentials(params.Entities{Entities: []params.Entity{{Tag: tag.String()}}})
+	result, err := api.WatchCredentials(context.TODO(), params.Entities{Entities: []params.Entity{{Tag: tag.String()}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.NotifyWatchResults{Results: []params.NotifyWatchResult{{"1", nil}}})
 	c.Assert(s.resources.Count(), gc.Equals, 1)
@@ -313,7 +314,7 @@ func (s *agentSuite) TestWatchAuthError(c *gc.C) {
 		Auth_:      authorizer,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = api.WatchCredentials(params.Entities{})
+	_, err = api.WatchCredentials(context.TODO(), params.Entities{})
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 }

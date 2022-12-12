@@ -4,6 +4,8 @@
 package machine
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -75,7 +77,7 @@ func (api *MachinerAPI) getMachine(tag string, authChecker common.AuthFunc) (*st
 	return entity.(*state.Machine), nil
 }
 
-func (api *MachinerAPI) SetMachineAddresses(args params.SetMachinesAddresses) (params.ErrorResults, error) {
+func (api *MachinerAPI) SetMachineAddresses(ctx context.Context, args params.SetMachinesAddresses) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.MachineAddresses)),
 	}

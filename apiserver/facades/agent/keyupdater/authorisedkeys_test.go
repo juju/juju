@@ -4,6 +4,8 @@
 package keyupdater_test
 
 import (
+	"context"
+
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -80,7 +82,7 @@ func (s *authorisedKeysSuite) TestNewKeyUpdaterAPIRefusesNonMachineAgent(c *gc.C
 
 func (s *authorisedKeysSuite) TestWatchAuthorisedKeysNothing(c *gc.C) {
 	// Not an error to watch nothing
-	results, err := s.keyupdater.WatchAuthorisedKeys(params.Entities{})
+	results, err := s.keyupdater.WatchAuthorisedKeys(context.TODO(), params.Entities{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 0)
 }
@@ -101,7 +103,7 @@ func (s *authorisedKeysSuite) TestWatchAuthorisedKeys(c *gc.C) {
 			{Tag: "machine-42"},
 		},
 	}
-	results, err := s.keyupdater.WatchAuthorisedKeys(args)
+	results, err := s.keyupdater.WatchAuthorisedKeys(context.TODO(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
@@ -128,7 +130,7 @@ func (s *authorisedKeysSuite) TestWatchAuthorisedKeys(c *gc.C) {
 
 func (s *authorisedKeysSuite) TestAuthorisedKeysForNoone(c *gc.C) {
 	// Not an error to request nothing, dumb, but not an error.
-	results, err := s.keyupdater.AuthorisedKeys(params.Entities{})
+	results, err := s.keyupdater.AuthorisedKeys(context.TODO(), params.Entities{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 0)
 }
@@ -143,7 +145,7 @@ func (s *authorisedKeysSuite) TestAuthorisedKeys(c *gc.C) {
 			{Tag: "machine-42"},
 		},
 	}
-	results, err := s.keyupdater.AuthorisedKeys(args)
+	results, err := s.keyupdater.AuthorisedKeys(context.TODO(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.StringsResults{
 		Results: []params.StringsResult{

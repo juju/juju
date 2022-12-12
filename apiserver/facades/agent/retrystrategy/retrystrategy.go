@@ -5,6 +5,7 @@
 package retrystrategy
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -29,8 +30,8 @@ const (
 
 // RetryStrategy defines the methods exported by the RetryStrategy API facade.
 type RetryStrategy interface {
-	RetryStrategy(params.Entities) (params.RetryStrategyResults, error)
-	WatchRetryStrategy(params.Entities) (params.NotifyWatchResults, error)
+	RetryStrategy(context.Context, params.Entities) (params.RetryStrategyResults, error)
+	WatchRetryStrategy(context.Context, params.Entities) (params.NotifyWatchResults, error)
 }
 
 // RetryStrategyAPI implements RetryStrategy
@@ -45,7 +46,7 @@ var _ RetryStrategy = (*RetryStrategyAPI)(nil)
 
 // RetryStrategy returns RetryStrategyResults that can be used by any code that uses
 // to configure the retry timer that's currently in juju utils.
-func (h *RetryStrategyAPI) RetryStrategy(args params.Entities) (params.RetryStrategyResults, error) {
+func (h *RetryStrategyAPI) RetryStrategy(ctx context.Context, args params.Entities) (params.RetryStrategyResults, error) {
 	results := params.RetryStrategyResults{
 		Results: make([]params.RetryStrategyResult, len(args.Entities)),
 	}
@@ -84,7 +85,7 @@ func (h *RetryStrategyAPI) RetryStrategy(args params.Entities) (params.RetryStra
 
 // WatchRetryStrategy watches for changes to the model. Currently we only allow
 // changes to the boolean that determines whether retries should be attempted or not.
-func (h *RetryStrategyAPI) WatchRetryStrategy(args params.Entities) (params.NotifyWatchResults, error) {
+func (h *RetryStrategyAPI) WatchRetryStrategy(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error) {
 	results := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}

@@ -5,6 +5,8 @@
 package reboot
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -63,7 +65,7 @@ func NewRebootAPI(ctx facade.Context) (*RebootAPI, error) {
 
 // WatchForRebootEvent starts a watcher to track if there is a new
 // reboot request on the machines ID or any of its parents (in case we are a container).
-func (r *RebootAPI) WatchForRebootEvent() (params.NotifyWatchResult, error) {
+func (r *RebootAPI) WatchForRebootEvent(ctx context.Context) (params.NotifyWatchResult, error) {
 	var err error = apiservererrors.ErrPerm
 	var watch state.NotifyWatcher
 	var result params.NotifyWatchResult

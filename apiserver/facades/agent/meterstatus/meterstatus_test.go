@@ -4,6 +4,8 @@
 package meterstatus_test
 
 import (
+	"context"
+
 	"github.com/golang/mock/gomock"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -59,7 +61,7 @@ func (s *meterStatusSuite) TestGetMeterStatusUnauthenticated(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	otherunit := s.Factory.MakeUnit(c, &jujufactory.UnitParams{Application: application})
 	args := params.Entities{Entities: []params.Entity{{otherunit.Tag().String()}}}
-	result, err := s.status.GetMeterStatus(args)
+	result, err := s.status.GetMeterStatus(context.TODO(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.ErrorMatches, "permission denied")
@@ -79,7 +81,7 @@ func (s *meterStatusSuite) TestGetMeterStatusBadTag(c *gc.C) {
 	for i, tag := range tags {
 		args.Entities[i] = params.Entity{Tag: tag}
 	}
-	result, err := s.status.GetMeterStatus(args)
+	result, err := s.status.GetMeterStatus(context.TODO(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, len(tags))
 	for i, result := range result.Results {
@@ -115,7 +117,7 @@ func (s *meterStatusSuite) TestWatchMeterStatus(c *gc.C) {
 		{Tag: s.unit.UnitTag().String()},
 		{Tag: "unit-foo-42"},
 	}}
-	result, err := status.WatchMeterStatus(args)
+	result, err := status.WatchMeterStatus(context.TODO(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
@@ -143,7 +145,7 @@ func (s *meterStatusSuite) TestWatchMeterStatusWithStateChange(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: s.unit.UnitTag().String()},
 	}}
-	result, err := status.WatchMeterStatus(args)
+	result, err := status.WatchMeterStatus(context.TODO(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
@@ -180,7 +182,7 @@ func (s *meterStatusSuite) TestWatchMeterStatusWithApplicationTag(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: unit.UnitTag().String()},
 	}}
-	result, err := status.WatchMeterStatus(args)
+	result, err := status.WatchMeterStatus(context.TODO(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{

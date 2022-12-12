@@ -65,7 +65,7 @@ func (s *fanconfigurerSuite) TestWatchSuccess(c *gc.C) {
 		authorizer,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	result, err := e.WatchForFanConfigChanges()
+	result, err := e.WatchForFanConfigChanges(context.TODO())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{"1", nil})
 	c.Assert(resources.Count(), gc.Equals, 1)
@@ -101,7 +101,7 @@ func (s *fanconfigurerSuite) TestFanConfigSuccess(c *gc.C) {
 		authorizer,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	result, err := e.FanConfig()
+	result, err := e.FanConfig(context.TODO())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Fans, gc.HasLen, 2)
 	c.Check(result.Fans[0].Underlay, gc.Equals, "10.100.0.0/16")
@@ -125,7 +125,7 @@ func (s *fanconfigurerSuite) TestFanConfigFetchError(c *gc.C) {
 		authorizer,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = e.FanConfig()
+	_, err = e.FanConfig(context.TODO())
 	c.Assert(err, gc.ErrorMatches, "pow")
 }
 

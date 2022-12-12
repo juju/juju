@@ -25,7 +25,6 @@ func newStateFacade(ctx facade.Context) (*Facade, error) {
 	}
 
 	return &Facade{
-		auth:                authorizer,
 		ControllerConfigAPI: common.NewStateControllerConfig(ctx.State()),
 	}, nil
 }

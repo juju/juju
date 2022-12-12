@@ -4,6 +4,8 @@
 package common_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -35,7 +37,7 @@ func (s *statusGetterSuite) SetUpTest(c *gc.C) {
 func (s *statusGetterSuite) TestUnauthorized(c *gc.C) {
 	tag := names.NewMachineTag("42")
 	s.badTag = tag
-	result, err := s.getter.Status(params.Entities{[]params.Entity{{
+	result, err := s.getter.Status(context.TODO(), params.Entities{[]params.Entity{{
 		tag.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -44,7 +46,7 @@ func (s *statusGetterSuite) TestUnauthorized(c *gc.C) {
 }
 
 func (s *statusGetterSuite) TestNotATag(c *gc.C) {
-	result, err := s.getter.Status(params.Entities{[]params.Entity{{
+	result, err := s.getter.Status(context.TODO(), params.Entities{[]params.Entity{{
 		"not a tag",
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -53,7 +55,7 @@ func (s *statusGetterSuite) TestNotATag(c *gc.C) {
 }
 
 func (s *statusGetterSuite) TestNotFound(c *gc.C) {
-	result, err := s.getter.Status(params.Entities{[]params.Entity{{
+	result, err := s.getter.Status(context.TODO(), params.Entities{[]params.Entity{{
 		names.NewMachineTag("42").String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -63,7 +65,7 @@ func (s *statusGetterSuite) TestNotFound(c *gc.C) {
 
 func (s *statusGetterSuite) TestGetMachineStatus(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, nil)
-	result, err := s.getter.Status(params.Entities{[]params.Entity{{
+	result, err := s.getter.Status(context.TODO(), params.Entities{[]params.Entity{{
 		machine.Tag().String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -80,7 +82,7 @@ func (s *statusGetterSuite) TestGetUnitStatus(c *gc.C) {
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Status: &status.StatusInfo{
 		Status: status.Maintenance,
 	}})
-	result, err := s.getter.Status(params.Entities{[]params.Entity{{
+	result, err := s.getter.Status(context.TODO(), params.Entities{[]params.Entity{{
 		unit.Tag().String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -94,7 +96,7 @@ func (s *statusGetterSuite) TestGetApplicationStatus(c *gc.C) {
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{Status: &status.StatusInfo{
 		Status: status.Maintenance,
 	}})
-	result, err := s.getter.Status(params.Entities{[]params.Entity{{
+	result, err := s.getter.Status(context.TODO(), params.Entities{[]params.Entity{{
 		app.Tag().String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -107,7 +109,7 @@ func (s *statusGetterSuite) TestGetApplicationStatus(c *gc.C) {
 func (s *statusGetterSuite) TestBulk(c *gc.C) {
 	s.badTag = names.NewMachineTag("42")
 	machine := s.Factory.MakeMachine(c, nil)
-	result, err := s.getter.Status(params.Entities{[]params.Entity{{
+	result, err := s.getter.Status(context.TODO(), params.Entities{[]params.Entity{{
 		s.badTag.String(),
 	}, {
 		machine.Tag().String(),

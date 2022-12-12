@@ -4,6 +4,8 @@
 package caasoperator
 
 import (
+	"context"
+
 	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -79,7 +81,7 @@ func NewFacade(
 }
 
 // CurrentModel returns the name and UUID for the current juju model.
-func (f *Facade) CurrentModel() (params.ModelResult, error) {
+func (f *Facade) CurrentModel(ctx context.Context) (params.ModelResult, error) {
 	return params.ModelResult{
 		Name: f.model.Name(),
 		UUID: f.model.UUID(),
@@ -88,7 +90,7 @@ func (f *Facade) CurrentModel() (params.ModelResult, error) {
 }
 
 // SetStatus sets the status of each given entity.
-func (f *Facade) SetStatus(args params.SetStatus) (params.ErrorResults, error) {
+func (f *Facade) SetStatus(ctx context.Context, args params.SetStatus) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
@@ -122,7 +124,7 @@ func (f *Facade) setStatus(tag names.ApplicationTag, info status.StatusInfo) err
 }
 
 // Charm returns the charm info for all given applications.
-func (f *Facade) Charm(args params.Entities) (params.ApplicationCharmResults, error) {
+func (f *Facade) Charm(ctx context.Context, args params.Entities) (params.ApplicationCharmResults, error) {
 	results := params.ApplicationCharmResults{
 		Results: make([]params.ApplicationCharmResult, len(args.Entities)),
 	}
@@ -163,7 +165,7 @@ func (f *Facade) Charm(args params.Entities) (params.ApplicationCharmResults, er
 
 // SetPodSpec sets the container specs for a set of applications.
 // TODO(juju3) - remove
-func (f *Facade) SetPodSpec(args params.SetPodSpecParams) (params.ErrorResults, error) {
+func (f *Facade) SetPodSpec(ctx context.Context, args params.SetPodSpecParams) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Specs)),
 	}
@@ -195,7 +197,7 @@ func (f *Facade) SetPodSpec(args params.SetPodSpecParams) (params.ErrorResults, 
 // WatchUnits starts a StringsWatcher to watch changes to the
 // lifecycle states of units for the specified applications in
 // this model.
-func (f *Facade) WatchUnits(args params.Entities) (params.StringsWatchResults, error) {
+func (f *Facade) WatchUnits(ctx context.Context, args params.Entities) (params.StringsWatchResults, error) {
 	results := params.StringsWatchResults{
 		Results: make([]params.StringsWatchResult, len(args.Entities)),
 	}
@@ -229,7 +231,7 @@ func (f *Facade) watchUnits(tagString string) (string, []string, error) {
 
 // WatchContainerStart starts a StringWatcher to watch for container start events
 // on the CAAS api for a specific application and container.
-func (f *Facade) WatchContainerStart(args params.WatchContainerStartArgs) (params.StringsWatchResults, error) {
+func (f *Facade) WatchContainerStart(ctx context.Context, args params.WatchContainerStartArgs) (params.StringsWatchResults, error) {
 	results := params.StringsWatchResults{
 		Results: make([]params.StringsWatchResult, len(args.Args)),
 	}
@@ -268,6 +270,6 @@ func (f *Facade) watchContainerStart(tagString string, containerName string) (st
 // It is implemented here directly as a result of removing it from
 // embedded APIAddresser *without* bumping the facade version.
 // It should be blanked when this facade version is next incremented.
-func (f *Facade) ModelUUID() params.StringResult {
+func (f *Facade) ModelUUID(ctx context.Context) params.StringResult {
 	return params.StringResult{Result: f.model.UUID()}
 }

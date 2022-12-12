@@ -4,6 +4,8 @@
 package proxyupdater
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/proxy"
@@ -20,8 +22,8 @@ import (
 
 // ProxyUpdaterV2 defines the pubic methods for the v2 facade.
 type ProxyUpdaterV2 interface {
-	ProxyConfig(args params.Entities) params.ProxyConfigResults
-	WatchForProxyConfigAndAPIHostPortChanges(args params.Entities) params.NotifyWatchResults
+	ProxyConfig(ctx context.Context, args params.Entities) params.ProxyConfigResults
+	WatchForProxyConfigAndAPIHostPortChanges(ctx context.Context, args params.Entities) params.NotifyWatchResults
 }
 
 var _ ProxyUpdaterV2 = (*API)(nil)
@@ -99,7 +101,7 @@ func (api *API) oneWatch() params.NotifyWatchResult {
 }
 
 // WatchForProxyConfigAndAPIHostPortChanges watches for changes to the proxy and api host port settings.
-func (api *API) WatchForProxyConfigAndAPIHostPortChanges(args params.Entities) params.NotifyWatchResults {
+func (api *API) WatchForProxyConfigAndAPIHostPortChanges(ctx context.Context, args params.Entities) params.NotifyWatchResults {
 	results := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}
@@ -185,7 +187,7 @@ func (api *API) proxyConfig() params.ProxyConfigResult {
 }
 
 // ProxyConfig returns the proxy settings for the current model.
-func (api *API) ProxyConfig(args params.Entities) params.ProxyConfigResults {
+func (api *API) ProxyConfig(ctx context.Context, args params.Entities) params.ProxyConfigResults {
 	var result params.ProxyConfigResult
 	errors, ok := api.authEntities(args)
 

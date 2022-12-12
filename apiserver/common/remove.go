@@ -4,6 +4,7 @@
 package common
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -67,7 +68,7 @@ func (r *Remover) removeEntity(tag names.Tag) error {
 
 // Remove removes every given entity from state, calling EnsureDead
 // first, then Remove. It will fail if the entity is not present.
-func (r *Remover) Remove(args params.Entities) (params.ErrorResults, error) {
+func (r *Remover) Remove(ctx context.Context, args params.Entities) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}

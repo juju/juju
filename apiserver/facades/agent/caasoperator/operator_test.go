@@ -4,6 +4,8 @@
 package caasoperator_test
 
 import (
+	"context"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -82,7 +84,7 @@ func (s *CAASOperatorSuite) TestSetStatus(c *gc.C) {
 		}},
 	}
 
-	results, err := s.facade.SetStatus(args)
+	results, err := s.facade.SetStatus(context.TODO(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -112,7 +114,7 @@ func (s *CAASOperatorSuite) TestCharm(c *gc.C) {
 		},
 	}
 
-	results, err := s.facade.Charm(args)
+	results, err := s.facade.Charm(context.TODO(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ApplicationCharmResults{
 		Results: []params.ApplicationCharmResult{{
@@ -141,7 +143,7 @@ func (s *CAASOperatorSuite) TestCharm(c *gc.C) {
 func (s *CAASOperatorSuite) TestWatchUnits(c *gc.C) {
 	s.st.app.unitsChanges <- []string{"gitlab/0", "gitlab/1"}
 
-	results, err := s.facade.WatchUnits(params.Entities{
+	results, err := s.facade.WatchUnits(context.TODO(), params.Entities{
 		Entities: []params.Entity{
 			{Tag: "application-gitlab"},
 			{Tag: "unit-gitlab-0"},
@@ -161,7 +163,7 @@ func (s *CAASOperatorSuite) TestWatchUnits(c *gc.C) {
 }
 
 func (s *CAASOperatorSuite) TestLife(c *gc.C) {
-	results, err := s.facade.Life(params.Entities{
+	results, err := s.facade.Life(context.TODO(), params.Entities{
 		Entities: []params.Entity{
 			{Tag: "unit-gitlab-0"},
 			{Tag: "application-gitlab"},
@@ -184,7 +186,7 @@ func (s *CAASOperatorSuite) TestLife(c *gc.C) {
 }
 
 func (s *CAASOperatorSuite) TestRemove(c *gc.C) {
-	results, err := s.facade.Remove(params.Entities{
+	results, err := s.facade.Remove(context.TODO(), params.Entities{
 		Entities: []params.Entity{
 			{Tag: "unit-gitlab-0"},
 			{Tag: "machine-0"},
@@ -232,7 +234,7 @@ containers:
 
 	s.st.model.SetErrors(nil, errors.New("bloop"))
 
-	results, err := s.facade.SetPodSpec(args)
+	results, err := s.facade.SetPodSpec(context.TODO(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{
@@ -274,7 +276,7 @@ containers:
 }
 
 func (s *CAASOperatorSuite) TestModel(c *gc.C) {
-	result, err := s.facade.CurrentModel()
+	result, err := s.facade.CurrentModel(context.TODO())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.ModelResult{
 		Name: "some-model",
@@ -293,7 +295,7 @@ func (s *CAASOperatorSuite) TestWatch(c *gc.C) {
 		{Tag: "application-mysql"},
 		{Tag: "unit-mysql-0"},
 	}}
-	result, err := s.facade.Watch(args)
+	result, err := s.facade.Watch(context.TODO(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
@@ -312,7 +314,7 @@ func (s *CAASOperatorSuite) TestWatch(c *gc.C) {
 
 func (s *CAASOperatorSuite) TestSetTools(c *gc.C) {
 	vers := version.MustParseBinary("2.99.0-ubuntu-amd64")
-	results, err := s.facade.SetTools(params.EntitiesVersion{
+	results, err := s.facade.SetTools(context.TODO(), params.EntitiesVersion{
 		AgentTools: []params.EntityVersion{
 			{Tag: "application-gitlab", Tools: &params.Version{Version: vers}},
 			{Tag: "machine-0", Tools: &params.Version{Version: vers}},
@@ -333,13 +335,13 @@ func (s *CAASOperatorSuite) TestSetTools(c *gc.C) {
 }
 
 func (s *CAASOperatorSuite) TestAddresses(c *gc.C) {
-	_, err := s.facade.APIAddresses()
+	_, err := s.facade.APIAddresses(context.TODO())
 	c.Assert(err, jc.ErrorIsNil)
 	s.st.CheckCallNames(c, "Model", "APIHostPortsForAgents")
 }
 
 func (s *CAASOperatorSuite) TestWatchAPIHostPorts(c *gc.C) {
-	_, err := s.facade.WatchAPIHostPorts()
+	_, err := s.facade.WatchAPIHostPorts(context.TODO())
 	c.Assert(err, jc.ErrorIsNil)
 	s.st.CheckCallNames(c, "Model", "WatchAPIHostPortsForAgents")
 }
@@ -358,7 +360,7 @@ func (s *CAASOperatorSuite) TestWatchContainerStart(c *gc.C) {
 		},
 	}
 
-	results, err := s.facade.WatchContainerStart(params.WatchContainerStartArgs{
+	results, err := s.facade.WatchContainerStart(context.TODO(), params.WatchContainerStartArgs{
 		Args: []params.WatchContainerStartArg{
 			{Entity: params.Entity{Tag: "application-gitlab"}, Container: "container"},
 			{Entity: params.Entity{Tag: "unit-gitlab-0"}, Container: "container"},

@@ -4,6 +4,8 @@
 package networkingcommon_test
 
 import (
+	"context"
+
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/txn"
@@ -51,7 +53,7 @@ func (s *networkConfigSuite) TestSetObservedNetworkConfigMachineNotFoundPermissi
 
 	s.state.EXPECT().Machine("1").Return(nil, errors.NotFoundf("nope"))
 
-	err := s.NewNetworkConfigAPI(s.state, s.getModelOp).SetObservedNetworkConfig(params.SetMachineNetworkConfig{
+	err := s.NewNetworkConfigAPI(s.state, s.getModelOp).SetObservedNetworkConfig(context.TODO(), params.SetMachineNetworkConfig{
 		Tag:    "machine-1",
 		Config: nil,
 	})
@@ -569,7 +571,7 @@ func (s *networkConfigSuite) expectMachine() {
 }
 
 func (s *networkConfigSuite) callAPI(c *gc.C, config []params.NetworkConfig) {
-	c.Assert(s.NewNetworkConfigAPI(s.state, s.getModelOp).SetObservedNetworkConfig(params.SetMachineNetworkConfig{
+	c.Assert(s.NewNetworkConfigAPI(s.state, s.getModelOp).SetObservedNetworkConfig(context.TODO(), params.SetMachineNetworkConfig{
 		Tag:    s.tag.String(),
 		Config: config,
 	}), jc.ErrorIsNil)

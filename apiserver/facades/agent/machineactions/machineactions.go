@@ -5,6 +5,8 @@
 package machineactions
 
 import (
+	"context"
+
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
@@ -47,26 +49,26 @@ func NewFacade(
 
 // Actions returns the Actions by Tags passed and ensures that the machine asking
 // for them is the machine that has the actions
-func (f *Facade) Actions(args params.Entities) params.ActionResults {
+func (f *Facade) Actions(ctx context.Context, args params.Entities) params.ActionResults {
 	actionFn := common.AuthAndActionFromTagFn(f.accessMachine, f.backend.ActionByTag)
 	return common.Actions(args, actionFn)
 }
 
 // BeginActions marks the actions represented by the passed in Tags as running.
-func (f *Facade) BeginActions(args params.Entities) params.ErrorResults {
+func (f *Facade) BeginActions(ctx context.Context, args params.Entities) params.ErrorResults {
 	actionFn := common.AuthAndActionFromTagFn(f.accessMachine, f.backend.ActionByTag)
 	return common.BeginActions(args, actionFn)
 }
 
 // FinishActions saves the result of a completed Action
-func (f *Facade) FinishActions(args params.ActionExecutionResults) params.ErrorResults {
+func (f *Facade) FinishActions(ctx context.Context, args params.ActionExecutionResults) params.ErrorResults {
 	actionFn := common.AuthAndActionFromTagFn(f.accessMachine, f.backend.ActionByTag)
 	return common.FinishActions(args, actionFn)
 }
 
 // WatchActionNotifications returns a StringsWatcher for observing
 // incoming action calls to a machine.
-func (f *Facade) WatchActionNotifications(args params.Entities) params.StringsWatchResults {
+func (f *Facade) WatchActionNotifications(ctx context.Context, args params.Entities) params.StringsWatchResults {
 	tagToActionReceiver := f.backend.TagToActionReceiverFn(f.backend.FindEntity)
 	watchOne := common.WatchPendingActionsForReceiver(tagToActionReceiver, f.resources.Register)
 	return common.WatchActionNotifications(args, f.accessMachine, watchOne)
@@ -75,7 +77,7 @@ func (f *Facade) WatchActionNotifications(args params.Entities) params.StringsWa
 // RunningActions lists the actions running for the entities passed in.
 // If we end up needing more than ListRunning at some point we could follow/abstract
 // what's done in the client actions package.
-func (f *Facade) RunningActions(args params.Entities) params.ActionsByReceivers {
+func (f *Facade) RunningActions(ctx context.Context, args params.Entities) params.ActionsByReceivers {
 	canAccess := f.accessMachine
 	tagToActionReceiver := f.backend.TagToActionReceiverFn(f.backend.FindEntity)
 

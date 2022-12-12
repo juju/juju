@@ -4,6 +4,8 @@
 package testing
 
 import (
+	"context"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -18,7 +20,7 @@ import (
 // TestGetMeterStatus tests unit meter status retrieval.
 func TestGetMeterStatus(c *gc.C, status meterstatus.MeterStatus, unit *jujustate.Unit) {
 	args := params.Entities{Entities: []params.Entity{{Tag: unit.Tag().String()}}}
-	result, err := status.GetMeterStatus(args)
+	result, err := status.GetMeterStatus(context.TODO(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.IsNil)
@@ -31,7 +33,7 @@ func TestGetMeterStatus(c *gc.C, status meterstatus.MeterStatus, unit *jujustate
 	err = unit.SetMeterStatus(newCode, newInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err = status.GetMeterStatus(args)
+	result, err = status.GetMeterStatus(context.TODO(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.IsNil)
@@ -47,7 +49,7 @@ func TestWatchMeterStatus(c *gc.C, status meterstatus.MeterStatus, unit *jujusta
 		{Tag: unit.UnitTag().String()},
 		{Tag: "unit-foo-42"},
 	}}
-	result, err := status.WatchMeterStatus(args)
+	result, err := status.WatchMeterStatus(context.TODO(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{

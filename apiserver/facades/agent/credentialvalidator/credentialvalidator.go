@@ -4,6 +4,8 @@
 package credentialvalidator
 
 import (
+	"context"
+
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
@@ -19,18 +21,18 @@ var logger = loggo.GetLogger("juju.api.credentialvalidator")
 // CredentialValidatorV2 defines the methods on version 2 facade for the
 // credentialvalidator API endpoint.
 type CredentialValidatorV2 interface {
-	InvalidateModelCredential(params.InvalidateCredentialArg) (params.ErrorResult, error)
-	ModelCredential() (params.ModelCredential, error)
-	WatchCredential(params.Entity) (params.NotifyWatchResult, error)
-	WatchModelCredential() (params.NotifyWatchResult, error)
+	InvalidateModelCredential(context.Context, params.InvalidateCredentialArg) (params.ErrorResult, error)
+	ModelCredential(context.Context) (params.ModelCredential, error)
+	WatchCredential(context.Context, params.Entity) (params.NotifyWatchResult, error)
+	WatchModelCredential(context.Context) (params.NotifyWatchResult, error)
 }
 
 // CredentialValidatorV1 defines the methods on version 1 facade
 // for the credentialvalidator API endpoint.
 type CredentialValidatorV1 interface {
-	InvalidateModelCredential(params.InvalidateCredentialArg) (params.ErrorResult, error)
-	ModelCredential() (params.ModelCredential, error)
-	WatchCredential(params.Entity) (params.NotifyWatchResult, error)
+	InvalidateModelCredential(context.Context, params.InvalidateCredentialArg) (params.ErrorResult, error)
+	ModelCredential(context.Context) (params.ModelCredential, error)
+	WatchCredential(context.Context, params.Entity) (params.NotifyWatchResult, error)
 }
 
 type CredentialValidatorAPI struct {
@@ -58,7 +60,7 @@ func internalNewCredentialValidatorAPI(backend Backend, resources facade.Resourc
 
 // WatchCredential returns a NotifyWatcher that observes
 // changes to a given cloud credential.
-func (api *CredentialValidatorAPI) WatchCredential(tag params.Entity) (params.NotifyWatchResult, error) {
+func (api *CredentialValidatorAPI) WatchCredential(ctx context.Context, tag params.Entity) (params.NotifyWatchResult, error) {
 	fail := func(failure error) (params.NotifyWatchResult, error) {
 		return params.NotifyWatchResult{}, apiservererrors.ServerError(failure)
 	}
@@ -91,7 +93,7 @@ func (api *CredentialValidatorAPI) WatchCredential(tag params.Entity) (params.No
 }
 
 // ModelCredential returns cloud credential information for a  model.
-func (api *CredentialValidatorAPI) ModelCredential() (params.ModelCredential, error) {
+func (api *CredentialValidatorAPI) ModelCredential(ctx context.Context) (params.ModelCredential, error) {
 	c, err := api.backend.ModelCredential()
 	if err != nil {
 		return params.ModelCredential{}, apiservererrors.ServerError(err)
@@ -106,7 +108,7 @@ func (api *CredentialValidatorAPI) ModelCredential() (params.ModelCredential, er
 }
 
 // WatchModelCredential returns a NotifyWatcher that watches what cloud credential a model uses.
-func (api *CredentialValidatorAPI) WatchModelCredential() (params.NotifyWatchResult, error) {
+func (api *CredentialValidatorAPI) WatchModelCredential(ctx context.Context) (params.NotifyWatchResult, error) {
 	result := params.NotifyWatchResult{}
 	watch, err := api.backend.WatchModelCredential()
 	if err != nil {

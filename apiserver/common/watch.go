@@ -4,6 +4,7 @@
 package common
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -58,7 +59,7 @@ func (a *AgentEntityWatcher) watchEntity(tag names.Tag) (string, error) {
 }
 
 // Watch starts an NotifyWatcher for each given entity.
-func (a *AgentEntityWatcher) Watch(args params.Entities) (params.NotifyWatchResults, error) {
+func (a *AgentEntityWatcher) Watch(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error) {
 	result := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}

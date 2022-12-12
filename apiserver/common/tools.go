@@ -4,6 +4,7 @@
 package common
 
 import (
+	"context"
 	"fmt"
 	"sort"
 
@@ -94,7 +95,7 @@ func NewToolsGetter(
 }
 
 // Tools finds the tools necessary for the given agents.
-func (t *ToolsGetter) Tools(args params.Entities) (params.ToolsResults, error) {
+func (t *ToolsGetter) Tools(ctx context.Context, args params.Entities) (params.ToolsResults, error) {
 	result := params.ToolsResults{
 		Results: make([]params.ToolsResult, len(args.Entities)),
 	}
@@ -113,7 +114,7 @@ func (t *ToolsGetter) Tools(args params.Entities) (params.ToolsResults, error) {
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		agentToolsList, err := t.oneAgentTools(canRead, tag, agentVersion)
+		agentToolsList, err := t.oneAgentTools(ctx, canRead, tag, agentVersion)
 		if err == nil {
 			result.Results[i].ToolsList = agentToolsList
 		}
@@ -136,7 +137,7 @@ func (t *ToolsGetter) getGlobalAgentVersion() (version.Number, error) {
 	return agentVersion, nil
 }
 
-func (t *ToolsGetter) oneAgentTools(canRead AuthFunc, tag names.Tag, agentVersion version.Number) (coretools.List, error) {
+func (t *ToolsGetter) oneAgentTools(ctx context.Context, canRead AuthFunc, tag names.Tag, agentVersion version.Number) (coretools.List, error) {
 	if !canRead(tag) {
 		return nil, apiservererrors.ErrPerm
 	}
@@ -159,7 +160,7 @@ func (t *ToolsGetter) oneAgentTools(canRead AuthFunc, tag names.Tag, agentVersio
 		Arch:   existingTools.Version.Arch,
 	}
 
-	return t.toolsFinder.FindAgents(findParams)
+	return t.toolsFinder.FindAgents(ctx, findParams)
 }
 
 // ToolsSetter implements a common Tools method for use by various
@@ -179,7 +180,7 @@ func NewToolsSetter(st ToolsFindEntity, getCanWrite GetAuthFunc) *ToolsSetter {
 }
 
 // SetTools updates the recorded tools version for the agents.
-func (t *ToolsSetter) SetTools(args params.EntitiesVersion) (params.ErrorResults, error) {
+func (t *ToolsSetter) SetTools(ctx context.Context, args params.EntitiesVersion) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.AgentTools)),
 	}
@@ -243,7 +244,7 @@ type FindAgentsParams struct {
 
 // ToolsFinder defines methods for finding tools.
 type ToolsFinder interface {
-	FindAgents(args FindAgentsParams) (coretools.List, error)
+	FindAgents(context.Context, FindAgentsParams) (coretools.List, error)
 }
 
 type toolsFinder struct {
@@ -266,7 +267,7 @@ func NewToolsFinder(
 
 // FindAgents calls findMatchingTools and then rewrites the URLs
 // using the provided ToolsURLGetter.
-func (f *toolsFinder) FindAgents(args FindAgentsParams) (coretools.List, error) {
+func (f *toolsFinder) FindAgents(ctx context.Context, args FindAgentsParams) (coretools.List, error) {
 	list, err := f.findMatchingAgents(args)
 	if err != nil {
 		return nil, err

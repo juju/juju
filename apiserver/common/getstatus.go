@@ -4,6 +4,7 @@
 package common
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/names/v4"
@@ -53,7 +54,7 @@ func (s *StatusGetter) getEntityStatus(tag names.Tag) params.StatusResult {
 }
 
 // Status returns the status of each given entity.
-func (s *StatusGetter) Status(args params.Entities) (params.StatusResults, error) {
+func (s *StatusGetter) Status(ctx context.Context, args params.Entities) (params.StatusResults, error) {
 	result := params.StatusResults{
 		Results: make([]params.StatusResult, len(args.Entities)),
 	}

@@ -4,6 +4,8 @@
 package diskmanager
 
 import (
+	"context"
+
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
@@ -25,7 +27,7 @@ var getState = func(st *state.State) stateInterface {
 	return stateShim{st}
 }
 
-func (d *DiskManagerAPI) SetMachineBlockDevices(args params.SetMachineBlockDevices) (params.ErrorResults, error) {
+func (d *DiskManagerAPI) SetMachineBlockDevices(ctx context.Context, args params.SetMachineBlockDevices) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.MachineBlockDevices)),
 	}

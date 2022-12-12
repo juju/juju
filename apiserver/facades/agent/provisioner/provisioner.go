@@ -4,6 +4,7 @@
 package provisioner
 
 import (
+	"context"
 	"sync"
 
 	"github.com/juju/collections/set"
@@ -26,7 +27,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	environscontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network/containerizer"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -63,7 +64,7 @@ type ProvisionerAPI struct {
 	configGetter            environs.EnvironConfigGetter
 	getAuthFunc             common.GetAuthFunc
 	getCanModify            common.GetAuthFunc
-	providerCallContext     context.ProviderCallContext
+	providerCallContext     environscontext.ProviderCallContext
 	toolsFinder             common.ToolsFinder
 
 	// Used for MaybeWriteLXDProfile()
@@ -139,7 +140,7 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 		return nil, errors.Trace(err)
 	}
 	urlGetter := common.NewToolsURLGetter(model.UUID(), systemState)
-	callCtx := context.CallContext(st)
+	callCtx := environscontext.CallContext(st)
 	resources := ctx.Resources()
 	api := &ProvisionerAPI{
 		Remover:                 common.NewRemover(st, nil, false, getAuthFunc),
@@ -231,7 +232,7 @@ func (api *ProvisionerAPI) watchOneMachineContainers(arg params.WatchContainer) 
 
 // WatchContainers starts a StringsWatcher to watch containers deployed to
 // any machine passed in args.
-func (api *ProvisionerAPI) WatchContainers(args params.WatchContainers) (params.StringsWatchResults, error) {
+func (api *ProvisionerAPI) WatchContainers(ctx context.Context, args params.WatchContainers) (params.StringsWatchResults, error) {
 	result := params.StringsWatchResults{
 		Results: make([]params.StringsWatchResult, len(args.Params)),
 	}
@@ -245,12 +246,12 @@ func (api *ProvisionerAPI) WatchContainers(args params.WatchContainers) (params.
 
 // WatchAllContainers starts a StringsWatcher to watch all containers deployed to
 // any machine passed in args.
-func (api *ProvisionerAPI) WatchAllContainers(args params.WatchContainers) (params.StringsWatchResults, error) {
-	return api.WatchContainers(args)
+func (api *ProvisionerAPI) WatchAllContainers(ctx context.Context, args params.WatchContainers) (params.StringsWatchResults, error) {
+	return api.WatchContainers(ctx, args)
 }
 
 // SetSupportedContainers updates the list of containers supported by the machines passed in args.
-func (api *ProvisionerAPI) SetSupportedContainers(args params.MachineContainersParams) (params.ErrorResults, error) {
+func (api *ProvisionerAPI) SetSupportedContainers(ctx context.Context, args params.MachineContainersParams) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Params)),
 	}
@@ -284,7 +285,7 @@ func (api *ProvisionerAPI) SetSupportedContainers(args params.MachineContainersP
 }
 
 // SupportedContainers returns the list of containers supported by the machines passed in args.
-func (api *ProvisionerAPI) SupportedContainers(args params.Entities) (params.MachineContainerResults, error) {
+func (api *ProvisionerAPI) SupportedContainers(ctx context.Context, args params.Entities) (params.MachineContainerResults, error) {
 	result := params.MachineContainerResults{
 		Results: make([]params.MachineContainerResult, len(args.Entities)),
 	}
@@ -314,7 +315,7 @@ func (api *ProvisionerAPI) SupportedContainers(args params.Entities) (params.Mac
 
 // ContainerManagerConfig returns information from the model config that is
 // needed for configuring the container manager.
-func (api *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerConfigParams) (params.ContainerManagerConfig, error) {
+func (api *ProvisionerAPI) ContainerManagerConfig(ctx context.Context, args params.ContainerManagerConfigParams) (params.ContainerManagerConfig, error) {
 	var result params.ContainerManagerConfig
 	cfg := make(map[string]string)
 	cfg[container.ConfigModelUUID] = api.st.ModelUUID()
@@ -341,7 +342,7 @@ func (api *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerCo
 
 // ContainerConfig returns information from the model config that is
 // needed for container cloud-init.
-func (api *ProvisionerAPI) ContainerConfig() (params.ContainerConfig, error) {
+func (api *ProvisionerAPI) ContainerConfig(ctx context.Context) (params.ContainerConfig, error) {
 	result := params.ContainerConfig{}
 	cfg, err := api.m.ModelConfig()
 	if err != nil {
@@ -370,7 +371,7 @@ func (api *ProvisionerAPI) ContainerConfig() (params.ContainerConfig, error) {
 
 // MachinesWithTransientErrors returns status data for machines with provisioning
 // errors which are transient.
-func (api *ProvisionerAPI) MachinesWithTransientErrors() (params.StatusResults, error) {
+func (api *ProvisionerAPI) MachinesWithTransientErrors(ctx context.Context) (params.StatusResults, error) {
 	var results params.StatusResults
 	canAccessFunc, err := api.getAuthFunc()
 	if err != nil {
@@ -413,7 +414,7 @@ func (api *ProvisionerAPI) MachinesWithTransientErrors() (params.StatusResults, 
 }
 
 // AvailabilityZone returns a provider-specific availability zone for each given machine entity
-func (api *ProvisionerAPI) AvailabilityZone(args params.Entities) (params.StringResults, error) {
+func (api *ProvisionerAPI) AvailabilityZone(ctx context.Context, args params.Entities) (params.StringResults, error) {
 	result := params.StringResults{
 		Results: make([]params.StringResult, len(args.Entities)),
 	}
@@ -445,7 +446,7 @@ func (api *ProvisionerAPI) AvailabilityZone(args params.Entities) (params.String
 }
 
 // KeepInstance returns the keep-instance value for each given machine entity.
-func (api *ProvisionerAPI) KeepInstance(args params.Entities) (params.BoolResults, error) {
+func (api *ProvisionerAPI) KeepInstance(ctx context.Context, args params.Entities) (params.BoolResults, error) {
 	result := params.BoolResults{
 
 		Results: make([]params.BoolResult, len(args.Entities)),
@@ -475,7 +476,7 @@ func (api *ProvisionerAPI) KeepInstance(args params.Entities) (params.BoolResult
 // a slice of instance.Ids that belong to the same distribution
 // group as that machine. This information may be used to
 // distribute instances for high availability.
-func (api *ProvisionerAPI) DistributionGroup(args params.Entities) (params.DistributionGroupResults, error) {
+func (api *ProvisionerAPI) DistributionGroup(ctx context.Context, args params.Entities) (params.DistributionGroupResults, error) {
 	result := params.DistributionGroupResults{
 		Results: make([]params.DistributionGroupResult, len(args.Entities)),
 	}
@@ -560,7 +561,7 @@ func commonServiceInstances(st *state.State, m *state.Machine) ([]instance.Id, e
 // a slice of machine.Ids that belong to the same distribution
 // group as that machine. This information may be used to
 // distribute instances for high availability.
-func (api *ProvisionerAPI) DistributionGroupByMachineId(args params.Entities) (params.StringsResults, error) {
+func (api *ProvisionerAPI) DistributionGroupByMachineId(ctx context.Context, args params.Entities) (params.StringsResults, error) {
 	result := params.StringsResults{
 		Results: make([]params.StringsResult, len(args.Entities)),
 	}
@@ -619,7 +620,7 @@ func commonApplicationMachineId(st *state.State, m *state.Machine) ([]string, er
 }
 
 // Constraints returns the constraints for each given machine entity.
-func (api *ProvisionerAPI) Constraints(args params.Entities) (params.ConstraintsResults, error) {
+func (api *ProvisionerAPI) Constraints(ctx context.Context, args params.Entities) (params.ConstraintsResults, error) {
 	result := params.ConstraintsResults{
 		Results: make([]params.ConstraintsResult, len(args.Entities)),
 	}
@@ -647,8 +648,8 @@ func (api *ProvisionerAPI) Constraints(args params.Entities) (params.Constraints
 }
 
 // FindTools returns a List containing all tools matching the given parameters.
-func (api *ProvisionerAPI) FindTools(args params.FindToolsParams) (params.FindToolsResult, error) {
-	list, err := api.toolsFinder.FindAgents(common.FindAgentsParams{
+func (api *ProvisionerAPI) FindTools(ctx context.Context, args params.FindToolsParams) (params.FindToolsResult, error) {
+	list, err := api.toolsFinder.FindAgents(ctx, common.FindAgentsParams{
 		Number:      args.Number,
 		Arch:        args.Arch,
 		OSType:      args.OSType,
@@ -663,7 +664,7 @@ func (api *ProvisionerAPI) FindTools(args params.FindToolsParams) (params.FindTo
 // SetInstanceInfo sets the provider specific machine id, nonce,
 // metadata and network info for each given machine. Once set, the
 // instance id cannot be changed.
-func (api *ProvisionerAPI) SetInstanceInfo(args params.InstancesInfo) (params.ErrorResults, error) {
+func (api *ProvisionerAPI) SetInstanceInfo(ctx context.Context, args params.InstancesInfo) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Machines)),
 	}
@@ -711,7 +712,7 @@ func (api *ProvisionerAPI) SetInstanceInfo(args params.InstancesInfo) (params.Er
 
 // WatchMachineErrorRetry returns a NotifyWatcher that notifies when
 // the provisioner should retry provisioning machines with transient errors.
-func (api *ProvisionerAPI) WatchMachineErrorRetry() (params.NotifyWatchResult, error) {
+func (api *ProvisionerAPI) WatchMachineErrorRetry(ctx context.Context) (params.NotifyWatchResult, error) {
 	result := params.NotifyWatchResult{}
 	if !api.authorizer.AuthController() {
 		return result, apiservererrors.ErrPerm
@@ -729,7 +730,7 @@ func (api *ProvisionerAPI) WatchMachineErrorRetry() (params.NotifyWatchResult, e
 // ReleaseContainerAddresses finds addresses allocated to a container and marks
 // them as Dead, to be released and removed. It accepts container tags as
 // arguments.
-func (api *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params.ErrorResults, error) {
+func (api *ProvisionerAPI) ReleaseContainerAddresses(ctx context.Context, args params.Entities) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
@@ -777,7 +778,7 @@ func (api *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (para
 
 // PrepareContainerInterfaceInfo allocates an address and returns information to
 // configure networking for a container. It accepts container tags as arguments.
-func (api *ProvisionerAPI) PrepareContainerInterfaceInfo(args params.Entities) (
+func (api *ProvisionerAPI) PrepareContainerInterfaceInfo(ctx context.Context, args params.Entities) (
 	params.MachineNetworkConfigResults,
 	error,
 ) {
@@ -790,7 +791,7 @@ func (api *ProvisionerAPI) PrepareContainerInterfaceInfo(args params.Entities) (
 
 // GetContainerInterfaceInfo returns information to configure networking for a
 // container. It accepts container tags as arguments.
-func (api *ProvisionerAPI) GetContainerInterfaceInfo(args params.Entities) (
+func (api *ProvisionerAPI) GetContainerInterfaceInfo(ctx context.Context, args params.Entities) (
 	params.MachineNetworkConfigResults,
 	error,
 ) {
@@ -809,7 +810,7 @@ type perContainerHandler interface {
 	// Any errors that are returned from ProcessOneContainer will be turned
 	// into ServerError and handed to SetError
 	ProcessOneContainer(
-		env environs.Environ, callContext context.ProviderCallContext,
+		env environs.Environ, callContext environscontext.ProviderCallContext,
 		policy BridgePolicy, idx int, host, guest Machine,
 	) error
 
@@ -890,7 +891,7 @@ func (ctx *prepareOrGetContext) ConfigType() string {
 
 // Implements perContainerHandler.ProcessOneContainer
 func (ctx *prepareOrGetContext) ProcessOneContainer(
-	env environs.Environ, callContext context.ProviderCallContext, policy BridgePolicy, idx int, host, guest Machine,
+	env environs.Environ, callContext environscontext.ProviderCallContext, policy BridgePolicy, idx int, host, guest Machine,
 ) error {
 	instanceId, err := guest.InstanceId()
 	if ctx.maintain {
@@ -1001,7 +1002,7 @@ type hostChangesContext struct {
 
 // Implements perContainerHandler.ProcessOneContainer
 func (ctx *hostChangesContext) ProcessOneContainer(
-	env environs.Environ, callContext context.ProviderCallContext, policy BridgePolicy, idx int, host, guest Machine,
+	env environs.Environ, callContext environscontext.ProviderCallContext, policy BridgePolicy, idx int, host, guest Machine,
 ) error {
 	bridges, reconfigureDelay, err := policy.FindMissingBridgesForContainer(host, guest)
 	if err != nil {
@@ -1034,16 +1035,16 @@ func (ctx *hostChangesContext) ConfigType() string {
 // HostChangesForContainers returns the set of changes that need to be done
 // to the host machine to prepare it for the containers to be created.
 // Pass in a list of the containers that you want the changes for.
-func (api *ProvisionerAPI) HostChangesForContainers(args params.Entities) (params.HostNetworkChangeResults, error) {
-	ctx := &hostChangesContext{
+func (api *ProvisionerAPI) HostChangesForContainers(ctx context.Context, args params.Entities) (params.HostNetworkChangeResults, error) {
+	hostContext := &hostChangesContext{
 		result: params.HostNetworkChangeResults{
 			Results: make([]params.HostNetworkChange, len(args.Entities)),
 		},
 	}
-	if err := api.processEachContainer(args, ctx); err != nil {
-		return ctx.result, errors.Trace(err)
+	if err := api.processEachContainer(args, hostContext); err != nil {
+		return hostContext.result, errors.Trace(err)
 	}
-	return ctx.result, nil
+	return hostContext.result, nil
 }
 
 type containerProfileContext struct {
@@ -1053,7 +1054,7 @@ type containerProfileContext struct {
 
 // Implements perContainerHandler.ProcessOneContainer
 func (ctx *containerProfileContext) ProcessOneContainer(
-	_ environs.Environ, _ context.ProviderCallContext, _ BridgePolicy, idx int, _, guest Machine,
+	_ environs.Environ, _ environscontext.ProviderCallContext, _ BridgePolicy, idx int, _, guest Machine,
 ) error {
 	units, err := guest.Units()
 	if err != nil {
@@ -1105,22 +1106,22 @@ func (ctx *containerProfileContext) ConfigType() string {
 // container based on the charms deployed to the container. It accepts container
 // tags as arguments. Unlike machineLXDProfileNames which has the environ
 // write the lxd profiles and returns the names of profiles already written.
-func (api *ProvisionerAPI) GetContainerProfileInfo(args params.Entities) (params.ContainerProfileResults, error) {
-	ctx := &containerProfileContext{
+func (api *ProvisionerAPI) GetContainerProfileInfo(ctx context.Context, args params.Entities) (params.ContainerProfileResults, error) {
+	profileContext := &containerProfileContext{
 		result: params.ContainerProfileResults{
 			Results: make([]params.ContainerProfileResult, len(args.Entities)),
 		},
 		modelName: api.m.Name(),
 	}
-	if err := api.processEachContainer(args, ctx); err != nil {
-		return ctx.result, errors.Trace(err)
+	if err := api.processEachContainer(args, profileContext); err != nil {
+		return profileContext.result, errors.Trace(err)
 	}
-	return ctx.result, nil
+	return profileContext.result, nil
 }
 
 // InstanceStatus returns the instance status for each given entity.
 // Only machine tags are accepted.
-func (api *ProvisionerAPI) InstanceStatus(args params.Entities) (params.StatusResults, error) {
+func (api *ProvisionerAPI) InstanceStatus(ctx context.Context, args params.Entities) (params.StatusResults, error) {
 	result := params.StatusResults{
 		Results: make([]params.StatusResult, len(args.Entities)),
 	}
@@ -1191,7 +1192,7 @@ func (api *ProvisionerAPI) setOneInstanceStatus(canAccess common.AuthFunc, arg p
 
 // SetInstanceStatus updates the instance status for each given
 // entity. Only machine tags are accepted.
-func (api *ProvisionerAPI) SetInstanceStatus(args params.SetStatus) (params.ErrorResults, error) {
+func (api *ProvisionerAPI) SetInstanceStatus(ctx context.Context, args params.SetStatus) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
@@ -1214,7 +1215,7 @@ func (api *ProvisionerAPI) SetInstanceStatus(args params.SetStatus) (params.Erro
 // the instance to be placed into a error state. This modification status
 // serves the purpose of highlighting that to the operator.
 // Only machine tags are accepted.
-func (api *ProvisionerAPI) SetModificationStatus(args params.SetStatus) (params.ErrorResults, error) {
+func (api *ProvisionerAPI) SetModificationStatus(ctx context.Context, args params.SetStatus) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
@@ -1263,7 +1264,7 @@ func (api *ProvisionerAPI) setOneModificationStatus(canAccess common.AuthFunc, a
 // MarkMachinesForRemoval indicates that the specified machines are
 // ready to have any provider-level resources cleaned up and then be
 // removed.
-func (api *ProvisionerAPI) MarkMachinesForRemoval(machines params.Entities) (params.ErrorResults, error) {
+func (api *ProvisionerAPI) MarkMachinesForRemoval(ctx context.Context, machines params.Entities) (params.ErrorResults, error) {
 	results := make([]params.ErrorResult, len(machines.Entities))
 	canAccess, err := api.getAuthFunc()
 	if err != nil {
@@ -1288,12 +1289,12 @@ func (api *ProvisionerAPI) markOneMachineForRemoval(machineTag string, canAccess
 	return machine.MarkForRemoval()
 }
 
-func (api *ProvisionerAPI) SetHostMachineNetworkConfig(args params.SetMachineNetworkConfig) error {
-	return api.SetObservedNetworkConfig(args)
+func (api *ProvisionerAPI) SetHostMachineNetworkConfig(ctx context.Context, args params.SetMachineNetworkConfig) error {
+	return api.SetObservedNetworkConfig(ctx, args)
 }
 
 // CACert returns the certificate used to validate the state connection.
-func (api *ProvisionerAPI) CACert() (params.BytesResult, error) {
+func (api *ProvisionerAPI) CACert(ctx context.Context) (params.BytesResult, error) {
 	cfg, err := api.st.ControllerConfig()
 	if err != nil {
 		return params.BytesResult{}, errors.Trace(err)
@@ -1303,7 +1304,7 @@ func (api *ProvisionerAPI) CACert() (params.BytesResult, error) {
 }
 
 // SetCharmProfiles records the given slice of charm profile names.
-func (api *ProvisionerAPI) SetCharmProfiles(args params.SetProfileArgs) (params.ErrorResults, error) {
+func (api *ProvisionerAPI) SetCharmProfiles(ctx context.Context, args params.SetProfileArgs) (params.ErrorResults, error) {
 	results := make([]params.ErrorResult, len(args.Args))
 	canAccess, err := api.getAuthFunc()
 	if err != nil {
@@ -1329,6 +1330,6 @@ func (api *ProvisionerAPI) setOneMachineCharmProfiles(machineTag string, profile
 }
 
 // ModelUUID returns the model UUID that the current connection is for.
-func (api *ProvisionerAPI) ModelUUID() params.StringResult {
+func (api *ProvisionerAPI) ModelUUID(ctx context.Context) params.StringResult {
 	return params.StringResult{Result: api.st.ModelUUID()}
 }

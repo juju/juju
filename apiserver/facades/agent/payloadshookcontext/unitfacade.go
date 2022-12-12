@@ -4,6 +4,8 @@
 package payloadshookcontext
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -56,7 +58,7 @@ func NewUnitFacade(backend UnitPayloadBackend) *UnitFacade {
 }
 
 // Track stores a payload to be tracked in state.
-func (uf UnitFacade) Track(args params.TrackPayloadArgs) (params.PayloadResults, error) {
+func (uf UnitFacade) Track(ctx context.Context, args params.TrackPayloadArgs) (params.PayloadResults, error) {
 	logger.Debugf("tracking %d payloads from API", len(args.Payloads))
 
 	var r params.PayloadResults
@@ -88,7 +90,7 @@ func (uf UnitFacade) track(pl payloads.Payload) (string, error) {
 // List builds the list of payload being tracked for
 // the given unit and IDs. If no IDs are provided then all tracked
 // payloads for the unit are returned.
-func (uf UnitFacade) List(args params.Entities) (params.PayloadResults, error) {
+func (uf UnitFacade) List(ctx context.Context, args params.Entities) (params.PayloadResults, error) {
 	if len(args.Entities) == 0 {
 		return uf.listAll()
 	}
@@ -140,7 +142,7 @@ func (uf UnitFacade) listAll() (params.PayloadResults, error) {
 }
 
 // LookUp identifies the payload with the provided name and raw ID.
-func (uf UnitFacade) LookUp(args params.LookUpPayloadArgs) (params.PayloadResults, error) {
+func (uf UnitFacade) LookUp(ctx context.Context, args params.LookUpPayloadArgs) (params.PayloadResults, error) {
 	var r params.PayloadResults
 	for _, arg := range args.Args {
 		id, err := uf.backend.LookUp(arg.Name, arg.ID)
@@ -151,7 +153,7 @@ func (uf UnitFacade) LookUp(args params.LookUpPayloadArgs) (params.PayloadResult
 }
 
 // SetStatus sets the raw status of a payload.
-func (uf UnitFacade) SetStatus(args params.SetPayloadStatusArgs) (params.PayloadResults, error) {
+func (uf UnitFacade) SetStatus(ctx context.Context, args params.SetPayloadStatusArgs) (params.PayloadResults, error) {
 	var r params.PayloadResults
 	for _, arg := range args.Args {
 		id, err := api.API2ID(arg.Tag)
@@ -167,7 +169,7 @@ func (uf UnitFacade) SetStatus(args params.SetPayloadStatusArgs) (params.Payload
 }
 
 // Untrack marks the identified payload as no longer being tracked.
-func (uf UnitFacade) Untrack(args params.Entities) (params.PayloadResults, error) {
+func (uf UnitFacade) Untrack(ctx context.Context, args params.Entities) (params.PayloadResults, error) {
 	var r params.PayloadResults
 	for _, entity := range args.Entities {
 		id, err := api.API2ID(entity.Tag)
