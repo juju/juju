@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
+	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/permission"
@@ -22,7 +23,9 @@ type SecretBackendsAPI struct {
 	authorizer     facade.Authorizer
 	controllerUUID string
 
-	state SecretsBackendState
+	backendState SecretsBackendState
+	secretState  SecretsState
+	statePool    StatePool
 }
 
 func (s *SecretBackendsAPI) checkCanAdmin() error {
@@ -69,7 +72,7 @@ func (s *SecretBackendsAPI) createBackend(arg params.SecretBackend) error {
 			return errors.Annotatef(err, "invalid config for provider %q", arg.BackendType)
 		}
 	}
-	return s.state.CreateSecretBackend(state.CreateSecretBackendParams{
+	return s.backendState.CreateSecretBackend(state.CreateSecretBackendParams{
 		Name:                arg.Name,
 		Backend:             arg.BackendType,
 		TokenRotateInterval: arg.TokenRotateInterval,
@@ -85,53 +88,11 @@ func (s *SecretBackendsAPI) ListSecretBackends(arg params.ListSecretBackendsArgs
 			return result, errors.Trace(err)
 		}
 	}
-	backends, err := s.state.ListSecretBackends()
+
+	results, err := commonsecrets.BackendSummaryInfo(s.statePool, s.backendState, s.secretState, s.controllerUUID, arg.Reveal, true)
 	if err != nil {
 		return params.ListSecretBackendsResults{}, errors.Trace(err)
 	}
-	result.Results = make([]params.SecretBackendResult, len(backends))
-	for i, b := range backends {
-		cfg := make(map[string]interface{})
-		for k, v := range b.Config {
-			cfg[k] = v
-		}
-		backendResult := params.SecretBackendResult{}
-		p, err := provider.Provider(b.BackendType)
-		if err != nil {
-			backendResult.Error = apiservererrors.ServerError(err)
-			result.Results[i] = backendResult
-			continue
-		}
-		configValidator, ok := p.(provider.ProviderConfig)
-		if ok {
-			for n, f := range configValidator.ConfigSchema() {
-				if f.Secret && !arg.Reveal {
-					delete(cfg, n)
-				}
-			}
-		}
-		backendResult = params.SecretBackendResult{
-			Result: params.SecretBackend{
-				Name:                b.Name,
-				BackendType:         b.BackendType,
-				TokenRotateInterval: b.TokenRotateInterval,
-				Config:              cfg,
-			},
-			// TODO(wallyworld) - count the number of secrets
-			NumSecrets: 666,
-		}
-		result.Results[i] = backendResult
-	}
-	// Add the internal backend.
-	result.Results = append(result.Results, params.SecretBackendResult{
-		Result: params.SecretBackend{
-			Name:        juju.BackendName,
-			BackendType: juju.BackendType,
-		},
-		// TODO(wallyworld) - count the number of secrets
-		NumSecrets: 666,
-	})
-	// TODO(wallyworld)
-	// Add the k8s backends for any k8s models.
+	result.Results = results
 	return result, nil
 }

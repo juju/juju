@@ -4,13 +4,21 @@
 package secrets
 
 import (
+	"sort"
+	"strings"
+
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/secrets/provider/juju"
 	"github.com/juju/juju/secrets/provider/kubernetes"
@@ -299,4 +307,130 @@ func cloudSpecForModel(m Model) (cloudspec.CloudSpec, error) {
 		cred.Attributes(),
 	)
 	return cloudspec.MakeCloudSpec(c, "", &cloudCredential)
+}
+
+// BackendSummaryInfo returns a summary of the status of the secret backends relevant to the specified models.
+// This method is used by the secretsbackend and modelmanager client facades; it is tested on the secretsbackend facade package.
+func BackendSummaryInfo(
+	statePool StatePool, backendState SecretsBackendState, secretState SecretsState, controllerUUID string, reveal bool, all bool,
+) ([]params.SecretBackendResult, error) {
+	backendIDSecrets, err := secretState.ListModelSecrets(all)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// If we want all backends, all those which are not in use.
+	if all {
+		if _, ok := backendIDSecrets[controllerUUID]; !ok {
+			backendIDSecrets[controllerUUID] = set.NewStrings()
+		}
+		allBackends, err := backendState.ListSecretBackends()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, b := range allBackends {
+			if _, ok := backendIDSecrets[b.ID]; ok {
+				continue
+			}
+			backendIDSecrets[b.ID] = set.NewStrings()
+		}
+	}
+
+	// Order for tests.
+	var backendIDs []string
+	for id := range backendIDSecrets {
+		backendIDs = append(backendIDs, id)
+	}
+	sort.Strings(backendIDs)
+
+	var results []params.SecretBackendResult
+	for _, id := range backendIDs {
+		backendResult, err := getSecretBackendInfo(statePool, backendState, controllerUUID, id, reveal)
+		if err != nil {
+			results = append(results, params.SecretBackendResult{Error: apiservererrors.ServerError(err)})
+			continue
+		}
+		// For local k8s secrets, corresponding to every hosted model,
+		// do not include the result if there are no secrets.
+		numSecrets := backendIDSecrets[id].Size()
+		if numSecrets == 0 && all && strings.HasSuffix(backendResult.Result.Name, "-local") {
+			continue
+		}
+		backendResult.NumSecrets = numSecrets
+		results = append(results, *backendResult)
+	}
+	return results, nil
+}
+
+func getSecretBackendInfo(statePool StatePool, backendState SecretsBackendState, controllerUUID string, id string, reveal bool) (*params.SecretBackendResult, error) {
+	b, err := backendState.GetSecretBackendByID(id)
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
+	}
+	pingRequired := true
+	if err != nil {
+		// No need to ping "internal" backends.
+		pingRequired = false
+		if id == controllerUUID {
+			b = &secrets.SecretBackend{
+				ID:          id,
+				Name:        juju.BackendName,
+				BackendType: juju.BackendType,
+			}
+		} else {
+			model, releaser, err := statePool.GetModel(id)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			b = &secrets.SecretBackend{
+				ID:          id,
+				Name:        model.Name() + "-local",
+				BackendType: kubernetes.BackendType,
+			}
+			releaser()
+		}
+	}
+	cfg := make(map[string]interface{})
+	for k, v := range b.Config {
+		cfg[k] = v
+	}
+	p, err := GetProvider(b.BackendType)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	configValidator, ok := p.(provider.ProviderConfig)
+	if ok {
+		for n, f := range configValidator.ConfigSchema() {
+			if f.Secret && !reveal {
+				delete(cfg, n)
+			}
+		}
+	}
+	result := &params.SecretBackendResult{
+		Result: params.SecretBackend{
+			Name:                b.Name,
+			BackendType:         b.BackendType,
+			TokenRotateInterval: b.TokenRotateInterval,
+			Config:              cfg,
+		},
+		NumSecrets: 0,
+		Status:     status.Active.String(),
+	}
+	if pingRequired {
+		err = pingBackend(p, b.Config)
+		if err != nil {
+			result.Status = status.Error.String()
+			result.Message = err.Error()
+		}
+	}
+	return result, nil
+}
+
+func pingBackend(p provider.SecretBackendProvider, cfg provider.ConfigAttrs) error {
+	b, err := p.NewBackend(&provider.ModelBackendConfig{
+		BackendConfig: provider.BackendConfig{BackendType: p.Type(), Config: cfg},
+	})
+	if err != nil {
+		return errors.Annotate(err, "checking backend")
+	}
+	return b.Ping()
 }

@@ -11,6 +11,7 @@ import (
 
 // SecretsBackend is an external secrets backend like vault.
 type SecretsBackend interface {
+	Ping() error
 	SaveContent(_ context.Context, uri *secrets.URI, revision int, value secrets.SecretValue) (string, error)
 	GetContent(_ context.Context, backendId string) (secrets.SecretValue, error)
 	DeleteContent(_ context.Context, backendId string) error

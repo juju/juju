@@ -27,6 +27,8 @@ func newSecretBackendsAPI(context facade.Context) (*SecretBackendsAPI, error) {
 	return &SecretBackendsAPI{
 		authorizer:     context.Auth(),
 		controllerUUID: context.State().ControllerUUID(),
-		state:          state.NewSecretBackends(context.State()),
+		backendState:   state.NewSecretBackends(context.State()),
+		secretState:    state.NewSecrets(context.State()),
+		statePool:      &statePoolShim{context.StatePool()},
 	}, nil
 }

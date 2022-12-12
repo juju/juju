@@ -31473,6 +31473,12 @@
                         "provider-type": {
                             "type": "string"
                         },
+                        "secret-backends": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/SecretBackendResult"
+                            }
+                        },
                         "sla": {
                             "$ref": "#/definitions/ModelSLAInfo"
                         },
@@ -31510,6 +31516,7 @@
                         "life",
                         "users",
                         "machines",
+                        "secret-backends",
                         "sla",
                         "agent-version"
                     ]
@@ -31966,6 +31973,61 @@
                     "required": [
                         "region-name",
                         "value"
+                    ]
+                },
+                "SecretBackend": {
+                    "type": "object",
+                    "properties": {
+                        "backend-type": {
+                            "type": "string"
+                        },
+                        "config": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "name": {
+                            "type": "string"
+                        },
+                        "token-rotate-interval": {
+                            "type": "integer"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "name",
+                        "backend-type",
+                        "config"
+                    ]
+                },
+                "SecretBackendResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "message": {
+                            "type": "string"
+                        },
+                        "num-secrets": {
+                            "type": "integer"
+                        },
+                        "result": {
+                            "$ref": "#/definitions/SecretBackend"
+                        },
+                        "status": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "result",
+                        "num-secrets",
+                        "status"
                     ]
                 },
                 "SetModelDefaults": {
@@ -38500,18 +38562,24 @@
                         "error": {
                             "$ref": "#/definitions/Error"
                         },
+                        "message": {
+                            "type": "string"
+                        },
                         "num-secrets": {
                             "type": "integer"
                         },
                         "result": {
                             "$ref": "#/definitions/SecretBackend"
+                        },
+                        "status": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
                         "result",
                         "num-secrets",
-                        "error"
+                        "status"
                     ]
                 }
             }

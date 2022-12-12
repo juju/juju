@@ -9,15 +9,21 @@ import (
 	"time"
 
 	"github.com/juju/charm/v9"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/provider"
+	jujutesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -469,6 +475,87 @@ func (s *SecretsSuite) TestListByConsumer(c *gc.C) {
 		CreateTime:     now,
 		UpdateTime:     now,
 	}})
+}
+
+func (s *SecretsSuite) TestListModelSecrets(c *gc.C) {
+	uri := secrets.NewURI()
+	p := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
+		},
+	}
+	_, err := s.store.CreateSecret(uri, p)
+	c.Assert(err, jc.ErrorIsNil)
+
+	uri2 := secrets.NewURI()
+	p2 := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			ValueRef:    &secrets.ValueRef{BackendID: "backend-id"},
+		},
+	}
+	_, err = s.store.CreateSecret(uri2, p2)
+	c.Assert(err, jc.ErrorIsNil)
+
+	caasSt := s.newCAASState(c)
+	caasSecrets := state.NewSecrets(caasSt)
+	uri3 := secrets.NewURI()
+	p3 := state.CreateSecretParams{
+		Version: 1,
+		Owner:   names.NewApplicationTag("wordpress"),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			ValueRef:    &secrets.ValueRef{BackendID: caasSt.ModelUUID()},
+		},
+	}
+	_, err = caasSecrets.CreateSecret(uri3, p3)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := s.store.ListModelSecrets(true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, map[string]set.Strings{
+		s.State.ControllerUUID(): set.NewStrings(uri.ID),
+		"backend-id":             set.NewStrings(uri2.ID),
+		caasSt.ModelUUID():       set.NewStrings(uri3.ID),
+	})
+
+	result, err = s.store.ListModelSecrets(false)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, map[string]set.Strings{
+		s.State.ControllerUUID(): set.NewStrings(uri.ID),
+		"backend-id":             set.NewStrings(uri2.ID),
+	})
+}
+
+func (s *SecretsSuite) newCAASState(c *gc.C) *state.State {
+	cfg := jujutesting.CustomModelConfig(c, jujutesting.Attrs{
+		"name": "caasmodel",
+		"uuid": utils.MustNewUUID().String(),
+	})
+	_, st, err := s.Controller.NewModel(state.ModelArgs{
+		Type:        state.ModelTypeCAAS,
+		CloudName:   "dummy",
+		CloudRegion: "dummy-region",
+		Config:      cfg,
+		Owner:       s.Owner,
+		StorageProviderRegistry: storage.ChainedProviderRegistry{
+			dummy.StorageProviders(),
+			provider.CommonStorageProviders(),
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(*gc.C) { st.Close() })
+	s.Factory = factory.NewFactory(st, s.StatePool)
+	s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name:  "wordpress",
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
+	})
+	return st
 }
 
 func (s *SecretsSuite) TestUpdateNothing(c *gc.C) {

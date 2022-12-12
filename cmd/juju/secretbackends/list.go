@@ -4,6 +4,7 @@
 package secretbackends
 
 import (
+	"fmt"
 	"io"
 	"sort"
 	"time"
@@ -16,6 +17,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/secrets/provider"
 )
 
@@ -83,11 +85,13 @@ func (c *listSecretBackendsCommand) SetFlags(f *gnuflag.FlagSet) {
 type secretBackendsByName map[string]secretBackendDisplayDetails
 
 type secretBackendDisplayDetails struct {
-	Name                string               `json:"name" yaml:"name"`
+	Name                string               `json:"-" yaml:"-"`
 	Backend             string               `json:"backend" yaml:"backend"`
 	TokenRotateInterval *time.Duration       `json:"token-rotate-interval,omitempty" yaml:"token-rotate-interval,omitempty"`
 	Config              provider.ConfigAttrs `json:"config,omitempty" yaml:"config,omitempty"`
-	NumSecrets          int                  `json:"secrets,omitempty" yaml:"secrets,omitempty"`
+	NumSecrets          int                  `json:"secrets" yaml:"secrets"`
+	Status              status.Status        `json:"status" yaml:"status"`
+	Message             string               `json:"message,omitempty" yaml:"message,omitempty"`
 	Error               error                `json:"error,omitempty" yaml:"error,omitempty"`
 }
 
@@ -110,7 +114,8 @@ func (c *listSecretBackendsCommand) Run(ctxt *cmd.Context) error {
 	}
 	details := gatherSecretBackendInfo(result)
 	if len(details) == 0 {
-		return c.out.Write(ctxt, "no secret backends have been add to this controller\n")
+		ctxt.Infof("no secret backends have been added to this controller\n")
+		return nil
 	}
 	return c.out.Write(ctxt, details)
 }
@@ -123,6 +128,8 @@ func gatherSecretBackendInfo(backends []secretbackends.SecretBackend) map[string
 			Backend:             b.BackendType,
 			TokenRotateInterval: b.TokenRotateInterval,
 			NumSecrets:          b.NumSecrets,
+			Status:              b.Status,
+			Message:             b.Message,
 			Error:               b.Error,
 		}
 		if len(b.Config) > 0 {
@@ -134,6 +141,19 @@ func gatherSecretBackendInfo(backends []secretbackends.SecretBackend) map[string
 		details[b.Name] = info
 	}
 	return details
+}
+
+const (
+	ellipsis         = "..."
+	maxMessageLength = 80
+)
+
+// truncateMessage truncates the given message if it is too long.
+func truncateMessage(msg string) string {
+	if len(msg) > maxMessageLength {
+		return msg[:maxMessageLength-len(ellipsis)] + ellipsis
+	}
+	return msg
 }
 
 // formatSecretBackendsTabular writes a tabular summary of secret information.
@@ -152,7 +172,7 @@ func formatSecretBackendsTabular(writer io.Writer, value interface{}) error {
 	w := output.Wrapper{tw}
 	w.SetColumnAlignRight(3)
 
-	w.Println("Name", "Type", "Secrets")
+	w.Println("Name", "Type", "Secrets", "Message")
 	sort.Slice(backends, func(i, j int) bool {
 		if backends[i].Backend != backends[j].Backend {
 			return backends[i].Backend < backends[j].Backend
@@ -160,7 +180,11 @@ func formatSecretBackendsTabular(writer io.Writer, value interface{}) error {
 		return backends[i].Name < backends[j].Name
 	})
 	for _, b := range backends {
-		w.Print(b.Name, b.Backend, b.NumSecrets)
+		msg := b.Message
+		if b.Status != status.Active {
+			msg = fmt.Sprintf("%s: %s", b.Status, b.Message)
+		}
+		w.Print(b.Name, b.Backend, b.NumSecrets, truncateMessage(msg))
 		w.Println()
 	}
 	return tw.Flush()

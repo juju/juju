@@ -75,6 +75,7 @@ type SecretsStore interface {
 	GetSecret(*secrets.URI) (*secrets.SecretMetadata, error)
 	GetSecretValue(*secrets.URI, int) (secrets.SecretValue, *secrets.ValueRef, error)
 	ListSecrets(SecretsFilter) ([]*secrets.SecretMetadata, error)
+	ListModelSecrets(bool) (map[string]set.Strings, error)
 	ListSecretRevisions(uri *secrets.URI) ([]*secrets.SecretRevisionMetadata, error)
 	GetSecretRevision(uri *secrets.URI, revision int) (*secrets.SecretRevisionMetadata, error)
 	WatchObsolete(owners []names.Tag) (StringsWatcher, error)
@@ -798,6 +799,70 @@ func (s *secretsStore) ListSecrets(filter SecretsFilter) ([]*secrets.SecretMetad
 			return nil, errors.Trace(err)
 		}
 		result = append(result, md)
+	}
+	return result, nil
+}
+
+// allModelRevisions uses a raw collection to load secret revisions for all models.
+func (s *secretsStore) allModelRevisions() ([]secretRevisionDoc, error) {
+	var docs []secretRevisionDoc
+	secretRevisionCollection, closer := s.st.db().GetRawCollection(secretRevisionsC)
+	defer closer()
+
+	err := secretRevisionCollection.Find(nil).Select(bson.D{{"_id", 1}, {"value-reference", 1}}).All(&docs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return docs, nil
+}
+
+// modelRevisions uses a warpped collection to load secret revisions for the current model.
+func (s *secretsStore) modelRevisions() ([]secretRevisionDoc, error) {
+	var docs []secretRevisionDoc
+	secretRevisionCollection, closer := s.st.db().GetCollection(secretRevisionsC)
+	defer closer()
+
+	err := secretRevisionCollection.Find(nil).Select(bson.D{{"_id", 1}, {"value-reference", 1}}).All(&docs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return docs, nil
+}
+
+// ListModelSecrets returns a map of backend id to secret uris stored in that backend.
+// If all is true, secrets for all models are included, else just the current model.
+func (s *secretsStore) ListModelSecrets(all bool) (map[string]set.Strings, error) {
+	var (
+		docs []secretRevisionDoc
+		err  error
+	)
+	if all {
+		docs, err = s.allModelRevisions()
+	} else {
+		docs, err = s.modelRevisions()
+	}
+	if err != nil {
+		return nil, errors.Annotate(err, "reading secret revisions")
+	}
+
+	controllerUUID := s.st.ControllerUUID()
+	result := make(map[string]set.Strings)
+	for _, doc := range docs {
+		// Deal with the raw doc id.
+		parts := strings.SplitN(doc.DocID, ":", 2)
+		if len(parts) < 2 {
+			continue
+		}
+		uriStr, _ := splitSecretRevision(parts[1])
+		backendID := controllerUUID
+		if doc.ValueRef != nil {
+			backendID = doc.ValueRef.BackendID
+		}
+		if _, ok := result[backendID]; !ok {
+			result[backendID] = set.NewStrings(uriStr)
+			continue
+		}
+		result[backendID].Add(uriStr)
 	}
 	return result, nil
 }

@@ -172,6 +172,10 @@ type ModelInfo struct {
 	// access or greater.
 	Machines []ModelMachineInfo `json:"machines"`
 
+	// SecretBackends contains information about the secret backends
+	// currently in use by the model.
+	SecretBackends []SecretBackendResult `json:"secret-backends"`
+
 	// Migration contains information about the latest failed or
 	// currently-running migration. It'll be nil if there isn't one.
 	Migration *ModelMigrationStatus `json:"migration,omitempty"`
