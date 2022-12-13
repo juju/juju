@@ -379,16 +379,10 @@ func (r *charmStoreRefresher) Refresh() (*CharmID, error) {
 	newURL, origin, err := r.ResolveCharm()
 	if errors.Is(err, ErrAlreadyUpToDate) {
 		// The charm itself is uptodate but we may need the
-		// URL, origin and macaroon (if there is one)
-		// for updating resources.
-		csMac, csErr := store.AuthorizeCharmStoreEntity(r.authorizer, newURL)
-		if csErr != nil && !strings.Contains(csErr.Error(), "404 NOT FOUND") {
-			return nil, errors.Trace(csErr)
-		}
+		// URL, origin for updating resources.
 		return &CharmID{
-			URL:      newURL,
-			Origin:   origin.CoreCharmOrigin(),
-			Macaroon: csMac,
+			URL:    newURL,
+			Origin: origin.CoreCharmOrigin(),
 		}, err
 	} else if err != nil {
 		return nil, errors.Trace(err)
@@ -397,15 +391,14 @@ func (r *charmStoreRefresher) Refresh() (*CharmID, error) {
 	if !r.deployedBase.Channel.Empty() {
 		origin.Base = r.deployedBase
 	}
-	curl, csMac, _, err := store.AddCharmWithAuthorizationFromURL(r.charmAdder, r.authorizer, newURL, origin, r.force)
+	curl, _, err := store.AddCharmWithAuthorizationFromURL(r.charmAdder, newURL, origin, r.force)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	return &CharmID{
-		URL:      curl,
-		Origin:   origin.CoreCharmOrigin(),
-		Macaroon: csMac,
+		URL:    curl,
+		Origin: origin.CoreCharmOrigin(),
 	}, nil
 }
 

@@ -65,10 +65,8 @@ func (d *deployBundle) deploy(
 	ctx *cmd.Context,
 	deployAPI DeployerAPI,
 	resolver Resolver,
-	macaroonGetter store.MacaroonGetter,
 ) (rErr error) {
 	d.resolver = resolver
-	d.authorizer = macaroonGetter
 	bakeryClient, err := d.model.BakeryClient()
 	if err != nil {
 		return errors.Trace(err)
@@ -170,7 +168,7 @@ Please repeat the deploy command with the --trust argument if you consent to tru
 	// TODO(ericsnow) Do something with the CS macaroons that were returned?
 	// Deploying bundles does not allow the use force, it's expected that the
 	// bundle is correct and therefore the charms are also.
-	if _, err := bundleDeploy(d.defaultCharmSchema, bundleData, spec); err != nil {
+	if err := bundleDeploy(d.defaultCharmSchema, bundleData, spec); err != nil {
 		return errors.Annotate(err, "cannot deploy bundle")
 	}
 	return nil
@@ -266,8 +264,8 @@ func (d *localBundle) String() string {
 }
 
 // PrepareAndDeploy deploys a local bundle, no further preparation is needed.
-func (d *localBundle) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, resolver Resolver, macaroonGetter store.MacaroonGetter) error {
-	return d.deploy(ctx, deployAPI, resolver, macaroonGetter)
+func (d *localBundle) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, resolver Resolver) error {
+	return d.deploy(ctx, deployAPI, resolver)
 }
 
 type repositoryBundle struct {
@@ -292,11 +290,11 @@ func (d *repositoryBundle) String() string {
 }
 
 // PrepareAndDeploy deploys a local bundle, no further preparation is needed.
-func (d *repositoryBundle) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, resolver Resolver, macaroonGetter store.MacaroonGetter) error {
+func (d *repositoryBundle) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, resolver Resolver) error {
 	var revision string
 	if d.bundleURL.Revision != -1 {
 		revision = fmt.Sprintf(", revision %d", d.bundleURL.Revision)
 	}
 	ctx.Infof("Located bundle %q in %s%s", d.bundleURL.Name, d.origin.Source, revision)
-	return d.deploy(ctx, deployAPI, resolver, macaroonGetter)
+	return d.deploy(ctx, deployAPI, resolver)
 }

@@ -285,7 +285,7 @@ func (d *predeployedLocalCharm) String() string {
 
 // PrepareAndDeploy finishes preparing to deploy a predeployed local charm,
 // then deploys it.
-func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _ Resolver, _ store.MacaroonGetter) error {
+func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _ Resolver) error {
 	userCharmURL := d.userCharmURL
 	ctx.Verbosef("Preparing to deploy local charm %q again", userCharmURL.Name)
 	if d.dryRun {
@@ -345,7 +345,7 @@ func (l *localCharm) String() string {
 
 // PrepareAndDeploy finishes preparing to deploy a local charm,
 // then deploys it.
-func (l *localCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _ Resolver, _ store.MacaroonGetter) error {
+func (l *localCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _ Resolver) error {
 	ctx.Verbosef("Preparing to deploy local charm: %q ", l.curl.Name)
 	if l.dryRun {
 		ctx.Infof("ignoring dry-run flag for local charms")
@@ -407,7 +407,7 @@ func (c *repositoryCharm) String() string {
 
 // PrepareAndDeploy finishes preparing to deploy a charm store charm,
 // then deploys it.
-func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, resolver Resolver, macaroonGetter store.MacaroonGetter) error {
+func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, resolver Resolver) error {
 	userRequestedURL := c.userRequestedURL
 	location := "charmhub"
 	if charm.CharmStore.Matches(userRequestedURL.Schema) {
@@ -521,7 +521,7 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	}
 
 	// Store the charm in the controller
-	curl, csMac, csOrigin, err := store.AddCharmWithAuthorizationFromURL(deployAPI, macaroonGetter, deployableURL, origin, c.force)
+	curl, csOrigin, err := store.AddCharmWithAuthorizationFromURL(deployAPI, deployableURL, origin, c.force)
 	if err != nil {
 		if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {
 			return errors.Trace(termErr.UserErr())
@@ -544,7 +544,6 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 		}
 	}
 
-	c.csMac = csMac
 	c.id = application.CharmID{
 		URL:    curl,
 		Origin: csOrigin,

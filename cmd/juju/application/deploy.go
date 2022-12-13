@@ -869,7 +869,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	return block.ProcessBlockedError(deploy.PrepareAndDeploy(ctx, deployAPI, charmAdapter, cstoreAPI.MacaroonGetter), block.BlockChange)
+	return block.ProcessBlockedError(deploy.PrepareAndDeploy(ctx, deployAPI, charmAdapter), block.BlockChange)
 }
 
 func (c *DeployCommand) parseBindFlag(api SpacesAPI) error {

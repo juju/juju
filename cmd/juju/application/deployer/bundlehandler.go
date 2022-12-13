@@ -87,22 +87,22 @@ type bundleDeploySpec struct {
 //
 // Note: deployBundle expects that spec.BundleData points to a verified bundle
 // that has all required external overlays applied.
-func bundleDeploy(defaultCharmSchema charm.Schema, bundleData *charm.BundleData, spec bundleDeploySpec) (map[charm.URL]*macaroon.Macaroon, error) {
+func bundleDeploy(defaultCharmSchema charm.Schema, bundleData *charm.BundleData, spec bundleDeploySpec) error {
 	// TODO: move bundle parsing and checking into the handler.
 	h := makeBundleHandler(defaultCharmSchema, bundleData, spec)
 	if err := h.makeModel(spec.useExistingMachines, spec.bundleMachines); err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
 	if err := h.resolveCharmsAndEndpoints(); err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
 	if err := h.getChanges(); err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
 	if err := h.handleChanges(); err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
-	return h.macaroons, nil
+	return nil
 }
 
 // bundleHandler provides helpers and the state required to deploy a bundle.
@@ -240,7 +240,6 @@ func makeBundleHandler(defaultCharmSchema charm.Schema, bundleData *charm.Bundle
 		data:                 bundleData,
 		bundleURL:            spec.bundleURL,
 		unitStatus:           make(map[string]string),
-		macaroons:            make(map[charm.URL]*macaroon.Macaroon),
 		origins:              make(map[charm.URL]map[string]commoncharm.Origin),
 		knownSpaceNames:      spec.knownSpaceNames,
 
@@ -736,9 +735,8 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		logger.Tracef("Using channel %s from %v to deploy %v", resolvedOrigin.Base.String(), supportedSeries, url)
 	}
 
-	var macaroon *macaroon.Macaroon
 	var charmOrigin commoncharm.Origin
-	url, macaroon, charmOrigin, err = store.AddCharmWithAuthorizationFromURL(h.deployAPI, h.authorizer, url, resolvedOrigin, h.force)
+	url, charmOrigin, err = store.AddCharmWithAuthorizationFromURL(h.deployAPI, url, resolvedOrigin, h.force)
 	if err != nil {
 		return errors.Annotatef(err, "cannot add charm %q", ch.Name)
 	} else if url == nil {
@@ -748,7 +746,6 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 	logger.Debugf("added charm %s for channel %s", url, channel)
 	charmAlias := url.String()
 	h.results[id] = charmAlias
-	h.macaroons[*url] = macaroon
 	h.addOrigin(*url, channel, charmOrigin)
 	return nil
 }

@@ -87,7 +87,7 @@ func (s *charmSuite) TestRepositoryCharmDeployDryRun(c *gc.C) {
 		clock:            clock.WallClock,
 	}
 
-	err := repoCharm.PrepareAndDeploy(s.ctx, s.deployerAPI, s.resolver, nil)
+	err := repoCharm.PrepareAndDeploy(s.ctx, s.deployerAPI, s.resolver)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -125,7 +125,7 @@ func (s *charmSuite) TestRepositoryCharmDeployDryRunDefaultSeriesForce(c *gc.C) 
 		Stdout: stdOut,
 	}
 
-	err := repoCharm.PrepareAndDeploy(ctx, s.deployerAPI, s.resolver, nil)
+	err := repoCharm.PrepareAndDeploy(ctx, s.deployerAPI, s.resolver)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(output.String(), gc.Equals, "\"testme\" from  charm \"testme\", revision -1 on ubuntu@22.04 would be deployed\n")
 }
