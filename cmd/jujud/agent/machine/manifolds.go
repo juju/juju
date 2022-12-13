@@ -30,7 +30,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/presence"
-	"github.com/juju/juju/pubsub/lease"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/upgrades"
 	proxyconfig "github.com/juju/juju/utils/proxy"
@@ -702,13 +701,12 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker: auditconfigupdater.New,
 		})),
 
-		// The global lease manager tracks lease information in the raft
-		// cluster rather than in mongo.
+		// The global lease manager tracks lease information in the Dqlite database.
 		leaseManagerName: ifController(leasemanager.Manifold(leasemanager.ManifoldConfig{
 			AgentName:            agentName,
 			ClockName:            clockName,
-			RequestTopic:         lease.LeaseRequestTopic,
-			Logger:               loggo.GetLogger("juju.worker.lease.raft"),
+			DBAccessorName:       dbAccessorName,
+			Logger:               loggo.GetLogger("juju.worker.lease"),
 			LogDir:               agentConfig.LogDir(),
 			PrometheusRegisterer: config.PrometheusRegisterer,
 			NewWorker:            leasemanager.NewWorker,

@@ -384,14 +384,14 @@ func (manager *Manager) handleClaim(claim claim) (action, bool, error) {
 
 		switch {
 		case !found:
-			logger.Tracef("[%s] %s asked for lease %s, no lease found, claiming for %s",
-				manager.logContext, claim.holderName, claim.leaseKey.Lease, claim.duration)
+			logger.Tracef("[%s] %s asked for lease %s (%s), no lease found, claiming for %s",
+				manager.logContext, claim.holderName, claim.leaseKey.Lease, claim.leaseKey.Namespace, claim.duration)
 			act = claimAction
 			err = store.ClaimLease(claim.leaseKey, request, manager.catacomb.Dying())
 
 		case info.Holder == claim.holderName:
-			logger.Tracef("[%s] %s extending lease %s for %s",
-				manager.logContext, claim.holderName, claim.leaseKey.Lease, claim.duration)
+			logger.Tracef("[%s] %s extending lease %s (%s) for %s",
+				manager.logContext, claim.holderName, claim.leaseKey.Lease, claim.leaseKey.Namespace, claim.duration)
 			act = extendAction
 			err = store.ExtendLease(claim.leaseKey, request, manager.catacomb.Dying())
 

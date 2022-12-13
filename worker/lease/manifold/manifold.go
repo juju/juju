@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/agent"
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/worker/common"
+	"github.com/juju/juju/worker/dbaccessor"
 	"github.com/juju/juju/worker/lease"
 )
 
@@ -34,10 +35,10 @@ const (
 // ManifoldConfig holds the resources needed to start the lease
 // manager in a dependency engine.
 type ManifoldConfig struct {
-	AgentName string
-	ClockName string
+	AgentName      string
+	ClockName      string
+	DBAccessorName string
 
-	RequestTopic         string
 	Logger               lease.Logger
 	LogDir               string
 	PrometheusRegisterer prometheus.Registerer
@@ -53,8 +54,8 @@ func (c ManifoldConfig) Validate() error {
 	if c.ClockName == "" {
 		return errors.NotValidf("empty ClockName")
 	}
-	if c.RequestTopic == "" {
-		return errors.NotValidf("empty RequestTopic")
+	if c.DBAccessorName == "" {
+		return errors.NotValidf("empty DBAccessor")
 	}
 	if c.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -91,8 +92,18 @@ func (s *manifoldState) start(context dependency.Context) (worker.Worker, error)
 		return nil, errors.Trace(err)
 	}
 
+	var dbGetter dbaccessor.DBGetter
+	if err := context.Get(s.config.DBAccessorName, &dbGetter); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	db, err := dbGetter.GetDB("controller")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	s.store = s.config.NewStore(lease.StoreConfig{
-		DB:     nil,
+		DB:     db,
 		Logger: s.config.Logger,
 	})
 
@@ -134,6 +145,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		Inputs: []string{
 			config.AgentName,
 			config.ClockName,
+			config.DBAccessorName,
 		},
 		Start:  s.start,
 		Output: s.output,
