@@ -13,7 +13,6 @@ import (
 type MigrationRemoteEntity interface {
 	ID() string
 	Token() string
-	Macaroon() string
 }
 
 // RemoteEntitiesSource defines an inplace usage for reading all the remote
@@ -42,8 +41,6 @@ func (ExportRemoteEntities) Execute(src RemoteEntitiesSource, dst RemoteEntities
 		return errors.Trace(err)
 	}
 	for _, entity := range entities {
-		// Despite remote entities having a member for macaroon,
-		// they are not exported.
 		dst.AddRemoteEntity(description.RemoteEntityArgs{
 			ID:    entity.ID(),
 			Token: entity.Token(),

@@ -67,26 +67,6 @@ func (s *RemoteEntitiesSuite) TestGetRemoteEntity(c *gc.C) {
 	c.Assert(entity, gc.Equals, expected)
 }
 
-func (s *RemoteEntitiesSuite) TestMacaroon(c *gc.C) {
-	entity := names.NewRelationTag("mysql:db wordpress:db")
-	s.assertExportLocalEntity(c, entity)
-
-	re := s.State.RemoteEntities()
-	mac, err := newMacaroon("id")
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = re.SaveMacaroon(names.NewApplicationTag("foo"), mac)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-
-	err = re.SaveMacaroon(entity, mac)
-	c.Assert(err, jc.ErrorIsNil)
-
-	re = s.State.RemoteEntities()
-	expected, err := re.GetMacaroon(entity)
-	c.Assert(err, jc.ErrorIsNil)
-	assertMacaroonEquals(c, mac, expected)
-}
-
 func (s *RemoteEntitiesSuite) TestRemoveRemoteEntity(c *gc.C) {
 	entity := names.NewApplicationTag("mysql")
 	token := s.assertExportLocalEntity(c, entity)

@@ -107,23 +107,6 @@ func (api *API) GetTokens(args params.GetTokenArgs) (params.StringResults, error
 	return results, nil
 }
 
-// SaveMacaroons saves the macaroons for the given entities.
-func (api *API) SaveMacaroons(args params.EntityMacaroonArgs) (params.ErrorResults, error) {
-	results := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Args)),
-	}
-	for i, arg := range args.Args {
-		entityTag, err := names.ParseTag(arg.Tag)
-		if err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		err = api.st.SaveMacaroon(entityTag, arg.Macaroon)
-		results.Results[i].Error = apiservererrors.ServerError(err)
-	}
-	return results, nil
-}
-
 func (api *API) remoteRelation(entity params.Entity) (*params.RemoteRelation, error) {
 	tag, err := names.ParseRelationTag(entity.Tag)
 	if err != nil {
@@ -200,10 +183,6 @@ func (api *API) RemoteApplications(entities params.Entities) (params.RemoteAppli
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		mac, err := remoteApp.Macaroon()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
 		return &params.RemoteApplication{
 			Name:            remoteApp.Name(),
 			OfferUUID:       remoteApp.OfferUUID(),
@@ -211,7 +190,6 @@ func (api *API) RemoteApplications(entities params.Entities) (params.RemoteAppli
 			ModelUUID:       remoteApp.SourceModel().Id(),
 			IsConsumerProxy: remoteApp.IsConsumerProxy(),
 			ConsumeVersion:  remoteApp.ConsumeVersion(),
-			Macaroon:        mac,
 		}, nil
 	}
 	for i, entity := range entities.Entities {

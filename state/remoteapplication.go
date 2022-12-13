@@ -4,7 +4,6 @@
 package state
 
 import (
-	"encoding/json"
 	"fmt"
 	"sort"
 	"time"
@@ -746,18 +745,6 @@ func (s *RemoteApplication) AddEndpoints(eps []charm.Relation) error {
 	return s.Refresh()
 }
 
-func (s *RemoteApplication) Macaroon() (*macaroon.Macaroon, error) {
-	if s.doc.Macaroon == "" {
-		return nil, nil
-	}
-	var mac macaroon.Macaroon
-	err := json.Unmarshal([]byte(s.doc.Macaroon), &mac)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &mac, nil
-}
-
 // String returns the application name.
 func (s *RemoteApplication) String() string {
 	return s.doc.Name
@@ -877,14 +864,6 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 		return nil, errors.Errorf("model is no longer alive")
 	}
 
-	var macJSON string
-	if args.Macaroon != nil {
-		b, err := json.Marshal(args.Macaroon)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		macJSON = string(b)
-	}
 	applicationID := st.docID(args.Name)
 	version := args.ConsumeVersion
 	if !args.IsConsumerProxy {
@@ -904,7 +883,6 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 		Life:                 Alive,
 		IsConsumerProxy:      args.IsConsumerProxy,
 		Version:              version,
-		Macaroon:             macJSON,
 	}
 	eps := make([]remoteEndpointDoc, len(args.Endpoints))
 	for i, ep := range args.Endpoints {

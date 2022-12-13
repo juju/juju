@@ -6,7 +6,6 @@ package firewaller
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/common/firewall"
 	"github.com/juju/juju/core/network"
@@ -21,7 +20,6 @@ type State interface {
 	firewall.State
 
 	ModelUUID() string
-	GetMacaroon(entity names.Tag) (*macaroon.Macaroon, error)
 	WatchOpenedPorts() state.StringsWatcher
 	FindEntity(tag names.Tag) (state.Entity, error)
 	FirewallRule(service corefirewall.WellKnownServiceType) (*state.FirewallRule, error)
@@ -51,11 +49,6 @@ type stateShim struct {
 
 func (st stateShim) ModelUUID() string {
 	return st.st.ModelUUID()
-}
-
-func (st stateShim) GetMacaroon(entity names.Tag) (*macaroon.Macaroon, error) {
-	r := st.st.RemoteEntities()
-	return r.GetMacaroon(entity)
 }
 
 func (st stateShim) FindEntity(tag names.Tag) (state.Entity, error) {

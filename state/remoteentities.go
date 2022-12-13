@@ -4,8 +4,6 @@
 package state
 
 import (
-	"encoding/json"
-
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
@@ -13,7 +11,6 @@ import (
 	"github.com/juju/names/v4"
 	jujutxn "github.com/juju/txn/v3"
 	"github.com/juju/utils/v3"
-	"gopkg.in/macaroon.v2"
 )
 
 // RemoteEntity defines a remote entity that has a unique opaque token that
@@ -32,11 +29,6 @@ func (e RemoteEntity) ID() string {
 // Token returns the RemoteEntity Token.
 func (e RemoteEntity) Token() string {
 	return e.token
-}
-
-// Macaroon returns the RemoteEntity Macaroon associated with the Token.
-func (e RemoteEntity) Macaroon() string {
-	return e.macaroon
 }
 
 // remoteEntityDoc represents the internal state of a remote entity in
@@ -77,9 +69,8 @@ func (st *State) AllRemoteEntities() ([]RemoteEntity, error) {
 			return nil, errors.Trace(err)
 		}
 		entities[i] = RemoteEntity{
-			docID:    id,
-			token:    doc.Token,
-			macaroon: doc.Macaroon,
+			docID: id,
+			token: doc.Token,
 		}
 	}
 	return entities, nil
@@ -166,7 +157,6 @@ func (r *RemoteEntities) ImportRemoteEntity(entity names.Tag, token string) erro
 				Assert: txn.DocExists,
 				Update: bson.D{
 					{"$set", bson.D{{"token", token}}},
-					{"$unset", bson.D{{"macaroon", nil}}},
 				},
 			}}, nil
 		}
@@ -232,63 +222,6 @@ func (r *RemoteEntities) remoteEntityDoc(entity names.Tag) (remoteEntityDoc, err
 	var doc remoteEntityDoc
 	err := remoteEntities.FindId(entity.String()).One(&doc)
 	return doc, err
-}
-
-// GetMacaroon returns the macaroon associated with the entity with the given tag
-// and model.
-func (r *RemoteEntities) GetMacaroon(entity names.Tag) (*macaroon.Macaroon, error) {
-	doc, err := r.remoteEntityDoc(entity)
-	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf(
-			"macaroon for %s", names.ReadableString(entity),
-		)
-	}
-	if err != nil {
-		return nil, errors.Annotatef(
-			err, "reading macaroon for %s", names.ReadableString(entity),
-		)
-	}
-	if doc.Macaroon == "" {
-		return nil, nil
-	}
-	var mac macaroon.Macaroon
-	if err := json.Unmarshal([]byte(doc.Macaroon), &mac); err != nil {
-		return nil, errors.Annotatef(err, "unmarshalling macaroon for %s", names.ReadableString(entity))
-	}
-	return &mac, nil
-}
-
-// SaveMacaroon saves the given macaroon for the specified entity.
-func (r *RemoteEntities) SaveMacaroon(entity names.Tag, mac *macaroon.Macaroon) error {
-	var macJSON string
-	if mac != nil {
-		b, err := json.Marshal(mac)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		macJSON = string(b)
-	}
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			// The entity may have been removed; if so,
-			// return a not found error.
-			_, err := r.GetToken(entity)
-			if err == nil {
-				return nil, errors.Errorf("unexpected entity %q", entity)
-			}
-			return nil, errors.Trace(err)
-		}
-		ops := []txn.Op{{
-			C:      remoteEntitiesC,
-			Id:     entity.String(),
-			Assert: txn.DocExists,
-			Update: bson.D{
-				{"$set", bson.D{{"macaroon", macJSON}}},
-			},
-		}}
-		return ops, nil
-	}
-	return r.st.db().Run(buildTxn)
 }
 
 // GetRemoteEntity returns the tag of the entity associated with the given token.
