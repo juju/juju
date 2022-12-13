@@ -8,6 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	set "github.com/juju/collections/set"
 	secrets "github.com/juju/juju/core/secrets"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v4"
@@ -115,6 +116,21 @@ func (m *MockSecretsStore) GetSecretValue(arg0 *secrets.URI, arg1 int) (secrets.
 func (mr *MockSecretsStoreMockRecorder) GetSecretValue(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretValue", reflect.TypeOf((*MockSecretsStore)(nil).GetSecretValue), arg0, arg1)
+}
+
+// ListModelSecrets mocks base method.
+func (m *MockSecretsStore) ListModelSecrets(arg0 bool) (map[string]set.Strings, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListModelSecrets", arg0)
+	ret0, _ := ret[0].(map[string]set.Strings)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListModelSecrets indicates an expected call of ListModelSecrets.
+func (mr *MockSecretsStoreMockRecorder) ListModelSecrets(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListModelSecrets", reflect.TypeOf((*MockSecretsStore)(nil).ListModelSecrets), arg0)
 }
 
 // ListSecretRevisions mocks base method.

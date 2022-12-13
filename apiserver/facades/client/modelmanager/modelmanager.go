@@ -17,6 +17,7 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/common"
+	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
@@ -339,7 +340,7 @@ func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	return m.getModelInfo(model.ModelTag())
+	return m.getModelInfo(model.ModelTag(), false)
 }
 
 func (m *ModelManagerAPI) newCAASModel(
@@ -793,7 +794,7 @@ func (m *ModelManagerAPI) ModelInfo(args params.Entities) (params.ModelInfoResul
 		if err != nil {
 			return params.ModelInfo{}, errors.Trace(err)
 		}
-		modelInfo, err := m.getModelInfo(tag)
+		modelInfo, err := m.getModelInfo(tag, true)
 		if err != nil {
 			return params.ModelInfo{}, errors.Trace(err)
 		}
@@ -823,7 +824,7 @@ func (m *ModelManagerAPI) ModelInfo(args params.Entities) (params.ModelInfoResul
 	return results, nil
 }
 
-func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, error) {
+func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag, withSecrets bool) (params.ModelInfo, error) {
 	st, release, err := m.state.GetBackend(tag.Id())
 	if errors.IsNotFound(err) {
 		return params.ModelInfo{}, errors.Trace(apiservererrors.ErrPerm)
@@ -933,14 +934,21 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 		}
 	}
 
-	canSeeMachines := modelAdmin
-	if !canSeeMachines {
-		if canSeeMachines, err = m.hasWriteAccess(tag); err != nil {
+	canSeeMachinesAndSecrets := modelAdmin
+	if !canSeeMachinesAndSecrets {
+		if canSeeMachinesAndSecrets, err = m.hasWriteAccess(tag); err != nil {
 			return params.ModelInfo{}, errors.Trace(err)
 		}
 	}
-	if canSeeMachines {
+	if canSeeMachinesAndSecrets {
 		if info.Machines, err = common.ModelMachineInfo(st); shouldErr(err) {
+			return params.ModelInfo{}, err
+		}
+	}
+	if withSecrets && canSeeMachinesAndSecrets {
+		if info.SecretBackends, err = commonsecrets.BackendSummaryInfo(
+			m.state, st, st, st.ControllerUUID(), false, false,
+		); shouldErr(err) {
 			return params.ModelInfo{}, err
 		}
 	}

@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -31,6 +32,8 @@ type SecretBackend struct {
 	TokenRotateInterval *time.Duration
 	Config              map[string]interface{}
 	NumSecrets          int
+	Status              status.Status
+	Message             string
 	Error               error
 }
 
@@ -53,6 +56,8 @@ func (api *Client) ListSecretBackends(reveal bool) ([]SecretBackend, error) {
 			TokenRotateInterval: r.Result.TokenRotateInterval,
 			Config:              r.Result.Config,
 			NumSecrets:          r.NumSecrets,
+			Status:              status.Status(r.Status),
+			Message:             r.Message,
 			Error:               resultErr,
 		}
 		result[i] = details

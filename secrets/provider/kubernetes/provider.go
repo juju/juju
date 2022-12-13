@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/caas"
 	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
@@ -158,6 +159,7 @@ func (p k8sProvider) RestrictedConfig(
 type Broker interface {
 	caas.SecretsBackend
 	caas.SecretsProvider
+	Version() (ver *version.Number, err error)
 }
 
 // NewCaas is patched for testing.
@@ -171,9 +173,15 @@ func newCaas(ctx context.Context, args environs.OpenParams) (Broker, error) {
 func (p k8sProvider) NewBackend(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
 	broker, _, err := p.getBroker(cfg)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotate(err, "getting cluster client")
 	}
-	return &k8sBackend{broker: broker}, nil
+	return &k8sBackend{broker: broker, pinger: func() error {
+		_, err := broker.Version()
+		if err == nil {
+			return err
+		}
+		return errors.Annotate(err, "backend not reachable")
+	}}, nil
 }
 
 func (p k8sProvider) configToCloudSpec(cfg *provider.BackendConfig) (cloudspec.CloudSpec, error) {

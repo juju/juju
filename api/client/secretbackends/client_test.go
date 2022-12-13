@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/client/secretbackends"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -51,6 +52,8 @@ func (s *SecretBackendsSuite) TestListSecretBackends(c *gc.C) {
 					Config:              config,
 				},
 				NumSecrets: 666,
+				Status:     "error",
+				Message:    "vault is sealed",
 			}},
 		}
 		return nil
@@ -64,6 +67,8 @@ func (s *SecretBackendsSuite) TestListSecretBackends(c *gc.C) {
 		TokenRotateInterval: ptr(666 * time.Minute),
 		Config:              config,
 		NumSecrets:          666,
+		Status:              status.Error,
+		Message:             "vault is sealed",
 	}})
 }
 

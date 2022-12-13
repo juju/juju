@@ -251,7 +251,9 @@ type ListSecretBackendsResults struct {
 type SecretBackendResult struct {
 	Result     SecretBackend `json:"result"`
 	NumSecrets int           `json:"num-secrets"`
-	Error      *Error        `json:"error"`
+	Status     string        `json:"status"`
+	Message    string        `json:"message,omitempty"`
+	Error      *Error        `json:"error,omitempty"`
 }
 
 // AddSecretBackendArgs holds args for adding secret backends.

@@ -168,5 +168,5 @@ func (s *providerSuite) TestNewBackend(c *gc.C) {
 			},
 		},
 	})
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, gc.ErrorMatches, "getting cluster client: boom")
 }

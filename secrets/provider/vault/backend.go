@@ -62,3 +62,18 @@ func (k vaultBackend) SaveContent(ctx context.Context, uri *secrets.URI, revisio
 	err = k.client.KVv1(k.modelUUID).Put(ctx, path, val)
 	return path, errors.Annotatef(err, "saving secret content for %q", uri)
 }
+
+// Ping implements SecretsBackend.
+func (k vaultBackend) Ping() error {
+	h, err := k.client.Sys().Health()
+	if err != nil {
+		return errors.Annotate(err, "backend not reachable")
+	}
+	if !h.Initialized {
+		return errors.New("vault is not initialised")
+	}
+	if h.Sealed {
+		return errors.New("vault is sealed")
+	}
+	return nil
+}

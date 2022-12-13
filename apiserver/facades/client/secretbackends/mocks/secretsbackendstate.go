@@ -49,6 +49,21 @@ func (mr *MockSecretsBackendStateMockRecorder) CreateSecretBackend(arg0 interfac
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSecretBackend", reflect.TypeOf((*MockSecretsBackendState)(nil).CreateSecretBackend), arg0)
 }
 
+// GetSecretBackendByID mocks base method.
+func (m *MockSecretsBackendState) GetSecretBackendByID(arg0 string) (*secrets.SecretBackend, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSecretBackendByID", arg0)
+	ret0, _ := ret[0].(*secrets.SecretBackend)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSecretBackendByID indicates an expected call of GetSecretBackendByID.
+func (mr *MockSecretsBackendStateMockRecorder) GetSecretBackendByID(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretBackendByID", reflect.TypeOf((*MockSecretsBackendState)(nil).GetSecretBackendByID), arg0)
+}
+
 // ListSecretBackends mocks base method.
 func (m *MockSecretsBackendState) ListSecretBackends() ([]*secrets.SecretBackend, error) {
 	m.ctrl.T.Helper()

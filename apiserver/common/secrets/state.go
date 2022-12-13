@@ -4,9 +4,12 @@
 package secrets
 
 import (
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 )
@@ -21,6 +24,19 @@ type Model interface {
 	Name() string
 	Type() state.ModelType
 	State() *state.State
+}
+
+type StatePool interface {
+	GetModel(modelUUID string) (common.Model, func() bool, error)
+}
+
+type SecretsBackendState interface {
+	GetSecretBackendByID(ID string) (*secrets.SecretBackend, error)
+	ListSecretBackends() ([]*secrets.SecretBackend, error)
+}
+
+type SecretsState interface {
+	ListModelSecrets(all bool) (map[string]set.Strings, error)
 }
 
 // Credential represents a cloud credential.
