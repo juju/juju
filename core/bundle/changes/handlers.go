@@ -322,7 +322,7 @@ func (r *resolver) allowCharmUpgrade(existingApp *Application, bundleApp *charm.
 		return false, errors.Errorf("application %q: upgrades not supported across channels (existing: %q, %s: %q); use --force to override", existingApp.Name, existingApp.Channel, verb, resolvedChan)
 	}
 
-	// The revision number is in the origin for a charmhub charm and in the url for a charmstore charm.
+	// The revision number is in the origin for a charmhub charm.
 	if resolvedRev > existingApp.Revision {
 		return true, nil
 	}

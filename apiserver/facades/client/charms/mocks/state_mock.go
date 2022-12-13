@@ -12,7 +12,6 @@ import (
 	interfaces "github.com/juju/juju/apiserver/facades/client/charms/interfaces"
 	services "github.com/juju/juju/apiserver/facades/client/charms/services"
 	cloud "github.com/juju/juju/cloud"
-	controller "github.com/juju/juju/controller"
 	charm0 "github.com/juju/juju/core/charm"
 	constraints "github.com/juju/juju/core/constraints"
 	instance "github.com/juju/juju/core/instance"
@@ -104,21 +103,6 @@ func (m *MockBackendState) Charm(arg0 *charm.URL) (*state.Charm, error) {
 func (mr *MockBackendStateMockRecorder) Charm(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Charm", reflect.TypeOf((*MockBackendState)(nil).Charm), arg0)
-}
-
-// ControllerConfig mocks base method.
-func (m *MockBackendState) ControllerConfig() (controller.Config, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ControllerConfig")
-	ret0, _ := ret[0].(controller.Config)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ControllerConfig indicates an expected call of ControllerConfig.
-func (mr *MockBackendStateMockRecorder) ControllerConfig() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerConfig", reflect.TypeOf((*MockBackendState)(nil).ControllerConfig))
 }
 
 // ControllerTag mocks base method.
