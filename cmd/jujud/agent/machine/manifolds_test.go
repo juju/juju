@@ -644,7 +644,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 	"lease-manager": {
 		"agent",
-		"central-hub",
 		"clock",
 		"is-controller-flag",
 		"state-config-watcher",
@@ -1124,7 +1123,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 
 	"lease-manager": {
 		"agent",
-		"central-hub",
 		"clock",
 		"is-controller-flag",
 		"state-config-watcher",

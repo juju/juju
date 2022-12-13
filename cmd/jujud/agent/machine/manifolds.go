@@ -707,7 +707,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		leaseManagerName: ifController(leasemanager.Manifold(leasemanager.ManifoldConfig{
 			AgentName:            agentName,
 			ClockName:            clockName,
-			CentralHubName:       centralHubName,
 			RequestTopic:         lease.LeaseRequestTopic,
 			Logger:               loggo.GetLogger("juju.worker.lease.raft"),
 			LogDir:               agentConfig.LogDir(),

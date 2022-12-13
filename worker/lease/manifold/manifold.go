@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/pubsub/v2"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 	"github.com/prometheus/client_golang/prometheus"
@@ -35,9 +34,8 @@ const (
 // ManifoldConfig holds the resources needed to start the lease
 // manager in a dependency engine.
 type ManifoldConfig struct {
-	AgentName      string
-	ClockName      string
-	CentralHubName string
+	AgentName string
+	ClockName string
 
 	RequestTopic         string
 	Logger               lease.Logger
@@ -54,9 +52,6 @@ func (c ManifoldConfig) Validate() error {
 	}
 	if c.ClockName == "" {
 		return errors.NotValidf("empty ClockName")
-	}
-	if c.CentralHubName == "" {
-		return errors.NotValidf("empty CentralHubName")
 	}
 	if c.RequestTopic == "" {
 		return errors.NotValidf("empty RequestTopic")
@@ -93,11 +88,6 @@ func (s *manifoldState) start(context dependency.Context) (worker.Worker, error)
 
 	var clock clock.Clock
 	if err := context.Get(s.config.ClockName, &clock); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var hub *pubsub.StructuredHub
-	if err := context.Get(s.config.CentralHubName, &hub); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -144,7 +134,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		Inputs: []string{
 			config.AgentName,
 			config.ClockName,
-			config.CentralHubName,
 		},
 		Start:  s.start,
 		Output: s.output,
