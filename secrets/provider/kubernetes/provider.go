@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -113,6 +114,16 @@ func cloudSpecToBackendConfig(spec cloudspec.CloudSpec) (*provider.BackendConfig
 // using the same namespace as the specified model.
 func BuiltInConfig(cloudSpec cloudspec.CloudSpec) (*provider.BackendConfig, error) {
 	return cloudSpecToBackendConfig(cloudSpec)
+}
+
+// BuiltInName returns the backend name for the k8s in-model backend.
+func BuiltInName(modelName string) string {
+	return modelName + "-local"
+}
+
+// IsBuiltInName returns true of the backend name is the built-in one.
+func IsBuiltInName(backendName string) bool {
+	return strings.HasSuffix(backendName, "-local")
 }
 
 // RestrictedConfig returns the config needed to create a

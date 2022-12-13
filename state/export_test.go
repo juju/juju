@@ -215,6 +215,14 @@ func IncSecretConsumerRefCount(st *State, uri *secrets.URI, inc int) error {
 	return st.db().RunTransaction([]txn.Op{incOp})
 }
 
+func SecretBackendRefCount(st *State, backendID string) (int, error) {
+	refcounts, closer := st.db().GetCollection(globalRefcountsC)
+	defer closer()
+
+	key := secretBackendRefCountKey(backendID)
+	return nsRefcounts.read(refcounts, key)
+}
+
 func AddTestingCharm(c *gc.C, st *State, name string) *Charm {
 	return addCharm(c, st, "quantal", testcharms.Repo.CharmDir(name))
 }

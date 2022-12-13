@@ -52,6 +52,10 @@ Examples:
     juju add-secret-backend myvault vault --config /path/to/cfg.yaml
     juju add-secret-backend myvault vault token-rotate=10m --config /path/to/cfg.yaml
     juju add-secret-backend myvault vault endpoint=https://vault.io:8200 token=s.1wshwhw
+
+See also:
+    list-secret-backends
+    remove-secret-backend
 `
 
 // AddSecretBackendsAPI is the secrets client API.
@@ -60,7 +64,7 @@ type AddSecretBackendsAPI interface {
 	Close() error
 }
 
-// NewAddSecretBackendCommand returns a command to list secrets backends.
+// NewAddSecretBackendCommand returns a command to add a secret backend.
 func NewAddSecretBackendCommand() cmd.Command {
 	c := &addSecretBackendCommand{}
 	c.AddSecretBackendsAPIFunc = c.secretBackendsAPI

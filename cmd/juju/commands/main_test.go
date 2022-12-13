@@ -395,6 +395,7 @@ var commandNames = []string{
 	"remove-offer",
 	"remove-relation",
 	"remove-saas",
+	"remove-secret-backend",
 	"remove-space",
 	"remove-ssh-key",
 	"remove-storage",

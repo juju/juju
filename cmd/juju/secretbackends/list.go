@@ -35,6 +35,10 @@ Displays the secret backends available for storing secret content.
 Examples:
     juju secret-backends
     juju secret-backends --format yaml
+
+See also:
+    add-secret-backend
+    remove-secret-backend
 `
 
 // ListSecretBackendsAPI is the secrets client API.
@@ -86,13 +90,14 @@ type secretBackendsByName map[string]secretBackendDisplayDetails
 
 type secretBackendDisplayDetails struct {
 	Name                string               `json:"-" yaml:"-"`
-	Backend             string               `json:"backend" yaml:"backend"`
+	Backend             string               `json:"backend,omitempty" yaml:"backend,omitempty"`
 	TokenRotateInterval *time.Duration       `json:"token-rotate-interval,omitempty" yaml:"token-rotate-interval,omitempty"`
 	Config              provider.ConfigAttrs `json:"config,omitempty" yaml:"config,omitempty"`
 	NumSecrets          int                  `json:"secrets" yaml:"secrets"`
 	Status              status.Status        `json:"status" yaml:"status"`
 	Message             string               `json:"message,omitempty" yaml:"message,omitempty"`
-	Error               error                `json:"error,omitempty" yaml:"error,omitempty"`
+	ID                  string               `json:"id,omitempty" yaml:"id,omitempty"`
+	Error               string               `json:"error,omitempty" yaml:"error,omitempty"`
 }
 
 // Run implements cmd.Run.
@@ -130,7 +135,13 @@ func gatherSecretBackendInfo(backends []secretbackends.SecretBackend) map[string
 			NumSecrets:          b.NumSecrets,
 			Status:              b.Status,
 			Message:             b.Message,
-			Error:               b.Error,
+		}
+		// Only display the ID if there's an error.
+		if b.Error != nil {
+			info.ID = b.ID
+			info.Name = "error-" + b.ID
+			info.Status = status.Error
+			info.Error = b.Error.Error()
 		}
 		if len(b.Config) > 0 {
 			info.Config = make(provider.ConfigAttrs)
@@ -138,7 +149,7 @@ func gatherSecretBackendInfo(backends []secretbackends.SecretBackend) map[string
 				info.Config[k] = v
 			}
 		}
-		details[b.Name] = info
+		details[info.Name] = info
 	}
 	return details
 }
@@ -180,6 +191,10 @@ func formatSecretBackendsTabular(writer io.Writer, value interface{}) error {
 		return backends[i].Name < backends[j].Name
 	})
 	for _, b := range backends {
+		// Ignore backends where there was an error even fetching it.
+		if b.Error != "" {
+			continue
+		}
 		msg := b.Message
 		if b.Status != status.Active {
 			msg = fmt.Sprintf("%s: %s", b.Status, b.Message)

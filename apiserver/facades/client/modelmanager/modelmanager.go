@@ -951,6 +951,10 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag, withSecrets bool) (pa
 		); shouldErr(err) {
 			return params.ModelInfo{}, err
 		}
+		// Don't expose the id.
+		for i := range info.SecretBackends {
+			info.SecretBackends[i].ID = ""
+		}
 	}
 
 	migration, err := st.LatestMigration()

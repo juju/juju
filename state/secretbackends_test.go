@@ -94,3 +94,202 @@ func (s *SecretBackendsSuite) TestList(c *gc.C) {
 		Config:              config,
 	}})
 }
+
+func (s *SecretBackendsSuite) TestRemove(c *gc.C) {
+	p := state.CreateSecretBackendParams{
+		Name:    "myvault",
+		Backend: "vault",
+		Config:  map[string]interface{}{"foo.key": "bar"},
+	}
+	err := s.storage.CreateSecretBackend(p)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.storage.DeleteSecretBackend("myvault", false)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.storage.GetSecretBackend("myvault")
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	err = s.storage.DeleteSecretBackend("myvault", false)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *SecretBackendsSuite) TestRemoveWithRevisionsFails(c *gc.C) {
+	p := state.CreateSecretBackendParams{
+		Name:    "myvault",
+		Backend: "vault",
+		Config:  map[string]interface{}{"foo.key": "bar"},
+	}
+	err := s.storage.CreateSecretBackend(p)
+	c.Assert(err, jc.ErrorIsNil)
+	b, err := s.storage.GetSecretBackend("myvault")
+	c.Assert(err, jc.ErrorIsNil)
+
+	owner := s.Factory.MakeApplication(c, nil)
+	uri := secrets.NewURI()
+	sp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			ValueRef: &secrets.ValueRef{
+				BackendID:  b.ID,
+				RevisionID: "rev-id",
+			},
+		},
+	}
+	secrets := state.NewSecrets(s.State)
+	_, err = secrets.CreateSecret(uri, sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.storage.DeleteSecretBackend("myvault", false)
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	count, err := state.SecretBackendRefCount(s.State, b.ID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(count, gc.Equals, 1)
+}
+
+func (s *SecretBackendsSuite) TestRemoveWithRevisionsForce(c *gc.C) {
+	p := state.CreateSecretBackendParams{
+		Name:    "myvault",
+		Backend: "vault",
+		Config:  map[string]interface{}{"foo.key": "bar"},
+	}
+	err := s.storage.CreateSecretBackend(p)
+	c.Assert(err, jc.ErrorIsNil)
+	b, err := s.storage.GetSecretBackend("myvault")
+	c.Assert(err, jc.ErrorIsNil)
+
+	owner := s.Factory.MakeApplication(c, nil)
+	uri := secrets.NewURI()
+	sp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			ValueRef: &secrets.ValueRef{
+				BackendID:  b.ID,
+				RevisionID: "rev-id",
+			},
+		},
+	}
+	secrets := state.NewSecrets(s.State)
+	_, err = secrets.CreateSecret(uri, sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	count, err := state.SecretBackendRefCount(s.State, b.ID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(count, gc.Equals, 1)
+
+	err = s.storage.DeleteSecretBackend("myvault", true)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = state.SecretBackendRefCount(s.State, b.ID)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	_, err = s.storage.GetSecretBackend("myvault")
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *SecretBackendsSuite) TestDeleteSecretUpdatesRefCount(c *gc.C) {
+	p := state.CreateSecretBackendParams{
+		Name:    "myvault",
+		Backend: "vault",
+		Config:  map[string]interface{}{"foo.key": "bar"},
+	}
+	err := s.storage.CreateSecretBackend(p)
+	c.Assert(err, jc.ErrorIsNil)
+	b, err := s.storage.GetSecretBackend("myvault")
+	c.Assert(err, jc.ErrorIsNil)
+
+	owner := s.Factory.MakeApplication(c, nil)
+	uri := secrets.NewURI()
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			ValueRef: &secrets.ValueRef{
+				BackendID:  b.ID,
+				RevisionID: "rev-id",
+			},
+		},
+	}
+	secretStore := state.NewSecrets(s.State)
+	_, err = secretStore.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = secretStore.UpdateSecret(uri, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		ValueRef: &secrets.ValueRef{
+			BackendID:  b.ID,
+			RevisionID: "rev-id2",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	count, err := state.SecretBackendRefCount(s.State, b.ID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(count, gc.Equals, 2)
+
+	_, err = secretStore.DeleteSecret(uri)
+	c.Assert(err, jc.ErrorIsNil)
+
+	count, err = state.SecretBackendRefCount(s.State, b.ID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(count, gc.Equals, 0)
+
+	err = s.storage.DeleteSecretBackend("myvault", false)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *SecretBackendsSuite) TestDeleteRevisionsUpdatesRefCount(c *gc.C) {
+	p := state.CreateSecretBackendParams{
+		Name:    "myvault",
+		Backend: "vault",
+		Config:  map[string]interface{}{"foo.key": "bar"},
+	}
+	err := s.storage.CreateSecretBackend(p)
+	c.Assert(err, jc.ErrorIsNil)
+	b, err := s.storage.GetSecretBackend("myvault")
+	c.Assert(err, jc.ErrorIsNil)
+
+	owner := s.Factory.MakeApplication(c, nil)
+	uri := secrets.NewURI()
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			ValueRef: &secrets.ValueRef{
+				BackendID:  b.ID,
+				RevisionID: "rev-id",
+			},
+		},
+	}
+	secretStore := state.NewSecrets(s.State)
+	_, err = secretStore.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = secretStore.UpdateSecret(uri, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		ValueRef: &secrets.ValueRef{
+			BackendID:  b.ID,
+			RevisionID: "rev-id2",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	count, err := state.SecretBackendRefCount(s.State, b.ID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(count, gc.Equals, 2)
+
+	_, err = secretStore.DeleteSecret(uri, 1)
+	c.Assert(err, jc.ErrorIsNil)
+
+	count, err = state.SecretBackendRefCount(s.State, b.ID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(count, gc.Equals, 1)
+
+	_, err = secretStore.DeleteSecret(uri, 2)
+	c.Assert(err, jc.ErrorIsNil)
+
+	count, err = state.SecretBackendRefCount(s.State, b.ID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(count, gc.Equals, 0)
+
+	err = s.storage.DeleteSecretBackend("myvault", false)
+	c.Assert(err, jc.ErrorIsNil)
+}

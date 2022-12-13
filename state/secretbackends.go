@@ -4,12 +4,14 @@
 package state
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
+	jujutxn "github.com/juju/txn/v3"
 
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/mongo/utils"
@@ -26,6 +28,7 @@ type CreateSecretBackendParams struct {
 // SecretBackendsStorage instances use mongo to store secret backend info.
 type SecretBackendsStorage interface {
 	CreateSecretBackend(params CreateSecretBackendParams) error
+	DeleteSecretBackend(name string, force bool) error
 	ListSecretBackends() ([]*secrets.SecretBackend, error)
 	GetSecretBackend(name string) (*secrets.SecretBackend, error)
 	GetSecretBackendByID(ID string) (*secrets.SecretBackend, error)
@@ -160,4 +163,71 @@ func (s *secretBackendsStorage) ListSecretBackends() ([]*secrets.SecretBackend, 
 		result[i] = s.toSecretBackend(&doc)
 	}
 	return result, nil
+}
+
+// DeleteSecretBackend deletes the specified secret backend.
+func (s *secretBackendsStorage) DeleteSecretBackend(name string, force bool) error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		b, err := s.GetSecretBackend(name)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				return nil, jujutxn.ErrNoOperations
+			}
+			return nil, errors.Trace(err)
+		}
+		deleteOp := txn.Op{
+			C:      secretBackendsC,
+			Id:     b.ID,
+			Assert: txn.DocExists,
+			Remove: true,
+		}
+		// If we are forcing removal, simply delete any ref count reference.
+		removeRefCountOp := s.st.removeBackendRevisionCountOp(b.ID)
+		if force {
+			return []txn.Op{deleteOp, removeRefCountOp}, nil
+		}
+		// Check that there are no revisions stored in the backend before allowing deletion.
+		ensureRefCountOp, count, err := s.st.ensureSecretBackendRevisionCountOp(b.ID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if count > 0 {
+			return nil, errors.NotSupportedf("removing backend with %d stored secret revisions", count)
+		}
+		return []txn.Op{deleteOp, ensureRefCountOp}, nil
+	}
+	return errors.Trace(s.st.db().Run(buildTxn))
+}
+
+func secretBackendRefCountKey(backendID string) string {
+	return fmt.Sprintf("secretbackend#revisions#%s", backendID)
+}
+
+func (st *State) ensureSecretBackendRevisionCountOp(backendID string) (txn.Op, int, error) {
+	refCountCollection, ccloser := st.db().GetCollection(globalRefcountsC)
+	defer ccloser()
+
+	return nsRefcounts.CurrentOp(refCountCollection, secretBackendRefCountKey(backendID))
+}
+
+func (st *State) removeBackendRevisionCountOp(backendID string) txn.Op {
+	return nsRefcounts.JustRemoveOp(globalRefcountsC, secretBackendRefCountKey(backendID), -1)
+}
+
+// incBackendRevisionCountOps returns the ops needed to change the secret revision ref count
+// for the specified backend. Used to ensure backends with revisions cannot be deleted without force.
+func (st *State) incBackendRevisionCountOps(backendID string) ([]txn.Op, error) {
+	refCountCollection, ccloser := st.db().GetCollection(globalRefcountsC)
+	defer ccloser()
+
+	key := secretBackendRefCountKey(backendID)
+	countOp, _, err := nsRefcounts.CurrentOp(refCountCollection, key)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	incOp, err := nsRefcounts.CreateOrIncRefOp(refCountCollection, key, 1)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return []txn.Op{countOp, incOp}, nil
 }

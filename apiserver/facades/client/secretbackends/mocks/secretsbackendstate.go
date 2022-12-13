@@ -49,6 +49,20 @@ func (mr *MockSecretsBackendStateMockRecorder) CreateSecretBackend(arg0 interfac
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSecretBackend", reflect.TypeOf((*MockSecretsBackendState)(nil).CreateSecretBackend), arg0)
 }
 
+// DeleteSecretBackend mocks base method.
+func (m *MockSecretsBackendState) DeleteSecretBackend(arg0 string, arg1 bool) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteSecretBackend", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteSecretBackend indicates an expected call of DeleteSecretBackend.
+func (mr *MockSecretsBackendStateMockRecorder) DeleteSecretBackend(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteSecretBackend", reflect.TypeOf((*MockSecretsBackendState)(nil).DeleteSecretBackend), arg0, arg1)
+}
+
 // GetSecretBackendByID mocks base method.
 func (m *MockSecretsBackendState) GetSecretBackendByID(arg0 string) (*secrets.SecretBackend, error) {
 	m.ctrl.T.Helper()

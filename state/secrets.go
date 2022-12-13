@@ -290,6 +290,13 @@ func (s *secretsStore) CreateSecret(uri *secrets.URI, p CreateSecretParams) (*se
 				Insert: *valueDoc,
 			}, isOwnerAliveOp,
 		}...)
+		if valueDoc.ValueRef != nil {
+			refOps, err := s.st.incBackendRevisionCountOps(valueDoc.ValueRef.BackendID)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			ops = append(ops, refOps...)
+		}
 		if p.NextRotateTime != nil {
 			rotateOps, err := s.secretRotationOps(uri, metadataDoc.OwnerTag, p.RotatePolicy, p.NextRotateTime)
 			if err != nil {
@@ -392,6 +399,13 @@ func (s *secretsStore) UpdateSecret(uri *secrets.URI, p UpdateSecretParams) (*se
 				Assert: txn.DocMissing,
 				Insert: *revisionDoc,
 			})
+			if p.ValueRef != nil {
+				refOps, err := s.st.incBackendRevisionCountOps(p.ValueRef.BackendID)
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				ops = append(ops, refOps...)
+			}
 			// Ensure no new consumers are added while update is in progress.
 			countOps, err := s.st.checkConsumerCountOps(uri, 0)
 			if err != nil {
@@ -541,6 +555,7 @@ func (st *State) deleteSecrets(uris []*secrets.URI, revisions ...int) (external 
 		if err != nil {
 			return nil, errors.Annotatef(err, "counting revisions for %s", uri.String())
 		}
+		externalRevisionCounts := make(map[string]int)
 		toDelete := set.NewInts(revisions...)
 		savedRevisions := set.NewInts()
 		for _, r := range savedRevisionDocs {
@@ -553,6 +568,7 @@ func (st *State) deleteSecrets(uris []*secrets.URI, revisions ...int) (external 
 					BackendID:  r.ValueRef.BackendID,
 					RevisionID: r.ValueRef.RevisionID,
 				})
+				externalRevisionCounts[r.ValueRef.BackendID] = externalRevisionCounts[r.ValueRef.BackendID] + 1
 			}
 		}
 		if savedRevisions.Difference(toDelete).Size() > 0 {
@@ -564,7 +580,22 @@ func (st *State) deleteSecrets(uris []*secrets.URI, revisions ...int) (external 
 			_, err = secretRevisionsCollection.Writeable().RemoveAll(bson.D{{
 				"_id", bson.D{{"$regex", fmt.Sprintf("%s/%s", uri.ID, revisionRegexp)}},
 			}})
-			return nil, errors.Annotatef(err, "deleting revisions for %s", uri.String())
+			if err != nil {
+				return nil, errors.Annotatef(err, "deleting revisions for %s", uri.String())
+			}
+			// Decrement the count of secret revisions stored in the external backends.
+			// This allows backends without stored revisions to be removed without using force.
+			globalRefCountsCollection, closer := st.db().GetCollection(globalRefcountsC)
+			defer closer()
+			for backendID, count := range externalRevisionCounts {
+				err = globalRefCountsCollection.Writeable().UpdateId(
+					secretBackendRefCountKey(backendID),
+					bson.D{{"$inc", bson.D{{"refcount", -1 * count}}}})
+				if err != nil {
+					return nil, errors.Annotatef(err, "updating backend refcounts for %s", uri.String())
+				}
+			}
+			return nil, nil
 		}
 	}
 
@@ -615,6 +646,7 @@ func (st *State) deleteOne(uri *secrets.URI) (external []secrets.ValueRef, _ err
 	}
 
 	var savedRevisionDocs []secretRevisionDoc
+	externalRevisionCounts := make(map[string]int)
 	err = secretRevisionsCollection.Find(bson.D{{"_id",
 		bson.D{{"$regex", fmt.Sprintf("%s/.*", uri.ID)}}}}).Select(
 		bson.D{{"revision", 1}, {"value-reference", 1}}).All(&savedRevisionDocs)
@@ -627,6 +659,7 @@ func (st *State) deleteOne(uri *secrets.URI) (external []secrets.ValueRef, _ err
 				BackendID:  r.ValueRef.BackendID,
 				RevisionID: r.ValueRef.RevisionID,
 			})
+			externalRevisionCounts[r.ValueRef.BackendID] = externalRevisionCounts[r.ValueRef.BackendID] + 1
 		}
 	}
 	_, err = secretRevisionsCollection.Writeable().RemoveAll(bson.D{{
@@ -657,6 +690,20 @@ func (st *State) deleteOne(uri *secrets.URI) (external []secrets.ValueRef, _ err
 	if err != nil {
 		return nil, errors.Annotatef(err, "deleting consumer refcounts for %s", uri.String())
 	}
+
+	// Decrement the count of secret revisions stored in the external backends.
+	// This allows backends without stored revisions to be removed without using force.
+	globalRefCountsCollection, closer := st.db().GetCollection(globalRefcountsC)
+	defer closer()
+	for backendID, count := range externalRevisionCounts {
+		err = globalRefCountsCollection.Writeable().UpdateId(
+			secretBackendRefCountKey(backendID),
+			bson.D{{"$inc", bson.D{{"refcount", -1 * count}}}})
+		if err != nil {
+			return nil, errors.Annotatef(err, "updating backend refcounts for %s", uri.String())
+		}
+	}
+
 	if md.Label != "" {
 		owner, _ := names.ParseTag(md.OwnerTag)
 		_, err = refCountsCollection.Writeable().RemoveAll(bson.D{{
