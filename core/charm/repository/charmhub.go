@@ -13,7 +13,6 @@ import (
 	"github.com/juju/charm/v9"
 	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/errors"
-	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
@@ -65,7 +64,7 @@ func NewCharmHubRepository(logger Logger, chClient CharmHubClient) *CharmHubRepo
 // TODO:
 // When charmstore goes, we could potentially rework how the client requests
 // the store.
-func (c *CharmHubRepository) ResolveWithPreferredChannel(charmURL *charm.URL, argOrigin corecharm.Origin, macaroons macaroon.Slice) (*charm.URL, corecharm.Origin, []string, error) {
+func (c *CharmHubRepository) ResolveWithPreferredChannel(charmURL *charm.URL, argOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []string, error) {
 	c.logger.Tracef("Resolving CharmHub charm %q with origin %v", charmURL, argOrigin)
 
 	requestedOrigin, err := c.validateOrigin(argOrigin)
@@ -74,7 +73,7 @@ func (c *CharmHubRepository) ResolveWithPreferredChannel(charmURL *charm.URL, ar
 	}
 
 	// First attempt to find the charm based on the only input provided.
-	res, err := c.refreshOne(charmURL, requestedOrigin, macaroons)
+	res, err := c.refreshOne(charmURL, requestedOrigin)
 	if err != nil {
 		return nil, corecharm.Origin{}, nil, errors.Annotatef(err, "resolving with preferred channel")
 	}
@@ -92,7 +91,7 @@ func (c *CharmHubRepository) ResolveWithPreferredChannel(charmURL *charm.URL, ar
 	)
 	switch {
 	case res.Error != nil:
-		retryResult, err := c.retryResolveWithPreferredChannel(charmURL, requestedOrigin, macaroons, res.Error)
+		retryResult, err := c.retryResolveWithPreferredChannel(charmURL, requestedOrigin, res.Error)
 		if err != nil {
 			return nil, corecharm.Origin{}, nil, errors.Trace(err)
 		}
@@ -244,7 +243,7 @@ type retryResolveResult struct {
 // retryResolveWithPreferredChannel will attempt to inspect the transport
 // APIError and determine if a retry is possible with the information gathered
 // from the error.
-func (c *CharmHubRepository) retryResolveWithPreferredChannel(charmURL *charm.URL, origin corecharm.Origin, macaroons macaroon.Slice, resErr *transport.APIError) (*retryResolveResult, error) {
+func (c *CharmHubRepository) retryResolveWithPreferredChannel(charmURL *charm.URL, origin corecharm.Origin, resErr *transport.APIError) (*retryResolveResult, error) {
 	var (
 		err   error
 		bases []corecharm.Platform
@@ -281,7 +280,7 @@ func (c *CharmHubRepository) retryResolveWithPreferredChannel(charmURL *charm.UR
 	}
 
 	c.logger.Tracef("Refresh again with %q %v", charmURL, origin)
-	res, err := c.refreshOne(charmURL, origin, macaroons)
+	res, err := c.refreshOne(charmURL, origin)
 	if err != nil {
 		return nil, errors.Annotatef(err, "retrying")
 	}
@@ -297,12 +296,12 @@ func (c *CharmHubRepository) retryResolveWithPreferredChannel(charmURL *charm.UR
 
 // DownloadCharm retrieves specified charm from the store and saves its
 // contents to the specified path.
-func (c *CharmHubRepository) DownloadCharm(charmURL *charm.URL, requestedOrigin corecharm.Origin, macaroons macaroon.Slice, archivePath string) (corecharm.CharmArchive, corecharm.Origin, error) {
+func (c *CharmHubRepository) DownloadCharm(charmURL *charm.URL, requestedOrigin corecharm.Origin, archivePath string) (corecharm.CharmArchive, corecharm.Origin, error) {
 	c.logger.Tracef("DownloadCharm %q, origin: %q", charmURL, requestedOrigin)
 
 	// Resolve charm URL to a link to the charm blob and keep track of the
 	// actual resolved origin which may be different from the requested one.
-	resURL, actualOrigin, err := c.GetDownloadURL(charmURL, requestedOrigin, macaroons)
+	resURL, actualOrigin, err := c.GetDownloadURL(charmURL, requestedOrigin)
 	if err != nil {
 		return nil, corecharm.Origin{}, errors.Trace(err)
 	}
@@ -321,10 +320,10 @@ func (c *CharmHubRepository) DownloadCharm(charmURL *charm.URL, requestedOrigin 
 // also returned with the ID and hash for the charm to be downloaded.  If the
 // provided charm origin has no ID, it is assumed that the charm is being
 // installed, not refreshed.
-func (c *CharmHubRepository) GetDownloadURL(charmURL *charm.URL, requestedOrigin corecharm.Origin, macaroons macaroon.Slice) (*url.URL, corecharm.Origin, error) {
+func (c *CharmHubRepository) GetDownloadURL(charmURL *charm.URL, requestedOrigin corecharm.Origin) (*url.URL, corecharm.Origin, error) {
 	c.logger.Tracef("GetDownloadURL %q, origin: %q", charmURL, requestedOrigin)
 
-	refreshRes, err := c.refreshOne(charmURL, requestedOrigin, macaroons)
+	refreshRes, err := c.refreshOne(charmURL, requestedOrigin)
 	if err != nil {
 		return nil, corecharm.Origin{}, errors.Trace(err)
 	}
@@ -349,10 +348,10 @@ func (c *CharmHubRepository) GetDownloadURL(charmURL *charm.URL, requestedOrigin
 }
 
 // ListResources returns the resources for a given charm and origin.
-func (c *CharmHubRepository) ListResources(charmURL *charm.URL, origin corecharm.Origin, macaroons macaroon.Slice) ([]charmresource.Resource, error) {
+func (c *CharmHubRepository) ListResources(charmURL *charm.URL, origin corecharm.Origin) ([]charmresource.Resource, error) {
 	c.logger.Tracef("ListResources %q", charmURL)
 
-	resCurl, resOrigin, _, err := c.ResolveWithPreferredChannel(charmURL, origin, macaroons)
+	resCurl, resOrigin, _, err := c.ResolveWithPreferredChannel(charmURL, origin)
 	if isErrSelection(err) {
 		var channel string
 		if origin.Channel != nil {
@@ -369,7 +368,7 @@ func (c *CharmHubRepository) ListResources(charmURL *charm.URL, origin corecharm
 	// specified.  ListResources is used by the "charm-resources" cli cmd,
 	// therefore specific charm revisions are less important.
 	resOrigin.Revision = nil
-	resp, err := c.refreshOne(resCurl, resOrigin, macaroons)
+	resp, err := c.refreshOne(resCurl, resOrigin)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -389,24 +388,21 @@ func (c *CharmHubRepository) ListResources(charmURL *charm.URL, origin corecharm
 // a slice with the results. The results include the minimum set of metadata
 // that is required for deploying each charm.
 func (c *CharmHubRepository) GetEssentialMetadata(reqs ...corecharm.MetadataRequest) ([]corecharm.EssentialMetadata, error) {
+	// TODO (cderici): This grouping below might not be necessary anymore
+	// since we don't have any macaroons anymore
+
 	// Group reqs in batches based on the provided macaroons
 	var urlToReqIdx = make(map[*charm.URL]int)
 	var reqGroups = make(map[string][]corecharm.MetadataRequest)
 	for reqIdx, req := range reqs {
 		urlToReqIdx[req.CharmURL] = reqIdx
-		if len(req.Macaroons) == 0 {
-			reqGroups[""] = append(reqGroups[""], req)
-			continue
-		}
+		reqGroups[""] = append(reqGroups[""], req)
 
 		// Calculate the concatenated signatures for all specified
 		// macaroons, convert them to a hex string and use that as
 		// the map key; this allows us to group together requests that
 		// reference the same set of macaroons.
 		var macSigs []byte
-		for _, mac := range req.Macaroons {
-			macSigs = append(macSigs, mac.Signature()...)
-		}
 		macSig := hex.EncodeToString(macSigs)
 		reqGroups[macSig] = append(reqGroups[macSig], req)
 	}
@@ -444,7 +440,7 @@ func (c *CharmHubRepository) getEssentialMetadataForBatch(reqs []corecharm.Metad
 	for reqIdx, req := range reqs {
 		// TODO(achilleasa): We should add support for resolving origin
 		// batches and move this outside the loop.
-		_, resolvedOrigin, _, err := c.ResolveWithPreferredChannel(req.CharmURL, req.Origin, req.Macaroons)
+		_, resolvedOrigin, _, err := c.ResolveWithPreferredChannel(req.CharmURL, req.Origin)
 		if err != nil {
 			return nil, errors.Annotatef(err, "resolving origin for %q", req.CharmURL)
 		}
@@ -510,7 +506,7 @@ func (c *CharmHubRepository) getEssentialMetadataForBatch(reqs []corecharm.Metad
 	return metaRes, nil
 }
 
-func (c *CharmHubRepository) refreshOne(charmURL *charm.URL, origin corecharm.Origin, _ macaroon.Slice) (transport.RefreshResponse, error) {
+func (c *CharmHubRepository) refreshOne(charmURL *charm.URL, origin corecharm.Origin) (transport.RefreshResponse, error) {
 	// TODO(achilleasa): pass macaroons to client when charmhub rolls out support for private charms.
 	cfg, err := refreshConfig(charmURL, origin)
 	if err != nil {

@@ -179,16 +179,11 @@ func (a *API) getDownloadInfo(arg params.CharmURLAndOrigin) (params.DownloadInfo
 		return params.DownloadInfoResult{}, apiservererrors.ServerError(err)
 	}
 
-	var macaroons macaroon.Slice
-	if arg.Macaroon != nil {
-		macaroons = append(macaroons, arg.Macaroon)
-	}
-
 	requestedOrigin, err := ConvertParamsOrigin(charmOrigin)
 	if err != nil {
 		return params.DownloadInfoResult{}, apiservererrors.ServerError(err)
 	}
-	url, origin, err := repo.GetDownloadURL(curl, requestedOrigin, macaroons)
+	url, origin, err := repo.GetDownloadURL(curl, requestedOrigin)
 	if err != nil {
 		return params.DownloadInfoResult{}, apiservererrors.ServerError(err)
 	}
@@ -300,16 +295,11 @@ func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.Ch
 		return params.CharmOriginResult{}, errors.Trace(err)
 	}
 
-	var macaroons macaroon.Slice
-	if args.CharmStoreMacaroon != nil {
-		macaroons = append(macaroons, args.CharmStoreMacaroon)
-	}
-
 	requestedOrigin, err := ConvertParamsOrigin(args.Origin)
 	if err != nil {
 		return params.CharmOriginResult{}, apiservererrors.ServerError(err)
 	}
-	actualOrigin, err := downloader.DownloadAndStore(charmURL, requestedOrigin, macaroons, args.Force)
+	actualOrigin, err := downloader.DownloadAndStore(charmURL, requestedOrigin, args.Force)
 	if err != nil {
 		return params.CharmOriginResult{}, errors.Trace(err)
 	}
@@ -338,11 +328,6 @@ func (a *API) queueAsyncCharmDownload(args params.AddCharmWithAuth) (corecharm.O
 		return corecharm.Origin{}, errors.Trace(err)
 	}
 
-	var macaroons macaroon.Slice
-	if args.CharmStoreMacaroon != nil {
-		macaroons = append(macaroons, args.CharmStoreMacaroon)
-	}
-
 	// Check if a charm doc already exists for this charm URL. If so, the
 	// charm has already been queued for download so this is a no-op. We
 	// still need to resolve and return back a suitable origin as charmhub
@@ -353,7 +338,7 @@ func (a *API) queueAsyncCharmDownload(args params.AddCharmWithAuth) (corecharm.O
 	// to ensure that the resolved origin has the ID/Hash fields correctly
 	// populated.
 	if _, err := a.backendState.Charm(charmURL); err == nil {
-		_, resolvedOrigin, err := repo.GetDownloadURL(charmURL, requestedOrigin, macaroons)
+		_, resolvedOrigin, err := repo.GetDownloadURL(charmURL, requestedOrigin)
 		return resolvedOrigin, errors.Trace(err)
 	}
 
@@ -361,9 +346,8 @@ func (a *API) queueAsyncCharmDownload(args params.AddCharmWithAuth) (corecharm.O
 	// without downloading the full archive. The remaining metadata will
 	// be populated once the charm gets downloaded.
 	essentialMeta, err := repo.GetEssentialMetadata(corecharm.MetadataRequest{
-		CharmURL:  charmURL,
-		Origin:    requestedOrigin,
-		Macaroons: macaroons,
+		CharmURL: charmURL,
+		Origin:   requestedOrigin,
 	})
 	if err != nil {
 		return corecharm.Origin{}, errors.Annotatef(err, "retrieving essential metadata for charm %q", charmURL)
@@ -371,9 +355,8 @@ func (a *API) queueAsyncCharmDownload(args params.AddCharmWithAuth) (corecharm.O
 	metaRes := essentialMeta[0]
 
 	_, err = a.backendState.AddCharmMetadata(state.CharmInfo{
-		Charm:    charmInfoAdapter{metaRes},
-		ID:       charmURL,
-		Macaroon: macaroons,
+		Charm: charmInfoAdapter{metaRes},
+		ID:    charmURL,
 	})
 	if err != nil {
 		return corecharm.Origin{}, errors.Trace(err)
@@ -468,7 +451,7 @@ func (a *API) resolveOneCharm(arg params.ResolveCharmWithChannel, mac *macaroon.
 		macaroons = append(macaroons, mac)
 	}
 
-	resultURL, origin, supportedSeries, err := repo.ResolveWithPreferredChannel(curl, requestedOrigin, macaroons)
+	resultURL, origin, supportedSeries, err := repo.ResolveWithPreferredChannel(curl, requestedOrigin)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result
@@ -751,16 +734,11 @@ func (a *API) listOneCharmResources(arg params.CharmURLAndOrigin) ([]params.Char
 		return nil, apiservererrors.ServerError(err)
 	}
 
-	var macaroons macaroon.Slice
-	if arg.Macaroon != nil {
-		macaroons = append(macaroons, arg.Macaroon)
-	}
-
 	requestedOrigin, err := ConvertParamsOrigin(charmOrigin)
 	if err != nil {
 		return nil, apiservererrors.ServerError(err)
 	}
-	resources, err := repo.ListResources(curl, requestedOrigin, macaroons)
+	resources, err := repo.ListResources(curl, requestedOrigin)
 	if err != nil {
 		return nil, apiservererrors.ServerError(err)
 	}

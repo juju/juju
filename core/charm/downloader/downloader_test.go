@@ -16,7 +16,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon.v2"
 
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/charm/downloader"
@@ -130,12 +129,12 @@ func (s *downloaderSuite) TestDownloadAndHash(c *gc.C) {
 	requestedOrigin := corecharm.Origin{Source: corecharm.CharmHub, Channel: mustParseChannel(c, "20.04/edge")}
 	resolvedOrigin := corecharm.Origin{Source: corecharm.CharmHub, Channel: mustParseChannel(c, "20.04/candidate")}
 
-	s.repo.EXPECT().DownloadCharm(curl, requestedOrigin, nil, tmpFile).Return(s.charmArchive, resolvedOrigin, nil)
+	s.repo.EXPECT().DownloadCharm(curl, requestedOrigin, tmpFile).Return(s.charmArchive, resolvedOrigin, nil)
 	s.charmArchive.EXPECT().Version().Return("the-version")
 	s.charmArchive.EXPECT().LXDProfile().Return(nil)
 
 	dl := s.newDownloader()
-	dc, gotOrigin, err := dl.DownloadAndHash(curl, requestedOrigin, nil, repoAdapter{s.repo}, tmpFile)
+	dc, gotOrigin, err := dl.DownloadAndHash(curl, requestedOrigin, repoAdapter{s.repo}, tmpFile)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotOrigin, gc.DeepEquals, resolvedOrigin, gc.Commentf("expected to get back the resolved origin"))
 	c.Assert(dc.SHA256, gc.Equals, "4e97ed7423be2ea12939e8fdd592cfb3dcd4d0097d7d193ef998ab6b4db70461")
@@ -154,10 +153,10 @@ func (s downloaderSuite) TestCharmAlreadyStored(c *gc.C) {
 	)
 	s.repoGetter.EXPECT().GetCharmRepository(corecharm.CharmHub).Return(repoAdapter{s.repo}, nil)
 	retURL, _ := url.Parse(curl.String())
-	s.repo.EXPECT().GetDownloadURL(curl, requestedOrigin, nil).Return(retURL, knownOrigin, nil)
+	s.repo.EXPECT().GetDownloadURL(curl, requestedOrigin).Return(retURL, knownOrigin, nil)
 
 	dl := s.newDownloader()
-	gotOrigin, err := dl.DownloadAndStore(curl, requestedOrigin, nil, false)
+	gotOrigin, err := dl.DownloadAndStore(curl, requestedOrigin, false)
 	c.Assert(gotOrigin, gc.DeepEquals, knownOrigin, gc.Commentf("expected to get back the known origin for the existing charm"))
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -173,7 +172,7 @@ func (s downloaderSuite) TestPrepareToStoreCharmError(c *gc.C) {
 	)
 
 	dl := s.newDownloader()
-	gotOrigin, err := dl.DownloadAndStore(curl, requestedOrigin, nil, false)
+	gotOrigin, err := dl.DownloadAndStore(curl, requestedOrigin, false)
 	c.Assert(gotOrigin, gc.DeepEquals, corecharm.Origin{}, gc.Commentf("expected a blank origin when encountering errors"))
 	c.Assert(err, gc.ErrorMatches, "something went wrong")
 }
@@ -196,10 +195,6 @@ func (s downloaderSuite) TestNormalizePlatform(c *gc.C) {
 
 func (s downloaderSuite) TestDownloadAndStore(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-
-	mac, err := macaroon.New(nil, []byte("id"), "", macaroon.LatestVersion)
-	c.Assert(err, jc.ErrorIsNil)
-	macaroons := macaroon.Slice{mac}
 
 	curl := charm.MustParseURL("ch:ubuntu-lite")
 	requestedOrigin := corecharm.Origin{
@@ -229,14 +224,13 @@ func (s downloaderSuite) TestDownloadAndStore(c *gc.C) {
 			c.Assert(string(contents), gc.DeepEquals, "meshuggah\n", gc.Commentf("read charm contents do not match the data written to disk"))
 			c.Assert(dc.CharmVersion, gc.Equals, "the-version")
 			c.Assert(dc.SHA256, gc.Equals, "4e97ed7423be2ea12939e8fdd592cfb3dcd4d0097d7d193ef998ab6b4db70461")
-			c.Assert(dc.Macaroons, gc.DeepEquals, macaroons)
 
 			return nil
 		},
 	)
 	s.repoGetter.EXPECT().GetCharmRepository(corecharm.CharmHub).Return(repoAdapter{s.repo}, nil)
-	s.repo.EXPECT().DownloadCharm(curl, requestedOriginWithPlatform, macaroons, gomock.Any()).DoAndReturn(
-		func(_ *charm.URL, requestedOrigin corecharm.Origin, _ macaroon.Slice, archivePath string) (downloader.CharmArchive, corecharm.Origin, error) {
+	s.repo.EXPECT().DownloadCharm(curl, requestedOriginWithPlatform, gomock.Any()).DoAndReturn(
+		func(_ *charm.URL, requestedOrigin corecharm.Origin, archivePath string) (downloader.CharmArchive, corecharm.Origin, error) {
 			c.Assert(os.WriteFile(archivePath, []byte("meshuggah\n"), 0644), jc.ErrorIsNil)
 			return s.charmArchive, resolvedOrigin, nil
 		},
@@ -248,7 +242,7 @@ func (s downloaderSuite) TestDownloadAndStore(c *gc.C) {
 	s.charmArchive.EXPECT().LXDProfile().Return(nil)
 
 	dl := s.newDownloader()
-	gotOrigin, err := dl.DownloadAndStore(curl, requestedOrigin, macaroons, false)
+	gotOrigin, err := dl.DownloadAndStore(curl, requestedOrigin, false)
 	c.Assert(gotOrigin, gc.DeepEquals, resolvedOrigin, gc.Commentf("expected to get back the resolved origin"))
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -285,14 +279,14 @@ type repoAdapter struct {
 	repo *mocks.MockCharmRepository
 }
 
-func (r repoAdapter) DownloadCharm(charmURL *charm.URL, requestedOrigin corecharm.Origin, macaroons macaroon.Slice, archivePath string) (corecharm.CharmArchive, corecharm.Origin, error) {
-	return r.repo.DownloadCharm(charmURL, requestedOrigin, macaroons, archivePath)
+func (r repoAdapter) DownloadCharm(charmURL *charm.URL, requestedOrigin corecharm.Origin, archivePath string) (corecharm.CharmArchive, corecharm.Origin, error) {
+	return r.repo.DownloadCharm(charmURL, requestedOrigin, archivePath)
 }
 
-func (r repoAdapter) ResolveWithPreferredChannel(charmURL *charm.URL, requestedOrigin corecharm.Origin, macaroons macaroon.Slice) (*charm.URL, corecharm.Origin, []string, error) {
-	return r.repo.ResolveWithPreferredChannel(charmURL, requestedOrigin, macaroons)
+func (r repoAdapter) ResolveWithPreferredChannel(charmURL *charm.URL, requestedOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []string, error) {
+	return r.repo.ResolveWithPreferredChannel(charmURL, requestedOrigin)
 }
 
-func (r repoAdapter) GetDownloadURL(charmURL *charm.URL, requestedOrigin corecharm.Origin, macaroons macaroon.Slice) (*url.URL, corecharm.Origin, error) {
-	return r.repo.GetDownloadURL(charmURL, requestedOrigin, macaroons)
+func (r repoAdapter) GetDownloadURL(charmURL *charm.URL, requestedOrigin corecharm.Origin) (*url.URL, corecharm.Origin, error) {
+	return r.repo.GetDownloadURL(charmURL, requestedOrigin)
 }
