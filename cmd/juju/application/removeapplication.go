@@ -81,11 +81,10 @@ Examples:
     juju remove-application -m test-model mariadb`[1:]
 
 var removeApplicationMsgNoDryRun = `
-WARNING! This command will remove application(s) %q
-Your controller does not support a more in depth dry run
-`[1:]
+This command will remove application(s) %q
+Your controller does not support dry runs`[1:]
 
-var removeApplicationMsgPrefix = "WARNING! This command:\n"
+var removeApplicationMsgPrefix = "This command will perform the following actions:"
 
 var errDryRunNotSupportedByController = errors.New("Your controller does not support `--dry-run`")
 
@@ -186,9 +185,9 @@ func (c *removeApplicationCommand) removeApplications(
 	if !c.NoPrompt {
 		err := c.performDryRun(ctx, client)
 		if err == errDryRunNotSupportedByController {
-			_, _ = fmt.Fprintf(ctx.Stderr, removeApplicationMsgNoDryRun, strings.Join(c.ApplicationNames, ", "))
+			ctx.Warningf(removeApplicationMsgNoDryRun, strings.Join(c.ApplicationNames, ", "))
 		} else if err != nil {
-			return errors.Trace(err)
+			return err
 		}
 		if err := jujucmd.UserConfirmYes(ctx); err != nil {
 			return errors.Annotate(err, "application removal")
@@ -206,7 +205,11 @@ func (c *removeApplicationCommand) removeApplications(
 		return errors.Trace(err)
 	}
 	logAll := c.NoPrompt || client.BestAPIVersion() < 16
-	return c.logResults(ctx, results, !logAll)
+	if logAll {
+		return c.logResults(ctx, results)
+	} else {
+		return c.logErrors(ctx, results)
+	}
 }
 
 func (c *removeApplicationCommand) performDryRun(
@@ -225,14 +228,23 @@ func (c *removeApplicationCommand) performDryRun(
 	if err := block.ProcessBlockedError(err, block.BlockRemove); err != nil {
 		return errors.Trace(err)
 	}
-	_, _ = fmt.Fprintf(ctx.Stderr, removeApplicationMsgPrefix)
-	if err := c.logResults(ctx, results, false); err != nil {
-		return errors.Trace(err)
+	if err := c.logErrors(ctx, results); err != nil {
+		return err
 	}
+	ctx.Warningf(removeApplicationMsgPrefix)
+	_ = c.logResults(ctx, results)
 	return nil
 }
 
-func (c *removeApplicationCommand) logResults(
+func (c *removeApplicationCommand) logErrors(ctx *cmd.Context, results []params.DestroyApplicationResult) error {
+	return c.log(ctx, results, true)
+}
+
+func (c *removeApplicationCommand) logResults(ctx *cmd.Context, results []params.DestroyApplicationResult) error {
+	return c.log(ctx, results, false)
+}
+
+func (c *removeApplicationCommand) log(
 	ctx *cmd.Context,
 	results []params.DestroyApplicationResult,
 	errorsOnly bool,
@@ -262,7 +274,7 @@ func (c *removeApplicationCommand) logResult(
 			err = errors.New("another user was updating application; please try again")
 		}
 		err = errors.Annotatef(err, "removing application %s failed", name)
-		_, _ = fmt.Fprintf(ctx.Stderr, "%s\n", err)
+		cmd.WriteError(ctx.Stderr, err)
 		return errors.Trace(err)
 	}
 	if !errorsOnly {
@@ -280,7 +292,7 @@ func (c *removeApplicationCommand) logRemovedApplication(
 	for _, entity := range info.DestroyedUnits {
 		unitTag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
-			logger.Warningf("%s", err)
+			ctx.Warningf("%s", err)
 			continue
 		}
 		_, _ = fmt.Fprintf(ctx.Stdout, "- will remove %s\n", names.ReadableString(unitTag))
@@ -288,7 +300,7 @@ func (c *removeApplicationCommand) logRemovedApplication(
 	for _, entity := range info.DestroyedStorage {
 		storageTag, err := names.ParseStorageTag(entity.Tag)
 		if err != nil {
-			logger.Warningf("%s", err)
+			ctx.Warningf("%s", err)
 			continue
 		}
 		_, _ = fmt.Fprintf(ctx.Stdout, "- will remove %s\n", names.ReadableString(storageTag))
@@ -296,7 +308,7 @@ func (c *removeApplicationCommand) logRemovedApplication(
 	for _, entity := range info.DetachedStorage {
 		storageTag, err := names.ParseStorageTag(entity.Tag)
 		if err != nil {
-			logger.Warningf("%s", err)
+			ctx.Warningf("%s", err)
 			continue
 		}
 		_, _ = fmt.Fprintf(ctx.Stdout, "- will detach %s\n", names.ReadableString(storageTag))

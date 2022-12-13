@@ -229,7 +229,7 @@ func (s *RemoveMachineSuite) TestRemoveOutput(c *gc.C) {
 	stderr := cmdtesting.Stderr(ctx)
 	stdout := cmdtesting.Stdout(ctx)
 	c.Assert(stderr, gc.Equals, `
-removing machine failed: oy vey machine 1
+ERROR removing machine failed: oy vey machine 1
 `[1:])
 	c.Assert(stdout, gc.Equals, `
 will remove machine 2/lxd/1
@@ -323,11 +323,7 @@ func (s *RemoveMachineSuite) TestRemoveOutputDryRun(c *gc.C) {
 
 	ctx, err := s.run(c, "--dry-run", "1", "2")
 	c.Assert(err, jc.ErrorIsNil)
-	stderr := cmdtesting.Stderr(ctx)
 	stdout := cmdtesting.Stdout(ctx)
-	c.Assert(stderr, gc.Equals, `
-WARNING! This command:
-`[1:])
 	c.Assert(stdout, gc.Equals, `
 will remove machine 1
 will remove machine 2

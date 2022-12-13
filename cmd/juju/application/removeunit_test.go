@@ -88,7 +88,7 @@ will remove unit unit/1
 - will detach storage data/1
 `[1:])
 	c.Assert(stderr, gc.Equals, `
-removing unit unit/2 failed: doink
+ERROR removing unit unit/2 failed: doink
 `[1:])
 }
 
@@ -118,7 +118,7 @@ will remove unit unit/1
 - will remove storage data/1
 `[1:])
 	c.Assert(stderr, gc.Equals, `
-removing unit unit/2 failed: doink
+ERROR removing unit unit/2 failed: doink
 `[1:])
 }
 
@@ -155,10 +155,6 @@ func (s *RemoveUnitSuite) TestRemoveUnitDryRun(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	stdout := cmdtesting.Stdout(ctx)
-	stderr := cmdtesting.Stderr(ctx)
-	c.Assert(stderr, gc.Equals, `
-WARNING! This command:
-`[1:])
 	c.Assert(stdout, gc.Equals, `
 will remove unit unit/0
 - will detach storage data/0
@@ -206,9 +202,6 @@ func (s *RemoveUnitSuite) TestRemoveUnitWithPrompt(c *gc.C) {
 		c.Fatal("command took too long")
 	}
 
-	c.Assert(cmdtesting.Stderr(ctx), gc.Matches, `
-(?s)WARNING! This command:
-.*`[1:])
 	c.Assert(cmdtesting.Stdout(ctx), gc.Matches, `
 (?s)will remove unit unit/0
 .*`[1:])
@@ -240,7 +233,7 @@ func (s *RemoveUnitSuite) TestRemoveUnitWithPromptOldFacade(c *gc.C) {
 		c.Fatal("command took too long")
 	}
 
-	c.Assert(cmdtesting.Stderr(ctx), gc.Matches, `(?s).*Your controller does not support a more in depth dry run.*`)
+	c.Assert(c.GetTestLog(), gc.Matches, `(?s).*Your controller does not support dry runs.*`)
 }
 
 func (s *RemoveUnitSuite) setCaasModel() {

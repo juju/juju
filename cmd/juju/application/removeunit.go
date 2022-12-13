@@ -103,9 +103,8 @@ See also:
 `
 
 var removeUnitMsgNoDryRun = `
-WARNING! This command will remove unit(s) %q
-Your controller does not support a more in depth dry run
-`[1:]
+This command will remove unit(s) %q
+Your controller does not support dry runs`[1:]
 
 var removeUnitMsgPrefix = "This command will perform the following actions:"
 
@@ -267,9 +266,9 @@ func (c *removeUnitCommand) removeUnits(ctx *cmd.Context, client RemoveApplicati
 	if !c.NoPrompt {
 		err := c.performDryRun(ctx, client)
 		if err == errDryRunNotSupportedByController {
-			_, _ = fmt.Fprintf(ctx.Stderr, removeUnitMsgNoDryRun, strings.Join(c.EntityNames, ", "))
+			ctx.Warningf(removeUnitMsgNoDryRun, strings.Join(c.EntityNames, ", "))
 		} else if err != nil {
-			return errors.Trace(err)
+			return err
 		}
 		if err := jujucmd.UserConfirmYes(ctx); err != nil {
 			return errors.Annotate(err, "unit removal")
@@ -287,7 +286,11 @@ func (c *removeUnitCommand) removeUnits(ctx *cmd.Context, client RemoveApplicati
 		return block.ProcessBlockedError(err, block.BlockRemove)
 	}
 	logAll := c.NoPrompt || client.BestAPIVersion() < 16
-	return c.logResults(ctx, results, !logAll)
+	if logAll {
+		return c.logResults(ctx, results)
+	} else {
+		return c.logErrors(ctx, results)
+	}
 }
 
 func (c *removeUnitCommand) performDryRun(ctx *cmd.Context, client RemoveApplicationAPI) error {
@@ -303,14 +306,23 @@ func (c *removeUnitCommand) performDryRun(ctx *cmd.Context, client RemoveApplica
 	if err != nil {
 		return block.ProcessBlockedError(err, block.BlockRemove)
 	}
-	_, _ = fmt.Fprintf(ctx.Stderr, removeUnitMsgPrefix)
-	if err := c.logResults(ctx, results, false); err != nil {
-		return errors.Trace(err)
+	if err := c.logErrors(ctx, results); err != nil {
+		return err
 	}
+	ctx.Warningf(removeUnitMsgPrefix)
+	_ = c.logResults(ctx, results)
 	return nil
 }
 
-func (c *removeUnitCommand) logResults(
+func (c *removeUnitCommand) logErrors(ctx *cmd.Context, results []params.DestroyUnitResult) error {
+	return c.log(ctx, results, true)
+}
+
+func (c *removeUnitCommand) logResults(ctx *cmd.Context, results []params.DestroyUnitResult) error {
+	return c.log(ctx, results, false)
+}
+
+func (c *removeUnitCommand) log(
 	ctx *cmd.Context,
 	results []params.DestroyUnitResult,
 	errorOnly bool,
@@ -336,7 +348,7 @@ func (c *removeUnitCommand) logResult(
 ) error {
 	if result.Error != nil {
 		err := errors.Annotatef(result.Error, "removing unit %s failed", name)
-		_, _ = fmt.Fprintf(ctx.Stderr, "%s\n", err)
+		cmd.WriteError(ctx.Stderr, err)
 		return errors.Trace(err)
 	}
 	if !errorOnly {
@@ -350,7 +362,7 @@ func (c *removeUnitCommand) logRemovedUnit(ctx *cmd.Context, name string, info *
 	for _, entity := range info.DestroyedStorage {
 		storageTag, err := names.ParseStorageTag(entity.Tag)
 		if err != nil {
-			logger.Warningf("%s", err)
+			ctx.Warningf("%s", err)
 			continue
 		}
 		_, _ = fmt.Fprintf(ctx.Stdout, "- will remove %s\n", names.ReadableString(storageTag))
@@ -358,7 +370,7 @@ func (c *removeUnitCommand) logRemovedUnit(ctx *cmd.Context, name string, info *
 	for _, entity := range info.DetachedStorage {
 		storageTag, err := names.ParseStorageTag(entity.Tag)
 		if err != nil {
-			logger.Warningf("%s", err)
+			ctx.Warningf("%s", err)
 			continue
 		}
 		_, _ = fmt.Fprintf(ctx.Stdout, "- will detach %s\n", names.ReadableString(storageTag))
