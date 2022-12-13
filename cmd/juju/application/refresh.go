@@ -78,7 +78,7 @@ func newRefreshCommand() *refreshCommand {
 			bakeryClient *httpbakery.Client,
 			csURL string,
 			channel csparams.Channel,
-		) (store.MacaroonGetter, store.CharmrepoForDeploy) {
+		) store.CharmrepoForDeploy {
 			return getCharmStore(bakeryClient, csURL, channel)
 		},
 		NewCharmResolver: func(apiRoot base.APICallCloser, charmrepo store.CharmrepoForDeploy, downloadClient store.DownloadBundleClient) CharmResolver {
@@ -125,7 +125,7 @@ type NewCharmStoreFunc func(
 	*httpbakery.Client,
 	string, // Charmstore API URL
 	csparams.Channel,
-) (store.MacaroonGetter, store.CharmrepoForDeploy)
+) store.CharmrepoForDeploy
 
 // NewCharmResolverFunc returns a client implementing CharmResolver.
 type NewCharmResolverFunc func(base.APICallCloser, store.CharmrepoForDeploy, store.DownloadBundleClient) CharmResolver
@@ -607,9 +607,9 @@ func getCharmStore(
 	bakeryClient *httpbakery.Client,
 	csURL string,
 	channel csparams.Channel,
-) (store.MacaroonGetter, store.CharmrepoForDeploy) {
+) store.CharmrepoForDeploy {
 	csClient := store.NewCharmStoreClient(bakeryClient, csURL).WithChannel(channel)
-	return csClient, charmrepo.NewCharmStoreFromClient(csClient)
+	return charmrepo.NewCharmStoreFromClient(csClient)
 }
 
 // getCharmStoreAPIURL consults the controller config for the charmstore api url
@@ -655,7 +655,7 @@ func (c *refreshCommand) getRefresherFactory(apiRoot api.Connection) (refresher.
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	csClient, charmStore := c.NewCharmStore(bakeryClient, csURL, csparams.Channel(c.Channel.Risk))
+	charmStore := c.NewCharmStore(bakeryClient, csURL, csparams.Channel(c.Channel.Risk))
 
 	charmHubURL, err := c.getCharmHubURL(apiRoot)
 	if err != nil {
@@ -668,7 +668,6 @@ func (c *refreshCommand) getRefresherFactory(apiRoot api.Connection) (refresher.
 	}
 
 	deps := refresher.RefresherDependencies{
-		Authorizer:    csClient,
 		CharmAdder:    c.NewCharmAdder(apiRoot),
 		CharmResolver: c.NewCharmResolver(apiRoot, charmStore, downloadClient),
 	}

@@ -189,9 +189,9 @@ func (s *BaseRefreshSuite) refreshCommand() cmd.Command {
 			bakeryClient *httpbakery.Client,
 			csURL string,
 			channel csclientparams.Channel,
-		) (store.MacaroonGetter, store.CharmrepoForDeploy) {
+		) store.CharmrepoForDeploy {
 			s.AddCall("NewCharmStore", csURL)
-			return s.fakeAPI, &fakeCharmStoreAPI{
+			return &fakeCharmStoreAPI{
 				fakeDeployAPI: s.fakeAPI,
 			}
 		},
@@ -400,8 +400,8 @@ func (s *RefreshErrorsStateSuite) SetUpTest(c *gc.C) {
 			bakeryClient *httpbakery.Client,
 			csURL string,
 			channel csclientparams.Channel,
-		) (store.MacaroonGetter, store.CharmrepoForDeploy) {
-			return s.fakeAPI, &fakeCharmStoreAPI{
+		) store.CharmrepoForDeploy {
+			return &fakeCharmStoreAPI{
 				fakeDeployAPI: s.fakeAPI,
 			}
 		},
@@ -540,8 +540,8 @@ func (s *RefreshSuccessStateSuite) SetUpTest(c *gc.C) {
 			bakeryClient *httpbakery.Client,
 			csURL string,
 			channel csclientparams.Channel,
-		) (store.MacaroonGetter, store.CharmrepoForDeploy) {
-			return s.fakeAPI, &fakeCharmStoreAPI{
+		) store.CharmrepoForDeploy {
+			return &fakeCharmStoreAPI{
 				fakeDeployAPI: s.fakeAPI,
 			}
 		},

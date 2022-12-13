@@ -66,7 +66,7 @@ func NewRefresherFactory(deps RefresherDependencies) RefresherFactory {
 	}
 	d.refreshers = []RefresherFn{
 		d.maybeReadLocal(deps.CharmAdder, defaultCharmRepo{}),
-		d.maybeCharmStore(deps.Authorizer, deps.CharmAdder, deps.CharmResolver),
+		d.maybeCharmStore(deps.CharmAdder, deps.CharmResolver),
 		d.maybeCharmHub(deps.CharmAdder, deps.CharmResolver),
 	}
 	return d
@@ -122,7 +122,7 @@ func (d *factory) maybeReadLocal(charmAdder store.CharmAdder, charmRepo CharmRep
 	}
 }
 
-func (d *factory) maybeCharmStore(authorizer store.MacaroonGetter, charmAdder store.CharmAdder, charmResolver CharmResolver) func(RefresherConfig) (Refresher, error) {
+func (d *factory) maybeCharmStore(charmAdder store.CharmAdder, charmResolver CharmResolver) func(RefresherConfig) (Refresher, error) {
 	return func(cfg RefresherConfig) (Refresher, error) {
 		return &charmStoreRefresher{
 			baseRefresher: baseRefresher{
@@ -139,7 +139,6 @@ func (d *factory) maybeCharmStore(authorizer store.MacaroonGetter, charmAdder st
 				forceBase:       cfg.ForceBase,
 				logger:          cfg.Logger,
 			},
-			authorizer: authorizer,
 		}, nil
 	}
 }
