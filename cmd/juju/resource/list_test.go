@@ -187,8 +187,8 @@ func (s *ShowApplicationSuite) TestRun(c *gc.C) {
 
 	c.Check(stdout, gc.Equals, `
 Resource  Supplied by  Revision
-openjdk   charmstore   7
-rsc1234   charmstore   15
+openjdk   store        7
+rsc1234   store        15
 website   upload       -
 website2  Bill User    2012-12-12T12:12
 

@@ -173,9 +173,6 @@ func combinedOrigin(used bool, r resources.Resource) string {
 	if r.Origin == charmresource.OriginUpload && used && r.Username != "" {
 		return r.Username
 	}
-	if r.Origin == charmresource.OriginStore {
-		return "charmstore"
-	}
 	return r.Origin.String()
 }
 

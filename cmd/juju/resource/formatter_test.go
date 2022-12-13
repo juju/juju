@@ -87,7 +87,7 @@ func (s *SvcFormatterSuite) TestFormatSvcResource(c *gc.C) {
 		Username:         r.Username,
 		CombinedRevision: "5",
 		UsedYesNo:        "yes",
-		CombinedOrigin:   "charmstore",
+		CombinedOrigin:   "store",
 	})
 }
 

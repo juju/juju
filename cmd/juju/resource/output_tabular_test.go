@@ -124,7 +124,7 @@ func (s *AppTabularSuite) TestFormatApplicationOkay(c *gc.C) {
 	data := s.formatTabular(c, formatted)
 	c.Check(data, gc.Equals, `
 Resource  Supplied by  Revision
-openjdk   charmstore   7
+openjdk   store        7
 `[1:])
 }
 
@@ -251,8 +251,8 @@ func (s *AppTabularSuite) TestFormatSvcTabularMulti(c *gc.C) {
 	// Notes: sorted by name, then by revision, newest first.
 	c.Check(data, gc.Equals, `
 Resource  Supplied by  Revision
-openjdk   charmstore   7
-openjdk2  charmstore   8
+openjdk   store        7
+openjdk2  store        8
 website   upload       -
 website2  Bill User    2012-12-12T12:12
 
