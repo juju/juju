@@ -12,6 +12,7 @@ import (
 	"github.com/juju/description/v4"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
+	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 
 	appFacade "github.com/juju/juju/apiserver/facades/client/application"
@@ -155,7 +156,9 @@ func (s *bundleSuite) TestGetChangesSuccessV2(c *gc.C) {
                     devices:
                         bitcoinminer: 2,nvidia.com/gpu
                 haproxy:
-                    charm: cs:haproxy-42
+                    charm: haproxy
+                    revision: 42
+                    channel: stable
                     series: jammy
             relations:
                 - - django:web
@@ -164,7 +167,7 @@ func (s *bundleSuite) TestGetChangesSuccessV2(c *gc.C) {
 	}
 	r, err := s.facade.GetChanges(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r.Changes, jc.DeepEquals, []*params.BundleChange{{
+	c.Check(r.Changes, jc.DeepEquals, []*params.BundleChange{{
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Args:   []interface{}{"django", "", ""},
@@ -188,7 +191,7 @@ func (s *bundleSuite) TestGetChangesSuccessV2(c *gc.C) {
 	}, {
 		Id:     "addCharm-2",
 		Method: "addCharm",
-		Args:   []interface{}{"cs:haproxy-42", "jammy", ""},
+		Args:   []interface{}{"haproxy", "jammy", "stable"},
 	}, {
 		Id:     "deploy-3",
 		Method: "deploy",
@@ -203,7 +206,7 @@ func (s *bundleSuite) TestGetChangesSuccessV2(c *gc.C) {
 			map[string]string{},
 			map[string]int{},
 			0,
-			"",
+			"stable",
 		},
 		Requires: []string{"addCharm-2"},
 	}, {
@@ -211,7 +214,7 @@ func (s *bundleSuite) TestGetChangesSuccessV2(c *gc.C) {
 		Method:   "addRelation",
 		Args:     []interface{}{"$deploy-1:web", "$deploy-3:web"},
 		Requires: []string{"deploy-1", "deploy-3"},
-	}})
+	}}, gc.Commentf("\nobtained: %s\n", pretty.Sprint(r.Changes)))
 	c.Assert(r.Errors, gc.IsNil)
 }
 
@@ -283,7 +286,9 @@ func (s *bundleSuite) TestGetChangesKubernetes(c *gc.C) {
                     devices:
                         bitcoinminer: 2,nvidia.com/gpu
                 haproxy:
-                    charm: cs:haproxy-42
+                    charm: ch:haproxy
+                    revision: 42
+                    channel: stable
             relations:
                 - - django:web
                   - haproxy:web
@@ -291,7 +296,7 @@ func (s *bundleSuite) TestGetChangesKubernetes(c *gc.C) {
 	}
 	r, err := s.facade.GetChanges(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r.Changes, jc.DeepEquals, []*params.BundleChange{{
+	c.Check(r.Changes, jc.DeepEquals, []*params.BundleChange{{
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Args:   []interface{}{"django", "", ""},
@@ -315,7 +320,7 @@ func (s *bundleSuite) TestGetChangesKubernetes(c *gc.C) {
 	}, {
 		Id:     "addCharm-2",
 		Method: "addCharm",
-		Args:   []interface{}{"cs:haproxy-42", "", ""},
+		Args:   []interface{}{"ch:haproxy", "", "stable"},
 	}, {
 		Id:     "deploy-3",
 		Method: "deploy",
@@ -330,7 +335,7 @@ func (s *bundleSuite) TestGetChangesKubernetes(c *gc.C) {
 			map[string]string{},
 			map[string]int{},
 			0,
-			"",
+			"stable",
 		},
 		Requires: []string{"addCharm-2"},
 	}, {
@@ -338,7 +343,7 @@ func (s *bundleSuite) TestGetChangesKubernetes(c *gc.C) {
 		Method:   "addRelation",
 		Args:     []interface{}{"$deploy-1:web", "$deploy-3:web"},
 		Requires: []string{"deploy-1", "deploy-3"},
-	}})
+	}}, gc.Commentf("\nobtained: %s\n", pretty.Sprint(r.Changes)))
 	c.Assert(r.Errors, gc.IsNil)
 }
 
@@ -481,7 +486,9 @@ func (s *bundleSuite) TestGetChangesMapArgsSuccess(c *gc.C) {
                     devices:
                         bitcoinminer: 2,nvidia.com/gpu
                 haproxy:
-                    charm: cs:haproxy-42
+                    charm: ch:haproxy
+                    revision: 42
+                    channel: stable
                     series: jammy
             relations:
                 - - django:web
@@ -490,7 +497,7 @@ func (s *bundleSuite) TestGetChangesMapArgsSuccess(c *gc.C) {
 	}
 	r, err := s.facade.GetChangesMapArgs(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r.Changes, jc.DeepEquals, []*params.BundleChangesMapArgs{{
+	c.Check(r.Changes, jc.DeepEquals, []*params.BundleChangesMapArgs{{
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Args: map[string]interface{}{
@@ -517,13 +524,16 @@ func (s *bundleSuite) TestGetChangesMapArgsSuccess(c *gc.C) {
 		Id:     "addCharm-2",
 		Method: "addCharm",
 		Args: map[string]interface{}{
-			"charm":  "cs:haproxy-42",
-			"series": "jammy",
+			"channel":  "stable",
+			"charm":    "ch:haproxy",
+			"revision": float64(42),
+			"series":   "jammy",
 		},
 	}, {
 		Id:     "deploy-3",
 		Method: "deploy",
 		Args: map[string]interface{}{
+			"channel":     "stable",
 			"application": "haproxy",
 			"charm":       "$addCharm-2",
 			"series":      "jammy",
@@ -537,7 +547,7 @@ func (s *bundleSuite) TestGetChangesMapArgsSuccess(c *gc.C) {
 			"endpoint2": "$deploy-3:web",
 		},
 		Requires: []string{"deploy-1", "deploy-3"},
-	}})
+	}}, gc.Commentf("\nobtained: %s\n", pretty.Sprint(r.Changes)))
 	c.Assert(r.Errors, gc.IsNil)
 }
 
@@ -553,7 +563,7 @@ func (s *bundleSuite) TestGetChangesMapArgsSuccessCharmHubRevision(c *gc.C) {
 	}
 	r, err := s.facade.GetChangesMapArgs(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r.Changes, jc.DeepEquals, []*params.BundleChangesMapArgs{{
+	c.Check(r.Changes, jc.DeepEquals, []*params.BundleChangesMapArgs{{
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Args: map[string]interface{}{
@@ -589,7 +599,9 @@ func (s *bundleSuite) TestGetChangesMapArgsKubernetes(c *gc.C) {
                     devices:
                         bitcoinminer: 2,nvidia.com/gpu
                 haproxy:
-                    charm: cs:haproxy-42
+                    charm: ch:haproxy
+                    revision: 42
+                    channel: stable
             relations:
                 - - django:web
                   - haproxy:web
@@ -597,7 +609,7 @@ func (s *bundleSuite) TestGetChangesMapArgsKubernetes(c *gc.C) {
 	}
 	r, err := s.facade.GetChangesMapArgs(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r.Changes, jc.DeepEquals, []*params.BundleChangesMapArgs{{
+	c.Check(r.Changes, jc.DeepEquals, []*params.BundleChangesMapArgs{{
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Args: map[string]interface{}{
@@ -625,12 +637,15 @@ func (s *bundleSuite) TestGetChangesMapArgsKubernetes(c *gc.C) {
 		Id:     "addCharm-2",
 		Method: "addCharm",
 		Args: map[string]interface{}{
-			"charm": "cs:haproxy-42",
+			"channel":  "stable",
+			"charm":    "ch:haproxy",
+			"revision": float64(42),
 		},
 	}, {
 		Id:     "deploy-3",
 		Method: "deploy",
 		Args: map[string]interface{}{
+			"channel":     "stable",
 			"application": "haproxy",
 			"charm":       "$addCharm-2",
 		},
@@ -643,7 +658,7 @@ func (s *bundleSuite) TestGetChangesMapArgsKubernetes(c *gc.C) {
 			"endpoint2": "$deploy-3:web",
 		},
 		Requires: []string{"deploy-1", "deploy-3"},
-	}})
+	}}, gc.Commentf("\nobtained: %s\n", pretty.Sprint(r.Changes)))
 	c.Assert(r.Errors, gc.IsNil)
 }
 
@@ -1313,7 +1328,7 @@ func (s *bundleSuite) addApplicationToModel(model description.Model, name string
 		curl := charm.MustParseURL(name)
 		name = curl.Name
 	} else {
-		charmURL = "cs:" + name
+		charmURL = "ch:" + name
 	}
 	application := model.AddApplication(description.ApplicationArgs{
 		Tag:                names.NewApplicationTag(name),
@@ -1395,12 +1410,12 @@ func (s *bundleSuite) TestExportBundleModelWithSettingsRelations(c *gc.C) {
 series: focal
 applications:
   mysql:
-    charm: cs:mysql
+    charm: mysql
     num_units: 1
     to:
     - "0"
   wordpress:
-    charm: cs:wordpress
+    charm: wordpress
     num_units: 2
     to:
     - "0"
@@ -1443,14 +1458,14 @@ applications:
       foo: baz
       mem: 200
   mysql:
-    charm: cs:mysql
+    charm: mysql
     num_units: 1
     to:
     - "0"
     options:
       foo: bar
   wordpress:
-    charm: cs:wordpress
+    charm: wordpress
     num_units: 2
     to:
     - "0"
@@ -1514,12 +1529,12 @@ func (s *bundleSuite) TestExportBundleModelRelationsWithSubordinates(c *gc.C) {
 series: focal
 applications:
   mysql:
-    charm: cs:mysql
+    charm: mysql
     num_units: 1
     to:
     - "0"
   wordpress:
-    charm: cs:wordpress
+    charm: wordpress
     num_units: 2
     to:
     - "0"
@@ -1553,7 +1568,7 @@ func (s *bundleSuite) TestExportBundleSubordinateApplication(c *gc.C) {
 	application := s.st.model.AddApplication(description.ApplicationArgs{
 		Tag:                  names.NewApplicationTag("magic"),
 		Subordinate:          true,
-		CharmURL:             "cs:magic",
+		CharmURL:             "ch:magic",
 		Channel:              "stable",
 		CharmModifiedVersion: 1,
 		ForceCharm:           true,
@@ -1586,7 +1601,7 @@ func (s *bundleSuite) TestExportBundleSubordinateApplication(c *gc.C) {
 series: bionic
 applications:
   magic:
-    charm: cs:magic
+    charm: magic
     channel: stable
     expose: true
     options:
@@ -1619,7 +1634,7 @@ func (s *bundleSuite) setupExportBundleEndpointBindingsPrinted(all, oneOff strin
 	app = s.st.model.AddApplication(description.ApplicationArgs{
 		Tag:                  names.NewApplicationTag("magic"),
 		Subordinate:          true,
-		CharmURL:             "cs:magic",
+		CharmURL:             "ch:magic",
 		Channel:              "stable",
 		CharmModifiedVersion: 1,
 		ForceCharm:           true,
@@ -1643,7 +1658,7 @@ func (s *bundleSuite) TestExportBundleNoEndpointBindingsPrinted(c *gc.C) {
 	expectedResult := params.StringResult{Result: `
 applications:
   magic:
-    charm: cs:magic
+    charm: magic
     channel: stable
     series: bionic
     expose: true
@@ -1665,7 +1680,7 @@ func (s *bundleSuite) TestExportBundleEndpointBindingsPrinted(c *gc.C) {
 	expectedResult := params.StringResult{Result: `
 applications:
   magic:
-    charm: cs:magic
+    charm: magic
     channel: stable
     series: bionic
     expose: true
@@ -1696,7 +1711,7 @@ func (s *bundleSuite) TestExportBundleSubordinateApplicationAndMachine(c *gc.C) 
 	application := s.st.model.AddApplication(description.ApplicationArgs{
 		Tag:         names.NewApplicationTag("magic"),
 		Subordinate: true,
-		CharmURL:    "cs:zesty/magic",
+		CharmURL:    "ch:amd64/zesty/magic",
 		Channel:     "stable",
 		Exposed:     true,
 		CharmConfig: map[string]interface{}{
@@ -1715,7 +1730,7 @@ func (s *bundleSuite) TestExportBundleSubordinateApplicationAndMachine(c *gc.C) 
 series: zesty
 applications:
   magic:
-    charm: cs:zesty/magic
+    charm: magic
     channel: stable
     expose: true
     options:
@@ -1766,13 +1781,13 @@ func (s *bundleSuite) TestExportBundleModelWithConstraints(c *gc.C) {
 series: focal
 applications:
   mediawiki:
-    charm: cs:mediawiki
+    charm: mediawiki
     num_units: 2
     to:
     - "0"
     - "1"
   mysql:
-    charm: cs:mysql
+    charm: mysql
     num_units: 1
     to:
     - "0"
@@ -1822,12 +1837,12 @@ func (s *bundleSuite) TestExportBundleModelWithAnnotations(c *gc.C) {
 series: focal
 applications:
   mysql:
-    charm: cs:mysql
+    charm: mysql
     num_units: 1
     to:
     - "0"
   wordpress:
-    charm: cs:wordpress
+    charm: wordpress
     num_units: 2
     to:
     - "0"
@@ -1860,7 +1875,7 @@ func (s *bundleSuite) TestExportBundleWithContainers(c *gc.C) {
 
 	application0 := s.st.model.AddApplication(description.ApplicationArgs{
 		Tag:      names.NewApplicationTag("wordpress"),
-		CharmURL: "cs:wordpress",
+		CharmURL: "ch:wordpress",
 	})
 	application0.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
 	application0.SetStatus(minimalStatusArgs())
@@ -1883,7 +1898,7 @@ func (s *bundleSuite) TestExportBundleWithContainers(c *gc.C) {
 
 	application1 := s.st.model.AddApplication(description.ApplicationArgs{
 		Tag:      names.NewApplicationTag("mysql"),
-		CharmURL: "cs:mysql",
+		CharmURL: "ch:mysql",
 	})
 	application1.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
 	application1.SetStatus(minimalStatusArgs())
@@ -1911,12 +1926,12 @@ func (s *bundleSuite) TestExportBundleWithContainers(c *gc.C) {
 series: focal
 applications:
   mysql:
-    charm: cs:mysql
+    charm: mysql
     num_units: 1
     to:
     - lxd:1
   wordpress:
-    charm: cs:wordpress
+    charm: wordpress
     num_units: 1
     to:
     - "0"
@@ -1942,7 +1957,7 @@ func (s *bundleSuite) TestMixedSeries(c *gc.C) {
 
 	application := s.st.model.AddApplication(description.ApplicationArgs{
 		Tag:      names.NewApplicationTag("magic"),
-		CharmURL: "cs:magic",
+		CharmURL: "ch:magic",
 	})
 	application.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/18.04/stable"})
 	application.AddUnit(description.UnitArgs{
@@ -1975,7 +1990,7 @@ func (s *bundleSuite) TestMixedSeries(c *gc.C) {
 series: bionic
 applications:
   magic:
-    charm: cs:magic
+    charm: magic
     num_units: 1
     to:
     - "0"
@@ -2071,10 +2086,10 @@ func (s *bundleSuite) TestExportKubernetesBundle(c *gc.C) {
 bundle: kubernetes
 applications:
   mysql:
-    charm: cs:mysql
+    charm: mysql
     scale: 1
   wordpress:
-    charm: cs:wordpress
+    charm: wordpress
     scale: 2
 relations:
 - - wordpress:db
@@ -2204,7 +2219,7 @@ func (s *bundleSuite) TestExportBundleWithExposedEndpointSettings(c *gc.C) {
 series: focal
 applications:
   magic:
-    charm: cs:focal/magic
+    charm: magic
     channel: stable
     expose: true
     bindings:
@@ -2225,7 +2240,7 @@ applications:
 series: focal
 applications:
   magic:
-    charm: cs:focal/magic
+    charm: magic
     channel: stable
     expose: true
     bindings:
@@ -2250,7 +2265,7 @@ applications:
 series: focal
 applications:
   magic:
-    charm: cs:focal/magic
+    charm: magic
     channel: stable
     bindings:
       hat: some-space
@@ -2287,7 +2302,7 @@ applications:
 
 		application := s.st.model.AddApplication(description.ApplicationArgs{
 			Tag:                  names.NewApplicationTag("magic"),
-			CharmURL:             "cs:focal/magic",
+			CharmURL:             "ch:amd64/focal/magic",
 			Channel:              "stable",
 			CharmModifiedVersion: 1,
 			ForceCharm:           true,

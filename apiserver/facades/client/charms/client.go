@@ -255,11 +255,11 @@ func (a *API) AddCharmWithAuthorization(args params.AddCharmWithAuth) (params.Ch
 }
 
 func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.CharmOriginResult, error) {
-	if args.Origin.Source != "charm-hub" && args.Origin.Source != "charm-store" {
+	if args.Origin.Source != "charm-hub" {
 		return params.CharmOriginResult{}, errors.Errorf("unknown schema for charm URL %q", args.URL)
 	}
 
-	if args.Origin.Source == "charm-hub" && (args.Origin.Base.Name == "" || args.Origin.Base.Channel == "") {
+	if args.Origin.Base.Name == "" || args.Origin.Base.Channel == "" {
 		return params.CharmOriginResult{}, errors.BadRequestf("base required for charm-hub charms")
 	}
 
@@ -440,7 +440,7 @@ func (a *API) resolveOneCharm(arg params.ResolveCharmWithChannel, mac *macaroon.
 		result.Error = apiservererrors.ServerError(err)
 		return result
 	}
-	if !charm.CharmHub.Matches(curl.Schema) && !charm.CharmStore.Matches(curl.Schema) {
+	if !charm.CharmHub.Matches(curl.Schema) {
 		result.Error = apiservererrors.ServerError(errors.Errorf("unknown schema for charm URL %q", curl.String()))
 		return result
 	}
@@ -508,7 +508,7 @@ func (a *API) resolveOneCharm(arg params.ResolveCharmWithChannel, mac *macaroon.
 }
 
 func validateOrigin(origin corecharm.Origin, curl *charm.URL, switchCharm bool) error {
-	if !charm.CharmHub.Matches(curl.Schema) && !charm.CharmStore.Matches(curl.Schema) {
+	if !charm.CharmHub.Matches(curl.Schema) {
 		return errors.Errorf("unknown schema for charm URL %q", curl.String())
 	}
 	// If we are switching to a different charm we can skip the following
@@ -517,7 +517,6 @@ func validateOrigin(origin corecharm.Origin, curl *charm.URL, switchCharm bool) 
 	if !switchCharm {
 		schema := curl.Schema
 		if (corecharm.Local.Matches(origin.Source.String()) && !charm.Local.Matches(schema)) ||
-			(corecharm.CharmStore.Matches(origin.Source.String()) && !charm.CharmStore.Matches(schema)) ||
 			(corecharm.CharmHub.Matches(origin.Source.String()) && !charm.CharmHub.Matches(schema)) {
 			return errors.NotValidf("origin source %q with schema", origin.Source)
 		}

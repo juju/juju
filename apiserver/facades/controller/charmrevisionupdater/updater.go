@@ -18,7 +18,6 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/charmhub"
-	"github.com/juju/juju/charmstore"
 	charmmetrics "github.com/juju/juju/core/charm/metrics"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
@@ -39,11 +38,9 @@ type CharmRevisionUpdaterAPI struct {
 	state State
 	clock clock.Clock
 
-	newCharmstoreClient newCharmstoreClientFunc
-	newCharmhubClient   newCharmhubClientFunc
+	newCharmhubClient newCharmhubClientFunc
 }
 
-type newCharmstoreClientFunc func(st State) (charmstore.Client, error)
 type newCharmhubClientFunc func(st State) (CharmhubRefreshClient, error)
 
 var _ CharmRevisionUpdater = (*CharmRevisionUpdaterAPI)(nil)
@@ -53,14 +50,12 @@ var _ CharmRevisionUpdater = (*CharmRevisionUpdaterAPI)(nil)
 func NewCharmRevisionUpdaterAPIState(
 	state State,
 	clock clock.Clock,
-	newCharmstoreClient newCharmstoreClientFunc,
 	newCharmhubClient newCharmhubClientFunc,
 ) (*CharmRevisionUpdaterAPI, error) {
 	return &CharmRevisionUpdaterAPI{
-		state:               state,
-		clock:               clock,
-		newCharmstoreClient: newCharmstoreClient,
-		newCharmhubClient:   newCharmhubClient,
+		state:             state,
+		clock:             clock,
+		newCharmhubClient: newCharmhubClient,
 	}, nil
 }
 
@@ -137,13 +132,9 @@ func (api *CharmRevisionUpdaterAPI) retrieveLatestCharmInfo() ([]latestCharmInfo
 		return nil, errors.Trace(api.sendEmptyModelMetrics())
 	}
 
-	// Partition the charms into charmhub vs charmstore so we can query each
-	// batch separately.
 	var (
-		charmstoreIDs  []charmstore.CharmID
-		charmstoreApps []appInfo
-		charmhubIDs    []charmhubID
-		charmhubApps   []appInfo
+		charmhubIDs  []charmhubID
+		charmhubApps []appInfo
 	)
 	for _, application := range applications {
 		cURL, _ := application.CharmURL()
@@ -195,54 +186,16 @@ func (api *CharmRevisionUpdaterAPI) retrieveLatestCharmInfo() ([]latestCharmInfo
 				charmURL: curl,
 			})
 
-		case charm.CharmStore.Matches(curl.Schema):
-			origin := application.CharmOrigin()
-			if origin == nil {
-				// If this fails, we have big problems, so make this Errorf
-				logger.Errorf("charm %s has no origin, skipping", curl)
-				continue
-			}
-			cid := charmstore.CharmID{
-				URL: curl,
-			}
-			if telemetry {
-				series, err := coreseries.GetSeriesFromChannel(origin.Platform.OS, origin.Platform.Channel)
-				if err != nil {
-					return nil, errors.Trace(err)
-				}
-				cid.Metadata = map[string]string{
-					"series": series,
-					"arch":   origin.Platform.Architecture,
-				}
-			}
-			charmstoreIDs = append(charmstoreIDs, cid)
-			charmstoreApps = append(charmstoreApps, appInfo{
-				id:       application.ApplicationTag().Id(),
-				charmURL: curl,
-			})
-
 		default:
 			return nil, errors.NotValidf("charm schema %q", curl.Schema)
 		}
 	}
 
-	// The error strategy for fetching charmhub and charmstore infos is to
-	// only return an error if both requests fail. We do want to keep trying
-	// even if there is an outage or breakage with either one of the APIs.
 	var (
-		charmStoreErr error
-		charmhubErr   error
+		charmhubErr error
 
 		latest []latestCharmInfo
 	)
-	if len(charmstoreIDs) > 0 {
-		storeLatest, err := api.fetchCharmstoreInfos(cfg, charmstoreIDs, charmstoreApps)
-		if err != nil {
-			charmStoreErr = err
-		} else {
-			latest = append(latest, storeLatest...)
-		}
-	}
 	if len(charmhubIDs) > 0 {
 		if telemetry {
 			charmhubIDs, err = api.addMetricsToCharmhubInfos(charmhubIDs, charmhubApps)
@@ -260,16 +213,8 @@ func (api *CharmRevisionUpdaterAPI) retrieveLatestCharmInfo() ([]latestCharmInfo
 		}
 	}
 
-	// If both charmstore and charmhub apps are failing, return with the
-	// intention of forcing a retry. If we got some results, it's better to
-	// show them, than nothing at all. In this case, just log a warning.
-	if charmStoreErr != nil && charmhubApps != nil {
-		return nil, errors.Errorf("charmstore: %v\ncharmhub: %v", charmStoreErr, charmhubErr)
-	}
-	if charmStoreErr != nil {
-		logger.Errorf("charmstore: %v", charmStoreErr)
-	} else if charmhubErr != nil {
-		logger.Errorf("charmhub: %v", charmhubErr)
+	if charmhubErr != nil {
+		return nil, errors.Errorf("charmhub: %v", charmhubErr)
 	}
 
 	return latest, nil
@@ -376,48 +321,6 @@ func relationApplicationNames(str string) (string, string, bool) {
 	return one[0], two[0], true
 }
 
-func (api *CharmRevisionUpdaterAPI) fetchCharmstoreInfos(cfg *config.Config, ids []charmstore.CharmID, appInfos []appInfo) ([]latestCharmInfo, error) {
-	client, err := api.newCharmstoreClient(api.state)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var metadata map[string]string
-	if cfg.Telemetry() {
-		metadata, err = charmstoreApiMetadata(api.state)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		metadata["environment_uuid"] = cfg.UUID() // duplicates model_uuid, but send to charmstore for legacy reasons
-	}
-	results, err := charmstore.LatestCharmInfo(client, ids, metadata, api.clock)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var latest []latestCharmInfo
-	for i, result := range results {
-		if i >= len(appInfos) {
-			logger.Errorf("retrieved more results (%d) than charmstore applications (%d)",
-				i, len(appInfos))
-			break
-		}
-		if result.Error != nil {
-			logger.Errorf("retrieving charm info for %s: %v", ids[i].URL, result.Error)
-			continue
-		}
-		appInfo := appInfos[i]
-		latest = append(latest, latestCharmInfo{
-			url:       result.CharmInfo.OriginalURL.WithRevision(result.CharmInfo.LatestRevision),
-			timestamp: result.CharmInfo.Timestamp,
-			revision:  result.CharmInfo.LatestRevision,
-			resources: result.CharmInfo.LatestResources,
-			appID:     appInfo.id,
-		})
-	}
-	return latest, nil
-}
-
 func (api *CharmRevisionUpdaterAPI) fetchCharmhubInfos(cfg *config.Config, ids []charmhubID, appInfos []appInfo) ([]latestCharmInfo, error) {
 	var requestMetrics map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string
 	if cfg.Telemetry() {
@@ -459,31 +362,7 @@ func (api *CharmRevisionUpdaterAPI) fetchCharmhubInfos(cfg *config.Config, ids [
 	return latest, nil
 }
 
-// charmstoreApiMetadata returns a map containing metadata key/value pairs to
-// send to the charmstore API for tracking metrics.
-func charmstoreApiMetadata(st State) (map[string]string, error) {
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	metadata := map[string]string{
-		"model_uuid":         model.UUID(),
-		"controller_uuid":    st.ControllerUUID(),
-		"controller_version": version.Current.String(),
-		"cloud":              model.CloudName(),
-		"cloud_region":       model.CloudRegion(),
-		"is_controller":      strconv.FormatBool(model.IsControllerModel()),
-	}
-	cloud, err := st.Cloud(model.CloudName())
-	if err != nil {
-		metadata["provider"] = "unknown"
-	} else {
-		metadata["provider"] = cloud.Type
-	}
-	return metadata, nil
-}
-
-// charmstoreApiMetadata returns a map containing metadata key/value pairs to
+// charmhubRequestMetadata returns a map containing metadata key/value pairs to
 // send to the charmhub for tracking metrics.
 func charmhubRequestMetadata(st State) (map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string, error) {
 	model, err := st.Model()

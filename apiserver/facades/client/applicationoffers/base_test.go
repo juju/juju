@@ -112,7 +112,7 @@ func (s *baseSuite) setupOffers(c *gc.C, filterAppName string, filterWithEndpoin
 		"test": &mockApplication{
 			name:     "test",
 			charm:    ch,
-			curl:     "cs:db2-2",
+			curl:     "ch:db2-2",
 			bindings: map[string]string{"db2": "myspace"}, // myspace
 		},
 	}

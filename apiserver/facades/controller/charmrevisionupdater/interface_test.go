@@ -7,9 +7,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v9"
 	"github.com/juju/charm/v9/resource"
-	"github.com/juju/charmrepo/v7/csclient"
-	csparams "github.com/juju/charmrepo/v7/csclient/params"
-	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -18,7 +15,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater/mocks"
 	"github.com/juju/juju/charmhub"
-	"github.com/juju/juju/charmstore"
 	charmmetrics "github.com/juju/juju/core/charm/metrics"
 	"github.com/juju/juju/state"
 )
@@ -31,8 +27,6 @@ func makeApplication(ctrl *gomock.Controller, schema, charmName, charmID, appID 
 	case "ch":
 		source = "charm-hub"
 		app.EXPECT().UnitCount().Return(2).AnyTimes()
-	case "cs":
-		source = "charm-store"
 	}
 
 	curl := &charm.URL{
@@ -173,62 +167,6 @@ func (m charmhubMetricsMatcher) Matches(x interface{}) bool {
 
 func (charmhubMetricsMatcher) String() string {
 	return "matches metrics"
-}
-
-func newFakeCharmstoreClientFunc(expectMetadata bool) func(st charmrevisionupdater.State) (charmstore.Client, error) {
-	return func(st charmrevisionupdater.State) (charmstore.Client, error) {
-		charms := map[string]charmstoreCharm{
-			"mysql":     {name: "mysql", revision: 23},
-			"wordpress": {name: "wordpress", revision: 26},
-		}
-		client := &fakeCharmstoreClient{charms: charms, expectMetadata: expectMetadata}
-		return charmstore.NewCustomClient(client), nil
-	}
-}
-
-type charmstoreCharm struct {
-	name     string
-	revision int
-}
-
-type fakeCharmstoreClient struct {
-	charms         map[string]charmstoreCharm
-	expectMetadata bool
-}
-
-func (c *fakeCharmstoreClient) Latest(_ csparams.Channel, ids []*charm.URL, metrics map[string][]string) ([]csparams.CharmRevision, error) {
-	if len(metrics) <= 0 && c.expectMetadata {
-		return nil, errors.BadRequestf("Failing test, expected metadata and non provided.")
-	}
-	if len(metrics) > 0 && !c.expectMetadata {
-		return nil, errors.BadRequestf("Failing test, did not expect metadata and some provided.")
-	}
-	revisions := make([]csparams.CharmRevision, len(ids))
-	for i, id := range ids {
-		charm, ok := c.charms[id.Name]
-		if !ok {
-			revisions[i] = csparams.CharmRevision{Err: errors.NotFoundf("charm %q", id.Name)}
-			continue
-		}
-		revisions[i] = csparams.CharmRevision{Revision: charm.revision}
-	}
-	return revisions, nil
-}
-
-func (c *fakeCharmstoreClient) ListResources(_ csparams.Channel, _ *charm.URL) ([]csparams.Resource, error) {
-	return nil, nil
-}
-
-func (c *fakeCharmstoreClient) GetResource(_ csparams.Channel, _ *charm.URL, _ string, revision int) (csclient.ResourceData, error) {
-	panic("not implemented")
-}
-
-func (c *fakeCharmstoreClient) ResourceMeta(_ csparams.Channel, _ *charm.URL, _ string, revision int) (csparams.Resource, error) {
-	panic("not implemented")
-}
-
-func (c *fakeCharmstoreClient) ServerURL() string {
-	panic("not implemented")
 }
 
 type facadeContextShim struct {
