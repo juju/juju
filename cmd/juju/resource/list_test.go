@@ -69,7 +69,7 @@ func (s *ShowApplicationSuite) TestInfo(c *gc.C) {
 		Doc: `
 This command shows the resources required by and those in use by an existing
 application or unit in your model.  When run for an application, it will also show any
-updates available for resources from the charmstore.
+updates available for resources from a store.
 `,
 		FlagKnownAs:    "option",
 		ShowSuperFlags: []string{"show-log", "debug", "logging-config", "verbose", "quiet", "h", "help"},

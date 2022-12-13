@@ -80,7 +80,7 @@ func (s *CharmResourcesSuite) TestOkay(c *gc.C) {
 	s.client.ReturnListResources = [][]charmresource.Resource{resources}
 
 	command := resourcecmd.NewCharmResourcesCommandForTest(s.client)
-	code, stdout, stderr := runCmd(c, command, "cs:a-charm")
+	code, stdout, stderr := runCmd(c, command, "a-charm")
 	c.Check(code, gc.Equals, 0)
 
 	c.Check(stdout, gc.Equals, `
@@ -94,7 +94,7 @@ website   2
 	)
 	s.stub.CheckCall(c, 0, "ListResources", []jujuresource.CharmID{
 		{
-			URL:     charm.MustParseURL("cs:a-charm"),
+			URL:     charm.MustParseURL("ch:a-charm"),
 			Channel: corecharm.MustParseChannel("stable"),
 		},
 	})
@@ -114,7 +114,7 @@ func (s *CharmResourcesSuite) TestNoResources(c *gc.C) {
 	s.client.ReturnListResources = [][]charmresource.Resource{{}}
 
 	command := resourcecmd.NewCharmResourcesCommandForTest(s.client)
-	code, stdout, stderr := runCmd(c, command, "cs:a-charm")
+	code, stdout, stderr := runCmd(c, command, "ch:a-charm")
 	c.Check(code, gc.Equals, 0)
 
 	c.Check(stderr, gc.Equals, "No resources to display.\n")
@@ -186,7 +186,7 @@ website   1
 		command := resourcecmd.NewCharmResourcesCommandForTest(s.client)
 		args := []string{
 			"--format", format,
-			"cs:a-charm",
+			"ch:a-charm",
 		}
 		code, stdout, stderr := runCmd(c, command, args...)
 		c.Check(code, gc.Equals, 0)
@@ -210,7 +210,7 @@ func (s *CharmResourcesSuite) TestChannelFlag(c *gc.C) {
 
 	code, _, stderr := runCmd(c, command,
 		"--channel", "development",
-		"cs:a-charm",
+		"ch:a-charm",
 	)
 
 	c.Check(code, gc.Equals, 0)

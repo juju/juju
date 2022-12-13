@@ -4,10 +4,8 @@
 package resource
 
 import (
-	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/charm/v9"
 	charmresource "github.com/juju/charm/v9/resource"
-	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -15,8 +13,6 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/client/charms"
 	apicharm "github.com/juju/juju/api/common/charm"
-	"github.com/juju/juju/api/controller/controller"
-	"github.com/juju/juju/charmstore"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -40,20 +36,12 @@ type CharmID struct {
 	Channel charm.Channel
 }
 
-// BakeryClient defines a way to create a bakery client.
-type BakeryClient = func() (*httpbakery.Client, error)
-
-// ControllerAPIRoot defines a way to create a new controller API root.
-type ControllerAPIRoot = func() (api.Connection, error)
-
 // APIRoot defines a way to create a new API root.
 type APIRoot = func() (api.Connection, error)
 
 // ResourceListerDependencies defines the dependencies to create a store
 // dependant resource lister.
 type ResourceListerDependencies interface {
-	BakeryClient() (*httpbakery.Client, error)
-	NewControllerAPIRoot() (api.Connection, error)
 	NewAPIRoot() (api.Connection, error)
 }
 
@@ -247,15 +235,8 @@ func resolveCharm(raw string) (*charm.URL, error) {
 }
 
 func defaultResourceLister(schema string, deps ResourceListerDependencies) (ResourceLister, error) {
-	if charm.CharmHub.Matches(schema) {
-		return &CharmhubResourceLister{
-			APIRootFn: deps.NewAPIRoot,
-		}, nil
-	}
-
-	return &CharmStoreResourceLister{
-		BakeryClientFn:      deps.BakeryClient,
-		ControllerAPIRootFn: deps.NewControllerAPIRoot,
+	return &CharmhubResourceLister{
+		APIRootFn: deps.NewAPIRoot,
 	}, nil
 }
 
@@ -285,56 +266,10 @@ func (c *CharmhubResourceLister) ListResources(ids []CharmID) ([][]charmresource
 		Track:  track,
 		Risk:   string(id.Channel.Risk),
 	})
-	if errors.IsNotSupported(err) {
+	if errors.Is(err, errors.NotSupported) {
 		return nil, errors.Errorf("charmhub charms are not supported with the current controller, try upgrading the controller to a newer version")
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return [][]charmresource.Resource{results}, nil
-}
-
-// CharmStoreResourceLister defines a charm store resource lister.
-type CharmStoreResourceLister struct {
-	BakeryClientFn      BakeryClient
-	ControllerAPIRootFn ControllerAPIRoot
-}
-
-// ListResources implements CharmResourceLister.
-func (c *CharmStoreResourceLister) ListResources(ids []CharmID) ([][]charmresource.Resource, error) {
-	bakeryClient, err := c.BakeryClientFn()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	conAPIRoot, err := c.ControllerAPIRootFn()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	csURL, err := c.getCharmStoreAPIURL(conAPIRoot)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	client, err := charmstore.NewCustomClientAtURL(bakeryClient, csURL)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	charmIDs := make([]charmstore.CharmID, len(ids))
-	for i, id := range ids {
-		charmIDs[i] = charmstore.CharmID{
-			URL:     id.URL,
-			Channel: csparams.Channel(id.Channel.Risk),
-		}
-	}
-
-	return client.ListResources(charmIDs)
-}
-
-// getCharmStoreAPIURL consults the controller config for the charmstore api url to use.
-func (c *CharmStoreResourceLister) getCharmStoreAPIURL(conAPIRoot api.Connection) (string, error) {
-	controllerAPI := controller.NewClient(conAPIRoot)
-	controllerCfg, err := controllerAPI.ControllerConfig()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return controllerCfg.CharmStoreURL(), nil
 }
