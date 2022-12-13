@@ -15,7 +15,6 @@ import (
 	charms "github.com/juju/juju/api/client/charms"
 	charm0 "github.com/juju/juju/api/common/charm"
 	charmhub "github.com/juju/juju/charmhub"
-	macaroon "gopkg.in/macaroon.v2"
 )
 
 // MockCharmAdder is a mock of CharmAdder interface.
@@ -54,21 +53,6 @@ func (m *MockCharmAdder) AddCharm(arg0 *charm.URL, arg1 charm0.Origin, arg2 bool
 func (mr *MockCharmAdderMockRecorder) AddCharm(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddCharm", reflect.TypeOf((*MockCharmAdder)(nil).AddCharm), arg0, arg1, arg2)
-}
-
-// AddCharmWithAuthorization mocks base method.
-func (m *MockCharmAdder) AddCharmWithAuthorization(arg0 *charm.URL, arg1 charm0.Origin, arg2 *macaroon.Macaroon, arg3 bool) (charm0.Origin, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddCharmWithAuthorization", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(charm0.Origin)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AddCharmWithAuthorization indicates an expected call of AddCharmWithAuthorization.
-func (mr *MockCharmAdderMockRecorder) AddCharmWithAuthorization(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddCharmWithAuthorization", reflect.TypeOf((*MockCharmAdder)(nil).AddCharmWithAuthorization), arg0, arg1, arg2, arg3)
 }
 
 // AddLocalCharm mocks base method.
@@ -216,18 +200,18 @@ func (m *MockCharmsAPI) EXPECT() *MockCharmsAPIMockRecorder {
 }
 
 // GetDownloadInfo mocks base method.
-func (m *MockCharmsAPI) GetDownloadInfo(arg0 *charm.URL, arg1 charm0.Origin, arg2 *macaroon.Macaroon) (charms.DownloadInfo, error) {
+func (m *MockCharmsAPI) GetDownloadInfo(arg0 *charm.URL, arg1 charm0.Origin) (charms.DownloadInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetDownloadInfo", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "GetDownloadInfo", arg0, arg1)
 	ret0, _ := ret[0].(charms.DownloadInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetDownloadInfo indicates an expected call of GetDownloadInfo.
-func (mr *MockCharmsAPIMockRecorder) GetDownloadInfo(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockCharmsAPIMockRecorder) GetDownloadInfo(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDownloadInfo", reflect.TypeOf((*MockCharmsAPI)(nil).GetDownloadInfo), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDownloadInfo", reflect.TypeOf((*MockCharmsAPI)(nil).GetDownloadInfo), arg0, arg1)
 }
 
 // ResolveCharms mocks base method.

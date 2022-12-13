@@ -47,7 +47,7 @@ func AddCharmWithAuthorizationFromURL(client CharmAdder, cs MacaroonGetter, curl
 		if err != nil {
 			return nil, nil, commoncharm.Origin{}, common.MaybeTermsAgreementError(err)
 		}
-		if resultOrigin, err = client.AddCharmWithAuthorization(curl, origin, m, force); err != nil {
+		if resultOrigin, err = client.AddCharm(curl, origin, force); err != nil {
 			return nil, nil, commoncharm.Origin{}, errors.Trace(err)
 		}
 		csMac = m

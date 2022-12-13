@@ -178,7 +178,7 @@ func (ch chBundleFactory) GetBundle(curl *charm.URL, origin commoncharm.Origin, 
 		return nil, errors.Trace(err)
 	}
 
-	info, err := ch.charmsAPI.GetDownloadInfo(curl, origin, nil)
+	info, err := ch.charmsAPI.GetDownloadInfo(curl, origin)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
