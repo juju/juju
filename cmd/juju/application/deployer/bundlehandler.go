@@ -865,7 +865,6 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		URL:    curl,
 		Origin: origin,
 	}
-	macaroon := h.macaroons[*curl]
 
 	h.results[change.Id()] = p.Application
 
@@ -919,7 +918,6 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 			URL:    chID.URL,
 			Origin: chID.Origin,
 		},
-		macaroon,
 		resMap,
 		charmInfo.Meta.Resources,
 		h.deployAPI,
@@ -1365,7 +1363,6 @@ func (h *bundleHandler) upgradeCharmResources(chID application.CharmID, param bu
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	mac := h.macaroons[*chID.URL]
 	var resNames2IDs map[string]string
 	if len(filtered) != 0 {
 		resNames2IDs, err = h.deployResources(
@@ -1374,7 +1371,6 @@ func (h *bundleHandler) upgradeCharmResources(chID application.CharmID, param bu
 				URL:    chID.URL,
 				Origin: chID.Origin,
 			},
-			mac,
 			resMap,
 			filtered,
 			h.deployAPI,

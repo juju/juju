@@ -186,7 +186,6 @@ func (d *deployCharm) deploy(
 			URL:    id.URL,
 			Origin: id.Origin,
 		},
-		d.csMac,
 		d.resources,
 		charmInfo.Meta.Resources,
 		deployAPI,

@@ -16,7 +16,6 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon.v2"
 
 	apiresources "github.com/juju/juju/api/client/resources"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -404,6 +403,7 @@ password: 'hunter2',,
 		chID := apiresources.CharmID{
 			URL: cURL,
 		}
+
 		resourceMeta := map[string]charmresource.Meta{
 			"mysql_image": {
 				Name: "mysql_image",
@@ -542,7 +542,7 @@ type uploadDeps struct {
 	data []byte
 }
 
-func (s uploadDeps) AddPendingResources(applicationID string, charmID apiresources.CharmID, _ *macaroon.Macaroon, resources []charmresource.Resource) (ids []string, err error) {
+func (s uploadDeps) AddPendingResources(applicationID string, charmID apiresources.CharmID, resources []charmresource.Resource) (ids []string, err error) {
 	charmresource.Sort(resources)
 	s.stub.AddCall("AddPendingResources", applicationID, charmID, resources)
 	if err := s.stub.NextErr(); err != nil {

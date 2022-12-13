@@ -16,7 +16,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
-	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -452,7 +451,7 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		URL:    curl,
 		Origin: origin,
 	}
-	resourceIDs, err := c.upgradeResources(apiRoot, resourceLister, chID, charmID.Macaroon, charmInfo.Meta.Resources)
+	resourceIDs, err := c.upgradeResources(apiRoot, resourceLister, chID, charmInfo.Meta.Resources)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -548,7 +547,6 @@ func (c *refreshCommand) upgradeResources(
 	apiRoot base.APICallCloser,
 	resourceLister utils.ResourceLister,
 	chID application.CharmID,
-	csMac *macaroon.Macaroon,
 	meta map[string]charmresource.Meta,
 ) (map[string]string, error) {
 	filtered, err := utils.GetUpgradeResources(
@@ -573,7 +571,6 @@ func (c *refreshCommand) upgradeResources(
 			URL:    chID.URL,
 			Origin: chID.Origin,
 		},
-		csMac,
 		c.Resources,
 		filtered,
 		apiRoot,
