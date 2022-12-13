@@ -14,7 +14,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"gopkg.in/macaroon.v2"
 
 	apiresources "github.com/juju/juju/api/client/resources"
 	commoncharm "github.com/juju/juju/api/common/charm"
@@ -231,22 +230,10 @@ func normalizeCharmOrigin(origin params.CharmOrigin, fallbackArch string) (param
 func (a *API) AddCharm(args params.AddCharmWithOrigin) (params.CharmOriginResult, error) {
 	logger.Tracef("AddCharm %+v", args)
 	return a.addCharmWithAuthorization(params.AddCharmWithAuth{
-		URL:                args.URL,
-		Origin:             args.Origin,
-		CharmStoreMacaroon: nil,
-		Force:              args.Force,
+		URL:    args.URL,
+		Origin: args.Origin,
+		Force:  args.Force,
 	})
-}
-
-// AddCharmWithAuthorization adds the given charm URL (which must include
-// revision) to the environment, if it does not exist yet. Local charms are
-// not supported, only charm store and charm hub URLs. See also AddLocalCharm().
-//
-// The authorization macaroon, args.CharmStoreMacaroon, may be
-// omitted, in which case this call is equivalent to AddCharm.
-func (a *API) AddCharmWithAuthorization(args params.AddCharmWithAuth) (params.CharmOriginResult, error) {
-	logger.Tracef("AddCharmWithAuthorization %+v", args)
-	return a.addCharmWithAuthorization(args)
 }
 
 func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.CharmOriginResult, error) {
@@ -410,13 +397,13 @@ func (a *API) ResolveCharms(args params.ResolveCharmsWithChannel) (params.Resolv
 		Results: make([]params.ResolveCharmWithChannelResult, len(args.Resolve)),
 	}
 	for i, arg := range args.Resolve {
-		result.Results[i] = a.resolveOneCharm(arg, args.Macaroon)
+		result.Results[i] = a.resolveOneCharm(arg)
 	}
 
 	return result, nil
 }
 
-func (a *API) resolveOneCharm(arg params.ResolveCharmWithChannel, mac *macaroon.Macaroon) params.ResolveCharmWithChannelResult {
+func (a *API) resolveOneCharm(arg params.ResolveCharmWithChannel) params.ResolveCharmWithChannelResult {
 	result := params.ResolveCharmWithChannelResult{}
 	curl, err := charm.ParseURL(arg.Reference)
 	if err != nil {
@@ -444,11 +431,6 @@ func (a *API) resolveOneCharm(arg params.ResolveCharmWithChannel, mac *macaroon.
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result
-	}
-
-	var macaroons macaroon.Slice
-	if mac != nil {
-		macaroons = append(macaroons, mac)
 	}
 
 	resultURL, origin, supportedSeries, err := repo.ResolveWithPreferredChannel(curl, requestedOrigin)

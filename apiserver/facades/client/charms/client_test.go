@@ -14,7 +14,6 @@ import (
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
@@ -393,7 +392,7 @@ func (s *charmsMockSuite) TestQueueAsyncCharmDownloadResolvesAgainOriginForAlrea
 
 	s.state.EXPECT().Charm(curl).Return(nil, nil) // a nil error indicates that the charm doc already exists
 	s.repoFactory.EXPECT().GetCharmRepository(gomock.Any()).Return(s.repository, nil)
-	s.repository.EXPECT().GetDownloadURL(curl, gomock.Any(), nil).Return(resURL, resolvedOrigin, nil)
+	s.repository.EXPECT().GetDownloadURL(curl, gomock.Any()).Return(resURL, resolvedOrigin, nil)
 
 	api := s.api(c)
 
@@ -634,10 +633,9 @@ func (s *charmsMockSuite) expectResolveWithPreferredChannel(times int, err error
 	s.repository.EXPECT().ResolveWithPreferredChannel(
 		gomock.AssignableToTypeOf(&charm.URL{}),
 		gomock.AssignableToTypeOf(corecharm.Origin{}),
-		nil, // no macaroons
 	).DoAndReturn(
 		// Ensure the same curl that is provided, is returned.
-		func(curl *charm.URL, requestedOrigin corecharm.Origin, _ macaroon.Slice) (*charm.URL, corecharm.Origin, []string, error) {
+		func(curl *charm.URL, requestedOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []string, error) {
 			resolvedOrigin := requestedOrigin
 			resolvedOrigin.Type = "charm"
 
@@ -659,10 +657,9 @@ func (s *charmsMockSuite) expectResolveWithPreferredChannelNoSeries() {
 	s.repository.EXPECT().ResolveWithPreferredChannel(
 		gomock.AssignableToTypeOf(&charm.URL{}),
 		gomock.AssignableToTypeOf(corecharm.Origin{}),
-		nil, // no macaroons
 	).DoAndReturn(
 		// Ensure the same curl that is provided, is returned.
-		func(curl *charm.URL, requestedOrigin corecharm.Origin, _ macaroon.Slice) (*charm.URL, corecharm.Origin, []string, error) {
+		func(curl *charm.URL, requestedOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []string, error) {
 			resolvedOrigin := requestedOrigin
 			resolvedOrigin.Type = "charm"
 
