@@ -6875,6 +6875,18 @@
                     },
                     "description": "WatchApplications starts a StringsWatcher to watch applications\ndeployed to this model."
                 },
+                "WatchProvisioningInfo": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/NotifyWatchResults"
+                        }
+                    },
+                    "description": "WatchProvisioningInfo provides a watcher for changes that affect the\ninformation returned by ProvisioningInfo. This is useful for ensuring the\nlatest application stated is ensured."
+                },
                 "WatchUnits": {
                     "type": "object",
                     "properties": {

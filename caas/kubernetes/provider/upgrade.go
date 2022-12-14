@@ -36,7 +36,9 @@ func (k *kubernetesClient) Upgrade(agentTag string, vers version.Number) error {
 	case names.ModelTagKind:
 		return k.upgradeModelOperator(tag, vers)
 	case names.UnitTagKind:
-		return k.upgradeApplication(tag, vers)
+		// Sidecarms don't have an upgrade step.
+		// See PR 14974
+		return nil
 	}
 	return errors.NotImplementedf("k8s upgrade for agent tag %q", agentTag)
 }
