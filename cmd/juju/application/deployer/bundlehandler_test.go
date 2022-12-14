@@ -22,7 +22,6 @@ import (
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/httprequest.v1"
-	"gopkg.in/macaroon.v2"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api/base"
@@ -972,7 +971,6 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleResources(c *gc.C) {
 	spec.deployResources = func(
 		_ string,
 		_ resources.CharmID,
-		_ *macaroon.Macaroon,
 		filesAndRevisions map[string]string,
 		resources map[string]charmresource.Meta,
 		_ base.APICallCloser,
@@ -1026,7 +1024,6 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleSpecifyResources(c *gc.C) 
 	spec.deployResources = func(
 		_ string,
 		_ resources.CharmID,
-		_ *macaroon.Macaroon,
 		filesAndRevisions map[string]string,
 		resources map[string]charmresource.Meta,
 		_ base.APICallCloser,
@@ -2107,7 +2104,6 @@ machines:
 func (s *BundleDeployRepositorySuite) bundleDeploySpec() bundleDeploySpec {
 	deployResourcesFunc := func(_ string,
 		_ resources.CharmID,
-		_ *macaroon.Macaroon,
 		_ map[string]string,
 		_ map[string]charmresource.Meta,
 		_ base.APICallCloser,
