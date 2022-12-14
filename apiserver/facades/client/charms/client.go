@@ -236,6 +236,17 @@ func (a *API) AddCharm(args params.AddCharmWithOrigin) (params.CharmOriginResult
 	})
 }
 
+// AddCharmWithAuthorization adds the given charm URL (which must include
+// revision) to the environment, if it does not exist yet. Local charms are
+// not supported, only charm hub URLs. See also AddLocalCharm().
+//
+// Since the charm macaroons are no longer supported, this is the same as
+// AddCharm. We keep it for backwards compatibility.
+func (a *API) AddCharmWithAuthorization(args params.AddCharmWithAuth) (params.CharmOriginResult, error) {
+	logger.Tracef("AddCharmWithAuthorization %+v", args)
+	return a.addCharmWithAuthorization(args)
+}
+
 func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.CharmOriginResult, error) {
 	if args.Origin.Source != "charm-hub" {
 		return params.CharmOriginResult{}, errors.Errorf("unknown schema for charm URL %q", args.URL)

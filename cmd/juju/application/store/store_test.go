@@ -93,15 +93,13 @@ func (s *storeSuite) TestAddCharmWithAuthorizationFromURLAddCharmSuccess(c *gc.C
 	origin, err := utils.DeduceOrigin(curl, charm.Channel{Risk: charm.Beta}, corecharm.Platform{Architecture: arch.DefaultArchitecture})
 	c.Assert(err, jc.ErrorIsNil)
 
-	obtainedCurl, obtainedMac, _, err := store.AddCharmWithAuthorizationFromURL(
+	obtainedCurl, _, err := store.AddCharmWithAuthorizationFromURL(
 		s.charmAdder,
-		s.macaroonGetter,
 		curl,
 		origin,
 		true,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtainedMac, gc.IsNil)
 	c.Assert(obtainedCurl.String(), gc.Equals, curl.String())
 }
 
@@ -113,15 +111,13 @@ func (s *storeSuite) TestAddCharmWithAuthorizationFromURLFailAddCharmFail(c *gc.
 	origin, err := utils.DeduceOrigin(curl, charm.Channel{Risk: charm.Beta}, corecharm.Platform{Architecture: arch.DefaultArchitecture})
 	c.Assert(err, jc.ErrorIsNil)
 
-	obtainedCurl, obtainedMac, _, err := store.AddCharmWithAuthorizationFromURL(
+	obtainedCurl, _, err := store.AddCharmWithAuthorizationFromURL(
 		s.charmAdder,
-		s.macaroonGetter,
 		curl,
 		origin,
 		true,
 	)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(obtainedMac, gc.IsNil)
 	c.Assert(obtainedCurl, gc.IsNil)
 }
 
