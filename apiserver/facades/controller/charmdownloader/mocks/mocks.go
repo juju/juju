@@ -339,18 +339,18 @@ func (m *MockDownloader) EXPECT() *MockDownloaderMockRecorder {
 }
 
 // DownloadAndStore mocks base method.
-func (m *MockDownloader) DownloadAndStore(arg0 *charm.URL, arg1 charm0.Origin, arg2 macaroon.Slice, arg3 bool) (charm0.Origin, error) {
+func (m *MockDownloader) DownloadAndStore(arg0 *charm.URL, arg1 charm0.Origin, arg2 bool) (charm0.Origin, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DownloadAndStore", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "DownloadAndStore", arg0, arg1, arg2)
 	ret0, _ := ret[0].(charm0.Origin)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // DownloadAndStore indicates an expected call of DownloadAndStore.
-func (mr *MockDownloaderMockRecorder) DownloadAndStore(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+func (mr *MockDownloaderMockRecorder) DownloadAndStore(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DownloadAndStore", reflect.TypeOf((*MockDownloader)(nil).DownloadAndStore), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DownloadAndStore", reflect.TypeOf((*MockDownloader)(nil).DownloadAndStore), arg0, arg1, arg2)
 }
 
 // MockAuthChecker is a mock of AuthChecker interface.
