@@ -1000,7 +1000,7 @@ func (c *Config) validateDefaultBase() error {
 		}
 	}
 	if !found {
-		return errors.NotSupportedf("base %q", defaultBase)
+		return errors.NotSupportedf("base %q", parsedBase.DisplayString())
 	}
 	return nil
 }

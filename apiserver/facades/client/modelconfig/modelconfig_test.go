@@ -57,10 +57,11 @@ func (s *modelconfigSuite) TestAdminModelGet(c *gc.C) {
 	result, err := s.api.ModelGet()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Config, jc.DeepEquals, map[string]params.ConfigValue{
-		"type":          {Value: "dummy", Source: "model"},
-		"ftp-proxy":     {Value: "http://proxy", Source: "model"},
-		"agent-version": {Value: "1.2.3.4", Source: "model"},
-		"charmhub-url":  {Value: "http://meshuggah.rocks", Source: "model"},
+		"type":           {Value: "dummy", Source: "model"},
+		"ftp-proxy":      {Value: "http://proxy", Source: "model"},
+		"agent-version":  {Value: "1.2.3.4", Source: "model"},
+		"charmhub-url":   {Value: "http://meshuggah.rocks", Source: "model"},
+		"default-series": {Value: "", Source: "default"},
 	})
 }
 
@@ -73,10 +74,11 @@ func (s *modelconfigSuite) TestUserModelGet(c *gc.C) {
 	result, err := s.api.ModelGet()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Config, jc.DeepEquals, map[string]params.ConfigValue{
-		"type":          {Value: "dummy", Source: "model"},
-		"ftp-proxy":     {Value: "http://proxy", Source: "model"},
-		"agent-version": {Value: "1.2.3.4", Source: "model"},
-		"charmhub-url":  {Value: "http://meshuggah.rocks", Source: "model"},
+		"type":           {Value: "dummy", Source: "model"},
+		"ftp-proxy":      {Value: "http://proxy", Source: "model"},
+		"agent-version":  {Value: "1.2.3.4", Source: "model"},
+		"charmhub-url":   {Value: "http://meshuggah.rocks", Source: "model"},
+		"default-series": {Value: "", Source: "default"},
 	})
 }
 

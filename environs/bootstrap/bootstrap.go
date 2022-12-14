@@ -703,7 +703,7 @@ func Bootstrap(
 		var err error
 		bootstrapSeries, err = series.GetSeriesFromBase(args.BootstrapBase)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.NotValidf("base %q", args.BootstrapBase)
 		}
 	}
 	supportedBootstrapSeries := set.NewStrings()

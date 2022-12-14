@@ -321,6 +321,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	expected := map[string]interface{}{
 		"name":            bootstrap.ControllerModelName,
 		"type":            "dummy",
+		"default-base":    "ubuntu@22.04/stable",
 		"default-series":  "jammy",
 		"authorized-keys": "public auth key\n",
 		// Dummy provider defaults
@@ -1627,7 +1628,7 @@ func (s *BootstrapSuite) TestBootstrapWithDeprecatedSeries(c *gc.C) {
 		c, s.newBootstrapCommand(), "dummy-cloud-without-regions", "ctrl",
 		"--config", "default-series=bionic",
 	)
-	c.Assert(err, gc.ErrorMatches, `series "bionic" not supported`)
+	c.Assert(err, gc.ErrorMatches, `base "ubuntu@18.04" not supported`)
 }
 
 func (s *BootstrapSuite) TestBootstrapWithNoBootstrapSeriesUsesFallbackButStillFails(c *gc.C) {
@@ -1635,7 +1636,7 @@ func (s *BootstrapSuite) TestBootstrapWithNoBootstrapSeriesUsesFallbackButStillF
 	_, err := cmdtesting.RunCommand(
 		c, s.newBootstrapCommand(), "no-cloud-regions", "ctrl", "--config", "default-series=spock",
 	)
-	c.Assert(err, gc.ErrorMatches, `series "spock" not supported`)
+	c.Assert(err, gc.ErrorMatches, `series "spock" not valid`)
 }
 
 func (s *BootstrapSuite) TestBootstrapWithBootstrapSeriesDoesNotUseFallbackButStillFails(c *gc.C) {

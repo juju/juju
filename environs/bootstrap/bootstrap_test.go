@@ -286,6 +286,26 @@ func (s *bootstrapSuite) TestBootstrapForcedBootstrapSeries(c *gc.C) {
 	c.Check(env.args.AvailableTools.AllReleases(), jc.SameContents, []string{"ubuntu"})
 }
 
+func (s *bootstrapSuite) TestBootstrapWithInvalidBootstrapBase(c *gc.C) {
+	env := newEnviron("foo", useDefaultKeys, nil)
+	s.setDummyStorage(c, env)
+	cfg, err := env.Config().Apply(map[string]interface{}{
+		"default-base": "ubuntu@22.04",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	env.cfg = cfg
+
+	err = bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
+		s.callContext, bootstrap.BootstrapParams{
+			ControllerConfig:        coretesting.FakeControllerConfig(),
+			AdminSecret:             "admin-secret",
+			CAPrivateKey:            coretesting.CAKey,
+			BootstrapBase:           jujuseries.MustParseBaseFromString("spock@1"),
+			SupportedBootstrapBases: supportedJujuBases,
+		})
+	c.Assert(err, gc.ErrorMatches, `base "spock@1/stable" not valid`)
+}
+
 func (s *bootstrapSuite) TestBootstrapWithInvalidBootstrapSeries(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
@@ -303,7 +323,7 @@ func (s *bootstrapSuite) TestBootstrapWithInvalidBootstrapSeries(c *gc.C) {
 			BootstrapBase:           jujuseries.MustParseBaseFromString("spock@1"),
 			SupportedBootstrapBases: supportedJujuBases,
 		})
-	c.Assert(err, gc.ErrorMatches, `series "spock" not valid`)
+	c.Assert(err, gc.ErrorMatches, `base "spock@1/stable" not valid`)
 }
 
 func (s *bootstrapSuite) TestBootstrapSpecifiedPlacement(c *gc.C) {
@@ -642,7 +662,7 @@ func (s *bootstrapSuite) TestBootstrapLocalToolsMismatchingOS(c *gc.C) {
 			BootstrapBase:           jammyBootstrapBase,
 			SupportedBootstrapBases: supportedJujuBases,
 		})
-	c.Assert(err, gc.ErrorMatches, `cannot use agent built for "jammy" using a machine running "Windows"`)
+	c.Assert(err, gc.ErrorMatches, `cannot use agent built for "ubuntu@22.04/stable" using a machine running "Windows"`)
 }
 
 func (s *bootstrapSuite) TestBootstrapLocalToolsDifferentLinuxes(c *gc.C) {
@@ -1331,7 +1351,7 @@ func (s *bootstrapSuite) TestTargetSeriesOverride(c *gc.C) {
 			SupportedBootstrapBases: supportedJujuBases,
 		})
 
-	c.Assert(err, gc.ErrorMatches, ".*artful not supported.*", gc.Commentf("expected bootstrap series to be overridden using the value returned by the environment"))
+	c.Assert(err, gc.ErrorMatches, ".*ubuntu@17.10/stable not supported.*", gc.Commentf("expected bootstrap series to be overridden using the value returned by the environment"))
 }
 
 func (s *bootstrapSuite) TestTargetArchOverride(c *gc.C) {
