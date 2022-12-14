@@ -70,7 +70,6 @@ func DeployResources(args DeployResourcesArgs) (ids map[string]string, err error
 	d := deployUploader{
 		applicationID: args.ApplicationID,
 		chID:          args.CharmID,
-		csMac:         args.CharmStoreMacaroon,
 		client:        args.Client,
 		resources:     args.ResourcesMeta,
 		filesystem:    args.Filesystem,
@@ -88,7 +87,6 @@ type osOpenFunc func(path string) (modelcmd.ReadSeekCloser, error)
 type deployUploader struct {
 	applicationID string
 	chID          apiresources.CharmID
-	csMac         *macaroon.Macaroon
 	resources     map[string]charmresource.Meta
 	client        DeployClient
 	filesystem    modelcmd.Filesystem
@@ -107,10 +105,10 @@ func (d deployUploader) upload(resourceValues map[string]string, revisions map[s
 		return nil, errors.Trace(err)
 	}
 
-	storeResources := d.charmStoreResources(resourceValues, revisions)
+	storeResources := d.storeResources(resourceValues, revisions)
 	pending := map[string]string{}
 	if len(storeResources) > 0 {
-		ids, err := d.client.AddPendingResources(d.applicationID, d.chID, d.csMac, storeResources)
+		ids, err := d.client.AddPendingResources(d.applicationID, d.chID, nil, storeResources)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -190,10 +188,10 @@ func (d deployUploader) validateResources() error {
 	return nil
 }
 
-// charmStoreResources returns which resources revisions will need to be retrieved
+// storeResources returns which resources revisions will need to be retrieved
 // either as they were explicitly requested by the user for that rev or they
 // weren't provided by the user.
-func (d deployUploader) charmStoreResources(uploads map[string]string, revisions map[string]int) []charmresource.Resource {
+func (d deployUploader) storeResources(uploads map[string]string, revisions map[string]int) []charmresource.Resource {
 	var resources []charmresource.Resource
 	for name, meta := range d.resources {
 		if _, ok := uploads[name]; ok {

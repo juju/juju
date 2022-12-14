@@ -106,7 +106,7 @@ upload-resource   -
 }
 
 func (s *ResourcesCmdSuite) runCharmResourcesCommand(c *gc.C) {
-	charmName := fmt.Sprintf("cs:%s", s.charmName)
+	charmName := fmt.Sprintf("ch:%s", s.charmName)
 	context, err := cmdtesting.RunCommand(c, resource.NewCharmResourcesCommandWithClient(s.client), charmName)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
