@@ -9,6 +9,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/schema"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -84,6 +85,16 @@ func (providerWithConfig) ConfigSchema() environschema.Fields {
 			Secret: true,
 		},
 	}
+}
+
+func (providerWithConfig) ConfigDefaults() schema.Defaults {
+	return schema.Defaults{
+		"namespace": "foo",
+	}
+}
+
+func (providerWithConfig) ValidateConfig(oldCfg, newCfg provider.ConfigAttrs) error {
+	return nil
 }
 
 type mockModel struct {
@@ -217,7 +228,8 @@ func (s *SecretsSuite) TestListSecretBackendsPermissionDeniedReveal(c *gc.C) {
 }
 
 func (s *SecretsSuite) TestAddSecretBackends(c *gc.C) {
-	defer s.setup(c).Finish()
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
 
 	s.expectAuthClient()
 	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
@@ -226,23 +238,47 @@ func (s *SecretsSuite) TestAddSecretBackends(c *gc.C) {
 	facade, err := secretbackends.NewTestAPI(s.backendState, s.secretsState, s.statePool, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 
-	config := map[string]interface{}{"endpoint": "http://vault"}
+	p := mocks.NewMockSecretBackendProvider(ctrl)
+	p.EXPECT().Type().Return("vault")
+	b := mocks.NewMockSecretsBackend(ctrl)
+	b.EXPECT().Ping().Return(nil)
+	s.PatchValue(&commonsecrets.GetProvider, func(pType string) (provider.SecretBackendProvider, error) {
+		if pType != "vault" {
+			return provider.Provider(pType)
+		}
+		return providerWithConfig{
+			SecretBackendProvider: p,
+		}, nil
+	})
+
+	addedConfig := map[string]interface{}{
+		"endpoint":  "http://vault",
+		"namespace": "foo",
+	}
+	p.EXPECT().NewBackend(&provider.ModelBackendConfig{
+		BackendConfig: provider.BackendConfig{BackendType: "vault", Config: addedConfig},
+	}).Return(b, nil)
+
 	s.backendState.EXPECT().CreateSecretBackend(state.CreateSecretBackendParams{
 		Name:                "myvault",
-		Backend:             "vault",
+		BackendType:         "vault",
 		TokenRotateInterval: ptr(666 * time.Minute),
-		Config:              config,
+		Config:              addedConfig,
 	}).Return(nil)
 
 	results, err := facade.AddSecretBackends(params.AddSecretBackendArgs{
-		Args: []params.SecretBackend{{
-			Name:                "myvault",
-			BackendType:         "vault",
-			TokenRotateInterval: ptr(666 * time.Minute),
-			Config:              config,
+		Args: []params.AddSecretBackendArg{{
+			SecretBackend: params.SecretBackend{
+				Name:                "myvault",
+				BackendType:         "vault",
+				TokenRotateInterval: ptr(666 * time.Minute),
+				Config:              map[string]interface{}{"endpoint": "http://vault"},
+			},
 		}, {
-			Name:        "invalid",
-			BackendType: "something",
+			SecretBackend: params.SecretBackend{
+				Name:        "invalid",
+				BackendType: "something",
+			},
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -309,5 +345,83 @@ func (s *SecretsSuite) TestRemoveSecretBackendsPermissionDenied(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = facade.RemoveSecretBackends(params.RemoveSecretBackendArgs{})
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+}
+
+func (s *SecretsSuite) TestUpdateSecretBackends(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	s.expectAuthClient()
+	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
+		true, nil)
+
+	facade, err := secretbackends.NewTestAPI(s.backendState, s.secretsState, s.statePool, s.authorizer)
+	c.Assert(err, jc.ErrorIsNil)
+
+	p := mocks.NewMockSecretBackendProvider(ctrl)
+	p.EXPECT().Type().Return("vault")
+	b := mocks.NewMockSecretsBackend(ctrl)
+	b.EXPECT().Ping().Return(nil)
+	s.PatchValue(&commonsecrets.GetProvider, func(string) (provider.SecretBackendProvider, error) {
+		return providerWithConfig{
+			SecretBackendProvider: p,
+		}, nil
+	})
+
+	updatedConfig := map[string]interface{}{
+		"endpoint":        "http://vault",
+		"namespace":       "foo",
+		"tls-server-name": "server-name",
+	}
+	p.EXPECT().NewBackend(&provider.ModelBackendConfig{
+		BackendConfig: provider.BackendConfig{BackendType: "vault", Config: updatedConfig},
+	}).Return(b, nil)
+
+	s.backendState.EXPECT().GetSecretBackend("myvault").Return(&secrets.SecretBackend{
+		ID:          "backend-id",
+		BackendType: "vault",
+		Config:      map[string]interface{}{"endpoint": "http://vault"},
+	}, nil)
+	s.backendState.EXPECT().GetSecretBackend("invalid").Return(nil, errors.NotFoundf("backend"))
+
+	s.backendState.EXPECT().UpdateSecretBackend(state.UpdateSecretBackendParams{
+		ID:                  "backend-id",
+		NameChange:          ptr("new-name"),
+		TokenRotateInterval: ptr(666 * time.Minute),
+		Config:              updatedConfig,
+	}).Return(nil)
+
+	results, err := facade.UpdateSecretBackends(params.UpdateSecretBackendArgs{
+		Args: []params.UpdateSecretBackendArg{{
+			Name:                "myvault",
+			NameChange:          ptr("new-name"),
+			TokenRotateInterval: ptr(666 * time.Minute),
+			Config:              map[string]interface{}{"tls-server-name": "server-name"},
+			Reset:               []string{"namespace"},
+		}, {
+			Name: "invalid",
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, jc.DeepEquals, []params.ErrorResult{
+		{},
+		{Error: &params.Error{
+			Code:    "not found",
+			Message: `backend not found`}},
+	})
+}
+
+func (s *SecretsSuite) TestUpdateSecretBackendsPermissionDenied(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.expectAuthClient()
+	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
+		false, nil)
+
+	facade, err := secretbackends.NewTestAPI(s.backendState, s.secretsState, s.statePool, s.authorizer)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = facade.UpdateSecretBackends(params.UpdateSecretBackendArgs{})
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }

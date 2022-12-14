@@ -104,6 +104,11 @@ func (p vaultProvider) ConfigSchema() environschema.Fields {
 	return configSchema
 }
 
+// ConfigDefaults implements SecretBackendProvider.
+func (p vaultProvider) ConfigDefaults() schema.Defaults {
+	return schema.Defaults{}
+}
+
 // ValidateConfig implements SecretBackendProvider.
 func (p vaultProvider) ValidateConfig(oldCfg, newCfg provider.ConfigAttrs) error {
 	newValidCfg, err := newConfig(newCfg)

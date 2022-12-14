@@ -458,6 +458,7 @@ var commandNames = []string{
 	"update-public-clouds",
 	"update-credential",
 	"update-credentials",
+	"update-secret-backend",
 	"update-storage-pool",
 	"upgrade-controller",
 	"upgrade-model",

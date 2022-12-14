@@ -20,7 +20,15 @@ import (
 // CreateSecretBackendParams are used to create a secret backend.
 type CreateSecretBackendParams struct {
 	Name                string
-	Backend             string
+	BackendType         string
+	TokenRotateInterval *time.Duration
+	Config              map[string]interface{}
+}
+
+// UpdateSecretBackendParams are used to update a secret backend.
+type UpdateSecretBackendParams struct {
+	ID                  string
+	NameChange          *string
 	TokenRotateInterval *time.Duration
 	Config              map[string]interface{}
 }
@@ -28,6 +36,7 @@ type CreateSecretBackendParams struct {
 // SecretBackendsStorage instances use mongo to store secret backend info.
 type SecretBackendsStorage interface {
 	CreateSecretBackend(params CreateSecretBackendParams) error
+	UpdateSecretBackend(params UpdateSecretBackendParams) error
 	DeleteSecretBackend(name string, force bool) error
 	ListSecretBackends() ([]*secrets.SecretBackend, error)
 	GetSecretBackend(name string) (*secrets.SecretBackend, error)
@@ -72,7 +81,7 @@ func (s *secretBackendsStorage) secretBackendDoc(p *CreateSecretBackendParams) (
 	backend := &secretBackendDoc{
 		DocID:               bson.NewObjectId().Hex(),
 		Name:                p.Name,
-		BackendType:         p.Backend,
+		BackendType:         p.BackendType,
 		TokenRotateInterval: p.TokenRotateInterval,
 		Config:              p.Config,
 	}
@@ -114,6 +123,62 @@ func (s *secretBackendsStorage) toSecretBackend(doc *secretBackendDoc) *secrets.
 		TokenRotateInterval: doc.TokenRotateInterval,
 		Config:              doc.Config,
 	}
+}
+
+// UpdateSecretBackend updates a new secret backend.
+func (s *secretBackendsStorage) UpdateSecretBackend(p UpdateSecretBackendParams) error {
+	secretBackendsColl, closer := s.st.db().GetCollection(secretBackendsC)
+	defer closer()
+
+	var doc secretBackendDoc
+	err := secretBackendsColl.FindId(p.ID).One(&doc)
+	if err == mgo.ErrNotFound {
+		return errors.NotFoundf("secret backend %q", p.ID)
+	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if p.TokenRotateInterval != nil {
+		if *p.TokenRotateInterval != 0 {
+			doc.TokenRotateInterval = p.TokenRotateInterval
+		} else {
+			doc.TokenRotateInterval = nil
+		}
+	}
+	if p.NameChange != nil {
+		doc.Name = *p.NameChange
+	}
+	doc.Config = p.Config
+	update := bson.D{{"$set", doc}}
+	if doc.TokenRotateInterval == nil {
+		update = append(update, bson.DocElem{"$unset", bson.D{{"token-rotate-interval", nil}}})
+	}
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		// This isn't perfect but we don't want to use the name as the doc id.
+		// The tiny window for multiple callers to create dupe backends will
+		// go away once we transition to a SQL backend.
+		if p.NameChange != nil {
+			if existing, err := s.GetSecretBackend(doc.Name); err != nil {
+				if !errors.IsNotFound(err) {
+					return nil, errors.Annotatef(err, "checking for existing secret backend")
+				}
+			} else if existing.ID != p.ID {
+				return nil, errors.AlreadyExistsf("secret backend %q", doc.Name)
+			}
+		}
+
+		n, err := secretBackendsColl.FindId(p.ID).Count()
+		if n == 0 || err != nil {
+			return nil, errors.NotFoundf("secret backend %q", p.ID)
+		}
+		return []txn.Op{{
+			C:      secretBackendsC,
+			Id:     doc.DocID,
+			Assert: txn.DocExists,
+			Update: update,
+		}}, nil
+	}
+	return errors.Trace(s.st.db().Run(buildTxn))
 }
 
 // GetSecretBackend gets the named secret backend.

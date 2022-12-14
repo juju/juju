@@ -58,14 +58,20 @@ func (s *AddSuite) TestAddInitError(c *gc.C) {
 		args: []string{"myvault", "somevault", "foo=bar"},
 		err:  `invalid secret backend "somevault": no registered provider for "somevault"`,
 	}, {
+		args: []string{"myvault", "somevault", "foo=bar", "token-rotate=blah"},
+		err:  `invalid token rotate interval: time: invalid duration "blah"`,
+	}, {
 		args: []string{"myvault", "somevault", "foo=bar", "token-rotate=1s"},
-		err:  `token rotate interval "1s" not valid`,
+		err:  `token rotate interval "1s" too small, must be >= 60s`,
+	}, {
+		args: []string{"myvault", "somevault", "foo=bar", "token-rotate=0"},
+		err:  `token rotate interval cannot be 0`,
 	}, {
 		args: []string{"myvault", "somevault", "foo=bar", "--config", "/path/to/nowhere"},
 		err:  `open /path/to/nowhere: no such file or directory`,
 	}} {
 		_, err := cmdtesting.RunCommand(c, secretbackends.NewAddCommandForTest(s.store, s.addSecretBackendsAPI), t.args...)
-		c.Assert(err, gc.ErrorMatches, t.err)
+		c.Check(err, gc.ErrorMatches, t.err)
 	}
 }
 
@@ -73,7 +79,7 @@ func (s *AddSuite) TestAdd(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	s.addSecretBackendsAPI.EXPECT().AddSecretBackend(
-		apisecretbackends.SecretBackend{
+		apisecretbackends.CreateSecretBackend{
 			Name:                "myvault",
 			BackendType:         "vault",
 			TokenRotateInterval: ptr(666 * time.Minute),
@@ -94,7 +100,7 @@ func (s *AddSuite) TestAddFromFile(c *gc.C) {
 	err := os.WriteFile(fname, []byte("endpoint: http://vault"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	s.addSecretBackendsAPI.EXPECT().AddSecretBackend(
-		apisecretbackends.SecretBackend{
+		apisecretbackends.CreateSecretBackend{
 			Name:                "myvault",
 			BackendType:         "vault",
 			TokenRotateInterval: ptr(666 * time.Minute),

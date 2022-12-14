@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v4"
+	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/core/secrets"
@@ -54,6 +55,9 @@ type ConfigAttrs map[string]interface{}
 type ProviderConfig interface {
 	// ConfigSchema returns the fields defining the provider config.
 	ConfigSchema() environschema.Fields
+
+	// ConfigDefaults returns default attribute values.
+	ConfigDefaults() schema.Defaults
 
 	// ValidateConfig returns an error if the new
 	//provider config is not valid.

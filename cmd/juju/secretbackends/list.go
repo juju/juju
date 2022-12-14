@@ -39,6 +39,7 @@ Examples:
 See also:
     add-secret-backend
     remove-secret-backend
+    update-secret-backend
 `
 
 // ListSecretBackendsAPI is the secrets client API.

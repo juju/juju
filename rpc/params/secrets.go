@@ -260,7 +260,43 @@ type SecretBackendResult struct {
 
 // AddSecretBackendArgs holds args for adding secret backends.
 type AddSecretBackendArgs struct {
-	Args []SecretBackend `json:"args"`
+	Args []AddSecretBackendArg `json:"args"`
+}
+
+// AddSecretBackendArg holds args for adding a secret backend.
+type AddSecretBackendArg struct {
+	SecretBackend
+	// Include the ID so we can optionally
+	// import existing backend metadata.
+	// TODO(wallyworld)
+	ID string `json:"id,omitempty"`
+}
+
+// UpdateSecretBackendArgs holds args for updating secret backends.
+type UpdateSecretBackendArgs struct {
+	Args []UpdateSecretBackendArg `json:"args"`
+}
+
+// UpdateSecretBackendArg holds args for updating a secret backend.
+type UpdateSecretBackendArg struct {
+	// Name is the name of the backend to update.
+	Name string `json:"name"`
+
+	// NameChange if set, renames the backend.
+	NameChange *string `json:"name-change,omitempty"`
+
+	// TokenRotateInterval is the interval to rotate
+	// the backend master access token.
+	TokenRotateInterval *time.Duration `json:"token-rotate-interval"`
+
+	// Config are the backend's updated configuration attributes.
+	Config map[string]interface{} `json:"config"`
+
+	// Reset contains attributes to clear or reset.
+	Reset []string `json:"reset"`
+
+	// Force means to update the backend even if a ping fails.
+	Force bool `json:"force,omitempty"`
 }
 
 // ListSecretBackendsArgs holds the args for listing secret backends.

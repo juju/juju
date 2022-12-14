@@ -56,11 +56,12 @@ Examples:
 See also:
     list-secret-backends
     remove-secret-backend
+    update-secret-backend
 `
 
 // AddSecretBackendsAPI is the secrets client API.
 type AddSecretBackendsAPI interface {
-	AddSecretBackend(secretbackends.SecretBackend) error
+	AddSecretBackend(backend secretbackends.CreateSecretBackend) error
 	Close() error
 }
 
@@ -101,23 +102,10 @@ func (c *addSecretBackendCommand) Init(args []string) error {
 	}
 	c.Name = args[0]
 	c.BackendType = args[1]
-	args = args[2:]
 	// The remaining arguments are divided into keys to set.
-	c.KeyValueAttrs = make(map[string]interface{})
-	for _, arg := range args {
-		splitArg := strings.SplitN(arg, "=", 2)
-		if len(splitArg) != 2 {
-			return errors.NotValidf("key value %q", arg)
-		}
-		key := splitArg[0]
-		if len(key) == 0 {
-			return errors.Errorf(`expected "key=value", got %q`, arg)
-		}
-		if _, exists := c.KeyValueAttrs[key]; exists {
-			return keyvalues.DuplicateError(
-				fmt.Sprintf("key %q specified more than once", key))
-		}
-		c.KeyValueAttrs[key] = splitArg[1]
+	var err error
+	if c.KeyValueAttrs, err = parseArgs(args[2:]); err != nil {
+		return errors.Trace(err)
 	}
 
 	if len(c.KeyValueAttrs) == 0 && c.ConfigFile.Path == "" {
@@ -126,21 +114,41 @@ func (c *addSecretBackendCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *addSecretBackendCommand) readFile(ctx *cmd.Context) (map[string]interface{}, error) {
+func parseArgs(args []string) (map[string]interface{}, error) {
+	keyValueAttrs := make(map[string]interface{})
+	for _, arg := range args {
+		splitArg := strings.SplitN(arg, "=", 2)
+		if len(splitArg) != 2 {
+			return nil, errors.NotValidf("key value %q", arg)
+		}
+		key := splitArg[0]
+		if len(key) == 0 {
+			return nil, errors.Errorf(`expected "key=value", got %q`, arg)
+		}
+		if _, exists := keyValueAttrs[key]; exists {
+			return nil, keyvalues.DuplicateError(
+				fmt.Sprintf("key %q specified more than once", key))
+		}
+		keyValueAttrs[key] = splitArg[1]
+	}
+	return keyValueAttrs, nil
+}
+
+func readFile(ctx *cmd.Context, configFile cmd.FileVar) (map[string]interface{}, error) {
 	attrs := make(map[string]interface{})
-	if c.ConfigFile.Path == "" {
+	if configFile.Path == "" {
 		return attrs, nil
 	}
 	var (
 		data []byte
 		err  error
 	)
-	if c.ConfigFile.Path == "-" {
+	if configFile.Path == "-" {
 		// Read from stdin
 		data, err = io.ReadAll(ctx.Stdin)
 	} else {
 		// Read from file
-		data, err = c.ConfigFile.Read(ctx)
+		data, err = configFile.Read(ctx)
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -152,9 +160,32 @@ func (c *addSecretBackendCommand) readFile(ctx *cmd.Context) (map[string]interfa
 	return attrs, nil
 }
 
+func parseTokenRotate(attrs map[string]interface{}, zeroAllowed bool) (*time.Duration, error) {
+	const tokenRotate = "token-rotate"
+	tokenRotateStr, ok := attrs[tokenRotate]
+	if ok {
+		delete(attrs, tokenRotate)
+		rotateInterval, err := time.ParseDuration(fmt.Sprintf("%s", tokenRotateStr))
+		intervalSecs := rotateInterval / time.Second
+		if err != nil {
+			return nil, errors.Annotate(err, "invalid token rotate interval")
+		}
+		if intervalSecs == 0 {
+			if !zeroAllowed {
+				return nil, errors.NewNotValid(err, "token rotate interval cannot be 0")
+			}
+			return &rotateInterval, nil
+		} else if intervalSecs < 60 {
+			return nil, errors.NewNotValid(err, fmt.Sprintf("token rotate interval %q too small, must be >= 60s", tokenRotateStr))
+		}
+		return &rotateInterval, nil
+	}
+	return nil, nil
+}
+
 // Run implements cmd.Run.
 func (c *addSecretBackendCommand) Run(ctxt *cmd.Context) error {
-	attrs, err := c.readFile(ctxt)
+	attrs, err := readFile(ctxt, c.ConfigFile)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -162,18 +193,10 @@ func (c *addSecretBackendCommand) Run(ctxt *cmd.Context) error {
 		attrs[k] = v
 	}
 
-	const tokenRotate = "token-rotate"
-	var tokenRotateInterval *time.Duration
-	tokenRotateStr, ok := attrs[tokenRotate]
-	if ok {
-		delete(attrs, tokenRotate)
-		rotateInterval, err := time.ParseDuration(fmt.Sprintf("%s", tokenRotateStr))
-		if err != nil || (rotateInterval/time.Second) < 60 {
-			return errors.NotValidf("token rotate interval %q", tokenRotateStr)
-		}
-		tokenRotateInterval = &rotateInterval
+	tokenRotateInterval, err := parseTokenRotate(attrs, false)
+	if err != nil {
+		return errors.Trace(err)
 	}
-
 	p, err := provider.Provider(c.BackendType)
 	if err != nil {
 		return errors.Annotatef(err, "invalid secret backend %q", c.BackendType)
@@ -186,7 +209,7 @@ func (c *addSecretBackendCommand) Run(ctxt *cmd.Context) error {
 		}
 	}
 
-	backend := secretbackends.SecretBackend{
+	backend := secretbackends.CreateSecretBackend{
 		Name:                c.Name,
 		BackendType:         c.BackendType,
 		TokenRotateInterval: tokenRotateInterval,

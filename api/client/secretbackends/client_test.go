@@ -75,7 +75,7 @@ func (s *SecretBackendsSuite) TestListSecretBackends(c *gc.C) {
 }
 
 func (s *SecretBackendsSuite) TestAddSecretsBackend(c *gc.C) {
-	backend := secretbackends.SecretBackend{
+	backend := secretbackends.CreateSecretBackend{
 		Name:                "foo",
 		BackendType:         "vault",
 		TokenRotateInterval: ptr(666 * time.Minute),
@@ -87,11 +87,13 @@ func (s *SecretBackendsSuite) TestAddSecretsBackend(c *gc.C) {
 		c.Check(id, gc.Equals, "")
 		c.Check(request, gc.Equals, "AddSecretBackends")
 		c.Check(arg, jc.DeepEquals, params.AddSecretBackendArgs{
-			Args: []params.SecretBackend{{
-				Name:                backend.Name,
-				BackendType:         backend.BackendType,
-				TokenRotateInterval: backend.TokenRotateInterval,
-				Config:              backend.Config,
+			Args: []params.AddSecretBackendArg{{
+				SecretBackend: params.SecretBackend{
+					Name:                backend.Name,
+					BackendType:         backend.BackendType,
+					TokenRotateInterval: backend.TokenRotateInterval,
+					Config:              backend.Config,
+				},
 			}},
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
@@ -129,5 +131,39 @@ func (s *SecretBackendsSuite) TestRemoveSecretsBackend(c *gc.C) {
 	})
 	client := secretbackends.NewClient(apiCaller)
 	err := client.RemoveSecretBackend("foo", true)
+	c.Assert(err, gc.ErrorMatches, "FAIL")
+}
+
+func (s *SecretBackendsSuite) TestUpdateSecretsBackend(c *gc.C) {
+	backend := secretbackends.UpdateSecretBackend{
+		Name:                "foo",
+		NameChange:          ptr("new-name"),
+		TokenRotateInterval: ptr(666 * time.Minute),
+		Config:              map[string]interface{}{"foo": "bar"},
+	}
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "SecretBackends")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "UpdateSecretBackends")
+		c.Check(arg, jc.DeepEquals, params.UpdateSecretBackendArgs{
+			Args: []params.UpdateSecretBackendArg{{
+				Name:                backend.Name,
+				TokenRotateInterval: backend.TokenRotateInterval,
+				Config:              backend.Config,
+				NameChange:          backend.NameChange,
+				Force:               true,
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}},
+		}
+		return nil
+	})
+	client := secretbackends.NewClient(apiCaller)
+	err := client.UpdateSecretBackend(backend, true)
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }
