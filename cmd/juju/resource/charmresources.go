@@ -231,7 +231,7 @@ func resolveCharm(raw string) (*charm.URL, error) {
 		return nil, errors.NotSupportedf("charm bundles")
 	}
 	if !charm.CharmHub.Matches(charmURL.Schema) {
-		return nil, errors.BadRequestf("only supported with charm hub charms")
+		return nil, errors.BadRequestf("only supported with charmhub charms")
 	}
 
 	return charmURL, nil
