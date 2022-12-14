@@ -249,7 +249,7 @@ func bootstrapCAAS(
 		return errors.NotSupportedf("--bootstrap-image when bootstrapping a k8s controller")
 	}
 	if !args.BootstrapBase.Empty() {
-		return errors.NotSupportedf("--bootstrap-base when bootstrapping a k8s controller")
+		return errors.NotSupportedf("--bootstrap-series or --bootstrap-base when bootstrapping a k8s controller")
 	}
 
 	constraintsValidator, err := environ.ConstraintsValidator(callCtx)

@@ -1436,10 +1436,20 @@ func (c *bootstrapCommand) bootstrapConfigs(
 	if err != nil {
 		return bootstrapConfigs{}, errors.Trace(err)
 	}
+
+	if userConfigAttrs, err = ensureDefaultBase(userConfigAttrs); err != nil {
+		return bootstrapConfigs{}, errors.Trace(err)
+	}
+
 	modelDefaultConfigAttrs, err := c.modelDefaults.ReadAttrs(ctx)
 	if err != nil {
 		return bootstrapConfigs{}, errors.Trace(err)
 	}
+
+	if modelDefaultConfigAttrs, err = ensureDefaultBase(modelDefaultConfigAttrs); err != nil {
+		return bootstrapConfigs{}, errors.Trace(err)
+	}
+
 	// The provider may define some custom attributes specific
 	// to the provider. These will be added to the model config.
 	var providerAttrs map[string]interface{}
@@ -1511,6 +1521,7 @@ func (c *bootstrapCommand) bootstrapConfigs(
 		}
 		inheritedControllerAttrs[k] = v
 	}
+
 	// Model defaults are added to the inherited controller attributes.
 	// Any command line set model defaults override what is in the cloud config.
 	for k, v := range modelDefaultConfigAttrs {
@@ -1614,6 +1625,26 @@ func (c *bootstrapCommand) bootstrapConfigs(
 		storagePools:             storagePools,
 	}
 	return configs, nil
+}
+
+// ensureDefaultBase ensures that the default base is set if the default series
+// is supplied. It removes the default-series, if there was one.
+func ensureDefaultBase(m map[string]interface{}) (map[string]interface{}, error) {
+	// TODO(stickupkid): Remove this once series has been deleted and the
+	// bases are the default.
+	if key, ok := m[config.DefaultSeriesKey]; ok {
+		if key == "" {
+			m[config.DefaultBaseKey] = ""
+		} else {
+			s, err := series.GetBaseFromSeries(key.(string))
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			m[config.DefaultBaseKey] = s.String()
+		}
+		delete(m, config.DefaultSeriesKey)
+	}
+	return m, nil
 }
 
 func (c *bootstrapCommand) InitialModelConfig(
