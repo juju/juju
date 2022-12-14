@@ -9,7 +9,6 @@ import (
 	"github.com/juju/charm/v9"
 	charmresource "github.com/juju/charm/v9/resource"
 	jujucmd "github.com/juju/cmd/v3"
-	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -94,27 +93,17 @@ website   2
 	)
 	s.stub.CheckCall(c, 0, "ListResources", []jujuresource.CharmID{
 		{
-			URL:     charm.MustParseURL("ch:a-charm"),
+			URL:     charm.MustParseURL("a-charm"),
 			Channel: corecharm.MustParseChannel("stable"),
 		},
 	})
-}
-
-func (s *CharmResourcesSuite) TestCharmhub(c *gc.C) {
-	s.client.stub.SetErrors(errors.Errorf("charmhub charms are currently not supported"))
-
-	command := resourcecmd.NewCharmResourcesCommandForTest(s.client)
-	code, stdout, stderr := runCmd(c, command, "a-charm")
-	c.Check(code, gc.Equals, 1)
-	c.Check(stdout, gc.Equals, "")
-	c.Check(stderr, gc.Equals, "ERROR charmhub charms are currently not supported\n")
 }
 
 func (s *CharmResourcesSuite) TestNoResources(c *gc.C) {
 	s.client.ReturnListResources = [][]charmresource.Resource{{}}
 
 	command := resourcecmd.NewCharmResourcesCommandForTest(s.client)
-	code, stdout, stderr := runCmd(c, command, "ch:a-charm")
+	code, stdout, stderr := runCmd(c, command, "a-charm")
 	c.Check(code, gc.Equals, 0)
 
 	c.Check(stderr, gc.Equals, "No resources to display.\n")
