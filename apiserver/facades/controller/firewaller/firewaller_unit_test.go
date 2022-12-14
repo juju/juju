@@ -10,6 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/controller/firewaller"
 	"github.com/juju/juju/apiserver/facades/controller/firewaller/mocks"
@@ -80,6 +81,26 @@ func (s *RemoteFirewallerSuite) TestWatchIngressAddressesForRelations(c *gc.C) {
 	resource := s.resources.Get("1")
 	c.Assert(resource, gc.NotNil)
 	c.Assert(resource, gc.Implements, new(state.StringsWatcher))
+}
+
+func (s *RemoteFirewallerSuite) TestMacaroonForRelations(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	mac, err := apitesting.NewMacaroon("apimac")
+	c.Assert(err, jc.ErrorIsNil)
+	entity := names.NewRelationTag("mysql:db wordpress:db")
+	s.st.EXPECT().GetMacaroon(entity).Return(mac, nil)
+
+	result, err := s.api.MacaroonForRelations(
+		params.Entities{Entities: []params.Entity{{
+			Tag: entity.String(),
+		}}},
+	)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+	c.Assert(result.Results[0].Result, jc.DeepEquals, mac)
 }
 
 func (s *RemoteFirewallerSuite) TestSetRelationStatus(c *gc.C) {

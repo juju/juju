@@ -104,7 +104,9 @@ func (s *remoteApplicationSuite) makeRemoteApplication(c *gc.C, name, url string
 		"db-admin": "private",
 		"logging":  "public",
 	}
-	s.application, _ = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+	mac, err := newMacaroon("test")
+	c.Assert(err, jc.ErrorIsNil)
+	s.application, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:                   name,
 		URL:                    url,
 		ExternalControllerUUID: s.externalControllerUUID,
@@ -113,7 +115,9 @@ func (s *remoteApplicationSuite) makeRemoteApplication(c *gc.C, name, url string
 		Endpoints:              eps,
 		Spaces:                 spaces,
 		Bindings:               bindings,
+		Macaroon:               mac,
 	})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *remoteApplicationSuite) assertApplicationRelations(c *gc.C, app *state.Application, expectedKeys ...string) []*state.Relation {
@@ -362,6 +366,14 @@ func (s *remoteApplicationSuite) TestMysqlEndpoints(c *gc.C) {
 	eps, err := s.application.Endpoints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(eps, gc.DeepEquals, []state.Endpoint{serverEP, adminEp, loggingEp})
+}
+
+func (s *remoteApplicationSuite) TestMacaroon(c *gc.C) {
+	mac, err := newMacaroon("test")
+	c.Assert(err, jc.ErrorIsNil)
+	appMac, err := s.application.Macaroon()
+	c.Assert(err, jc.ErrorIsNil)
+	assertMacaroonEquals(c, appMac, mac)
 }
 
 func (s *remoteApplicationSuite) TestApplicationRefresh(c *gc.C) {

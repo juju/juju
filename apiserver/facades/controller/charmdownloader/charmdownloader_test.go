@@ -14,6 +14,7 @@ import (
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/macaroon.v2"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
@@ -86,7 +87,12 @@ func (s *charmDownloaderSuite) TestDownloadApplicationCharms(c *gc.C) {
 		},
 	}
 
+	mac, err := macaroon.New(nil, []byte("id"), "", macaroon.LatestVersion)
+	c.Assert(err, jc.ErrorIsNil)
+	macaroons := macaroon.Slice{mac}
+
 	pendingCharm := mocks.NewMockCharm(ctrl)
+	pendingCharm.EXPECT().Macaroon().Return(macaroons, nil)
 	pendingCharm.EXPECT().URL().Return(charmURL)
 
 	app := mocks.NewMockApplication(ctrl)
@@ -101,7 +107,7 @@ func (s *charmDownloaderSuite) TestDownloadApplicationCharms(c *gc.C) {
 
 	s.authChecker.EXPECT().AuthController().Return(true)
 	s.stateBackend.EXPECT().Application("ufo").Return(app, nil)
-	s.downloader.EXPECT().DownloadAndStore(charmURL, resolvedOrigin, false).Return(downloadedOrigin, nil)
+	s.downloader.EXPECT().DownloadAndStore(charmURL, resolvedOrigin, macaroons, false).Return(downloadedOrigin, nil)
 
 	got, err := s.api.DownloadApplicationCharms(params.Entities{
 		Entities: []params.Entity{
@@ -126,7 +132,12 @@ func (s *charmDownloaderSuite) TestDownloadApplicationCharmsSetStatusIfDownloadF
 		},
 	}
 
+	mac, err := macaroon.New(nil, []byte("id"), "", macaroon.LatestVersion)
+	c.Assert(err, jc.ErrorIsNil)
+	macaroons := macaroon.Slice{mac}
+
 	pendingCharm := mocks.NewMockCharm(ctrl)
+	pendingCharm.EXPECT().Macaroon().Return(macaroons, nil)
 	pendingCharm.EXPECT().URL().Return(charmURL)
 
 	app := mocks.NewMockApplication(ctrl)
@@ -136,7 +147,7 @@ func (s *charmDownloaderSuite) TestDownloadApplicationCharmsSetStatusIfDownloadF
 
 	s.authChecker.EXPECT().AuthController().Return(true)
 	s.stateBackend.EXPECT().Application("ufo").Return(app, nil)
-	s.downloader.EXPECT().DownloadAndStore(charmURL, resolvedOrigin, false).Return(corecharm.Origin{}, errors.NotFoundf("charm"))
+	s.downloader.EXPECT().DownloadAndStore(charmURL, resolvedOrigin, macaroons, false).Return(corecharm.Origin{}, errors.NotFoundf("charm"))
 
 	got, err := s.api.DownloadApplicationCharms(params.Entities{
 		Entities: []params.Entity{

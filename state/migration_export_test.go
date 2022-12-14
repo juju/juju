@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/charm/v9"
 	charmresource "github.com/juju/charm/v9/resource"
-	"github.com/juju/description/v4"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -21,6 +20,9 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
+	"gopkg.in/macaroon.v2"
+
+	"github.com/juju/description/v4"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
@@ -1108,6 +1110,11 @@ func (s *MigrationExportSuite) TestRemoteEntities(c *gc.C) {
 	err := remotes.ImportRemoteEntity(remoteCtrl, "aaa-bbb-ccc")
 	c.Assert(err, jc.ErrorIsNil)
 
+	mac, err := macaroon.New(nil, []byte(remoteCtrl.Id()), "", macaroon.LatestVersion)
+	c.Assert(err, jc.ErrorIsNil)
+	err = remotes.SaveMacaroon(remoteCtrl, mac)
+	c.Assert(err, jc.ErrorIsNil)
+
 	model, err := s.State.Export(map[string]string{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1117,6 +1124,7 @@ func (s *MigrationExportSuite) TestRemoteEntities(c *gc.C) {
 	entity := remoteEntities[0]
 	c.Assert(entity.ID(), gc.Equals, names.NewControllerTag("uuid-223412").String())
 	c.Assert(entity.Token(), gc.Equals, "aaa-bbb-ccc")
+	c.Assert(entity.Macaroon(), gc.Equals, "")
 }
 
 func (s *MigrationExportSuite) TestRelationNetworks(c *gc.C) {
@@ -2361,6 +2369,8 @@ func (s *MigrationExportSuite) newResource(c *gc.C, appName, name string, revisi
 }
 
 func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
+	mac, err := newMacaroon("apimac")
+	c.Assert(err, gc.IsNil)
 	dbApp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "gravy-rainbow",
 		URL:         "me/model.rainbow",
@@ -2426,6 +2436,8 @@ func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
 			"db-admin": "private",
 			"logging":  "public",
 		},
+		// Macaroon not exported.
+		Macaroon: mac,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
@@ -2570,7 +2582,10 @@ func (s *MigrationExportSuite) TestRelationWithNoStatus(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestRemoteRelationSettingsForLocalUnitInCMR(c *gc.C) {
-	_, _ = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+	mac, err := newMacaroon("apimac")
+	c.Assert(err, gc.IsNil)
+
+	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "gravy-rainbow",
 		URL:         "me/model.rainbow",
 		SourceModel: s.Model.ModelTag(),
@@ -2600,7 +2615,10 @@ func (s *MigrationExportSuite) TestRemoteRelationSettingsForLocalUnitInCMR(c *gc
 		Bindings: map[string]string{
 			"db": "private",
 		},
+		// Macaroon not exported.
+		Macaroon: mac,
 	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	wordpress := state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
 	eps, err := s.State.InferEndpoints("gravy-rainbow", "wordpress")

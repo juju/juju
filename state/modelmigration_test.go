@@ -12,6 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/permission"
@@ -37,6 +38,9 @@ func (s *MigrationSuite) SetUpTest(c *gc.C) {
 
 	targetControllerTag := names.NewControllerTag(utils.MustNewUUID().String())
 
+	mac, err := macaroon.New([]byte("secret"), []byte("id"), "location", macaroon.LatestVersion)
+	c.Assert(err, jc.ErrorIsNil)
+
 	// Plausible migration arguments to test with.
 	s.stdSpec = state.MigrationSpec{
 		InitiatedBy: names.NewUserTag("admin"),
@@ -47,6 +51,7 @@ func (s *MigrationSuite) SetUpTest(c *gc.C) {
 			CACert:          "cert",
 			AuthTag:         names.NewUserTag("user"),
 			Password:        "password",
+			Macaroons:       []macaroon.Slice{{mac}},
 		},
 	}
 	// Before we get into the tests, ensure that all the creation events have flowed through the system.
@@ -73,6 +78,12 @@ func (s *MigrationSuite) TestCreate(c *gc.C) {
 
 	info, err := mig.TargetInfo()
 	c.Assert(err, jc.ErrorIsNil)
+	// Extract macaroons so we can compare them separately
+	// (as they can't be compared using DeepEquals due to 'UnmarshaledAs')
+	infoMacs := info.Macaroons
+	info.Macaroons = nil
+	assertMacaroonsEqual(c, infoMacs, s.stdSpec.TargetInfo.Macaroons)
+	s.stdSpec.TargetInfo.Macaroons = nil
 	c.Check(*info, jc.DeepEquals, s.stdSpec.TargetInfo)
 	c.Check(info.ControllerAlias, gc.Equals, s.stdSpec.TargetInfo.ControllerAlias)
 

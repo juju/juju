@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/charm/v9"
 	"github.com/juju/names/v4"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/network"
@@ -269,6 +270,9 @@ type RemoteApplication interface {
 
 	// SourceModel returns the tag of the model hosting the remote application.
 	SourceModel() names.ModelTag
+
+	// Macaroon returns the macaroon used for authentication.
+	Macaroon() (*macaroon.Macaroon, error)
 
 	// Status returns the status of the remote application.
 	Status() (status.StatusInfo, error)

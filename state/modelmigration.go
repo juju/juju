@@ -4,6 +4,7 @@
 package state
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/permission"
@@ -274,6 +276,10 @@ func (mig *modelMigration) TargetInfo() (*migration.TargetInfo, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	macs, err := jsonToMacaroons(mig.doc.TargetMacaroons)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return &migration.TargetInfo{
 		ControllerTag:   names.NewControllerTag(mig.doc.TargetController),
 		ControllerAlias: mig.doc.TargetControllerAlias,
@@ -281,6 +287,7 @@ func (mig *modelMigration) TargetInfo() (*migration.TargetInfo, error) {
 		CACert:          mig.doc.TargetCACert,
 		AuthTag:         authTag,
 		Password:        mig.doc.TargetPassword,
+		Macaroons:       macs,
 	}, nil
 }
 
@@ -705,6 +712,11 @@ func (st *State) CreateMigration(spec MigrationSpec) (ModelMigration, error) {
 			return nil, errors.New("already in progress")
 		}
 
+		macsJSON, err := macaroonsToJSON(spec.TargetInfo.Macaroons)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
 		attempt, err := sequence(st, "modelmigration")
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -727,6 +739,7 @@ func (st *State) CreateMigration(spec MigrationSpec) (ModelMigration, error) {
 			TargetCACert:          spec.TargetInfo.CACert,
 			TargetAuthTag:         spec.TargetInfo.AuthTag.String(),
 			TargetPassword:        spec.TargetInfo.Password,
+			TargetMacaroons:       macsJSON,
 			ModelUsers:            userDocs,
 		}
 
@@ -790,6 +803,28 @@ func modelUserDocs(m *Model) ([]modelMigUserDoc, error) {
 	}
 
 	return docs, nil
+}
+
+func macaroonsToJSON(m []macaroon.Slice) (string, error) {
+	if len(m) == 0 {
+		return "", nil
+	}
+	j, err := json.Marshal(m)
+	if err != nil {
+		return "", errors.Annotate(err, "marshalling macaroons")
+	}
+	return string(j), nil
+}
+
+func jsonToMacaroons(raw string) ([]macaroon.Slice, error) {
+	if raw == "" {
+		return nil, nil
+	}
+	var macs []macaroon.Slice
+	if err := json.Unmarshal([]byte(raw), &macs); err != nil {
+		return nil, errors.Annotate(err, "unmarshalling macaroon")
+	}
+	return macs, nil
 }
 
 func checkTargetController(st *State, targetControllerTag names.ControllerTag) error {

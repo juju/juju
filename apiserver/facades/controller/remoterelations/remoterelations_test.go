@@ -13,6 +13,7 @@ import (
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
+	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/controller/remoterelations"
 	"github.com/juju/juju/apiserver/facades/controller/remoterelations/mocks"
@@ -285,12 +286,29 @@ func (s *remoteRelationsSuite) TestGetTokens(c *gc.C) {
 	c.Assert(result.Results[0], jc.DeepEquals, params.StringResult{Result: "token-application-django"})
 }
 
+func (s *remoteRelationsSuite) TestSaveMacaroons(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	mac, err := apitesting.NewMacaroon("id")
+	c.Assert(err, jc.ErrorIsNil)
+	relTag := names.NewRelationTag("mysql:db wordpress:db")
+	s.st.EXPECT().SaveMacaroon(relTag, mac).Return(nil)
+
+	result, err := s.api.SaveMacaroons(params.EntityMacaroonArgs{
+		Args: []params.EntityMacaroonArg{{Tag: relTag.String(), Macaroon: mac}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+}
+
 func (s *remoteRelationsSuite) TestRemoteApplications(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	s.st.EXPECT().RemoteApplication("django").Return(newMockRemoteApplication("django", "me/model.riak"), nil)
 
 	result, err := s.api.RemoteApplications(params.Entities{Entities: []params.Entity{{Tag: "application-django"}}})
+	c.Assert(err, jc.ErrorIsNil)
+	mac, err := apitesting.NewMacaroon("test")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, jc.DeepEquals, []params.RemoteApplicationResult{{
 		Result: &params.RemoteApplication{
@@ -299,6 +317,7 @@ func (s *remoteRelationsSuite) TestRemoteApplications(c *gc.C) {
 			ConsumeVersion: 666,
 			Life:           "alive",
 			ModelUUID:      "model-uuid",
+			Macaroon:       mac,
 		},
 	}})
 }

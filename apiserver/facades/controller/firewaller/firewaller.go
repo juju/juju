@@ -307,6 +307,26 @@ func (f *FirewallerAPI) WatchIngressAddressesForRelations(relations params.Entit
 	return results, nil
 }
 
+// MacaroonForRelations returns the macaroon for the specified relations.
+func (f *FirewallerAPI) MacaroonForRelations(args params.Entities) (params.MacaroonResults, error) {
+	var result params.MacaroonResults
+	result.Results = make([]params.MacaroonResult, len(args.Entities))
+	for i, entity := range args.Entities {
+		relationTag, err := names.ParseRelationTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		mac, err := f.st.GetMacaroon(relationTag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		result.Results[i].Result = mac
+	}
+	return result, nil
+}
+
 // SetRelationsStatus sets the status for the specified relations.
 func (f *FirewallerAPI) SetRelationsStatus(args params.SetStatus) (params.ErrorResults, error) {
 	var result params.ErrorResults
