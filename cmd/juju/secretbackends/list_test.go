@@ -8,6 +8,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd/v3/cmdtesting"
+	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -64,6 +65,9 @@ func (s *ListSuite) TestListTabular(c *gc.C) {
 			BackendType: "controller",
 			NumSecrets:  668,
 			Status:      status.Active,
+		}, {
+			ID:    "backend-error-id",
+			Error: errors.New("error"),
 		}}, nil)
 	s.secretBackendsAPI.EXPECT().Close().Return(nil)
 
@@ -94,6 +98,9 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
 			BackendType: "controller",
 			NumSecrets:  668,
 			Status:      status.Active,
+		}, {
+			ID:    "999",
+			Error: errors.New("some error"),
 		}}, nil)
 
 	s.secretBackendsAPI.EXPECT().Close().Return(nil)
@@ -102,6 +109,11 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, `
+error-999:
+  secrets: 0
+  status: error
+  id: "999"
+  error: some error
 internal:
   backend: controller
   secrets: 668

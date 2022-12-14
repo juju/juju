@@ -138,6 +138,7 @@ func (s *SecretsSuite) assertListSecretBackends(c *gc.C, modelType state.ModelTy
 	backends := map[string]set.Strings{
 		coretesting.ControllerTag.Id(): set.NewStrings("a"),
 		"backend-id":                   set.NewStrings("b", "c", "d"),
+		"backend-id-notfound":          set.NewStrings("z"),
 	}
 	if modelType == state.ModelTypeCAAS {
 		backends[uuid] = set.NewStrings("e", "f")
@@ -151,10 +152,7 @@ func (s *SecretsSuite) assertListSecretBackends(c *gc.C, modelType state.ModelTy
 		TokenRotateInterval: ptr(666 * time.Minute),
 		Config:              vaultConfig,
 	}, nil)
-	if modelType == state.ModelTypeCAAS {
-		s.backendState.EXPECT().GetSecretBackendByID(uuid).Return(nil, errors.NotFoundf("k8s"))
-	}
-	s.backendState.EXPECT().GetSecretBackendByID(coretesting.ControllerTag.Id()).Return(nil, errors.NotFoundf("juju"))
+	s.backendState.EXPECT().GetSecretBackendByID("backend-id-notfound").Return(nil, errors.NotFoundf(""))
 
 	results, err := facade.ListSecretBackends(params.ListSecretBackendsArgs{Reveal: reveal})
 	c.Assert(err, jc.ErrorIsNil)
@@ -172,6 +170,7 @@ func (s *SecretsSuite) assertListSecretBackends(c *gc.C, modelType state.ModelTy
 			TokenRotateInterval: ptr(666 * time.Minute),
 			Config:              resultVaultCfg,
 		},
+		ID:         "backend-id",
 		NumSecrets: 3,
 		Status:     "error",
 		Message:    "ping error",
@@ -183,6 +182,7 @@ func (s *SecretsSuite) assertListSecretBackends(c *gc.C, modelType state.ModelTy
 				BackendType: "kubernetes",
 				Config:      map[string]interface{}{},
 			},
+			ID:         coretesting.ModelTag.Id(),
 			Status:     "active",
 			NumSecrets: 2,
 		})
@@ -193,6 +193,7 @@ func (s *SecretsSuite) assertListSecretBackends(c *gc.C, modelType state.ModelTy
 			BackendType: "controller",
 			Config:      map[string]interface{}{},
 		},
+		ID:         coretesting.ControllerTag.Id(),
 		Status:     "active",
 		NumSecrets: 1,
 	})
@@ -264,5 +265,49 @@ func (s *SecretsSuite) TestAddSecretBackendsPermissionDenied(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = facade.AddSecretBackends(params.AddSecretBackendArgs{})
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+}
+
+func (s *SecretsSuite) TestRemoveSecretBackends(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.expectAuthClient()
+	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
+		true, nil)
+
+	facade, err := secretbackends.NewTestAPI(s.backendState, s.secretsState, s.statePool, s.authorizer)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.backendState.EXPECT().DeleteSecretBackend("myvault", true).Return(nil)
+	s.backendState.EXPECT().DeleteSecretBackend("myvault2", false).Return(errors.NotSupportedf("remove with revisions"))
+
+	results, err := facade.RemoveSecretBackends(params.RemoveSecretBackendArgs{
+		Args: []params.RemoveSecretBackendArg{{
+			Name:  "myvault",
+			Force: true,
+		}, {
+			Name: "myvault2",
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, jc.DeepEquals, []params.ErrorResult{
+		{},
+		{Error: &params.Error{
+			Code:    "not supported",
+			Message: `remove with revisions not supported`}},
+	})
+}
+
+func (s *SecretsSuite) TestRemoveSecretBackendsPermissionDenied(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.expectAuthClient()
+	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
+		false, nil)
+
+	facade, err := secretbackends.NewTestAPI(s.backendState, s.secretsState, s.statePool, s.authorizer)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = facade.RemoveSecretBackends(params.RemoveSecretBackendArgs{})
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }

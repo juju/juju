@@ -96,3 +96,28 @@ func (s *SecretBackendsAPI) ListSecretBackends(arg params.ListSecretBackendsArgs
 	result.Results = results
 	return result, nil
 }
+
+// RemoveSecretBackends removes secret backends.
+func (s *SecretBackendsAPI) RemoveSecretBackends(args params.RemoveSecretBackendArgs) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Args)),
+	}
+	if err := s.checkCanAdmin(); err != nil {
+		return result, errors.Trace(err)
+	}
+	for i, arg := range args.Args {
+		err := s.removeBackend(arg)
+		result.Results[i].Error = apiservererrors.ServerError(err)
+	}
+	return result, nil
+}
+
+func (s *SecretBackendsAPI) removeBackend(arg params.RemoveSecretBackendArg) error {
+	if arg.Name == "" {
+		return errors.NotValidf("missing backend name")
+	}
+	if arg.Name == juju.BackendName || arg.Name == provider.Auto {
+		return errors.NotValidf("backend %q")
+	}
+	return s.backendState.DeleteSecretBackend(arg.Name, arg.Force)
+}

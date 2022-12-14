@@ -51,6 +51,7 @@ func (s *SecretBackendsSuite) TestListSecretBackends(c *gc.C) {
 					TokenRotateInterval: ptr(666 * time.Minute),
 					Config:              config,
 				},
+				ID:         "backend-id",
 				NumSecrets: 666,
 				Status:     "error",
 				Message:    "vault is sealed",
@@ -69,6 +70,7 @@ func (s *SecretBackendsSuite) TestListSecretBackends(c *gc.C) {
 		NumSecrets:          666,
 		Status:              status.Error,
 		Message:             "vault is sealed",
+		ID:                  "backend-id",
 	}})
 }
 
@@ -102,5 +104,30 @@ func (s *SecretBackendsSuite) TestAddSecretsBackend(c *gc.C) {
 	})
 	client := secretbackends.NewClient(apiCaller)
 	err := client.AddSecretBackend(backend)
+	c.Assert(err, gc.ErrorMatches, "FAIL")
+}
+
+func (s *SecretBackendsSuite) TestRemoveSecretsBackend(c *gc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "SecretBackends")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "RemoveSecretBackends")
+		c.Check(arg, jc.DeepEquals, params.RemoveSecretBackendArgs{
+			Args: []params.RemoveSecretBackendArg{{
+				Name:  "foo",
+				Force: true,
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}},
+		}
+		return nil
+	})
+	client := secretbackends.NewClient(apiCaller)
+	err := client.RemoveSecretBackend("foo", true)
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }

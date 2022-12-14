@@ -15,6 +15,7 @@ import (
 // SecretsBackendState is used to access the juju state database.
 type SecretsBackendState interface {
 	CreateSecretBackend(params state.CreateSecretBackendParams) error
+	DeleteSecretBackend(name string, force bool) error
 	ListSecretBackends() ([]*secrets.SecretBackend, error)
 	GetSecretBackendByID(ID string) (*secrets.SecretBackend, error)
 }

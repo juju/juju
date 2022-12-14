@@ -249,11 +249,13 @@ type ListSecretBackendsResults struct {
 
 // SecretBackendResult holds a secret backend and related info.
 type SecretBackendResult struct {
-	Result     SecretBackend `json:"result"`
-	NumSecrets int           `json:"num-secrets"`
-	Status     string        `json:"status"`
-	Message    string        `json:"message,omitempty"`
-	Error      *Error        `json:"error,omitempty"`
+	Result SecretBackend `json:"result"`
+	// Include the ID so we can report on backends with errors.
+	ID         string `json:"id"`
+	NumSecrets int    `json:"num-secrets"`
+	Status     string `json:"status"`
+	Message    string `json:"message,omitempty"`
+	Error      *Error `json:"error,omitempty"`
 }
 
 // AddSecretBackendArgs holds args for adding secret backends.
@@ -280,4 +282,15 @@ type SecretBackend struct {
 
 	// Config are the backend's configuration attributes.
 	Config map[string]interface{} `json:"config"`
+}
+
+// RemoveSecretBackendArgs holds args for removing secret backends.
+type RemoveSecretBackendArgs struct {
+	Args []RemoveSecretBackendArg `json:"args"`
+}
+
+// RemoveSecretBackendArg holds args for removing a secret backend.
+type RemoveSecretBackendArg struct {
+	Name  string `json:"name"`
+	Force bool   `json:"force,omitempty"`
 }

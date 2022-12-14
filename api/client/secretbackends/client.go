@@ -34,6 +34,7 @@ type SecretBackend struct {
 	NumSecrets          int
 	Status              status.Status
 	Message             string
+	ID                  string
 	Error               error
 }
 
@@ -58,6 +59,7 @@ func (api *Client) ListSecretBackends(reveal bool) ([]SecretBackend, error) {
 			NumSecrets:          r.NumSecrets,
 			Status:              status.Status(r.Status),
 			Message:             r.Message,
+			ID:                  r.ID,
 			Error:               resultErr,
 		}
 		result[i] = details
@@ -81,4 +83,20 @@ func (api *Client) AddSecretBackend(backend SecretBackend) error {
 		return errors.Trace(err)
 	}
 	return results.OneError()
+}
+
+// RemoveSecretBackend removes the specified secret backend.
+func (api *Client) RemoveSecretBackend(name string, force bool) error {
+	var results params.ErrorResults
+	args := params.RemoveSecretBackendArgs{
+		Args: []params.RemoveSecretBackendArg{{
+			Name:  name,
+			Force: force,
+		}},
+	}
+	err := api.facade.FacadeCall("RemoveSecretBackends", args, &results)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return params.TranslateWellKnownError(results.OneError())
 }

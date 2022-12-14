@@ -5,12 +5,12 @@ package secrets
 
 import (
 	"sort"
-	"strings"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	"github.com/juju/utils/v3"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cloud"
@@ -318,8 +318,9 @@ func BackendSummaryInfo(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// If we want all backends, all those which are not in use.
+	// If we want all backends, include those which are not in use.
 	if all {
+		// The internal (controller) backend.
 		if _, ok := backendIDSecrets[controllerUUID]; !ok {
 			backendIDSecrets[controllerUUID] = set.NewStrings()
 		}
@@ -346,13 +347,19 @@ func BackendSummaryInfo(
 	for _, id := range backendIDs {
 		backendResult, err := getSecretBackendInfo(statePool, backendState, controllerUUID, id, reveal)
 		if err != nil {
-			results = append(results, params.SecretBackendResult{Error: apiservererrors.ServerError(err)})
+			// We we get not found, the backend has been deleted,even though it contained secrets.
+			// We skip over such cases.
+			if !errors.IsNotFound(err) {
+				results = append(results, params.SecretBackendResult{
+					ID:    id,
+					Error: apiservererrors.ServerError(err)})
+			}
 			continue
 		}
 		// For local k8s secrets, corresponding to every hosted model,
 		// do not include the result if there are no secrets.
 		numSecrets := backendIDSecrets[id].Size()
-		if numSecrets == 0 && all && strings.HasSuffix(backendResult.Result.Name, "-local") {
+		if numSecrets == 0 && all && kubernetes.IsBuiltInName(backendResult.Result.Name) {
 			continue
 		}
 		backendResult.NumSecrets = numSecrets
@@ -362,12 +369,20 @@ func BackendSummaryInfo(
 }
 
 func getSecretBackendInfo(statePool StatePool, backendState SecretsBackendState, controllerUUID string, id string, reveal bool) (*params.SecretBackendResult, error) {
-	b, err := backendState.GetSecretBackendByID(id)
-	if err != nil && !errors.IsNotFound(err) {
-		return nil, errors.Trace(err)
+	var (
+		b   *secrets.SecretBackend
+		err error
+	)
+	// Check for external backends where the id is not a UUID.
+	if !utils.IsValidUUIDString(id) {
+		b, err = backendState.GetSecretBackendByID(id)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 	pingRequired := true
-	if err != nil {
+	// Not an external backend, so might be internal/local.
+	if b == nil {
 		// No need to ping "internal" backends.
 		pingRequired = false
 		if id == controllerUUID {
@@ -383,7 +398,7 @@ func getSecretBackendInfo(statePool StatePool, backendState SecretsBackendState,
 			}
 			b = &secrets.SecretBackend{
 				ID:          id,
-				Name:        model.Name() + "-local",
+				Name:        kubernetes.BuiltInName(model.Name()),
 				BackendType: kubernetes.BackendType,
 			}
 			releaser()
@@ -412,6 +427,7 @@ func getSecretBackendInfo(statePool StatePool, backendState SecretsBackendState,
 			TokenRotateInterval: b.TokenRotateInterval,
 			Config:              cfg,
 		},
+		ID:         id,
 		NumSecrets: 0,
 		Status:     status.Active.String(),
 	}
