@@ -389,7 +389,7 @@ func (c *ModelConfigAPI) GetModelConstraints() (params.GetConstraintsResults, er
 	if err != nil {
 		return params.GetConstraintsResults{}, err
 	}
-	return params.GetConstraintsResults{cons}, nil
+	return params.GetConstraintsResults{Constraints: cons}, nil
 }
 
 // SetModelConstraints sets the constraints for the model.
