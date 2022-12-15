@@ -85,11 +85,7 @@ func minimalConfig(c *gc.C) *config.Config {
 }
 
 func minimalConfigWithBase(c *gc.C, base coreseries.Base) *config.Config {
-	series, err := coreseries.GetSeriesFromBase(base)
-	if err != nil {
-		c.Assert(err, jc.ErrorIsNil)
-	}
-
+	series, _ := coreseries.GetSeriesFromBase(base)
 	attrs := map[string]interface{}{
 		"name":               "whatever",
 		"type":               "anything, really",
@@ -278,34 +274,6 @@ func (s *BootstrapSuite) TestBootstrapSeriesWithForce(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Arch, gc.Equals, "ppc64el") // based on hardware characteristics
 	c.Check(result.Base.String(), gc.Equals, coreseries.MakeDefaultBase("ubuntu", "16.04").String())
-}
-
-func (s *BootstrapSuite) TestBootstrapSeriesWithForceAndInvalidFallback(c *gc.C) {
-	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
-	s.PatchValue(&config.GetDefaultSupportedLTSBase, func() coreseries.Base {
-		return coreseries.Base{}
-	})
-	// We want an invalid fallback to trigger the not valid bootstrap series.
-	var mocksConfig = minimalConfigWithBase(c, coreseries.Base{})
-	getConfig := func() *config.Config {
-		return mocksConfig
-	}
-
-	env := &mockEnviron{
-		startInstance: fakeStartInstance,
-		config:        getConfig,
-	}
-	ctx := envtesting.BootstrapTODOContext(c)
-	bootstrapSeries := ""
-	availableTools := fakeAvailableTools()
-	_, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
-		ControllerConfig:         coretesting.FakeControllerConfig(),
-		BootstrapSeries:          bootstrapSeries,
-		AvailableTools:           availableTools,
-		SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
-		Force:                    true,
-	})
-	c.Assert(err, gc.ErrorMatches, "bootstrap instance series not valid")
 }
 
 func (s *BootstrapSuite) TestStartInstanceDerivedZone(c *gc.C) {
