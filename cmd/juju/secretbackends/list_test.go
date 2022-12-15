@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/cmd/juju/secretbackends/mocks"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/jujuclient"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type ListSuite struct {
@@ -86,6 +87,7 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
 
 	s.secretBackendsAPI.EXPECT().ListSecretBackends(true).Return(
 		[]apisecretbackends.SecretBackend{{
+			ID:                  "vault-id",
 			Name:                "myvault",
 			BackendType:         "vault",
 			TokenRotateInterval: ptr(666 * time.Minute),
@@ -94,6 +96,7 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
 			Status:              status.Error,
 			Message:             "vault is sealed",
 		}, {
+			ID:          coretesting.ControllerTag.Id(),
 			Name:        "internal",
 			BackendType: "controller",
 			NumSecrets:  668,
@@ -126,6 +129,7 @@ myvault:
   secrets: 666
   status: error
   message: vault is sealed
+  id: vault-id
 `[1:])
 }
 

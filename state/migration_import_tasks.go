@@ -4,9 +4,11 @@
 package state
 
 import (
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
+	"github.com/juju/utils/v3"
 
 	"github.com/juju/description/v4"
 
@@ -521,12 +523,13 @@ type ImportSecrets struct{}
 
 // Execute the import on the secrets description, carefully modelling
 // the dependencies we have.
-func (ImportSecrets) Execute(src SecretsInput, runner TransactionRunner) error {
+func (ImportSecrets) Execute(src SecretsInput, runner TransactionRunner, knownSecretBackends set.Strings) error {
 	allSecrets := src.Secrets()
 	if len(allSecrets) == 0 {
 		return nil
 	}
 
+	seenBackendIds := set.NewStrings()
 	var ops []txn.Op
 	for _, secret := range allSecrets {
 		uri := &secrets.URI{ID: secret.Id()}
@@ -576,6 +579,17 @@ func (ImportSecrets) Execute(src SecretsInput, runner TransactionRunner) error {
 					BackendID:  rev.ValueRef().BackendID(),
 					RevisionID: rev.ValueRef().RevisionID(),
 				}
+				if !utils.IsValidUUIDString(valueRef.BackendID) && !seenBackendIds.Contains(valueRef.BackendID) {
+					if !knownSecretBackends.Contains(valueRef.BackendID) {
+						return errors.New("target controller does not have all required secret backends set up")
+					}
+					ops = append(ops, txn.Op{
+						C:      secretBackendsC,
+						Id:     valueRef.BackendID,
+						Assert: txn.DocExists,
+					})
+				}
+				seenBackendIds.Add(valueRef.BackendID)
 			}
 			ops = append(ops, txn.Op{
 				C:      secretRevisionsC,

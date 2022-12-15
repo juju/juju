@@ -12,6 +12,7 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/utils/v3"
 
 	"github.com/juju/juju/api/client/secretbackends"
 	jujucmd "github.com/juju/juju/cmd"
@@ -137,12 +138,15 @@ func gatherSecretBackendInfo(backends []secretbackends.SecretBackend) map[string
 			Status:              b.Status,
 			Message:             b.Message,
 		}
-		// Only display the ID if there's an error.
+		// Only display the ID if there's an error or it's an external backend.
 		if b.Error != nil {
 			info.ID = b.ID
 			info.Name = "error-" + b.ID
 			info.Status = status.Error
 			info.Error = b.Error.Error()
+		}
+		if !utils.IsValidUUIDString(b.ID) {
+			info.ID = b.ID
 		}
 		if len(b.Config) > 0 {
 			info.Config = make(provider.ConfigAttrs)

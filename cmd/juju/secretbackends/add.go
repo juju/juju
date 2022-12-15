@@ -30,6 +30,7 @@ type addSecretBackendCommand struct {
 
 	Name        string
 	BackendType string
+	ImportID    string
 
 	// Attributes from a file.
 	ConfigFile cmd.FileVar
@@ -94,6 +95,7 @@ func (c *addSecretBackendCommand) Info() *cmd.Info {
 // SetFlags implements cmd.SetFlags.
 func (c *addSecretBackendCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(&c.ConfigFile, "config", "path to yaml-formatted configuration file")
+	f.StringVar(&c.ImportID, "import-id", "", "add the backend with the specified id")
 }
 
 func (c *addSecretBackendCommand) Init(args []string) error {
@@ -210,6 +212,7 @@ func (c *addSecretBackendCommand) Run(ctxt *cmd.Context) error {
 	}
 
 	backend := secretbackends.CreateSecretBackend{
+		ID:                  c.ImportID,
 		Name:                c.Name,
 		BackendType:         c.BackendType,
 		TokenRotateInterval: tokenRotateInterval,

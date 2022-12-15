@@ -69,6 +69,7 @@ func (api *Client) ListSecretBackends(reveal bool) ([]SecretBackend, error) {
 
 // CreateSecretBackend holds details for creating a secret backend.
 type CreateSecretBackend struct {
+	ID                  string
 	Name                string
 	BackendType         string
 	TokenRotateInterval *time.Duration
@@ -80,6 +81,7 @@ func (api *Client) AddSecretBackend(backend CreateSecretBackend) error {
 	var results params.ErrorResults
 	args := params.AddSecretBackendArgs{
 		Args: []params.AddSecretBackendArg{{
+			ID: backend.ID,
 			SecretBackend: params.SecretBackend{
 				Name:                backend.Name,
 				TokenRotateInterval: backend.TokenRotateInterval,

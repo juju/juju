@@ -282,10 +282,11 @@ func modelConfig(attrs map[string]interface{}) (*config.Config, error) {
 // Running the state migration visits all the migrations and exits upon seeing
 // the first error from the migration.
 type ImportStateMigration struct {
-	src        description.Model
-	dst        Database
-	importer   *importer
-	migrations []func() error
+	src                 description.Model
+	dst                 Database
+	knownSecretBackends set.Strings
+	importer            *importer
+	migrations          []func() error
 }
 
 // Add adds a migration to execute at a later time
@@ -2649,16 +2650,27 @@ func (i *importer) storagePools() error {
 
 func (i *importer) secrets() error {
 	i.logger.Debugf("importing secrets")
+	backends := NewSecretBackends(i.st)
+	allBackends, err := backends.ListSecretBackends()
+	if err != nil {
+		return errors.Annotate(err, "loading secret backends")
+	}
+	knownBackends := set.NewStrings()
+	for _, b := range allBackends {
+		knownBackends.Add(b.ID)
+	}
+
 	migration := &ImportStateMigration{
-		src: i.model,
-		dst: i.st.db(),
+		src:                 i.model,
+		dst:                 i.st.db(),
+		knownSecretBackends: knownBackends,
 	}
 	migration.Add(func() error {
 		m := ImportSecrets{}
 		return m.Execute(stateModelNamspaceShim{
 			Model: migration.src,
 			st:    i.st,
-		}, migration.dst)
+		}, migration.dst, migration.knownSecretBackends)
 	})
 	if err := migration.Run(); err != nil {
 		return errors.Trace(err)

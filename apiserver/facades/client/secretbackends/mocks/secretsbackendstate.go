@@ -36,11 +36,12 @@ func (m *MockSecretsBackendState) EXPECT() *MockSecretsBackendStateMockRecorder 
 }
 
 // CreateSecretBackend mocks base method.
-func (m *MockSecretsBackendState) CreateSecretBackend(arg0 state.CreateSecretBackendParams) error {
+func (m *MockSecretsBackendState) CreateSecretBackend(arg0 state.CreateSecretBackendParams) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateSecretBackend", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // CreateSecretBackend indicates an expected call of CreateSecretBackend.
