@@ -171,9 +171,12 @@ func (c *ModelConfigAPI) ModelSet(args params.ModelSet) error {
 	// Make sure DefaultSpace exists.
 	checkDefaultSpace := c.checkDefaultSpace()
 
+	// Make sure the secret backend exists.
+	checkSecretBackend := c.checkSecretBackend()
+
 	// Replace any deprecated attributes with their new values.
 	attrs := config.ProcessDeprecatedAttributes(args.Config)
-	return c.backend.UpdateModelConfig(attrs, nil, checkAgentVersion, checkLogTrace, checkDefaultSpace, checkCharmhubURL)
+	return c.backend.UpdateModelConfig(attrs, nil, checkAgentVersion, checkLogTrace, checkDefaultSpace, checkCharmhubURL, checkSecretBackend)
 }
 
 func (c *ModelConfigAPI) checkLogTrace() state.ValidateConfigFunc {
@@ -252,6 +255,26 @@ func (c *ModelConfigAPI) checkCharmhubURL() state.ValidateConfigFunc {
 			}
 		}
 		return nil
+	}
+}
+
+func (c *ModelConfigAPI) checkSecretBackend() state.ValidateConfigFunc {
+	return func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error {
+		v, ok := updateAttrs[config.SecretBackendKey]
+		if !ok {
+			return nil
+		}
+		backendName, ok := v.(string)
+		if !ok {
+			return errors.NotValidf("%q is not a string", config.SecretBackendKey)
+		}
+		if backendName == "" {
+			return errors.NotValidf("empty %q config value", config.SecretBackendKey)
+		}
+		if backendName == config.DefaultSecretBackend {
+			return nil
+		}
+		return c.backend.GetSecretBackend(backendName)
 	}
 }
 

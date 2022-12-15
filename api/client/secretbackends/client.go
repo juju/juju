@@ -67,18 +67,57 @@ func (api *Client) ListSecretBackends(reveal bool) ([]SecretBackend, error) {
 	return result, err
 }
 
+// CreateSecretBackend holds details for creating a secret backend.
+type CreateSecretBackend struct {
+	Name                string
+	BackendType         string
+	TokenRotateInterval *time.Duration
+	Config              map[string]interface{}
+}
+
 // AddSecretBackend adds the specified secret backend.
-func (api *Client) AddSecretBackend(backend SecretBackend) error {
+func (api *Client) AddSecretBackend(backend CreateSecretBackend) error {
 	var results params.ErrorResults
 	args := params.AddSecretBackendArgs{
-		Args: []params.SecretBackend{{
-			Name:                backend.Name,
-			TokenRotateInterval: backend.TokenRotateInterval,
-			BackendType:         backend.BackendType,
-			Config:              backend.Config,
+		Args: []params.AddSecretBackendArg{{
+			SecretBackend: params.SecretBackend{
+				Name:                backend.Name,
+				TokenRotateInterval: backend.TokenRotateInterval,
+				BackendType:         backend.BackendType,
+				Config:              backend.Config,
+			},
 		}},
 	}
 	err := api.facade.FacadeCall("AddSecretBackends", args, &results)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return results.OneError()
+}
+
+// UpdateSecretBackend holds details for updating a secret backend.
+type UpdateSecretBackend struct {
+	Name                string
+	NameChange          *string
+	TokenRotateInterval *time.Duration
+	Config              map[string]interface{}
+	Reset               []string
+}
+
+// UpdateSecretBackend updates the specified secret backend.
+func (api *Client) UpdateSecretBackend(arg UpdateSecretBackend, force bool) error {
+	var results params.ErrorResults
+	args := params.UpdateSecretBackendArgs{
+		Args: []params.UpdateSecretBackendArg{{
+			Name:                arg.Name,
+			NameChange:          arg.NameChange,
+			TokenRotateInterval: arg.TokenRotateInterval,
+			Config:              arg.Config,
+			Reset:               arg.Reset,
+			Force:               force,
+		}},
+	}
+	err := api.facade.FacadeCall("UpdateSecretBackends", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}

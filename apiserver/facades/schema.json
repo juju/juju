@@ -38449,16 +38449,64 @@
                         }
                     },
                     "description": "RemoveSecretBackends removes secret backends."
+                },
+                "UpdateSecretBackends": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/UpdateSecretBackendArgs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    },
+                    "description": "UpdateSecretBackends updates secret backends."
                 }
             },
             "definitions": {
+                "AddSecretBackendArg": {
+                    "type": "object",
+                    "properties": {
+                        "SecretBackend": {
+                            "$ref": "#/definitions/SecretBackend"
+                        },
+                        "backend-type": {
+                            "type": "string"
+                        },
+                        "config": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "id": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        },
+                        "token-rotate-interval": {
+                            "type": "integer"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "name",
+                        "backend-type",
+                        "config",
+                        "SecretBackend"
+                    ]
+                },
                 "AddSecretBackendArgs": {
                     "type": "object",
                     "properties": {
                         "args": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/SecretBackend"
+                                "$ref": "#/definitions/AddSecretBackendArg"
                             }
                         }
                     },
@@ -38630,6 +38678,60 @@
                         "id",
                         "num-secrets",
                         "status"
+                    ]
+                },
+                "UpdateSecretBackendArg": {
+                    "type": "object",
+                    "properties": {
+                        "config": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "force": {
+                            "type": "boolean"
+                        },
+                        "name": {
+                            "type": "string"
+                        },
+                        "name-change": {
+                            "type": "string"
+                        },
+                        "reset": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "token-rotate-interval": {
+                            "type": "integer"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "name",
+                        "token-rotate-interval",
+                        "config",
+                        "reset"
+                    ]
+                },
+                "UpdateSecretBackendArgs": {
+                    "type": "object",
+                    "properties": {
+                        "args": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/UpdateSecretBackendArg"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "args"
                     ]
                 }
             }

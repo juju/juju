@@ -288,3 +288,17 @@ func (mr *MockSecretBackendsStorageMockRecorder) ListSecretBackends() *gomock.Ca
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSecretBackends", reflect.TypeOf((*MockSecretBackendsStorage)(nil).ListSecretBackends))
 }
+
+// UpdateSecretBackend mocks base method.
+func (m *MockSecretBackendsStorage) UpdateSecretBackend(arg0 state.UpdateSecretBackendParams) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateSecretBackend", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateSecretBackend indicates an expected call of UpdateSecretBackend.
+func (mr *MockSecretBackendsStorageMockRecorder) UpdateSecretBackend(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSecretBackend", reflect.TypeOf((*MockSecretBackendsStorage)(nil).UpdateSecretBackend), arg0)
+}

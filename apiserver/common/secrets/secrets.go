@@ -432,7 +432,7 @@ func getSecretBackendInfo(statePool StatePool, backendState SecretsBackendState,
 		Status:     status.Active.String(),
 	}
 	if pingRequired {
-		err = pingBackend(p, b.Config)
+		err = PingBackend(p, b.Config)
 		if err != nil {
 			result.Status = status.Error.String()
 			result.Message = err.Error()
@@ -441,7 +441,8 @@ func getSecretBackendInfo(statePool StatePool, backendState SecretsBackendState,
 	return result, nil
 }
 
-func pingBackend(p provider.SecretBackendProvider, cfg provider.ConfigAttrs) error {
+// PingBackend instantiates a backend and pings it.
+func PingBackend(p provider.SecretBackendProvider, cfg provider.ConfigAttrs) error {
 	b, err := p.NewBackend(&provider.ModelBackendConfig{
 		BackendConfig: provider.BackendConfig{BackendType: p.Type(), Config: cfg},
 	})

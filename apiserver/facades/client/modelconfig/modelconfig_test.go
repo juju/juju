@@ -220,6 +220,24 @@ func (s *modelconfigSuite) TestUserCannotSetLogTrace(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `only controller admins can set a model's logging level to TRACE`)
 }
 
+func (s *modelconfigSuite) TestSetSecretBackend(c *gc.C) {
+	args := params.ModelSet{
+		map[string]interface{}{"secret-backend": "invalid"},
+	}
+	err := s.api.ModelSet(args)
+	c.Assert(err, gc.NotNil)
+
+	for _, v := range []string{"valid", "auto"} {
+		args.Config["secret-backend"] = v
+		err = s.api.ModelSet(args)
+		c.Assert(err, jc.ErrorIsNil)
+
+		result, err := s.api.ModelGet()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(result.Config["secret-backend"].Value, gc.Equals, v)
+	}
+}
+
 func (s *modelconfigSuite) TestModelUnset(c *gc.C) {
 	err := s.backend.UpdateModelConfig(map[string]interface{}{"abc": 123}, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -357,6 +375,13 @@ func (m *mockBackend) SLALevel() (string, error) {
 }
 
 func (m *mockBackend) SpaceByName(string) error {
+	return nil
+}
+
+func (m *mockBackend) GetSecretBackend(name string) error {
+	if name == "invalid" {
+		return errors.NotFoundf("invalid")
+	}
 	return nil
 }
 

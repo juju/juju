@@ -63,6 +63,21 @@ func (mr *MockSecretsBackendStateMockRecorder) DeleteSecretBackend(arg0, arg1 in
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteSecretBackend", reflect.TypeOf((*MockSecretsBackendState)(nil).DeleteSecretBackend), arg0, arg1)
 }
 
+// GetSecretBackend mocks base method.
+func (m *MockSecretsBackendState) GetSecretBackend(arg0 string) (*secrets.SecretBackend, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSecretBackend", arg0)
+	ret0, _ := ret[0].(*secrets.SecretBackend)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSecretBackend indicates an expected call of GetSecretBackend.
+func (mr *MockSecretsBackendStateMockRecorder) GetSecretBackend(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretBackend", reflect.TypeOf((*MockSecretsBackendState)(nil).GetSecretBackend), arg0)
+}
+
 // GetSecretBackendByID mocks base method.
 func (m *MockSecretsBackendState) GetSecretBackendByID(arg0 string) (*secrets.SecretBackend, error) {
 	m.ctrl.T.Helper()
@@ -91,4 +106,18 @@ func (m *MockSecretsBackendState) ListSecretBackends() ([]*secrets.SecretBackend
 func (mr *MockSecretsBackendStateMockRecorder) ListSecretBackends() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSecretBackends", reflect.TypeOf((*MockSecretsBackendState)(nil).ListSecretBackends))
+}
+
+// UpdateSecretBackend mocks base method.
+func (m *MockSecretsBackendState) UpdateSecretBackend(arg0 state.UpdateSecretBackendParams) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateSecretBackend", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateSecretBackend indicates an expected call of UpdateSecretBackend.
+func (mr *MockSecretsBackendStateMockRecorder) UpdateSecretBackend(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSecretBackend", reflect.TypeOf((*MockSecretsBackendState)(nil).UpdateSecretBackend), arg0)
 }

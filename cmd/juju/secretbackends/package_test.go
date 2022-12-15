@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretbackendsapi.go github.com/juju/juju/cmd/juju/secretbackends ListSecretBackendsAPI,AddSecretBackendsAPI,RemoveSecretBackendsAPI
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretbackendsapi.go github.com/juju/juju/cmd/juju/secretbackends ListSecretBackendsAPI,AddSecretBackendsAPI,RemoveSecretBackendsAPI,UpdateSecretBackendsAPI
 
 func TestPackage(t *stdtesting.T) {
 	gc.TestingT(t)
@@ -39,6 +39,15 @@ func NewAddCommandForTest(store jujuclient.ClientStore, addSecretBackendsAPI Add
 func NewRemoveCommandForTest(store jujuclient.ClientStore, removeSecretBackendsAPI RemoveSecretBackendsAPI) *removeSecretBackendCommand {
 	c := &removeSecretBackendCommand{
 		RemoveSecretBackendsAPIFunc: func() (RemoveSecretBackendsAPI, error) { return removeSecretBackendsAPI, nil },
+	}
+	c.SetClientStore(store)
+	return c
+}
+
+// NewUpdateCommandForTest returns a remove secret backends command for testing.
+func NewUpdateCommandForTest(store jujuclient.ClientStore, updateSecretBackendsAPI UpdateSecretBackendsAPI) *updateSecretBackendCommand {
+	c := &updateSecretBackendCommand{
+		UpdateSecretBackendsAPIFunc: func() (UpdateSecretBackendsAPI, error) { return updateSecretBackendsAPI, nil },
 	}
 	c.SetClientStore(store)
 	return c
