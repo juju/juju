@@ -14,7 +14,6 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/client/application"
 	applicationapi "github.com/juju/juju/api/client/application"
@@ -38,7 +37,6 @@ type deployCharm struct {
 	constraints      constraints.Value
 	dryRun           bool
 	modelConstraints constraints.Value
-	csMac            *macaroon.Macaroon
 	devices          map[string]devices.Constraints
 	deployResources  DeployResourcesFunc
 	force            bool

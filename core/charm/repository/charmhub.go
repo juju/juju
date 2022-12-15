@@ -387,30 +387,19 @@ func (c *CharmHubRepository) ListResources(charmURL *charm.URL, origin corecharm
 // a slice with the results. The results include the minimum set of metadata
 // that is required for deploying each charm.
 func (c *CharmHubRepository) GetEssentialMetadata(reqs ...corecharm.MetadataRequest) ([]corecharm.EssentialMetadata, error) {
-	// TODO (cderici): This grouping below might not be necessary anymore
-	// since we don't have any macaroons anymore
-
-	// Group reqs in batches based on the provided macaroons
 	var urlToReqIdx = make(map[*charm.URL]int)
-	var reqGroups = make(map[string][]corecharm.MetadataRequest)
 	for reqIdx, req := range reqs {
 		urlToReqIdx[req.CharmURL] = reqIdx
-		reqGroups[""] = append(reqGroups[""], req)
-		continue
 	}
 
-	// Make a batch request for each group
 	var res = make([]corecharm.EssentialMetadata, len(reqs))
-	for _, reqGroup := range reqGroups {
-		resGroup, err := c.getEssentialMetadataForBatch(reqGroup)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		for groupResIdx, groupRes := range resGroup {
-			reqURL := reqGroup[groupResIdx].CharmURL
-			res[urlToReqIdx[reqURL]] = groupRes
-		}
+	resBatch, err := c.getEssentialMetadataForBatch(reqs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for resIdx, bRes := range resBatch {
+		reqURL := reqs[resIdx].CharmURL
+		res[urlToReqIdx[reqURL]] = bRes
 	}
 
 	return res, nil

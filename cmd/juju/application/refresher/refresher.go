@@ -29,7 +29,6 @@ var ErrAlreadyUpToDate = errors.Errorf("already up-to-date")
 
 // RefresherDependencies are required for any deployer to be run.
 type RefresherDependencies struct {
-	Authorizer    store.MacaroonGetter
 	CharmAdder    store.CharmAdder
 	CharmResolver CharmResolver
 }
@@ -350,7 +349,6 @@ func stdOriginResolver(curl *charm.URL, origin corecharm.Origin, channel charm.C
 
 type charmStoreRefresher struct {
 	baseRefresher
-	authorizer store.MacaroonGetter
 }
 
 // Allowed will attempt to check if the charm store is allowed to refresh.

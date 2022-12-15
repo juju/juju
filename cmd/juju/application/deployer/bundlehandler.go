@@ -19,7 +19,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/kr/pretty"
-	"gopkg.in/macaroon.v2"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api"
@@ -28,7 +27,6 @@ import (
 	commoncharm "github.com/juju/juju/api/common/charm"
 	app "github.com/juju/juju/apiserver/facades/client/application"
 	appbundle "github.com/juju/juju/cmd/juju/application/bundle"
-	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/arch"
@@ -64,7 +62,6 @@ type bundleDeploySpec struct {
 
 	deployAPI            DeployerAPI
 	bundleResolver       Resolver
-	authorizer           store.MacaroonGetter
 	getConsumeDetailsAPI func(*charm.OfferURL) (ConsumeDetails, error)
 	deployResources      DeployResourcesFunc
 
@@ -142,7 +139,6 @@ type bundleHandler struct {
 	// deployAPI is used to interact with the environment.
 	deployAPI            DeployerAPI
 	bundleResolver       Resolver
-	authorizer           store.MacaroonGetter
 	getConsumeDetailsAPI func(*charm.OfferURL) (ConsumeDetails, error)
 	deployResources      DeployResourcesFunc
 
@@ -181,8 +177,6 @@ type bundleHandler struct {
 	modelConfig *config.Config
 
 	model *bundlechanges.Model
-
-	macaroons map[charm.URL]*macaroon.Macaroon
 
 	// origins holds a different origins based on the charm URL and channels for
 	// each origin.
@@ -230,7 +224,6 @@ func makeBundleHandler(defaultCharmSchema charm.Schema, bundleData *charm.Bundle
 		modelConstraints:     spec.modelConstraints,
 		deployAPI:            spec.deployAPI,
 		bundleResolver:       spec.bundleResolver,
-		authorizer:           spec.authorizer,
 		getConsumeDetailsAPI: spec.getConsumeDetailsAPI,
 		deployResources:      spec.deployResources,
 		bundleStorage:        spec.bundleStorage,

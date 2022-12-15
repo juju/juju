@@ -43,11 +43,9 @@ func NewCharmStoreAdaptor(client *httpbakery.Client, csURL string) *CharmStoreAd
 	cstoreClient := NewCharmStoreClient(client, csURL)
 	return &CharmStoreAdaptor{
 		CharmrepoForDeploy: charmrepo.NewCharmStoreFromClient(cstoreClient),
-		MacaroonGetter:     cstoreClient,
 	}
 }
 
 type CharmStoreAdaptor struct {
 	CharmrepoForDeploy
-	MacaroonGetter
 }

@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/api/client/application"
 	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/cmd/juju/application/bundle"
-	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
@@ -43,7 +42,6 @@ type deployBundle struct {
 	defaultCharmSchema charm.Schema
 
 	resolver             Resolver
-	authorizer           store.MacaroonGetter
 	newConsumeDetailsAPI func(url *charm.OfferURL) (ConsumeDetails, error)
 	deployResources      DeployResourcesFunc
 	charmReader          CharmReader
@@ -231,7 +229,6 @@ func (d *deployBundle) makeBundleDeploySpec(ctx *cmd.Context, apiRoot DeployerAP
 		modelConstraints:     d.modelConstraints,
 		deployAPI:            apiRoot,
 		bundleResolver:       d.resolver,
-		authorizer:           d.authorizer,
 		getConsumeDetailsAPI: getConsumeDetails,
 		deployResources:      d.deployResources,
 		useExistingMachines:  d.useExistingMachines,

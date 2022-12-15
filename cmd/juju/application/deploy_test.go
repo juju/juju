@@ -191,7 +191,6 @@ func (s *DeploySuiteBase) SetUpTest(c *gc.C) {
 		CharmrepoForDeploy: &fakeCharmStoreAPI{
 			fakeDeployAPI: s.fakeAPI,
 		},
-		MacaroonGetter: &noopMacaroonGetter{},
 	}
 	s.fakeAPI.deployerFactoryFunc = deployer.NewDeployerFactory
 }
@@ -1109,7 +1108,7 @@ func (s *CAASDeploySuiteBase) runDeploy(c *gc.C, fakeAPI *fakeDeployAPI, args ..
 		},
 		DeployResources: s.DeployResources,
 		NewCharmRepo: func() (*store.CharmStoreAdaptor, error) {
-			return &store.CharmStoreAdaptor{MacaroonGetter: &noopMacaroonGetter{}}, nil
+			return &store.CharmStoreAdaptor{}, nil
 		},
 		NewResolver: func(charmsAPI store.CharmsAPI, charmRepoFn store.CharmStoreRepoFunc, downloadClientFn store.DownloadBundleClientFunc) deployer.Resolver {
 			return fakeAPI
@@ -2650,7 +2649,6 @@ func newDeployCommandForTest(fakeAPI *fakeDeployAPI) *DeployCommand {
 			risk := csparams.Channel(deployCmd.Channel.Risk)
 			cstoreClient := store.NewCharmStoreClient(bakeryClient, csURL).WithChannel(risk)
 			return &store.CharmStoreAdaptor{
-				MacaroonGetter:     cstoreClient,
 				CharmrepoForDeploy: charmrepo.NewCharmStoreFromClient(cstoreClient),
 			}, nil
 		}
@@ -2944,9 +2942,7 @@ func vanillaFakeModelAPI(cfgAttrs map[string]interface{}) *fakeDeployAPI {
 	var logger loggo.Logger
 	fakeAPI := &fakeDeployAPI{CallMocker: jujutesting.NewCallMocker(logger)}
 	fakeAPI.charmRepoFunc = func() (*store.CharmStoreAdaptor, error) {
-		return &store.CharmStoreAdaptor{
-			MacaroonGetter: &noopMacaroonGetter{},
-		}, nil
+		return &store.CharmStoreAdaptor{}, nil
 	}
 
 	fakeAPI.Call("Close").Returns(error(nil))
