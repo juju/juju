@@ -161,7 +161,7 @@ func (s SecretsContextAccessor) SecretMetadata(filter secrets.Filter) ([]secrets
 			RotatePolicy:   secrets.RotateHourly,
 			Label:          "label",
 		},
-		ValueRefs: map[int]secrets.ValueRef{666: {"backend-id", "rev-id"}},
+		Revisions: []int{666},
 	}}, nil
 }
 
@@ -169,6 +169,6 @@ func (s SecretsContextAccessor) SaveContent(uri *secrets.URI, revision int, valu
 	return secrets.ValueRef{}, errors.NotSupportedf("")
 }
 
-func (s SecretsContextAccessor) DeleteContent(ref secrets.ValueRef) error {
+func (s SecretsContextAccessor) DeleteContent(uri *secrets.URI, revision int) error {
 	return errors.NotSupportedf("")
 }

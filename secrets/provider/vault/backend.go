@@ -19,14 +19,16 @@ type vaultBackend struct {
 }
 
 // GetContent implements SecretsBackend.
-func (k vaultBackend) GetContent(ctx context.Context, backendId string) (_ secrets.SecretValue, err error) {
+func (k vaultBackend) GetContent(ctx context.Context, revisionId string) (_ secrets.SecretValue, err error) {
 	defer func() {
 		err = maybePermissionDenied(err)
 	}()
 
-	s, err := k.client.KVv1(k.modelUUID).Get(ctx, backendId)
-	if err != nil {
-		return nil, errors.Annotatef(err, "getting secret %q", backendId)
+	s, err := k.client.KVv1(k.modelUUID).Get(ctx, revisionId)
+	if isNotFound(err) {
+		return nil, errors.NotFoundf("secret revision %q", revisionId)
+	} else if err != nil {
+		return nil, errors.Annotatef(err, "getting secret %q", revisionId)
 	}
 	val := make(map[string]string)
 	for k, v := range s.Data {
@@ -36,16 +38,18 @@ func (k vaultBackend) GetContent(ctx context.Context, backendId string) (_ secre
 }
 
 // DeleteContent implements SecretsBackend.
-func (k vaultBackend) DeleteContent(ctx context.Context, backendId string) (err error) {
+func (k vaultBackend) DeleteContent(ctx context.Context, revisionId string) (err error) {
 	defer func() {
 		err = maybePermissionDenied(err)
 	}()
 
-	err = k.client.KVv1(k.modelUUID).Delete(ctx, backendId)
+	// Read the content first so we can return a not found error
+	// if it doesn't exist.
+	_, err = k.client.KVv1(k.modelUUID).Get(ctx, revisionId)
 	if isNotFound(err) {
-		return nil
+		return errors.NotFoundf("secret revision %q", revisionId)
 	}
-	return err
+	return k.client.KVv1(k.modelUUID).Delete(ctx, revisionId)
 }
 
 // SaveContent implements SecretsBackend.

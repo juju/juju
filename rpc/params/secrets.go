@@ -96,6 +96,13 @@ type DeleteSecretArg struct {
 	Revisions []int  `json:"revisions,omitempty"`
 }
 
+// SecretRevisionArg holds the args for secret revisions.
+type SecretRevisionArg struct {
+	URI           string `json:"uri"`
+	Revisions     []int  `json:"revisions"`
+	PendingDelete bool   `json:"pending-delete"`
+}
+
 // GetSecretConsumerInfoArgs holds the args for getting secret
 // consumer metadata.
 type GetSecretConsumerInfoArgs struct {

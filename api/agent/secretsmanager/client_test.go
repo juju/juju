@@ -175,6 +175,49 @@ func (s *SecretsSuite) TestGetContentInfoError(c *gc.C) {
 	c.Assert(result, gc.IsNil)
 }
 
+func (s *SecretsSuite) TestGetRevisionContentInfo(c *gc.C) {
+	uri := coresecrets.NewURI()
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "SecretsManager")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "GetSecretRevisionContentInfo")
+		c.Check(arg, jc.DeepEquals, params.SecretRevisionArg{
+			URI:           uri.String(),
+			Revisions:     []int{666},
+			PendingDelete: true,
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.SecretContentResults{})
+		*(result.(*params.SecretContentResults)) = params.SecretContentResults{
+			[]params.SecretContentResult{{
+				Content: params.SecretContentParams{Data: map[string]string{"foo": "bar"}},
+			}},
+		}
+		return nil
+	})
+	client := secretsmanager.NewClient(apiCaller)
+	result, err := client.GetRevisionContentInfo(uri, 666, true)
+	c.Assert(err, jc.ErrorIsNil)
+	value := coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
+	c.Assert(result, jc.DeepEquals, &secrets.ContentParams{SecretValue: value})
+}
+
+func (s *SecretsSuite) TestGetRevisionContentInfoError(c *gc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		*(result.(*params.SecretContentResults)) = params.SecretContentResults{
+			[]params.SecretContentResult{{
+				Error: &params.Error{Message: "boom"},
+			}},
+		}
+		return nil
+	})
+	uri := coresecrets.NewURI()
+	client := secretsmanager.NewClient(apiCaller)
+	result, err := client.GetRevisionContentInfo(uri, 666, true)
+	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(result, gc.IsNil)
+}
+
 func (s *SecretsSuite) TestGetSecretMetadata(c *gc.C) {
 	uri := coresecrets.NewURI()
 	now := time.Now()
@@ -192,7 +235,7 @@ func (s *SecretsSuite) TestGetSecretMetadata(c *gc.C) {
 				URI:              uri.String(),
 				OwnerTag:         "application-mariadb",
 				Label:            "label",
-				LatestRevision:   666,
+				LatestRevision:   667,
 				NextRotateTime:   &now,
 				LatestExpireTime: &now,
 				Revisions: []params.SecretRevision{{
@@ -218,12 +261,10 @@ func (s *SecretsSuite) TestGetSecretMetadata(c *gc.C) {
 		c.Assert(info.Metadata.URI.String(), gc.Equals, uri.String())
 		c.Assert(info.Metadata.OwnerTag, gc.Equals, "application-mariadb")
 		c.Assert(info.Metadata.Label, gc.Equals, "label")
-		c.Assert(info.Metadata.LatestRevision, gc.Equals, 666)
+		c.Assert(info.Metadata.LatestRevision, gc.Equals, 667)
 		c.Assert(info.Metadata.LatestExpireTime, gc.Equals, &now)
 		c.Assert(info.Metadata.NextRotateTime, gc.Equals, &now)
-		c.Assert(info.ValueRefs, jc.DeepEquals, map[int]coresecrets.ValueRef{
-			666: {"backend-id", "rev-id"},
-		})
+		c.Assert(info.Revisions, jc.DeepEquals, []int{666, 667})
 	}
 }
 

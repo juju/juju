@@ -1735,10 +1735,12 @@ func (e *exporter) secrets() error {
 	for _, rev := range allRevisions {
 		id, _ := splitSecretRevision(e.st.localID(rev.DocID))
 		revArg := description.SecretRevisionArgs{
-			Number:     rev.Revision,
-			Created:    rev.CreateTime,
-			Updated:    rev.UpdateTime,
-			ExpireTime: rev.ExpireTime,
+			Number:        rev.Revision,
+			Created:       rev.CreateTime,
+			Updated:       rev.UpdateTime,
+			ExpireTime:    rev.ExpireTime,
+			Obsolete:      rev.Obsolete,
+			PendingDelete: rev.PendingDelete,
 		}
 		if len(rev.Data) > 0 {
 			revArg.Content = make(secrets.SecretData)

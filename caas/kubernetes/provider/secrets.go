@@ -285,9 +285,6 @@ func (k *kubernetesClient) DeleteJujuSecret(ctx context.Context, backendId strin
 		logger.Tracef("deleting secret %q: %v", backendId, err)
 		return errors.Unauthorizedf("cannot access %q", backendId)
 	}
-	if errors.IsNotFound(err) {
-		return nil
-	}
 	if err != nil {
 		return errors.Trace(err)
 	}

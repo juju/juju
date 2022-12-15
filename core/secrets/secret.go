@@ -155,7 +155,7 @@ type SecretRevisionMetadata struct {
 // SecretOwnerMetadata holds a secret metadata and any backend references of revisions.
 type SecretOwnerMetadata struct {
 	Metadata  SecretMetadata
-	ValueRefs map[int]ValueRef
+	Revisions []int
 }
 
 // SecretConsumerMetadata holds metadata about a secret

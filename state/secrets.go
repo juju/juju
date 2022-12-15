@@ -125,6 +125,10 @@ type secretRevisionDoc struct {
 	Data       secretsDataMap `bson:"data"`
 	ValueRef   *valueRefDoc   `bson:"value-reference,omitempty"`
 
+	// PendingDelete is true if the revision is to be deleted.
+	// It will not be drained to a new active backend.
+	PendingDelete bool `bson:"pending-delete"`
+
 	// OwnerTag is denormalised here so that watchers do not need
 	// to do an extra query on the secret metadata collection to
 	// filter on owner.

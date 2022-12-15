@@ -16,13 +16,13 @@ type k8sBackend struct {
 }
 
 // GetContent implements SecretsBackend.
-func (k k8sBackend) GetContent(ctx context.Context, backendId string) (secrets.SecretValue, error) {
-	return k.broker.GetJujuSecret(ctx, backendId)
+func (k k8sBackend) GetContent(ctx context.Context, revisionId string) (secrets.SecretValue, error) {
+	return k.broker.GetJujuSecret(ctx, revisionId)
 }
 
 // DeleteContent implements SecretsBackend.
-func (k k8sBackend) DeleteContent(ctx context.Context, backendId string) error {
-	return k.broker.DeleteJujuSecret(ctx, backendId)
+func (k k8sBackend) DeleteContent(ctx context.Context, revisionId string) error {
+	return k.broker.DeleteJujuSecret(ctx, revisionId)
 }
 
 // SaveContent implements SecretsBackend.

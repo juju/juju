@@ -1479,24 +1479,19 @@ func (ctx *HookContext) doFlush(process string) error {
 		if !ok {
 			continue
 		}
-		var refs []coresecrets.ValueRef
+		var toDelete []int
 		if d.Revision == nil {
-			for _, ref := range md.ValueRefs {
-				refs = append(refs, ref)
-			}
+			toDelete = md.Revisions
 		} else {
-			if ref, ok := md.ValueRefs[*d.Revision]; ok {
-				refs = []coresecrets.ValueRef{ref}
-			}
+			toDelete = []int{*d.Revision}
 		}
-		ctx.logger.Debugf("deleting secret %q provider ids: %v", d.URI.String(), refs)
-	deleteDone:
-		for _, ref := range refs {
-			if err := secretsBackend.DeleteContent(ref); err != nil {
-				if errors.IsNotSupported(err) {
-					break deleteDone
+		ctx.logger.Debugf("deleting secret %q provider ids: %v", d.URI.String(), toDelete)
+		for _, rev := range toDelete {
+			if err := secretsBackend.DeleteContent(d.URI, rev); err != nil {
+				if errors.IsNotFound(err) {
+					continue
 				}
-				return errors.Annotatef(err, "cannot delete secret %q from backend: %v", ref, err)
+				return errors.Annotatef(err, "cannot delete secret %q revision %d from backend: %v", d.URI.ID, rev, err)
 			}
 		}
 	}
@@ -1520,7 +1515,7 @@ func (ctx *HookContext) doFlush(process string) error {
 			ctx.logger.Errorf("cannot apply changes: %v", err)
 		cleanupDone:
 			for _, secretId := range cleanups {
-				if err2 := secretsBackend.DeleteContent(secretId); err2 != nil {
+				if err2 := secretsBackend.DeleteExternalContent(secretId); err2 != nil {
 					if errors.IsNotSupported(err) {
 						break cleanupDone
 					}

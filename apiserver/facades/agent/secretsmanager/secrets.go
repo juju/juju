@@ -401,6 +401,40 @@ func (s *SecretsManagerAPI) GetSecretContentInfo(args params.GetSecretContentArg
 	return result, nil
 }
 
+// GetSecretRevisionContentInfo returns the secret values for the specified secret revisions.
+func (s *SecretsManagerAPI) GetSecretRevisionContentInfo(arg params.SecretRevisionArg) (params.SecretContentResults, error) {
+	result := params.SecretContentResults{
+		Results: make([]params.SecretContentResult, len(arg.Revisions)),
+	}
+	uri, err := coresecrets.ParseURI(arg.URI)
+	if err != nil {
+		return params.SecretContentResults{}, errors.Trace(err)
+	}
+	if !s.canRead(uri, s.authTag) {
+		return params.SecretContentResults{}, errors.Trace(apiservererrors.ErrPerm)
+	}
+	for i, rev := range arg.Revisions {
+		// TODO(wallworld) - if pendingDelete is true, mark the revision for deletion
+		val, valueRef, err := s.secretsState.GetSecretValue(uri, rev)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		contentParams := params.SecretContentParams{}
+		if valueRef != nil {
+			contentParams.ValueRef = &params.SecretValueRef{
+				BackendID:  valueRef.BackendID,
+				RevisionID: valueRef.RevisionID,
+			}
+		}
+		if val != nil {
+			contentParams.Data = val.EncodedValues()
+		}
+		result.Results[i].Content = contentParams
+	}
+	return result, nil
+}
+
 func (s *SecretsManagerAPI) isLeaderUnit() (bool, error) {
 	if s.authTag.Kind() != names.UnitTagKind {
 		return false, nil
@@ -498,7 +532,7 @@ func (s *SecretsManagerAPI) getSecretContent(arg params.GetSecretContentArg) (*s
 			return nil, errors.Trace(err)
 		}
 	}
-	// Owner units should always have the UIR because we resolved the label to URI on uniter side already.
+	// Owner units should always have the URI because we resolved the label to URI on uniter side already.
 	md, err := s.getAppOwnedOrUnitOwnedSecretMetadata(uri, arg.Label)
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
