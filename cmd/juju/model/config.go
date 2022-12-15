@@ -64,6 +64,9 @@ from one model to another:
       | juju model-config -c c2 --file=- --ignore-read-only-fields
 You can simultaneously read config from a yaml file and set config keys
 as above. The command-line args will override any values specified in the file.
+
+The default-series key is deprecated in favour of default-base
+e.g. default-base=ubuntu@22.04.
 `
 	modelConfigHelpDocKeys = `
 The following keys are available:
@@ -71,8 +74,8 @@ The following keys are available:
 	modelConfigHelpDocPartTwo = `
 Examples:
 
-Print the value of default-series:
-    juju model-config default-series
+Print the value of default-base:
+    juju model-config default-base
 
 Print the model config of model mycontroller:mymodel:
     juju model-config -m mycontroller:mymodel
