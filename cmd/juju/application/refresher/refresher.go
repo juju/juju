@@ -375,12 +375,12 @@ func (r *charmStoreRefresher) Allowed(cfg RefresherConfig) (bool, error) {
 // Refresh a given charm store charm.
 // Bundles are not supported as there is no physical representation in Juju.
 func (r *charmStoreRefresher) Refresh() (*CharmID, error) {
-	newURL, origin, err := r.ResolveCharm()
+	curl, origin, err := r.ResolveCharm()
 	if errors.Is(err, ErrAlreadyUpToDate) {
 		// The charm itself is uptodate but we may need the
 		// URL, origin for updating resources.
 		return &CharmID{
-			URL:    newURL,
+			URL:    curl,
 			Origin: origin.CoreCharmOrigin(),
 		}, err
 	} else if err != nil {
@@ -390,7 +390,7 @@ func (r *charmStoreRefresher) Refresh() (*CharmID, error) {
 	if !r.deployedBase.Channel.Empty() {
 		origin.Base = r.deployedBase
 	}
-	curl, _, err := store.AddCharmWithAuthorizationFromURL(r.charmAdder, newURL, origin, r.force)
+	_, err = r.charmAdder.AddCharm(curl, origin, r.force)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

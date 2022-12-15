@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/api/client/resources"
 	commoncharm "github.com/juju/juju/api/common/charm"
 	app "github.com/juju/juju/apiserver/facades/client/application"
-	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/core/constraints"
@@ -495,19 +494,19 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	// In-order for the url to represent the following updates to the origin
 	// and machine, we need to ensure that the series is actually correct as
 	// well in the url.
-	deployableURL := storeCharmOrBundleURL
+	curl := storeCharmOrBundleURL
 	if charm.CharmHub.Matches(storeCharmOrBundleURL.Schema) {
 		series, err := coreseries.GetSeriesFromBase(origin.Base)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		deployableURL = storeCharmOrBundleURL.WithSeries(series)
+		curl = storeCharmOrBundleURL.WithSeries(series)
 	}
 
 	if c.dryRun {
 		name := c.applicationName
 		if name == "" {
-			name = deployableURL.Name
+			name = curl.Name
 		}
 		channel := origin.CharmChannel().String()
 		if channel != "" {
@@ -515,17 +514,17 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 		}
 
 		ctx.Infof(fmt.Sprintf("%q from %s charm %q, revision %d%s on %s would be deployed",
-			name, origin.Source, deployableURL.Name, deployableURL.Revision, channel, origin.Base.DisplayString()))
+			name, origin.Source, curl.Name, curl.Revision, channel, origin.Base.DisplayString()))
 		return nil
 	}
 
 	// Store the charm in the controller
-	curl, csOrigin, err := store.AddCharmWithAuthorizationFromURL(deployAPI, deployableURL, origin, c.force)
+	csOrigin, err := deployAPI.AddCharm(curl, origin, c.force)
 	if err != nil {
 		if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {
 			return errors.Trace(termErr.UserErr())
 		}
-		return errors.Annotatef(err, "storing charm %q", deployableURL.Name)
+		return errors.Annotatef(err, "storing charm %q", curl.Name)
 	}
 	ctx.Infof(formatLocatedText(curl, csOrigin))
 

@@ -84,43 +84,6 @@ func (s *storeSuite) TestAddCharmFromURLFailAddCharmFailUnauthorized(c *gc.C) {
 	c.Assert(obtainedCurl, gc.IsNil)
 }
 
-func (s *storeSuite) TestAddCharmWithAuthorizationFromURLAddCharmSuccess(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-	s.expectAddCharm(nil)
-
-	curl, err := charm.ParseURL("cs:testme")
-	c.Assert(err, jc.ErrorIsNil)
-	origin, err := utils.DeduceOrigin(curl, charm.Channel{Risk: charm.Beta}, corecharm.Platform{Architecture: arch.DefaultArchitecture})
-	c.Assert(err, jc.ErrorIsNil)
-
-	obtainedCurl, _, err := store.AddCharmWithAuthorizationFromURL(
-		s.charmAdder,
-		curl,
-		origin,
-		true,
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtainedCurl.String(), gc.Equals, curl.String())
-}
-
-func (s *storeSuite) TestAddCharmWithAuthorizationFromURLFailAddCharmFail(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-	s.expectAddCharm(errors.NotFoundf("testing"))
-	curl, err := charm.ParseURL("cs:testme")
-	c.Assert(err, jc.ErrorIsNil)
-	origin, err := utils.DeduceOrigin(curl, charm.Channel{Risk: charm.Beta}, corecharm.Platform{Architecture: arch.DefaultArchitecture})
-	c.Assert(err, jc.ErrorIsNil)
-
-	obtainedCurl, _, err := store.AddCharmWithAuthorizationFromURL(
-		s.charmAdder,
-		curl,
-		origin,
-		true,
-	)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(obtainedCurl, gc.IsNil)
-}
-
 func (s *storeSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.charmAdder = mocks.NewMockCharmAdder(ctrl)

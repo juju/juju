@@ -736,7 +736,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 	}
 
 	var charmOrigin commoncharm.Origin
-	url, charmOrigin, err = store.AddCharmWithAuthorizationFromURL(h.deployAPI, url, resolvedOrigin, h.force)
+	charmOrigin, err = h.deployAPI.AddCharm(url, resolvedOrigin, h.force)
 	if err != nil {
 		return errors.Annotatef(err, "cannot add charm %q", ch.Name)
 	} else if url == nil {
