@@ -33,7 +33,7 @@ func (a *API) Create(args params.BackupsCreateArgs) (params.BackupsMetadataResul
 }
 
 func (a *APIv2) Create(args params.BackupsCreateArgs) (params.BackupsMetadataResult, error) {
-	backupsMethods := newBackups()
+	backupsMethods := newBackups(a.paths)
 
 	session := a.backend.MongoSession().Copy()
 	defer session.Close()
@@ -88,7 +88,7 @@ func (a *APIv2) Create(args params.BackupsCreateArgs) (params.BackupsMetadataRes
 	}
 	meta.Controller.HANodes = int64(len(nodes))
 
-	fileName, err := backupsMethods.Create(meta, a.paths, dbInfo)
+	fileName, err := backupsMethods.Create(meta, dbInfo)
 	if err != nil {
 		return result, errors.Trace(err)
 	}

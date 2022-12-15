@@ -37,7 +37,7 @@ func (s *backupsSuite) SetUpTest(c *gc.C) {
 	s.backupURL = s.server.URL + fmt.Sprintf("/model/%s/backups", s.State.ModelUUID())
 	s.fake = &backupstesting.FakeBackups{}
 	s.PatchValue(apiserver.NewBackups,
-		func() backups.Backups {
+		func(path *backups.Paths) backups.Backups {
 			return s.fake
 		},
 	)
@@ -98,7 +98,10 @@ func (s *backupsSuite) TestAuthRequiresClientNotMachine(c *gc.C) {
 		URL:      s.backupURL,
 		Nonce:    "fake_nonce",
 	})
-	s.assertErrorResponse(c, resp, http.StatusInternalServerError, "tag kind machine not valid")
+	c.Assert(resp.StatusCode, gc.Equals, http.StatusForbidden)
+	body, err := ioutil.ReadAll(resp.Body)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(body), gc.Equals, "authorization failed: machine 0 is not a user\n")
 
 	// Now try a user login.
 	resp = s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "POST", URL: s.backupURL})
