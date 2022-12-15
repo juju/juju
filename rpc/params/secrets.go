@@ -268,7 +268,6 @@ type AddSecretBackendArg struct {
 	SecretBackend
 	// Include the ID so we can optionally
 	// import existing backend metadata.
-	// TODO(wallyworld)
 	ID string `json:"id,omitempty"`
 }
 

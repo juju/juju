@@ -239,9 +239,9 @@ func (s *SecretsSuite) TestAddSecretBackends(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	p := mocks.NewMockSecretBackendProvider(ctrl)
-	p.EXPECT().Type().Return("vault")
+	p.EXPECT().Type().Return("vault").Times(2)
 	b := mocks.NewMockSecretsBackend(ctrl)
-	b.EXPECT().Ping().Return(nil)
+	b.EXPECT().Ping().Return(nil).Times(2)
 	s.PatchValue(&commonsecrets.GetProvider, func(pType string) (provider.SecretBackendProvider, error) {
 		if pType != "vault" {
 			return provider.Provider(pType)
@@ -257,14 +257,20 @@ func (s *SecretsSuite) TestAddSecretBackends(c *gc.C) {
 	}
 	p.EXPECT().NewBackend(&provider.ModelBackendConfig{
 		BackendConfig: provider.BackendConfig{BackendType: "vault", Config: addedConfig},
-	}).Return(b, nil)
+	}).Return(b, nil).Times(2)
 
 	s.backendState.EXPECT().CreateSecretBackend(state.CreateSecretBackendParams{
 		Name:                "myvault",
 		BackendType:         "vault",
 		TokenRotateInterval: ptr(666 * time.Minute),
 		Config:              addedConfig,
-	}).Return(nil)
+	}).Return("backend-id", nil)
+	s.backendState.EXPECT().CreateSecretBackend(state.CreateSecretBackendParams{
+		ID:          "existing-id",
+		Name:        "myvault2",
+		BackendType: "vault",
+		Config:      addedConfig,
+	}).Return("", errors.AlreadyExistsf(""))
 
 	results, err := facade.AddSecretBackends(params.AddSecretBackendArgs{
 		Args: []params.AddSecretBackendArg{{
@@ -279,6 +285,13 @@ func (s *SecretsSuite) TestAddSecretBackends(c *gc.C) {
 				Name:        "invalid",
 				BackendType: "something",
 			},
+		}, {
+			ID: "existing-id",
+			SecretBackend: params.SecretBackend{
+				Name:        "myvault2",
+				BackendType: "vault",
+				Config:      map[string]interface{}{"endpoint": "http://vault"},
+			},
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -287,6 +300,9 @@ func (s *SecretsSuite) TestAddSecretBackends(c *gc.C) {
 		{Error: &params.Error{
 			Code:    "not found",
 			Message: `creating backend provider type "something": no registered provider for "something"`}},
+		{Error: &params.Error{
+			Code:    "already exists",
+			Message: `secret backend with ID "existing-id" already exists`}},
 	})
 }
 

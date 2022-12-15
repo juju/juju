@@ -48,13 +48,13 @@ func (s *SecretBackendsAPI) AddSecretBackends(args params.AddSecretBackendArgs) 
 		return result, errors.Trace(err)
 	}
 	for i, arg := range args.Args {
-		err := s.createBackend(arg.SecretBackend)
+		err := s.createBackend(arg.ID, arg.SecretBackend)
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
 
-func (s *SecretBackendsAPI) createBackend(arg params.SecretBackend) error {
+func (s *SecretBackendsAPI) createBackend(id string, arg params.SecretBackend) error {
 	if arg.Name == "" {
 		return errors.NotValidf("missing backend name")
 	}
@@ -84,12 +84,17 @@ func (s *SecretBackendsAPI) createBackend(arg params.SecretBackend) error {
 	if err := commonsecrets.PingBackend(p, arg.Config); err != nil {
 		return errors.Trace(err)
 	}
-	return s.backendState.CreateSecretBackend(state.CreateSecretBackendParams{
+	_, err = s.backendState.CreateSecretBackend(state.CreateSecretBackendParams{
+		ID:                  id,
 		Name:                arg.Name,
 		BackendType:         arg.BackendType,
 		TokenRotateInterval: arg.TokenRotateInterval,
 		Config:              arg.Config,
 	})
+	if errors.IsAlreadyExists(err) {
+		return errors.AlreadyExistsf("secret backend with ID %q", id)
+	}
+	return errors.Trace(err)
 }
 
 // UpdateSecretBackends updates secret backends.

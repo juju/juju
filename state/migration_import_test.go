@@ -2856,6 +2856,13 @@ func (s *MigrationImportSuite) TestApplicationAddLatestCharmChannelTrack(c *gc.C
 }
 
 func (s *MigrationImportSuite) TestSecrets(c *gc.C) {
+	backendStore := state.NewSecretBackends(s.State)
+	backendID, err := backendStore.CreateSecretBackend(state.CreateSecretBackendParams{
+		Name:        "myvault",
+		BackendType: "vault",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
 	store := state.NewSecrets(s.State)
 	owner := s.Factory.MakeApplication(c, nil)
 	uri := secrets.NewURI()
@@ -2882,7 +2889,7 @@ func (s *MigrationImportSuite) TestSecrets(c *gc.C) {
 	md, err = store.UpdateSecret(md.URI, state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
 		ValueRef: &secrets.ValueRef{
-			BackendID:  "backend-id",
+			BackendID:  backendID,
 			RevisionID: "rev-id",
 		},
 	})
@@ -2928,7 +2935,7 @@ func (s *MigrationImportSuite) TestSecrets(c *gc.C) {
 	}, {
 		Revision: 2,
 		ValueRef: &secrets.ValueRef{
-			BackendID:  "backend-id",
+			BackendID:  backendID,
 			RevisionID: "rev-id",
 		},
 		CreateTime: createTime,
@@ -2946,6 +2953,33 @@ func (s *MigrationImportSuite) TestSecrets(c *gc.C) {
 		CurrentRevision: 666,
 		LatestRevision:  2,
 	})
+}
+
+func (s *MigrationImportSuite) TestSecretsMissingBackend(c *gc.C) {
+	store := state.NewSecrets(s.State)
+	owner := s.Factory.MakeApplication(c, nil)
+	uri := secrets.NewURI()
+	p := state.CreateSecretParams{
+		Version: 1,
+		Owner:   owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			ValueRef: &secrets.ValueRef{
+				BackendID:  "missing-id",
+				RevisionID: "rev-id",
+			},
+		},
+	}
+	_, err := store.CreateSecret(uri, p)
+	c.Assert(err, jc.ErrorIsNil)
+
+	out, err := s.State.Export(map[string]string{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	uuid := utils.MustNewUUID().String()
+	in := newModel(out, uuid, "new")
+	_, _, err = s.Controller.Import(in)
+	c.Assert(err, gc.ErrorMatches, "secrets: target controller does not have all required secret backends set up")
 }
 
 func (s *MigrationImportSuite) TestDefaultSecretBackend(c *gc.C) {

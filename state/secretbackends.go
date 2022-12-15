@@ -19,6 +19,7 @@ import (
 
 // CreateSecretBackendParams are used to create a secret backend.
 type CreateSecretBackendParams struct {
+	ID                  string
 	Name                string
 	BackendType         string
 	TokenRotateInterval *time.Duration
@@ -35,7 +36,7 @@ type UpdateSecretBackendParams struct {
 
 // SecretBackendsStorage instances use mongo to store secret backend info.
 type SecretBackendsStorage interface {
-	CreateSecretBackend(params CreateSecretBackendParams) error
+	CreateSecretBackend(params CreateSecretBackendParams) (string, error)
 	UpdateSecretBackend(params UpdateSecretBackendParams) error
 	DeleteSecretBackend(name string, force bool) error
 	ListSecretBackends() ([]*secrets.SecretBackend, error)
@@ -78,8 +79,12 @@ type secretBackendsStorage struct {
 }
 
 func (s *secretBackendsStorage) secretBackendDoc(p *CreateSecretBackendParams) (*secretBackendDoc, error) {
+	id := p.ID
+	if id == "" {
+		id = bson.NewObjectId().Hex()
+	}
 	backend := &secretBackendDoc{
-		DocID:               bson.NewObjectId().Hex(),
+		DocID:               id,
 		Name:                p.Name,
 		BackendType:         p.BackendType,
 		TokenRotateInterval: p.TokenRotateInterval,
@@ -89,10 +94,16 @@ func (s *secretBackendsStorage) secretBackendDoc(p *CreateSecretBackendParams) (
 }
 
 // CreateSecretBackend creates a new secret backend.
-func (s *secretBackendsStorage) CreateSecretBackend(p CreateSecretBackendParams) error {
+func (s *secretBackendsStorage) CreateSecretBackend(p CreateSecretBackendParams) (string, error) {
+	if p.ID != "" {
+		_, err := s.GetSecretBackendByID(p.ID)
+		if err == nil {
+			return "", errors.AlreadyExistsf("secret backend with id %q", p.ID)
+		}
+	}
 	backendDoc, err := s.secretBackendDoc(&p)
 	if err != nil {
-		return errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// This isn't perfect but we don't want to use the name as the doc id.
@@ -112,7 +123,7 @@ func (s *secretBackendsStorage) CreateSecretBackend(p CreateSecretBackendParams)
 			Insert: *backendDoc,
 		}}, nil
 	}
-	return errors.Trace(s.st.db().Run(buildTxn))
+	return backendDoc.DocID, errors.Trace(s.st.db().Run(buildTxn))
 }
 
 func (s *secretBackendsStorage) toSecretBackend(doc *secretBackendDoc) *secrets.SecretBackend {

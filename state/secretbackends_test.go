@@ -36,7 +36,8 @@ func (s *SecretBackendsSuite) TestCreate(c *gc.C) {
 		TokenRotateInterval: ptr(666 * time.Minute),
 		Config:              config,
 	}
-	err := s.storage.CreateSecretBackend(p)
+	id, err := s.storage.CreateSecretBackend(p)
+	c.Assert(id, gc.Not(gc.Equals), "")
 	c.Assert(err, jc.ErrorIsNil)
 	backend, err := s.storage.GetSecretBackend("myvault")
 	c.Assert(err, jc.ErrorIsNil)
@@ -49,7 +50,12 @@ func (s *SecretBackendsSuite) TestCreate(c *gc.C) {
 		Config:              config,
 	})
 
-	err = s.storage.CreateSecretBackend(p)
+	_, err = s.storage.CreateSecretBackend(p)
+	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
+
+	p.Name = "another"
+	p.ID = id
+	_, err = s.storage.CreateSecretBackend(p)
 	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
 }
 
@@ -66,14 +72,14 @@ func (s *SecretBackendsSuite) TestList(c *gc.C) {
 		TokenRotateInterval: ptr(666 * time.Minute),
 		Config:              config,
 	}
-	err := s.storage.CreateSecretBackend(p)
+	_, err := s.storage.CreateSecretBackend(p)
 	c.Assert(err, jc.ErrorIsNil)
 	p2 := state.CreateSecretBackendParams{
 		Name:        "myk8s",
 		BackendType: "kubernetes",
 		Config:      config,
 	}
-	err = s.storage.CreateSecretBackend(p2)
+	_, err = s.storage.CreateSecretBackend(p2)
 	c.Assert(err, jc.ErrorIsNil)
 	backends, err := s.storage.ListSecretBackends()
 	c.Assert(err, jc.ErrorIsNil)
@@ -100,7 +106,7 @@ func (s *SecretBackendsSuite) TestRemove(c *gc.C) {
 		Name:        "myvault",
 		BackendType: "vault",
 	}
-	err := s.storage.CreateSecretBackend(p)
+	_, err := s.storage.CreateSecretBackend(p)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.storage.DeleteSecretBackend("myvault", false)
@@ -116,7 +122,7 @@ func (s *SecretBackendsSuite) TestRemoveWithRevisionsFails(c *gc.C) {
 		Name:        "myvault",
 		BackendType: "vault",
 	}
-	err := s.storage.CreateSecretBackend(p)
+	_, err := s.storage.CreateSecretBackend(p)
 	c.Assert(err, jc.ErrorIsNil)
 	b, err := s.storage.GetSecretBackend("myvault")
 	c.Assert(err, jc.ErrorIsNil)
@@ -150,7 +156,7 @@ func (s *SecretBackendsSuite) TestRemoveWithRevisionsForce(c *gc.C) {
 		Name:        "myvault",
 		BackendType: "vault",
 	}
-	err := s.storage.CreateSecretBackend(p)
+	_, err := s.storage.CreateSecretBackend(p)
 	c.Assert(err, jc.ErrorIsNil)
 	b, err := s.storage.GetSecretBackend("myvault")
 	c.Assert(err, jc.ErrorIsNil)
@@ -189,7 +195,7 @@ func (s *SecretBackendsSuite) TestDeleteSecretUpdatesRefCount(c *gc.C) {
 		Name:        "myvault",
 		BackendType: "vault",
 	}
-	err := s.storage.CreateSecretBackend(p)
+	_, err := s.storage.CreateSecretBackend(p)
 	c.Assert(err, jc.ErrorIsNil)
 	b, err := s.storage.GetSecretBackend("myvault")
 	c.Assert(err, jc.ErrorIsNil)
@@ -238,7 +244,7 @@ func (s *SecretBackendsSuite) TestDeleteRevisionsUpdatesRefCount(c *gc.C) {
 		Name:        "myvault",
 		BackendType: "vault",
 	}
-	err := s.storage.CreateSecretBackend(p)
+	_, err := s.storage.CreateSecretBackend(p)
 	c.Assert(err, jc.ErrorIsNil)
 	b, err := s.storage.GetSecretBackend("myvault")
 	c.Assert(err, jc.ErrorIsNil)
@@ -295,7 +301,7 @@ func (s *SecretBackendsSuite) TestUpdate(c *gc.C) {
 		BackendType: "vault",
 		Config:      map[string]interface{}{"foo.key": "bar"},
 	}
-	err := s.storage.CreateSecretBackend(p)
+	_, err := s.storage.CreateSecretBackend(p)
 	c.Assert(err, jc.ErrorIsNil)
 	b, err := s.storage.GetSecretBackend("myvault")
 	c.Assert(err, jc.ErrorIsNil)
@@ -324,7 +330,7 @@ func (s *SecretBackendsSuite) TestUpdateName(c *gc.C) {
 		BackendType: "vault",
 		Config:      map[string]interface{}{"foo.key": "bar"},
 	}
-	err := s.storage.CreateSecretBackend(p)
+	_, err := s.storage.CreateSecretBackend(p)
 	c.Assert(err, jc.ErrorIsNil)
 	b, err := s.storage.GetSecretBackend("myvault")
 	c.Assert(err, jc.ErrorIsNil)
@@ -352,10 +358,10 @@ func (s *SecretBackendsSuite) TestUpdateNameDuplicate(c *gc.C) {
 		BackendType: "vault",
 		Config:      map[string]interface{}{"foo.key": "bar"},
 	}
-	err := s.storage.CreateSecretBackend(p)
+	_, err := s.storage.CreateSecretBackend(p)
 	c.Assert(err, jc.ErrorIsNil)
 	p.Name = "myvault2"
-	err = s.storage.CreateSecretBackend(p)
+	_, err = s.storage.CreateSecretBackend(p)
 	c.Assert(err, jc.ErrorIsNil)
 
 	b, err := s.storage.GetSecretBackend("myvault")
@@ -377,7 +383,7 @@ func (s *SecretBackendsSuite) TestUpdateResetRotationInterval(c *gc.C) {
 		TokenRotateInterval: ptr(666 * time.Second),
 		Config:              map[string]interface{}{"foo.key": "bar"},
 	}
-	err := s.storage.CreateSecretBackend(p)
+	_, err := s.storage.CreateSecretBackend(p)
 	c.Assert(err, jc.ErrorIsNil)
 	b, err := s.storage.GetSecretBackend("myvault")
 	c.Assert(err, jc.ErrorIsNil)

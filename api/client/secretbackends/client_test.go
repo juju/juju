@@ -76,6 +76,7 @@ func (s *SecretBackendsSuite) TestListSecretBackends(c *gc.C) {
 
 func (s *SecretBackendsSuite) TestAddSecretsBackend(c *gc.C) {
 	backend := secretbackends.CreateSecretBackend{
+		ID:                  "backend-id",
 		Name:                "foo",
 		BackendType:         "vault",
 		TokenRotateInterval: ptr(666 * time.Minute),
@@ -88,6 +89,7 @@ func (s *SecretBackendsSuite) TestAddSecretsBackend(c *gc.C) {
 		c.Check(request, gc.Equals, "AddSecretBackends")
 		c.Check(arg, jc.DeepEquals, params.AddSecretBackendArgs{
 			Args: []params.AddSecretBackendArg{{
+				ID: "backend-id",
 				SecretBackend: params.SecretBackend{
 					Name:                backend.Name,
 					BackendType:         backend.BackendType,

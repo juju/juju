@@ -93,6 +93,24 @@ func (s *AddSuite) TestAdd(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *AddSuite) TestAddWithID(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.addSecretBackendsAPI.EXPECT().AddSecretBackend(
+		apisecretbackends.CreateSecretBackend{
+			ID:          "backend-id",
+			Name:        "myvault",
+			BackendType: "vault",
+			Config:      map[string]interface{}{"endpoint": "http://vault"},
+		}).Return(nil)
+	s.addSecretBackendsAPI.EXPECT().Close().Return(nil)
+
+	_, err := cmdtesting.RunCommand(c, secretbackends.NewAddCommandForTest(s.store, s.addSecretBackendsAPI),
+		"myvault", "vault", "endpoint=http://vault", "--import-id", "backend-id",
+	)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *AddSuite) TestAddFromFile(c *gc.C) {
 	defer s.setup(c).Finish()
 
