@@ -194,12 +194,21 @@ func (m *containerManager) getContainerSpec(
 		return ContainerSpec{}, errors.Trace(err)
 	}
 
+	virtType := api.InstanceTypeContainer
+	if cons.HasVirtType() {
+		v, err := ParseVirtType(*cons.VirtType)
+		if err != nil {
+			return ContainerSpec{}, errors.Trace(err)
+		}
+		virtType = v
+	}
+
 	// Lock around finding an image.
 	// The provisioner works concurrently to create containers.
 	// If an image needs to be copied from a remote, we don't want many
 	// goroutines attempting to do it at once.
 	m.imageMutex.Lock()
-	found, err := m.server.FindImage(base, jujuarch.HostArch(), imageSources, true, callback)
+	found, err := m.server.FindImage(base, jujuarch.HostArch(), virtType, imageSources, true, callback)
 	m.imageMutex.Unlock()
 	if err != nil {
 		return ContainerSpec{}, errors.Annotatef(err, "acquiring LXD image")

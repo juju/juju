@@ -23,6 +23,30 @@ import (
 	"github.com/juju/juju/network"
 )
 
+// VirtType represents the type of virtualisation used by a container.
+type VirtType = api.InstanceType
+
+// ParseVirtType parses a string into a VirtType.
+func ParseVirtType(s string) (VirtType, error) {
+	switch strings.ToLower(s) {
+	case "container", "":
+		return api.InstanceTypeContainer, nil
+	case "virtual-machine":
+		return api.InstanceTypeVM, nil
+	}
+	return "", errors.NotValidf("LXD VirtType %q", s)
+}
+
+// MustParseVirtType returns the VirtType for the given string, or panics if
+// it's not valid.
+func MustParseVirtType(s string) VirtType {
+	v, err := ParseVirtType(s)
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
+
 const (
 	UserNamespacePrefix = "user."
 	UserDataKey         = UserNamespacePrefix + "user-data"
@@ -40,6 +64,7 @@ type ContainerSpec struct {
 	Config       map[string]string
 	Profiles     []string
 	InstanceType string
+	VirtType     VirtType
 }
 
 // minMiBVersion is the minimum LXD version that we are sure will recognise the
@@ -99,6 +124,13 @@ func (c *ContainerSpec) ApplyConstraints(serverVersion string, cons constraints.
 				}
 			}
 			c.Devices["root"]["size"] = fmt.Sprintf(template, *cons.RootDisk)
+		}
+	}
+
+	if cons.HasVirtType() {
+		virtType, err := ParseVirtType(*cons.VirtType)
+		if err == nil {
+			c.VirtType = virtType
 		}
 	}
 }
@@ -200,20 +232,54 @@ func (s *Server) AliveContainers(prefix string) ([]Container, error) {
 // FilterContainers retrieves the list of containers from the server and filters
 // them based on the input namespace prefix and any supplied statuses.
 func (s *Server) FilterContainers(prefix string, statuses ...string) ([]Container, error) {
-	containers, err := s.GetInstances(api.InstanceTypeContainer)
+	var containers []Container
+	err := retry.Call(retry.CallArgs{
+		Func: func() error {
+			var err error
+			containers, err = s.filterContainers(prefix, statuses)
+			return err
+		},
+		IsFatalError: func(err error) bool {
+			return !errors.Is(err, errors.NotFound)
+		},
+		NotifyFunc: func(err error, attempt int) {
+			logger.Debugf("failed to retrieve containers from LXD, attempt %d: %v", attempt, err)
+		},
+		Attempts:    10,
+		Delay:       1 * time.Second,
+		MaxDelay:    10 * time.Second,
+		Clock:       clock.WallClock,
+		BackoffFunc: retry.ExpBackoff(1*time.Second, 10*time.Second, 2.0, true),
+	})
+	if err != nil {
+		// No containers found is not an error.
+		if errors.Is(err, errors.NotFound) {
+			return containers, nil
+		}
+		return nil, errors.Trace(err)
+	}
+	return containers, nil
+}
+
+func (s *Server) filterContainers(prefix string, statuses []string) ([]Container, error) {
+	instances, err := s.GetInstances(api.InstanceTypeAny)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var results []Container
-	for _, c := range containers {
+	for _, c := range instances {
 		if prefix != "" && !strings.HasPrefix(c.Name, prefix) {
 			continue
 		}
+
 		if len(statuses) > 0 && !containerHasStatus(c, statuses) {
 			continue
 		}
 		results = append(results, Container{c})
+	}
+	if len(results) == 0 {
+		return nil, errors.NotFoundf("containers with prefix %q", prefix)
 	}
 	return results, nil
 }
@@ -259,6 +325,7 @@ func (s *Server) CreateContainerFromSpec(spec ContainerSpec) (*Container, error)
 	req := api.InstancesPost{
 		Name:         spec.Name,
 		InstanceType: spec.InstanceType,
+		Type:         spec.VirtType,
 		InstancePut: api.InstancePut{
 			Architecture: spec.Architecture,
 			Profiles:     spec.Profiles,
