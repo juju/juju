@@ -31,6 +31,18 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.charms")
 
+// APIv6 provides the Charms API facade for version 6.
+// It removes the AddCharmWithAuthorization function, as
+// we no longer support macaroons.
+type APIv6 struct {
+	*API
+}
+
+// APIv5 provides the Charms API facade for version 5.
+type APIv5 struct {
+	*APIv6
+}
+
 // API implements the charms interface and is the concrete
 // implementation of the API end point.
 type API struct {
@@ -241,8 +253,8 @@ func (a *API) AddCharm(args params.AddCharmWithOrigin) (params.CharmOriginResult
 // not supported, only charm hub URLs. See also AddLocalCharm().
 //
 // Since the charm macaroons are no longer supported, this is the same as
-// AddCharm. We keep it for backwards compatibility.
-func (a *API) AddCharmWithAuthorization(args params.AddCharmWithAuth) (params.CharmOriginResult, error) {
+// AddCharm. We keep it for backwards compatibility in APIv5.
+func (a *APIv5) AddCharmWithAuthorization(args params.AddCharmWithAuth) (params.CharmOriginResult, error) {
 	logger.Tracef("AddCharmWithAuthorization %+v", args)
 	return a.addCharmWithAuthorization(args)
 }
