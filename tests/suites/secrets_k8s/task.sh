@@ -11,9 +11,6 @@ test_secrets_k8s() {
 
 	file="${TEST_DIR}/test-secrets-k8s.log"
 
-	# TODO: remove feature flag when secret is fully ready.
-	export JUJU_DEV_FEATURE_FLAGS=developer-mode
-
 	bootstrap "test-secrets-k8s" "${file}"
 
 	test_secrets
