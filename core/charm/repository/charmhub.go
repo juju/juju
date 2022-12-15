@@ -5,7 +5,6 @@ package repository
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"net/url"
 	"strings"
@@ -397,14 +396,7 @@ func (c *CharmHubRepository) GetEssentialMetadata(reqs ...corecharm.MetadataRequ
 	for reqIdx, req := range reqs {
 		urlToReqIdx[req.CharmURL] = reqIdx
 		reqGroups[""] = append(reqGroups[""], req)
-
-		// Calculate the concatenated signatures for all specified
-		// macaroons, convert them to a hex string and use that as
-		// the map key; this allows us to group together requests that
-		// reference the same set of macaroons.
-		var macSigs []byte
-		macSig := hex.EncodeToString(macSigs)
-		reqGroups[macSig] = append(reqGroups[macSig], req)
+		continue
 	}
 
 	// Make a batch request for each group
