@@ -64,6 +64,7 @@ import (
 	"github.com/juju/juju/worker/identityfilewriter"
 	"github.com/juju/juju/worker/instancemutater"
 	leasemanager "github.com/juju/juju/worker/lease/manifold"
+	"github.com/juju/juju/worker/leaseexpiry"
 	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/machineactions"
@@ -701,6 +702,15 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker: auditconfigupdater.New,
 		})),
 
+		// The lease expiry worker constantly deletes
+		// leases with an expiry time in the past.
+		leaseExpiryName: ifController(leaseexpiry.Manifold(leaseexpiry.ManifoldConfig{
+			ClockName:      clockName,
+			DBAccessorName: dbAccessorName,
+			Logger:         loggo.GetLogger("juju.worker.leaseexpiry"),
+			NewWorker:      leaseexpiry.NewWorker,
+		})),
+
 		// The global lease manager tracks lease information in the Dqlite database.
 		leaseManagerName: ifController(leasemanager.Manifold(leasemanager.ManifoldConfig{
 			AgentName:            agentName,
@@ -1084,6 +1094,7 @@ const (
 	dbAccessorName                = "db-accessor"
 	certificateUpdaterName        = "certificate-updater"
 	auditConfigUpdaterName        = "audit-config-updater"
+	leaseExpiryName               = "lease-expiry"
 	leaseManagerName              = "lease-manager"
 	stateConverterName            = "state-converter"
 	lxdContainerProvisioner       = "lxd-container-provisioner"
