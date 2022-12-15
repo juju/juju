@@ -374,9 +374,9 @@ func (method HarvestMode) HarvestUnknown() bool {
 	return method&HarvestUnknown != 0
 }
 
-// GetDefaultSupportedLTS returns the DefaultSupportedLTS.
+// GetDefaultSupportedLTSBase returns the DefaultSupportedLTSBase.
 // This is exposed for one reason and one reason only; testing!
-// The fact that PreferredSeries doesn't take an argument for a default series
+// The fact that PreferredBase doesn't take an argument for a default base
 // as a fallback. We then have to expose this so we can exercise the branching
 // code for other scenarios makes me sad.
 var GetDefaultSupportedLTSBase = jujuversion.DefaultSupportedLTSBase

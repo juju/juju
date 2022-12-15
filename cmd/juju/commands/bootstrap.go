@@ -108,13 +108,16 @@ address.
     # How often to refresh controller addresses from the API server.
     bootstrap-addresses-delay: 10 # default: 10 seconds
 
-It is possible to override the series Juju attempts to bootstrap on to, by
-supplying a series argument to '--bootstrap-series'.
+It is possible to override the base e.g. ubuntu@22.04, Juju attempts 
+to bootstrap on to, by supplying a base argument to '--bootstrap-base'.
 
-An error is emitted if the determined series is not supported. Using the
+An error is emitted if the determined base is not supported. Using the
 '--force' option to override this check:
 
-	juju bootstrap --bootstrap-series=focal --force
+	juju bootstrap --bootstrap-base=ubuntu@22.04 --force
+
+The '--bootstrap-series' can be still used, but is deprecated in favour
+of '--bootstrap-base'.
 
 Private clouds may need to specify their own custom image metadata and
 tools/agent. Use '--metadata-source' whose value is a local directory.
@@ -179,6 +182,7 @@ Examples:
     juju bootstrap --agent-version=2.2.4 aws joe-us-east-1
     juju bootstrap --config bootstrap-timeout=1200 azure joe-eastus
     juju bootstrap aws --storage-pool name=secret --storage-pool type=ebs --storage-pool encrypted=true
+	juju bootstrap lxd --bootstrap-base=ubuntu@22.04
 
     # For a bootstrap on k8s, setting the service type of the Juju controller service to LoadBalancer
     juju bootstrap --config controller-service-type=loadbalancer
@@ -306,9 +310,9 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.StringVar(&c.ConstraintsStr, "constraints", "", "Set model constraints")
 	f.StringVar(&c.BootstrapConstraintsStr, "bootstrap-constraints", "", "Specify bootstrap machine constraints")
-	f.StringVar(&c.BootstrapSeries, "bootstrap-series", "", "Specify the series of the bootstrap machine (deprecated use bootstrap-series)")
+	f.StringVar(&c.BootstrapSeries, "bootstrap-series", "", "Specify the series of the bootstrap machine (deprecated use bootstrap-base)")
 	f.StringVar(&c.BootstrapBase, "bootstrap-base", "", "Specify the base of the bootstrap machine")
-	f.StringVar(&c.BootstrapImage, "bootstrap-image", "", "Specify the image of the bootstrap machine")
+	f.StringVar(&c.BootstrapImage, "bootstrap-image", "", "Specify the image of the bootstrap machine (requires --bootstrap-constraints specifying architecture)")
 	f.BoolVar(&c.BuildAgent, "build-agent", false, "Build local version of agent binary before bootstrapping")
 	f.StringVar(&c.JujuDbSnapPath, "db-snap", "",
 		"Path to a locally built .snap to use as the internal juju-db service.")
@@ -1725,7 +1729,7 @@ func (c *bootstrapCommand) warnDeprecatedModelConfig(ctx *cmd.Context) error {
 	var reported bool
 	warn := func(attrs map[string]any) {
 		if _, ok := attrs["default-series"]; !reported && ok {
-			ctx.Warningf("default-series configuration option is deprecated, in favour of default-base")
+			ctx.Warningf("default-series configuration option is deprecated in favour of default-base")
 			reported = true
 		}
 	}

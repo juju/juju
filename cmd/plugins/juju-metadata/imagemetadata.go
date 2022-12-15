@@ -101,7 +101,7 @@ func (c *imageMetadataCommand) Info() *cmd.Info {
 }
 
 func (c *imageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.Series, "s", "", "the charm series")
+	f.StringVar(&c.Series, "s", "", "the charm series (deprecated use bases via -b instead)")
 	f.StringVar(&c.Base, "b", "", "the charm base")
 	f.StringVar(&c.Arch, "a", arch.AMD64, "the image achitecture")
 	f.StringVar(&c.Dir, "d", "", "the destination directory in which to place the metadata files")
