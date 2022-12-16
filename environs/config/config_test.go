@@ -55,7 +55,7 @@ var sampleConfig = testing.Attrs{
 	"unknown":                    "my-unknown",
 	"ssl-hostname-verification":  true,
 	"development":                false,
-	"default-series":             jujuversion.DefaultSupportedLTS(),
+	"default-base":               jujuversion.DefaultSupportedLTSBase().String(),
 	"disable-network-management": false,
 	"ignore-machine-addresses":   false,
 	"automatically-retry-hooks":  true,
@@ -106,25 +106,25 @@ var configTests = []configTest{
 			"container-image-metadata-url": "container-image-metadata-url-value",
 		}),
 	}, {
-		about:       "Explicit series",
+		about:       "Explicit base",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"default-series": "jammy",
+			"default-base": "ubuntu@20.04",
 		}),
 	}, {
-		about:       "old series",
+		about:       "old base",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"default-series": "bionic",
+			"default-base": "ubuntu@18.04",
 		}),
-		err: `series "bionic" not supported`,
+		err: `base "ubuntu@18.04" not supported`,
 	}, {
-		about:       "bad series",
+		about:       "bad base",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"default-series": "my-series",
+			"default-base": "my-series",
 		}),
-		err: `series "my-series" not supported`,
+		err: `invalid default base "my-series": expected base string to contain os and channel separated by '@'`,
 	}, {
 		about:       "Explicit logging",
 		useDefaults: config.UseDefaults,
@@ -413,6 +413,7 @@ var configTests = []configTest{
 			"authorized-keys":            "ssh-rsa mykeys rog@rog-x220\n",
 			"region":                     "us-east-1",
 			"default-series":             "focal",
+			"default-base":               "ubuntu@20.04",
 			"secret-key":                 "a-secret-key",
 			"access-key":                 "an-access-key",
 			"agent-version":              "1.13.2",
@@ -692,14 +693,14 @@ func (test configTest) check(c *gc.C) {
 	dev, _ := test.attrs["development"].(bool)
 	c.Assert(cfg.Development(), gc.Equals, dev)
 
-	seriesAttr, _ := test.attrs["default-series"].(string)
-	defaultSeries, ok := cfg.DefaultSeries()
-	if seriesAttr != "" {
+	baseAttr, _ := test.attrs["default-base"].(string)
+	defaultBase, ok := cfg.DefaultBase()
+	if baseAttr != "" {
 		c.Assert(ok, jc.IsTrue)
-		c.Assert(defaultSeries, gc.Equals, seriesAttr)
+		c.Assert(defaultBase, gc.Equals, baseAttr)
 	} else {
 		c.Assert(ok, jc.IsFalse)
-		c.Assert(defaultSeries, gc.Equals, "")
+		c.Assert(defaultBase, gc.Equals, "")
 	}
 
 	if m, _ := test.attrs["firewall-mode"].(string); m != "" {
@@ -849,7 +850,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 		"firewall-mode":              config.FwInstance,
 		"unknown":                    "my-unknown",
 		"ssl-hostname-verification":  true,
-		"default-series":             jujuversion.DefaultSupportedLTS(),
+		"default-base":               jujuversion.DefaultSupportedLTSBase().String(),
 		"disable-network-management": false,
 		"ignore-machine-addresses":   false,
 		"automatically-retry-hooks":  true,

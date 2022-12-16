@@ -83,7 +83,7 @@ func (c *CharmHubRepository) ResolveWithPreferredChannel(charmURL *charm.URL, ar
 	// refresh API call. The bases can inform the consumer of the API about what
 	// they can also install *IF* the retry resolution uses a base that doesn't
 	// match their requirements. This can happen in the client if the series
-	// selection also wants to consider model-config default-series after the
+	// selection also wants to consider model-config default-base after the
 	// call.
 	var (
 		effectiveChannel  string

@@ -64,6 +64,9 @@ from one model to another:
       | juju model-config -c c2 --file=- --ignore-read-only-fields
 You can simultaneously read config from a yaml file and set config keys
 as above. The command-line args will override any values specified in the file.
+
+The default-series key is deprecated in favour of default-base
+e.g. default-base=ubuntu@22.04.
 `
 	modelConfigHelpDocKeys = `
 The following keys are available:
@@ -71,8 +74,8 @@ The following keys are available:
 	modelConfigHelpDocPartTwo = `
 Examples:
 
-Print the value of default-series:
-    juju model-config default-series
+Print the value of default-base:
+    juju model-config default-base
 
 Print the model config of model mycontroller:mymodel:
     juju model-config -m mycontroller:mymodel
@@ -84,10 +87,10 @@ Set the model config to key=value pairs defined in a file:
     juju model-config --file path/to/file.yaml
 
 Set model config values of a specific model:
-    juju model-config -m othercontroller:mymodel default-series=yakkety test-mode=false
+    juju model-config -m othercontroller:mymodel default-base=ubuntu@22.04 test-mode=false
 
 Reset the values of the provided keys to model defaults:
-    juju model-config --reset default-series,test-mode
+    juju model-config --reset default-base,test-mode
 
 See also:
     models
@@ -342,11 +345,6 @@ func (c *configCommand) setConfig(client configCommandAPI, attrs config.Attrs) e
 
 // getConfig writes the value of a single model config key to the cmd.Context.
 func (c *configCommand) getConfig(client configCommandAPI, ctx *cmd.Context) error {
-	// if certBytes != nil {
-	// 	_, _ = ctx.Stdout.Write(certBytes)
-	// 	return nil
-	// }
-
 	attrs, err := c.getFilteredModel(client)
 	if err != nil {
 		return err
@@ -355,7 +353,9 @@ func (c *configCommand) getConfig(client configCommandAPI, ctx *cmd.Context) err
 	if len(c.configBase.KeysToGet) == 0 {
 		return errors.New("c.configBase.KeysToGet is empty")
 	}
-	if value, found := attrs[c.configBase.KeysToGet[0]]; found {
+
+	key := c.configBase.KeysToGet[0]
+	if value, found := attrs[key]; found {
 		if c.out.Name() == "tabular" {
 			// The user has not specified that they want
 			// YAML or JSON formatting, so we print out
@@ -371,7 +371,7 @@ func (c *configCommand) getConfig(client configCommandAPI, ctx *cmd.Context) err
 	// Key not found - error
 	mod, _ := c.ModelIdentifier()
 	return errors.Errorf("%q is not a key of the currently targeted model: %q",
-		c.configBase.KeysToGet[0], mod)
+		key, mod)
 }
 
 // getAllConfig writes the full model config to the cmd.Context.

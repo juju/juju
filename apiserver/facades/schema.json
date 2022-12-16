@@ -31446,6 +31446,9 @@
                         "controller-uuid": {
                             "type": "string"
                         },
+                        "default-base": {
+                            "type": "string"
+                        },
                         "default-series": {
                             "type": "string"
                         },

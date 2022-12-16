@@ -74,7 +74,7 @@ func (s *charmSuite) TestRepositoryCharmDeployDryRun(c *gc.C) {
 	defer ctrl.Finish()
 	s.resolver = mocks.NewMockResolver(ctrl)
 	s.expectResolveChannel()
-	s.expectDeployerAPIModelGet(c, "")
+	s.expectDeployerAPIModelGet(c, series.Base{})
 
 	dCharm := s.newDeployCharm()
 	dCharm.dryRun = true
@@ -96,7 +96,7 @@ func (s *charmSuite) TestRepositoryCharmDeployDryRunDefaultSeriesForce(c *gc.C) 
 	defer ctrl.Finish()
 	s.resolver = mocks.NewMockResolver(ctrl)
 	s.expectResolveChannel()
-	s.expectDeployerAPIModelGet(c, "jammy")
+	s.expectDeployerAPIModelGet(c, series.MustParseBaseFromString("ubuntu@22.04"))
 
 	dCharm := s.newDeployCharm()
 	dCharm.dryRun = true
@@ -178,11 +178,11 @@ func (s *charmSuite) expectResolveChannel() {
 		}).AnyTimes()
 }
 
-func (s *charmSuite) expectDeployerAPIModelGet(c *gc.C, defaultSeries string) {
+func (s *charmSuite) expectDeployerAPIModelGet(c *gc.C, defaultBase series.Base) {
 	cfg, err := config.New(true, minimalModelConfig())
 	c.Assert(err, jc.ErrorIsNil)
 	attrs := cfg.AllAttrs()
-	attrs["default-series"] = defaultSeries
+	attrs["default-base"] = defaultBase.String()
 	s.deployerAPI.EXPECT().ModelGet().Return(attrs, nil)
 }
 

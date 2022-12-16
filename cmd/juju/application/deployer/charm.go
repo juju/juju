@@ -425,8 +425,8 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	// argument so users can target a specific origin.
 	origin := c.id.Origin
 	var usingDefaultSeries bool
-	if defaultSeries, ok := modelCfg.DefaultSeries(); ok && origin.Base.Channel.Empty() {
-		base, err := coreseries.GetBaseFromSeries(defaultSeries)
+	if defaultBase, ok := modelCfg.DefaultBase(); ok && origin.Base.Channel.Empty() {
+		base, err := coreseries.ParseBaseFromString(defaultBase)
 		if err != nil {
 			return errors.Trace(err)
 		}

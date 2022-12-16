@@ -217,6 +217,7 @@ func (s *modelInfoSuite) expectedModelInfo(c *gc.C, credentialValidity *bool) pa
 		CloudRegion:        "some-region",
 		CloudCredentialTag: "cloudcred-some-cloud_bob_some-credential",
 		DefaultSeries:      jujuversion.DefaultSupportedLTS(),
+		DefaultBase:        jujuversion.DefaultSupportedLTSBase().String(),
 		Life:               life.Dying,
 		Status: params.EntityStatus{
 			Status: status.Destroying,

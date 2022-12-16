@@ -265,7 +265,21 @@ func modelConfig(attrs map[string]interface{}) (*config.Config, error) {
 	// Using MustParse as the value parsed will never change.
 	newer := version.MustParse("2.9.35")
 	if comp := toolsVersion.Compare(newer); comp < 0 {
-		attrs[config.DefaultSeriesKey] = ""
+		attrs[config.DefaultBaseKey] = ""
+		delete(attrs, config.DefaultSeriesKey)
+	}
+
+	if v, ok := attrs[config.DefaultSeriesKey]; ok {
+		if v == "" {
+			attrs[config.DefaultBaseKey] = ""
+		} else {
+			s, err := series.GetBaseFromSeries(v.(string))
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			attrs[config.DefaultBaseKey] = s.String()
+		}
+		delete(attrs, config.DefaultSeriesKey)
 	}
 
 	// Ensure the expected default secret-backend value is set.

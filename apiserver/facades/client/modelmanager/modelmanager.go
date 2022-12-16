@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/controller/modelmanager"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -34,6 +35,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 )
 
 var (
@@ -310,6 +312,25 @@ func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model
 			credentialValue.Revoked,
 		)
 		credential = &cloudCredential
+	}
+
+	// Swap out the config default-series for default-base if it's set.
+	// TODO(stickupkid): This can be removed once we've fully migrated to bases.
+	if s, ok := args.Config[config.DefaultSeriesKey]; ok {
+		if _, ok := args.Config[config.DefaultBaseKey]; ok {
+			return result, errors.New("default-base and default-series cannot both be set")
+		}
+		if s == "" {
+			args.Config[config.DefaultBaseKey] = ""
+		} else {
+			series, err := series.GetBaseFromSeries(s.(string))
+			if err != nil {
+				return result, errors.Trace(err)
+			}
+			args.Config[config.DefaultBaseKey] = series.String()
+		}
+
+		delete(args.Config, config.DefaultSeriesKey)
 	}
 
 	cloudSpec, err := environscloudspec.MakeCloudSpec(cloud, cloudRegionName, credential)
@@ -882,9 +903,22 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag, withSecrets bool) (pa
 	}
 	if err == nil {
 		info.ProviderType = cfg.Type()
-		info.DefaultSeries = config.PreferredSeries(cfg)
+
 		if agentVersion, exists := cfg.AgentVersion(); exists {
 			info.AgentVersion = &agentVersion
+		}
+
+		// TODO(stickupkid): Series is deprecated, always use a base as the
+		// source of truth.
+		defaultBase := config.PreferredBase(cfg)
+		info.DefaultBase = defaultBase.String()
+		if defaultSeries, err := series.GetSeriesFromBase(defaultBase); err == nil {
+			info.DefaultSeries = defaultSeries
+		} else {
+			logger.Errorf("cannot get default series from base %q: %v", defaultBase, err)
+			// This is slightly defensive, but we should always show a series
+			// in the model info.
+			info.DefaultSeries = jujuversion.DefaultSupportedLTS()
 		}
 	}
 

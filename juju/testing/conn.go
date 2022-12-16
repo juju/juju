@@ -582,11 +582,11 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 				},
 			},
 		},
-		CloudCredential:          cloudSpec.Credential,
-		CloudCredentialName:      "cred",
-		AdminSecret:              AdminSecret,
-		CAPrivateKey:             testing.CAKey,
-		SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
+		CloudCredential:         cloudSpec.Credential,
+		CloudCredentialName:     "cred",
+		AdminSecret:             AdminSecret,
+		CAPrivateKey:            testing.CAKey,
+		SupportedBootstrapBases: testing.FakeSupportedJujuBases,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

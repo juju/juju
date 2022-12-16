@@ -390,7 +390,7 @@ func (s *DeploySuite) TestDeployFromPathOldCharmMissingSeries(c *gc.C) {
 }
 
 func (s *DeploySuite) TestDeployFromPathOldCharmMissingSeriesUseDefaultSeries(c *gc.C) {
-	updateAttrs := map[string]interface{}{"default-series": version.DefaultSupportedLTS()}
+	updateAttrs := map[string]interface{}{"default-base": version.DefaultSupportedLTSBase().String()}
 	err := s.Model.UpdateModelConfig(updateAttrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -405,10 +405,10 @@ func (s *DeploySuite) TestDeployFromPathOldCharmMissingSeriesUseDefaultSeries(c 
 }
 
 func (s *DeploySuite) TestDeployFromPathDefaultSeries(c *gc.C) {
-	// multi-series/metadata.yaml provides "focal" as its default series
-	// and yet, here, the model defaults to the series "jammy". This test
+	// multi-series/metadata.yaml provides "focal" as its default base
+	// and yet, here, the model defaults to the base "ubuntu@22.04". This test
 	// asserts that the model's default takes precedence.
-	updateAttrs := map[string]interface{}{"default-series": "jammy"}
+	updateAttrs := map[string]interface{}{"default-base": "ubuntu@22.04"}
 	err := s.Model.UpdateModelConfig(updateAttrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "multi-series")
