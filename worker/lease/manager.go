@@ -20,6 +20,7 @@ import (
 	"gopkg.in/retry.v1"
 
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/database"
 )
 
 const (
@@ -648,6 +649,8 @@ func (manager *Manager) startRetry() *retry.Attempt {
 
 func isFatalRetryError(err error) bool {
 	switch {
+	case database.IsErrRetryable(err):
+		return false
 	case lease.IsTimeout(err):
 		return false
 	case lease.IsInvalid(err):
@@ -658,6 +661,8 @@ func isFatalRetryError(err error) bool {
 
 func isFatalClaimRetryError(act action, err error, count int) bool {
 	switch {
+	case database.IsErrRetryable(err):
+		return false
 	case lease.IsTimeout(err):
 		return false
 	case lease.IsInvalid(err):
