@@ -26,6 +26,12 @@ import (
 // VirtType represents the type of virtualisation used by a container.
 type VirtType = api.InstanceType
 
+const (
+	// DefaultInstanceType is the default instance type to use when no virtType
+	// is specified.
+	DefaultInstanceType = api.InstanceTypeContainer
+)
+
 // ParseVirtType parses a string into a VirtType.
 func ParseVirtType(s string) (VirtType, error) {
 	switch strings.ToLower(s) {
@@ -215,6 +221,7 @@ func (c *Container) AddDisk(name, path, source, pool string, readOnly bool) erro
 // aliveStatuses is the list of status strings that indicate
 // a container is "alive".
 var aliveStatuses = []string{
+	api.Ready.String(),
 	api.Starting.String(),
 	api.Started.String(),
 	api.Running.String(),
@@ -247,15 +254,13 @@ func (s *Server) FilterContainers(prefix string, statuses ...string) ([]Containe
 		},
 		Attempts:    10,
 		Delay:       1 * time.Second,
-		MaxDelay:    10 * time.Second,
-		Clock:       clock.WallClock,
+		MaxDelay:    5 * time.Second,
+		MaxDuration: 30 * time.Second,
+		Clock:       s.clock,
 		BackoffFunc: retry.ExpBackoff(1*time.Second, 10*time.Second, 2.0, true),
 	})
-	if err != nil {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		// No containers found is not an error.
-		if errors.Is(err, errors.NotFound) {
-			return containers, nil
-		}
 		return nil, errors.Trace(err)
 	}
 	return containers, nil
@@ -272,7 +277,6 @@ func (s *Server) filterContainers(prefix string, statuses []string) ([]Container
 		if prefix != "" && !strings.HasPrefix(c.Name, prefix) {
 			continue
 		}
-
 		if len(statuses) > 0 && !containerHasStatus(c, statuses) {
 			continue
 		}

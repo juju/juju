@@ -406,6 +406,50 @@ func (s *environBrokerSuite) TestStartInstanceWithConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *environBrokerSuite) TestStartInstanceWithConstraintsAndVirtType(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	svr := lxd.NewMockServer(ctrl)
+
+	// Check that the constraints were passed through to spec.Config.
+	check := func(spec containerlxd.ContainerSpec) bool {
+		cfg := spec.Config
+		if cfg["limits.cpu"] != "2" {
+			return false
+		}
+		if cfg["limits.memory"] != "2048MiB" {
+			return false
+		}
+		return spec.InstanceType == "t2.micro" && spec.VirtType == api.InstanceTypeVM
+	}
+
+	exp := svr.EXPECT()
+	gomock.InOrder(
+		exp.HostArch().Return(arch.AMD64),
+		exp.FindImage(series.MakeDefaultBase("ubuntu", "22.04"), arch.AMD64, api.InstanceTypeVM, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
+		exp.ServerVersion().Return("3.10.0"),
+		exp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
+		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{}, nil),
+		exp.HostArch().Return(arch.AMD64),
+	)
+
+	args := s.GetStartInstanceArgs(c)
+	cores := uint64(2)
+	mem := uint64(2048)
+	it := "t2.micro"
+	virtType := string(api.InstanceTypeVM)
+	args.Constraints = constraints.Value{
+		CpuCores:     &cores,
+		Mem:          &mem,
+		InstanceType: &it,
+		VirtType:     &virtType,
+	}
+
+	env := s.NewEnviron(c, svr, nil)
+	_, err := env.StartInstance(s.callCtx, args)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *environBrokerSuite) TestStartInstanceWithCharmLXDProfile(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

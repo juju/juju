@@ -70,7 +70,7 @@ func (env *environ) finishInstanceConfig(args environs.StartInstanceParams) (str
 
 	// Parse the virt-type from the constraints, so we can pass it to the
 	// findImage function.
-	var virtType lxd.VirtType
+	virtType := lxd.DefaultInstanceType
 	if args.Constraints.HasVirtType() {
 		if virtType, err = lxd.ParseVirtType(*args.Constraints.VirtType); err != nil {
 			return "", "", errors.Trace(err)

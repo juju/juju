@@ -108,7 +108,7 @@ func (s *containerSuite) TestFilterContainers(c *gc.C) {
 			StatusCode: api.Stopped,
 		},
 	}...)
-	cSvr.EXPECT().GetInstances(api.InstanceTypeContainer).Return(ret, nil)
+	cSvr.EXPECT().GetInstances(api.InstanceTypeAny).Return(ret, nil)
 
 	jujuSvr, err := lxd.NewServer(cSvr)
 	c.Assert(err, jc.ErrorIsNil)
@@ -121,6 +121,76 @@ func (s *containerSuite) TestFilterContainers(c *gc.C) {
 		expected[i] = lxd.Container{v}
 	}
 
+	c.Check(filtered, gc.DeepEquals, expected)
+}
+
+func (s *containerSuite) TestFilterContainersRetry(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := s.NewMockServer(ctrl)
+
+	for i := 0; i < 3; i++ {
+		ret := []api.Instance{
+			{
+				Name:       "prefix-c1",
+				StatusCode: api.Pending,
+			},
+			{
+				Name:       "prefix-c2",
+				StatusCode: api.Pending,
+			},
+			{
+				Name:       "prefix-c3",
+				StatusCode: api.Pending,
+			},
+			{
+				Name:       "not-prefix-c4",
+				StatusCode: api.Pending,
+			},
+		}
+		cSvr.EXPECT().GetInstances(api.InstanceTypeAny).Return(ret, nil)
+	}
+
+	matching := []api.Instance{
+		{
+			Name:       "prefix-c1",
+			StatusCode: api.Starting,
+		},
+		{
+			Name:       "prefix-c2",
+			StatusCode: api.Stopped,
+		},
+	}
+	ret := append(matching, []api.Instance{
+		{
+			Name:       "prefix-c3",
+			StatusCode: api.Started,
+		},
+		{
+			Name:       "not-prefix-c4",
+			StatusCode: api.Stopped,
+		},
+	}...)
+	cSvr.EXPECT().GetInstances(api.InstanceTypeAny).Return(ret, nil)
+
+	clock := mocks.NewMockClock(ctrl)
+	clock.EXPECT().Now().Return(time.Now()).AnyTimes()
+	clock.EXPECT().After(gomock.Any()).DoAndReturn(func(d time.Duration) <-chan time.Time {
+		c := make(chan time.Time, 1)
+		defer close(c)
+		return c
+	}).AnyTimes()
+
+	jujuSvr, err := lxd.NewTestingServer(cSvr, clock)
+	c.Assert(err, jc.ErrorIsNil)
+
+	filtered, err := jujuSvr.FilterContainers("prefix", "Starting", "Stopped")
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := make([]lxd.Container, len(matching))
+	for i, v := range matching {
+		expected[i] = lxd.Container{v}
+	}
 	c.Check(filtered, gc.DeepEquals, expected)
 }
 
@@ -147,7 +217,7 @@ func (s *containerSuite) TestAliveContainers(c *gc.C) {
 		Name:       "c4",
 		StatusCode: api.Frozen,
 	})
-	cSvr.EXPECT().GetInstances(api.InstanceTypeContainer).Return(ret, nil)
+	cSvr.EXPECT().GetInstances(api.InstanceTypeAny).Return(ret, nil)
 
 	jujuSvr, err := lxd.NewServer(cSvr)
 	c.Assert(err, jc.ErrorIsNil)
