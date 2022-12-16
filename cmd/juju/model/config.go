@@ -87,10 +87,10 @@ Set the model config to key=value pairs defined in a file:
     juju model-config --file path/to/file.yaml
 
 Set model config values of a specific model:
-    juju model-config -m othercontroller:mymodel default-series=yakkety test-mode=false
+    juju model-config -m othercontroller:mymodel default-base=ubuntu@22.04 test-mode=false
 
 Reset the values of the provided keys to model defaults:
-    juju model-config --reset default-series,test-mode
+    juju model-config --reset default-base,test-mode
 
 See also:
     models
