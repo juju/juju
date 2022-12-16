@@ -32,6 +32,14 @@ const (
 	dbSecretSnapDir = "/var/snap/juju-db/common"
 )
 
+// BackupDirToUse returns the desired backup staging dir.
+func BackupDirToUse(configuredDir string) string {
+	if configuredDir != "" {
+		return configuredDir
+	}
+	return os.TempDir()
+}
+
 // Paths holds the paths that backups needs.
 type Paths struct {
 	BackupDir string
