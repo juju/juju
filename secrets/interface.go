@@ -73,9 +73,13 @@ func (p *UpdateParams) Validate() error {
 	return p.SecretConfig.Validate()
 }
 
-type jujuAPIClient interface {
+// JujuAPIClient provides access to the SecretsManager facade.
+type JujuAPIClient interface {
 	// GetContentInfo returns info about the content of a secret.
 	GetContentInfo(uri *secrets.URI, label string, refresh, peek bool) (*ContentParams, error)
+	// GetRevisionContentInfo returns info about the content of a secret revision.
+	// If pendingDelete is true, the revision is marked for deletion.
+	GetRevisionContentInfo(uri *secrets.URI, revision int, pendingDelete bool) (*ContentParams, error)
 	// GetSecretBackendConfig fetches the config needed to make secret backend clients.
 	GetSecretBackendConfig() (*provider.ModelBackendConfigInfo, error)
 }
@@ -89,6 +93,10 @@ type BackendsClient interface {
 	// SaveContent saves the content of a secret to an external backend returning the backend id.
 	SaveContent(uri *secrets.URI, revision int, value secrets.SecretValue) (secrets.ValueRef, error)
 
-	// DeleteContent deletes a secret from an external backend.
-	DeleteContent(ref secrets.ValueRef) error
+	// DeleteContent deletes a secret from an external backend
+	// if it exists there.
+	DeleteContent(uri *secrets.URI, revision int) error
+
+	// DeleteExternalContent deletes a secret from an external backend.
+	DeleteExternalContent(ref secrets.ValueRef) error
 }

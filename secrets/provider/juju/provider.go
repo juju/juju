@@ -62,5 +62,5 @@ func (p jujuProvider) RestrictedConfig(
 // NewBackend returns a nil backend since the Juju backend saves
 // secret content to the Juju database.
 func (jujuProvider) NewBackend(*provider.ModelBackendConfig) (provider.SecretsBackend, error) {
-	return nil, nil
+	return &jujuBackend{}, nil
 }

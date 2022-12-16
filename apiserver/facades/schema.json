@@ -39035,6 +39035,18 @@
                     },
                     "description": "GetSecretMetadata returns metadata for the caller's secrets."
                 },
+                "GetSecretRevisionContentInfo": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/SecretRevisionArg"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/SecretContentResults"
+                        }
+                    },
+                    "description": "GetSecretRevisionContentInfo returns the secret values for the specified secret revisions."
+                },
                 "GetSecretStoreConfig": {
                     "type": "object",
                     "properties": {
@@ -39666,6 +39678,29 @@
                     "additionalProperties": false,
                     "required": [
                         "revision"
+                    ]
+                },
+                "SecretRevisionArg": {
+                    "type": "object",
+                    "properties": {
+                        "pending-delete": {
+                            "type": "boolean"
+                        },
+                        "revisions": {
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
+                            }
+                        },
+                        "uri": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "uri",
+                        "revisions",
+                        "pending-delete"
                     ]
                 },
                 "SecretRotatedArg": {
@@ -44758,6 +44793,18 @@
                     },
                     "description": "GetSecretMetadata returns metadata for the caller's secrets."
                 },
+                "GetSecretRevisionContentInfo": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/SecretRevisionArg"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/SecretContentResults"
+                        }
+                    },
+                    "description": "GetSecretRevisionContentInfo returns the secret values for the specified secret revisions."
+                },
                 "GetSecretStoreConfig": {
                     "type": "object",
                     "properties": {
@@ -47785,6 +47832,29 @@
                     "additionalProperties": false,
                     "required": [
                         "revision"
+                    ]
+                },
+                "SecretRevisionArg": {
+                    "type": "object",
+                    "properties": {
+                        "pending-delete": {
+                            "type": "boolean"
+                        },
+                        "revisions": {
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
+                            }
+                        },
+                        "uri": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "uri",
+                        "revisions",
+                        "pending-delete"
                     ]
                 },
                 "SecretRotatedArg": {

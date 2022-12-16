@@ -120,6 +120,43 @@ func (c *Client) GetContentInfo(uri *coresecrets.URI, label string, refresh, pee
 	return content, nil
 }
 
+// GetRevisionContentInfo returns info about the content of a secret revision.
+// If pendingDelete is true, the revision is marked for deletion.
+func (c *Client) GetRevisionContentInfo(uri *coresecrets.URI, revision int, pendingDelete bool) (*secrets.ContentParams, error) {
+	arg := params.SecretRevisionArg{
+		URI:           uri.String(),
+		Revisions:     []int{revision},
+		PendingDelete: pendingDelete,
+	}
+
+	var results params.SecretContentResults
+
+	if err := c.facade.FacadeCall(
+		"GetSecretRevisionContentInfo", arg, &results,
+	); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if n := len(results.Results); n != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", n)
+	}
+
+	if err := results.Results[0].Error; err != nil {
+		return nil, apiservererrors.RestoreError(err)
+	}
+	content := &secrets.ContentParams{}
+	result := results.Results[0].Content
+	if result.ValueRef != nil {
+		content.ValueRef = &coresecrets.ValueRef{
+			BackendID:  result.ValueRef.BackendID,
+			RevisionID: result.ValueRef.RevisionID,
+		}
+	}
+	if len(result.Data) > 0 {
+		content.SecretValue = coresecrets.NewSecretValue(result.Data)
+	}
+	return content, nil
+}
+
 // WatchConsumedSecretsChanges returns a watcher which serves changes to
 // secrets payloads for any secrets consumed by the specified unit.
 func (c *Client) WatchConsumedSecretsChanges(unitName string) (watcher.StringsWatcher, error) {
@@ -232,19 +269,13 @@ func (c *Client) SecretMetadata(filter coresecrets.Filter) ([]coresecrets.Secret
 			LatestExpireTime: info.LatestExpireTime,
 			NextRotateTime:   info.NextRotateTime,
 		}
-		valueRefs := make(map[int]coresecrets.ValueRef)
-		for _, r := range info.Revisions {
-			if r.ValueRef == nil {
-				continue
-			}
-			valueRefs[r.Revision] = coresecrets.ValueRef{
-				BackendID:  r.ValueRef.BackendID,
-				RevisionID: r.ValueRef.RevisionID,
-			}
+		revisions := make([]int, len(info.Revisions))
+		for i, r := range info.Revisions {
+			revisions[i] = r.Revision
 		}
 		result = append(result, coresecrets.SecretOwnerMetadata{
 			Metadata:  md,
-			ValueRefs: valueRefs,
+			Revisions: revisions,
 		})
 	}
 	return result, nil

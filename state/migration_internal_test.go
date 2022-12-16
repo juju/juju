@@ -966,6 +966,7 @@ func (s *MigrationSuite) TestSecretRevisionDocFields(c *gc.C) {
 		"ValueRef",
 		"Data",
 		"OwnerTag",
+		"PendingDelete",
 	)
 	s.AssertExportedFields(c, secretRevisionDoc{}, migrated.Union(ignored))
 }

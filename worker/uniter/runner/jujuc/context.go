@@ -204,7 +204,7 @@ type SecretMetadata struct {
 	LatestRevision   int
 	LatestExpireTime *time.Time
 	NextRotateTime   *time.Time
-	ValueRefs        map[int]secrets.ValueRef
+	Revisions        []int
 }
 
 // ContextSecrets is the part of a hook context related to secrets.

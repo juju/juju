@@ -6,6 +6,7 @@ package provider_test
 import (
 	"context"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
@@ -112,9 +113,8 @@ func (s *secretsSuite) TestDeleteJujuSecret(c *gc.C) {
 
 	err = s.broker.DeleteJujuSecret(context.Background(), "provider-id")
 	c.Assert(err, jc.ErrorIsNil)
-	// Idempotent.
 	err = s.broker.DeleteJujuSecret(context.Background(), "provider-id")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	result, err := s.mockSecrets.List(context.Background(), v1.ListOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Items, gc.HasLen, 1)

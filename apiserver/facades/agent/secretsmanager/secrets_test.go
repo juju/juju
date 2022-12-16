@@ -921,6 +921,29 @@ func (s *SecretsManagerSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 	})
 }
 
+func (s *SecretsManagerSuite) TestGetSecretRevisionContentInfo(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	data := map[string]string{"foo": "bar"}
+	val := coresecrets.NewSecretValue(data)
+	uri := coresecrets.NewURI()
+	s.expectSecretAccessQuery(1)
+	s.secretsState.EXPECT().GetSecretValue(uri, 666).Return(
+		val, nil, nil,
+	)
+
+	results, err := s.facade.GetSecretRevisionContentInfo(params.SecretRevisionArg{
+		URI:       uri.String(),
+		Revisions: []int{666},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.SecretContentResults{
+		Results: []params.SecretContentResult{{
+			Content: params.SecretContentParams{Data: data},
+		}},
+	})
+}
+
 func (s *SecretsManagerSuite) TestWatchObsolete(c *gc.C) {
 	defer s.setup(c).Finish()
 

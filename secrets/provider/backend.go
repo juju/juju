@@ -13,8 +13,13 @@ import (
 type SecretsBackend interface {
 	Ping() error
 	SaveContent(_ context.Context, uri *secrets.URI, revision int, value secrets.SecretValue) (string, error)
-	GetContent(_ context.Context, backendId string) (secrets.SecretValue, error)
-	DeleteContent(_ context.Context, backendId string) error
+	GetContent(_ context.Context, revisionId string) (secrets.SecretValue, error)
+
+	// DeleteContent removes the specified content.
+	// It *must* return a NotFound error if the content does not exist.
+	// This is needed so that juju can handle the case where is secret
+	// has been drained and added to a new active backend.
+	DeleteContent(_ context.Context, revisionId string) error
 }
 
 // BackendConfig is used when constructing a secrets backend.
