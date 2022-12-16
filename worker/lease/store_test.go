@@ -4,24 +4,20 @@
 package lease_test
 
 import (
-	"database/sql"
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	_ "github.com/mattn/go-sqlite3"
 	gc "gopkg.in/check.v1"
 
 	corelease "github.com/juju/juju/core/lease"
-	"github.com/juju/juju/database/schema"
+	"github.com/juju/juju/database/testing"
 	"github.com/juju/juju/worker/lease"
 )
 
 type storeSuite struct {
-	testing.IsolationSuite
+	testing.ControllerSuite
 
-	db     *sql.DB
 	store  *lease.Store
 	stopCh chan struct{}
 }
@@ -29,14 +25,12 @@ type storeSuite struct {
 var _ = gc.Suite(&storeSuite{})
 
 func (s *storeSuite) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
+	s.ControllerSuite.SetUpTest(c)
 
-	var err error
-	s.db, err = sql.Open("sqlite3", ":memory:")
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.primeDB(c)
-	s.store = lease.NewStore(s.db, lease.StubLogger{})
+	s.store = lease.NewStore(lease.StoreConfig{
+		DB:     s.DB,
+		Logger: lease.StubLogger{},
+	})
 
 	// Single-buffered to allow us to queue up a stoppage.
 	s.stopCh = make(chan struct{}, 1)
@@ -44,7 +38,7 @@ func (s *storeSuite) SetUpTest(c *gc.C) {
 
 func (s *storeSuite) TestClaimLeaseSuccessAndLeaseQueries(c *gc.C) {
 	pgKey := corelease.Key{
-		Namespace: "application",
+		Namespace: "application-leadership",
 		ModelUUID: "model-uuid",
 		Lease:     "postgresql",
 	}
@@ -86,7 +80,7 @@ func (s *storeSuite) TestClaimLeaseSuccessAndLeaseQueries(c *gc.C) {
 	// and check that the group returns the application leases.
 	err = s.store.ClaimLease(
 		corelease.Key{
-			Namespace: "controller",
+			Namespace: "singular-controller",
 			ModelUUID: "controller-model-uuid",
 			Lease:     "singular",
 		},
@@ -98,7 +92,7 @@ func (s *storeSuite) TestClaimLeaseSuccessAndLeaseQueries(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	leases, err = s.store.LeaseGroup("application", "model-uuid")
+	leases, err = s.store.LeaseGroup("application-leadership", "model-uuid")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(leases, gc.HasLen, 2)
 	c.Check(leases[pgKey].Holder, gc.Equals, "postgresql/0")
@@ -107,7 +101,7 @@ func (s *storeSuite) TestClaimLeaseSuccessAndLeaseQueries(c *gc.C) {
 
 func (s *storeSuite) TestClaimLeaseAlreadyHeld(c *gc.C) {
 	key := corelease.Key{
-		Namespace: "controller",
+		Namespace: "singular-controller",
 		ModelUUID: "controller-model-uuid",
 		Lease:     "singular",
 	}
@@ -126,7 +120,7 @@ func (s *storeSuite) TestClaimLeaseAlreadyHeld(c *gc.C) {
 
 func (s *storeSuite) TestExtendLeaseSuccess(c *gc.C) {
 	key := corelease.Key{
-		Namespace: "application",
+		Namespace: "application-leadership",
 		ModelUUID: "model-uuid",
 		Lease:     "postgresql",
 	}
@@ -160,7 +154,7 @@ func (s *storeSuite) TestExtendLeaseSuccess(c *gc.C) {
 
 func (s *storeSuite) TestExtendLeaseNotHeldInvalid(c *gc.C) {
 	key := corelease.Key{
-		Namespace: "application",
+		Namespace: "application-leadership",
 		ModelUUID: "model-uuid",
 		Lease:     "postgresql",
 	}
@@ -176,7 +170,7 @@ func (s *storeSuite) TestExtendLeaseNotHeldInvalid(c *gc.C) {
 
 func (s *storeSuite) TestRevokeLeaseSuccess(c *gc.C) {
 	key := corelease.Key{
-		Namespace: "application",
+		Namespace: "application-leadership",
 		ModelUUID: "model-uuid",
 		Lease:     "postgresql",
 	}
@@ -195,7 +189,7 @@ func (s *storeSuite) TestRevokeLeaseSuccess(c *gc.C) {
 
 func (s *storeSuite) TestRevokeLeaseNotHeldInvalid(c *gc.C) {
 	key := corelease.Key{
-		Namespace: "application",
+		Namespace: "application-leadership",
 		ModelUUID: "model-uuid",
 		Lease:     "postgresql",
 	}
@@ -206,7 +200,7 @@ func (s *storeSuite) TestRevokeLeaseNotHeldInvalid(c *gc.C) {
 
 func (s *storeSuite) TestPinUnpinLeaseAndPinQueries(c *gc.C) {
 	pgKey := corelease.Key{
-		Namespace: "application",
+		Namespace: "application-leadership",
 		ModelUUID: "model-uuid",
 		Lease:     "postgresql",
 	}
@@ -250,7 +244,7 @@ func (s *storeSuite) TestLeaseOperationCancellation(c *gc.C) {
 	s.stopCh <- struct{}{}
 
 	key := corelease.Key{
-		Namespace: "application",
+		Namespace: "application-leadership",
 		ModelUUID: "model-uuid",
 		Lease:     "postgresql",
 	}
@@ -262,17 +256,4 @@ func (s *storeSuite) TestLeaseOperationCancellation(c *gc.C) {
 
 	err := s.store.ClaimLease(key, req, s.stopCh)
 	c.Assert(err, gc.ErrorMatches, "context canceled")
-}
-
-func (s *storeSuite) primeDB(c *gc.C) {
-	tx, err := s.db.Begin()
-	c.Assert(err, jc.ErrorIsNil)
-
-	for _, stmt := range schema.ControllerDDL() {
-		_, err := tx.Exec(stmt)
-		c.Assert(err, jc.ErrorIsNil)
-	}
-
-	err = tx.Commit()
-	c.Assert(err, jc.ErrorIsNil)
 }

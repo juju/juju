@@ -20,6 +20,7 @@ import (
 	"gopkg.in/retry.v1"
 
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/database"
 )
 
 const (
@@ -283,10 +284,6 @@ func (manager *Manager) retryingClaim(claim claim) {
 				manager.config.Logger.Tracef("[%s] request by %s for lease %s %v, retrying...",
 					manager.logContext, claim.holderName, claim.leaseKey.Lease, err)
 
-			case lease.IsDropped(err):
-				manager.config.Logger.Tracef("[%s] dropped claim by %s for lease %s, retrying...",
-					manager.logContext, claim.holderName, claim.leaseKey.Lease)
-
 			default:
 				manager.config.Logger.Tracef("[%s] timed out handling claim by %s for lease %s, retrying...",
 					manager.logContext, claim.holderName, claim.leaseKey.Lease)
@@ -302,7 +299,7 @@ func (manager *Manager) retryingClaim(claim claim) {
 		claim.respond(nil)
 	} else {
 		switch {
-		case lease.IsTimeout(err):
+		case lease.IsTimeout(err), database.IsErrRetryable(err):
 			manager.config.Logger.Warningf("[%s] retrying timed out while handling claim %q for %q",
 				manager.logContext, claim.leaseKey, claim.holderName)
 			claim.respond(lease.ErrTimeout)
@@ -319,17 +316,8 @@ func (manager *Manager) retryingClaim(claim claim) {
 			// (against the local node) returned nothing, but the leader FSM
 			// has this lease being held by another entity.
 			manager.config.Logger.Tracef(
-				"[%s] %s asked for lease %s, held by by another entity; local Raft node may be syncing",
+				"[%s] %s asked for lease %s, held by by another entity",
 				manager.logContext, claim.holderName, claim.leaseKey.Lease)
-			claim.respond(lease.ErrClaimDenied)
-
-		case lease.IsDropped(err):
-			// This can happen if there is nobody to process the operation.
-			// Although quite similar to a Timeout, we split the error, to
-			// indicate that a different retry strategy can be employed to help
-			// process a claim in the future.
-			manager.config.Logger.Warningf("[%s] dropped while handling claim %q for %q",
-				manager.logContext, claim.leaseKey, claim.holderName)
 			claim.respond(lease.ErrClaimDenied)
 
 		case lease.IsDeadlineExceeded(err):
@@ -384,14 +372,14 @@ func (manager *Manager) handleClaim(claim claim) (action, bool, error) {
 
 		switch {
 		case !found:
-			logger.Tracef("[%s] %s asked for lease %s, no lease found, claiming for %s",
-				manager.logContext, claim.holderName, claim.leaseKey.Lease, claim.duration)
+			logger.Tracef("[%s] %s asked for lease %s (%s), no lease found, claiming for %s",
+				manager.logContext, claim.holderName, claim.leaseKey.Lease, claim.leaseKey.Namespace, claim.duration)
 			act = claimAction
 			err = store.ClaimLease(claim.leaseKey, request, manager.catacomb.Dying())
 
 		case info.Holder == claim.holderName:
-			logger.Tracef("[%s] %s extending lease %s for %s",
-				manager.logContext, claim.holderName, claim.leaseKey.Lease, claim.duration)
+			logger.Tracef("[%s] %s extending lease %s (%s) for %s",
+				manager.logContext, claim.holderName, claim.leaseKey.Lease, claim.leaseKey.Namespace, claim.duration)
 			act = extendAction
 			err = store.ExtendLease(claim.leaseKey, request, manager.catacomb.Dying())
 
@@ -435,10 +423,6 @@ func (manager *Manager) retryingRevoke(revoke revoke) {
 				manager.config.Logger.Tracef("[%s] request by %s for revoking lease %s %v, retrying...",
 					manager.logContext, revoke.holderName, revoke.leaseKey.Lease, err)
 
-			case lease.IsDropped(err):
-				manager.config.Logger.Tracef("[%s] dropped revoke by %s for lease %s, retrying...",
-					manager.logContext, revoke.holderName, revoke.leaseKey.Lease)
-
 			default:
 				manager.config.Logger.Tracef("[%s] timed out handling revoke by %s for lease %s, retrying...",
 					manager.logContext, revoke.holderName, revoke.leaseKey.Lease)
@@ -456,7 +440,7 @@ func (manager *Manager) retryingRevoke(revoke revoke) {
 		}
 	} else {
 		switch {
-		case lease.IsTimeout(err):
+		case lease.IsTimeout(err), database.IsErrRetryable(err):
 			manager.config.Logger.Warningf("[%s] retrying timed out while handling revoke %q for %q",
 				manager.logContext, revoke.leaseKey, revoke.holderName)
 			revoke.respond(lease.ErrTimeout)
@@ -473,15 +457,10 @@ func (manager *Manager) retryingRevoke(revoke revoke) {
 				manager.logContext, err, maxRetries, revoke.leaseKey, revoke.holderName)
 			revoke.respond(err)
 
-		case lease.IsDropped(err):
-			manager.config.Logger.Warningf("[%s] dropped while handling revoke %q for %q",
-				manager.logContext, revoke.leaseKey, revoke.holderName)
-			revoke.respond(lease.ErrDropped)
-
 		case lease.IsDeadlineExceeded(err):
 			manager.config.Logger.Warningf("[%s] deadline exceeded while handling revoke %q for %q",
 				manager.logContext, revoke.leaseKey, revoke.holderName)
-			revoke.respond(lease.ErrDropped)
+			revoke.respond(lease.ErrDeadlineExceeded)
 
 		default:
 			// Stop the main loop because we got an abnormal error
@@ -670,11 +649,11 @@ func (manager *Manager) startRetry() *retry.Attempt {
 
 func isFatalRetryError(err error) bool {
 	switch {
+	case database.IsErrRetryable(err):
+		return false
 	case lease.IsTimeout(err):
 		return false
 	case lease.IsInvalid(err):
-		return false
-	case lease.IsDropped(err):
 		return false
 	}
 	return true
@@ -682,11 +661,11 @@ func isFatalRetryError(err error) bool {
 
 func isFatalClaimRetryError(act action, err error, count int) bool {
 	switch {
+	case database.IsErrRetryable(err):
+		return false
 	case lease.IsTimeout(err):
 		return false
 	case lease.IsInvalid(err):
-		return false
-	case lease.IsDropped(err):
 		return false
 	case lease.IsDeadlineExceeded(err):
 		// Extend action we want to retry if the count is less that the number

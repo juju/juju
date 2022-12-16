@@ -23,6 +23,15 @@ type StoreLogger interface {
 	Errorf(string, ...interface{})
 }
 
+// StoreConfig encapsulates data required to construct a lease store instance.
+type StoreConfig struct {
+	// DB is the SQL database that backs this lease store.
+	DB *sql.DB
+
+	// Logger is used to emit store-specific diagnostics.
+	Logger StoreLogger
+}
+
 // Store implements lease.Store using a database
 // supporting SQLite-compatible dialects.
 type Store struct {
@@ -34,10 +43,10 @@ type Store struct {
 }
 
 // NewStore returns a reference to a new database-backed lease store.
-func NewStore(db *sql.DB, logger StoreLogger) *Store {
+func NewStore(cfg StoreConfig) *Store {
 	return &Store{
-		db:     db,
-		logger: logger,
+		db:     cfg.DB,
+		logger: cfg.Logger,
 		cache:  make(map[string]*sql.Stmt),
 	}
 }

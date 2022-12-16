@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/mattn/go-sqlite3"
 	gc "gopkg.in/check.v1"
 
 	corelease "github.com/juju/juju/core/lease"
@@ -295,7 +296,7 @@ func (s *ClaimSuite) TestExtendLease_Failure_OtherHolder(c *gc.C) {
 	})
 }
 
-func (s *ClaimSuite) TestExtendLease_Failure_Dropped(c *gc.C) {
+func (s *ClaimSuite) TestExtendLease_Failure_Retryable(c *gc.C) {
 	fix := &Fixture{
 		leases: map[corelease.Key]corelease.Info{
 			key("redis"): {
@@ -311,9 +312,9 @@ func (s *ClaimSuite) TestExtendLease_Failure_Dropped(c *gc.C) {
 					ModelUUID: "modelUUID",
 					Lease:     "redis",
 				},
-				corelease.Request{"redis/0", time.Minute},
+				corelease.Request{Holder: "redis/0", Duration: time.Minute},
 			},
-			err: corelease.ErrDropped,
+			err: sqlite3.ErrLocked,
 			callback: func(leases map[corelease.Key]corelease.Info) {
 				leases[key("redis")] = corelease.Info{
 					Holder: "redis/1",

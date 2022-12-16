@@ -55,7 +55,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/presence"
-	"github.com/juju/juju/core/raft/queue"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -990,8 +989,6 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 				return errors.Trace(err)
 			}
 
-			queue := queue.NewOpQueue(clock.WallClock)
-
 			estate.apiServer, err = apiserver.NewServer(apiserver.ServerConfig{
 				StatePool:           statePool,
 				Controller:          estate.controller,
@@ -1020,7 +1017,6 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 					return true
 				},
 				MetricsCollector: apiserver.NewMetricsCollector(),
-				RaftOpQueue:      queue,
 				SysLogger:        noopSysLogger{},
 			})
 			if err != nil {
@@ -1035,11 +1031,6 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 			go func(apiServer *apiserver.Server) {
 				defer func() {
 					close(abort)
-
-					// Ensure we correctly kill the raft op queue when the api
-					// server goes down.
-					queue.Kill(nil)
-					_ = queue.Wait()
 				}()
 				_ = apiServer.Wait()
 			}(estate.apiServer)

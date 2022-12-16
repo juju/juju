@@ -18,7 +18,7 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-// DBSuite is used to provider a Dqlite-backed sql.DB reference to tests.
+// DBSuite is used to provide a Dqlite-backed sql.DB reference to tests.
 type DBSuite struct {
 	testing.IsolationSuite
 

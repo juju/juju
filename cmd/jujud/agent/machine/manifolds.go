@@ -30,9 +30,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/presence"
-	"github.com/juju/juju/core/raft/queue"
-	"github.com/juju/juju/core/raftlease"
-	"github.com/juju/juju/pubsub/lease"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/upgrades"
 	proxyconfig "github.com/juju/juju/utils/proxy"
@@ -61,13 +58,13 @@ import (
 	"github.com/juju/juju/worker/fanconfigurer"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/gate"
-	"github.com/juju/juju/worker/globalclockupdater"
 	"github.com/juju/juju/worker/hostkeyreporter"
 	"github.com/juju/juju/worker/httpserver"
 	"github.com/juju/juju/worker/httpserverargs"
 	"github.com/juju/juju/worker/identityfilewriter"
 	"github.com/juju/juju/worker/instancemutater"
 	leasemanager "github.com/juju/juju/worker/lease/manifold"
+	"github.com/juju/juju/worker/leaseexpiry"
 	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/machineactions"
@@ -82,12 +79,6 @@ import (
 	"github.com/juju/juju/worker/provisioner"
 	"github.com/juju/juju/worker/proxyupdater"
 	psworker "github.com/juju/juju/worker/pubsub"
-	"github.com/juju/juju/worker/raft"
-	"github.com/juju/juju/worker/raft/raftbackstop"
-	"github.com/juju/juju/worker/raft/raftclusterer"
-	"github.com/juju/juju/worker/raft/raftflag"
-	"github.com/juju/juju/worker/raft/raftforwarder"
-	"github.com/juju/juju/worker/raft/rafttransport"
 	"github.com/juju/juju/worker/reboot"
 	"github.com/juju/juju/worker/singular"
 	workerstate "github.com/juju/juju/worker/state"
@@ -101,12 +92,6 @@ import (
 	"github.com/juju/juju/worker/upgrader"
 	"github.com/juju/juju/worker/upgradeseries"
 	"github.com/juju/juju/worker/upgradesteps"
-)
-
-const (
-	// globalClockUpdaterUpdateInterval is the interval between
-	// global clock updates.
-	globalClockUpdaterUpdateInterval = 1 * time.Second
 )
 
 // ManifoldsConfig allows specialisation of the result of Manifolds.
@@ -262,20 +247,6 @@ type ManifoldsConfig struct {
 	// SetupLogging is used by the deployer to initialize the logging
 	// context for the unit.
 	SetupLogging func(*loggo.Context, coreagent.Config)
-
-	// LeaseFSM represents the internal finite state machine for lease
-	// management.
-	LeaseFSM *raftlease.FSM
-
-	// RaftOpQueue represents a way to apply operations on to the raft
-	// instance from the API. The RaftQueue exists outside the dependency
-	// engine to prevent a circular dependency that can not be solved. By
-	// allowing back pressure on a client callee, we can allow for serialized
-	// operations upon the raft leader.
-	// If the queue becomes stalled there is no way to bounce this without
-	// restarting the agent itself. The same architecture is also applied to
-	// pubsub. Monitoring might be useful to detect this in the future.
-	RaftOpQueue *queue.OpQueue
 
 	// DependencyEngineMetrics creates a set of metrics for a model, so it's
 	// possible to know the lifecycle of the workers in the dependency engine.
@@ -566,18 +537,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:            loggo.GetLogger("juju.worker.migrationminion"),
 		}),
 
-		// We ensure the lease clock is updated monotonically and at a rate
-		// no faster than real time.
-		// This worker will only ever be running on the Raft leader node.
-		leaseClockUpdaterName: ifRaftLeader(globalclockupdater.Manifold(globalclockupdater.ManifoldConfig{
-			RaftName:       raftName,
-			Clock:          config.Clock,
-			FSM:            config.LeaseFSM,
-			NewWorker:      globalclockupdater.NewWorker,
-			UpdateInterval: globalClockUpdaterUpdateInterval,
-			Logger:         loggo.GetLogger("juju.worker.globalclockupdater.raft"),
-		})),
-
 		// Each controller machine runs a singular worker which will
 		// attempt to claim responsibility for running certain workers
 		// that must not be run concurrently by multiple agents.
@@ -664,7 +623,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			StateName:            stateName,
 			MuxName:              httpServerArgsName,
 			APIServerName:        apiServerName,
-			RaftTransportName:    raftTransportName,
 			PrometheusRegisterer: config.PrometheusRegisterer,
 			AgentName:            config.AgentName,
 			Clock:                config.Clock,
@@ -691,7 +649,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			// Synthetic dependency - if raft-transport bounces we
 			// need to bounce api-server too, otherwise http-server
 			// can't shutdown properly.
-			RaftTransportName:      raftTransportName,
 			CharmhubHTTPClientName: charmhubHTTPClientName,
 
 			PrometheusRegisterer:              config.PrometheusRegisterer,
@@ -700,7 +657,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Presence:                          config.PresenceRecorder,
 			NewWorker:                         apiserver.NewWorker,
 			NewMetricsCollector:               apiserver.NewMetricsCollector,
-			RaftOpQueue:                       config.RaftOpQueue,
 		})),
 
 		charmhubHTTPClientName: dependency.Manifold{
@@ -746,76 +702,25 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker: auditconfigupdater.New,
 		})),
 
-		raftTransportName: ifController(rafttransport.Manifold(rafttransport.ManifoldConfig{
-			ClockName:         clockName,
-			AgentName:         agentName,
-			AuthenticatorName: httpServerArgsName,
-			HubName:           centralHubName,
-			MuxName:           httpServerArgsName,
-			DialConn:          rafttransport.DialConn,
-			NewWorker:         rafttransport.NewWorker,
-			Path:              "/raft",
+		// The lease expiry worker constantly deletes
+		// leases with an expiry time in the past.
+		leaseExpiryName: ifController(leaseexpiry.Manifold(leaseexpiry.ManifoldConfig{
+			ClockName:      clockName,
+			DBAccessorName: dbAccessorName,
+			Logger:         loggo.GetLogger("juju.worker.leaseexpiry"),
+			NewWorker:      leaseexpiry.NewWorker,
 		})),
 
-		raftName: ifFullyUpgraded(raft.Manifold(raft.ManifoldConfig{
-			ClockName:            clockName,
-			AgentName:            agentName,
-			TransportName:        raftTransportName,
-			FSM:                  config.LeaseFSM,
-			Logger:               loggo.GetLogger("juju.worker.raft"),
-			PrometheusRegisterer: config.PrometheusRegisterer,
-			NewWorker:            raft.NewWorker,
-			Queue:                config.RaftOpQueue,
-			NewApplier:           raft.NewApplier,
-		})),
-
-		raftFlagName: raftflag.Manifold(raftflag.ManifoldConfig{
-			RaftName:  raftName,
-			NewWorker: raftflag.NewWorker,
-		}),
-
-		// The raft clusterer can only run on the raft leader, since
-		// it makes configuration updates based on changes in API
-		// server details.
-		raftClustererName: ifRaftLeader(raftclusterer.Manifold(raftclusterer.ManifoldConfig{
-			RaftName:       raftName,
-			CentralHubName: centralHubName,
-			NewWorker:      raftclusterer.NewWorker,
-		})),
-
-		raftBackstopName: raftbackstop.Manifold(raftbackstop.ManifoldConfig{
-			RaftName:       raftName,
-			CentralHubName: centralHubName,
-			AgentName:      agentName,
-			Logger:         loggo.GetLogger("juju.worker.raft.raftbackstop"),
-			NewWorker:      raftbackstop.NewWorker,
-		}),
-
-		// The raft forwarder accepts FSM commands from the hub and
-		// applies them to the raft leader.
-		raftForwarderName: ifRaftLeader(raftforwarder.Manifold(raftforwarder.ManifoldConfig{
-			RaftName:             raftName,
-			CentralHubName:       centralHubName,
-			RequestTopic:         lease.LeaseRequestTopic,
-			Logger:               loggo.GetLogger("juju.worker.raft.raftforwarder"),
-			PrometheusRegisterer: config.PrometheusRegisterer,
-			NewWorker:            raftforwarder.NewWorker,
-		})),
-
-		// The global lease manager tracks lease information in the raft
-		// cluster rather than in mongo.
+		// The global lease manager tracks lease information in the Dqlite database.
 		leaseManagerName: ifController(leasemanager.Manifold(leasemanager.ManifoldConfig{
 			AgentName:            agentName,
 			ClockName:            clockName,
-			CentralHubName:       centralHubName,
-			FSM:                  config.LeaseFSM,
-			RequestTopic:         lease.LeaseRequestTopic,
-			Logger:               loggo.GetLogger("juju.worker.lease.raft"),
+			DBAccessorName:       dbAccessorName,
+			Logger:               loggo.GetLogger("juju.worker.lease"),
 			LogDir:               agentConfig.LogDir(),
 			PrometheusRegisterer: config.PrometheusRegisterer,
 			NewWorker:            leasemanager.NewWorker,
 			NewStore:             leasemanager.NewStore,
-			NewClient:            leasemanager.NewClientFunc,
 		})),
 
 		// The proxy config updater is a leaf worker that sets http/https/apt/etc
@@ -1111,12 +1016,6 @@ var ifNotController = engine.Housing{
 	},
 }.Decorate
 
-var ifRaftLeader = engine.Housing{
-	Flags: []string{
-		raftFlagName,
-	},
-}.Decorate
-
 var ifCredentialValid = engine.Housing{
 	Flags: []string{
 		validCredentialFlagName,
@@ -1181,7 +1080,6 @@ const (
 	hostKeyReporterName           = "host-key-reporter"
 	fanConfigurerName             = "fan-configurer"
 	externalControllerUpdaterName = "external-controller-updater"
-	leaseClockUpdaterName         = "lease-clock-updater"
 	isPrimaryControllerFlagName   = "is-primary-controller-flag"
 	isControllerFlagName          = "is-controller-flag"
 	isNotControllerFlagName       = "is-not-controller-flag"
@@ -1196,6 +1094,7 @@ const (
 	dbAccessorName                = "db-accessor"
 	certificateUpdaterName        = "certificate-updater"
 	auditConfigUpdaterName        = "audit-config-updater"
+	leaseExpiryName               = "lease-expiry"
 	leaseManagerName              = "lease-manager"
 	stateConverterName            = "state-converter"
 	lxdContainerProvisioner       = "lxd-container-provisioner"
@@ -1209,13 +1108,6 @@ const (
 
 	syslogName       = "syslog"
 	caasUnitsManager = "caas-units-manager"
-
-	raftTransportName = "raft-transport"
-	raftName          = "raft"
-	raftClustererName = "raft-clusterer"
-	raftFlagName      = "raft-leader-flag"
-	raftBackstopName  = "raft-backstop"
-	raftForwarderName = "raft-forwarder"
 
 	validCredentialFlagName = "valid-credential-flag"
 
