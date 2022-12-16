@@ -299,7 +299,7 @@ func (manager *Manager) retryingClaim(claim claim) {
 		claim.respond(nil)
 	} else {
 		switch {
-		case lease.IsTimeout(err):
+		case lease.IsTimeout(err), database.IsErrRetryable(err):
 			manager.config.Logger.Warningf("[%s] retrying timed out while handling claim %q for %q",
 				manager.logContext, claim.leaseKey, claim.holderName)
 			claim.respond(lease.ErrTimeout)
@@ -316,7 +316,7 @@ func (manager *Manager) retryingClaim(claim claim) {
 			// (against the local node) returned nothing, but the leader FSM
 			// has this lease being held by another entity.
 			manager.config.Logger.Tracef(
-				"[%s] %s asked for lease %s, held by by another entity; local Raft node may be syncing",
+				"[%s] %s asked for lease %s, held by by another entity",
 				manager.logContext, claim.holderName, claim.leaseKey.Lease)
 			claim.respond(lease.ErrClaimDenied)
 
@@ -440,7 +440,7 @@ func (manager *Manager) retryingRevoke(revoke revoke) {
 		}
 	} else {
 		switch {
-		case lease.IsTimeout(err):
+		case lease.IsTimeout(err), database.IsErrRetryable(err):
 			manager.config.Logger.Warningf("[%s] retrying timed out while handling revoke %q for %q",
 				manager.logContext, revoke.leaseKey, revoke.holderName)
 			revoke.respond(lease.ErrTimeout)
