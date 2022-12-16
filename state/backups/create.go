@@ -122,6 +122,9 @@ func newBuilder(destinationDir string, filesToBackUp []string, db DBDumper) (b *
 	if err != nil {
 		return nil, errors.Annotate(err, "while making backups staging directory")
 	}
+	if db.IsSnap() && destinationDir == os.TempDir() {
+		stagingDir = filepath.Join(snapTmpDir, stagingDir)
+	}
 
 	// TODO(hpidcock): lp:1558657
 	finalFilename := time.Now().Format(FilenameTemplate)

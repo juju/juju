@@ -32,6 +32,10 @@ func (d *TestDBDumper) Dump(dumpDir string) error {
 	return nil
 }
 
+func (d *TestDBDumper) IsSnap() bool {
+	return false
+}
+
 func (s *createSuite) TestLegacy(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("bug 1403084: Currently does not work on windows, see comments inside backups.create function")
