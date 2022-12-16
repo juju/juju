@@ -1,5 +1,5 @@
 run_shellcheck() {
-	OUT=$(shellcheck --shell=bash tests/main.sh tests/includes/*.sh tests/suites/**/*.sh 2>&1 || true)
+	OUT=$(shellcheck --shell=bash --severity=warning tests/main.sh tests/includes/*.sh tests/suites/**/*.sh 2>&1 || true)
 	if [ -n "${OUT}" ]; then
 		echo ""
 		echo "$(red 'Found some issues:')"
