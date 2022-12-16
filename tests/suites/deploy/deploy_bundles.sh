@@ -239,6 +239,30 @@ run_deploy_lxd_profile_bundle() {
 	destroy_model "${model_name}"
 }
 
+# run_deploy_multi_app_single_charm_bundle:
+# LP 1999060 found an issue in async charm download when a bundle
+# uses the same charm for multiple applications. This is common in
+# many Canonical bundles such a full openstack.
+run_deploy_multi_app_single_charm_bundle() {
+	echo
+
+	model_name="test-deploy-multi-app-single-charm-bundle"
+	file="${TEST_DIR}/${model_name}.log"
+
+	ensure "${model_name}" "${file}"
+
+	bundle=./tests/suites/deploy/bundles/multi-app-single-charm.yaml
+	juju deploy "${bundle}"
+
+	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test" 0)"
+	wait_for "juju-qa-test-dup" "$(idle_condition "juju-qa-test-dup" 1)"
+
+	# ensure juju-qa-test-dup can refresh and us it's resources.
+	juju refresh juju-qa-test-dup
+
+	destroy_model "${model_name}"
+}
+
 test_deploy_bundles() {
 	if [ "$(skip 'test_deploy_bundles')" ]; then
 		echo "==> TEST SKIPPED: deploy bundles"
@@ -256,6 +280,7 @@ test_deploy_bundles() {
 		run "run_deploy_exported_charmhub_bundle_with_float_revisions"
 		run "run_deploy_trusted_bundle"
 		run "run_deploy_charmhub_bundle"
+		run "run_deploy_multi_app_single_charm_bundle"
 
 		case "${BOOTSTRAP_PROVIDER:-}" in
 		"lxd" | "localhost")
