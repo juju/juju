@@ -61,6 +61,10 @@ func (*fakeDumper) Dump(dumpDir string) error {
 	return nil
 }
 
+func (*fakeDumper) IsSnap() bool {
+	return false
+}
+
 func (s *backupsSuite) checkFailure(c *gc.C, expected string) {
 	s.PatchValue(backups.GetDBDumper, func(*backups.DBInfo) (backups.DBDumper, error) {
 		return &fakeDumper{}, nil

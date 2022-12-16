@@ -8,7 +8,6 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"os"
 
 	"github.com/juju/errors"
 
@@ -52,11 +51,7 @@ func (h *backupHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 			h.sendError(resp, err)
 			return
 		}
-		backupDir := modelConfig.BackupDir()
-		if backupDir == "" {
-			backupDir = os.TempDir()
-		}
-
+		backupDir := backups.BackupDirToUse(modelConfig.BackupDir())
 		paths := &backups.Paths{
 			BackupDir: backupDir,
 		}

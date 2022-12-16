@@ -4,8 +4,6 @@
 package backups
 
 import (
-	"os"
-
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v2"
 	"github.com/juju/names/v4"
@@ -110,11 +108,7 @@ func NewAPI(backend Backend, resources facade.Resources, authorizer facade.Autho
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	backupDir := modelConfig.BackupDir()
-	if backupDir == "" {
-		backupDir = os.TempDir()
-	}
-
+	backupDir := backups.BackupDirToUse(modelConfig.BackupDir())
 	paths := backups.Paths{
 		BackupDir: backupDir,
 		DataDir:   dataDir,
