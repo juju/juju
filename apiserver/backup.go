@@ -41,7 +41,21 @@ func (h *backupHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case "GET":
 		logger.Infof("handling backups download request")
-		id, err := h.download(newBackups(), resp, req)
+		model, err := st.Model()
+		if err != nil {
+			h.sendError(resp, err)
+			return
+		}
+		modelConfig, err := model.ModelConfig()
+		if err != nil {
+			h.sendError(resp, err)
+			return
+		}
+		backupDir := backups.BackupDirToUse(modelConfig.BackupDir())
+		paths := &backups.Paths{
+			BackupDir: backupDir,
+		}
+		id, err := h.download(newBackups(paths), resp, req)
 		if err != nil {
 			h.sendError(resp, err)
 			return

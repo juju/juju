@@ -127,13 +127,16 @@ const (
 	dumpName       = "mongodump"
 	restoreName    = "mongorestore"
 	snapToolPrefix = "juju-db."
-	snapTmpDir     = "/tmp/snap.juju-db"
+	snapTmpDir     = "/tmp/snap-private-tmp/snap.juju-db"
 )
 
 // DBDumper is any type that dumps something to a dump dir.
 type DBDumper interface {
 	// Dump something to dumpDir.
 	Dump(dumpDir string) error
+
+	// IsSnap returns true if we are using the juju-db snap.
+	IsSnap() bool
 }
 
 var getMongodumpPath = func() (string, error) {
@@ -210,30 +213,23 @@ func (md *mongoDumper) options(dumpDir string) []string {
 }
 
 func (md *mongoDumper) dump(dumpDir string) error {
-	options := md.options(dumpDir)
+	// Works around https://bugs.launchpad.net/snapd/+bug/1999109
+	// If running the juju-db.mongodump snap and staging to /tmp,
+	// it outputs to /tmp/snap-private-tmp/snap.juju-db/<dumpDir>
+	dumpDirArg := dumpDir
+	if md.IsSnap() && strings.HasPrefix(dumpDirArg, snapTmpDir) {
+		dumpDirArg = strings.TrimPrefix(dumpDirArg, snapTmpDir)
+	}
+
+	options := md.options(dumpDirArg)
 	if err := runCommandFn(md.binPath, options...); err != nil {
 		return errors.Annotate(err, "error dumping databases")
 	}
-
-	// If running the juju-db.mongodump Snap, it outputs to
-	// /tmp/snap.juju-db/DUMPDIR, so move to /DUMPDIR as our code expects.
-	if md.isSnap() && strings.HasPrefix(dumpDir, "/tmp") {
-		actualDir := filepath.Join(snapTmpDir, dumpDir)
-		logger.Tracef("moving from Snap dump dir %q to %q", actualDir, dumpDir)
-		err := os.Remove(dumpDir) // will be empty, delete
-		if err != nil {
-			return errors.Trace(err)
-		}
-		err = os.Rename(actualDir, dumpDir)
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-
 	return nil
 }
 
-func (md *mongoDumper) isSnap() bool {
+// IsSnap returns true if we are using the juju-db snap.
+func (md *mongoDumper) IsSnap() bool {
 	return filepath.Base(md.binPath) == snapToolPrefix+dumpName
 }
 
@@ -304,7 +300,7 @@ func listDatabases(dumpDir string) (set.Strings, error) {
 	}
 	if len(list) < 2 {
 		// Should be *at least* oplog.bson and a data directory
-		return nil, errors.Errorf("too few files in dump dir (%d)", len(list))
+		return nil, errors.Errorf("too few files in dump dir %s (%d)", dumpDir, len(list))
 	}
 
 	databases := make(set.Strings)

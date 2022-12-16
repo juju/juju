@@ -78,7 +78,7 @@ func (s *backupsSuite) setBackups(c *gc.C, meta *backups.Metadata, err string) *
 		fake.Error = errors.Errorf(err)
 	}
 	s.PatchValue(backupsAPI.NewBackups,
-		func() backups.Backups {
+		func(paths *backups.Paths) backups.Backups {
 			return &fake
 		},
 	)
