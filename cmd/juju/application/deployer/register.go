@@ -10,7 +10,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strings"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/cmd/v3"
@@ -80,27 +79,6 @@ func (r *RegisterMeteredCharm) RunPre(api DeployStepAPI, bakeryClient *httpbaker
 		info := deployInfo.CharmInfo
 		if r.Plan == "" && info.Metrics != nil && !info.Metrics.PlanRequired() {
 			return nil
-		}
-
-		// if the plan was not specified and this is a charmstore charm we
-		// check if the charm has a default plan
-		if r.Plan == "" && deployInfo.CharmID.URL.Schema == "cs" {
-			r.Plan, err = r.getDefaultPlan(bakeryClient, deployInfo.CharmID.URL.String())
-			if err != nil {
-				if isNoDefaultPlanError(err) {
-					options, err1 := r.getCharmPlans(bakeryClient, deployInfo.CharmID.URL.String())
-					if err1 != nil {
-						return err1
-					}
-					charmURL := deployInfo.CharmID.URL.String()
-					if len(options) > 0 {
-						return errors.Errorf(`%v has no default plan. Try "juju deploy --plan <plan-name> with one of %v"`, charmURL, strings.Join(options, ", "))
-					} else {
-						return errors.Errorf("no plans available for %v.", charmURL)
-					}
-				}
-				return err
-			}
 		}
 	}
 

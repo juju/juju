@@ -207,7 +207,7 @@ func (s *registrationSuite) TestMeteredCharmInvalidAllocation(c *gc.C) {
 	client := httpbakery.NewClient()
 	d := DeploymentInfo{
 		CharmID: application.CharmID{
-			URL: charm.MustParseURL("cs:quantal/metered-1"),
+			URL: charm.MustParseURL("ch:quantal/metered-1"),
 		},
 		ApplicationName: "application name",
 		ModelUUID:       "model uuid",
@@ -388,7 +388,7 @@ func (s *registrationSuite) TestMeteredCharmNoPlanSet(c *gc.C) {
 	client := httpbakery.NewClient()
 	d := DeploymentInfo{
 		CharmID: application.CharmID{
-			URL: charm.MustParseURL("cs:quantal/metered-1"),
+			URL: charm.MustParseURL("ch:quantal/metered"),
 		},
 		ApplicationName: "application name",
 		ModelUUID:       "model uuid",
@@ -402,112 +402,8 @@ func (s *registrationSuite) TestMeteredCharmNoPlanSet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.register.RunPost(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	authorization, err := json.Marshal([]byte("hello registration"))
-	authorization = append(authorization, byte(0xa))
-	c.Assert(err, jc.ErrorIsNil)
 	s.stub.CheckCalls(c, []testing.StubCall{{
-		"IsMetered", []interface{}{"cs:quantal/metered-1"},
-	}, {
-		"DefaultPlan", []interface{}{"cs:quantal/metered-1"},
-	}, {
-		"Authorize", []interface{}{MetricRegistrationPost{
-			ModelUUID:       "model uuid",
-			CharmURL:        "cs:quantal/metered-1",
-			ApplicationName: "application name",
-			PlanURL:         "thisplan",
-			IncreaseBudget:  100,
-		}},
-	}, {
-		"SetMetricCredentials", []interface{}{
-			"application name",
-			authorization,
-		},
-	}})
-}
-
-func (s *registrationSuite) TestMeteredCharmNoDefaultPlan(c *gc.C) {
-	s.stub.SetErrors(nil, errors.NotFoundf("default plan"))
-	s.register = &RegisterMeteredCharm{
-		IncreaseBudget: 100,
-		PlanURL:        s.server.URL}
-	client := httpbakery.NewClient()
-	d := DeploymentInfo{
-		CharmID: application.CharmID{
-			URL: charm.MustParseURL("cs:quantal/metered-1"),
-		},
-		ApplicationName: "application name",
-		ModelUUID:       "model uuid",
-		CharmInfo: &apicommoncharms.CharmInfo{
-			Metrics: &charm.Metrics{
-				Plan: &charm.Plan{Required: true},
-			},
-		},
-	}
-	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d)
-	c.Assert(err, gc.ErrorMatches, `cs:quantal/metered-1 has no default plan. Try "juju deploy --plan <plan-name> with one of thisplan, thisotherplan"`)
-	s.stub.CheckCalls(c, []testing.StubCall{{
-		"IsMetered", []interface{}{"cs:quantal/metered-1"},
-	}, {
-		"DefaultPlan", []interface{}{"cs:quantal/metered-1"},
-	}, {
-		"ListPlans", []interface{}{"cs:quantal/metered-1"},
-	}})
-}
-
-func (s *registrationSuite) TestMeteredCharmNoAvailablePlan(c *gc.C) {
-	s.stub.SetErrors(nil, errors.NotFoundf("default plan"))
-	s.handler.availablePlans = []availablePlanURL{}
-	s.register = &RegisterMeteredCharm{
-		IncreaseBudget: 100,
-		PlanURL:        s.server.URL}
-	client := httpbakery.NewClient()
-	d := DeploymentInfo{
-		CharmID: application.CharmID{
-			URL: charm.MustParseURL("cs:quantal/metered-1"),
-		},
-		ApplicationName: "application name",
-		ModelUUID:       "model uuid",
-		CharmInfo: &apicommoncharms.CharmInfo{
-			Metrics: &charm.Metrics{
-				Plan: &charm.Plan{Required: true},
-			},
-		},
-	}
-	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d)
-	c.Assert(err, gc.ErrorMatches, `no plans available for cs:quantal/metered-1.`)
-	s.stub.CheckCalls(c, []testing.StubCall{{
-		"IsMetered", []interface{}{"cs:quantal/metered-1"},
-	}, {
-		"DefaultPlan", []interface{}{"cs:quantal/metered-1"},
-	}, {
-		"ListPlans", []interface{}{"cs:quantal/metered-1"},
-	}})
-}
-
-func (s *registrationSuite) TestMeteredCharmFailToQueryDefaultCharm(c *gc.C) {
-	s.stub.SetErrors(nil, errors.New("something failed"))
-	s.register = &RegisterMeteredCharm{
-		IncreaseBudget: 100,
-		PlanURL:        s.server.URL}
-	client := httpbakery.NewClient()
-	d := DeploymentInfo{
-		CharmID: application.CharmID{
-			URL: charm.MustParseURL("cs:quantal/metered-1"),
-		},
-		ApplicationName: "application name",
-		ModelUUID:       "model uuid",
-		CharmInfo: &apicommoncharms.CharmInfo{
-			Metrics: &charm.Metrics{
-				Plan: &charm.Plan{Required: true},
-			},
-		},
-	}
-	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d)
-	c.Assert(err, gc.ErrorMatches, `failed to query default plan:.*`)
-	s.stub.CheckCalls(c, []testing.StubCall{{
-		"IsMetered", []interface{}{"cs:quantal/metered-1"},
-	}, {
-		"DefaultPlan", []interface{}{"cs:quantal/metered-1"},
+		"IsMetered", []interface{}{"ch:quantal/metered"},
 	}})
 }
 
@@ -578,13 +474,13 @@ func (s *registrationSuite) TestPlanArgumentPlanRequiredInteraction(c *gc.C) {
 		about:        "deploy with --plan, required false",
 		planArgument: "plan",
 		planRequired: false,
-		apiCalls:     []string{"IsMetered", "Authorize"},
+		apiCalls:     []string{"IsMetered"},
 		err:          "",
 	}, {
 		about:        "deploy with --plan, required true",
 		planArgument: "plan",
 		planRequired: true,
-		apiCalls:     []string{"IsMetered", "Authorize"},
+		apiCalls:     []string{"IsMetered"},
 		err:          "",
 	}, {
 		about:        "deploy without --plan, required false with default plan",
@@ -594,7 +490,7 @@ func (s *registrationSuite) TestPlanArgumentPlanRequiredInteraction(c *gc.C) {
 	}, {
 		about:        "deploy without --plan, required true with default plan",
 		planRequired: true,
-		apiCalls:     []string{"IsMetered", "DefaultPlan", "Authorize"},
+		apiCalls:     []string{"IsMetered"},
 		err:          "",
 	}, {
 		about:         "deploy without --plan, required false with no default plan",
@@ -602,12 +498,6 @@ func (s *registrationSuite) TestPlanArgumentPlanRequiredInteraction(c *gc.C) {
 		noDefaultPlan: true,
 		apiCalls:      []string{"IsMetered"},
 		err:           "",
-	}, {
-		about:         "deploy without --plan, required true with no default plan",
-		planRequired:  true,
-		noDefaultPlan: true,
-		apiCalls:      []string{"IsMetered", "DefaultPlan", "ListPlans"},
-		err:           `cs:quantal/metered-1 has no default plan. Try "juju deploy --plan <plan-name> with one of thisplan, thisotherplan"`,
 	},
 	}
 	for i, test := range tests {
@@ -626,7 +516,7 @@ func (s *registrationSuite) TestPlanArgumentPlanRequiredInteraction(c *gc.C) {
 		client := httpbakery.NewClient()
 		d := DeploymentInfo{
 			CharmID: application.CharmID{
-				URL: charm.MustParseURL("cs:quantal/metered-1"),
+				URL: charm.MustParseURL("ch:quantal/metered"),
 			},
 			ApplicationName: "application name",
 			ModelUUID:       "model uuid",
