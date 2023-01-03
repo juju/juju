@@ -39,7 +39,7 @@ func IsUserAbortedError(err error) bool {
 // UserConfirmYes returns an error if we do not read a "y" or "yes" from user
 // input.
 func UserConfirmYes(ctx *cmd.Context) error {
-	fmt.Fprint(ctx.Stdout, yesNoMsg)
+	fmt.Fprint(ctx.Stderr, yesNoMsg)
 	scanner := bufio.NewScanner(ctx.Stdin)
 	scanner.Scan()
 	err := scanner.Err()
@@ -56,7 +56,7 @@ func UserConfirmYes(ctx *cmd.Context) error {
 // UserConfirmName returns an error if we do not read a "name" of the model/controller/etc from user
 // input.
 func UserConfirmName(verificationName string, objectType string, ctx *cmd.Context) error {
-	fmt.Fprintf(ctx.Stdout, nameVerificationMsg, objectType)
+	fmt.Fprintf(ctx.Stderr, nameVerificationMsg, objectType)
 	scanner := bufio.NewScanner(ctx.Stdin)
 	scanner.Scan()
 	err := scanner.Err()

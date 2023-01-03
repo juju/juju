@@ -10,7 +10,6 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	caas "github.com/juju/juju/caas"
 	watcher "github.com/juju/juju/core/watcher"
-	version "github.com/juju/version/v2"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -194,20 +193,6 @@ func (m *MockApplication) UpdateService(arg0 caas.ServiceParam) error {
 func (mr *MockApplicationMockRecorder) UpdateService(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateService", reflect.TypeOf((*MockApplication)(nil).UpdateService), arg0)
-}
-
-// Upgrade mocks base method.
-func (m *MockApplication) Upgrade(arg0 version.Number) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Upgrade", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Upgrade indicates an expected call of Upgrade.
-func (mr *MockApplicationMockRecorder) Upgrade(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Upgrade", reflect.TypeOf((*MockApplication)(nil).Upgrade), arg0)
 }
 
 // Watch mocks base method.

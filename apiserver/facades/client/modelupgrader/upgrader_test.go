@@ -213,84 +213,83 @@ func (s *modelUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, d
 	state1.EXPECT().Release()
 
 	s.statePool.EXPECT().Get(ctrlModelTag.Id()).Return(ctrlState, nil)
-	var agentStream string
-	assertions := []*gomock.Call{
-		s.blockChecker.EXPECT().ChangeAllowed().Return(nil),
+	s.blockChecker.EXPECT().ChangeAllowed().Return(nil)
 
-		// Decide/validate target version.
-		ctrlState.EXPECT().ControllerConfig().Return(controllerCfg, nil),
-		ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("3.9.1"), nil),
-		ctrlModel.EXPECT().Type().Return(state.ModelTypeIAAS),
-		s.toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{
-			Number:        version.MustParse("3.9.99"),
-			ControllerCfg: controllerCfg, ModelType: state.ModelTypeIAAS}).Return(
-			[]*coretools.Tools{
-				{Version: version.MustParseBinary("3.9.99-ubuntu-amd64")},
-			}, nil,
-		),
+	// Decide/validate target version.
+	ctrlState.EXPECT().ControllerConfig().Return(controllerCfg, nil)
+	ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("3.9.1"), nil)
+	ctrlModel.EXPECT().Type().Return(state.ModelTypeIAAS)
+	s.toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{
+		Number:        version.MustParse("3.9.99"),
+		ControllerCfg: controllerCfg, ModelType: state.ModelTypeIAAS}).Return(
+		[]*coretools.Tools{
+			{Version: version.MustParseBinary("3.9.99-ubuntu-amd64")},
+		}, nil,
+	)
 
-		// 1. Check controller model.
-		// - check agent version;
-		ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("3.9.1"), nil),
-		// - check mongo status;
-		ctrlState.EXPECT().MongoCurrentStatus().Return(&replicaset.Status{
-			Members: []replicaset.MemberStatus{
-				{
-					Id:      1,
-					Address: "1.1.1.1",
-					State:   replicaset.PrimaryState,
-				},
-				{
-					Id:      2,
-					Address: "2.2.2.2",
-					State:   replicaset.SecondaryState,
-				},
-				{
-					Id:      3,
-					Address: "3.3.3.3",
-					State:   replicaset.SecondaryState,
-				},
+	// 1. Check controller model.
+	// - check agent version;
+	ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("3.9.1"), nil)
+	// - check mongo status;
+	ctrlState.EXPECT().MongoCurrentStatus().Return(&replicaset.Status{
+		Members: []replicaset.MemberStatus{
+			{
+				Id:      1,
+				Address: "1.1.1.1",
+				State:   replicaset.PrimaryState,
 			},
-		}, nil),
-		// - check mongo version;
-		s.statePool.EXPECT().MongoVersion().Return("4.4", nil),
-		// - check if the model has win machines;
-		ctrlState.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(nil, nil),
-		// - check if the model has deprecated ubuntu machines;
-		ctrlState.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(nil, nil),
-		// - check LXD version.
-		serverFactory.EXPECT().RemoteServer(s.cloudSpec).Return(server, nil),
-		server.EXPECT().ServerVersion().Return("5.2"),
+			{
+				Id:      2,
+				Address: "2.2.2.2",
+				State:   replicaset.SecondaryState,
+			},
+			{
+				Id:      3,
+				Address: "3.3.3.3",
+				State:   replicaset.SecondaryState,
+			},
+		},
+	}, nil)
+	// - check mongo version;
+	s.statePool.EXPECT().MongoVersion().Return("4.4", nil)
+	// - check if the model has win machines;
+	ctrlState.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(nil, nil)
+	// - check if the model has deprecated ubuntu machines;
+	ctrlState.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(nil, nil)
+	// - check LXD version.
+	// - check if model has charm store charms;
+	ctrlState.EXPECT().AllCharmURLs().Return(nil, errors.NotFoundf("charms"))
+	serverFactory.EXPECT().RemoteServer(s.cloudSpec).Return(server, nil)
+	server.EXPECT().ServerVersion().Return("5.2")
 
-		ctrlState.EXPECT().AllModelUUIDs().Return([]string{ctrlModelTag.Id(), model1ModelUUID.String()}, nil),
+	ctrlState.EXPECT().AllModelUUIDs().Return([]string{ctrlModelTag.Id(), model1ModelUUID.String()}, nil)
 
-		// 2. Check other models.
-		s.statePool.EXPECT().Get(model1ModelUUID.String()).Return(state1, nil),
-		state1.EXPECT().Model().Return(model1, nil),
-		// - check agent version;
-		model1.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil),
-		//  - check if model migration is ongoing;
-		model1.EXPECT().MigrationMode().Return(state.MigrationModeNone),
-		// - check if the model has win machines;
-		state1.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(nil, nil),
-		// - check if the model has deprecated ubuntu machines;
-		state1.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(nil, nil),
-		// - check LXD version.
-		serverFactory.EXPECT().RemoteServer(s.cloudSpec).Return(server, nil),
-		server.EXPECT().ServerVersion().Return("5.2"),
-	}
+	// 2. Check other models.
+	s.statePool.EXPECT().Get(model1ModelUUID.String()).Return(state1, nil)
+	state1.EXPECT().Model().Return(model1, nil)
+	// - check agent version;
+	model1.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil)
+	//  - check if model migration is ongoing;
+	model1.EXPECT().MigrationMode().Return(state.MigrationModeNone)
+	// - check if the model has win machines;
+	state1.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(nil, nil)
+	// - check if the model has deprecated ubuntu machines;
+	state1.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(nil, nil)
+	// - check if model has charm store charms;
+	state1.EXPECT().AllCharmURLs().Return(nil, errors.NotFoundf("charms"))
+	// - check LXD version.
+	serverFactory.EXPECT().RemoteServer(s.cloudSpec).Return(server, nil)
+	server.EXPECT().ServerVersion().Return("5.2")
+
 	if !dryRun {
-		assertions = append(assertions,
-			ctrlState.EXPECT().SetModelAgentVersion(version.MustParse("3.9.99"), nil, false).Return(nil),
-		)
+		ctrlState.EXPECT().SetModelAgentVersion(version.MustParse("3.9.99"), nil, false).Return(nil)
 	}
-	gomock.InOrder(assertions...)
 
 	result, err := api.UpgradeModel(
 		params.UpgradeModelParams{
 			ModelTag:      ctrlModelTag.String(),
 			TargetVersion: version.MustParse("3.9.99"),
-			AgentStream:   agentStream,
+			AgentStream:   "",
 			DryRun:        dryRun,
 		},
 	)
@@ -339,79 +338,81 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 
 	s.statePool.EXPECT().Get(ctrlModelTag.Id()).Return(ctrlState, nil)
 
-	gomock.InOrder(
-		s.blockChecker.EXPECT().ChangeAllowed().Return(nil),
+	s.blockChecker.EXPECT().ChangeAllowed().Return(nil)
 
-		// Decide/validate target version.
-		ctrlState.EXPECT().ControllerConfig().Return(controllerCfg, nil),
-		ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil),
-		ctrlModel.EXPECT().Type().Return(state.ModelTypeIAAS),
-		s.toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{
-			Number:        version.MustParse("3.9.99"),
-			ControllerCfg: controllerCfg, ModelType: state.ModelTypeIAAS}).Return(
-			[]*coretools.Tools{
-				{Version: version.MustParseBinary("3.9.99-ubuntu-amd64")},
-			}, nil,
-		),
-
-		// 1. Check controller model.
-		// - check agent version;
-		ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil),
-		// - check mongo status;
-		ctrlState.EXPECT().MongoCurrentStatus().Return(&replicaset.Status{
-			Members: []replicaset.MemberStatus{
-				{
-					Id:      1,
-					Address: "1.1.1.1",
-					State:   replicaset.FatalState,
-				},
-				{
-					Id:      2,
-					Address: "2.2.2.2",
-					State:   replicaset.ArbiterState,
-				},
-				{
-					Id:      3,
-					Address: "3.3.3.3",
-					State:   replicaset.RecoveringState,
-				},
-			},
-		}, nil),
-		// - check mongo version;
-		s.statePool.EXPECT().MongoVersion().Return("4.3", nil),
-		// - check if the model has win machines;
-		ctrlState.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(map[string]int{"win10": 1, "win7": 2}, nil),
-		// - check if the model has deprecated ubuntu machines;
-		ctrlState.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(map[string]int{"xenial": 2}, nil),
-		// - check LXD version.
-		serverFactory.EXPECT().RemoteServer(s.cloudSpec).Return(server, nil),
-		server.EXPECT().ServerVersion().Return("4.0"),
-		ctrlModel.EXPECT().Owner().Return(names.NewUserTag("admin")),
-		ctrlModel.EXPECT().Name().Return("controller"),
-
-		ctrlState.EXPECT().AllModelUUIDs().Return([]string{ctrlModelTag.Id(), model1ModelUUID.String()}, nil),
-		// 2. Check other models.
-		s.statePool.EXPECT().Get(model1ModelUUID.String()).Return(state1, nil),
-		state1.EXPECT().Model().Return(model1, nil),
-		// - check agent version;
-		model1.EXPECT().AgentVersion().Return(version.MustParse("2.9.0"), nil),
-		//  - check if model migration is ongoing;
-		model1.EXPECT().MigrationMode().Return(state.MigrationModeExporting),
-		// - check if the model has win machines;
-		state1.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(map[string]int{"win10": 1, "win7": 3}, nil),
-		// - check if the model has deprecated ubuntu machines;
-		state1.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(map[string]int{
-			"artful": 1, "cosmic": 2, "disco": 3, "eoan": 4, "groovy": 5,
-			"hirsute": 6, "impish": 7, "precise": 8, "quantal": 9, "raring": 10,
-			"saucy": 11, "trusty": 12, "utopic": 13, "vivid": 14, "wily": 15,
-			"xenial": 16, "yakkety": 17, "zesty": 18,
-		}, nil),
-		// - check LXD version.
-		serverFactory.EXPECT().RemoteServer(s.cloudSpec).Return(server, nil),
-		server.EXPECT().ServerVersion().Return("4.0"),
-		model1.EXPECT().Owner().Return(names.NewUserTag("admin")),
-		model1.EXPECT().Name().Return("model-1"),
+	// Decide/validate target version.
+	ctrlState.EXPECT().ControllerConfig().Return(controllerCfg, nil)
+	ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil)
+	ctrlModel.EXPECT().Type().Return(state.ModelTypeIAAS)
+	s.toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{
+		Number:        version.MustParse("3.9.99"),
+		ControllerCfg: controllerCfg, ModelType: state.ModelTypeIAAS}).Return(
+		[]*coretools.Tools{
+			{Version: version.MustParseBinary("3.9.99-ubuntu-amd64")},
+		}, nil,
 	)
+
+	// 1. Check controller model.
+	// - check agent version;
+	ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil)
+	// - check mongo status;
+	ctrlState.EXPECT().MongoCurrentStatus().Return(&replicaset.Status{
+		Members: []replicaset.MemberStatus{
+			{
+				Id:      1,
+				Address: "1.1.1.1",
+				State:   replicaset.FatalState,
+			},
+			{
+				Id:      2,
+				Address: "2.2.2.2",
+				State:   replicaset.ArbiterState,
+			},
+			{
+				Id:      3,
+				Address: "3.3.3.3",
+				State:   replicaset.RecoveringState,
+			},
+		},
+	}, nil)
+	// - check mongo version;
+	s.statePool.EXPECT().MongoVersion().Return("4.3", nil)
+	// - check if the model has win machines;
+	ctrlState.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(map[string]int{"win10": 1, "win7": 2}, nil)
+	// - check if the model has deprecated ubuntu machines;
+	ctrlState.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(map[string]int{"xenial": 2}, nil)
+	// - check if model has charm store charms;
+	ctrlState.EXPECT().AllCharmURLs().Return(nil, errors.NotFoundf("charms"))
+	// - check LXD version.
+	serverFactory.EXPECT().RemoteServer(s.cloudSpec).Return(server, nil)
+	server.EXPECT().ServerVersion().Return("4.0")
+	ctrlModel.EXPECT().Owner().Return(names.NewUserTag("admin"))
+	ctrlModel.EXPECT().Name().Return("controller")
+
+	ctrlState.EXPECT().AllModelUUIDs().Return([]string{ctrlModelTag.Id(), model1ModelUUID.String()}, nil)
+	// 2. Check other models.
+	s.statePool.EXPECT().Get(model1ModelUUID.String()).Return(state1, nil)
+	state1.EXPECT().Model().Return(model1, nil)
+	// - check agent version;
+	model1.EXPECT().AgentVersion().Return(version.MustParse("2.9.0"), nil)
+	//  - check if model migration is ongoing;
+	model1.EXPECT().MigrationMode().Return(state.MigrationModeExporting)
+	// - check if the model has win machines;
+	state1.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(map[string]int{"win10": 1, "win7": 3}, nil)
+	// - check if the model has deprecated ubuntu machines;
+	state1.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(map[string]int{
+		"artful": 1, "cosmic": 2, "disco": 3, "eoan": 4, "groovy": 5,
+		"hirsute": 6, "impish": 7, "precise": 8, "quantal": 9, "raring": 10,
+		"saucy": 11, "trusty": 12, "utopic": 13, "vivid": 14, "wily": 15,
+		"xenial": 16, "yakkety": 17, "zesty": 18,
+	}, nil)
+	// - check if model has charm store charms;
+	state1.EXPECT().AllCharmURLs().Return(nil, errors.NotFoundf("charms"))
+	// - check LXD version.
+	serverFactory.EXPECT().RemoteServer(s.cloudSpec).Return(server, nil)
+	server.EXPECT().ServerVersion().Return("4.0")
+	model1.EXPECT().Owner().Return(names.NewUserTag("admin"))
+	model1.EXPECT().Name().Return("model-1")
 
 	result, err := api.UpgradeModel(
 		params.UpgradeModelParams{
@@ -459,42 +460,40 @@ func (s *modelUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, dryRun bool) {
 	ctrlModel := mocks.NewMockModel(ctrl)
 
 	var agentStream string
-	assertions := []*gomock.Call{
-		s.blockChecker.EXPECT().ChangeAllowed().Return(nil),
 
-		// Decide/validate target version.
-		st.EXPECT().ControllerConfig().Return(controllerCfg, nil),
-		model.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil),
-		model.EXPECT().Type().Return(state.ModelTypeIAAS),
-		model.EXPECT().IsControllerModel().Return(false),
-		s.statePool.EXPECT().ControllerModel().Return(ctrlModel, nil),
-		ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("3.9.99"), nil),
-		s.toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{
-			Number:        version.MustParse("3.9.99"),
-			ControllerCfg: controllerCfg, ModelType: state.ModelTypeIAAS}).Return(
-			[]*coretools.Tools{
-				{Version: version.MustParseBinary("3.9.99-ubuntu-amd64")},
-			}, nil,
-		),
-		model.EXPECT().IsControllerModel().Return(false).Times(2),
+	s.blockChecker.EXPECT().ChangeAllowed().Return(nil)
 
-		// - check no upgrade series in process.
-		st.EXPECT().HasUpgradeSeriesLocks().Return(false, nil),
+	// Decide/validate target version.
+	st.EXPECT().ControllerConfig().Return(controllerCfg, nil)
+	model.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil)
+	model.EXPECT().Type().Return(state.ModelTypeIAAS)
+	model.EXPECT().IsControllerModel().Return(false)
+	s.statePool.EXPECT().ControllerModel().Return(ctrlModel, nil)
+	ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("3.9.99"), nil)
+	s.toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{
+		Number:        version.MustParse("3.9.99"),
+		ControllerCfg: controllerCfg, ModelType: state.ModelTypeIAAS}).Return(
+		[]*coretools.Tools{
+			{Version: version.MustParseBinary("3.9.99-ubuntu-amd64")},
+		}, nil,
+	)
+	model.EXPECT().IsControllerModel().Return(false).Times(2)
 
-		// - check if the model has win machines;
-		st.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(nil, nil),
-		// - check if the model has deprecated ubuntu machines;
-		st.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(nil, nil),
-		// - check LXD version.
-		serverFactory.EXPECT().RemoteServer(s.cloudSpec).Return(server, nil),
-		server.EXPECT().ServerVersion().Return("5.2"),
-	}
+	// - check no upgrade series in process.
+	st.EXPECT().HasUpgradeSeriesLocks().Return(false, nil)
+	// - check if model has charm store charms;
+	st.EXPECT().AllCharmURLs().Return(nil, errors.NotFoundf("charms"))
+	// - check if the model has win machines;
+	st.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(nil, nil)
+	// - check if the model has deprecated ubuntu machines;
+	st.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(nil, nil)
+	// - check LXD version.
+	serverFactory.EXPECT().RemoteServer(s.cloudSpec).Return(server, nil)
+	server.EXPECT().ServerVersion().Return("5.2")
+
 	if !dryRun {
-		assertions = append(assertions,
-			st.EXPECT().SetModelAgentVersion(version.MustParse("3.9.99"), nil, false).Return(nil),
-		)
+		st.EXPECT().SetModelAgentVersion(version.MustParse("3.9.99"), nil, false).Return(nil)
 	}
-	gomock.InOrder(assertions...)
 
 	result, err := api.UpgradeModel(
 		params.UpgradeModelParams{
@@ -540,43 +539,44 @@ func (s *modelUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 
 	ctrlModel := mocks.NewMockModel(ctrl)
 
-	gomock.InOrder(
-		s.blockChecker.EXPECT().ChangeAllowed().Return(nil),
+	s.blockChecker.EXPECT().ChangeAllowed().Return(nil)
 
-		// Decide/validate target version.
-		st.EXPECT().ControllerConfig().Return(controllerCfg, nil),
-		model.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil),
-		model.EXPECT().Type().Return(state.ModelTypeIAAS),
-		model.EXPECT().IsControllerModel().Return(false),
-		s.statePool.EXPECT().ControllerModel().Return(ctrlModel, nil),
-		ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("3.9.99"), nil),
-		s.toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{
-			Number:        version.MustParse("3.9.99"),
-			ControllerCfg: controllerCfg, ModelType: state.ModelTypeIAAS}).Return(
-			[]*coretools.Tools{
-				{Version: version.MustParseBinary("3.9.99-ubuntu-amd64")},
-			}, nil,
-		),
-		model.EXPECT().IsControllerModel().Return(false).Times(2),
-
-		// - check no upgrade series in process.
-		st.EXPECT().HasUpgradeSeriesLocks().Return(true, nil),
-
-		// - check if the model has win machines;
-		st.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(map[string]int{"win10": 1, "win7": 3}, nil),
-		// - check if the model has deprecated ubuntu machines;
-		st.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(map[string]int{
-			"artful": 1, "cosmic": 2, "disco": 3, "eoan": 4, "groovy": 5,
-			"hirsute": 6, "impish": 7, "precise": 8, "quantal": 9, "raring": 10,
-			"saucy": 11, "trusty": 12, "utopic": 13, "vivid": 14, "wily": 15,
-			"xenial": 16, "yakkety": 17, "zesty": 18,
-		}, nil),
-		// - check LXD version.
-		serverFactory.EXPECT().RemoteServer(s.cloudSpec).Return(server, nil),
-		server.EXPECT().ServerVersion().Return("4.0"),
-		model.EXPECT().Owner().Return(names.NewUserTag("admin")),
-		model.EXPECT().Name().Return("model-1"),
+	// Decide/validate target version.
+	st.EXPECT().ControllerConfig().Return(controllerCfg, nil)
+	model.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil)
+	model.EXPECT().Type().Return(state.ModelTypeIAAS)
+	model.EXPECT().IsControllerModel().Return(false)
+	s.statePool.EXPECT().ControllerModel().Return(ctrlModel, nil)
+	ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("3.9.99"), nil)
+	s.toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{
+		Number:        version.MustParse("3.9.99"),
+		ControllerCfg: controllerCfg, ModelType: state.ModelTypeIAAS}).Return(
+		[]*coretools.Tools{
+			{Version: version.MustParseBinary("3.9.99-ubuntu-amd64")},
+		}, nil,
 	)
+	model.EXPECT().IsControllerModel().Return(false).Times(2)
+
+	// - check no upgrade series in process.
+	st.EXPECT().HasUpgradeSeriesLocks().Return(true, nil)
+
+	// - check if the model has win machines;
+	st.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(map[string]int{"win10": 1, "win7": 3}, nil)
+	// - check if the model has deprecated ubuntu machines;
+	st.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(map[string]int{
+		"artful": 1, "cosmic": 2, "disco": 3, "eoan": 4, "groovy": 5,
+		"hirsute": 6, "impish": 7, "precise": 8, "quantal": 9, "raring": 10,
+		"saucy": 11, "trusty": 12, "utopic": 13, "vivid": 14, "wily": 15,
+		"xenial": 16, "yakkety": 17, "zesty": 18,
+	}, nil)
+	// - check if model has charm store charms;
+	st.EXPECT().AllCharmURLs().Return(nil, errors.NotFoundf("charms"))
+	// - check LXD version.
+	serverFactory.EXPECT().RemoteServer(s.cloudSpec).Return(server, nil)
+	server.EXPECT().ServerVersion().Return("4.0")
+	model.EXPECT().Owner().Return(names.NewUserTag("admin"))
+	model.EXPECT().Name().Return("model-1")
+
 	result, err := api.UpgradeModel(
 		params.UpgradeModelParams{
 			ModelTag:      coretesting.ModelTag.String(),

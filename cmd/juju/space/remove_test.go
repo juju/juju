@@ -144,7 +144,7 @@ Continue [y/N]? `[1:]
 
 	ctx, _, err := s.runCommand(c, api, spaceName, "--force")
 
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expectedErrMsg)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, expectedErrMsg)
 	c.Assert(err, gc.ErrorMatches, `cannot remove space "myspace": space removal: aborted`)
 }
 
@@ -191,7 +191,7 @@ Continue [y/N]? `[1:]
 
 	ctx, _, err := s.runCommand(c, api, spaceName, "--force")
 
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expectedErrMsg)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, expectedErrMsg)
 	c.Assert(err, gc.ErrorMatches, `cannot remove space "default": space removal: aborted`)
 }
 

@@ -1413,6 +1413,21 @@ func addApplicationUnits(backend Backend, modelType state.ModelType, args params
 	)
 }
 
+func (api *APIv15) DestroyUnit(argsV15 params.DestroyUnitsParamsV15) (params.DestroyUnitResults, error) {
+	args := params.DestroyUnitsParams{
+		Units: transform.Slice(argsV15.Units, func(p params.DestroyUnitParamsV15) params.DestroyUnitParams {
+			return params.DestroyUnitParams{
+				UnitTag:        p.UnitTag,
+				DestroyStorage: p.DestroyStorage,
+				Force:          p.Force,
+				MaxWait:        p.MaxWait,
+				DryRun:         false,
+			}
+		}),
+	}
+	return api.APIBase.DestroyUnit(args)
+}
+
 // DestroyUnit removes a given set of application units.
 func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyUnitResults, error) {
 	if api.modelType == state.ModelTypeCAAS {
