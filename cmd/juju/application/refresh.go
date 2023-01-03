@@ -83,9 +83,6 @@ func newRefreshCommand() *refreshCommand {
 		},
 		NewCharmResolver: func(apiRoot base.APICallCloser, charmrepo store.CharmrepoForDeploy, downloadClient store.DownloadBundleClient) CharmResolver {
 			return store.NewCharmAdaptor(apicharms.NewClient(apiRoot),
-				func() (store.CharmrepoForDeploy, error) {
-					return charmrepo, nil
-				},
 				func() (store.DownloadBundleClient, error) {
 					return downloadClient, nil
 				},
