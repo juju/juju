@@ -1534,11 +1534,6 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 				},
 				{
 					Name:      constants.CharmVolumeName,
-					MountPath: "/containeragent/pebble",
-					SubPath:   "containeragent/pebble",
-				},
-				{
-					Name:      constants.CharmVolumeName,
 					MountPath: "/charm/bin",
 					SubPath:   "charm/bin",
 				},

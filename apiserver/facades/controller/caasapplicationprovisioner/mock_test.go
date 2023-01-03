@@ -207,6 +207,7 @@ type mockApplication struct {
 	scale                int
 	unitsWatcher         *statetesting.MockStringsWatcher
 	unitsChanges         chan []string
+	watcher              *statetesting.MockNotifyWatcher
 	charmPending         bool
 }
 
