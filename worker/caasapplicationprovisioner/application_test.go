@@ -63,13 +63,14 @@ type testCase struct {
 	brokerApp  *caasmocks.MockApplication
 	unitFacade *mocks.MockCAASUnitProvisionerFacade
 
-	appScaleChan     chan struct{}
-	notifyReady      chan struct{}
-	appStateChan     chan struct{}
-	appChan          chan struct{}
-	appReplicasChan  chan struct{}
-	appTrustHashChan chan []string
-	unitsChan        chan []string
+	appScaleChan         chan struct{}
+	notifyReady          chan struct{}
+	appStateChan         chan struct{}
+	appChan              chan struct{}
+	appReplicasChan      chan struct{}
+	appTrustHashChan     chan []string
+	unitsChan            chan []string
+	provisioningInfoChan chan struct{}
 }
 
 func (s *ApplicationWorkerSuite) getWorker(c *gc.C, name string) (func(...*gomock.Call) worker.Worker, testCase, *gomock.Controller) {
@@ -130,6 +131,7 @@ func (s *ApplicationWorkerSuite) getWorker(c *gc.C, name string) (func(...*gomoc
 	tc.appReplicasChan = make(chan struct{}, 1)
 	tc.appTrustHashChan = make(chan []string, 1)
 	tc.unitsChan = make(chan []string, 1)
+	tc.provisioningInfoChan = make(chan struct{}, 1)
 
 	startFunc := func(additionalAssertCalls ...*gomock.Call) worker.Worker {
 		config := caasapplicationprovisioner.AppWorkerConfig{
@@ -165,7 +167,7 @@ func (s *ApplicationWorkerSuite) getWorker(c *gc.C, name string) (func(...*gomoc
 			tc.facade.EXPECT().WatchUnits(name).Return(watchertest.NewMockStringsWatcher(tc.unitsChan), nil),
 			// Initial run - Ensure() for the application.
 			tc.facade.EXPECT().Life(name).Return(life.Alive, nil),
-			tc.facade.EXPECT().WatchApplication(name).Return(watchertest.NewMockNotifyWatcher(tc.appStateChan), nil),
+			tc.facade.EXPECT().WatchProvisioningInfo(name).Return(watchertest.NewMockNotifyWatcher(tc.provisioningInfoChan), nil),
 			tc.facade.EXPECT().ProvisioningInfo(name).Return(s.appProvisioningInfo, nil),
 			tc.facade.EXPECT().CharmInfo("cs:test").Return(s.appCharmInfo, nil),
 			tc.brokerApp.EXPECT().Exists().Return(caas.DeploymentState{}, nil),
@@ -483,8 +485,10 @@ func (s *ApplicationWorkerSuite) assertWorker(c *gc.C, name string) {
 		steps := []func(){
 			// Test replica changes.
 			func() { tc.appReplicasChan <- struct{}{} },
+
 			// Test app state changes.
-			func() { tc.appStateChan <- struct{}{} },
+			func() { tc.provisioningInfoChan <- struct{}{} },
+
 			// Test app changes from cloud.
 			func() { tc.appChan <- struct{}{} },
 			// Test Notify - dying.

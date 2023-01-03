@@ -4,6 +4,8 @@
 package caasapplicationprovisioner
 
 import (
+	"fmt"
+
 	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -105,6 +107,30 @@ func (c *Client) Life(entityName string) (life.Value, error) {
 		return "", params.TranslateWellKnownError(err)
 	}
 	return results.Results[0].Life, nil
+}
+
+func (c *Client) WatchProvisioningInfo(applicationName string) (watcher.NotifyWatcher, error) {
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: names.NewApplicationTag(applicationName).String()},
+		},
+	}
+	var results params.NotifyWatchResults
+
+	if err := c.facade.FacadeCall("WatchProvisioningInfo", args, &results); err != nil {
+		return nil, err
+	}
+
+	if len(results.Results) != 1 {
+		return nil, fmt.Errorf("expected 1 result when watching provisioning info for application %q", applicationName)
+	}
+
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	return apiwatcher.NewNotifyWatcher(c.facade.RawAPICaller(), result), nil
 }
 
 // ProvisioningInfo holds the info needed to provision an operator.
