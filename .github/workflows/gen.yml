@@ -41,7 +41,7 @@ jobs:
       - name: Regenerate code
         shell: bash
         run: |
-          grep -ir "//go:generate" . | awk -F : '{ print $1 }' | uniq | xargs -n 1 -P 0 -I% go generate -x $(realpath %)
+          grep -ir "//go:generate" . | awk -F : '{ print $1 }' | uniq | xargs -n 1 -P 2 -I% go generate -x $(realpath %)
 
       - name: Check diff
         if: success() || failure()
