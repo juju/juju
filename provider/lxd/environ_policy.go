@@ -21,7 +21,6 @@ func (env *environ) PrecheckInstance(ctx context.ProviderCallContext, args envir
 var unsupportedConstraints = []string{
 	constraints.CpuPower,
 	constraints.Tags,
-	constraints.VirtType,
 	constraints.Container,
 	constraints.AllocatePublicIP,
 }

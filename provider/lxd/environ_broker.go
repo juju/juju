@@ -57,7 +57,7 @@ func (env *environ) StartInstance(
 	return &result, nil
 }
 
-func (env *environ) finishInstanceConfig(args environs.StartInstanceParams) (string, lxd.VirtType, error) {
+func (env *environ) finishInstanceConfig(args environs.StartInstanceParams) (string, instance.VirtType, error) {
 	// Use the HostArch to determine the tools to use.
 	arch := env.server().HostArch()
 	tools, err := args.Tools.Match(tools.Filter{Arch: arch})
@@ -70,9 +70,9 @@ func (env *environ) finishInstanceConfig(args environs.StartInstanceParams) (str
 
 	// Parse the virt-type from the constraints, so we can pass it to the
 	// findImage function.
-	virtType := lxd.DefaultInstanceType
+	virtType := instance.DefaultInstanceType
 	if args.Constraints.HasVirtType() {
-		if virtType, err = lxd.ParseVirtType(*args.Constraints.VirtType); err != nil {
+		if virtType, err = instance.ParseVirtType(*args.Constraints.VirtType); err != nil {
 			return "", "", errors.Trace(err)
 		}
 	}
@@ -90,7 +90,7 @@ func (env *environ) newContainer(
 	ctx context.ProviderCallContext,
 	args environs.StartInstanceParams,
 	arch string,
-	virtType lxd.VirtType,
+	virtType instance.VirtType,
 ) (*lxd.Container, error) {
 	// Note: other providers have the ImageMetadata already read for them
 	// and passed in as args.ImageMetadata. However, lxd provider doesn't

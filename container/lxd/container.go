@@ -19,39 +19,10 @@ import (
 	"github.com/lxc/lxd/shared/version"
 
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/network"
 )
-
-// VirtType represents the type of virtualisation used by a container.
-type VirtType = api.InstanceType
-
-const (
-	// DefaultInstanceType is the default instance type to use when no virtType
-	// is specified.
-	DefaultInstanceType = api.InstanceTypeContainer
-)
-
-// ParseVirtType parses a string into a VirtType.
-func ParseVirtType(s string) (VirtType, error) {
-	switch strings.ToLower(s) {
-	case "container", "":
-		return api.InstanceTypeContainer, nil
-	case "virtual-machine":
-		return api.InstanceTypeVM, nil
-	}
-	return "", errors.NotValidf("LXD VirtType %q", s)
-}
-
-// MustParseVirtType returns the VirtType for the given string, or panics if
-// it's not valid.
-func MustParseVirtType(s string) VirtType {
-	v, err := ParseVirtType(s)
-	if err != nil {
-		panic(err)
-	}
-	return v
-}
 
 const (
 	UserNamespacePrefix = "user."
@@ -70,7 +41,7 @@ type ContainerSpec struct {
 	Config       map[string]string
 	Profiles     []string
 	InstanceType string
-	VirtType     VirtType
+	VirtType     instance.VirtType
 }
 
 // minMiBVersion is the minimum LXD version that we are sure will recognise the
@@ -134,7 +105,7 @@ func (c *ContainerSpec) ApplyConstraints(serverVersion string, cons constraints.
 	}
 
 	if cons.HasVirtType() {
-		virtType, err := ParseVirtType(*cons.VirtType)
+		virtType, err := instance.ParseVirtType(*cons.VirtType)
 		if err == nil {
 			c.VirtType = virtType
 		}

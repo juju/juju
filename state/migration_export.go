@@ -649,6 +649,9 @@ func (e *exporter) newCloudInstanceArgs(data instanceData) description.CloudInst
 	if data.AvailZone != nil {
 		inst.AvailabilityZone = *data.AvailZone
 	}
+	if data.VirtType != nil {
+		inst.VirtType = *data.VirtType
+	}
 	if len(data.CharmProfiles) > 0 {
 		inst.CharmProfiles = data.CharmProfiles
 	}

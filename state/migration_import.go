@@ -650,6 +650,9 @@ func (i *importer) machineInstanceOp(mdoc *machineDoc, inst description.CloudIns
 	if az := inst.AvailabilityZone(); az != "" {
 		doc.AvailZone = &az
 	}
+	if vt := inst.VirtType(); vt != "" {
+		doc.VirtType = &vt
+	}
 	if profiles := inst.CharmProfiles(); len(profiles) > 0 {
 		doc.CharmProfiles = profiles
 	}

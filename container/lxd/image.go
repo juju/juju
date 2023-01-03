@@ -12,6 +12,7 @@ import (
 	lxd "github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/shared/api"
 
+	"github.com/juju/juju/core/instance"
 	jujuos "github.com/juju/juju/core/os"
 	jujuseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
@@ -38,7 +39,7 @@ type SourcedImage struct {
 func (s *Server) FindImage(
 	base jujuseries.Base,
 	arch string,
-	virtType VirtType,
+	virtType instance.VirtType,
 	sources []ServerSpec,
 	copyLocal bool,
 	callback environs.StatusCallbackFunc,
@@ -175,7 +176,7 @@ func (s *Server) CopyRemoteImage(
 // baseLocalAlias returns the alias to assign to images for the
 // specified series. The alias is juju-specific, to support the
 // user supplying a customised image (e.g. CentOS with cloud-init).
-func baseLocalAlias(base, arch string, virtType VirtType) string {
+func baseLocalAlias(base, arch string, virtType instance.VirtType) string {
 	// We use a different alias for VMs, so that we can distinguish between
 	// a VM image and a container image. We don't add anything to the alias
 	// for containers to keep backwards compatibility with older versions
@@ -199,7 +200,7 @@ func baseRemoteAliases(base jujuseries.Base, arch string) ([]string, error) {
 	}, nil
 }
 
-func isCompatibleVirtType(virtType VirtType, instanceType string) bool {
+func isCompatibleVirtType(virtType instance.VirtType, instanceType string) bool {
 	if instanceType == "" && (virtType == api.InstanceTypeAny || virtType == api.InstanceTypeContainer) {
 		return true
 	}

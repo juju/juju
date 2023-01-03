@@ -135,7 +135,6 @@ func (s *environPolicySuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 		"instance-type=some-type",
 		"cores=2",
 		"cpu-power=250",
-		"virt-type=kvm",
 	}, " "))
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, jc.ErrorIsNil)
@@ -143,7 +142,6 @@ func (s *environPolicySuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 	expected := []string{
 		"tags",
 		"cpu-power",
-		"virt-type",
 	}
 	c.Check(unsupported, jc.SameContents, expected)
 }
