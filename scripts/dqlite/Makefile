@@ -250,12 +250,10 @@ musl-install-if-missing:
 # Accessing the dqlite repl on a given controller for debugging purposes.
 ################################################################################
 
-JUJU_CONTROLLER_BOX ?= $(shell juju status -m controller --format=json | jq -r '.machines | .["0"] | .["instance-id"]')
-
 juju-dqlite-repl-deps-on-controller:
-	@lxc exec -t ${JUJU_CONTROLLER_BOX} -- bash -c 'which rlwrap &>/dev/null || apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install rlwrap'
-	@lxc exec -t ${JUJU_CONTROLLER_BOX} -- bash -c 'which socat &>/dev/null || apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install socat'
+	@juju exec -m controller --machine=0 'sudo which rlwrap &>/dev/null || sudo apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install rlwrap'
+	@juju exec -m controller --machine=0 'sudo which socat &>/dev/null || sudo apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install socat'
 
 juju-dqlite-repl: juju-dqlite-repl-deps-on-controller
-	@echo "[+] Connecting to REPL interface on controller: ${JUJU_CONTROLLER_BOX}"
-	@lxc exec -t ${JUJU_CONTROLLER_BOX} -- bash -c 'rlwrap -H /root/.dqlite_repl.history socat - /var/lib/juju/dqlite/juju.sock'
+	@echo "[+] Connecting to REPL interface to controller machine 0"
+	@juju ssh -m controller 0 'sudo rlwrap -H /root/.dqlite_repl.history socat - /var/lib/juju/dqlite/juju.sock'
