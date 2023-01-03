@@ -176,7 +176,7 @@ func (s *removeApplicationSuite) TestRemoveApplicationPrompt(c *gc.C) {
 
 	c.Assert(cmdtesting.Stderr(ctx), gc.Matches, `
 (?s)WARNING! This command:
-`[1:])
+.*`[1:])
 	c.Assert(cmdtesting.Stdout(ctx), gc.Matches, `
 (?s)will remove application real-app
 .*`[1:])

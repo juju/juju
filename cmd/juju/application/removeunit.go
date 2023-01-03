@@ -7,13 +7,11 @@ import (
 	"time"
 
 	"github.com/juju/cmd/v3"
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/client/application"
-	"github.com/juju/juju/api/client/storage"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -195,41 +193,6 @@ func (c *removeUnitCommand) getAPI() (RemoveApplicationAPI, error) {
 	return api, nil
 }
 
-func (c *removeUnitCommand) getStorageAPI() (storageAPI, error) {
-	root, err := c.NewAPIRoot()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return storage.NewClient(root), nil
-}
-
-func (c *removeUnitCommand) unitsHaveStorage(unitNames []string) (bool, error) {
-	client, err := c.getStorageAPI()
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	defer client.Close()
-
-	storages, err := client.ListStorageDetails()
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	namesSet := set.NewStrings(unitNames...)
-	for _, s := range storages {
-		if s.OwnerTag == "" {
-			continue
-		}
-		owner, err := names.ParseTag(s.OwnerTag)
-		if err != nil {
-			return false, errors.Trace(err)
-		}
-		if owner.Kind() == names.UnitTagKind && namesSet.Contains(owner.Id()) {
-			return true, nil
-		}
-	}
-	return false, nil
-}
-
 // Run connects to the environment specified on the command line and destroys
 // units therein.
 func (c *removeUnitCommand) Run(ctx *cmd.Context) error {
@@ -281,6 +244,7 @@ func (c *removeUnitCommand) removeUnits(ctx *cmd.Context, client RemoveApplicati
 		DestroyStorage: c.DestroyStorage,
 		Force:          c.Force,
 		MaxWait:        maxWait,
+		DryRun:         false,
 	})
 	if err != nil {
 		return block.ProcessBlockedError(err, block.BlockRemove)

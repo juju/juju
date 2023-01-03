@@ -153,9 +153,9 @@ func (c *RemoveCommand) handleForceOption(api SpaceAPI, currentModel string, ctx
 
 	errorList := buildRemoveErrorList(result, currentModel)
 	if len(errorList) == 0 {
-		fmt.Fprintf(ctx.Stdout, removeSpaceMsgNoBounds)
+		fmt.Fprintf(ctx.Stderr, removeSpaceMsgNoBounds)
 	} else {
-		fmt.Fprintf(ctx.Stdout, removeSpaceMsgBounds, strings.Join(errorList, "\n"))
+		fmt.Fprintf(ctx.Stderr, removeSpaceMsgBounds, strings.Join(errorList, "\n"))
 	}
 	if err := jujucmd.UserConfirmYes(ctx); err != nil {
 		return errors.Annotate(err, "space removal")
