@@ -167,7 +167,7 @@ func (s *ApplicationWorkerSuite) getWorker(c *gc.C, name string) (func(...*gomoc
 			tc.facade.EXPECT().WatchUnits(name).Return(watchertest.NewMockStringsWatcher(tc.unitsChan), nil),
 			// Initial run - Ensure() for the application.
 			tc.facade.EXPECT().Life(name).Return(life.Alive, nil),
-			tc.facade.EXPECT().WatchApplication(name).Return(watchertest.NewMockNotifyWatcher(tc.appStateChan), nil),
+			tc.facade.EXPECT().WatchProvisioningInfo(name).Return(watchertest.NewMockNotifyWatcher(tc.provisioningInfoChan), nil),
 			tc.facade.EXPECT().ProvisioningInfo(name).Return(s.appProvisioningInfo, nil),
 			tc.facade.EXPECT().CharmInfo("cs:test").Return(s.appCharmInfo, nil),
 			tc.brokerApp.EXPECT().Exists().Return(caas.DeploymentState{}, nil),
