@@ -18611,6 +18611,9 @@
                             "items": {
                                 "type": "string"
                             }
+                        },
+                        "virt-type": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false
@@ -31189,6 +31192,9 @@
                             "items": {
                                 "type": "string"
                             }
+                        },
+                        "virt-type": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false

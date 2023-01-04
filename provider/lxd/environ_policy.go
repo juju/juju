@@ -32,6 +32,7 @@ func (env *environ) ConstraintsValidator(ctx context.ProviderCallContext) (const
 
 	validator.RegisterUnsupported(unsupportedConstraints)
 	validator.RegisterVocabulary(constraints.Arch, env.server().SupportedArches())
+	validator.RegisterVocabulary(constraints.VirtType, []string{"", "container", "virtual-machine"})
 
 	return validator, nil
 }

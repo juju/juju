@@ -1444,6 +1444,7 @@ func (m *Machine) SetProvisioned(
 		CpuPower:       characteristics.CpuPower,
 		Tags:           characteristics.Tags,
 		AvailZone:      characteristics.AvailabilityZone,
+		VirtType:       characteristics.VirtType,
 	}
 
 	ops := []txn.Op{

@@ -340,6 +340,7 @@ type MachineHardware struct {
 	CpuPower         *uint64   `json:"cpu-power,omitempty"`
 	Tags             *[]string `json:"tags,omitempty"`
 	AvailabilityZone *string   `json:"availability-zone,omitempty"`
+	VirtType         *string   `json:"virt-type,omitempty"`
 }
 
 // ModelVolumeInfo holds information about a volume in a model.
