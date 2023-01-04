@@ -133,8 +133,16 @@ func (m *containerManager) CreateContainer(
 	}
 	_ = callback(status.Running, "Container started", nil)
 
-	return &lxdInstance{c.Name, m.server.InstanceServer},
-		&instance.HardwareCharacteristics{AvailabilityZone: &m.availabilityZone}, nil
+	virtType := string(spec.VirtType)
+	hardware := &instance.HardwareCharacteristics{
+		AvailabilityZone: &m.availabilityZone,
+		VirtType:         &virtType,
+	}
+
+	return &lxdInstance{
+		id:     c.Name,
+		server: m.server.InstanceServer,
+	}, hardware, nil
 }
 
 // ListContainers implements container.Manager.

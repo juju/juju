@@ -408,6 +408,7 @@ func (env *environ) getHardwareCharacteristics(
 		Arch:     &archStr,
 		CpuCores: &cores,
 		Mem:      &mem,
+		VirtType: &container.Type,
 	}
 }
 

@@ -128,6 +128,11 @@ func (c *Container) Arch() string {
 	return arch.NormaliseArch(c.Architecture)
 }
 
+// VirtType returns the virtualisation type of the container.
+func (c *Container) VirtType() instance.VirtType {
+	return instance.VirtType(c.Type)
+}
+
 // CPUs returns the configured limit for number of container CPU cores.
 // If unset, zero is returned.
 func (c *Container) CPUs() uint {
@@ -338,8 +343,9 @@ func (s *Server) CreateContainerFromSpec(spec ContainerSpec) (*Container, error)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	c := Container{*container}
-	return &c, nil
+	return &Container{
+		Instance: *container,
+	}, nil
 }
 
 func (s *Server) handleAlreadyExistsError(err error, spec ContainerSpec, ephemeral bool) (*Container, error) {
