@@ -163,7 +163,6 @@ Please repeat the deploy command with the --trust argument if you consent to tru
 		return errors.Trace(err)
 	}
 
-	// TODO(ericsnow) Do something with the CS macaroons that were returned?
 	// Deploying bundles does not allow the use force, it's expected that the
 	// bundle is correct and therefore the charms are also.
 	if err := bundleDeploy(d.defaultCharmSchema, bundleData, spec); err != nil {

@@ -12,7 +12,6 @@ import (
 	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3"
-	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
@@ -69,9 +68,6 @@ type DownloadedCharm struct {
 
 	// The LXD profile or nil if no profile specified by the charm.
 	LXDProfile *charm.LXDProfile
-
-	// The (long-lived) macaroons that where used to fetch the charm.
-	Macaroons macaroon.Slice
 }
 
 // verify checks that the charm is compatible with the specified Juju version

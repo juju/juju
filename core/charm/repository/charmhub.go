@@ -305,7 +305,6 @@ func (c *CharmHubRepository) DownloadCharm(charmURL *charm.URL, requestedOrigin 
 		return nil, corecharm.Origin{}, errors.Trace(err)
 	}
 
-	// TODO(achilleasa): pass macaroons to client when charmhub rolls out support for private charms.
 	charmArchive, err := c.client.DownloadAndRead(context.TODO(), resURL, archivePath)
 	if err != nil {
 		return nil, corecharm.Origin{}, errors.Trace(err)
@@ -387,34 +386,9 @@ func (c *CharmHubRepository) ListResources(charmURL *charm.URL, origin corecharm
 // a slice with the results. The results include the minimum set of metadata
 // that is required for deploying each charm.
 func (c *CharmHubRepository) GetEssentialMetadata(reqs ...corecharm.MetadataRequest) ([]corecharm.EssentialMetadata, error) {
-	var urlToReqIdx = make(map[*charm.URL]int)
-	for reqIdx, req := range reqs {
-		urlToReqIdx[req.CharmURL] = reqIdx
-	}
-
-	var res = make([]corecharm.EssentialMetadata, len(reqs))
-	resBatch, err := c.getEssentialMetadataForBatch(reqs)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	for resIdx, bRes := range resBatch {
-		reqURL := reqs[resIdx].CharmURL
-		res[urlToReqIdx[reqURL]] = bRes
-	}
-
-	return res, nil
-}
-
-func (c *CharmHubRepository) getEssentialMetadataForBatch(reqs []corecharm.MetadataRequest) ([]corecharm.EssentialMetadata, error) {
 	if len(reqs) == 0 {
 		return nil, nil
 	}
-
-	// TODO(achilleasa): this method is invoked with a batch of requests
-	// that share the same set of macaroons. Once charmhub adds support
-	// for macaroons they should be extracted from the first request entry
-	// and passed to the charmhub client.
-	//   macaroons := reqs[0].Macaroons
 
 	resolvedOrigins := make([]corecharm.Origin, len(reqs))
 	refreshCfgs := make([]charmhub.RefreshConfig, len(reqs))
@@ -488,7 +462,6 @@ func (c *CharmHubRepository) getEssentialMetadataForBatch(reqs []corecharm.Metad
 }
 
 func (c *CharmHubRepository) refreshOne(charmURL *charm.URL, origin corecharm.Origin) (transport.RefreshResponse, error) {
-	// TODO(achilleasa): pass macaroons to client when charmhub rolls out support for private charms.
 	cfg, err := refreshConfig(charmURL, origin)
 	if err != nil {
 		return transport.RefreshResponse{}, errors.Trace(err)
