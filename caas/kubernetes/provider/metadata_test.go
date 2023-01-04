@@ -483,6 +483,14 @@ func (s *K8sMetadataSuite) TestCheckDefaultWorkloadStorageUnknownCluster(c *gc.C
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
+func (s *K8sMetadataSuite) TestCheckDefaultWorkloadStorageUnknownDefault(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	err := s.broker.CheckDefaultWorkloadStorage("gce", nil)
+	c.Assert(err, jc.Satisfies, caas.IsNonPreferredStorageError)
+}
+
 func (s *K8sMetadataSuite) TestCheckDefaultWorkloadStorageNonpreferred(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
