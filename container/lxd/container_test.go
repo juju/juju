@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/container/lxd/mocks"
 	lxdtesting "github.com/juju/juju/container/lxd/testing"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/network"
@@ -41,6 +42,12 @@ func (s *containerSuite) TestContainerArch(c *gc.C) {
 	container := lxd.Container{}
 	container.Architecture = lxdArch
 	c.Check(container.Arch(), gc.Equals, arch.AMD64)
+}
+
+func (s *containerSuite) TestContainerVirtType(c *gc.C) {
+	container := lxd.Container{}
+	container.Type = string(instance.DefaultInstanceType)
+	c.Check(container.VirtType(), gc.Equals, api.InstanceTypeContainer)
 }
 
 func (s *containerSuite) TestContainerCPUs(c *gc.C) {
