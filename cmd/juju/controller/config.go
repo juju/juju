@@ -249,7 +249,7 @@ func (c *configCommand) setConfig(client controllerAPI, attrs config.Attrs) erro
 	if err != nil {
 		return errors.Trace(err)
 	}
-	_, err = controller.NewConfig(ctrl.ControllerUUID, ctrl.CACert, attrs)
+	parsed, err := controller.NewConfig(ctrl.ControllerUUID, ctrl.CACert, attrs)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -259,7 +259,7 @@ func (c *configCommand) setConfig(client controllerAPI, attrs config.Attrs) erro
 	values := make(map[string]interface{})
 	for k := range attrs {
 		if controller.AllowedUpdateConfigAttributes.Contains(k) {
-			values[k] = attrs[k]
+			values[k] = parsed[k]
 		} else {
 			extraValues.Add(k)
 		}
