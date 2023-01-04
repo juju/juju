@@ -15,7 +15,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
@@ -313,19 +312,6 @@ func (s *CharmSuite) TestAddCharm(c *gc.C) {
 	c.Assert(doc.CharmVersion, gc.Equals, expVersion)
 }
 
-func (s *CharmSuite) TestAddCharmWithAuth(c *gc.C) {
-	// Check that adding charms from scratch works correctly.
-	info := s.dummyCharm(c, "")
-	m, err := macaroon.New([]byte("rootkey"), []byte("id"), "loc", macaroon.LatestVersion)
-	c.Assert(err, jc.ErrorIsNil)
-	info.Macaroon = macaroon.Slice{m}
-	dummy, err := s.State.AddCharm(info)
-	c.Assert(err, jc.ErrorIsNil)
-	ms, err := dummy.Macaroon()
-	c.Assert(err, jc.ErrorIsNil)
-	assertMacaroonEquals(c, ms[0], info.Macaroon[0])
-}
-
 func (s *CharmSuite) TestAddCharmUpdatesPlaceholder(c *gc.C) {
 	// Check that adding charms updates any existing placeholder charm
 	// with the same URL.
@@ -495,10 +481,6 @@ func (s *CharmSuite) TestUpdateUploadedCharm(c *gc.C) {
 	_, err = s.State.PrepareLocalCharmUpload(info.ID)
 	c.Assert(err, jc.ErrorIsNil)
 
-	m, err := macaroon.New([]byte("rootkey"), []byte("id"), "loc", macaroon.LatestVersion)
-	c.Assert(err, jc.ErrorIsNil)
-	info.Macaroon = macaroon.Slice{m}
-	c.Assert(err, jc.ErrorIsNil)
 	sch, err = s.State.UpdateUploadedCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sch.URL(), gc.DeepEquals, info.ID)
@@ -509,9 +491,6 @@ func (s *CharmSuite) TestUpdateUploadedCharm(c *gc.C) {
 	c.Assert(sch.Config(), gc.DeepEquals, info.Charm.Config())
 	c.Assert(sch.StoragePath(), gc.DeepEquals, info.StoragePath)
 	c.Assert(sch.BundleSha256(), gc.Equals, "missing")
-	ms, err := sch.Macaroon()
-	c.Assert(err, jc.ErrorIsNil)
-	assertMacaroonEquals(c, ms[0], info.Macaroon[0])
 }
 
 func (s *CharmSuite) TestUpdateUploadedCharmEscapesSpecialCharsInConfig(c *gc.C) {
