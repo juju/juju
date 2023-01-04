@@ -5,7 +5,6 @@ package charmdownloader
 
 import (
 	"github.com/juju/charm/v9"
-	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
 	"github.com/juju/juju/controller"
