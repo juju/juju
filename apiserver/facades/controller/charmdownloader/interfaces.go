@@ -41,7 +41,6 @@ type Application interface {
 // Charm provides an API for querying charm details.
 type Charm interface {
 	URL() *charm.URL
-	Macaroon() (macaroon.Slice, error)
 }
 
 // Downloader defines an API for downloading and storing charms.
