@@ -32,6 +32,7 @@ import (
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v3/fs"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
@@ -1503,16 +1504,14 @@ func (s *DeploySuite) TestDeployLocalWithSeriesAndForce(c *gc.C) {
 	s.AssertApplication(c, "terms1", curl, 1, 0)
 }
 
-/**
-
-PUT BACK IN
-
+// TODO (stickupkid): Remove this test once we remove series in 3.2. This is only
+// here to test legacy behaviour.
 func (s *DeploySuite) setupNonESMBase(c *gc.C) (series.Base, string) {
-	supported := set.NewStrings(jujuseries.SupportedJujuWorkloadSeries()...)
+	supported := set.NewStrings(series.SupportedJujuWorkloadSeries()...)
 	// Allowing kubernetes as an option, can lead to an unrelated failure:
 	// 		series "kubernetes" in a non container model not valid
 	supported.Remove("kubernetes")
-	supportedNotEMS := supported.Difference(set.NewStrings(jujuseries.ESMSupportedJujuSeries()...))
+	supportedNotEMS := supported.Difference(set.NewStrings(series.ESMSupportedJujuSeries()...))
 	c.Assert(supportedNotEMS.Size(), jc.GreaterThan, 0)
 
 	// TODO: remove this patch once we removed all the old series from tests in current package.
@@ -1549,24 +1548,28 @@ func (s *DeploySuite) setupNonESMBase(c *gc.C) (series.Base, string) {
 	ch, err := charm.ReadCharm(loggingPath)
 	c.Assert(err, jc.ErrorIsNil)
 	withLocalCharmDeployable(s.fakeAPI, curl, ch, false)
-	withAliasedCharmDeployable(s.fakeAPI, curl, "logging", nonEMSSeries, ch.Meta(), ch.Metrics(), false, false, 1, nil, nil)
 
-	return nonEMSSeries, loggingPath
+	nonEMSBase, err := series.GetBaseFromSeries(nonEMSSeries)
+	c.Assert(err, jc.ErrorIsNil)
+	withAliasedCharmDeployable(s.fakeAPI, curl, "logging", nonEMSBase, ch.Meta(), ch.Metrics(), false, false, 1, nil, nil)
+
+	return nonEMSBase, loggingPath
 }
 
+// TODO (stickupkid): Remove this test once we remove series in 3.2
 func (s *DeploySuite) TestDeployLocalWithSupportedNonESMSeries(c *gc.C) {
-	nonEMSSeries, loggingPath := s.setupNonESMSeries(c)
-	err := s.runDeploy(c, loggingPath, "--base", nonEMSSeries)
+	nonEMSBase, loggingPath := s.setupNonESMBase(c)
+	err := s.runDeploy(c, loggingPath, "--base", nonEMSBase.String())
 	c.Logf("%+v", s.fakeAPI.Calls())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+// TODO (stickupkid): Remove this test once we remove series in 3.2
 func (s *DeploySuite) TestDeployLocalWithNotSupportedNonESMSeries(c *gc.C) {
-	_, loggingPath := s.setupNonESMSeries(c)
+	_, loggingPath := s.setupNonESMBase(c)
 	err := s.runDeploy(c, loggingPath, "--base", "ubuntu@17.10")
 	c.Assert(err, gc.ErrorMatches, "logging is not available on the following series: artful not supported")
 }
-*/
 
 // setupConfigFile creates a configuration file for testing set
 // with the --config argument specifying a configuration file.
