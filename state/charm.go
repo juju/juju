@@ -771,8 +771,7 @@ func (st *State) AllCharms() ([]*Charm, error) {
 }
 
 // Charm returns the charm with the given URL. Charms pending to be uploaded
-// are returned for Charmhub charms (but not Charmstore ones). Charm
-// placeholders are never returned.
+// are returned for Charmhub charms. Charm placeholders are never returned.
 func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 	var cdoc charmDoc
 
@@ -792,7 +791,7 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 		return nil, errors.Annotatef(err, "cannot get charm %q", curl)
 	}
 
-	if cdoc.PendingUpload && charm.Schema(curl.Schema) != charm.CharmHub {
+	if cdoc.PendingUpload && !charm.CharmHub.Matches(curl.Schema) {
 		return nil, errors.NotFoundf("charm %q", curl.String())
 	}
 	return newCharm(st, &cdoc), nil
@@ -884,7 +883,7 @@ func isCharmRevSeqName(name string) bool {
 }
 
 func isValidPlaceholderCharmURL(curl *charm.URL) bool {
-	return charm.CharmStore.Matches(curl.Schema) || charm.CharmHub.Matches(curl.Schema)
+	return charm.CharmHub.Matches(curl.Schema)
 }
 
 // PrepareCharmUpload must be called before a charm store charm is uploaded to
@@ -894,7 +893,7 @@ func isValidPlaceholderCharmURL(curl *charm.URL) bool {
 // document is added in state with just the given charm URL and
 // PendingUpload=true, which is then returned as a *state.Charm.
 //
-// The url's schema must be charmstore ("cs") or a charmhub ("ch") and it must
+// The url's schema must be charmhub ("ch") and it must
 // include a revision that isn't a negative value.
 //
 // TODO(achilleas): This call will be removed once the server-side bundle
@@ -1032,9 +1031,8 @@ func (st *State) UpdateUploadedCharm(info CharmInfo) (*Charm, error) {
 // then the charm document will be created with the PendingUpload flag set
 // to true.
 //
-// The charm URL must either have a charmstore ("cs") or a charmhub ("ch")
-// schema and it must include a revision that isn't a negative value. Otherwise,
-// an error will be returned.
+// The charm URL must either have a charmhub ("ch") schema and it must include
+// a revision that isn't a negative value. Otherwise, an error will be returned.
 func (st *State) AddCharmMetadata(info CharmInfo) (*Charm, error) {
 	// Perform a few sanity checks first.
 	if !isValidPlaceholderCharmURL(info.ID) {

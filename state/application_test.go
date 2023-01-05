@@ -109,7 +109,7 @@ func (s *ApplicationSuite) TestSetCharmCharmOrigin(c *gc.C) {
 	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)
 	rev := sch.Revision()
 	origin := &state.CharmOrigin{
-		Source:   "charm-store",
+		Source:   "charm-hub",
 		Revision: &rev,
 		Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -133,7 +133,7 @@ func (s *ApplicationSuite) TestSetCharmCharmOriginNoChange(c *gc.C) {
 	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)
 	rev := sch.Revision()
 	origin := &state.CharmOrigin{
-		Source:   "charm-store",
+		Source:   "charm-hub",
 		Revision: &rev,
 	}
 	cfg := state.SetCharmConfig{
@@ -645,7 +645,7 @@ func (s *ApplicationSuite) TestClientApplicationSetCharmUnsupportedSeries(c *gc.
 		Charm: chDifferentSeries,
 	}
 	err := app.SetCharm(cfg)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "cs:multi-series2-8": only these series are supported: trusty, wily`)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "ch:multi-series2-8": only these series are supported: trusty, wily`)
 }
 
 func (s *ApplicationSuite) TestClientApplicationSetCharmUnsupportedSeriesForce(c *gc.C) {
@@ -663,7 +663,7 @@ func (s *ApplicationSuite) TestClientApplicationSetCharmUnsupportedSeriesForce(c
 	c.Assert(err, jc.ErrorIsNil)
 	ch, _, err = app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch.String(), gc.Equals, "cs:multi-series2-8")
+	c.Assert(ch.String(), gc.Equals, "ch:multi-series2-8")
 }
 
 func (s *ApplicationSuite) TestClientApplicationSetCharmWrongOS(c *gc.C) {
@@ -676,19 +676,7 @@ func (s *ApplicationSuite) TestClientApplicationSetCharmWrongOS(c *gc.C) {
 		ForceBase: true,
 	}
 	err := app.SetCharm(cfg)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "cs:multi-series-centos-1": OS "Ubuntu" not supported by charm`)
-}
-
-func (s *ApplicationSuite) TestSetCharmChangeSeriesWhenMovingFromCharmstoreToCharmhub(c *gc.C) {
-	// Moving from a cs to a ch charm should not prevent us from changing the series.
-	chCharm := state.AddTestingCharmhubCharmForSeries(c, s.State, "quantal", "multi-series")
-	cfg := state.SetCharmConfig{
-		Charm:      chCharm,
-		ForceUnits: true,
-	}
-
-	err := s.mysql.SetCharm(cfg)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("expected SetCharm to work with different series when switching from a charmstore to a charmhub charm"))
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "ch:multi-series-centos-1": OS "Ubuntu" not supported by charm`)
 }
 
 func (s *ApplicationSuite) TestSetCharmPreconditions(c *gc.C) {
@@ -1716,7 +1704,7 @@ func (s *ApplicationSuite) setupCharmForTestUpdateApplicationBase(c *gc.C, name 
 
 	rev := ch.Revision()
 	origin := &state.CharmOrigin{
-		Source:   "charm-store",
+		Source:   "charm-hub",
 		Revision: &rev,
 		Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -1795,7 +1783,7 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesCharmURLChangedSeriesFail(
 	// Trusty is listed in only version 1 of the charm.
 	err := app.UpdateApplicationBase(state.UbuntuBase("22.04"), false)
 	c.Assert(err, gc.ErrorMatches,
-		"updating application series: series \"jammy\" not supported by charm \"cs:multi-series-2\", "+
+		"updating application series: series \"jammy\" not supported by charm \"ch:multi-series-2\", "+
 			"supported series are: focal, bionic")
 }
 

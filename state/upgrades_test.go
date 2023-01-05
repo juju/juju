@@ -180,7 +180,7 @@ func (s *upgradesSuite) makeApplication(c *gc.C, uuid, name string, life Life) {
 	coll, closer := s.state.db().GetRawCollection(applicationsC)
 	defer closer()
 
-	curl := "cs:test-charm"
+	curl := "ch:test-charm"
 	err := coll.Insert(applicationDoc{
 		DocID:     ensureModelUUID(uuid, name),
 		Name:      name,
