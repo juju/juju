@@ -265,7 +265,7 @@ func (s *CharmSuite) TestDestroyUnitReferencedCharm(c *gc.C) {
 	})
 
 	// set app charm to something different
-	info := s.dummyCharm(c, "cs:quantal/dummy-2")
+	info := s.dummyCharm(c, "ch:quantal/dummy-2")
 	newCh, err := s.State.AddCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
 	err = app.SetCharm(state.SetCharmConfig{Charm: newCh})
@@ -318,7 +318,7 @@ func (s *CharmSuite) TestAddCharmUpdatesPlaceholder(c *gc.C) {
 	ch := testcharms.Repo.CharmDir("dummy")
 
 	// Add a placeholder charm.
-	curl := charm.MustParseURL("cs:quantal/dummy-1")
+	curl := charm.MustParseURL("ch:quantal/dummy-1")
 	err := s.State.AddCharmPlaceholder(curl)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -360,10 +360,6 @@ func (s *CharmSuite) assertPendingCharmExists(c *gc.C, curl *charm.URL) {
 	c.Assert(doc.Config, gc.IsNil)
 	c.Assert(doc.StoragePath, gc.Equals, "")
 	c.Assert(doc.BundleSha256, gc.Equals, "")
-
-	// Make sure we can't find it with st.Charm().
-	_, err = s.State.Charm(curl)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *CharmSuite) TestAddCharmWithInvalidMetaData(c *gc.C) {
@@ -391,7 +387,7 @@ func (s *CharmSuite) TestPrepareLocalCharmUpload(c *gc.C) {
 	curl, err := s.State.PrepareLocalCharmUpload(charm.MustParseURL("local:quantal/dummy"))
 	c.Assert(err, gc.ErrorMatches, "expected charm URL with revision, got .*")
 	c.Assert(curl, gc.IsNil)
-	curl, err = s.State.PrepareLocalCharmUpload(charm.MustParseURL("cs:quantal/dummy"))
+	curl, err = s.State.PrepareLocalCharmUpload(charm.MustParseURL("ch:quantal/dummy"))
 	c.Assert(err, gc.ErrorMatches, "expected charm URL with local schema, got .*")
 	c.Assert(curl, gc.IsNil)
 
@@ -401,6 +397,10 @@ func (s *CharmSuite) TestPrepareLocalCharmUpload(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(curl, gc.DeepEquals, testCurl)
 	s.assertPendingCharmExists(c, curl)
+
+	// Make sure we can't find it with st.Charm().
+	_, err = s.State.Charm(curl)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// Try adding it again with the same revision and ensure it gets bumped.
 	curl, err = s.State.PrepareLocalCharmUpload(curl)
@@ -429,7 +429,7 @@ func (s *CharmSuite) TestPrepareLocalCharmUploadRemoved(c *gc.C) {
 
 func (s *CharmSuite) TestPrepareCharmUpload(c *gc.C) {
 	// First test the sanity checks.
-	sch, err := s.State.PrepareCharmUpload(charm.MustParseURL("cs:quantal/dummy"))
+	sch, err := s.State.PrepareCharmUpload(charm.MustParseURL("ch:quantal/dummy"))
 	c.Assert(err, gc.ErrorMatches, "expected charm URL with revision, got .*")
 	c.Assert(sch, gc.IsNil)
 	sch, err = s.State.PrepareCharmUpload(charm.MustParseURL("local:quantal/dummy"))
@@ -437,13 +437,17 @@ func (s *CharmSuite) TestPrepareCharmUpload(c *gc.C) {
 	c.Assert(sch, gc.IsNil)
 
 	// No charm in state, so the call should respect given revision.
-	testCurl := charm.MustParseURL("cs:quantal/missing-123")
+	testCurl := charm.MustParseURL("ch:quantal/missing-123")
 	sch, err = s.State.PrepareCharmUpload(testCurl)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sch.URL(), gc.DeepEquals, testCurl)
 	c.Assert(sch.IsUploaded(), jc.IsFalse)
 
 	s.assertPendingCharmExists(c, sch.URL())
+	// Make sure we can find it with st.Charm().
+	found, err := s.State.Charm(sch.URL())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(found.String(), gc.Equals, sch.URL().String())
 
 	// Try adding it again with the same revision and ensure we get the same document.
 	schCopy, err := s.State.PrepareCharmUpload(testCurl)
@@ -454,7 +458,7 @@ func (s *CharmSuite) TestPrepareCharmUpload(c *gc.C) {
 
 	// Now add a charm and try again - we should get the same result
 	// as with AddCharm.
-	info := s.dummyCharm(c, "cs:precise/dummy-2")
+	info := s.dummyCharm(c, "ch:precise/dummy-2")
 	sch, err = s.State.AddCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
 	schCopy, err = s.State.PrepareCharmUpload(info.ID)
@@ -477,7 +481,7 @@ func (s *CharmSuite) TestUpdateUploadedCharm(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(sch, gc.IsNil)
 
-	// Test with with an uploaded local charm.
+	// Test with an uploaded local charm.
 	_, err = s.State.PrepareLocalCharmUpload(info.ID)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -576,7 +580,7 @@ func (s *CharmSuite) TestUpdateUploadedCharmRejectsInvalidMetadata(c *gc.C) {
 
 func (s *CharmSuite) TestLatestPlaceholderCharm(c *gc.C) {
 	// Add a deployed charm
-	info := s.dummyCharm(c, "cs:quantal/dummy-1")
+	info := s.dummyCharm(c, "ch:quantal/dummy-1")
 	_, err := s.State.AddCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -585,13 +589,13 @@ func (s *CharmSuite) TestLatestPlaceholderCharm(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// Add a charm reference
-	curl2 := charm.MustParseURL("cs:quantal/dummy-2")
+	curl2 := charm.MustParseURL("ch:quantal/dummy-2")
 	err = s.State.AddCharmPlaceholder(curl2)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertPlaceholderCharmExists(c, curl2)
 
 	// Use a URL with an arbitrary rev to search.
-	curl := charm.MustParseURL("cs:quantal/dummy-23")
+	curl := charm.MustParseURL("ch:quantal/dummy-23")
 	pending, err := s.State.LatestPlaceholderCharm(curl)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pending.URL(), gc.DeepEquals, curl2)
@@ -610,13 +614,13 @@ func (s *CharmSuite) TestAddCharmPlaceholderErrors(c *gc.C) {
 	err := s.State.AddCharmPlaceholder(curl)
 	c.Assert(err, gc.ErrorMatches, "expected charm URL with a valid schema, got .*")
 
-	curl = charm.MustParseURL("cs:quantal/dummy")
+	curl = charm.MustParseURL("ch:quantal/dummy")
 	err = s.State.AddCharmPlaceholder(curl)
 	c.Assert(err, gc.ErrorMatches, "expected charm URL with revision, got .*")
 }
 
 func (s *CharmSuite) TestAddCharmPlaceholder(c *gc.C) {
-	curl := charm.MustParseURL("cs:quantal/dummy-1")
+	curl := charm.MustParseURL("ch:quantal/dummy-1")
 	err := s.State.AddCharmPlaceholder(curl)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertPlaceholderCharmExists(c, curl)
@@ -629,12 +633,12 @@ func (s *CharmSuite) TestAddCharmPlaceholder(c *gc.C) {
 
 func (s *CharmSuite) assertAddCharmPlaceholder(c *gc.C) (*charm.URL, *charm.URL, *state.Charm) {
 	// Add a deployed charm
-	info := s.dummyCharm(c, "cs:quantal/dummy-1")
+	info := s.dummyCharm(c, "ch:quantal/dummy-1")
 	dummy, err := s.State.AddCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add a charm placeholder
-	curl2 := charm.MustParseURL("cs:quantal/dummy-2")
+	curl2 := charm.MustParseURL("ch:quantal/dummy-2")
 	err = s.State.AddCharmPlaceholder(curl2)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertPlaceholderCharmExists(c, curl2)
@@ -655,7 +659,7 @@ func (s *CharmSuite) TestAddCharmPlaceholderDeletesOlder(c *gc.C) {
 	curl, curlOldRef, dummy := s.assertAddCharmPlaceholder(c)
 
 	// Add a new charm placeholder
-	curl3 := charm.MustParseURL("cs:quantal/dummy-3")
+	curl3 := charm.MustParseURL("ch:quantal/dummy-3")
 	err := s.State.AddCharmPlaceholder(curl3)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertPlaceholderCharmExists(c, curl3)
@@ -673,12 +677,12 @@ func (s *CharmSuite) TestAddCharmPlaceholderDeletesOlder(c *gc.C) {
 
 func (s *CharmSuite) TestAllCharms(c *gc.C) {
 	// Add a deployed charm
-	info := s.dummyCharm(c, "cs:quantal/dummy-1")
+	info := s.dummyCharm(c, "ch:quantal/dummy-1")
 	sch, err := s.State.AddCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add a charm reference
-	curl2 := charm.MustParseURL("cs:quantal/dummy-2")
+	curl2 := charm.MustParseURL("ch:quantal/dummy-2")
 	err = s.State.AddCharmPlaceholder(curl2)
 	c.Assert(err, jc.ErrorIsNil)
 

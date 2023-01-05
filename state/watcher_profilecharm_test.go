@@ -138,15 +138,15 @@ func (s *instanceCharmProfileWatcherCompatibilitySuite) TestFullWatch(c *gc.C) {
 
 	done := make(chan struct{})
 	w := s.workerForScenario(c,
-		s.expectInitialCollectionInstanceField("cs:~user/series/name-0"),
+		s.expectInitialCollectionInstanceField("ch:series/name-0"),
 		s.expectLoopCollectionFilterAndNotify([]watcher.Change{
 			{Revno: -1},
 			{Revno: 0},
 			{Revno: 1},
 		}, done),
 		s.expectLoop,
-		s.expectMergeCollectionInstanceField("cs:~user/series/name-1"),
-		s.expectMergeCollectionInstanceField("cs:~user/series/name-1"),
+		s.expectMergeCollectionInstanceField("ch:series/name-1"),
+		s.expectMergeCollectionInstanceField("ch:series/name-1"),
 		s.expectLoop,
 	)
 
@@ -161,12 +161,12 @@ func (s *instanceCharmProfileWatcherCompatibilitySuite) TestFullWatchWithNoStatu
 
 	done := make(chan struct{})
 	w := s.workerForScenario(c,
-		s.expectInitialCollectionInstanceField("cs:~user/series/name-0"),
+		s.expectInitialCollectionInstanceField("ch:series/name-0"),
 		s.expectLoopCollectionFilterAndNotify([]watcher.Change{
 			{Revno: 0},
 		}, done),
 		s.expectLoop,
-		s.expectMergeCollectionInstanceField("cs:~user/series/name-0"),
+		s.expectMergeCollectionInstanceField("ch:series/name-0"),
 		s.expectLoop,
 	)
 

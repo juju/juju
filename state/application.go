@@ -82,7 +82,7 @@ type applicationDoc struct {
 	Subordinate bool   `bson:"subordinate"`
 	// CharmURL and channel should be moved to CharmOrigin. Attempting it should
 	// be relatively straight forward, but very time consuming.
-	// When moving to CharmHub or removing CharmStore from Juju it should be
+	// When moving to CharmHub from Juju it should be
 	// tackled then.
 	CharmURL             *string      `bson:"charmurl"`
 	CharmOrigin          CharmOrigin  `bson:"charm-origin"`

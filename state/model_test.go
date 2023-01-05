@@ -854,7 +854,7 @@ func (s *ModelSuite) assertDestroyControllerAndHostedModelsWithPersistentStorage
 		Application: otherFactory.MakeApplication(c, &factory.ApplicationParams{
 			Charm: otherFactory.MakeCharm(c, &factory.CharmParams{
 				Name: "storage-block",
-				URL:  "cs:quantal/storage-block-1",
+				URL:  "ch:quantal/storage-block-1",
 			}),
 			Storage: map[string]state.StorageConstraints{
 				"data": {Count: 1, Size: 1024, Pool: "modelscoped"},
