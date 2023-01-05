@@ -322,12 +322,9 @@ func (c *diffBundleCommand) bundleDataSource(ctx *cmd.Context, apiRoot base.APIC
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	platform, err := utils.DeducePlatform(constraints.Value{
+	platform := utils.MakePlatform(constraints.Value{
 		Arch: &c.arch,
 	}, base, modelConstraints)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	origin, err := utils.DeduceOrigin(bURL, c.channel, platform)
 	if err != nil {
 		return nil, errors.Trace(err)

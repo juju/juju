@@ -270,10 +270,7 @@ func (d *factory) maybeReadLocalBundle() (Deployer, error) {
 		return nil, errors.Trace(err)
 	}
 
-	platform, err := utils.DeducePlatform(d.constraints, d.base, d.modelConstraints)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	platform := utils.MakePlatform(d.constraints, d.base, d.modelConstraints)
 	db := d.newDeployBundle(d.defaultCharmSchema, ds)
 	var base series.Base
 	if platform.Channel != "" {
@@ -439,15 +436,13 @@ func (d *factory) maybeReadRepositoryBundle(resolver Resolver) (Deployer, error)
 		}
 		logger.Warningf("Charm store bundles, those with cs: before the bundle name, will not be supported in juju 3.1.\n\tMigration of this model to a juju 3.1 controller will be prohibited.")
 	}
-	platform, err := utils.DeducePlatform(d.constraints, d.base, d.modelConstraints)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	urlForOrigin := curl
 	if d.revision != -1 {
 		urlForOrigin = urlForOrigin.WithRevision(d.revision)
 	}
+
+	platform := utils.MakePlatform(d.constraints, d.base, d.modelConstraints)
 	origin, err := utils.DeduceOrigin(urlForOrigin, d.channel, platform)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -529,15 +524,12 @@ func (d *factory) repositoryCharm() (Deployer, error) {
 		}
 		logger.Warningf("Charm store charms, those with cs: before the charm name, will not be supported in juju 3.1.\n\tMigration of this model to a juju 3.1 controller will be prohibited.")
 	}
-	platform, err := utils.DeducePlatform(d.constraints, d.base, d.modelConstraints)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	urlForOrigin := userRequestedURL
 	if d.revision != -1 {
 		urlForOrigin = urlForOrigin.WithRevision(d.revision)
 	}
+	platform := utils.MakePlatform(d.constraints, d.base, d.modelConstraints)
 	origin, err := utils.DeduceOrigin(urlForOrigin, d.channel, platform)
 	if err != nil {
 		return nil, errors.Trace(err)

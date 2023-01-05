@@ -1664,7 +1664,7 @@ func (s *DeploySuite) TestDeployCharmsEndpointNotImplemented(c *gc.C) {
 	withCharmRepoResolvable(s.fakeAPI, meteredCharmURL, "")
 
 	fallbackCons := constraints.MustParse("arch=amd64")
-	platform, _ := apputils.DeducePlatform(constraints.Value{}, series.MustParseBaseFromString("ubuntu@22.04"), fallbackCons)
+	platform := apputils.MakePlatform(constraints.Value{}, series.MustParseBaseFromString("ubuntu@22.04"), fallbackCons)
 	origin, _ := apputils.DeduceOrigin(meteredCharmURL, charm.Channel{}, platform)
 	s.fakeAPI.Call("AddCharm", meteredCharmURL, origin, false).Returns(origin, error(nil))
 	s.fakeAPI.Call("CharmInfo", meteredCharmURL.String()).Returns(
@@ -3118,7 +3118,7 @@ func withCharmDeployableWithDevicesAndStorage(
 		}
 	}
 	fallbackCons := constraints.MustParse("arch=amd64")
-	platform, _ := apputils.DeducePlatform(constraints.Value{}, base, fallbackCons)
+	platform := apputils.MakePlatform(constraints.Value{}, base, fallbackCons)
 	origin, _ := apputils.DeduceOrigin(url, charm.Channel{}, platform)
 	fakeAPI.Call("AddCharm", &deployURL, origin, force).Returns(origin, error(nil))
 	fakeAPI.Call("CharmInfo", deployURL.String()).Returns(

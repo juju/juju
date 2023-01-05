@@ -505,11 +505,7 @@ func (h *bundleHandler) constructChannelAndOrigin(curl *charm.URL, charmBase ser
 		}
 	}
 
-	platform, err := utils.DeducePlatform(cons, charmBase, h.modelConstraints)
-	if err != nil {
-		return charm.Channel{}, commoncharm.Origin{}, errors.Trace(err)
-	}
-
+	platform := utils.MakePlatform(cons, charmBase, h.modelConstraints)
 	origin, err := utils.DeduceOrigin(curl, channel, platform)
 	if err != nil {
 		return charm.Channel{}, commoncharm.Origin{}, errors.Trace(err)
@@ -693,11 +689,6 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		}
 	}
 
-	platform, err := utils.DeducePlatform(cons, base, h.modelConstraints)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	// A channel is needed whether the risk is valid or not.
 	var channel charm.Channel
 	if charm.CharmHub.Matches(ch.Schema) {
@@ -712,6 +703,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		channel = corecharm.MakeRiskOnlyChannel(chParams.Channel)
 	}
 
+	platform := utils.MakePlatform(cons, base, h.modelConstraints)
 	origin, err := utils.DeduceOrigin(urlForOrigin, channel, platform)
 	if err != nil {
 		return errors.Trace(err)
@@ -990,12 +982,9 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 			return errors.Trace(err)
 		}
 
-		platform, err := utils.DeducePlatform(cons, base, h.modelConstraints)
-		if err != nil {
-			return errors.Trace(err)
-		}
 		// A channel is needed whether the risk is valid or not.
 		channel, _ := charm.MakeChannel("", origin.Risk, "")
+		platform := utils.MakePlatform(cons, base, h.modelConstraints)
 		origin, err = utils.DeduceOrigin(chID.URL, channel, platform)
 		if err != nil {
 			return errors.Trace(err)

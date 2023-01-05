@@ -133,11 +133,7 @@ Please repeat the deploy command with the --trust argument if you consent to tru
 					return errors.Trace(err)
 				}
 
-				platform, err := utils.DeducePlatform(cons, base, d.modelConstraints)
-				if err != nil {
-					return errors.Trace(err)
-				}
-
+				platform := utils.MakePlatform(cons, base, d.modelConstraints)
 				origin, err := utils.DeduceOrigin(charmURL, d.origin.CharmChannel(), platform)
 				if err != nil {
 					return errors.Trace(err)

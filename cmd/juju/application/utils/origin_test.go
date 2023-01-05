@@ -4,7 +4,6 @@
 package utils_test
 
 import (
-	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/application/utils"
@@ -17,13 +16,12 @@ type originSuite struct{}
 
 var _ = gc.Suite(&originSuite{})
 
-func (*originSuite) TestDeducePlatform(c *gc.C) {
+func (*originSuite) TestMakePlatform(c *gc.C) {
 	arch := constraints.MustParse("arch=amd64")
 	fallback := constraints.MustParse("arch=amd64")
 	base := series.MustParseBaseFromString("ubuntu@20.04")
 
-	platform, err := utils.DeducePlatform(arch, base, fallback)
-	c.Assert(err, jc.ErrorIsNil)
+	platform := utils.MakePlatform(arch, base, fallback)
 	c.Assert(platform, gc.DeepEquals, corecharm.Platform{
 		Architecture: "amd64",
 		OS:           "ubuntu",
@@ -31,13 +29,12 @@ func (*originSuite) TestDeducePlatform(c *gc.C) {
 	})
 }
 
-func (*originSuite) TestDeducePlatformWithFallbackArch(c *gc.C) {
+func (*originSuite) TestMakePlatformWithFallbackArch(c *gc.C) {
 	arch := constraints.MustParse("mem=100G")
 	fallback := constraints.MustParse("arch=s390x")
 	base := series.MustParseBaseFromString("ubuntu@20.04")
 
-	platform, err := utils.DeducePlatform(arch, base, fallback)
-	c.Assert(err, jc.ErrorIsNil)
+	platform := utils.MakePlatform(arch, base, fallback)
 	c.Assert(platform, gc.DeepEquals, corecharm.Platform{
 		Architecture: "s390x",
 		OS:           "ubuntu",
@@ -45,16 +42,28 @@ func (*originSuite) TestDeducePlatformWithFallbackArch(c *gc.C) {
 	})
 }
 
-func (*originSuite) TestDeducePlatformWithNoArch(c *gc.C) {
+func (*originSuite) TestMakePlatformWithNoArch(c *gc.C) {
 	arch := constraints.MustParse("mem=100G")
 	fallback := constraints.MustParse("cores=1")
 	base := series.MustParseBaseFromString("ubuntu@20.04")
 
-	platform, err := utils.DeducePlatform(arch, base, fallback)
-	c.Assert(err, jc.ErrorIsNil)
+	platform := utils.MakePlatform(arch, base, fallback)
 	c.Assert(platform, gc.DeepEquals, corecharm.Platform{
 		Architecture: "amd64",
 		OS:           "ubuntu",
 		Channel:      "20.04",
+	})
+}
+
+func (*originSuite) TestMakePlatformWithEmptyBase(c *gc.C) {
+	arch := constraints.MustParse("mem=100G")
+	fallback := constraints.MustParse("cores=1")
+	base := series.Base{}
+
+	platform := utils.MakePlatform(arch, base, fallback)
+	c.Assert(platform, gc.DeepEquals, corecharm.Platform{
+		Architecture: "amd64",
+		OS:           "",
+		Channel:      "",
 	})
 }
