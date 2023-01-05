@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/charmstore"
+	coremacaroon "github.com/juju/juju/core/macaroon"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/rpc/params"
 )
@@ -346,7 +346,7 @@ func (a *authenticator) checkMacaroons(
 		}
 		authlogger.Debugf("- mac %s", m.Id())
 	}
-	declared := checkers.InferDeclared(charmstore.MacaroonNamespace, mac)
+	declared := checkers.InferDeclared(coremacaroon.MacaroonNamespace, mac)
 	authlogger.Debugf("check macaroons with declared attrs: %v", declared)
 	username, ok := declared[usernameKey]
 	if !ok {

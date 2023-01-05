@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package charmstore
+package macaroon
 
 import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
