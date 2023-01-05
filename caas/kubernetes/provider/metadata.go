@@ -251,13 +251,14 @@ func (k *kubernetesClient) CheckDefaultWorkloadStorage(cloudType string, storage
 }
 
 func storageClassMatches(preferredStorage caas.PreferredStorage, storageProvisioner *caas.StorageProvisioner) error {
+	if storageProvisioner == nil || preferredStorage.Provisioner != storageProvisioner.Provisioner {
+		return &caas.NonPreferredStorageError{PreferredStorage: preferredStorage}
+	}
+
 	if preferredStorage.SupportsDefault && storageProvisioner.IsDefault {
 		return nil
 	}
 
-	if storageProvisioner == nil || preferredStorage.Provisioner != storageProvisioner.Provisioner {
-		return &caas.NonPreferredStorageError{PreferredStorage: preferredStorage}
-	}
 	for k, v := range preferredStorage.Parameters {
 		param, ok := storageProvisioner.Parameters[k]
 		if !ok || param != v {
