@@ -29,7 +29,6 @@ import (
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agentbootstrap"
@@ -289,7 +288,7 @@ func (s *BootstrapSuite) TestStoreControllerCharm(c *gc.C) {
 	repo.EXPECT().ResolveWithPreferredChannel(curl, origin).Return(&storeCurl, storeOrigin, nil, nil)
 
 	downloader.EXPECT().DownloadAndStore(&storeCurl, storeOrigin, false).
-		DoAndReturn(func(charmURL *charm.URL, requestedOrigin corecharm.Origin, macaroons macaroon.Slice, force bool) (corecharm.Origin, error) {
+		DoAndReturn(func(charmURL *charm.URL, requestedOrigin corecharm.Origin, force bool) (corecharm.Origin, error) {
 			controllerCharm := testcharms.Repo.CharmArchive(c.MkDir(), "juju-controller")
 			st, closer := s.getSystemState(c)
 			defer closer()
