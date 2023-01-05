@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/juju/clock"
@@ -494,11 +495,42 @@ func (s *store) CurrentModel(controllerName string) (string, error) {
 			controllerName,
 		)
 	}
+
+	var controller bool
+	var modelNames []string
+	for ns := range controllerModels.Models {
+		name, _, err := SplitModelName(ns)
+		if err != nil {
+			continue
+		}
+		if name == "controller" {
+			controller = true
+			continue
+		}
+		modelNames = append(modelNames, controllerName+":"+ns)
+	}
+
 	if controllerModels.CurrentModel == "" {
-		return "", errors.NotFoundf(
-			"current model for controller %s",
-			controllerName,
-		)
+		num := len(modelNames)
+		if num == 0 {
+			if !controller {
+				return "", errors.NotFoundf(
+					"current model for controller %s",
+					controllerName,
+				)
+			}
+			return "", errors.NewNotFound(nil, `No selected model.
+
+Only the controller model exists. Use "juju add-model" to create an initial model.
+`)
+		}
+
+		msg := `No selected model.
+
+Use "juju switch" to select one of the following models:
+
+  - ` + strings.Join(modelNames, "\n  - ")
+		return "", errors.NewNotFound(nil, msg)
 	}
 	return controllerModels.CurrentModel, nil
 }
