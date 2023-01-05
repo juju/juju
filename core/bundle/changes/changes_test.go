@@ -3362,7 +3362,7 @@ func (s *changesSuite) assertParseDataWithModel(c *gc.C, model *bundlechanges.Mo
 		Model:  model,
 		Bundle: data,
 		Logger: loggo.GetLogger("bundlechanges"),
-		CharmResolver: func(charm, _, channel, _ string, rev int) (string, int, error) {
+		CharmResolver: func(charm string, _ series.Base, channel, _ string, rev int) (string, int, error) {
 			if charm == "cs:apache2-26" {
 				return "stable", 26, nil
 			}

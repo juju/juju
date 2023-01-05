@@ -49,6 +49,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	coreresouces "github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/series"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
@@ -440,7 +441,7 @@ func (s *RefreshErrorsStateSuite) deployApplication(c *gc.C) {
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "riak")
 	curl := charm.MustParseURL("local:bionic/riak-7")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
-	withCharmDeployable(s.fakeAPI, curl, "bionic", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
+	withCharmDeployable(s.fakeAPI, curl, series.MustParseBaseFromString("ubuntu@18.04"), charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
 	err := runDeploy(c, charmDir.Path, "riak", "--series", "bionic")
 	c.Assert(err, jc.ErrorIsNil)

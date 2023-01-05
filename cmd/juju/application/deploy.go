@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	apiparams "github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
@@ -314,7 +315,11 @@ type DeployCommand struct {
 	Revision int
 
 	// Series is the series of the charm to deploy.
+	// DEPRECATED: Use --base instead.
 	Series string
+
+	// Base is the base of the charm to deploy.
+	Base string
 
 	// Force is used to allow a charm/bundle to be deployed onto a machine
 	// running an unsupported series.
@@ -409,11 +414,11 @@ type DeployCommand struct {
 }
 
 const deployDoc = `
-A charm or bundle can be referred to by its simple name and a series, revision,
+A charm or bundle can be referred to by its simple name and a base, revision,
 or channel can optionally be specified:
 
   juju deploy postgresql
-  juju deploy ch:postgresql --series bionic
+  juju deploy ch:postgresql --base ubuntu@22.04
   juju deploy ch:postgresql --channel edge
   juju deploy ch:ubuntu --revision 17 --channel edge
 
@@ -433,7 +438,7 @@ when refreshing the application in the future.
 A local charm may be deployed by giving the path to its directory:
 
   juju deploy /path/to/charm
-  juju deploy /path/to/charm --series bionic
+  juju deploy /path/to/charm ---base ubuntu@22.04
 
 You will need to be explicit if there is an ambiguity between a local and a
 remote charm:
@@ -441,31 +446,24 @@ remote charm:
   juju deploy ./pig
   juju deploy ch:pig
 
-An error is emitted if the determined series is not supported by the charm. Use
-the '--force' option to override this check:
-
-  juju deploy charm --series bionic --force
-
-A bundle can be expressed similarly to a charm:
+  A bundle can be expressed similarly to a charm:
 
   juju deploy mediawiki-single
-  juju deploy mediawiki-single --series focal
+  juju deploy mediawiki-single --base ubuntu@22.04
   juju deploy ch:mediawiki-single
 
 A local bundle may be deployed by specifying the path to its YAML file:
 
   juju deploy /path/to/bundle.yaml
 
-The final charm/machine series is determined using an order of precedence (most
+The final charm/machine base is determined using an order of precedence (most
 preferred to least):
 
- - the '--series' command option
- - the series stated in the charm URL
+ - the '--base' command option
  - for a bundle, the series stated in each charm URL (in the bundle file)
  - for a bundle, the series given at the top level (in the bundle file)
- - the 'default-series' model key
- - the top-most series specified in the charm's metadata file
-   (this sets the charm's 'preferred series' in the Charm Store)
+ - the 'default-base' model key
+ - the top-most base specified in the charm's metadata file
 
 An 'application name' provides an alternate name for the application. It works
 only for charms; it is silently ignored for bundles (although the same can be
@@ -675,7 +673,8 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 
 	f.Var(cmd.NewAppendStringsValue(&c.BundleOverlayFile), "overlay", "Bundles to overlay on the primary bundle, applied in order")
 	f.StringVar(&c.ConstraintsStr, "constraints", "", "Set application constraints")
-	f.StringVar(&c.Series, "series", "", "The series on which to deploy")
+	f.StringVar(&c.Series, "series", "", "The series on which to deploy. DEPRECATED: use --base")
+	f.StringVar(&c.Base, "base", "", "The base on which to deploy")
 	f.IntVar(&c.Revision, "revision", -1, "The revision to deploy")
 	f.BoolVar(&c.DryRun, "dry-run", false, "Just show what the deploy would do")
 	f.BoolVar(&c.Force, "force", false, "Allow a charm/bundle to be deployed which bypasses checks such as supported series or LXD profile allow list")
@@ -693,6 +692,9 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Init validates the flags.
 func (c *DeployCommand) Init(args []string) error {
+	if c.Base != "" && c.Series != "" {
+		return errors.New("--series and --base cannot be specified together")
+	}
 	// NOTE: For deploying a charm with the revision flag, a channel is
 	// also required. It's required to ensure that juju knows which channel
 	// should be used for refreshing/upgrading the charm in the future.However
@@ -817,6 +819,31 @@ func parseMachineMap(value string) (bool, map[string]string, error) {
 
 // Run executes a deploy command with a given context.
 func (c *DeployCommand) Run(ctx *cmd.Context) error {
+	var (
+		base series.Base
+		err  error
+	)
+	// Note: we validated that both series and base cannot be specified in
+	// Init(), so it's safe to assume that only one of them is set here.
+	if c.Series != "" {
+		if c.Series == "kubernetes" {
+			ctx.Warningf("using kubernetes as a series flag is deprecated, use --base instead")
+			base = series.LegacyKubernetesBase()
+		} else {
+			ctx.Warningf("series flag is deprecated, use --base instead")
+			if base, err = series.GetBaseFromSeries(c.Series); err != nil {
+				return errors.Annotatef(err, "attempting to convert %q to a base", c.Series)
+			}
+		}
+		c.Base = base.String()
+		c.Series = ""
+	}
+	if c.Base != "" {
+		if base, err = series.ParseBaseFromString(c.Base); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	if c.unknownModel {
 		if err := c.validateStorageByModelType(); err != nil {
 			return errors.Trace(err)
@@ -825,7 +852,6 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 			return errors.Trace(err)
 		}
 	}
-	var err error
 	if c.Constraints, err = common.ParseConstraints(ctx, c.ConstraintsStr); err != nil {
 		return errors.Trace(err)
 	}
@@ -868,7 +894,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	charmAPIClient := c.NewCharmsAPI(c.apiRoot)
 	charmAdapter := c.NewResolver(charmAPIClient, csRepoFn, downloadClientFn)
 
-	factory, cfg := c.getDeployerFactory(charm.CharmHub)
+	factory, cfg := c.getDeployerFactory(base, charm.CharmHub)
 	deploy, err := factory.GetDeployer(cfg, deployAPI, charmAdapter)
 	if err != nil {
 		return errors.Trace(err)
@@ -912,7 +938,7 @@ func (c *DeployCommand) getMeteringAPIURL(controllerAPIRoot api.Connection) (str
 	return controllerCfg.MeteringURL(), nil
 }
 
-func (c *DeployCommand) getDeployerFactory(defaultCharmSchema charm.Schema) (deployer.DeployerFactory, deployer.DeployerConfig) {
+func (c *DeployCommand) getDeployerFactory(base series.Base, defaultCharmSchema charm.Schema) (deployer.DeployerFactory, deployer.DeployerConfig) {
 	dep := deployer.DeployerDependencies{
 		Model:                c,
 		FileSystem:           c.ModelCommandBase.Filesystem(),
@@ -943,7 +969,7 @@ func (c *DeployCommand) getDeployerFactory(defaultCharmSchema charm.Schema) (dep
 		Placement:          c.Placement,
 		Resources:          c.Resources,
 		Revision:           c.Revision,
-		Series:             c.Series,
+		Base:               base,
 		Storage:            c.Storage,
 		Trust:              c.Trust,
 		UseExisting:        c.UseExisting,

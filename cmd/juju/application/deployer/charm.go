@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/series"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/storage"
 )
@@ -50,7 +51,7 @@ type deployCharm struct {
 	placement        []*instance.Placement
 	placementSpec    string
 	resources        map[string]string
-	seriesFlag       string
+	baseFlag         series.Base
 	steps            []DeployStep
 	storage          map[string]storage.Constraints
 	trust            bool
@@ -316,7 +317,12 @@ func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI Dep
 		return errors.Trace(err)
 	}
 
-	platform, err := utils.DeducePlatform(d.constraints, d.userCharmURL.Series, d.modelConstraints)
+	base, err := series.GetBaseFromSeries(d.userCharmURL.Series)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	platform, err := utils.DeducePlatform(d.constraints, base, d.modelConstraints)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -359,7 +365,12 @@ func (l *localCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _
 		return errors.Trace(err)
 	}
 
-	platform, err := utils.DeducePlatform(l.constraints, l.curl.Series, l.modelConstraints)
+	base, err := series.GetBaseFromSeries(l.curl.Series)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	platform, err := utils.DeducePlatform(l.constraints, base, l.modelConstraints)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -447,9 +458,18 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 		return errors.Trace(err)
 	}
 
+	var seriesFlag string
+	if !c.baseFlag.Empty() {
+		var err error
+		seriesFlag, err = series.GetSeriesFromBase(c.baseFlag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	selector := seriesSelector{
 		charmURLSeries:      userRequestedURL.Series,
-		seriesFlag:          c.seriesFlag,
+		seriesFlag:          seriesFlag,
 		supportedSeries:     supportedSeries,
 		supportedJujuSeries: workloadSeries,
 		force:               c.force,

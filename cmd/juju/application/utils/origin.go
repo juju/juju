@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/series"
 	coreseries "github.com/juju/juju/core/series"
 )
 
@@ -86,20 +87,10 @@ func DeduceOrigin(url *charm.URL, channel charm.Channel, platform corecharm.Plat
 
 // DeducePlatform attempts to create a Platform (architecture, os and series)
 // from a set of constraints or a free style series.
-func DeducePlatform(cons constraints.Value, series string, modelCons constraints.Value) (corecharm.Platform, error) {
-	var os, channel string
-	if series != "" {
-		base, err := coreseries.GetBaseFromSeries(series)
-		if err != nil {
-			return corecharm.Platform{}, errors.Trace(err)
-		}
-		os = base.OS
-		channel = base.Channel.Track
-	}
-
+func DeducePlatform(cons constraints.Value, base series.Base, modelCons constraints.Value) (corecharm.Platform, error) {
 	return corecharm.Platform{
 		Architecture: arch.ConstraintArch(cons, &modelCons),
-		OS:           os,
-		Channel:      channel,
+		OS:           base.OS,
+		Channel:      base.Channel.Track,
 	}, nil
 }

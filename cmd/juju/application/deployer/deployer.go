@@ -84,7 +84,7 @@ func (d *factory) setConfig(cfg DeployerConfig) {
 	d.defaultCharmSchema = cfg.DefaultCharmSchema
 	d.bundleOverlayFile = cfg.BundleOverlayFile
 	d.channel = cfg.Channel
-	d.series = cfg.Series
+	d.base = cfg.Base
 	d.force = cfg.Force
 	d.dryRun = cfg.DryRun
 	d.applicationName = cfg.ApplicationName
@@ -146,7 +146,7 @@ type DeployerConfig struct {
 	Placement            []*instance.Placement
 	Resources            map[string]string
 	Revision             int
-	Series               string
+	Base                 series.Base
 	Storage              map[string]storage.Constraints
 	Trust                bool
 	UseExisting          bool
@@ -170,7 +170,7 @@ type factory struct {
 	bundleOverlayFile  []string
 	channel            charm.Channel
 	revision           int
-	series             string
+	base               series.Base
 	force              bool
 	dryRun             bool
 	applicationName    string
@@ -235,7 +235,7 @@ func (d *factory) newDeployCharm() deployCharm {
 		placement:        d.placement,
 		placementSpec:    d.placementSpec,
 		resources:        d.resources,
-		seriesFlag:       d.series,
+		baseFlag:         d.base,
 		steps:            d.steps,
 		storage:          d.storage,
 		trust:            d.trust,
@@ -270,7 +270,7 @@ func (d *factory) maybeReadLocalBundle() (Deployer, error) {
 		return nil, errors.Trace(err)
 	}
 
-	platform, err := utils.DeducePlatform(d.constraints, d.series, d.modelConstraints)
+	platform, err := utils.DeducePlatform(d.constraints, d.base, d.modelConstraints)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -333,8 +333,17 @@ func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error
 		charmOrBundle = charmOrBundle[6:]
 	}
 
-	var imageStream string
-	seriesName := d.series
+	var (
+		imageStream string
+		seriesName  string
+	)
+	if !d.base.Empty() {
+		var err error
+		seriesName, err = series.GetSeriesFromBase(d.base)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
 
 	ch, err := d.charmReader.ReadCharm(charmOrBundle)
 	if err == nil {
@@ -430,7 +439,7 @@ func (d *factory) maybeReadRepositoryBundle(resolver Resolver) (Deployer, error)
 		}
 		logger.Warningf("Charm store bundles, those with cs: before the bundle name, will not be supported in juju 3.1.\n\tMigration of this model to a juju 3.1 controller will be prohibited.")
 	}
-	platform, err := utils.DeducePlatform(d.constraints, d.series, d.modelConstraints)
+	platform, err := utils.DeducePlatform(d.constraints, d.base, d.modelConstraints)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -520,7 +529,7 @@ func (d *factory) repositoryCharm() (Deployer, error) {
 		}
 		logger.Warningf("Charm store charms, those with cs: before the charm name, will not be supported in juju 3.1.\n\tMigration of this model to a juju 3.1 controller will be prohibited.")
 	}
-	platform, err := utils.DeducePlatform(d.constraints, d.series, d.modelConstraints)
+	platform, err := utils.DeducePlatform(d.constraints, d.base, d.modelConstraints)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -681,7 +690,7 @@ func (d *factory) validateBundleFlags() error {
 func CharmOnlyFlags() []string {
 	charmOnlyFlags := []string{
 		"bind", "config", "constraints", "n", "num-units",
-		"series", "to", "resource", "attach-storage",
+		"series", "base", "to", "resource", "attach-storage",
 	}
 
 	return charmOnlyFlags
