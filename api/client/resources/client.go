@@ -11,7 +11,6 @@ import (
 	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/base"
 	apicharm "github.com/juju/juju/api/common/charm"
@@ -142,10 +141,6 @@ type AddPendingResourcesArgs struct {
 	// CharmID identifies the application's charm.
 	CharmID CharmID
 
-	// CharmStoreMacaroon is the macaroon to use for the charm when
-	// interacting with the charm store.
-	CharmStoreMacaroon *macaroon.Macaroon
-
 	// Resources holds the charm store info for each of the resources
 	// that should be added/updated on the controller.
 	Resources []charmresource.Resource
@@ -155,7 +150,7 @@ type AddPendingResourcesArgs struct {
 // without making it available yet.
 func (c Client) AddPendingResources(args AddPendingResourcesArgs) ([]string, error) {
 	tag := names.NewApplicationTag(args.ApplicationID)
-	apiArgs, err := newAddPendingResourcesArgsV2(tag, args.CharmID, args.CharmStoreMacaroon, args.Resources)
+	apiArgs, err := newAddPendingResourcesArgsV2(tag, args.CharmID, args.Resources)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -184,7 +179,7 @@ func (c Client) AddPendingResources(args AddPendingResourcesArgs) ([]string, err
 
 // newAddPendingResourcesArgsV2 returns the arguments for the
 // AddPendingResources APIv2 endpoint.
-func newAddPendingResourcesArgsV2(tag names.ApplicationTag, chID CharmID, csMac *macaroon.Macaroon, resources []charmresource.Resource) (params.AddPendingResourcesArgsV2, error) {
+func newAddPendingResourcesArgsV2(tag names.ApplicationTag, chID CharmID, resources []charmresource.Resource) (params.AddPendingResourcesArgsV2, error) {
 	var args params.AddPendingResourcesArgsV2
 
 	var apiResources []params.CharmResource
@@ -210,7 +205,6 @@ func newAddPendingResourcesArgsV2(tag names.ApplicationTag, chID CharmID, csMac 
 		Architecture: chID.Origin.Architecture,
 		Base:         params.Base{Name: chID.Origin.Base.OS, Channel: chID.Origin.Base.Channel.String()},
 	}
-	args.CharmStoreMacaroon = csMac
 	return args, nil
 }
 

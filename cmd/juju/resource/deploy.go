@@ -14,7 +14,6 @@ import (
 
 	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/errors"
-	"gopkg.in/macaroon.v2"
 	"gopkg.in/yaml.v2"
 
 	apiresources "github.com/juju/juju/api/client/resources"
@@ -26,7 +25,7 @@ import (
 // for deploy.
 type DeployClient interface {
 	// AddPendingResources adds pending metadata for store-based resources.
-	AddPendingResources(applicationID string, chID apiresources.CharmID, csMac *macaroon.Macaroon, resources []charmresource.Resource) (ids []string, err error)
+	AddPendingResources(applicationID string, chID apiresources.CharmID, resources []charmresource.Resource) (ids []string, err error)
 
 	// UploadPendingResource uploads data and metadata for a pending resource for the given application.
 	UploadPendingResource(applicationID string, resource charmresource.Resource, filename string, r io.ReadSeeker) (id string, err error)
@@ -39,10 +38,6 @@ type DeployResourcesArgs struct {
 
 	// CharmID identifies the application's charm.
 	CharmID apiresources.CharmID
-
-	// CharmStoreMacaroon is the macaroon to use for the charm when
-	// interacting with the charm store.
-	CharmStoreMacaroon *macaroon.Macaroon
 
 	// ResourceValues is the set of resources for which a value
 	// was provided at the command-line.
@@ -108,7 +103,8 @@ func (d deployUploader) upload(resourceValues map[string]string, revisions map[s
 	storeResources := d.storeResources(resourceValues, revisions)
 	pending := map[string]string{}
 	if len(storeResources) > 0 {
-		ids, err := d.client.AddPendingResources(d.applicationID, d.chID, nil, storeResources)
+
+		ids, err := d.client.AddPendingResources(d.applicationID, d.chID, storeResources)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

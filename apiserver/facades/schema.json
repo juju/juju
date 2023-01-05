@@ -14397,8 +14397,8 @@
     },
     {
         "Name": "Charms",
-        "Description": "API implements the charms interface and is the concrete\nimplementation of the API end point.",
-        "Version": 5,
+        "Description": "APIv6 provides the Charms API facade for version 6.\nIt removes the AddCharmWithAuthorization function, as\nwe no longer support macaroons.",
+        "Version": 6,
         "AvailableTo": [
             "model-user"
         ],
@@ -14416,18 +14416,6 @@
                         }
                     },
                     "description": "AddCharm adds the given charm URL (which must include revision) to the\nenvironment, if it does not exist yet. Local charms are not supported,\nonly charm store and charm hub URLs. See also AddLocalCharm()."
-                },
-                "AddCharmWithAuthorization": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/AddCharmWithAuth"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/CharmOriginResult"
-                        }
-                    },
-                    "description": "AddCharmWithAuthorization adds the given charm URL (which must include\nrevision) to the environment, if it does not exist yet. Local charms are\nnot supported, only charm store and charm hub URLs. See also AddLocalCharm().\n\nThe authorization macaroon, args.CharmStoreMacaroon, may be\nomitted, in which case this call is equivalent to AddCharm."
                 },
                 "CharmInfo": {
                     "type": "object",
@@ -14515,30 +14503,6 @@
                 }
             },
             "definitions": {
-                "AddCharmWithAuth": {
-                    "type": "object",
-                    "properties": {
-                        "charm-origin": {
-                            "$ref": "#/definitions/CharmOrigin"
-                        },
-                        "force": {
-                            "type": "boolean"
-                        },
-                        "macaroon": {
-                            "$ref": "#/definitions/Macaroon"
-                        },
-                        "url": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "url",
-                        "charm-origin",
-                        "macaroon",
-                        "force"
-                    ]
-                },
                 "AddCharmWithOrigin": {
                     "type": "object",
                     "properties": {

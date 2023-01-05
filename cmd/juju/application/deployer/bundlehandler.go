@@ -19,7 +19,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/kr/pretty"
-	"gopkg.in/macaroon.v2"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api"
@@ -28,7 +27,6 @@ import (
 	commoncharm "github.com/juju/juju/api/common/charm"
 	app "github.com/juju/juju/apiserver/facades/client/application"
 	appbundle "github.com/juju/juju/cmd/juju/application/bundle"
-	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/arch"
@@ -64,7 +62,6 @@ type bundleDeploySpec struct {
 
 	deployAPI            DeployerAPI
 	bundleResolver       Resolver
-	authorizer           store.MacaroonGetter
 	getConsumeDetailsAPI func(*charm.OfferURL) (ConsumeDetails, error)
 	deployResources      DeployResourcesFunc
 
@@ -87,22 +84,22 @@ type bundleDeploySpec struct {
 //
 // Note: deployBundle expects that spec.BundleData points to a verified bundle
 // that has all required external overlays applied.
-func bundleDeploy(defaultCharmSchema charm.Schema, bundleData *charm.BundleData, spec bundleDeploySpec) (map[charm.URL]*macaroon.Macaroon, error) {
+func bundleDeploy(defaultCharmSchema charm.Schema, bundleData *charm.BundleData, spec bundleDeploySpec) error {
 	// TODO: move bundle parsing and checking into the handler.
 	h := makeBundleHandler(defaultCharmSchema, bundleData, spec)
 	if err := h.makeModel(spec.useExistingMachines, spec.bundleMachines); err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
 	if err := h.resolveCharmsAndEndpoints(); err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
 	if err := h.getChanges(); err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
 	if err := h.handleChanges(); err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
-	return h.macaroons, nil
+	return nil
 }
 
 // bundleHandler provides helpers and the state required to deploy a bundle.
@@ -142,7 +139,6 @@ type bundleHandler struct {
 	// deployAPI is used to interact with the environment.
 	deployAPI            DeployerAPI
 	bundleResolver       Resolver
-	authorizer           store.MacaroonGetter
 	getConsumeDetailsAPI func(*charm.OfferURL) (ConsumeDetails, error)
 	deployResources      DeployResourcesFunc
 
@@ -181,8 +177,6 @@ type bundleHandler struct {
 	modelConfig *config.Config
 
 	model *bundlechanges.Model
-
-	macaroons map[charm.URL]*macaroon.Macaroon
 
 	// origins holds a different origins based on the charm URL and channels for
 	// each origin.
@@ -230,7 +224,6 @@ func makeBundleHandler(defaultCharmSchema charm.Schema, bundleData *charm.Bundle
 		modelConstraints:     spec.modelConstraints,
 		deployAPI:            spec.deployAPI,
 		bundleResolver:       spec.bundleResolver,
-		authorizer:           spec.authorizer,
 		getConsumeDetailsAPI: spec.getConsumeDetailsAPI,
 		deployResources:      spec.deployResources,
 		bundleStorage:        spec.bundleStorage,
@@ -240,7 +233,6 @@ func makeBundleHandler(defaultCharmSchema charm.Schema, bundleData *charm.Bundle
 		data:                 bundleData,
 		bundleURL:            spec.bundleURL,
 		unitStatus:           make(map[string]string),
-		macaroons:            make(map[charm.URL]*macaroon.Macaroon),
 		origins:              make(map[charm.URL]map[string]commoncharm.Origin),
 		knownSpaceNames:      spec.knownSpaceNames,
 
@@ -736,9 +728,8 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		logger.Tracef("Using channel %s from %v to deploy %v", resolvedOrigin.Base.String(), supportedSeries, url)
 	}
 
-	var macaroon *macaroon.Macaroon
 	var charmOrigin commoncharm.Origin
-	url, macaroon, charmOrigin, err = store.AddCharmWithAuthorizationFromURL(h.deployAPI, h.authorizer, url, resolvedOrigin, h.force)
+	charmOrigin, err = h.deployAPI.AddCharm(url, resolvedOrigin, h.force)
 	if err != nil {
 		return errors.Annotatef(err, "cannot add charm %q", ch.Name)
 	} else if url == nil {
@@ -748,7 +739,6 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 	logger.Debugf("added charm %s for channel %s", url, channel)
 	charmAlias := url.String()
 	h.results[id] = charmAlias
-	h.macaroons[*url] = macaroon
 	h.addOrigin(*url, channel, charmOrigin)
 	return nil
 }
@@ -868,7 +858,6 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		URL:    curl,
 		Origin: origin,
 	}
-	macaroon := h.macaroons[*curl]
 
 	h.results[change.Id()] = p.Application
 
@@ -922,7 +911,6 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 			URL:    chID.URL,
 			Origin: chID.Origin,
 		},
-		macaroon,
 		resMap,
 		charmInfo.Meta.Resources,
 		h.deployAPI,
@@ -1368,7 +1356,6 @@ func (h *bundleHandler) upgradeCharmResources(chID application.CharmID, param bu
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	mac := h.macaroons[*chID.URL]
 	var resNames2IDs map[string]string
 	if len(filtered) != 0 {
 		resNames2IDs, err = h.deployResources(
@@ -1377,7 +1364,6 @@ func (h *bundleHandler) upgradeCharmResources(chID application.CharmID, param bu
 				URL:    chID.URL,
 				Origin: chID.Origin,
 			},
-			mac,
 			resMap,
 			filtered,
 			h.deployAPI,

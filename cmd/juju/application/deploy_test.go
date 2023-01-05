@@ -173,7 +173,6 @@ func (s *DeploySuiteBase) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
 	s.DeployResources = func(applicationID string,
 		chID resources.CharmID,
-		csMac *macaroon.Macaroon,
 		filesAndRevisions map[string]string,
 		resources map[string]charmresource.Meta,
 		conn base.APICallCloser,
@@ -192,7 +191,6 @@ func (s *DeploySuiteBase) SetUpTest(c *gc.C) {
 		CharmrepoForDeploy: &fakeCharmStoreAPI{
 			fakeDeployAPI: s.fakeAPI,
 		},
-		MacaroonGetter: &noopMacaroonGetter{},
 	}
 	s.fakeAPI.deployerFactoryFunc = deployer.NewDeployerFactory
 }
@@ -1058,7 +1056,7 @@ func (s *CAASDeploySuiteBase) expectDeployer(c *gc.C, cfg deployer.DeployerConfi
 		expected: cfg,
 	}
 	s.factory.EXPECT().GetDeployer(match, gomock.Any(), gomock.Any()).Return(s.deployer, nil)
-	s.deployer.EXPECT().PrepareAndDeploy(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+	s.deployer.EXPECT().PrepareAndDeploy(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 }
 
 func (s *CAASDeploySuiteBase) SetUpTest(c *gc.C) {
@@ -1110,7 +1108,7 @@ func (s *CAASDeploySuiteBase) runDeploy(c *gc.C, fakeAPI *fakeDeployAPI, args ..
 		},
 		DeployResources: s.DeployResources,
 		NewCharmRepo: func() (*store.CharmStoreAdaptor, error) {
-			return &store.CharmStoreAdaptor{MacaroonGetter: &noopMacaroonGetter{}}, nil
+			return &store.CharmStoreAdaptor{}, nil
 		},
 		NewResolver: func(charmsAPI store.CharmsAPI, charmRepoFn store.CharmStoreRepoFunc, downloadClientFn store.DownloadBundleClientFunc) deployer.Resolver {
 			return fakeAPI
@@ -1235,13 +1233,12 @@ func (s *CAASDeploySuite) TestDevices(c *gc.C) {
 	s.DeployResources = func(
 		applicationID string,
 		chID resources.CharmID,
-		csMac *macaroon.Macaroon,
 		filesAndRevisions map[string]string,
 		resources map[string]charmresource.Meta,
 		conn base.APICallCloser,
 		filesystem modelcmd.Filesystem,
 	) (ids map[string]string, err error) {
-		fakeAPI.AddCall("DeployResources", applicationID, chID, csMac, filesAndRevisions, resources, conn)
+		fakeAPI.AddCall("DeployResources", applicationID, chID, filesAndRevisions, resources, conn)
 		return nil, fakeAPI.NextErr()
 	}
 
@@ -2561,7 +2558,7 @@ func (s *DeployUnitTestSuite) expectDeployer(c *gc.C, cfg deployer.DeployerConfi
 		expected: cfg,
 	}
 	s.factory.EXPECT().GetDeployer(match, gomock.Any(), gomock.Any()).Return(s.deployer, nil)
-	s.deployer.EXPECT().PrepareAndDeploy(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+	s.deployer.EXPECT().PrepareAndDeploy(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 }
 
 type deployerConfigMatcher struct {
@@ -2600,7 +2597,6 @@ func newDeployCommandForTest(fakeAPI *fakeDeployAPI) *DeployCommand {
 		DeployResources: func(
 			applicationID string,
 			chID resources.CharmID,
-			csMac *macaroon.Macaroon,
 			filesAndRevisions map[string]string,
 			resources map[string]charmresource.Meta,
 			conn base.APICallCloser,
@@ -2653,7 +2649,6 @@ func newDeployCommandForTest(fakeAPI *fakeDeployAPI) *DeployCommand {
 			risk := csparams.Channel(deployCmd.Channel.Risk)
 			cstoreClient := store.NewCharmStoreClient(bakeryClient, csURL).WithChannel(risk)
 			return &store.CharmStoreAdaptor{
-				MacaroonGetter:     cstoreClient,
 				CharmrepoForDeploy: charmrepo.NewCharmStoreFromClient(cstoreClient),
 			}, nil
 		}
@@ -2947,9 +2942,7 @@ func vanillaFakeModelAPI(cfgAttrs map[string]interface{}) *fakeDeployAPI {
 	var logger loggo.Logger
 	fakeAPI := &fakeDeployAPI{CallMocker: jujutesting.NewCallMocker(logger)}
 	fakeAPI.charmRepoFunc = func() (*store.CharmStoreAdaptor, error) {
-		return &store.CharmStoreAdaptor{
-			MacaroonGetter: &noopMacaroonGetter{},
-		}, nil
+		return &store.CharmStoreAdaptor{}, nil
 	}
 
 	fakeAPI.Call("Close").Returns(error(nil))

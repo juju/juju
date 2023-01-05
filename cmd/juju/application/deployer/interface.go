@@ -36,7 +36,7 @@ type Deployer interface {
 	// PrepareAndDeploy finishes preparing to deploy a charm or bundle,
 	// then deploys it.  This is done as one step to accommodate the
 	// call being wrapped by block.ProcessBlockedError.
-	PrepareAndDeploy(*cmd.Context, DeployerAPI, Resolver, store.MacaroonGetter) error
+	PrepareAndDeploy(*cmd.Context, DeployerAPI, Resolver) error
 
 	// String returns a string description of the deployer.
 	String() string

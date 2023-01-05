@@ -16,7 +16,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
-	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -79,7 +78,7 @@ func newRefreshCommand() *refreshCommand {
 			bakeryClient *httpbakery.Client,
 			csURL string,
 			channel csparams.Channel,
-		) (store.MacaroonGetter, store.CharmrepoForDeploy) {
+		) store.CharmrepoForDeploy {
 			return getCharmStore(bakeryClient, csURL, channel)
 		},
 		NewCharmResolver: func(apiRoot base.APICallCloser, charmrepo store.CharmrepoForDeploy, downloadClient store.DownloadBundleClient) CharmResolver {
@@ -126,7 +125,7 @@ type NewCharmStoreFunc func(
 	*httpbakery.Client,
 	string, // Charmstore API URL
 	csparams.Channel,
-) (store.MacaroonGetter, store.CharmrepoForDeploy)
+) store.CharmrepoForDeploy
 
 // NewCharmResolverFunc returns a client implementing CharmResolver.
 type NewCharmResolverFunc func(base.APICallCloser, store.CharmrepoForDeploy, store.DownloadBundleClient) CharmResolver
@@ -452,7 +451,7 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		URL:    curl,
 		Origin: origin,
 	}
-	resourceIDs, err := c.upgradeResources(apiRoot, resourceLister, chID, charmID.Macaroon, charmInfo.Meta.Resources)
+	resourceIDs, err := c.upgradeResources(apiRoot, resourceLister, chID, charmInfo.Meta.Resources)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -548,7 +547,6 @@ func (c *refreshCommand) upgradeResources(
 	apiRoot base.APICallCloser,
 	resourceLister utils.ResourceLister,
 	chID application.CharmID,
-	csMac *macaroon.Macaroon,
 	meta map[string]charmresource.Meta,
 ) (map[string]string, error) {
 	filtered, err := utils.GetUpgradeResources(
@@ -573,7 +571,6 @@ func (c *refreshCommand) upgradeResources(
 			URL:    chID.URL,
 			Origin: chID.Origin,
 		},
-		csMac,
 		c.Resources,
 		filtered,
 		apiRoot,
@@ -610,9 +607,9 @@ func getCharmStore(
 	bakeryClient *httpbakery.Client,
 	csURL string,
 	channel csparams.Channel,
-) (store.MacaroonGetter, store.CharmrepoForDeploy) {
+) store.CharmrepoForDeploy {
 	csClient := store.NewCharmStoreClient(bakeryClient, csURL).WithChannel(channel)
-	return csClient, charmrepo.NewCharmStoreFromClient(csClient)
+	return charmrepo.NewCharmStoreFromClient(csClient)
 }
 
 // getCharmStoreAPIURL consults the controller config for the charmstore api url
@@ -658,7 +655,7 @@ func (c *refreshCommand) getRefresherFactory(apiRoot api.Connection) (refresher.
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	csClient, charmStore := c.NewCharmStore(bakeryClient, csURL, csparams.Channel(c.Channel.Risk))
+	charmStore := c.NewCharmStore(bakeryClient, csURL, csparams.Channel(c.Channel.Risk))
 
 	charmHubURL, err := c.getCharmHubURL(apiRoot)
 	if err != nil {
@@ -671,7 +668,6 @@ func (c *refreshCommand) getRefresherFactory(apiRoot api.Connection) (refresher.
 	}
 
 	deps := refresher.RefresherDependencies{
-		Authorizer:    csClient,
 		CharmAdder:    c.NewCharmAdder(apiRoot),
 		CharmResolver: c.NewCharmResolver(apiRoot, charmStore, downloadClient),
 	}

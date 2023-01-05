@@ -318,8 +318,6 @@ func (s *charmStoreCharmRefresherSuite) TestRefresh(c *gc.C) {
 		Architecture: arch.DefaultArchitecture,
 	}
 
-	authorizer := NewMockMacaroonGetter(ctrl)
-
 	charmAdder := NewMockCharmAdder(ctrl)
 	charmAdder.EXPECT().AddCharm(newCurl, origin, false).Return(origin, nil)
 
@@ -328,7 +326,7 @@ func (s *charmStoreCharmRefresherSuite) TestRefresh(c *gc.C) {
 
 	cfg := basicRefresherConfig(curl, ref)
 
-	refresher := (&factory{}).maybeCharmStore(authorizer, charmAdder, charmResolver)
+	refresher := (&factory{}).maybeCharmStore(charmAdder, charmResolver)
 	task, err := refresher(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -351,9 +349,6 @@ func (s *charmStoreCharmRefresherSuite) TestRefreshWithNoUpdates(c *gc.C) {
 		Architecture: arch.DefaultArchitecture,
 	}
 
-	authorizer := NewMockMacaroonGetter(ctrl)
-	authorizer.EXPECT().Get("/delegatable-macaroon?id=cs%3Ameshuggah", gomock.Any()).Return(errors.New("404 NOT FOUND"))
-
 	charmAdder := NewMockCharmAdder(ctrl)
 
 	charmResolver := NewMockCharmResolver(ctrl)
@@ -361,7 +356,7 @@ func (s *charmStoreCharmRefresherSuite) TestRefreshWithNoUpdates(c *gc.C) {
 
 	cfg := basicRefresherConfig(curl, ref)
 
-	refresher := (&factory{}).maybeCharmStore(authorizer, charmAdder, charmResolver)
+	refresher := (&factory{}).maybeCharmStore(charmAdder, charmResolver)
 	task, err := refresher(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -380,8 +375,6 @@ func (s *charmStoreCharmRefresherSuite) TestRefreshWithARevision(c *gc.C) {
 		Architecture: arch.DefaultArchitecture,
 	}
 
-	authorizer := NewMockMacaroonGetter(ctrl)
-	authorizer.EXPECT().Get("/delegatable-macaroon?id=cs%3Ameshuggah-1", gomock.Any()).Return(errors.New("404 NOT FOUND"))
 	charmAdder := NewMockCharmAdder(ctrl)
 
 	charmResolver := NewMockCharmResolver(ctrl)
@@ -389,7 +382,7 @@ func (s *charmStoreCharmRefresherSuite) TestRefreshWithARevision(c *gc.C) {
 
 	cfg := basicRefresherConfig(curl, ref)
 
-	refresher := (&factory{}).maybeCharmStore(authorizer, charmAdder, charmResolver)
+	refresher := (&factory{}).maybeCharmStore(charmAdder, charmResolver)
 	task, err := refresher(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -408,8 +401,6 @@ func (s *charmStoreCharmRefresherSuite) TestRefreshWithCharmSwitch(c *gc.C) {
 		Architecture: arch.DefaultArchitecture,
 	}
 
-	authorizer := NewMockMacaroonGetter(ctrl)
-	authorizer.EXPECT().Get("/delegatable-macaroon?id=cs%3Aaloupi-1", gomock.Any()).Return(errors.New("404 NOT FOUND"))
 	charmAdder := NewMockCharmAdder(ctrl)
 
 	charmResolver := NewMockCharmResolver(ctrl)
@@ -418,7 +409,7 @@ func (s *charmStoreCharmRefresherSuite) TestRefreshWithCharmSwitch(c *gc.C) {
 	cfg := basicRefresherConfig(curl, ref)
 	cfg.Switch = true
 
-	refresher := (&factory{}).maybeCharmStore(authorizer, charmAdder, charmResolver)
+	refresher := (&factory{}).maybeCharmStore(charmAdder, charmResolver)
 	task, err := refresher(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
