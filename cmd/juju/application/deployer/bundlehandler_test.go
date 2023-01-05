@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/series"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
@@ -2610,13 +2611,13 @@ func (s *BundleHandlerOriginSuite) TestConstructChannelAndOrigin(c *gc.C) {
 
 	arch := "arm64"
 	curl := charm.MustParseURL("ch:mysql")
-	series := "focal"
+	base := series.MustParseBaseFromString("ubuntu@20.04")
 	channel := "stable"
 	cons := constraints.Value{
 		Arch: &arch,
 	}
 
-	resultChannel, resultOrigin, err := handler.constructChannelAndOrigin(curl, series, channel, cons)
+	resultChannel, resultOrigin, err := handler.constructChannelAndOrigin(curl, base, channel, cons)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resultChannel, gc.DeepEquals, corecharm.MustParseChannel("stable"))
 	c.Assert(resultOrigin, gc.DeepEquals, commoncharm.Origin{
@@ -2631,11 +2632,11 @@ func (s *BundleHandlerOriginSuite) TestConstructChannelAndOriginUsingArchFallbac
 	handler := &bundleHandler{}
 
 	curl := charm.MustParseURL("ch:mysql")
-	series := "focal"
+	base := series.MustParseBaseFromString("ubuntu@20.04")
 	channel := "stable"
 	cons := constraints.Value{}
 
-	resultChannel, resultOrigin, err := handler.constructChannelAndOrigin(curl, series, channel, cons)
+	resultChannel, resultOrigin, err := handler.constructChannelAndOrigin(curl, base, channel, cons)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resultChannel, gc.DeepEquals, corecharm.MustParseChannel("stable"))
 	c.Assert(resultOrigin, gc.DeepEquals, commoncharm.Origin{
@@ -2651,13 +2652,13 @@ func (s *BundleHandlerOriginSuite) TestConstructChannelAndOriginEmptyChannel(c *
 
 	arch := "arm64"
 	curl := charm.MustParseURL("ch:mysql")
-	series := "focal"
+	base := series.MustParseBaseFromString("ubuntu@20.04")
 	channel := ""
 	cons := constraints.Value{
 		Arch: &arch,
 	}
 
-	resultChannel, resultOrigin, err := handler.constructChannelAndOrigin(curl, series, channel, cons)
+	resultChannel, resultOrigin, err := handler.constructChannelAndOrigin(curl, base, channel, cons)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resultChannel, gc.DeepEquals, charm.Channel{})
 	c.Assert(resultOrigin, gc.DeepEquals, commoncharm.Origin{
@@ -2699,7 +2700,8 @@ func (s *BundleHandlerResolverSuite) TestResolveCharmChannelAndRevision(c *gc.C)
 
 	resolver.EXPECT().ResolveCharm(charmURL, origin, false).Return(charmURL, resolvedOrigin, nil, nil)
 
-	channel, rev, err := handler.resolveCharmChannelAndRevision(charmURL.String(), "focal", charmChannel, arch, -1)
+	base := series.MustParseBaseFromString("ubuntu@20.04")
+	channel, rev, err := handler.resolveCharmChannelAndRevision(charmURL.String(), base, charmChannel, arch, -1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(channel, gc.DeepEquals, "stable")
 	c.Assert(rev, gc.Equals, rev)
@@ -2729,7 +2731,8 @@ func (s *BundleHandlerResolverSuite) TestResolveCharmChannelWithoutRevision(c *g
 
 	resolver.EXPECT().ResolveCharm(charmURL, origin, false).Return(charmURL, resolvedOrigin, nil, nil)
 
-	channel, rev, err := handler.resolveCharmChannelAndRevision(charmURL.String(), "focal", charmChannel, arch, -1)
+	base := series.MustParseBaseFromString("ubuntu@20.04")
+	channel, rev, err := handler.resolveCharmChannelAndRevision(charmURL.String(), base, charmChannel, arch, -1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(channel, gc.DeepEquals, "stable")
 	c.Assert(rev, gc.Equals, -1)
@@ -2742,11 +2745,11 @@ func (s *BundleHandlerResolverSuite) TestResolveLocalCharm(c *gc.C) {
 		Schema: string(charm.Local),
 		Name:   "local",
 	}
-	charmSeries := "focal"
+	charmBase := series.MustParseBaseFromString("ubuntu@20.04")
 	charmChannel := "stable"
 	arch := "amd64"
 
-	channel, rev, err := handler.resolveCharmChannelAndRevision(charmURL.String(), charmSeries, charmChannel, arch, -1)
+	channel, rev, err := handler.resolveCharmChannelAndRevision(charmURL.String(), charmBase, charmChannel, arch, -1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(channel, gc.DeepEquals, "stable")
 	c.Assert(rev, gc.Equals, -1)

@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/cmd/juju/application/deployer/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/series"
 	jujuseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/testcharms"
@@ -89,8 +90,7 @@ func (s *deployerSuite) TestGetDeployerLocalCharm(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectFilesystem()
 	s.expectModelGet(c)
-	cfg := s.basicDeployerConfig()
-	cfg.Series = "bionic"
+	cfg := s.basicDeployerConfig(series.MustParseBaseFromString("ubuntu@18.04"))
 	s.expectModelType()
 
 	dir := c.MkDir()
@@ -203,8 +203,7 @@ func (s *deployerSuite) TestCharmStoreSeriesOverride(c *gc.C) {
 	s.expectModelType()
 	s.expectResolveBundleURL(errors.NotValidf("not a bundle"), 1)
 
-	cfg := s.basicDeployerConfig()
-	cfg.Series = "bionic" // Override the default series (as if --series was specified)
+	cfg := s.basicDeployerConfig(series.MustParseBaseFromString("ubuntu@18.04"))
 	ch := charm.MustParseURL("cs:test-charm")
 	s.expectStat(ch.String(), errors.NotFoundf("file"))
 	cfg.CharmOrBundle = ch.String()
@@ -223,8 +222,7 @@ func (s *deployerSuite) TestGetDeployerLocalBundle(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectFilesystem()
 
-	cfg := s.basicDeployerConfig()
-	cfg.Series = "bionic"
+	cfg := s.basicDeployerConfig(series.MustParseBaseFromString("ubuntu@18.04"))
 	cfg.FlagSet = &gnuflag.FlagSet{}
 	s.expectModelType()
 
@@ -288,7 +286,7 @@ func (s *deployerSuite) testGetDeployerRepositoryBundle(c *gc.C, cfg DeployerCon
 
 	s.expectResolveBundleURL(nil, 1)
 
-	cfg.Series = "bionic"
+	cfg.Base = series.MustParseBaseFromString("ubuntu@18.04")
 	cfg.FlagSet = &gnuflag.FlagSet{}
 	s.expectStat(cfg.CharmOrBundle, errors.NotFoundf("file"))
 	s.expectModelType()
@@ -304,9 +302,8 @@ func (s *deployerSuite) TestGetDeployerCharmHubBundleWithRevisionURL(c *gc.C) {
 	s.expectFilesystem()
 
 	bundle := charm.MustParseURL("ch:test-bundle-8")
-	cfg := s.basicDeployerConfig()
+	cfg := s.basicDeployerConfig(series.MustParseBaseFromString("ubuntu@18.04"))
 	cfg.CharmOrBundle = bundle.String()
-	cfg.Series = "bionic"
 	cfg.FlagSet = &gnuflag.FlagSet{}
 	s.expectStat(cfg.CharmOrBundle, errors.NotFoundf("file"))
 	s.expectModelType()
@@ -323,10 +320,9 @@ func (s *deployerSuite) TestGetDeployerCharmHubBundleError(c *gc.C) {
 	s.expectResolveBundleURL(nil, 1)
 
 	bundle := charm.MustParseURL("ch:test-bundle")
-	cfg := s.channelDeployerConfig()
+	cfg := s.channelDeployerConfig(series.MustParseBaseFromString("ubuntu@18.04"))
 	cfg.Revision = 42
 	cfg.CharmOrBundle = bundle.String()
-	cfg.Series = "bionic"
 	cfg.FlagSet = &gnuflag.FlagSet{}
 	s.expectStat(cfg.CharmOrBundle, errors.NotFoundf("file"))
 	s.expectModelType()
@@ -484,16 +480,28 @@ func (s *deployerSuite) newDeployerFactory() DeployerFactory {
 	return NewDeployerFactory(dep)
 }
 
-func (s *deployerSuite) basicDeployerConfig() DeployerConfig {
+func (s *deployerSuite) basicDeployerConfig(bases ...series.Base) DeployerConfig {
+	var base series.Base
+	if len(bases) == 0 {
+		base = series.MustParseBaseFromString("ubuntu@20.04")
+	} else {
+		base = bases[0]
+	}
 	return DeployerConfig{
-		Series:   "focal",
+		Base:     base,
 		Revision: -1,
 	}
 }
 
-func (s *deployerSuite) channelDeployerConfig() DeployerConfig {
+func (s *deployerSuite) channelDeployerConfig(bases ...series.Base) DeployerConfig {
+	var base series.Base
+	if len(bases) == 0 {
+		base = series.MustParseBaseFromString("ubuntu@20.04")
+	} else {
+		base = bases[0]
+	}
 	return DeployerConfig{
-		Series: "focal",
+		Base: base,
 		Channel: charm.Channel{
 			Risk: "edge",
 		},

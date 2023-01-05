@@ -684,9 +684,13 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		}
 	}
 
-	base, err := series.GetBaseFromSeries(chSeries)
-	if err != nil {
-		return errors.Trace(err)
+	var base series.Base
+	if chSeries != "" {
+		var err error
+		base, err = series.GetBaseFromSeries(chSeries)
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	platform, err := utils.DeducePlatform(cons, base, h.modelConstraints)
