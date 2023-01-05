@@ -119,6 +119,10 @@ var x = []byte("\x96\x8c\x8a\x91\x93\x9a\x9e\x8c\x97\x99\x8a\x9c\x94\x96\x91\x98
 // provides an entry point for testing with arbitrary command line arguments.
 // This function returns the exit code, for main to pass to os.Exit.
 func Main(args []string) int {
+	_, err := loggo.ReplaceDefaultWriter(cmd.NewWarningWriter(os.Stderr))
+	if err != nil {
+		panic(err)
+	}
 	return jujuMain{
 		execCommand: exec.Command,
 	}.Run(args)

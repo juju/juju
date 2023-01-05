@@ -8,9 +8,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/juju/cmd/v3"
-	"github.com/juju/loggo"
-
 	"github.com/juju/juju/cmd/juju/commands"
 	_ "github.com/juju/juju/provider/all" // Import the providers.
 )
@@ -20,9 +17,5 @@ func init() {
 }
 
 func main() {
-	_, err := loggo.ReplaceDefaultWriter(cmd.NewWarningWriter(os.Stderr))
-	if err != nil {
-		panic(err)
-	}
 	os.Exit(commands.Main(os.Args))
 }
