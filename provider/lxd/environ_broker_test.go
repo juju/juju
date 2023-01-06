@@ -424,14 +424,12 @@ func (s *environBrokerSuite) TestStartInstanceWithConstraintsAndVirtType(c *gc.C
 	}
 
 	exp := svr.EXPECT()
-	gomock.InOrder(
-		exp.HostArch().Return(arch.AMD64),
-		exp.FindImage(series.MakeDefaultBase("ubuntu", "22.04"), arch.AMD64, api.InstanceTypeVM, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
-		exp.ServerVersion().Return("3.10.0"),
-		exp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
-		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{}, nil),
-		exp.HostArch().Return(arch.AMD64),
-	)
+	exp.HostArch().Return(arch.AMD64)
+	exp.FindImage(series.MakeDefaultBase("ubuntu", "22.04"), arch.AMD64, api.InstanceTypeVM, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil)
+	exp.ServerVersion().Return("3.10.0")
+	exp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil)
+	exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{}, nil)
+	exp.HostArch().Return(arch.AMD64)
 
 	args := s.GetStartInstanceArgs(c)
 	cores := uint64(2)

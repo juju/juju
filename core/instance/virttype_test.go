@@ -42,3 +42,24 @@ func (s *VirtTypeSuite) TestParseVirtType(c *gc.C) {
 		}
 	}
 }
+
+func (s *VirtTypeSuite) TestNormaliseVirtType(c *gc.C) {
+	virtTypes := []struct {
+		arg      VirtType
+		expected VirtType
+	}{{
+		arg:      api.InstanceTypeAny,
+		expected: api.InstanceTypeContainer,
+	}, {
+		arg:      api.InstanceTypeContainer,
+		expected: api.InstanceTypeContainer,
+	}, {
+		arg:      api.InstanceTypeVM,
+		expected: api.InstanceTypeVM,
+	}}
+	for i, t := range virtTypes {
+		c.Logf("test %d: %s", i, t.arg)
+		v := NormaliseVirtType(t.arg)
+		c.Check(v, gc.Equals, t.expected)
+	}
+}

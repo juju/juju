@@ -301,11 +301,12 @@ func (s *Server) ContainerAddresses(name string) ([]corenetwork.ProviderAddress,
 func (s *Server) CreateContainerFromSpec(spec ContainerSpec) (*Container, error) {
 	logger.Infof("starting new container %q (image %q)", spec.Name, spec.Image.Image.Filename)
 	logger.Debugf("new container has profiles %v", spec.Profiles)
+
 	ephemeral := false
 	req := api.InstancesPost{
 		Name:         spec.Name,
 		InstanceType: spec.InstanceType,
-		Type:         spec.VirtType,
+		Type:         instance.NormaliseVirtType(spec.VirtType),
 		InstancePut: api.InstancePut{
 			Architecture: spec.Architecture,
 			Profiles:     spec.Profiles,
