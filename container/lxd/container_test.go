@@ -346,6 +346,7 @@ func (s *containerSuite) TestCreateContainerFromSpecSuccess(c *gc.C) {
 
 	createReq := api.InstancesPost{
 		Name: spec.Name,
+		Type: api.InstanceTypeContainer,
 		InstancePut: api.InstancePut{
 			Profiles:  spec.Profiles,
 			Devices:   spec.Devices,
@@ -410,6 +411,7 @@ func (s *containerSuite) TestCreateContainerFromSpecAlreadyExists(c *gc.C) {
 
 	createReq := api.InstancesPost{
 		Name: spec.Name,
+		Type: api.InstanceTypeContainer,
 		InstancePut: api.InstancePut{
 			Profiles:  spec.Profiles,
 			Devices:   spec.Devices,
@@ -473,6 +475,7 @@ func (s *containerSuite) TestCreateContainerFromSpecAlreadyExistsNotCorrectSpec(
 
 	createReq := api.InstancesPost{
 		Name: spec.Name,
+		Type: api.InstanceTypeContainer,
 		InstancePut: api.InstancePut{
 			Profiles:  spec.Profiles,
 			Devices:   spec.Devices,
@@ -533,6 +536,7 @@ func (s *containerSuite) TestCreateContainerFromSpecStartFailed(c *gc.C) {
 
 	createReq := api.InstancesPost{
 		Name: spec.Name,
+		Type: api.InstanceTypeContainer,
 		InstancePut: api.InstancePut{
 			Profiles:  spec.Profiles,
 			Devices:   spec.Devices,
