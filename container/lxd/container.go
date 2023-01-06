@@ -215,6 +215,14 @@ func (s *Server) AliveContainers(prefix string) ([]Container, error) {
 // FilterContainers retrieves the list of containers from the server and filters
 // them based on the input namespace prefix and any supplied statuses.
 func (s *Server) FilterContainers(prefix string, statuses ...string) ([]Container, error) {
+	// The retry here is required here because when creating a virtual machine
+	// container type, it does not always appear in the list of containers.
+	// There doesn't seem to be a status that's available to us that indicates
+	// that the machine is being created, but not yet quite alive.
+	//
+	// As we're trying to not have any logic that differentiates between
+	// containers and virtual machines, at a higher level, we retry here to
+	// prevent leaking the difference.
 	var containers []Container
 	err := retry.Call(retry.CallArgs{
 		Func: func() error {
