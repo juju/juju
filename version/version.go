@@ -18,7 +18,11 @@ import (
 // The presence and format of this constant is very important.
 // The debian/rules build recipe uses this value for the version
 // number of the release package.
+<<<<<<< HEAD
 const version = "3.0.3"
+=======
+const version = "2.9.39"
+>>>>>>> c13fbe80f8 (Increment juju to 2.9.39)
 
 // UserAgentVersion defines a user agent version used for communication for
 // outside resources.
