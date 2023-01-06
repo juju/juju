@@ -411,6 +411,14 @@ func (env *maasEnviron) createAndPopulateDevice(params deviceCreatorParams) (gom
 
 		subnet, knownSubnet := params.CIDRToMAASSubnet[nic.PrimaryAddress().CIDR]
 		if !knownSubnet {
+			if primaryNICVLAN == nil {
+				// There is no primary NIC VLAN, so we can't fallback to the
+				// primaryNIC VLAN. Instead we'll emit a warning that no
+				// subnet is found, nor a primary NIC VLAN is available.
+				logger.Warningf("NIC %v has no subnet and no primary NIC VLAN", nic.InterfaceName)
+				continue
+			}
+
 			logger.Warningf("NIC %v has no subnet - setting to manual and using 'primaryNIC' VLAN %d", nic.InterfaceName, primaryNICVLAN.ID())
 			createArgs.VLAN = primaryNICVLAN
 		} else {
