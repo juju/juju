@@ -14,11 +14,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/charm/v9"
 	charmresource "github.com/juju/charm/v9/resource"
 	csclientparams "github.com/juju/charmrepo/v7/csclient/params"
-	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/collections/set"
@@ -186,17 +184,7 @@ func (s *BaseRefreshSuite) refreshCommand() cmd.Command {
 		memStore,
 		apiOpen,
 		s.deployResources,
-		func(
-			bakeryClient *httpbakery.Client,
-			csURL string,
-			channel csclientparams.Channel,
-		) store.CharmrepoForDeploy {
-			s.AddCall("NewCharmStore", csURL)
-			return &fakeCharmStoreAPI{
-				fakeDeployAPI: s.fakeAPI,
-			}
-		},
-		func(base.APICallCloser, store.CharmrepoForDeploy, store.DownloadBundleClient) CharmResolver {
+		func(base.APICallCloser, store.DownloadBundleClient) CharmResolver {
 			s.AddCall("NewCharmResolver")
 			return &s.resolveCharm
 		},
@@ -218,10 +206,6 @@ func (s *BaseRefreshSuite) refreshCommand() cmd.Command {
 		func(conn base.APICallCloser) (utils.ResourceLister, error) {
 			s.AddCall("NewResourceLister", conn)
 			return &s.resourceLister, s.NextErr()
-		},
-		func(conn base.APICallCloser) (string, error) {
-			s.AddCall("CharmStoreURLGetter", conn)
-			return "testing.api.charmstore", s.NextErr()
 		},
 		func(conn base.APICallCloser) SpacesAPI {
 			s.AddCall("NewSpacesClient", conn)
@@ -259,19 +243,6 @@ func (s *RefreshSuite) TestStorageConstraints(c *gc.C) {
 		},
 		EndpointBindings: map[string]string{},
 	})
-}
-
-func (s *RefreshSuite) TestUseConfiguredCharmStoreURL(c *gc.C) {
-	_, err := s.runRefresh(c, "foo")
-	c.Assert(err, jc.ErrorIsNil)
-	var csURL string
-	for _, call := range s.Calls() {
-		if call.FuncName == "NewCharmStore" {
-			csURL = call.Args[0].(string)
-			break
-		}
-	}
-	c.Assert(csURL, gc.Equals, "testing.api.charmstore")
 }
 
 func (s *RefreshSuite) TestConfigSettings(c *gc.C) {
@@ -397,15 +368,6 @@ func (s *RefreshErrorsStateSuite) SetUpTest(c *gc.C) {
 	}
 	s.fakeAPI = vanillaFakeModelAPI(cfgAttrs)
 	s.cmd = NewRefreshCommandForStateTest(
-		func(
-			bakeryClient *httpbakery.Client,
-			csURL string,
-			channel csclientparams.Channel,
-		) store.CharmrepoForDeploy {
-			return &fakeCharmStoreAPI{
-				fakeDeployAPI: s.fakeAPI,
-			}
-		},
 		func(conn api.Connection) store.CharmAdder {
 			return s.fakeAPI
 		},
@@ -447,12 +409,8 @@ func (s *RefreshErrorsStateSuite) deployApplication(c *gc.C) {
 
 func (s *RefreshErrorsStateSuite) TestInvalidSwitchURL(c *gc.C) {
 	s.deployApplication(c)
-
-	url := charm.MustParseURL("cs:missing")
-	s.fakeAPI.Call("ResolveWithPreferredChannel", url).Returns(url, csparams.Channel("stable"), []string{}, errors.Errorf(`bad`))
-
 	_, err := s.runRefresh(c, s.cmd, "riak", "--switch=cs:missing")
-	c.Assert(err, gc.ErrorMatches, `bad`)
+	c.Assert(err, gc.ErrorMatches, `unknown schema for charm URL "cs:missing"`)
 }
 
 func (s *RefreshErrorsStateSuite) TestNoPathFails(c *gc.C) {
@@ -537,15 +495,6 @@ func (s *RefreshSuccessStateSuite) SetUpTest(c *gc.C) {
 
 	s.charmClient = mockCharmClient{}
 	s.cmd = NewRefreshCommandForStateTest(
-		func(
-			bakeryClient *httpbakery.Client,
-			csURL string,
-			channel csclientparams.Channel,
-		) store.CharmrepoForDeploy {
-			return &fakeCharmStoreAPI{
-				fakeDeployAPI: s.fakeAPI,
-			}
-		},
 		newCharmAdder,
 		func(conn base.APICallCloser) utils.CharmClient {
 			return &s.charmClient

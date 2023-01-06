@@ -6,11 +6,8 @@ package application
 import (
 	"fmt"
 
-	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/charm/v9"
 	charmresource "github.com/juju/charm/v9/resource"
-	"github.com/juju/charmrepo/v7"
-	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -27,7 +24,6 @@ import (
 	"github.com/juju/juju/api/client/spaces"
 	commoncharm "github.com/juju/juju/api/common/charm"
 	apicommoncharms "github.com/juju/juju/api/common/charms"
-	"github.com/juju/juju/api/controller/controller"
 	"github.com/juju/juju/charmhub"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/application/deployer"
@@ -73,15 +69,7 @@ func newRefreshCommand() *refreshCommand {
 				Logger: logger,
 			})
 		},
-		CharmStoreURLGetter: getCharmStoreAPIURL,
-		NewCharmStore: func(
-			bakeryClient *httpbakery.Client,
-			csURL string,
-			channel csparams.Channel,
-		) store.CharmrepoForDeploy {
-			return getCharmStore(bakeryClient, csURL, channel)
-		},
-		NewCharmResolver: func(apiRoot base.APICallCloser, charmrepo store.CharmrepoForDeploy, downloadClient store.DownloadBundleClient) CharmResolver {
+		NewCharmResolver: func(apiRoot base.APICallCloser, downloadClient store.DownloadBundleClient) CharmResolver {
 			return store.NewCharmAdaptor(apicharms.NewClient(apiRoot),
 				func() (store.DownloadBundleClient, error) {
 					return downloadClient, nil
@@ -117,15 +105,8 @@ type NewCharmAdderFunc func(
 	api.Connection,
 ) store.CharmAdder
 
-// NewCharmStoreFunc constructs a charm store client.
-type NewCharmStoreFunc func(
-	*httpbakery.Client,
-	string, // Charmstore API URL
-	csparams.Channel,
-) store.CharmrepoForDeploy
-
 // NewCharmResolverFunc returns a client implementing CharmResolver.
-type NewCharmResolverFunc func(base.APICallCloser, store.CharmrepoForDeploy, store.DownloadBundleClient) CharmResolver
+type NewCharmResolverFunc func(base.APICallCloser, store.DownloadBundleClient) CharmResolver
 
 // RefreshCharm is responsible for upgrading an application's charm.
 type refreshCommand struct {
@@ -133,13 +114,11 @@ type refreshCommand struct {
 
 	DeployResources       deployer.DeployResourcesFunc
 	NewCharmAdder         NewCharmAdderFunc
-	NewCharmStore         NewCharmStoreFunc
 	NewCharmResolver      NewCharmResolverFunc
 	NewCharmClient        func(base.APICallCloser) utils.CharmClient
 	NewCharmRefreshClient func(base.APICallCloser) CharmRefreshClient
 	NewResourceLister     func(base.APICallCloser) (utils.ResourceLister, error)
 	NewSpacesClient       func(base.APICallCloser) SpacesAPI
-	CharmStoreURLGetter   func(base.APICallCloser) (string, error)
 	ModelConfigClient     func(base.APICallCloser) ModelConfigClient
 	NewCharmHubClient     func(string) (store.DownloadBundleClient, error)
 	NewRefresherFactory   func(refresher.RefresherDependencies) refresher.RefresherFactory
@@ -160,7 +139,7 @@ type refreshCommand struct {
 	// Resources is a map of resource name to filename to be uploaded on upgrade.
 	Resources map[string]string
 
-	// Channel holds the charmstore or charmhub channel to use when obtaining
+	// Channel holds the charmhub channel to use when obtaining
 	// the charm to be refreshed to.
 	Channel    charm.Channel
 	channelStr string
@@ -230,8 +209,6 @@ regardless of potential havoc, so long as the following conditions hold:
   participating in.
 - All config settings shared by the old and new charms must
   have the same types.
-- Charms changing from CharmStore (cs: prefix) to CharmHub require a 
-  homogeneous architecture for applications.
 
 The new charm may add new relations and configuration settings.
 
@@ -406,12 +383,9 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	if err == nil {
 		curl := charmID.URL
 		charmOrigin := charmID.Origin
-		if charmOrigin.Source == corecharm.CharmStore {
-			ctx.Warningf("Charm store charms, those with cs: before the charm name, will not be supported in juju 3.1.\n\tMigration of this model to a juju 3.1 controller will be prohibited.\n\tUse the --switch flag to refresh to a non charm store version of the charm.")
-		}
 		// The current charm URL that's been found and selected.
 		channel := ""
-		if charmOrigin.Source == corecharm.CharmHub || charmOrigin.Source == corecharm.CharmStore {
+		if charmOrigin.Source == corecharm.CharmHub {
 			channel = fmt.Sprintf(" in channel %s", charmID.Origin.Channel.String())
 		}
 		ctx.Infof("Added %s charm %q, revision %d%s, to the model", charmOrigin.Source, curl.Name, curl.Revision, channel)
@@ -600,26 +574,6 @@ func (c *charmAdderShim) AddLocalCharm(curl *charm.URL, ch charm.Charm, force bo
 	return c.charmsClient.AddLocalCharm(curl, ch, force, agentVersion)
 }
 
-func getCharmStore(
-	bakeryClient *httpbakery.Client,
-	csURL string,
-	channel csparams.Channel,
-) store.CharmrepoForDeploy {
-	csClient := store.NewCharmStoreClient(bakeryClient, csURL).WithChannel(channel)
-	return charmrepo.NewCharmStoreFromClient(csClient)
-}
-
-// getCharmStoreAPIURL consults the controller config for the charmstore api url
-// to use.
-var getCharmStoreAPIURL = func(conAPIRoot base.APICallCloser) (string, error) {
-	controllerAPI := controller.NewClient(conAPIRoot)
-	controllerCfg, err := controllerAPI.ControllerConfig()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return controllerCfg.CharmStoreURL(), nil
-}
-
 func allEndpoints(ci *apicommoncharms.CharmInfo) set.Strings {
 	epSet := set.NewStrings()
 	for n := range ci.Meta.ExtraBindings {
@@ -639,21 +593,6 @@ func allEndpoints(ci *apicommoncharms.CharmInfo) set.Strings {
 }
 
 func (c *refreshCommand) getRefresherFactory(apiRoot api.Connection) (refresher.RefresherFactory, error) {
-	// First, ensure the charm is added to the model.
-	conAPIRoot, err := c.NewControllerAPIRoot()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	csURL, err := c.CharmStoreURLGetter(conAPIRoot)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	bakeryClient, err := c.BakeryClient()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	charmStore := c.NewCharmStore(bakeryClient, csURL, csparams.Channel(c.Channel.Risk))
-
 	charmHubURL, err := c.getCharmHubURL(apiRoot)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -666,7 +605,7 @@ func (c *refreshCommand) getRefresherFactory(apiRoot api.Connection) (refresher.
 
 	deps := refresher.RefresherDependencies{
 		CharmAdder:    c.NewCharmAdder(apiRoot),
-		CharmResolver: c.NewCharmResolver(apiRoot, charmStore, downloadClient),
+		CharmResolver: c.NewCharmResolver(apiRoot, downloadClient),
 	}
 	return c.NewRefresherFactory(deps), nil
 }
