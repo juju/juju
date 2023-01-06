@@ -1,23 +1,23 @@
 # Deploy the dummy-sink charm on an earlier series, then check that we can
 # upgrade the series, and that the charm still behaves correctly.
 run_upgrade_series_relation() {
-	local start_series end_series
-	start_series="focal"
-	end_series="jammy"
+	local start_base end_base
+	start_base="focal"
+	end_base="jammy"
 
 	# Setup
 	ensure "test-upgrade-machine-relation" "${TEST_DIR}/test-upgrade-machine-relation.log"
-	juju deploy ./testcharms/charms/dummy-sink --series $start_series
-	juju deploy ./testcharms/charms/dummy-source --series $end_series
+	juju deploy ./testcharms/charms/dummy-sink --base $start_base
+	juju deploy ./testcharms/charms/dummy-source --base $end_base
 	juju relate dummy-sink dummy-source
 	juju config dummy-source token=Canonical
 
 	# Check pre-conditions
 	wait_for "Canonical" "$(workload_status 'dummy-sink' 0).message"
-	assert_machine_series 0 $start_series
+	assert_machine_base 0 $start_base
 
 	# Upgrade the machine
-	juju upgrade-machine 0 prepare $end_series -y
+	juju upgrade-machine 0 prepare $end_base -y
 	reboot_machine 0
 	echo "Upgrading machine..."
 	echo "See ${TEST_DIR}/do-release-upgrade.log for progress."
@@ -28,23 +28,22 @@ run_upgrade_series_relation() {
 
 	# Check post-conditions
 	wait_for "Canonical" "$(workload_status 'dummy-sink' 0).message"
-	assert_machine_series 0 $end_series
+	assert_machine_base 0 $end_base
 	# Check post-series-upgrade hook has run
 	juju show-status-log dummy-sink/0 | grep 'post-series-upgrade'
 }
 
 # Assert the given machine has the given series.
-assert_machine_series() {
-	local machine expected_series actual_base actual_series
+assert_machine_base() {
+	local machine expected_base actual_base actual_series
 	machine=$1
-	expected_series=$2
+	expected_base=$2
 	actual_base=$(juju status --format=json | jq -r ".machines[\"$machine\"] | (.base.name+\"@\"+.base.channel)")
-	actual_series=$(base_to_series "${actual_base}")
 
-	if [[ $expected_series == "$actual_series" ]]; then
+	if [[ $expected_base == "$actual_base" ]]; then
 		echo "Machine $machine has series $actual_series from base $actual_base"
 	else
-		echo "Machine $machine has series $actual_series from base $actual_base, expected $expected_series"
+		echo "Machine $machine has series $actual_series from base $actual_base, expected $expected_base"
 		exit 1
 	fi
 }

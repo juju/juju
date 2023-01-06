@@ -463,7 +463,7 @@ preferred to least):
  - for a bundle, the series stated in each charm URL (in the bundle file)
  - for a bundle, the series given at the top level (in the bundle file)
  - the 'default-base' model key
- - the top-most base specified in the charm's metadata file
+ - the first base specified in the charm's manifest file
 
 An 'application name' provides an alternate name for the application. It works
 only for charms; it is silently ignored for bundles (although the same can be

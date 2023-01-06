@@ -7,7 +7,7 @@ run_unit_set_series() {
 	ensure "unit-series" "${file}"
 
 	echo "Deploy ubuntu focal"
-	juju deploy ubuntu --series=focal
+	juju deploy ubuntu --base ubuntu@20.04
 
 	wait_for "ubuntu" "$(idle_condition "ubuntu")"
 
