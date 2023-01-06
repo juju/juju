@@ -16,9 +16,6 @@ import (
 	"github.com/juju/juju/charmhub/transport"
 )
 
-// CharmStoreRepoFunc lazily creates a charm store repo.
-type CharmStoreRepoFunc = func() (CharmrepoForDeploy, error)
-
 // DownloadBundleClient represents a way to download a bundle from a given
 // resource URL.
 type DownloadBundleClient interface {
@@ -37,12 +34,10 @@ type BundleFactory interface {
 type BundleRepoFunc = func(*charm.URL) (BundleFactory, error)
 
 // CharmAdaptor handles prep work for deploying charms: resolving charms
-// and bundles and getting bundle contents.  This is done via the charmstore
-// or the charms API depending on the API's version.
+// and bundles and getting bundle contents.
 type CharmAdaptor struct {
-	charmsAPI          CharmsAPI
-	charmStoreRepoFunc CharmStoreRepoFunc
-	bundleRepoFn       BundleRepoFunc
+	charmsAPI    CharmsAPI
+	bundleRepoFn BundleRepoFunc
 }
 
 // NewCharmAdaptor returns a CharmAdaptor.
@@ -58,10 +53,10 @@ func NewCharmAdaptor(charmsAPI CharmsAPI, downloadBundleClientFunc DownloadBundl
 	}
 }
 
-// ResolveCharm tries to interpret url as a CharmHub charm.
+// ResolveCharm tries to interpret url as a Charmhub charm.
 // If it turns out to be one of those charm types, the resolved URL, origin
 // and a slice of supported series are returned.
-// Resolving a CharmHub charm is only supported if the controller has a
+// Resolving a Charmhub charm is only supported if the controller has a
 // Charms API version of 3 or greater.
 func (c *CharmAdaptor) ResolveCharm(url *charm.URL, preferredOrigin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []string, error) {
 	resolved, err := c.charmsAPI.ResolveCharms([]apicharm.CharmToResolve{{URL: url, Origin: preferredOrigin, SwitchCharm: switchCharm}})
@@ -86,7 +81,7 @@ func (c *CharmAdaptor) ResolveCharm(url *charm.URL, preferredOrigin commoncharm.
 	return nil, commoncharm.Origin{}, nil, errors.Trace(err)
 }
 
-// ResolveBundleURL tries to interpret maybeBundle as a CharmHub
+// ResolveBundleURL tries to interpret maybeBundle as a Charmhub
 // bundle. If it turns out to be a bundle, the resolved
 // URL and origin are returned. If it isn't but there wasn't a problem
 // checking it, it returns a nil charm URL.
