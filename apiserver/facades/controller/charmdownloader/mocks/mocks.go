@@ -16,7 +16,6 @@ import (
 	status "github.com/juju/juju/core/status"
 	config "github.com/juju/juju/environs/config"
 	state "github.com/juju/juju/state"
-	macaroon "gopkg.in/macaroon.v2"
 )
 
 // MockStateBackend is a mock of StateBackend interface.
@@ -284,21 +283,6 @@ func NewMockCharm(ctrl *gomock.Controller) *MockCharm {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCharm) EXPECT() *MockCharmMockRecorder {
 	return m.recorder
-}
-
-// Macaroon mocks base method.
-func (m *MockCharm) Macaroon() (macaroon.Slice, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Macaroon")
-	ret0, _ := ret[0].(macaroon.Slice)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Macaroon indicates an expected call of Macaroon.
-func (mr *MockCharmMockRecorder) Macaroon() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Macaroon", reflect.TypeOf((*MockCharm)(nil).Macaroon))
 }
 
 // URL mocks base method.

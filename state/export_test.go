@@ -263,7 +263,7 @@ func AddTestingCharmhubCharmForSeries(c *gc.C, st *State, series, name string) *
 func AddTestingCharmMultiSeries(c *gc.C, st *State, name string) *Charm {
 	ch := testcharms.Repo.CharmDir(name)
 	ident := fmt.Sprintf("%s-%d", ch.Meta().Name, ch.Revision())
-	curl := charm.MustParseURL("cs:" + ident)
+	curl := charm.MustParseURL("ch:" + ident)
 	info := CharmInfo{
 		Charm:       ch,
 		ID:          curl,

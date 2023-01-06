@@ -5,7 +5,6 @@ package charmdownloader
 
 import (
 	"github.com/juju/charm/v9"
-	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
 	"github.com/juju/juju/controller"
@@ -42,7 +41,6 @@ type Application interface {
 // Charm provides an API for querying charm details.
 type Charm interface {
 	URL() *charm.URL
-	Macaroon() (macaroon.Slice, error)
 }
 
 // Downloader defines an API for downloading and storing charms.

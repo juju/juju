@@ -16,7 +16,6 @@ import (
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
 	jujutxn "github.com/juju/txn/v3"
-	"gopkg.in/macaroon.v2"
 
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/series"
@@ -26,33 +25,6 @@ import (
 	"github.com/juju/juju/state/storage"
 	jujuversion "github.com/juju/juju/version"
 )
-
-type MacaroonCacheState interface {
-	Charm(*charm.URL) (*Charm, error)
-}
-
-// MacaroonCache is a type that wraps State and implements charmstore.MacaroonCache.
-type MacaroonCache struct {
-	MacaroonCacheState
-}
-
-// Set stores the macaroon on the charm.
-func (m MacaroonCache) Set(u *charm.URL, ms macaroon.Slice) error {
-	c, err := m.Charm(u)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return c.UpdateMacaroon(ms)
-}
-
-// Get retrieves the macaroon for the charm (if any).
-func (m MacaroonCache) Get(u *charm.URL) (macaroon.Slice, error) {
-	c, err := m.Charm(u)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return c.Macaroon()
-}
 
 // Channel identifies and describes completely a store channel.
 type Channel struct {
@@ -189,7 +161,6 @@ type charmDoc struct {
 	// These fields control access to the charm archive.
 	BundleSha256 string `bson:"bundlesha256"`
 	StoragePath  string `bson:"storagepath"`
-	Macaroon     []byte `bson:"macaroon"`
 
 	// The remaining fields hold data sufficient to define a
 	// charm.Charm.
@@ -252,7 +223,6 @@ type CharmInfo struct {
 	ID          *charm.URL
 	StoragePath string
 	SHA256      string
-	Macaroon    macaroon.Slice
 	Version     string
 }
 
@@ -289,13 +259,6 @@ func insertCharmOps(mb modelBackend, info CharmInfo) ([]txn.Op, error) {
 		return nil, errors.Trace(err)
 	}
 
-	if info.Macaroon != nil {
-		mac, err := info.Macaroon.MarshalBinary()
-		if err != nil {
-			return nil, errors.Annotate(err, "can't convert macaroon to binary for storage")
-		}
-		doc.Macaroon = mac
-	}
 	return insertAnyCharmOps(mb, &doc)
 }
 
@@ -402,14 +365,6 @@ func updateCharmOps(mb modelBackend, info CharmInfo, assert bson.D) ([]txn.Op, e
 
 	if err := checkCharmDataIsStorable(data); err != nil {
 		return nil, errors.Trace(err)
-	}
-
-	if len(info.Macaroon) > 0 {
-		mac, err := info.Macaroon.MarshalBinary()
-		if err != nil {
-			return nil, errors.Annotate(err, "can't convert macaroon to binary for storage")
-		}
-		data = append(data, bson.DocElem{"macaroon", mac})
 	}
 
 	op.Update = bson.D{{"$set", data}}
@@ -756,39 +711,6 @@ func (c *Charm) IsPlaceholder() bool {
 	return c.doc.Placeholder
 }
 
-// Macaroon return the macaroon that can be used to request data about the charm
-// from the charmstore, or nil if the charm is not private.
-func (c *Charm) Macaroon() (macaroon.Slice, error) {
-	if len(c.doc.Macaroon) == 0 {
-		return nil, nil
-	}
-	var m macaroon.Slice
-	if err := m.UnmarshalBinary(c.doc.Macaroon); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return m, nil
-}
-
-// UpdateMacaroon updates the stored macaroon for this charm.
-func (c *Charm) UpdateMacaroon(m macaroon.Slice) error {
-	info := CharmInfo{
-		Charm:       c,
-		ID:          c.URL(),
-		StoragePath: c.StoragePath(),
-		SHA256:      c.BundleSha256(),
-		Macaroon:    m,
-	}
-	ops, err := updateCharmOps(c.st, info, nil)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := c.st.db().RunTransaction(ops); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
 // AddCharm adds the ch charm with curl to the state.
 // On success the newly added charm state is returned.
 //
@@ -849,8 +771,7 @@ func (st *State) AllCharms() ([]*Charm, error) {
 }
 
 // Charm returns the charm with the given URL. Charms pending to be uploaded
-// are returned for Charmhub charms (but not Charmstore ones). Charm
-// placeholders are never returned.
+// are returned for Charmhub charms. Charm placeholders are never returned.
 func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 	var cdoc charmDoc
 
@@ -870,7 +791,7 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 		return nil, errors.Annotatef(err, "cannot get charm %q", curl)
 	}
 
-	if cdoc.PendingUpload && charm.Schema(curl.Schema) != charm.CharmHub {
+	if cdoc.PendingUpload && !charm.CharmHub.Matches(curl.Schema) {
 		return nil, errors.NotFoundf("charm %q", curl.String())
 	}
 	return newCharm(st, &cdoc), nil
@@ -962,7 +883,7 @@ func isCharmRevSeqName(name string) bool {
 }
 
 func isValidPlaceholderCharmURL(curl *charm.URL) bool {
-	return charm.CharmStore.Matches(curl.Schema) || charm.CharmHub.Matches(curl.Schema)
+	return charm.CharmHub.Matches(curl.Schema)
 }
 
 // PrepareCharmUpload must be called before a charm store charm is uploaded to
@@ -972,7 +893,7 @@ func isValidPlaceholderCharmURL(curl *charm.URL) bool {
 // document is added in state with just the given charm URL and
 // PendingUpload=true, which is then returned as a *state.Charm.
 //
-// The url's schema must be charmstore ("cs") or a charmhub ("ch") and it must
+// The url's schema must be charmhub ("ch") and it must
 // include a revision that isn't a negative value.
 //
 // TODO(achilleas): This call will be removed once the server-side bundle
@@ -1110,9 +1031,8 @@ func (st *State) UpdateUploadedCharm(info CharmInfo) (*Charm, error) {
 // then the charm document will be created with the PendingUpload flag set
 // to true.
 //
-// The charm URL must either have a charmstore ("cs") or a charmhub ("ch")
-// schema and it must include a revision that isn't a negative value. Otherwise,
-// an error will be returned.
+// The charm URL must either have a charmhub ("ch") schema and it must include
+// a revision that isn't a negative value. Otherwise, an error will be returned.
 func (st *State) AddCharmMetadata(info CharmInfo) (*Charm, error) {
 	// Perform a few sanity checks first.
 	if !isValidPlaceholderCharmURL(info.ID) {
