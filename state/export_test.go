@@ -11,7 +11,6 @@ import (
 	"time" // Only used for time types.
 
 	"github.com/juju/charm/v9"
-	charmrepotesting "github.com/juju/charmrepo/v7/testing"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
@@ -231,7 +230,7 @@ func AddTestingCharmWithSeries(c *gc.C, st *State, name string, series string) *
 	return addCharm(c, st, series, testcharms.Repo.CharmDir(name))
 }
 
-func getCharmRepo(series string) *charmrepotesting.Repo {
+func getCharmRepo(series string) *testcharms.CharmRepo {
 	// ALl testing charms for state are under `quantal` except `kubernetes`.
 	if series == "kubernetes" {
 		return testcharms.RepoForSeries(series)
@@ -384,7 +383,7 @@ func addTestingApplication(c *gc.C, params addTestingApplicationParams) *Applica
 	return app
 }
 
-func addCustomCharmWithManifest(c *gc.C, st *State, repo *charmrepotesting.Repo, name, filename, content, series string, revision int, manifest bool) *Charm {
+func addCustomCharmWithManifest(c *gc.C, st *State, repo *testcharms.CharmRepo, name, filename, content, series string, revision int, manifest bool) *Charm {
 	path := repo.ClonedDirPath(c.MkDir(), name)
 	if filename != "" {
 		if manifest {
@@ -409,7 +408,7 @@ bases:
 	return addCharm(c, st, series, ch)
 }
 
-func addCustomCharm(c *gc.C, st *State, repo *charmrepotesting.Repo, name, filename, content, series string, revision int) *Charm {
+func addCustomCharm(c *gc.C, st *State, repo *testcharms.CharmRepo, name, filename, content, series string, revision int) *Charm {
 	return addCustomCharmWithManifest(c, st, repo, name, filename, content, series, revision, false)
 }
 

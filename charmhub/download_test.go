@@ -12,10 +12,11 @@ import (
 	"os"
 
 	"github.com/golang/mock/gomock"
-	charmrepotesting "github.com/juju/charmrepo/v7/testing"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/testcharms"
 )
 
 const defaultSeries = "bionic"
@@ -124,7 +125,7 @@ func (s *DownloadSuite) createCharmArchieve(c *gc.C) []byte {
 	tmpDir, err := os.MkdirTemp("", "charm")
 	c.Assert(err, jc.ErrorIsNil)
 
-	repo := charmrepotesting.NewRepo(localCharmRepo, defaultSeries)
+	repo := testcharms.NewRepo(localCharmRepo, defaultSeries)
 	charmPath := repo.CharmArchivePath(tmpDir, "dummy")
 
 	path, err := os.ReadFile(charmPath)
