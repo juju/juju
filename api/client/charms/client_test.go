@@ -14,7 +14,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v9"
 	charmresource "github.com/juju/charm/v9/resource"
-	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -66,9 +65,9 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 
 	curl := charm.MustParseURL("cs:a-charm")
 	curl2 := charm.MustParseURL("cs:jammy/dummy-1")
-	no := string(csparams.NoChannel)
-	edge := string(csparams.EdgeChannel)
-	stable := string(csparams.StableChannel)
+	no := "no"
+	edge := "edge"
+	stable := "stable"
 
 	noChannelParamsOrigin := params.CharmOrigin{Source: "charm-store"}
 	edgeChannelParamsOrigin := params.CharmOrigin{Source: "charm-store", Risk: edge}
