@@ -53,11 +53,8 @@ func NewCharmAdaptor(charmsAPI CharmsAPI, downloadBundleClientFunc DownloadBundl
 	}
 }
 
-// ResolveCharm tries to interpret url as a Charmhub charm.
-// If it turns out to be one of those charm types, the resolved URL, origin
-// and a slice of supported series are returned.
-// Resolving a Charmhub charm is only supported if the controller has a
-// Charms API version of 3 or greater.
+// ResolveCharm tries to interpret url as a Charmhub charm and
+// returns the resolved URL, origin and a slice of supported series.
 func (c *CharmAdaptor) ResolveCharm(url *charm.URL, preferredOrigin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []string, error) {
 	resolved, err := c.charmsAPI.ResolveCharms([]apicharm.CharmToResolve{{URL: url, Origin: preferredOrigin, SwitchCharm: switchCharm}})
 	if err == nil {
@@ -75,9 +72,6 @@ func (c *CharmAdaptor) ResolveCharm(url *charm.URL, preferredOrigin commoncharm.
 		err = resolved[0].Error
 	}
 
-	if errors.Is(err, errors.NotSupported) {
-		return nil, commoncharm.Origin{}, nil, errors.NewNotSupported(nil, "charmhub charms are not supported by the current controller; if you wish to use charmhub consider upgrading your controller to 2.9+.")
-	}
 	return nil, commoncharm.Origin{}, nil, errors.Trace(err)
 }
 
