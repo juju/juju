@@ -10,6 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 )
 
@@ -33,6 +34,7 @@ type portRangeTest struct {
 	expectErr          string
 	expectPendingOpen  network.GroupedPortRanges
 	expectPendingClose network.GroupedPortRanges
+	isCAAS             bool
 }
 
 func (s *PortRangeChangeRecorderSuite) TestOpenPortRange(c *gc.C) {
@@ -142,13 +144,32 @@ func (s *PortRangeChangeRecorderSuite) TestOpenPortRange(c *gc.C) {
 			},
 			expectErr: `cannot open 1-200/tcp \(unit "u/0"\): port range conflicts with 10-20/tcp \(unit "u/0"\) requested earlier`,
 		},
-		// TODO: add tests for applicationPortRanges !!!!!!!!!!!!
+		{
+			about:           "port range is not supported for CAAS",
+			targetEndpoint:  "",
+			targetPortRange: network.MustParsePortRange("1-200/tcp"),
+			isCAAS:          true,
+			expectErr:       `port ranges are not supported for CAAS, please specify a single port`,
+		},
+		{
+			about:           "open a new range - all endpoints - CAAS",
+			targetEndpoint:  "",
+			isCAAS:          true,
+			targetPortRange: network.MustParsePortRange("80/tcp"),
+			expectPendingOpen: network.GroupedPortRanges{
+				"": []network.PortRange{network.MustParsePortRange("80/tcp")},
+			},
+		},
 	}
 
 	for i, test := range tests {
 		c.Logf("test %d: %s", i, test.about)
 
-		rec := newPortRangeChangeRecorder(loggo.GetLogger("test"), targetUnit, test.machinePortRanges, test.applicationPortRanges)
+		modelType := model.IAAS
+		if test.isCAAS {
+			modelType = model.CAAS
+		}
+		rec := newPortRangeChangeRecorder(loggo.GetLogger("test"), targetUnit, modelType, test.machinePortRanges, test.applicationPortRanges)
 		rec.pendingOpenRanges = test.pendingOpenRanges
 		rec.pendingCloseRanges = test.pendingCloseRanges
 
@@ -287,7 +308,7 @@ func (s *PortRangeChangeRecorderSuite) TestClosePortRange(c *gc.C) {
 	for i, test := range tests {
 		c.Logf("test %d: %s", i, test.about)
 
-		rec := newPortRangeChangeRecorder(loggo.GetLogger("test"), targetUnit, test.machinePortRanges, test.applicationPortRanges)
+		rec := newPortRangeChangeRecorder(loggo.GetLogger("test"), targetUnit, model.IAAS, test.machinePortRanges, test.applicationPortRanges)
 		rec.pendingOpenRanges = test.pendingOpenRanges
 		rec.pendingCloseRanges = test.pendingCloseRanges
 

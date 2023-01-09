@@ -8,6 +8,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 )
 
@@ -17,6 +18,7 @@ type portRangeChangeRecorder struct {
 
 	// The tag of the unit that the following pending open/close ranges apply to.
 	unitTag            names.UnitTag
+	modelType          model.ModelType
 	pendingOpenRanges  network.GroupedPortRanges
 	pendingCloseRanges network.GroupedPortRanges
 	logger             loggo.Logger
@@ -24,21 +26,33 @@ type portRangeChangeRecorder struct {
 
 func newPortRangeChangeRecorder(
 	logger loggo.Logger, unit names.UnitTag,
+	modelType model.ModelType,
 	machinePortRanges map[names.UnitTag]network.GroupedPortRanges,
 	appPortRanges network.GroupedPortRanges,
 ) *portRangeChangeRecorder {
 	return &portRangeChangeRecorder{
 		logger:            logger,
 		unitTag:           unit,
+		modelType:         modelType,
 		appPortRanges:     appPortRanges,
 		machinePortRanges: machinePortRanges,
 	}
+}
+
+func (r *portRangeChangeRecorder) validatePortRangeForCAAS(portRange network.PortRange) error {
+	if r.modelType == model.IAAS || portRange.FromPort == portRange.ToPort {
+		return nil
+	}
+	return errors.NewNotSupported(nil, "port ranges are not supported for CAAS, please specify a single port")
 }
 
 // OpenPortRange registers a request to open the specified port range for the
 // provided endpoint name.
 func (r *portRangeChangeRecorder) OpenPortRange(endpointName string, portRange network.PortRange) error {
 	if err := portRange.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+	if err := r.validatePortRangeForCAAS(portRange); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -86,6 +100,9 @@ func (r *portRangeChangeRecorder) OpenPortRange(endpointName string, portRange n
 // provided endpoint name. If the machine has no ports open yet, this is a no-op.
 func (r *portRangeChangeRecorder) ClosePortRange(endpointName string, portRange network.PortRange) error {
 	if err := portRange.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+	if err := r.validatePortRangeForCAAS(portRange); err != nil {
 		return errors.Trace(err)
 	}
 

@@ -420,7 +420,7 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 		}
 	}
 
-	ctx.portRangeChanges = newPortRangeChangeRecorder(ctx.logger, f.unit.Tag(), machPortRanges, appPortRanges)
+	ctx.portRangeChanges = newPortRangeChangeRecorder(ctx.logger, f.unit.Tag(), f.modelType, machPortRanges, appPortRanges)
 	ctx.secretChanges = newSecretsChangeRecorder(ctx.logger)
 	owner := f.unit.Tag().String()
 	info, err := ctx.secretsClient.SecretMetadata(secrets.Filter{
