@@ -3687,6 +3687,39 @@ func (s *uniterSuite) TestGetPodSpec(c *gc.C) {
 	c.Assert(spec, gc.Equals, podSpec)
 }
 
+func (s *uniterSuite) TestOpenedApplicationPortRangesByEndpoint(c *gc.C) {
+	// Verify no ports are opened yet on the machine (or unit).
+	appPortRanges, err := s.wordpress.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appPortRanges.UniquePortRanges(), gc.HasLen, 0)
+
+	// Open some ports using different endpoints.
+	appPortRanges.Open(allEndpoints, network.MustParsePortRange("1000/tcp"))
+	appPortRanges.Open("monitoring-port", network.MustParsePortRange("1111/udp"))
+
+	c.Assert(s.State.ApplyOperation(appPortRanges.Changes()), jc.ErrorIsNil)
+
+	// Get the open port ranges
+	arg := params.Entity{Tag: "application-wordpress"}
+	expectPortRanges := []params.ApplicationOpenedPorts{
+		{
+			Endpoint:   "",
+			PortRanges: []params.PortRange{{FromPort: 1000, Protocol: "tcp"}},
+		},
+		{
+			Endpoint:   "monitoring-port",
+			PortRanges: []params.PortRange{{FromPort: 1111, Protocol: "udp"}},
+		},
+	}
+	result, err := s.uniter.OpenedApplicationPortRangesByEndpoint(arg)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ApplicationOpenedPortsResults{
+		Results: []params.ApplicationOpenedPortsResult{
+			{ApplicationPortRanges: expectPortRanges},
+		},
+	})
+}
+
 type unitMetricBatchesSuite struct {
 	uniterSuiteBase
 	*commontesting.ModelWatcherTest
@@ -4740,6 +4773,9 @@ func (s *uniterNetworkInfoSuite) assertCommitHookChangesCAAS(c *gc.C, isRaw bool
 	} else {
 		b.SetPodSpec(gitlab.ApplicationTag(), &podSpec)
 	}
+	b.OpenPortRange("website", network.MustParsePortRange("80/tcp"))
+	b.OpenPortRange("website", network.MustParsePortRange("7337/tcp")) // same port closed below; this should be a no-op
+	b.ClosePortRange("website", network.MustParsePortRange("7337/tcp"))
 	req, _ := b.Build()
 
 	s.State = cm.State()
@@ -4777,6 +4813,13 @@ func (s *uniterNetworkInfoSuite) assertCommitHookChangesCAAS(c *gc.C, isRaw bool
 	c.Assert(err, jc.ErrorIsNil)
 	charmState, _ := unitState.CharmState()
 	c.Assert(charmState, jc.DeepEquals, map[string]string{"charm-key": "charm-value"}, gc.Commentf("state doc not updated"))
+
+	appPortRanges, err := gitlab.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appPortRanges.UniquePortRanges(), jc.DeepEquals, []network.PortRange{{Protocol: "tcp", FromPort: 80, ToPort: 80}})
+	c.Assert(appPortRanges.ByEndpoint(), jc.DeepEquals, network.GroupedPortRanges{
+		"website": {{Protocol: "tcp", FromPort: 80, ToPort: 80}},
+	}, gc.Commentf("unit ports where not opened for the requested endpoint"))
 }
 
 func (s *uniterNetworkInfoSuite) TestCommitHookChangesCAASPodSpec(c *gc.C) {

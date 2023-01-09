@@ -422,7 +422,6 @@ func (st *State) OpenedMachinePortRangesByEndpoint(machineTag names.MachineTag) 
 // application, grouped by application endpoint.
 func (st *State) OpenedApplicationPortRangesByEndpoint(appTag names.ApplicationTag) (network.GroupedPortRanges, error) {
 	if st.BestAPIVersion() < 18 {
-		// TODO: bump facade ?????????????????????
 		// OpenedApplicationPortRangesByEndpoint() was introduced in UniterAPIV18.
 		return nil, errors.NotImplementedf("OpenedApplicationPortRangesByEndpoint() (need V17+)")
 	}
