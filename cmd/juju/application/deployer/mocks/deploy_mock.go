@@ -519,20 +519,6 @@ func (mr *MockDeployerAPIMockRecorder) Offer(arg0, arg1, arg2, arg3, arg4, arg5 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Offer", reflect.TypeOf((*MockDeployerAPI)(nil).Offer), arg0, arg1, arg2, arg3, arg4, arg5)
 }
 
-// PlanURL mocks base method.
-func (m *MockDeployerAPI) PlanURL() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PlanURL")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// PlanURL indicates an expected call of PlanURL.
-func (mr *MockDeployerAPIMockRecorder) PlanURL() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PlanURL", reflect.TypeOf((*MockDeployerAPI)(nil).PlanURL))
-}
-
 // ScaleApplication mocks base method.
 func (m *MockDeployerAPI) ScaleApplication(arg0 application.ScaleApplicationParams) (params.ScaleApplicationResult, error) {
 	m.ctrl.T.Helper()

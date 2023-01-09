@@ -549,9 +549,6 @@ type fakeDeployStep struct {
 
 func (f *fakeDeployStep) SetFlags(*gnuflag.FlagSet) {}
 
-// SetPlanURL sets the plan URL prefix.
-func (f *fakeDeployStep) SetPlanURL(string) {}
-
 // RunPre runs before the call is made to add the charm to the environment.
 func (f *fakeDeployStep) RunPre(DeployStepAPI, *httpbakery.Client, *cmd.Context, DeploymentInfo) error {
 	return nil

@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/api/client/modelconfig"
 	"github.com/juju/juju/api/client/spaces"
 	commoncharm "github.com/juju/juju/api/common/charm"
-	"github.com/juju/juju/api/controller/controller"
 	"github.com/juju/juju/charmhub"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/application/deployer"
@@ -84,14 +83,6 @@ type annotationsClient struct {
 	*annotations.Client
 }
 
-type plansClient struct {
-	planURL string
-}
-
-func (c *plansClient) PlanURL() string {
-	return c.planURL
-}
-
 type offerClient struct {
 	*applicationoffers.Client
 }
@@ -106,7 +97,6 @@ type deployAPIAdapter struct {
 	*applicationClient
 	*modelConfigClient
 	*annotationsClient
-	*plansClient
 	*offerClient
 	*spacesClient
 	*machineManagerClient
@@ -221,10 +211,6 @@ func newDeployCommand() *DeployCommand {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		mURL, err := deployCmd.getMeteringAPIURL(controllerAPIRoot)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
 		return &deployAPIAdapter{
 			Connection:           apiRoot,
 			legacyClient:         &apiClient{Client: apiclient.NewClient(apiRoot)},
@@ -233,7 +219,6 @@ func newDeployCommand() *DeployCommand {
 			machineManagerClient: &machineManagerClient{Client: machinemanager.NewClient(apiRoot)},
 			modelConfigClient:    &modelConfigClient{Client: modelconfig.NewClient(apiRoot)},
 			annotationsClient:    &annotationsClient{Client: annotations.NewClient(apiRoot)},
-			plansClient:          &plansClient{planURL: mURL},
 			offerClient:          &offerClient{Client: applicationoffers.NewClient(controllerAPIRoot)},
 			spacesClient:         &spacesClient{API: spaces.NewAPI(apiRoot)},
 		}, nil
@@ -854,10 +839,6 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	for _, step := range c.Steps {
-		step.SetPlanURL(deployAPI.PlanURL())
-	}
-
 	downloadClientFn := func() (store.DownloadBundleClient, error) {
 		return c.NewDownloadClient()
 	}
@@ -898,15 +879,6 @@ func (c *DeployCommand) parseBindFlag(api SpacesAPI) error {
 
 	c.Bindings = bindings
 	return nil
-}
-
-func (c *DeployCommand) getMeteringAPIURL(controllerAPIRoot api.Connection) (string, error) {
-	controllerAPI := controller.NewClient(controllerAPIRoot)
-	controllerCfg, err := controllerAPI.ControllerConfig()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return controllerCfg.MeteringURL(), nil
 }
 
 func (c *DeployCommand) getDeployerFactory(base series.Base, defaultCharmSchema charm.Schema) (deployer.DeployerFactory, deployer.DeployerConfig) {

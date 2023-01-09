@@ -5,10 +5,7 @@ package application
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -1642,133 +1639,6 @@ func (s *DeploySuite) TestSetMetricCredentialsNotCalledForUnmeteredCharm(c *gc.C
 	}
 }
 
-func (s *DeploySuite) TestAddMetricCredentialsNotNeededForOptionalPlan(c *gc.C) {
-	metricsYAML := `		
-plan:		
-required: false		
-metrics:		
-pings:		
-  type: gauge		
-  description: ping pongs		
-`
-	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "metered")
-	metadataPath := filepath.Join(charmDir.Path, "metrics.yaml")
-	file, err := os.OpenFile(metadataPath, os.O_TRUNC|os.O_RDWR, 0666)
-	if err != nil {
-		c.Fatal(errors.Annotate(err, "cannot open metrics.yaml"))
-	}
-	defer func() { _ = file.Close() }()
-
-	// Overwrite the metrics.yaml to contain an optional plan.
-	if _, err := file.WriteString(metricsYAML); err != nil {
-		c.Fatal("cannot write to metrics.yaml")
-	}
-
-	curl := charm.MustParseURL("local:jammy/metered")
-
-	withCharmRepoResolvable(s.fakeAPI, curl, "")
-	withCharmDeployable(s.fakeAPI, curl, defaultBase, charmDir.Meta(), charmDir.Metrics(), true, false, 1, nil, nil)
-
-	stub := &jujutesting.Stub{}
-	handler := &testMetricsRegistrationHandler{Stub: stub}
-	server := httptest.NewServer(handler)
-	defer server.Close()
-
-	s.fakeAPI.Call("Deploy", application.DeployArgs{
-		CharmID: application.CharmID{
-			URL:    curl,
-			Origin: defaultLocalOrigin,
-		},
-		CharmOrigin:     defaultLocalOrigin,
-		ApplicationName: curl.Name,
-		NumUnits:        1,
-	}).Returns(error(nil))
-
-	deploy := s.deployCommand()
-	deploy.Steps = []deployer.DeployStep{&deployer.RegisterMeteredCharm{PlanURL: server.URL}}
-	_, err = cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), curl.String())
-	c.Assert(err, jc.ErrorIsNil)
-	stub.CheckNoCalls(c)
-}
-
-type availablePlanURL struct {
-	URL string `json:"url"`
-}
-
-// testMetricsRegistrationHandler duplicated from deployer/register_test.go
-// for MetricCredentials tests
-type testMetricsRegistrationHandler struct {
-	*jujutesting.Stub
-	availablePlans []availablePlanURL
-}
-
-type respErr struct {
-	Error string `json:"error"`
-}
-
-// ServeHTTP implements http.Handler.
-func (c *testMetricsRegistrationHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	if req.Method == "POST" {
-		var registrationPost deployer.MetricRegistrationPost
-		decoder := json.NewDecoder(req.Body)
-		err := decoder.Decode(&registrationPost)
-		if err != nil {
-			http.Error(w, "bad request", http.StatusBadRequest)
-			return
-		}
-		c.AddCall("Authorize", registrationPost)
-		rErr := c.NextErr()
-		if rErr != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			err = json.NewEncoder(w).Encode(respErr{Error: rErr.Error()})
-			if err != nil {
-				panic(err)
-			}
-			return
-		}
-		err = json.NewEncoder(w).Encode([]byte("hello registration"))
-		if err != nil {
-			panic(err)
-		}
-	} else if req.Method == "GET" {
-		if req.URL.Path == "/default" {
-			cURL := req.URL.Query().Get("charm-url")
-			c.AddCall("DefaultPlan", cURL)
-			rErr := c.NextErr()
-			if rErr != nil {
-				if errors.IsNotFound(rErr) {
-					http.Error(w, rErr.Error(), http.StatusNotFound)
-					return
-				}
-				http.Error(w, rErr.Error(), http.StatusInternalServerError)
-				return
-			}
-			result := struct {
-				URL string `json:"url"`
-			}{"thisplan"}
-			err := json.NewEncoder(w).Encode(result)
-			if err != nil {
-				panic(err)
-			}
-			return
-		}
-		cURL := req.URL.Query().Get("charm-url")
-		c.AddCall("ListPlans", cURL)
-		rErr := c.NextErr()
-		if rErr != nil {
-			http.Error(w, rErr.Error(), http.StatusInternalServerError)
-			return
-		}
-		err := json.NewEncoder(w).Encode(c.availablePlans)
-		if err != nil {
-			panic(err)
-		}
-	} else {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-}
-
 type FakeStoreStateSuite struct {
 	DeploySuiteBase
 	path string
@@ -2369,15 +2239,6 @@ func newDeployCommandForTest(fakeAPI *fakeDeployAPI) *DeployCommand {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			controllerAPIRoot, err := deployCmd.NewControllerAPIRoot()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			mURL, err := deployCmd.getMeteringAPIURL(controllerAPIRoot)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-
 			return &deployAPIAdapter{
 				Connection:        apiRoot,
 				legacyClient:      &apiClient{Client: apiclient.NewClient(apiRoot)},
@@ -2385,7 +2246,6 @@ func newDeployCommandForTest(fakeAPI *fakeDeployAPI) *DeployCommand {
 				applicationClient: &applicationClient{Client: application.NewClient(apiRoot)},
 				modelConfigClient: &modelConfigClient{Client: modelconfig.NewClient(apiRoot)},
 				annotationsClient: &annotationsClient{Client: annotations.NewClient(apiRoot)},
-				plansClient:       &plansClient{planURL: mURL},
 			}, nil
 		}
 		deployCmd.NewResolver = func(charmsAPI store.CharmsAPI, downloadClientFn store.DownloadBundleClientFunc) deployer.Resolver {
@@ -2413,7 +2273,6 @@ func newDeployCommandForTest(fakeAPI *fakeDeployAPI) *DeployCommand {
 type fakeDeployAPI struct {
 	deployer.DeployerAPI
 	*jujutesting.CallMocker
-	planURL             string
 	deployerFactoryFunc func(dep deployer.DeployerDependencies) deployer.DeployerFactory
 	charmRepoFunc       func() (*store.CharmStoreAdaptor, error)
 	modelCons           constraints.Value
@@ -2615,10 +2474,6 @@ func (f *fakeDeployAPI) SetConstraints(application string, constraints constrain
 func (f *fakeDeployAPI) AddMachines(machineParams []params.AddMachineParams) ([]params.AddMachinesResult, error) {
 	results := f.MethodCall(f, "AddMachines", machineParams)
 	return results[0].([]params.AddMachinesResult), jujutesting.TypeAssertError(results[0])
-}
-
-func (f *fakeDeployAPI) PlanURL() string {
-	return f.planURL
 }
 
 func (f *fakeDeployAPI) ScaleApplication(p application.ScaleApplicationParams) (params.ScaleApplicationResult, error) {

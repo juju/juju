@@ -19,7 +19,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/juju/application/deployer"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
@@ -55,8 +54,7 @@ func (s *BundleDeployCharmStoreSuite) SetUpSuite(c *gc.C) {
 
 func (s *BundleDeployCharmStoreSuite) SetUpTest(c *gc.C) {
 	s.stub = &testing.Stub{}
-	handler := &testMetricsRegistrationHandler{Stub: s.stub}
-	s.server = httptest.NewServer(handler)
+
 	// Set metering URL config so the config is set during bootstrap
 	if s.ControllerConfigAttrs == nil {
 		s.ControllerConfigAttrs = make(map[string]interface{})
@@ -110,57 +108,6 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidFlags(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "options provided but not supported when deploying a bundle: -n")
 	err = s.runDeploy(c, "cs:bundle/wordpress-simple", "--series", "xenial")
 	c.Assert(err, gc.ErrorMatches, "options provided but not supported when deploying a bundle: --series")
-}
-
-func (s *BundleDeployCharmStoreSuite) TestAddMetricCredentials(c *gc.C) {
-	s.fakeAPI.planURL = s.server.URL
-	s.setupCharm(c, "cs:xenial/wordpress", "wordpress", "bionic")
-	s.setupCharm(c, "cs:xenial/mysql", "mysql", "bionic")
-	s.setupBundle(c, "cs:bundle/wordpress-with-plans-1", "wordpress-with-plans", "xenial")
-
-	// `"hello registration"\n` (quotes and newline from json
-	// encoding) is returned by the fake http server. This is binary64
-	// encoded before the call into SetMetricCredentials.
-	creds := append([]byte(`"aGVsbG8gcmVnaXN0cmF0aW9u"`), 0xA)
-	s.fakeAPI.Call("SetMetricCredentials", "wordpress", creds).Returns(error(nil))
-
-	deploy := s.deployCommandForState()
-	deploy.Steps = []deployer.DeployStep{&deployer.RegisterMeteredCharm{PlanURL: s.server.URL, RegisterPath: "", QueryPath: ""}}
-	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:bundle/wordpress-with-plans")
-	c.Assert(err, jc.ErrorIsNil)
-
-	// The order of calls here does not matter and is, in fact, not guaranteed.
-	// All we care about here is that the calls exist.
-	s.stub.CheckCallsUnordered(c, []testing.StubCall{{
-		FuncName: "DefaultPlan",
-		Args:     []interface{}{"cs:wordpress"},
-	}, {
-		FuncName: "Authorize",
-		Args: []interface{}{deployer.MetricRegistrationPost{
-			ModelUUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-			CharmURL:        "cs:wordpress",
-			ApplicationName: "wordpress",
-			PlanURL:         "thisplan",
-			IncreaseBudget:  0,
-		}},
-	}, {
-		FuncName: "Authorize",
-		Args: []interface{}{deployer.MetricRegistrationPost{
-			ModelUUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-			CharmURL:        "cs:mysql",
-			ApplicationName: "mysql",
-			PlanURL:         "test/plan",
-			IncreaseBudget:  0,
-		}},
-	}})
-
-	mysqlApp, err := s.State.Application("mysql")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mysqlApp.MetricCredentials(), jc.DeepEquals, append([]byte(`"aGVsbG8gcmVnaXN0cmF0aW9u"`), 0xA))
-
-	wordpressApp, err := s.State.Application("wordpress")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(wordpressApp.MetricCredentials(), jc.DeepEquals, append([]byte(`"aGVsbG8gcmVnaXN0cmF0aW9u"`), 0xA))
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDryRunTwice(c *gc.C) {
