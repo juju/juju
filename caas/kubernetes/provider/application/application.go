@@ -28,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -682,6 +683,8 @@ func (a *app) UpdateService(param caas.ServiceParam) error {
 	if err != nil {
 		return errors.Annotatef(err, "getting existing service %q", a.name)
 	}
+	logger.Criticalf("updating service %q, %v, %+v", a.name, param.Type, param.Ports)
+	logger.Criticalf("updating service %q, %v, %+v", a.name, svc.Service.Spec.Type, svc.Service.Spec.Ports)
 	svc.Service.Spec.Type = corev1.ServiceType(param.Type)
 	svc.Service.Spec.Ports = make([]corev1.ServicePort, len(param.Ports))
 	for i, p := range param.Ports {
@@ -731,21 +734,39 @@ func (a *app) getService() (*resources.Service, error) {
 	return svc, nil
 }
 
+const portNamePrefix = "juju-"
+
+var replacePortsPatchType = types.MergePatchType
+
 // UpdatePorts updates port mappings on the specified service.
 func (a *app) UpdatePorts(ports []caas.ServicePort, updateContainerPorts bool) error {
 	svc, err := a.getService()
 	if err != nil {
 		return errors.Annotatef(err, "getting existing service %q", a.name)
 	}
-	svc.Service.Spec.Ports = make([]corev1.ServicePort, len(ports))
-	for i, port := range ports {
-		if svc.Service.Spec.Ports[i], err = convertServicePort(port); err != nil {
-			return errors.Trace(err)
+	svc.PatchType = &replacePortsPatchType
+
+	logger.Criticalf("port changed for app %q, %v", a.name, ports)
+	logger.Criticalf("current port for app %q, %v", a.name, svc.Service.Spec.Ports)
+	var expectedPorts []corev1.ServicePort
+	for _, p := range svc.Service.Spec.Ports {
+		if !strings.HasPrefix(p.Name, portNamePrefix) {
+			// The ports are not mamanged by Juju should be kept.
+			expectedPorts = append(expectedPorts, p)
 		}
 	}
+	for _, port := range ports {
+		sp, err := convertServicePort(port)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		sp.Name = portNamePrefix + sp.Name
+		expectedPorts = append(expectedPorts, sp)
+	}
+	svc.Service.Spec.Ports = expectedPorts
+
 	applier := a.newApplier()
 	applier.Apply(svc)
-
 	if updateContainerPorts {
 		if err := a.updateContainerPorts(applier, svc.Service.Spec.Ports); err != nil {
 			return errors.Trace(err)
@@ -1405,7 +1426,7 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		AutomountServiceAccountToken:  &automountToken,
 		ServiceAccountName:            a.serviceAccountName(),
 		ImagePullSecrets:              imagePullSecrets,
-		TerminationGracePeriodSeconds: pointer.Int64Ptr(300),
+		TerminationGracePeriodSeconds: pointer.Int64Ptr(1),
 		InitContainers: []corev1.Container{{
 			Name:            constants.ApplicationInitContainer,
 			ImagePullPolicy: corev1.PullIfNotPresent,
