@@ -101,9 +101,9 @@ func (c *imageMetadataCommand) Info() *cmd.Info {
 }
 
 func (c *imageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.Series, "s", "", "the charm series (deprecated use bases via -b instead)")
+	f.StringVar(&c.Series, "s", "", "the charm series. DEPRECATED use --base")
 	f.StringVar(&c.Base, "b", "", "the charm base")
-	f.StringVar(&c.Arch, "a", arch.AMD64, "the image achitecture")
+	f.StringVar(&c.Arch, "a", arch.AMD64, "the image architecture")
 	f.StringVar(&c.Dir, "d", "", "the destination directory in which to place the metadata files")
 	f.StringVar(&c.ImageId, "i", "", "the image id")
 	f.StringVar(&c.Region, "r", "", "the region")
@@ -113,24 +113,23 @@ func (c *imageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Storage, "storage", "", "the type of root storage")
 }
 
-// setParams sets parameters based on the environment configuration
-// for those which have not been explicitly specified.
-func (c *imageMetadataCommand) setParams(context *cmd.Context) error {
+func (c *imageMetadataCommand) Init(args []string) error {
 	if c.Series != "" && c.Base != "" {
 		return errors.Errorf("cannot specify both base and series (series is deprecated)")
 	}
+	return nil
+}
 
+// setParams sets parameters based on the environment configuration
+// for those which have not been explicitly specified.
+func (c *imageMetadataCommand) setParams(context *cmd.Context, base series.Base) (series.Base, error) {
 	c.privateStorage = "<private storage name>"
 
 	controllerName, err := c.ControllerName()
 	err = errors.Cause(err)
 	if err != nil && err != modelcmd.ErrNoControllersDefined && !modelcmd.IsNoCurrentController(err) {
-		return errors.Trace(err)
+		return base, errors.Trace(err)
 	}
-
-	// Setup the default base to be the LTS base and only update this base if
-	// we can get the base from the environment.
-	preferredBase := version.DefaultSupportedLTSBase()
 
 	var environ environs.Environ
 	if err == nil {
@@ -141,14 +140,14 @@ func (c *imageMetadataCommand) setParams(context *cmd.Context) error {
 				var cloudSpec simplestreams.CloudSpec
 				if inst, ok := environ.(simplestreams.HasRegion); ok {
 					if cloudSpec, err = inst.Region(); err != nil {
-						return err
+						return base, err
 					}
 				} else {
-					return errors.Errorf("model %q cannot provide region and endpoint", environ.Config().Name())
+					return base, errors.Errorf("model %q cannot provide region and endpoint", environ.Config().Name())
 				}
 				// If only one of region or endpoint is provided, that is a problem.
 				if cloudSpec.Region != cloudSpec.Endpoint && (cloudSpec.Region == "" || cloudSpec.Endpoint == "") {
-					return errors.Errorf("cannot generate metadata without a complete cloud configuration")
+					return base, errors.Errorf("cannot generate metadata without a complete cloud configuration")
 				}
 				if c.Region == "" {
 					c.Region = cloudSpec.Region
@@ -159,7 +158,10 @@ func (c *imageMetadataCommand) setParams(context *cmd.Context) error {
 			}
 			cfg := environ.Config()
 
-			preferredBase = config.PreferredBase(cfg)
+			// If we have a base, overwrite that from the environment.
+			if b := config.PreferredBase(cfg); !b.Empty() {
+				base = b
+			}
 		} else {
 			logger.Warningf("bootstrap parameters could not be opened: %v", err)
 		}
@@ -168,34 +170,22 @@ func (c *imageMetadataCommand) setParams(context *cmd.Context) error {
 		logger.Infof("no model found, creating image metadata using user supplied data")
 	}
 	if c.ImageId == "" {
-		return errors.Errorf("image id must be specified")
+		return base, errors.Errorf("image id must be specified")
 	}
 	if c.Region == "" {
-		return errors.Errorf("image region must be specified")
+		return base, errors.Errorf("image region must be specified")
 	}
 	if c.Endpoint == "" {
-		return errors.Errorf("cloud endpoint URL must be specified")
+		return base, errors.Errorf("cloud endpoint URL must be specified")
 	}
 	if c.Dir == "" {
 		logger.Infof("no destination directory specified, using current directory")
 		var err error
 		if c.Dir, err = os.Getwd(); err != nil {
-			return err
+			return base, err
 		}
 	}
-	if c.Base == "" {
-		c.Base = preferredBase.String()
-	}
-	// This is a fallback until we can remove series from the codebase.
-	if c.Series == "" {
-		if baseSeries, err := series.GetSeriesFromBase(preferredBase); err == nil {
-			c.Series = baseSeries
-		} else {
-			// This should never happen, but if it does, we'll just use the default LTS.
-			c.Series = version.DefaultSupportedLTS()
-		}
-	}
-	return nil
+	return base, nil
 }
 
 var helpDoc = `
@@ -219,11 +209,34 @@ You need to configure a http server to serve the contents of
 and set the value of image-metadata-url accordingly.
 `
 
-func (c *imageMetadataCommand) Run(context *cmd.Context) error {
-	if err := c.setParams(context); err != nil {
+func (c *imageMetadataCommand) Run(ctx *cmd.Context) error {
+	var (
+		base series.Base
+		err  error
+	)
+	// Note: we validated that both series and base cannot be specified in
+	// Init(), so it's safe to assume that only one of them is set here.
+	if c.Series != "" {
+		ctx.Warningf("series flag is deprecated, use --base instead")
+		if base, err = series.GetBaseFromSeries(c.Series); err != nil {
+			return errors.Annotatef(err, "attempting to convert %q to a base", c.Series)
+		}
+		c.Base = base.String()
+		c.Series = ""
+	}
+	if c.Base != "" {
+		if base, err = series.ParseBaseFromString(c.Base); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	if base.Empty() {
+		base = version.DefaultSupportedLTSBase()
+	}
+
+	if base, err = c.setParams(ctx, base); err != nil {
 		return err
 	}
-	out := context.Stdout
+	out := ctx.Stdout
 	im := &imagemetadata.ImageMetadata{
 		Id:       c.ImageId,
 		Arch:     c.Arch,
@@ -240,16 +253,12 @@ func (c *imageMetadataCommand) Run(context *cmd.Context) error {
 		return err
 	}
 	fetcher := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
-	version, err := series.SeriesVersion(c.Series)
-	if err != nil {
-		return err
-	}
-	err = imagemetadata.MergeAndWriteMetadata(fetcher, version, []*imagemetadata.ImageMetadata{im}, &cloudSpec, targetStorage)
+	err = imagemetadata.MergeAndWriteMetadata(fetcher, base, []*imagemetadata.ImageMetadata{im}, &cloudSpec, targetStorage)
 	if err != nil {
 		return errors.Errorf("image metadata files could not be created: %v", err)
 	}
-	dir := context.AbsPath(c.Dir)
+	dir := ctx.AbsPath(c.Dir)
 	dest := filepath.Join(dir, storage.BaseImagesPath, "streams", "v1")
-	fmt.Fprintf(out, fmt.Sprintf(helpDoc, dest, dir, dir))
+	fmt.Fprintf(out, helpDoc, dest, dir, dir)
 	return nil
 }
