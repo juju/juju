@@ -4,6 +4,10 @@
 package application
 
 import (
+	"fmt"
+	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/juju/cmd/v3"
@@ -16,6 +20,7 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -25,6 +30,8 @@ func NewRemoveUnitCommand() modelcmd.ModelCommand {
 }
 
 // removeUnitCommand is responsible for destroying application units.
+// TODO(jack-w-shaw) This should inherit from modelcmd.ConfirmationCommandBase
+// in 3.1 once confirmation behaviours have converged
 type removeUnitCommand struct {
 	modelcmd.ModelCommandBase
 	DestroyStorage bool
@@ -35,6 +42,8 @@ type removeUnitCommand struct {
 	unknownModel bool
 	Force        bool
 	NoWait       bool
+	NoPrompt     bool
+	DryRun       bool
 	fs           *gnuflag.FlagSet
 }
 
@@ -93,6 +102,12 @@ See also:
     scale-application
 `
 
+var removeUnitMsgNoDryRun = `
+This command will remove unit(s) %q
+Your controller does not support dry runs`[1:]
+
+var removeUnitMsgPrefix = "This command will perform the following actions:"
+
 func (c *removeUnitCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "remove-unit",
@@ -104,9 +119,8 @@ func (c *removeUnitCommand) Info() *cmd.Info {
 
 func (c *removeUnitCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	// This unused var is declared so we can pass a valid ptr into BoolVar
-	var noPromptHolder bool
-	f.BoolVar(&noPromptHolder, "no-prompt", false, "Does nothing. Option present for forward compatibility with Juju 3")
+	f.BoolVar(&c.NoPrompt, "no-prompt", false, "Do not prompt for approval")
+	f.BoolVar(&c.DryRun, "dry-run", false, "Print what this command would remove without removing")
 	f.IntVar(&c.NumUnits, "num-units", 0, "Number of units to remove (k8s models only)")
 	f.BoolVar(&c.DestroyStorage, "destroy-storage", false, "Destroy storage attached to the unit")
 	f.BoolVar(&c.Force, "force", false, "Completely remove an unit and all its dependencies")
@@ -122,6 +136,25 @@ func (c *removeUnitCommand) Init(args []string) error {
 		}
 
 		c.unknownModel = true
+	}
+	if !c.Force && c.NoWait {
+		return errors.NotValidf("--no-wait without --force")
+	}
+	// To maintain compatibility, in 3.0 NoPrompt should default to true.
+	// However, we still need to take into account the env var and the
+	// flag. So default initially to false, but if the env var and flag
+	// are not present, set to true.
+	// TODO(jack-w-shaw) use CheckSkipConfirmEnvVar in 3.1
+	if !c.NoPrompt {
+		if skipConf, ok := os.LookupEnv(osenv.JujuSkipConfirmationEnvKey); ok {
+			skipConfBool, err := strconv.ParseBool(skipConf)
+			if err != nil {
+				return errors.Annotatef(err, "value %q of env var %q is not a valid bool", skipConf, osenv.JujuSkipConfirmationEnvKey)
+			}
+			c.NoPrompt = skipConfBool
+		} else {
+			c.NoPrompt = true
+		}
 	}
 	return nil
 }
@@ -139,6 +172,10 @@ func (c *removeUnitCommand) validateArgsByModelType() error {
 }
 
 func (c *removeUnitCommand) validateCAASRemoval() error {
+	if c.DryRun {
+		// TODO(caas): enable --dry-run for caas model.
+		return errors.New("`--dry-run` is not supported for kubernetes units")
+	}
 	if c.DestroyStorage {
 		// TODO(caas): enable --destroy-storage for caas model.
 		return errors.New("k8s models only support --num-units")
@@ -196,19 +233,6 @@ func (c *removeUnitCommand) getAPI() (RemoveApplicationAPI, error) {
 // Run connects to the environment specified on the command line and destroys
 // units therein.
 func (c *removeUnitCommand) Run(ctx *cmd.Context) error {
-	noWaitSet := false
-	forceSet := false
-	c.fs.Visit(func(flag *gnuflag.Flag) {
-		if flag.Name == "no-wait" {
-			noWaitSet = true
-		} else if flag.Name == "force" {
-			forceSet = true
-		}
-	})
-	if !forceSet && noWaitSet {
-		return errors.NotValidf("--no-wait without --force")
-	}
-
 	client, err := c.getAPI()
 	if err != nil {
 		return err
@@ -232,10 +256,22 @@ func (c *removeUnitCommand) Run(ctx *cmd.Context) error {
 
 func (c *removeUnitCommand) removeUnits(ctx *cmd.Context, client RemoveApplicationAPI) error {
 	var maxWait *time.Duration
-	if c.Force {
-		if c.NoWait {
-			zeroSec := 0 * time.Second
-			maxWait = &zeroSec
+	if c.NoWait {
+		zeroSec := 0 * time.Second
+		maxWait = &zeroSec
+	}
+	if c.DryRun {
+		return c.performDryRun(ctx, client)
+	}
+	if !c.NoPrompt {
+		err := c.performDryRun(ctx, client)
+		if err == errDryRunNotSupportedByController {
+			ctx.Warningf(removeUnitMsgNoDryRun, strings.Join(c.EntityNames, ", "))
+		} else if err != nil {
+			return err
+		}
+		if err := jujucmd.UserConfirmYes(ctx); err != nil {
+			return errors.Annotate(err, "unit removal")
 		}
 	}
 
@@ -249,36 +285,96 @@ func (c *removeUnitCommand) removeUnits(ctx *cmd.Context, client RemoveApplicati
 	if err != nil {
 		return block.ProcessBlockedError(err, block.BlockRemove)
 	}
+	logAll := c.NoPrompt || client.BestAPIVersion() < 16
+	if logAll {
+		return c.logResults(ctx, results)
+	} else {
+		return c.logErrors(ctx, results)
+	}
+}
+
+func (c *removeUnitCommand) performDryRun(ctx *cmd.Context, client RemoveApplicationAPI) error {
+	// TODO(jack-w-shaw) Drop this once application 15 support is dropped
+	if client.BestAPIVersion() < 16 {
+		return errDryRunNotSupportedByController
+	}
+	results, err := client.DestroyUnits(application.DestroyUnitsParams{
+		Units:          c.EntityNames,
+		DestroyStorage: c.DestroyStorage,
+		DryRun:         true,
+	})
+	if err != nil {
+		return block.ProcessBlockedError(err, block.BlockRemove)
+	}
+	if err := c.logErrors(ctx, results); err != nil {
+		return err
+	}
+	ctx.Warningf(removeUnitMsgPrefix)
+	_ = c.logResults(ctx, results)
+	return nil
+}
+
+func (c *removeUnitCommand) logErrors(ctx *cmd.Context, results []params.DestroyUnitResult) error {
+	return c.log(ctx, results, true)
+}
+
+func (c *removeUnitCommand) logResults(ctx *cmd.Context, results []params.DestroyUnitResult) error {
+	return c.log(ctx, results, false)
+}
+
+func (c *removeUnitCommand) log(
+	ctx *cmd.Context,
+	results []params.DestroyUnitResult,
+	errorOnly bool,
+) error {
 	anyFailed := false
 	for i, name := range c.EntityNames {
 		result := results[i]
-		if result.Error != nil {
+		if err := c.logResult(ctx, name, result, errorOnly); err != nil {
 			anyFailed = true
-			ctx.Infof("removing unit %s failed: %s", name, result.Error)
-			continue
-		}
-		ctx.Infof("removing unit %s", name)
-		for _, entity := range result.Info.DestroyedStorage {
-			storageTag, err := names.ParseStorageTag(entity.Tag)
-			if err != nil {
-				logger.Warningf("%s", err)
-				continue
-			}
-			ctx.Infof("- will remove %s", names.ReadableString(storageTag))
-		}
-		for _, entity := range result.Info.DetachedStorage {
-			storageTag, err := names.ParseStorageTag(entity.Tag)
-			if err != nil {
-				logger.Warningf("%s", err)
-				continue
-			}
-			ctx.Infof("- will detach %s", names.ReadableString(storageTag))
 		}
 	}
 	if anyFailed {
 		return cmd.ErrSilent
 	}
 	return nil
+}
+
+func (c *removeUnitCommand) logResult(
+	ctx *cmd.Context,
+	name string,
+	result params.DestroyUnitResult,
+	errorOnly bool,
+) error {
+	if result.Error != nil {
+		err := errors.Annotatef(result.Error, "removing unit %s failed", name)
+		cmd.WriteError(ctx.Stderr, err)
+		return errors.Trace(err)
+	}
+	if !errorOnly {
+		c.logRemovedUnit(ctx, name, result.Info)
+	}
+	return nil
+}
+
+func (c *removeUnitCommand) logRemovedUnit(ctx *cmd.Context, name string, info *params.DestroyUnitInfo) {
+	_, _ = fmt.Fprintf(ctx.Stdout, "will remove unit %s\n", name)
+	for _, entity := range info.DestroyedStorage {
+		storageTag, err := names.ParseStorageTag(entity.Tag)
+		if err != nil {
+			ctx.Warningf("%s", err)
+			continue
+		}
+		_, _ = fmt.Fprintf(ctx.Stdout, "- will remove %s\n", names.ReadableString(storageTag))
+	}
+	for _, entity := range info.DetachedStorage {
+		storageTag, err := names.ParseStorageTag(entity.Tag)
+		if err != nil {
+			ctx.Warningf("%s", err)
+			continue
+		}
+		_, _ = fmt.Fprintf(ctx.Stdout, "- will detach %s\n", names.ReadableString(storageTag))
+	}
 }
 
 func (c *removeUnitCommand) removeCaasUnits(ctx *cmd.Context, client RemoveApplicationAPI) error {

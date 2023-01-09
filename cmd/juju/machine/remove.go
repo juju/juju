@@ -75,11 +75,10 @@ See also:
 `
 
 var removeMachineMsgNoDryRun = `
-WARNING! This command will remove machine(s) %q
-Your controller does not support a more in depth dry run
-`[1:]
+This command will remove machine(s) %q
+Your controller does not support dry runs`[1:]
 
-var removeMachineMsgPrefix = "WARNING! This command:\n"
+var removeMachineMsgPrefix = "This command will perform the following actions:"
 
 var errDryRunNotSupported = errors.New("Your controller does not support `--dry-run`")
 
@@ -113,7 +112,9 @@ func (c *removeCommand) Init(args []string) error {
 			return errors.Errorf("invalid machine id %q", id)
 		}
 	}
-
+	if !c.Force && c.NoWait {
+		return errors.NotValidf("--no-wait without --force")
+	}
 	// To maintain compatibility, in 3.0 NoPrompt should default to true.
 	// However, we still need to take into account the env var and the
 	// flag. So default initially to false, but if the env var and flag
@@ -161,24 +162,10 @@ func (c *removeCommand) getRemoveMachineAPI() (RemoveMachineAPI, error) {
 
 // Run implements Command.Run.
 func (c *removeCommand) Run(ctx *cmd.Context) error {
-	noWaitSet := false
-	forceSet := false
-	c.fs.Visit(func(flag *gnuflag.Flag) {
-		if flag.Name == "no-wait" {
-			noWaitSet = true
-		} else if flag.Name == "force" {
-			forceSet = true
-		}
-	})
-	if !forceSet && noWaitSet {
-		return errors.NotValidf("--no-wait without --force")
-	}
 	var maxWait *time.Duration
-	if c.Force {
-		if c.NoWait {
-			zeroSec := 0 * time.Second
-			maxWait = &zeroSec
-		}
+	if c.NoWait {
+		zeroSec := 0 * time.Second
+		maxWait = &zeroSec
 	}
 
 	client, err := c.getRemoveMachineAPI()
@@ -194,9 +181,9 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 	if !c.NoPrompt {
 		err := c.performDryRun(ctx, client)
 		if err == errDryRunNotSupported {
-			fmt.Fprintf(ctx.Stderr, removeMachineMsgNoDryRun, strings.Join(c.MachineIds, ", "))
+			ctx.Warningf(removeMachineMsgNoDryRun, strings.Join(c.MachineIds, ", "))
 		} else if err != nil {
-			return errors.Trace(err)
+			return err
 		}
 		if err := jujucmd.UserConfirmYes(ctx); err != nil {
 			return errors.Annotate(err, "machine removal")
@@ -209,7 +196,11 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 	}
 
 	logAll := c.NoPrompt || client.BestAPIVersion() < 10
-	return c.logResults(ctx, results, !logAll)
+	if logAll {
+		return c.logResults(ctx, results)
+	} else {
+		return c.logErrors(ctx, results)
+	}
 }
 
 func (c *removeCommand) performDryRun(ctx *cmd.Context, client RemoveMachineAPI) error {
@@ -221,12 +212,13 @@ func (c *removeCommand) performDryRun(ctx *cmd.Context, client RemoveMachineAPI)
 	if err := block.ProcessBlockedError(err, block.BlockRemove); err != nil {
 		return errors.Trace(err)
 	}
-	fmt.Fprint(ctx.Stderr, removeMachineMsgPrefix)
-	if err := c.logResults(ctx, results, false); err != nil {
-		return errors.Trace(err)
+	if err := c.logErrors(ctx, results); err != nil {
+		return err
 	}
+	ctx.Warningf(removeMachineMsgPrefix)
+	_ = c.logResults(ctx, results)
 	if c.runNeedsForce(results) {
-		fmt.Fprint(ctx.Stdout, "\nThis will require `--force`\n")
+		ctx.Infof("\nThis will require `--force`")
 	}
 	return nil
 }
@@ -243,7 +235,15 @@ func (c *removeCommand) runNeedsForce(results []params.DestroyMachineResult) boo
 	return false
 }
 
-func (c *removeCommand) logResults(ctx *cmd.Context, results []params.DestroyMachineResult, errorOnly bool) error {
+func (c *removeCommand) logErrors(ctx *cmd.Context, results []params.DestroyMachineResult) error {
+	return c.log(ctx, results, true)
+}
+
+func (c *removeCommand) logResults(ctx *cmd.Context, results []params.DestroyMachineResult) error {
+	return c.log(ctx, results, false)
+}
+
+func (c *removeCommand) log(ctx *cmd.Context, results []params.DestroyMachineResult, errorOnly bool) error {
 	anyFailed := false
 	for _, result := range results {
 		if err := c.logResult(ctx, result, errorOnly); err != nil {
@@ -259,44 +259,44 @@ func (c *removeCommand) logResults(ctx *cmd.Context, results []params.DestroyMac
 func (c *removeCommand) logResult(ctx *cmd.Context, result params.DestroyMachineResult, errorOnly bool) error {
 	if result.Error != nil {
 		err := errors.Annotate(result.Error, "removing machine failed")
-		fmt.Fprintf(ctx.Stderr, "%s\n", err)
+		cmd.WriteError(ctx.Stderr, err)
 		return errors.Trace(err)
 	}
 	if !errorOnly {
-		c.logRemovedMachine(ctx, result)
+		c.logRemovedMachine(ctx, result.Info)
 	}
-	return c.logResults(ctx, result.Info.DestroyedContainers, errorOnly)
+	return c.log(ctx, result.Info.DestroyedContainers, errorOnly)
 }
 
-func (c *removeCommand) logRemovedMachine(ctx *cmd.Context, result params.DestroyMachineResult) {
-	id := result.Info.MachineId
+func (c *removeCommand) logRemovedMachine(ctx *cmd.Context, info *params.DestroyMachineInfo) {
+	id := info.MachineId
 	if c.KeepInstance {
-		fmt.Fprintf(ctx.Stdout, "will remove machine %s (but retaining cloud instance)\n", id)
+		_, _ = fmt.Fprintf(ctx.Stdout, "will remove machine %s (but retaining cloud instance)\n", id)
 	} else {
-		fmt.Fprintf(ctx.Stdout, "will remove machine %s\n", id)
+		_, _ = fmt.Fprintf(ctx.Stdout, "will remove machine %s\n", id)
 	}
-	for _, entity := range result.Info.DestroyedUnits {
+	for _, entity := range info.DestroyedUnits {
 		unitTag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
-			logger.Warningf("%s", err)
+			ctx.Warningf("%s", err)
 			continue
 		}
-		fmt.Fprintf(ctx.Stdout, "- will remove %s\n", names.ReadableString(unitTag))
+		_, _ = fmt.Fprintf(ctx.Stdout, "- will remove %s\n", names.ReadableString(unitTag))
 	}
-	for _, entity := range result.Info.DestroyedStorage {
+	for _, entity := range info.DestroyedStorage {
 		storageTag, err := names.ParseStorageTag(entity.Tag)
 		if err != nil {
-			logger.Warningf("%s", err)
+			ctx.Warningf("%s", err)
 			continue
 		}
-		fmt.Fprintf(ctx.Stdout, "- will remove %s\n", names.ReadableString(storageTag))
+		_, _ = fmt.Fprintf(ctx.Stdout, "- will remove %s\n", names.ReadableString(storageTag))
 	}
-	for _, entity := range result.Info.DetachedStorage {
+	for _, entity := range info.DetachedStorage {
 		storageTag, err := names.ParseStorageTag(entity.Tag)
 		if err != nil {
-			logger.Warningf("%s", err)
+			ctx.Warningf("%s", err)
 			continue
 		}
-		fmt.Fprintf(ctx.Stdout, "- will detach %s\n", names.ReadableString(storageTag))
+		_, _ = fmt.Fprintf(ctx.Stdout, "- will detach %s\n", names.ReadableString(storageTag))
 	}
 }

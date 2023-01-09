@@ -1511,6 +1511,9 @@ func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyU
 				return nil, errors.Trace(err)
 			}
 		}
+		if arg.DryRun {
+			return &info, nil
+		}
 		op := unit.DestroyOperation()
 		op.DestroyStorage = arg.DestroyStorage
 		op.Force = arg.Force
