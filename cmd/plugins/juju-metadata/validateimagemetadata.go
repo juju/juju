@@ -35,6 +35,7 @@ type validateImageMetadataCommand struct {
 	providerType string
 	metadataDir  string
 	series       string
+	base         string
 	region       string
 	endpoint     string
 	stream       string
@@ -53,27 +54,27 @@ that the validation may be performed on arbitrary metadata.
 
 Examples:
 
- - validate using the current model settings but with series raring
+ - validate using the current model settings but with base ubuntu@22.04
 
-  juju metadata validate-images -s raring
+  juju metadata validate-images -b ubuntu@22.04
 
- - validate using the current model settings but with series raring and
+ - validate using the current model settings but with base ubuntu@22.04 and
  using metadata from local directory (the directory is expected to have an
  "images" subdirectory containing the metadata, and corresponds to the parameter
  passed to the image metadata generatation command).
 
-  juju metadata validate-images -s raring -d <some directory>
+  juju metadata validate-images -b ubuntu@22.04 -d <some directory>
 
 A key use case is to validate newly generated metadata prior to deployment to
 production. In this case, the metadata is placed in a local directory, a cloud
 provider type is specified (ec2, openstack etc), and the validation is performed
-for each supported region and series.
+for each supported region and base.
 
 Example bash snippet:
 
 #!/bin/bash
 
-juju metadata validate-images -p ec2 -r us-east-1 -t ubuntu -d <some directory>
+juju metadata validate-images -p ec2 -r us-east-1 -d <some directory>
 RETVAL=$?
 [ $RETVAL -eq 0 ] && echo Success
 [ $RETVAL -ne 0 ] && echo Failure
@@ -91,16 +92,20 @@ func (c *validateImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
 	f.StringVar(&c.providerType, "p", "", "the provider type eg ec2, openstack")
 	f.StringVar(&c.metadataDir, "d", "", "directory where metadata files are found")
-	f.StringVar(&c.series, "s", "", "the series for which to validate (overrides env config series)")
+	f.StringVar(&c.series, "s", "", "the series for which to validate (overrides env config series). DEPRECATED use --base")
+	f.StringVar(&c.base, "b", "", "the base for which to validate (overrides env config base)")
 	f.StringVar(&c.region, "r", "", "the region for which to validate (overrides env config region)")
 	f.StringVar(&c.endpoint, "u", "", "the cloud endpoint URL for which to validate (overrides env config endpoint)")
 	f.StringVar(&c.stream, "stream", "", "the images stream (defaults to released)")
 }
 
 func (c *validateImageMetadataCommand) Init(args []string) error {
+	if c.base != "" && c.series != "" {
+		return errors.New("--series and --base cannot be specified together")
+	}
 	if c.providerType != "" {
-		if c.series == "" {
-			return errors.Errorf("series required if provider type is specified")
+		if c.base == "" && c.series == "" {
+			return errors.Errorf("base required if provider type is specified")
 		}
 		if c.region == "" {
 			return errors.Errorf("region required if provider type is specified")
@@ -136,8 +141,28 @@ func (oes *overrideEnvStream) Config() *config.Config {
 	return newCfg
 }
 
-func (c *validateImageMetadataCommand) Run(context *cmd.Context) error {
-	params, err := c.createLookupParams(context)
+func (c *validateImageMetadataCommand) Run(ctx *cmd.Context) error {
+	var (
+		base series.Base
+		err  error
+	)
+	// Note: we validated that both series and base cannot be specified in
+	// Init(), so it's safe to assume that only one of them is set here.
+	if c.series != "" {
+		ctx.Warningf("series flag is deprecated, use --base instead")
+		if base, err = series.GetBaseFromSeries(c.series); err != nil {
+			return errors.Annotatef(err, "attempting to convert %q to a base", c.series)
+		}
+		c.base = base.String()
+		c.series = ""
+	}
+	if c.base != "" {
+		if base, err = series.ParseBaseFromString(c.base); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	params, err := c.createLookupParams(ctx, base)
 	if err != nil {
 		return err
 	}
@@ -162,7 +187,7 @@ func (c *validateImageMetadataCommand) Run(context *cmd.Context) error {
 			"Region":           params.Region,
 			"Resolve Metadata": *resolveInfo,
 		}
-		_ = c.out.Write(context, metadata)
+		_ = c.out.Write(ctx, metadata)
 	} else {
 		var sources []string
 		for _, s := range params.Sources {
@@ -178,7 +203,7 @@ func (c *validateImageMetadataCommand) Run(context *cmd.Context) error {
 	return nil
 }
 
-func (c *validateImageMetadataCommand) createLookupParams(context *cmd.Context) (*simplestreams.MetadataLookupParams, error) {
+func (c *validateImageMetadataCommand) createLookupParams(context *cmd.Context, base series.Base) (*simplestreams.MetadataLookupParams, error) {
 	ss := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
 
 	controllerName, err := c.ControllerName()
@@ -220,12 +245,8 @@ func (c *validateImageMetadataCommand) createLookupParams(context *cmd.Context) 
 		}
 	}
 
-	if c.series != "" {
-		version, err := series.SeriesVersion(c.series)
-		if err != nil {
-			return nil, err
-		}
-		params.Release = version
+	if !base.Empty() {
+		params.Release = base.Channel.Track
 	}
 	if c.region != "" {
 		params.Region = c.region
