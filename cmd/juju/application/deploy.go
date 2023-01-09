@@ -446,7 +446,7 @@ remote charm:
   juju deploy ./pig
   juju deploy ch:pig
 
-  A bundle can be expressed similarly to a charm:
+A bundle can be expressed similarly to a charm:
 
   juju deploy mediawiki-single
   juju deploy mediawiki-single --base ubuntu@22.04
@@ -677,7 +677,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Base, "base", "", "The base on which to deploy")
 	f.IntVar(&c.Revision, "revision", -1, "The revision to deploy")
 	f.BoolVar(&c.DryRun, "dry-run", false, "Just show what the deploy would do")
-	f.BoolVar(&c.Force, "force", false, "Allow a charm/bundle to be deployed which bypasses checks such as supported series or LXD profile allow list")
+	f.BoolVar(&c.Force, "force", false, "Allow a charm/bundle to be deployed which bypasses checks such as supported base or LXD profile allow list")
 	f.Var(storageFlag{&c.Storage, &c.BundleStorage}, "storage", "Charm storage constraints")
 	f.Var(devicesFlag{&c.Devices, &c.BundleDevices}, "device", "Charm device constraints")
 	f.Var(stringMap{&c.Resources}, "resource", "Resource to be uploaded to the controller")

@@ -2,8 +2,8 @@
 # upgrade the series, and that the charm still behaves correctly.
 run_upgrade_series_relation() {
 	local start_base end_base
-	start_base="focal"
-	end_base="jammy"
+	start_base="ubuntu@20.04"
+	end_base="ubuntu@22.04"
 
 	# Setup
 	ensure "test-upgrade-machine-relation" "${TEST_DIR}/test-upgrade-machine-relation.log"

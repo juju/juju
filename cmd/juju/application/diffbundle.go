@@ -77,12 +77,16 @@ existing is always assumed, so it doesn't need to be specified.
 Config values for comparison are always source from the "current" model
 generation.
 
+Specifying a base will retrieve the bundle for the relevant store for
+the give base.
+
 Examples:
+
     juju diff-bundle localbundle.yaml
-    juju diff-bundle cs:canonical-kubernetes
+    juju diff-bundle charmed-kubernetes
+    juju diff-bundle charmed-kubernetes --overlay local-config.yaml --overlay extra.yaml
+	juju diff-bundle charmed-kubernetes --base ubuntu@22.04
     juju diff-bundle -m othermodel hadoop-spark
-    juju diff-bundle cs:mongodb-cluster --channel beta
-    juju diff-bundle cs:canonical-kubernetes --overlay local-config.yaml --overlay extra.yaml
     juju diff-bundle localbundle.yaml --map-machines 3=4
 
 See also:

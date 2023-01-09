@@ -84,7 +84,7 @@ func DeduceOrigin(url *charm.URL, channel charm.Channel, platform corecharm.Plat
 	return origin, nil
 }
 
-// MakePlatform creates a Platform (architecture, os and series) from a set of
+// MakePlatform creates a Platform (architecture, os and base) from a set of
 // constraints and a base.
 func MakePlatform(cons constraints.Value, base series.Base, modelCons constraints.Value) corecharm.Platform {
 	return corecharm.Platform{
