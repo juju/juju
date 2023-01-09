@@ -4,6 +4,7 @@
 package common
 
 import (
+	"github.com/juju/collections/transform"
 	"time"
 
 	"github.com/juju/errors"
@@ -109,12 +110,15 @@ func ModelApplicationInfo(st ModelManagerBackend) (applicationInfo []params.Mode
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	for _, app := range applications {
-		appInfo := params.ModelApplicationInfo{
-			Name: app.Name(),
-		}
-		applicationInfo = append(applicationInfo, appInfo)
-	}
+	applicationInfo = transform.Slice(applications, func(app Application) params.ModelApplicationInfo {
+		return params.ModelApplicationInfo{Name: app.Name()}
+	})
+	//for _, app := range applications {
+	//	appInfo := params.ModelApplicationInfo{
+	//		Name: app.Name(),
+	//	}
+	//	applicationInfo = append(applicationInfo, appInfo)
+	//}
 	return applicationInfo, nil
 }
 
@@ -150,7 +154,7 @@ func ModelMachineInfo(st ModelManagerBackend) (machineInfo []params.ModelMachine
 	}
 
 	for _, m := range machines {
-		m.Id()
+		mId := m.Id()
 		if m.Life() != state.Alive {
 			continue
 		}
@@ -166,14 +170,14 @@ func ModelMachineInfo(st ModelManagerBackend) (machineInfo []params.ModelMachine
 			aStatus = err.Error()
 		}
 		mInfo := params.ModelMachineInfo{
-			Id:        m.Id(),
-			HasVote:   hasVote[m.Id()],
-			WantsVote: wantsVote[m.Id()],
+			Id:        mId,
+			HasVote:   hasVote[mId],
+			WantsVote: wantsVote[mId],
 			Status:    aStatus,
 			Message:   statusMessage,
 		}
 		if primaryID != "" {
-			if isPrimary := primaryID == m.Id(); isPrimary {
+			if isPrimary := primaryID == mId; isPrimary {
 				mInfo.HAPrimary = &isPrimary
 			}
 		}
