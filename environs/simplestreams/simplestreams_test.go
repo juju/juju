@@ -365,7 +365,6 @@ func (s *simplestreamsSuite) TestMetadataCatalog(c *gc.C) {
 	c.Check(len(metadata.Aliases), gc.Equals, 1)
 	metadataCatalog := metadata.Products["com.ubuntu.cloud:server:12.04:amd64"]
 	c.Check(len(metadataCatalog.Items), gc.Equals, 2)
-	c.Check(metadataCatalog.Series, gc.Equals, "precise")
 	c.Check(metadataCatalog.Version, gc.Equals, "12.04")
 	c.Check(metadataCatalog.Arch, gc.Equals, "amd64")
 	c.Check(metadataCatalog.RegionName, gc.Equals, "au-east-1")

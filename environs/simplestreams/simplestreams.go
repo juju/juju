@@ -122,7 +122,6 @@ type CloudMetadata struct {
 }
 
 type MetadataCatalog struct {
-	Series     string `json:"release,omitempty"`
 	Version    string `json:"version,omitempty"`
 	Arch       string `json:"arch,omitempty"`
 	RegionName string `json:"region,omitempty"`
@@ -434,7 +433,6 @@ func (s Simplestreams) GetMetadata(sources []DataSource, params GetMetadataParam
 
 // getMaybeSignedMetadata returns metadata records matching the specified constraint in params.
 func (s Simplestreams) getMaybeSignedMetadata(source DataSource, params GetMetadataParams, signed bool) ([]interface{}, *ResolveInfo, error) {
-
 	makeIndexPath := func(basePath string) string {
 		pathNoSuffix := fmt.Sprintf(basePath, params.StreamsVersion)
 		indexPath := pathNoSuffix + UnsignedSuffix
