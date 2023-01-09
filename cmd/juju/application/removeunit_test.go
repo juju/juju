@@ -4,6 +4,9 @@
 package application_test
 
 import (
+	"bytes"
+	"time"
+
 	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
@@ -13,11 +16,14 @@ import (
 
 	apiapplication "github.com/juju/juju/api/client/application"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/cmd/cmdtest"
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/cmd/juju/application/mocks"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
 )
@@ -33,76 +39,10 @@ type RemoveUnitSuite struct {
 
 var _ = gc.Suite(&RemoveUnitSuite{})
 
-type fakeApplicationRemoveUnitAPI struct {
-	application.RemoveApplicationAPI
-
-	units          []string
-	scale          int
-	destroyStorage bool
-	err            error
-}
-
-func (f *fakeApplicationRemoveUnitAPI) Close() error {
-	return nil
-}
-
-func (f *fakeApplicationRemoveUnitAPI) ModelUUID() string {
-	return "fake-uuid"
-}
-
-func (f *fakeApplicationRemoveUnitAPI) DestroyUnits(args apiapplication.DestroyUnitsParams) ([]params.DestroyUnitResult, error) {
-	if f.err != nil {
-		return nil, f.err
-	}
-	f.units = args.Units
-	f.destroyStorage = args.DestroyStorage
-	var result []params.DestroyUnitResult
-	for _, u := range args.Units {
-		var info *params.DestroyUnitInfo
-		var err *params.Error
-		switch u {
-		case "unit/0":
-			st := []params.Entity{{Tag: "storage-data-0"}}
-			info = &params.DestroyUnitInfo{}
-			if f.destroyStorage {
-				info.DestroyedStorage = st
-			} else {
-				info.DetachedStorage = st
-			}
-		case "unit/1":
-			st := []params.Entity{{Tag: "storage-data-1"}}
-			info = &params.DestroyUnitInfo{}
-			if f.destroyStorage {
-				info.DestroyedStorage = st
-			} else {
-				info.DetachedStorage = st
-			}
-		case "unit/2":
-			err = &params.Error{Code: params.CodeNotFound, Message: `unit "unit/2" does not exist`}
-		}
-		result = append(result, params.DestroyUnitResult{
-			Info:  info,
-			Error: err,
-		})
-	}
-	return result, nil
-}
-
-func (f *fakeApplicationRemoveUnitAPI) ScaleApplication(args apiapplication.ScaleApplicationParams) (params.ScaleApplicationResult, error) {
-	if f.err != nil {
-		return params.ScaleApplicationResult{}, f.err
-	}
-	f.scale += args.ScaleChange
-	return params.ScaleApplicationResult{
-		Info: &params.ScaleApplicationInfo{
-			Scale: f.scale,
-		},
-	}, nil
-}
-
 func (s *RemoveUnitSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.store = jujuclienttesting.MinimalStore()
+	s.facadeVersion = 16
 }
 
 func (s *RemoveUnitSuite) setup(c *gc.C) *gomock.Controller {
@@ -116,6 +56,11 @@ func (s *RemoveUnitSuite) setup(c *gc.C) *gomock.Controller {
 
 func (s *RemoveUnitSuite) runRemoveUnit(c *gc.C, args ...string) (*cmd.Context, error) {
 	return cmdtesting.RunCommand(c, application.NewRemoveUnitCommandForTest(s.mockApi, s.store), args...)
+}
+
+func (s *RemoveUnitSuite) runWithContext(ctx *cmd.Context, args ...string) (chan dummy.Operation, chan error) {
+	remove := application.NewRemoveUnitCommandForTest(s.mockApi, s.store)
+	return cmdtest.RunCommandWithDummyProvider(ctx, remove, args...)
 }
 
 func (s *RemoveUnitSuite) TestRemoveUnit(c *gc.C) {
@@ -134,13 +79,16 @@ func (s *RemoveUnitSuite) TestRemoveUnit(c *gc.C) {
 	ctx, err := s.runRemoveUnit(c, "unit/0", "unit/1", "unit/2")
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 
+	stdout := cmdtesting.Stdout(ctx)
 	stderr := cmdtesting.Stderr(ctx)
-	c.Assert(stderr, gc.Equals, `
-removing unit unit/0
+	c.Assert(stdout, gc.Equals, `
+will remove unit unit/0
 - will detach storage data/0
-removing unit unit/1
+will remove unit unit/1
 - will detach storage data/1
-removing unit unit/2 failed: doink
+`[1:])
+	c.Assert(stderr, gc.Equals, `
+ERROR removing unit unit/2 failed: doink
 `[1:])
 }
 
@@ -161,13 +109,16 @@ func (s *RemoveUnitSuite) TestRemoveUnitDestroyStorage(c *gc.C) {
 	ctx, err := s.runRemoveUnit(c, "unit/0", "unit/1", "unit/2", "--destroy-storage")
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 
+	stdout := cmdtesting.Stdout(ctx)
 	stderr := cmdtesting.Stderr(ctx)
-	c.Assert(stderr, gc.Equals, `
-removing unit unit/0
+	c.Assert(stdout, gc.Equals, `
+will remove unit unit/0
 - will remove storage data/0
-removing unit unit/1
+will remove unit unit/1
 - will remove storage data/1
-removing unit unit/2 failed: doink
+`[1:])
+	c.Assert(stderr, gc.Equals, `
+ERROR removing unit unit/2 failed: doink
 `[1:])
 }
 
@@ -186,6 +137,103 @@ func (s *RemoveUnitSuite) TestBlockRemoveUnit(c *gc.C) {
 	s.runRemoveUnit(c, "some-unit-name/0")
 
 	c.Check(c.GetTestLog(), gc.Matches, "(?s).*TestBlockRemoveUnit.*")
+}
+
+func (s *RemoveUnitSuite) TestRemoveUnitDryRun(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.mockApi.EXPECT().DestroyUnits(apiapplication.DestroyUnitsParams{
+		Units:  []string{"unit/0", "unit/1"},
+		DryRun: true,
+	}).Return([]params.DestroyUnitResult{{
+		Info: &params.DestroyUnitInfo{DetachedStorage: []params.Entity{{Tag: "storage-data-0"}}},
+	}, {
+		Info: &params.DestroyUnitInfo{DetachedStorage: []params.Entity{{Tag: "storage-data-1"}}},
+	}}, nil)
+
+	ctx, err := s.runRemoveUnit(c, "--dry-run", "unit/0", "unit/1")
+	c.Assert(err, jc.ErrorIsNil)
+
+	stdout := cmdtesting.Stdout(ctx)
+	c.Assert(stdout, gc.Equals, `
+will remove unit unit/0
+- will detach storage data/0
+will remove unit unit/1
+- will detach storage data/1
+`[1:])
+}
+
+func (s *RemoveUnitSuite) TestRemoveUnitDryRunOldFacade(c *gc.C) {
+	s.facadeVersion = 15
+	defer s.setup(c).Finish()
+
+	_, err := s.runRemoveUnit(c, "--dry-run", "unit/0", "unit/1")
+	c.Assert(err, gc.ErrorMatches, "Your controller does not support `--dry-run`")
+}
+
+func (s *RemoveUnitSuite) TestRemoveUnitWithPrompt(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.PatchEnvironment(osenv.JujuSkipConfirmationEnvKey, "0")
+
+	var stdin bytes.Buffer
+	ctx := cmdtesting.Context(c)
+	ctx.Stdin = &stdin
+
+	s.mockApi.EXPECT().DestroyUnits(apiapplication.DestroyUnitsParams{
+		Units:  []string{"unit/0"},
+		DryRun: true,
+	}).Return([]params.DestroyUnitResult{{
+		Info: &params.DestroyUnitInfo{},
+	}}, nil)
+	s.mockApi.EXPECT().DestroyUnits(apiapplication.DestroyUnitsParams{
+		Units: []string{"unit/0"},
+	}).Return([]params.DestroyUnitResult{{
+		Info: &params.DestroyUnitInfo{},
+	}}, nil)
+
+	stdin.WriteString("y")
+	_, errc := s.runWithContext(ctx, "unit/0")
+
+	select {
+	case err := <-errc:
+		c.Check(err, jc.ErrorIsNil)
+	case <-time.After(testing.LongWait):
+		c.Fatal("command took too long")
+	}
+
+	c.Assert(cmdtesting.Stdout(ctx), gc.Matches, `
+(?s)will remove unit unit/0
+.*`[1:])
+}
+
+func (s *RemoveUnitSuite) TestRemoveUnitWithPromptOldFacade(c *gc.C) {
+	s.facadeVersion = 15
+	defer s.setup(c).Finish()
+
+	s.PatchEnvironment(osenv.JujuSkipConfirmationEnvKey, "0")
+
+	var stdin bytes.Buffer
+	ctx := cmdtesting.Context(c)
+	ctx.Stdin = &stdin
+
+	s.mockApi.EXPECT().DestroyUnits(apiapplication.DestroyUnitsParams{
+		Units: []string{"unit/0"},
+	}).Return([]params.DestroyUnitResult{{
+		Info: &params.DestroyUnitInfo{},
+	}}, nil)
+
+	stdin.WriteString("y")
+	_, errc := s.runWithContext(ctx, "unit/0")
+
+	select {
+	case err := <-errc:
+		c.Check(err, jc.ErrorIsNil)
+	case <-time.After(testing.LongWait):
+		c.Fatal("command took too long")
+	}
+
+	c.Assert(c.GetTestLog(), gc.Matches, `(?s).*Your controller does not support dry runs.*`)
 }
 
 func (s *RemoveUnitSuite) setCaasModel() {

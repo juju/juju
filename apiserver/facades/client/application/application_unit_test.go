@@ -1249,6 +1249,51 @@ func (s *ApplicationSuite) TestDestroySubordinateUnits(c *gc.C) {
 	c.Assert(results.Results[0].Error, gc.ErrorMatches, `unit "subordinate/0" is a subordinate, .*`)
 }
 
+func (s *ApplicationSuite) TestDestroyUnitDryRun(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	app := s.expectDefaultApplication(ctrl)
+	s.backend.EXPECT().Application("postgresql").MinTimes(1).Return(app, nil)
+
+	unit0 := s.expectUnit(ctrl, "postgresql/0")
+	unit0.EXPECT().IsPrincipal().Return(true)
+	s.backend.EXPECT().Unit("postgresql/0").Return(unit0, nil)
+
+	unit1 := s.expectUnit(ctrl, "postgresql/1")
+	unit1.EXPECT().IsPrincipal().Return(true)
+	s.backend.EXPECT().Unit("postgresql/1").Return(unit1, nil)
+
+	s.expectDefaultStorageAttachments(ctrl)
+
+	results, err := s.api.DestroyUnit(params.DestroyUnitsParams{
+		Units: []params.DestroyUnitParams{
+			{
+				UnitTag: "unit-postgresql-0",
+				DryRun:  true,
+			}, {
+				UnitTag: "unit-postgresql-1",
+				DryRun:  true,
+			},
+		},
+	})
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 2)
+	c.Assert(results.Results, jc.DeepEquals, []params.DestroyUnitResult{{
+		Info: &params.DestroyUnitInfo{
+			DetachedStorage: []params.Entity{
+				{Tag: "storage-pgdata-0"},
+			},
+			DestroyedStorage: []params.Entity{
+				{Tag: "storage-pgdata-1"},
+			},
+		},
+	}, {
+		Info: &params.DestroyUnitInfo{},
+	}})
+}
+
 func (s *ApplicationSuite) TestDeployAttachStorage(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
