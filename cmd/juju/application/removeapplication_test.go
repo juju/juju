@@ -128,9 +128,6 @@ func (s *removeApplicationSuite) TestRemoveApplicationDryRun(c *gc.C) {
 	ctx, err := s.runRemoveApplication(c, "real-app", "--dry-run")
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
-WARNING! This command:
-`[1:])
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
 will remove application real-app
 `[1:])
@@ -174,12 +171,8 @@ func (s *removeApplicationSuite) TestRemoveApplicationPrompt(c *gc.C) {
 		c.Fatal("command took too long")
 	}
 
-	c.Assert(cmdtesting.Stderr(ctx), gc.Matches, `
-(?s)WARNING! This command:
-.*`[1:])
-	c.Assert(cmdtesting.Stdout(ctx), gc.Matches, `
-(?s)will remove application real-app
-.*`[1:])
+	c.Assert(cmdtesting.Stderr(ctx), gc.Matches, `(?s).*Continue [y/N]?.*`)
+	c.Assert(cmdtesting.Stdout(ctx), gc.Matches, `(?s)will remove application real-app.*`)
 }
 
 func (s *removeApplicationSuite) TestRemoveApplicationPromptOldFacade(c *gc.C) {
@@ -206,7 +199,7 @@ func (s *removeApplicationSuite) TestRemoveApplicationPromptOldFacade(c *gc.C) {
 		c.Fatal("command took too long")
 	}
 
-	c.Assert(cmdtesting.Stderr(ctx), gc.Matches, `(?s).*Your controller does not support a more in depth dry run.*`)
+	c.Assert(c.GetTestLog(), gc.Matches, `(?s).*Your controller does not support dry runs.*`)
 }
 
 func setupRace(raceyApplications []string) func(args apiapplication.DestroyApplicationsParams) ([]params.DestroyApplicationResult, error) {
@@ -251,7 +244,7 @@ func (s *removeApplicationSuite) TestHandlingNotSupported(c *gc.C) {
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
-removing application do-not-remove failed: another user was updating application; please try again
+ERROR removing application do-not-remove failed: another user was updating application; please try again
 `[1:])
 }
 
@@ -270,7 +263,7 @@ will remove application real-app
 will remove application another
 `[1:])
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
-removing application do-not-remove failed: another user was updating application; please try again
+ERROR removing application do-not-remove failed: another user was updating application; please try again
 `[1:])
 }
 
@@ -339,7 +332,7 @@ func (s *removeApplicationSuite) TestFailure(c *gc.C) {
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	stderr := cmdtesting.Stderr(ctx)
 	c.Assert(stderr, gc.Equals, `
-removing application gargleblaster failed: doink
+ERROR removing application gargleblaster failed: doink
 `[1:])
 }
 

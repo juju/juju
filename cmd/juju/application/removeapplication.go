@@ -9,13 +9,11 @@ import (
 	"time"
 
 	"github.com/juju/cmd/v3"
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/client/application"
-	"github.com/juju/juju/api/client/storage"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -33,7 +31,7 @@ func NewRemoveApplicationCommand() cmd.Command {
 
 // removeApplicationCommand causes an existing application to be destroyed.
 // TODO(jack-w-shaw) This should inherit from ConfirmationCommandBase in
-// 3.1, once hebaviours have converged
+// 3.1, once behaviours have converged
 type removeApplicationCommand struct {
 	modelcmd.ConfirmationCommandBase
 	modelcmd.ModelCommandBase
@@ -81,13 +79,12 @@ Examples:
     juju remove-application -m test-model mariadb`[1:]
 
 var removeApplicationMsgNoDryRun = `
-WARNING! This command will remove application(s) %q
-Your controller does not support a more in depth dry run
-`[1:]
+This command will remove application(s) %q
+Your controller does not support dry runs`[1:]
 
-var removeApplicationMsgPrefix = "WARNING! This command:\n"
+var removeApplicationMsgPrefix = "This command will perform the following actions:"
 
-var errDryRunNotSupported = errors.New("Your controller does not support `--dry-run`")
+var errDryRunNotSupportedByController = errors.New("Your controller does not support `--dry-run`")
 
 func (c *removeApplicationCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
@@ -136,11 +133,6 @@ type RemoveApplicationAPI interface {
 	BestAPIVersion() int
 }
 
-type storageAPI interface {
-	Close() error
-	ListStorageDetails() ([]params.StorageDetails, error)
-}
-
 func (c *removeApplicationCommand) getAPI() (RemoveApplicationAPI, error) {
 	root, err := c.NewAPIRoot()
 	if err != nil {
@@ -149,50 +141,7 @@ func (c *removeApplicationCommand) getAPI() (RemoveApplicationAPI, error) {
 	return application.NewClient(root), nil
 }
 
-func (c *removeApplicationCommand) getStorageAPI() (storageAPI, error) {
-	root, err := c.NewAPIRoot()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return storage.NewClient(root), nil
-}
-
-func (c *removeApplicationCommand) applicationsHaveStorage(appNames []string) (bool, error) {
-	client, err := c.getStorageAPI()
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	defer client.Close()
-
-	storages, err := client.ListStorageDetails()
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	namesSet := set.NewStrings(appNames...)
-	for _, s := range storages {
-		if s.OwnerTag == "" {
-			continue
-		}
-		owner, err := names.ParseTag(s.OwnerTag)
-		if err != nil {
-			return false, errors.Trace(err)
-		}
-		if owner.Kind() != names.UnitTagKind {
-			continue
-		}
-		appName, err := names.UnitApplication(owner.Id())
-		if err != nil {
-			return false, errors.Trace(err)
-		}
-		if namesSet.Contains(appName) {
-			return true, nil
-		}
-	}
-	return false, nil
-}
-
 func (c *removeApplicationCommand) Run(ctx *cmd.Context) error {
-
 	client, err := c.newAPIFunc()
 	if err != nil {
 		return err
@@ -218,10 +167,10 @@ func (c *removeApplicationCommand) removeApplications(
 
 	if c.NeedsConfirmation() {
 		err := c.performDryRun(ctx, client)
-		if err == errDryRunNotSupported {
-			fmt.Fprintf(ctx.Stderr, removeApplicationMsgNoDryRun, strings.Join(c.ApplicationNames, ", "))
+		if err == errDryRunNotSupportedByController {
+			ctx.Warningf(removeApplicationMsgNoDryRun, strings.Join(c.ApplicationNames, ", "))
 		} else if err != nil {
-			return errors.Trace(err)
+			return err
 		}
 		if err := jujucmd.UserConfirmYes(ctx); err != nil {
 			return errors.Annotate(err, "application removal")
@@ -239,7 +188,11 @@ func (c *removeApplicationCommand) removeApplications(
 		return errors.Trace(err)
 	}
 	logAll := !c.NeedsConfirmation() || client.BestAPIVersion() < 16
-	return c.logResults(ctx, results, !logAll)
+	if logAll {
+		return c.logResults(ctx, results)
+	} else {
+		return c.logErrors(ctx, results)
+	}
 }
 
 func (c *removeApplicationCommand) performDryRun(
@@ -248,23 +201,33 @@ func (c *removeApplicationCommand) performDryRun(
 ) error {
 	// TODO(jack-w-shaw) Drop this once application 15 support is dropped
 	if client.BestAPIVersion() < 16 {
-		return errDryRunNotSupported
+		return errDryRunNotSupportedByController
 	}
 	results, err := client.DestroyApplications(application.DestroyApplicationsParams{
-		Applications: c.ApplicationNames,
-		DryRun:       true,
+		Applications:   c.ApplicationNames,
+		DestroyStorage: c.DestroyStorage,
+		DryRun:         true,
 	})
 	if err := block.ProcessBlockedError(err, block.BlockRemove); err != nil {
 		return errors.Trace(err)
 	}
-	fmt.Fprintf(ctx.Stderr, removeApplicationMsgPrefix)
-	if err := c.logResults(ctx, results, false); err != nil {
-		return errors.Trace(err)
+	if err := c.logErrors(ctx, results); err != nil {
+		return err
 	}
+	ctx.Warningf(removeApplicationMsgPrefix)
+	_ = c.logResults(ctx, results)
 	return nil
 }
 
-func (c *removeApplicationCommand) logResults(
+func (c *removeApplicationCommand) logErrors(ctx *cmd.Context, results []params.DestroyApplicationResult) error {
+	return c.log(ctx, results, true)
+}
+
+func (c *removeApplicationCommand) logResults(ctx *cmd.Context, results []params.DestroyApplicationResult) error {
+	return c.log(ctx, results, false)
+}
+
+func (c *removeApplicationCommand) log(
 	ctx *cmd.Context,
 	results []params.DestroyApplicationResult,
 	errorsOnly bool,
@@ -294,11 +257,11 @@ func (c *removeApplicationCommand) logResult(
 			err = errors.New("another user was updating application; please try again")
 		}
 		err = errors.Annotatef(err, "removing application %s failed", name)
-		fmt.Fprintf(ctx.Stderr, "%s\n", err)
+		cmd.WriteError(ctx.Stderr, err)
 		return errors.Trace(err)
 	}
 	if !errorsOnly {
-		c.logRemovedApplication(ctx, name, result)
+		c.logRemovedApplication(ctx, name, result.Info)
 	}
 	return nil
 }
@@ -306,31 +269,31 @@ func (c *removeApplicationCommand) logResult(
 func (c *removeApplicationCommand) logRemovedApplication(
 	ctx *cmd.Context,
 	name string,
-	result params.DestroyApplicationResult,
+	info *params.DestroyApplicationInfo,
 ) {
-	fmt.Fprintf(ctx.Stdout, "will remove application %s\n", name)
-	for _, entity := range result.Info.DestroyedUnits {
+	_, _ = fmt.Fprintf(ctx.Stdout, "will remove application %s\n", name)
+	for _, entity := range info.DestroyedUnits {
 		unitTag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
-			logger.Warningf("%s", err)
+			ctx.Warningf("%s", err)
 			continue
 		}
-		fmt.Fprintf(ctx.Stdout, "- will remove %s\n", names.ReadableString(unitTag))
+		_, _ = fmt.Fprintf(ctx.Stdout, "- will remove %s\n", names.ReadableString(unitTag))
 	}
-	for _, entity := range result.Info.DestroyedStorage {
+	for _, entity := range info.DestroyedStorage {
 		storageTag, err := names.ParseStorageTag(entity.Tag)
 		if err != nil {
-			logger.Warningf("%s", err)
+			ctx.Warningf("%s", err)
 			continue
 		}
-		fmt.Fprintf(ctx.Stdout, "- will remove %s\n", names.ReadableString(storageTag))
+		_, _ = fmt.Fprintf(ctx.Stdout, "- will remove %s\n", names.ReadableString(storageTag))
 	}
-	for _, entity := range result.Info.DetachedStorage {
+	for _, entity := range info.DetachedStorage {
 		storageTag, err := names.ParseStorageTag(entity.Tag)
 		if err != nil {
-			logger.Warningf("%s", err)
+			ctx.Warningf("%s", err)
 			continue
 		}
-		fmt.Fprintf(ctx.Stdout, "- will detach %s\n", names.ReadableString(storageTag))
+		_, _ = fmt.Fprintf(ctx.Stdout, "- will detach %s\n", names.ReadableString(storageTag))
 	}
 }
