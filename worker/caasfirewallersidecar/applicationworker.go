@@ -167,11 +167,13 @@ func toServicePorts(in network.GroupedPortRanges) []caas.ServicePort {
 	return out
 }
 
-func (w *applicationWorker) onPortChanged() (err error) {
+func (w *applicationWorker) onPortChanged() error {
 	changedPortRanges, err := w.firewallerAPI.GetApplicationOpenedPorts(w.appName)
 	if err != nil {
 		return err
 	}
+	w.logger.Warningf("port changed for app %q, %v", w.appName, changedPortRanges)
+	w.logger.Warningf("current port for app %q, %v", w.appName, w.currentPorts)
 	if w.currentPorts.EqualTo(changedPortRanges) {
 		w.logger.Debugf("no port changes for app %q", w.appName)
 		return nil
