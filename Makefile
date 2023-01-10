@@ -114,12 +114,9 @@ endef
 define INSTALL_TARGETS
 	juju \
 	jujuc \
+	jujud \
 	containeragent \
 	juju-metadata
-endef
-
-define INSTALL_CGO_TARGETS
-  github.com/juju/juju/cmd/jujud
 endef
 
 # Windows doesn't support the agent binaries
@@ -158,12 +155,20 @@ ifeq ($(VERBOSE_CHECK), 1)
 	CHECK_ARGS = -v
 endif
 
+define link_flags_version
+	-X $(PROJECT)/version.GitCommit=$(GIT_COMMIT) \
+	-X $(PROJECT)/version.GitTreeState=$(GIT_TREE_STATE) \
+	-X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER)
+endef
+
 # Compile with debug flags if requested.
 ifeq ($(DEBUG_JUJU), 1)
     COMPILE_FLAGS = -gcflags "all=-N -l"
-    LINK_FLAGS = -ldflags "-X $(PROJECT)/version.GitCommit=$(GIT_COMMIT) -X $(PROJECT)/version.GitTreeState=$(GIT_TREE_STATE) -X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER)"
+    LINK_FLAGS =  "-X $(link_flags_version)"
+	CGO_LINK_FLAGS = "-linkmode 'external' -extldflags '-static' $(link_flags_version)"
 else
-    LINK_FLAGS = -ldflags "-s -w -extldflags '-static' -X $(PROJECT)/version.GitCommit=$(GIT_COMMIT) -X $(PROJECT)/version.GitTreeState=$(GIT_TREE_STATE) -X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER)"
+    LINK_FLAGS = "-s -w -extldflags '-static' $(link_flags_version)"
+	CGO_LINK_FLAGS = "-s -w -linkmode 'external' -extldflags '-static' $(link_flags_version)"
 endif
 
 define DEPENDENCIES
@@ -191,12 +196,67 @@ define run_go_build
 	$(eval BUILD_ARCH = $(subst ppc64el,ppc64le,${ARCH}))
 	@@mkdir -p ${BBIN_DIR}
 	@echo "Building ${PACKAGE} for ${OS}/${ARCH}"
-	@env GOOS=${OS} GOARCH=${BUILD_ARCH} go build -mod=$(JUJU_GOMOD_MODE) -o ${BBIN_DIR} -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v  ${PACKAGE}
+	@env GOOS=${OS} \
+		GOARCH=${BUILD_ARCH} \
+		go build \
+			-mod=$(JUJU_GOMOD_MODE) \
+			-o ${BBIN_DIR} \
+			-tags "$(BUILD_TAGS)" \
+			$(COMPILE_FLAGS) \
+			-ldflags $(LINK_FLAGS) \
+			-v ${PACKAGE}
+endef
+
+define run_cgo_build
+	$(eval OS = $(word 1,$(subst _, ,$*)))
+	$(eval ARCH = $(word 2,$(subst _, ,$*)))
+	$(eval BBIN_DIR = ${BUILD_DIR}/${OS}_${ARCH}/bin)
+	$(eval BUILD_ARCH = $(subst ppc64el,ppc64le,${ARCH}))
+	@@mkdir -p ${BBIN_DIR}
+	@echo "Building ${PACKAGE} for ${OS}/${ARCH}"
+	@env PATH=${PATH}:/usr/local/musl/bin \
+		CC="musl-gcc" \
+		CGO_CFLAGS="-I${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}/include" \
+		CGO_LDFLAGS="-L${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} -luv -lraft -ldqlite -llz4 -lsqlite3" \
+		CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
+		LD_LIBRARY_PATH="${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}" \
+		CGO_ENABLED=1 \
+		GOOS=${OS} \
+		GOARCH=${BUILD_ARCH} \
+		go build \
+			-mod=$(JUJU_GOMOD_MODE) \
+			-o ${BBIN_DIR} \
+			-tags "$(BUILD_TAGS)" \
+			$(COMPILE_FLAGS) \
+			-ldflags $(LINK_FLAGS) \
+			-v ${PACKAGE}
 endef
 
 define run_go_install
 	@echo "Installing ${PACKAGE}"
-	@go install -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v ${PACKAGE}
+	@go install \
+		-mod=$(JUJU_GOMOD_MODE) \
+		-tags "$(BUILD_TAGS)" \
+		$(COMPILE_FLAGS) \
+		-ldflags $(LINK_FLAGS) \
+		-v ${PACKAGE}
+endef
+
+define run_cgo_install
+	@echo "Installing ${PACKAGE}"
+	@env PATH=${PATH}:/usr/local/musl/bin \
+		CC="musl-gcc" \
+		CGO_CFLAGS="-I${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}/include" \
+		CGO_LDFLAGS="-L${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} -luv -lraft -ldqlite -llz4 -lsqlite3" \
+		CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
+		LD_LIBRARY_PATH="${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}" \
+		CGO_ENABLED=1 \
+		go install \
+			-mod=${JUJU_GOMOD_MODE} \
+			-tags "libsqlite3 ${BUILD_TAGS}" \
+			${COMPILE_FLAGS} \
+			-ldflags ${CGO_LINK_FLAGS} \
+			-v ${PACKAGE}
 endef
 
 default: build
@@ -220,9 +280,9 @@ jujuc:
 
 .PHONY: jujud
 jujud: PACKAGE = github.com/juju/juju/cmd/jujud
-jujud:
+jujud: musl-install-if-missing dqlite-deps-check
 ## jujud: Install jujud without updating dependencies
-	${run_go_install}
+	${run_cgo_install}
 
 .PHONY: containeragent
 containeragent: PACKAGE = github.com/juju/juju/cmd/containeragent
@@ -258,9 +318,9 @@ ${BUILD_DIR}/%/bin/jujuc: phony_explicit
 	$(run_go_build)
 
 ${BUILD_DIR}/%/bin/jujud: PACKAGE = github.com/juju/juju/cmd/jujud
-${BUILD_DIR}/%/bin/jujud: phony_explicit
+${BUILD_DIR}/%/bin/jujud: phony_explicit musl-install-if-missing dqlite-deps-check
 # build for jujud
-	$(cgo-go-build)
+	$(run_cgo_build)
 
 ${BUILD_DIR}/%/bin/containeragent: PACKAGE = github.com/juju/juju/cmd/containeragent
 ${BUILD_DIR}/%/bin/containeragent: phony_explicit
@@ -293,7 +353,7 @@ build: rebuild-schema go-build
 ## BUILD_CLIENT_TARGETS while also rebuilding a new schema.
 
 .PHONY: go-agent-build
-go-agent-build: cgo-go-build $(BUILD_AGENT_TARGETS)
+go-agent-build: $(BUILD_AGENT_TARGETS)
 
 .PHONY: go-build
 go-build: go-agent-build $(BUILD_CLIENT_TARGETS)
@@ -345,7 +405,7 @@ install: rebuild-schema go-install
 ## install: Install Juju binaries with a rebuilt schema
 
 .PHONY: go-install
-go-install: cgo-go-install $(INSTALL_TARGETS)
+go-install: $(INSTALL_TARGETS)
 ## go-install: Install Juju binaries
 
 .PHONY: clean
@@ -544,27 +604,3 @@ STATIC_ANALYSIS_JOB ?=
 static-analysis:
 ## static-analysis: Check the go code using static-analysis
 	@cd tests && ./main.sh static_analysis ${STATIC_ANALYSIS_JOB}
-
-
-cgo-go-op: musl-install-if-missing dqlite-deps-check
-	PATH=${PATH}:/usr/local/musl/bin \
-		CC="musl-gcc" \
-		CGO_CFLAGS="-I${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}/include" \
-		CGO_LDFLAGS="-L${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} -luv -lraft -ldqlite -llz4 -lsqlite3" \
-		CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
-		LD_LIBRARY_PATH="${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}" \
-		CGO_ENABLED=1 \
-		go $o $d \
-			-mod=${JUJU_GOMOD_MODE} \
-			-tags "libsqlite3 ${BUILD_TAGS}" \
-			${COMPILE_FLAGS} \
-			-ldflags "-s -w -linkmode 'external' -extldflags '-static' -X ${PROJECT}/version.GitCommit=${GIT_COMMIT} -X ${PROJECT}/version.GitTreeState=${GIT_TREE_STATE} -X ${PROJECT}/version.build=${JUJU_BUILD_NUMBER}" \
-			-v $(strip $(INSTALL_CGO_TARGETS))
-
-cgo-go-install:
-## go-install: Install Juju binaries without updating dependencies
-	$(MAKE) cgo-go-op o=install d=
-
-cgo-go-build:
-## go-build: Build Juju binaries without updating dependencies
-	$(MAKE) cgo-go-op o=build d="-o ${BIN_DIR}/jujud"
