@@ -122,6 +122,7 @@ type CloudMetadata struct {
 }
 
 type MetadataCatalog struct {
+	Release    string `json:"release,omitempty"`
 	Version    string `json:"version,omitempty"`
 	Arch       string `json:"arch,omitempty"`
 	RegionName string `json:"region,omitempty"`

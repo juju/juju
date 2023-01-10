@@ -366,6 +366,7 @@ func (s *simplestreamsSuite) TestMetadataCatalog(c *gc.C) {
 	metadataCatalog := metadata.Products["com.ubuntu.cloud:server:12.04:amd64"]
 	c.Check(len(metadataCatalog.Items), gc.Equals, 2)
 	c.Check(metadataCatalog.Version, gc.Equals, "12.04")
+	c.Check(metadataCatalog.Release, gc.Equals, "precise")
 	c.Check(metadataCatalog.Arch, gc.Equals, "amd64")
 	c.Check(metadataCatalog.RegionName, gc.Equals, "au-east-1")
 	c.Check(metadataCatalog.Endpoint, gc.Equals, "https://somewhere")
