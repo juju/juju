@@ -37,10 +37,6 @@ const (
 	// ErrAborted indicates that the stop channel returned before the operation
 	// succeeded or failed.
 	ErrAborted = errors.ConstError("lease operation aborted")
-
-	// ErrDeadlineExceeded indicates if the underlying request was rejected
-	// because enqueuing exceeded the timeout.
-	ErrDeadlineExceeded = errors.ConstError("lease deadline exceeded")
 )
 
 // IsInvalid returns whether the specified error represents ErrInvalid
@@ -71,10 +67,4 @@ func IsAborted(err error) bool {
 // (even if it's wrapped).
 func IsNotHeld(err error) bool {
 	return errors.Cause(err) == ErrNotHeld
-}
-
-// IsDeadlineExceeded returns whether the specified error represents
-// ErrDeadlineExceeded (even if it's wrapped).
-func IsDeadlineExceeded(err error) bool {
-	return errors.Cause(err) == ErrDeadlineExceeded
 }
