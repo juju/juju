@@ -29,17 +29,27 @@ func NewClient(caller base.APICaller) *Client {
 	}
 }
 
-// GetSecretStoreConfig fetches the config needed to make a secret store client.
-func (c *Client) GetSecretStoreConfig() (*provider.StoreConfig, error) {
-	var result params.SecretStoreConfig
-	err := c.facade.FacadeCall("GetSecretStoreConfig", nil, &result)
+// GetSecretBackendConfig fetches the config needed to make a secret backend client.
+func (c *Client) GetSecretBackendConfig() (*provider.ModelBackendConfigInfo, error) {
+	var results params.SecretBackendConfigResults
+	err := c.facade.FacadeCall("GetSecretBackendConfig", nil, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &provider.StoreConfig{
-		StoreType: result.StoreType,
-		Params:    result.Params,
-	}, nil
+	info := &provider.ModelBackendConfigInfo{
+		ControllerUUID: results.ControllerUUID,
+		ModelUUID:      results.ModelUUID,
+		ModelName:      results.ModelName,
+		ActiveID:       results.ActiveID,
+		Configs:        make(map[string]provider.BackendConfig),
+	}
+	for id, cfg := range results.Configs {
+		info.Configs[id] = provider.BackendConfig{
+			BackendType: cfg.BackendType,
+			Config:      cfg.Params,
+		}
+	}
+	return info, nil
 }
 
 // CreateSecretURIs generates new secret URIs.
@@ -96,8 +106,51 @@ func (c *Client) GetContentInfo(uri *coresecrets.URI, label string, refresh, pee
 	if err := results.Results[0].Error; err != nil {
 		return nil, apiservererrors.RestoreError(err)
 	}
+	content := &secrets.ContentParams{}
 	result := results.Results[0].Content
-	content := &secrets.ContentParams{ProviderId: result.ProviderId}
+	if result.ValueRef != nil {
+		content.ValueRef = &coresecrets.ValueRef{
+			BackendID:  result.ValueRef.BackendID,
+			RevisionID: result.ValueRef.RevisionID,
+		}
+	}
+	if len(result.Data) > 0 {
+		content.SecretValue = coresecrets.NewSecretValue(result.Data)
+	}
+	return content, nil
+}
+
+// GetRevisionContentInfo returns info about the content of a secret revision.
+// If pendingDelete is true, the revision is marked for deletion.
+func (c *Client) GetRevisionContentInfo(uri *coresecrets.URI, revision int, pendingDelete bool) (*secrets.ContentParams, error) {
+	arg := params.SecretRevisionArg{
+		URI:           uri.String(),
+		Revisions:     []int{revision},
+		PendingDelete: pendingDelete,
+	}
+
+	var results params.SecretContentResults
+
+	if err := c.facade.FacadeCall(
+		"GetSecretRevisionContentInfo", arg, &results,
+	); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if n := len(results.Results); n != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", n)
+	}
+
+	if err := results.Results[0].Error; err != nil {
+		return nil, apiservererrors.RestoreError(err)
+	}
+	content := &secrets.ContentParams{}
+	result := results.Results[0].Content
+	if result.ValueRef != nil {
+		content.ValueRef = &coresecrets.ValueRef{
+			BackendID:  result.ValueRef.BackendID,
+			RevisionID: result.ValueRef.RevisionID,
+		}
+	}
 	if len(result.Data) > 0 {
 		content.SecretValue = coresecrets.NewSecretValue(result.Data)
 	}
@@ -216,16 +269,13 @@ func (c *Client) SecretMetadata(filter coresecrets.Filter) ([]coresecrets.Secret
 			LatestExpireTime: info.LatestExpireTime,
 			NextRotateTime:   info.NextRotateTime,
 		}
-		providerIds := make(map[int]string)
-		for _, r := range info.Revisions {
-			if r.ProviderId == nil {
-				continue
-			}
-			providerIds[r.Revision] = *r.ProviderId
+		revisions := make([]int, len(info.Revisions))
+		for i, r := range info.Revisions {
+			revisions[i] = r.Revision
 		}
 		result = append(result, coresecrets.SecretOwnerMetadata{
-			Metadata:    md,
-			ProviderIds: providerIds,
+			Metadata:  md,
+			Revisions: revisions,
 		})
 	}
 	return result, nil

@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -80,6 +81,11 @@ type ModelManagerBackend interface {
 	DumpAll() (map[string]interface{}, error)
 	Close() error
 	HAPrimaryMachine() (names.MachineTag, error)
+
+	// Secrets methods.
+	ListModelSecrets(bool) (map[string]set.Strings, error)
+	ListSecretBackends() ([]*secrets.SecretBackend, error)
+	GetSecretBackendByID(string) (*secrets.SecretBackend, error)
 
 	// Methods required by the metricsender package.
 	MetricsManager() (*state.MetricsManager, error)
@@ -242,6 +248,21 @@ func (st modelManagerStateShim) ControllerNodes() ([]ControllerNode, error) {
 
 func (st modelManagerStateShim) IsController() bool {
 	return st.State.IsController()
+}
+
+func (st modelManagerStateShim) ListModelSecrets(all bool) (map[string]set.Strings, error) {
+	secretsState := state.NewSecrets(st.State)
+	return secretsState.ListModelSecrets(all)
+}
+
+func (st modelManagerStateShim) ListSecretBackends() ([]*secrets.SecretBackend, error) {
+	backendState := state.NewSecretBackends(st.State)
+	return backendState.ListSecretBackends()
+}
+
+func (st modelManagerStateShim) GetSecretBackendByID(id string) (*secrets.SecretBackend, error) {
+	backendState := state.NewSecretBackends(st.State)
+	return backendState.GetSecretBackendByID(id)
 }
 
 var _ Model = (*modelShim)(nil)

@@ -98,7 +98,6 @@ func NewEnableDestroyControllerCommandForTest(api removeBlocksAPI, store jujucli
 func NewDestroyCommandForTest(
 	api destroyControllerAPI,
 	clientapi destroyClientAPI,
-	storageAPI storageAPI,
 	store jujuclient.ClientStore,
 	apierr error,
 	controllerCredentialAPIFunc newCredentialAPIFunc,
@@ -113,7 +112,6 @@ func NewDestroyCommandForTest(
 			controllerCredentialAPIFunc: controllerCredentialAPIFunc,
 			environsDestroy:             environsDestroy,
 		},
-		storageAPI: storageAPI,
 	}
 	cmd.SetClientStore(store)
 	return modelcmd.WrapController(

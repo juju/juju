@@ -4,64 +4,47 @@
 package series
 
 import (
-	"testing/quick"
+	"fmt"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 )
 
-type SeriesValidateSuite struct {
+type BaseValidateSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&SeriesValidateSuite{})
+var _ = gc.Suite(&BaseValidateSuite{})
 
-func (*SeriesValidateSuite) TestValidate(c *gc.C) {
-	fn := func(s string) bool {
-		if len(s) == 0 {
-			// If the string is empty, ensure we don't test that, so just add
-			// a default text to test against.
-			s = "foo"
-		}
-		result, err := ValidateSeries(set.NewStrings(s), s, "__bad__")
-		if err != nil {
-			c.Fatal(err)
-		}
-		return result == s
-	}
-	if err := quick.Check(fn, nil); err != nil {
-		c.Assert(err, jc.ErrorIsNil)
-	}
+func (*BaseValidateSuite) TestValidate(c *gc.C) {
+	expected := MustParseBaseFromString("ubuntu@20.04")
+
+	result, err := ValidateBase([]Base{
+		MustParseBaseFromString("ubuntu@18.04"),
+		expected,
+	}, expected, MustParseBaseFromString("ubuntu@22.04"))
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.Equals, expected)
 }
 
-func (*SeriesValidateSuite) TestFallbackValidate(c *gc.C) {
-	fn := func(s string) bool {
-		if len(s) == 0 {
-			// If the string is empty, ensure we don't test that, so just add
-			// a default text to test against.
-			s = "foo"
-		}
-		result, err := ValidateSeries(set.NewStrings(s), "", s)
-		if err != nil {
-			c.Fatal(err)
-		}
-		return result == s
-	}
-	if err := quick.Check(fn, nil); err != nil {
-		c.Assert(err, jc.ErrorIsNil)
-	}
+func (*BaseValidateSuite) TestValidateError(c *gc.C) {
+	expected := MustParseBaseFromString("ubuntu@16.04")
+
+	result, err := ValidateBase([]Base{
+		MustParseBaseFromString("ubuntu@18.04"),
+		MustParseBaseFromString("ubuntu@20.04"),
+	}, expected, MustParseBaseFromString("ubuntu@22.04"))
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("%s not supported", expected.String()))
+	c.Assert(result, gc.Equals, expected)
 }
 
-func (*SeriesValidateSuite) TestValidateError(c *gc.C) {
-	result, err := ValidateSeries(set.NewStrings("bar"), "foo", "faz")
-	c.Assert(err, gc.ErrorMatches, "foo not supported")
-	c.Assert(result, gc.Equals, "foo")
-}
+func (*BaseValidateSuite) TestFallbackValidateError(c *gc.C) {
+	expected := MustParseBaseFromString("ubuntu@22.04")
 
-func (*SeriesValidateSuite) TestFallbackValidateError(c *gc.C) {
-	result, err := ValidateSeries(set.NewStrings("bar"), "", "faz")
-	c.Assert(err, gc.ErrorMatches, "faz not supported")
-	c.Assert(result, gc.Equals, "faz")
+	result, err := ValidateBase([]Base{
+		MustParseBaseFromString("ubuntu@18.04"),
+		MustParseBaseFromString("ubuntu@20.04"),
+	}, Base{}, expected)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("%s not supported", expected.String()))
+	c.Assert(result, gc.Equals, expected)
 }

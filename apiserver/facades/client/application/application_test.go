@@ -41,7 +41,7 @@ type applicationSuite struct {
 	jujutesting.JujuConnSuite
 	commontesting.BlockHelper
 
-	applicationAPI *application.APIv15
+	applicationAPI *application.APIBase
 	application    *state.Application
 	authorizer     *apiservertesting.FakeAuthorizer
 	lastKnownRev   map[string]int
@@ -63,7 +63,7 @@ func (s *applicationSuite) SetUpTest(c *gc.C) {
 	s.lastKnownRev = make(map[string]int)
 }
 
-func (s *applicationSuite) makeAPI(c *gc.C) *application.APIv15 {
+func (s *applicationSuite) makeAPI(c *gc.C) *application.APIBase {
 	resources := common.NewResources()
 	c.Assert(resources.RegisterNamed("dataDir", common.StringResource(c.MkDir())), jc.ErrorIsNil)
 	storageAccess, err := application.GetStorageState(s.State)
@@ -89,11 +89,11 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.APIv15 {
 		nil, // CAAS Broker not used in this suite.
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	return &application.APIv15{api}
+	return api
 }
 
 func (s *applicationSuite) setupApplicationDeploy(c *gc.C, args string) (*charm.URL, charm.Charm, constraints.Value) {
-	curl, ch := s.addCharmToState(c, "cs:jammy/dummy-42", "dummy")
+	curl, ch := s.addCharmToState(c, "ch:jammy/dummy-42", "dummy")
 	cons := constraints.MustParse(args)
 	return curl, ch, cons
 }
@@ -102,7 +102,7 @@ func (s *applicationSuite) assertApplicationDeployPrincipal(c *gc.C, curl *charm
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
-			CharmOrigin:     createCharmOriginFromURL(c, curl),
+			CharmOrigin:     createCharmOriginFromURL(curl),
 			ApplicationName: "application",
 			NumUnits:        3,
 			Constraints:     mem4g,
@@ -117,7 +117,7 @@ func (s *applicationSuite) assertApplicationDeployPrincipalBlocked(c *gc.C, msg 
 	_, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
-			CharmOrigin:     createCharmOriginFromURL(c, curl),
+			CharmOrigin:     createCharmOriginFromURL(curl),
 			ApplicationName: "application",
 			NumUnits:        3,
 			Constraints:     mem4g,
@@ -144,11 +144,11 @@ func (s *applicationSuite) TestBlockChangesApplicationDeployPrincipal(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationDeploySubordinate(c *gc.C) {
-	curl, ch := s.addCharmToState(c, "cs:utopic/logging-47", "logging")
+	curl, ch := s.addCharmToState(c, "ch:utopic/logging-47", "logging")
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
-			CharmOrigin:     createCharmOriginFromURL(c, curl),
+			CharmOrigin:     createCharmOriginFromURL(curl),
 			ApplicationName: "application-name",
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -178,11 +178,11 @@ func (s *applicationSuite) combinedSettings(ch *state.Charm, inSettings charm.Se
 }
 
 func (s *applicationSuite) TestApplicationDeployConfig(c *gc.C) {
-	curl, _ := s.addCharmToState(c, "cs:jammy/dummy-0", "dummy")
+	curl, _ := s.addCharmToState(c, "ch:jammy/dummy-0", "dummy")
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
-			CharmOrigin:     createCharmOriginFromURL(c, curl),
+			CharmOrigin:     createCharmOriginFromURL(curl),
 			ApplicationName: "application-name",
 			NumUnits:        1,
 			ConfigYAML:      "application-name:\n  username: fred",
@@ -203,11 +203,11 @@ func (s *applicationSuite) TestApplicationDeployConfig(c *gc.C) {
 func (s *applicationSuite) TestApplicationDeployConfigError(c *gc.C) {
 	// TODO(fwereade): test Config/ConfigYAML handling directly on srvClient.
 	// Can't be done cleanly until it's extracted similarly to Machiner.
-	curl, _ := s.addCharmToState(c, "cs:jammy/dummy-0", "dummy")
+	curl, _ := s.addCharmToState(c, "ch:jammy/dummy-0", "dummy")
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
-			CharmOrigin:     createCharmOriginFromURL(c, curl),
+			CharmOrigin:     createCharmOriginFromURL(curl),
 			ApplicationName: "application-name",
 			NumUnits:        1,
 			ConfigYAML:      "application-name:\n  skill-level: fred",
@@ -220,7 +220,7 @@ func (s *applicationSuite) TestApplicationDeployConfigError(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationDeployToMachine(c *gc.C) {
-	curl, ch := s.addCharmToState(c, "cs:jammy/dummy-0", "dummy")
+	curl, ch := s.addCharmToState(c, "ch:jammy/dummy-0", "dummy")
 
 	machine, err := s.State.AddMachine(state.UbuntuBase("22.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -236,7 +236,7 @@ func (s *applicationSuite) TestApplicationDeployToMachine(c *gc.C) {
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
-			CharmOrigin:     createCharmOriginFromURL(c, curl),
+			CharmOrigin:     createCharmOriginFromURL(curl),
 			ApplicationName: "application-name",
 			NumUnits:        1,
 			ConfigYAML:      "application-name:\n  username: fred",
@@ -268,7 +268,7 @@ func (s *applicationSuite) TestApplicationDeployToMachine(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationDeployToMachineWithLXDProfile(c *gc.C) {
-	curl, ch := s.addCharmToState(c, "cs:jammy/lxd-profile-0", "lxd-profile")
+	curl, ch := s.addCharmToState(c, "ch:jammy/lxd-profile-0", "lxd-profile")
 
 	machine, err := s.State.AddMachine(state.UbuntuBase("22.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -284,7 +284,7 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithLXDProfile(c *gc.C)
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
-			CharmOrigin:     createCharmOriginFromURL(c, curl),
+			CharmOrigin:     createCharmOriginFromURL(curl),
 			ApplicationName: "application-name",
 			NumUnits:        1,
 		}}})
@@ -322,7 +322,7 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithLXDProfile(c *gc.C)
 }
 
 func (s *applicationSuite) TestApplicationDeployToMachineWithInvalidLXDProfileAndForceStillSucceeds(c *gc.C) {
-	curl, ch := s.addCharmToState(c, "cs:jammy/lxd-profile-fail-0", "lxd-profile-fail")
+	curl, ch := s.addCharmToState(c, "ch:jammy/lxd-profile-fail-0", "lxd-profile-fail")
 
 	machine, err := s.State.AddMachine(state.UbuntuBase("22.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -338,7 +338,7 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithInvalidLXDProfileAn
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
-			CharmOrigin:     createCharmOriginFromURL(c, curl),
+			CharmOrigin:     createCharmOriginFromURL(curl),
 			ApplicationName: "application-name",
 			NumUnits:        1,
 		}}})
@@ -378,8 +378,8 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithInvalidLXDProfileAn
 func (s *applicationSuite) TestApplicationDeployToMachineNotFound(c *gc.C) {
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
-			CharmURL:        "cs:jammy/application-name-1",
-			CharmOrigin:     &params.CharmOrigin{Source: "charm-store", Base: params.Base{Name: "ubuntu", Channel: "22.04/stable"}},
+			CharmURL:        "ch:jammy/application-name-1",
+			CharmOrigin:     &params.CharmOrigin{Source: "charm-hub", Base: params.Base{Name: "ubuntu", Channel: "22.04/stable"}},
 			ApplicationName: "application-name",
 			NumUnits:        1,
 			Placement:       []*instance.Placement{instance.MustParsePlacement("42")},
@@ -393,11 +393,11 @@ func (s *applicationSuite) TestApplicationDeployToMachineNotFound(c *gc.C) {
 }
 
 func (s *applicationSuite) deployApplicationForUpdateTests(c *gc.C) {
-	curl, _ := s.addCharmToState(c, "cs:jammy/dummy-1", "dummy")
+	curl, _ := s.addCharmToState(c, "ch:jammy/dummy-1", "dummy")
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
-			CharmOrigin:     createCharmOriginFromURL(c, curl),
+			CharmOrigin:     createCharmOriginFromURL(curl),
 			ApplicationName: "application",
 			NumUnits:        1,
 		}}})
@@ -408,7 +408,7 @@ func (s *applicationSuite) deployApplicationForUpdateTests(c *gc.C) {
 
 func (s *applicationSuite) setupApplicationUpdate(c *gc.C) string {
 	s.deployApplicationForUpdateTests(c)
-	curl, _ := s.addCharmToState(c, "cs:jammy/wordpress-3", "wordpress")
+	curl, _ := s.addCharmToState(c, "ch:jammy/wordpress-3", "wordpress")
 	return curl.String()
 }
 
@@ -955,170 +955,10 @@ func (s *applicationSuite) TestBlockChangesApplicationUnexpose(c *gc.C) {
 	s.assertApplicationUnexposeBlocked(c, app, "TestBlockChangesApplicationUnexpose")
 }
 
-var applicationDestroyTests = []struct {
-	about       string
-	application string
-	err         string
-}{
-	{
-		about:       "unknown application name",
-		application: "unknown-application",
-		err:         `application "unknown-application" not found`,
-	},
-	{
-		about:       "destroy an application",
-		application: "dummy-application",
-	},
-	{
-		about:       "destroy an already destroyed application",
-		application: "dummy-application",
-		err:         `application "dummy-application" not found`,
-	},
-}
-
-func (s *applicationSuite) TestApplicationDestroy(c *gc.C) {
-	s.AddTestingApplication(c, "dummy-application", s.AddTestingCharm(c, "dummy"))
-	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name:        "remote-application",
-		SourceModel: s.Model.ModelTag(),
-		Token:       "t0",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	for i, t := range applicationDestroyTests {
-		c.Logf("test %d. %s", i, t.about)
-		err := s.applicationAPI.Destroy(params.ApplicationDestroy{ApplicationName: t.application})
-		if t.err != "" {
-			c.Assert(err, gc.ErrorMatches, t.err)
-		} else {
-			c.Assert(err, jc.ErrorIsNil)
-		}
-	}
-
-	// Now do Destroy on an application with units. Destroy will
-	// cause the application to be not-Alive, but will not remove its
-	// document.
-	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	applicationName := "wordpress"
-	app, err := s.State.Application(applicationName)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.applicationAPI.Destroy(params.ApplicationDestroy{ApplicationName: applicationName})
-	c.Assert(err, jc.ErrorIsNil)
-	err = app.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-}
-
 func assertLife(c *gc.C, entity state.Living, life state.Life) {
 	err := entity.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(entity.Life(), gc.Equals, life)
-}
-
-func (s *applicationSuite) TestBlockApplicationDestroy(c *gc.C) {
-	s.AddTestingApplication(c, "dummy-application", s.AddTestingCharm(c, "dummy"))
-
-	// block remove-objects
-	s.BlockRemoveObject(c, "TestBlockApplicationDestroy")
-	err := s.applicationAPI.Destroy(params.ApplicationDestroy{ApplicationName: "dummy-application"})
-	s.AssertBlocked(c, err, "TestBlockApplicationDestroy")
-	// Tests may have invalid application names.
-	app, err := s.State.Application("dummy-application")
-	if err == nil {
-		// For valid application names, check that application is alive :-)
-		assertLife(c, app, state.Alive)
-	}
-}
-
-func (s *applicationSuite) TestDestroyControllerApplicationNotAllowed(c *gc.C) {
-	s.AddTestingApplication(c, "controller-application", s.AddTestingCharm(c, "juju-controller"))
-
-	err := s.applicationAPI.Destroy(params.ApplicationDestroy{"controller-application"})
-	c.Assert(err, gc.ErrorMatches, "removing the controller application not supported")
-}
-
-func (s *applicationSuite) TestDestroyPrincipalUnits(c *gc.C) {
-	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	units := make([]*state.Unit, 5)
-	for i := range units {
-		unit, err := wordpress.AddUnit(state.AddUnitParams{})
-		c.Assert(err, jc.ErrorIsNil)
-		unit.AssignToNewMachine()
-		c.Assert(err, jc.ErrorIsNil)
-		now := time.Now()
-		sInfo := status.StatusInfo{
-			Status:  status.Idle,
-			Message: "",
-			Since:   &now,
-		}
-		err = unit.SetAgentStatus(sInfo)
-		c.Assert(err, jc.ErrorIsNil)
-		units[i] = unit
-	}
-	s.assertDestroyPrincipalUnits(c, units)
-}
-
-func (s *applicationSuite) TestDestroySubordinateUnits(c *gc.C) {
-	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	wordpress0, err := wordpress.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
-	eps, err := s.State.InferEndpoints("logging", "wordpress")
-	c.Assert(err, jc.ErrorIsNil)
-	rel, err := s.State.AddRelation(eps...)
-	c.Assert(err, jc.ErrorIsNil)
-	ru, err := rel.Unit(wordpress0)
-	c.Assert(err, jc.ErrorIsNil)
-	err = ru.EnterScope(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	logging0, err := s.State.Unit("logging/0")
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Try to destroy the subordinate alone; check it fails.
-	err = s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
-		UnitNames: []string{"logging/0"},
-	})
-	c.Assert(err, gc.ErrorMatches, `no units were destroyed: unit "logging/0" is a subordinate, .*`)
-	assertLife(c, logging0, state.Alive)
-
-	s.assertDestroySubordinateUnits(c, wordpress0, logging0)
-}
-
-func (s *applicationSuite) assertDestroyPrincipalUnits(c *gc.C, units []*state.Unit) {
-	// Destroy 2 of them; check they become Dying.
-	err := s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
-		UnitNames: []string{"wordpress/0", "wordpress/1"},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	assertLife(c, units[0], state.Dying)
-	assertLife(c, units[1], state.Dying)
-
-	// Try to destroy an Alive one and a Dying one; check
-	// it destroys the Alive one and ignores the Dying one.
-	err = s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
-		UnitNames: []string{"wordpress/2", "wordpress/0"},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	assertLife(c, units[2], state.Dying)
-
-	// Try to destroy an Alive one along with a nonexistent one; check that
-	// the valid instruction is followed but the invalid one is warned about.
-	err = s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
-		UnitNames: []string{"boojum/123", "wordpress/3"},
-	})
-	c.Assert(err, gc.ErrorMatches, `some units were not destroyed: unit "boojum/123" does not exist`)
-	assertLife(c, units[3], state.Dying)
-
-	// Make one Dead, and destroy an Alive one alongside it; check no errors.
-	wp0, err := s.State.Unit("wordpress/0")
-	c.Assert(err, jc.ErrorIsNil)
-	err = wp0.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
-		UnitNames: []string{"wordpress/0", "wordpress/4"},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	assertLife(c, units[0], state.Dead)
-	assertLife(c, units[4], state.Dying)
 }
 
 func (s *applicationSuite) setupDestroyPrincipalUnits(c *gc.C) []*state.Unit {
@@ -1156,144 +996,6 @@ func (s *applicationSuite) assertBlockedErrorAndLiveliness(
 	assertLife(c, living2, state.Alive)
 	assertLife(c, living3, state.Alive)
 	assertLife(c, living4, state.Alive)
-}
-
-func (s *applicationSuite) TestBlockChangesDestroyPrincipalUnits(c *gc.C) {
-	units := s.setupDestroyPrincipalUnits(c)
-	s.BlockAllChanges(c, "TestBlockChangesDestroyPrincipalUnits")
-	err := s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
-		UnitNames: []string{"wordpress/0", "wordpress/1"},
-	})
-	s.assertBlockedErrorAndLiveliness(c, err, "TestBlockChangesDestroyPrincipalUnits", units[0], units[1], units[2], units[3])
-}
-
-func (s *applicationSuite) TestBlockRemoveDestroyPrincipalUnits(c *gc.C) {
-	units := s.setupDestroyPrincipalUnits(c)
-	s.BlockRemoveObject(c, "TestBlockRemoveDestroyPrincipalUnits")
-	err := s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
-		UnitNames: []string{"wordpress/0", "wordpress/1"},
-	})
-	s.assertBlockedErrorAndLiveliness(c, err, "TestBlockRemoveDestroyPrincipalUnits", units[0], units[1], units[2], units[3])
-}
-
-func (s *applicationSuite) TestBlockDestroyDestroyPrincipalUnits(c *gc.C) {
-	units := s.setupDestroyPrincipalUnits(c)
-	s.BlockDestroyModel(c, "TestBlockDestroyDestroyPrincipalUnits")
-	err := s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
-		UnitNames: []string{"wordpress/0", "wordpress/1"},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	assertLife(c, units[0], state.Dying)
-	assertLife(c, units[1], state.Dying)
-}
-
-func (s *applicationSuite) assertDestroySubordinateUnits(c *gc.C, wordpress0, logging0 *state.Unit) {
-	// Try to destroy the principal and the subordinate together; check it warns
-	// about the subordinate, but destroys the one it can. (The principal unit
-	// agent will be responsible for destroying the subordinate.)
-	err := s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
-		UnitNames: []string{"wordpress/0", "logging/0"},
-	})
-	c.Assert(err, gc.ErrorMatches, `some units were not destroyed: unit "logging/0" is a subordinate, .*`)
-	assertLife(c, wordpress0, state.Dying)
-	assertLife(c, logging0, state.Alive)
-}
-
-func (s *applicationSuite) TestBlockRemoveDestroySubordinateUnits(c *gc.C) {
-	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	wordpress0, err := wordpress.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
-	eps, err := s.State.InferEndpoints("logging", "wordpress")
-	c.Assert(err, jc.ErrorIsNil)
-	rel, err := s.State.AddRelation(eps...)
-	c.Assert(err, jc.ErrorIsNil)
-	ru, err := rel.Unit(wordpress0)
-	c.Assert(err, jc.ErrorIsNil)
-	err = ru.EnterScope(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	logging0, err := s.State.Unit("logging/0")
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.BlockRemoveObject(c, "TestBlockRemoveDestroySubordinateUnits")
-	// Try to destroy the subordinate alone; check it fails.
-	err = s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
-		UnitNames: []string{"logging/0"},
-	})
-	s.AssertBlocked(c, err, "TestBlockRemoveDestroySubordinateUnits")
-	assertLife(c, rel, state.Alive)
-	assertLife(c, wordpress0, state.Alive)
-	assertLife(c, logging0, state.Alive)
-
-	err = s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
-		UnitNames: []string{"wordpress/0", "logging/0"},
-	})
-	s.AssertBlocked(c, err, "TestBlockRemoveDestroySubordinateUnits")
-	assertLife(c, wordpress0, state.Alive)
-	assertLife(c, logging0, state.Alive)
-	assertLife(c, rel, state.Alive)
-}
-
-func (s *applicationSuite) TestBlockChangesDestroySubordinateUnits(c *gc.C) {
-	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	wordpress0, err := wordpress.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
-	eps, err := s.State.InferEndpoints("logging", "wordpress")
-	c.Assert(err, jc.ErrorIsNil)
-	rel, err := s.State.AddRelation(eps...)
-	c.Assert(err, jc.ErrorIsNil)
-	ru, err := rel.Unit(wordpress0)
-	c.Assert(err, jc.ErrorIsNil)
-	err = ru.EnterScope(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	logging0, err := s.State.Unit("logging/0")
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.BlockAllChanges(c, "TestBlockChangesDestroySubordinateUnits")
-	// Try to destroy the subordinate alone; check it fails.
-	err = s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
-		UnitNames: []string{"logging/0"},
-	})
-	s.AssertBlocked(c, err, "TestBlockChangesDestroySubordinateUnits")
-	assertLife(c, rel, state.Alive)
-	assertLife(c, wordpress0, state.Alive)
-	assertLife(c, logging0, state.Alive)
-
-	err = s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
-		UnitNames: []string{"wordpress/0", "logging/0"},
-	})
-	s.AssertBlocked(c, err, "TestBlockChangesDestroySubordinateUnits")
-	assertLife(c, wordpress0, state.Alive)
-	assertLife(c, logging0, state.Alive)
-	assertLife(c, rel, state.Alive)
-}
-
-func (s *applicationSuite) TestBlockDestroyDestroySubordinateUnits(c *gc.C) {
-	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	wordpress0, err := wordpress.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
-	eps, err := s.State.InferEndpoints("logging", "wordpress")
-	c.Assert(err, jc.ErrorIsNil)
-	rel, err := s.State.AddRelation(eps...)
-	c.Assert(err, jc.ErrorIsNil)
-	ru, err := rel.Unit(wordpress0)
-	c.Assert(err, jc.ErrorIsNil)
-	err = ru.EnterScope(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	logging0, err := s.State.Unit("logging/0")
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.BlockDestroyModel(c, "TestBlockDestroyDestroySubordinateUnits")
-	// Try to destroy the subordinate alone; check it fails.
-	err = s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
-		UnitNames: []string{"logging/0"},
-	})
-	c.Assert(err, gc.ErrorMatches, `no units were destroyed: unit "logging/0" is a subordinate, .*`)
-	assertLife(c, logging0, state.Alive)
-
-	s.assertDestroySubordinateUnits(c, wordpress0, logging0)
 }
 
 func (s *applicationSuite) TestClientSetApplicationConstraints(c *gc.C) {
@@ -1616,9 +1318,6 @@ func (s *applicationSuite) TestRemoteRelationApplicationNotFound(c *gc.C) {
 // have been updated to return NotSupported errors for Juju 3.
 func (s *applicationSuite) addCharmToState(c *gc.C, charmURL string, name string) (*charm.URL, charm.Charm) {
 	curl := charm.MustParseURL(charmURL)
-	if curl.User == "" {
-		curl.User = "who"
-	}
 
 	if curl.Revision < 0 {
 		base := curl.String()

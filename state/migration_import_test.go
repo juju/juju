@@ -11,7 +11,6 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v9"
-	"github.com/juju/description/v4"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -22,7 +21,10 @@ import (
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/yaml.v2"
 
+	"github.com/juju/description/v4"
+
 	corearch "github.com/juju/juju/core/arch"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
@@ -512,7 +514,7 @@ func (s *MigrationImportSuite) setupSourceApplications(
 	application, pwd := f.MakeApplicationReturningPassword(c, &factory.ApplicationParams{
 		Charm: testCharm,
 		CharmOrigin: &state.CharmOrigin{
-			Source:   testCharm.URL().Schema,
+			Source:   "charm-hub",
 			Type:     "charm",
 			Revision: &testCharm.URL().Revision,
 			Channel: &state.Channel{
@@ -570,7 +572,11 @@ func (s *MigrationImportSuite) assertImportedApplication(
 	c.Assert(imported.ExposedEndpoints(), gc.DeepEquals, exported.ExposedEndpoints())
 	c.Assert(imported.MetricCredentials(), jc.DeepEquals, exported.MetricCredentials())
 	c.Assert(imported.PasswordValid(pwd), jc.IsTrue)
-	c.Assert(imported.CharmOrigin(), jc.DeepEquals, exported.CharmOrigin())
+	exportedOrigin := exported.CharmOrigin()
+	if corecharm.CharmHub.Matches(exportedOrigin.Source) && exportedOrigin.Channel.Track == "" {
+		exportedOrigin.Channel.Track = "latest"
+	}
+	c.Assert(imported.CharmOrigin(), jc.DeepEquals, exportedOrigin)
 
 	exportedCharmConfig, err := exported.CharmConfig(model.GenerationMaster)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2727,21 +2733,21 @@ func (s *MigrationImportSuite) TestImportingModelWithBlankType(c *gc.C) {
 		CloudRegion:        testModel.CloudRegion(),
 	})
 	imported, newSt, err := s.Controller.Import(noTypeModel)
-	defer func() { _ = newSt.Close() }()
 	c.Assert(err, jc.ErrorIsNil)
+	defer func() { _ = newSt.Close() }()
 
 	c.Assert(imported.Type(), gc.Equals, state.ModelTypeIAAS)
 }
 
 func (s *MigrationImportSuite) TestImportingModelWithDefaultSeriesBefore2935(c *gc.C) {
-	defaultSeries, ok := s.testImportingModelWithDefaultSeries(c, version.MustParse("2.7.8"))
-	c.Assert(ok, jc.IsFalse, gc.Commentf("value: %q", defaultSeries))
+	defaultBase, ok := s.testImportingModelWithDefaultSeries(c, version.MustParse("2.7.8"))
+	c.Assert(ok, jc.IsFalse, gc.Commentf("value: %q", defaultBase))
 }
 
 func (s *MigrationImportSuite) TestImportingModelWithDefaultSeriesAfter2935(c *gc.C) {
-	defaultSeries, ok := s.testImportingModelWithDefaultSeries(c, version.MustParse("2.9.35"))
+	defaultBase, ok := s.testImportingModelWithDefaultSeries(c, version.MustParse("2.9.35"))
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(defaultSeries, gc.Equals, "jammy")
+	c.Assert(defaultBase, gc.Equals, "ubuntu@22.04/stable")
 }
 
 func (s *MigrationImportSuite) testImportingModelWithDefaultSeries(c *gc.C, toolsVer version.Number) (string, bool) {
@@ -2763,12 +2769,12 @@ func (s *MigrationImportSuite) testImportingModelWithDefaultSeries(c *gc.C, tool
 		CloudRegion:    testModel.CloudRegion(),
 	})
 	imported, newSt, err := s.Controller.Import(importModel)
-	defer func() { _ = newSt.Close() }()
 	c.Assert(err, jc.ErrorIsNil)
+	defer func() { _ = newSt.Close() }()
 
 	importedCfg, err := imported.Config()
 	c.Assert(err, jc.ErrorIsNil)
-	return importedCfg.DefaultSeries()
+	return importedCfg.DefaultBase()
 }
 
 func (s *MigrationImportSuite) TestImportingRelationApplicationSettings(c *gc.C) {
@@ -2821,7 +2827,7 @@ func (s *MigrationImportSuite) TestApplicationAddLatestCharmChannelTrack(c *gc.C
 	})
 	c.Assert(testCharm.Meta().Resources, gc.HasLen, 3)
 	origin := &state.CharmOrigin{
-		Source:   testCharm.URL().Schema,
+		Source:   "charm-hub",
 		Type:     "charm",
 		Revision: &testCharm.URL().Revision,
 		Channel: &state.Channel{
@@ -2850,6 +2856,13 @@ func (s *MigrationImportSuite) TestApplicationAddLatestCharmChannelTrack(c *gc.C
 }
 
 func (s *MigrationImportSuite) TestSecrets(c *gc.C) {
+	backendStore := state.NewSecretBackends(s.State)
+	backendID, err := backendStore.CreateSecretBackend(state.CreateSecretBackendParams{
+		Name:        "myvault",
+		BackendType: "vault",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
 	store := state.NewSecrets(s.State)
 	owner := s.Factory.MakeApplication(c, nil)
 	uri := secrets.NewURI()
@@ -2875,7 +2888,10 @@ func (s *MigrationImportSuite) TestSecrets(c *gc.C) {
 	updateTime := time.Now().UTC().Round(time.Second)
 	md, err = store.UpdateSecret(md.URI, state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
-		ProviderId:  ptr("provider-id"),
+		ValueRef: &secrets.ValueRef{
+			BackendID:  backendID,
+			RevisionID: "rev-id",
+		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.GrantSecretAccess(uri, state.SecretAccessParams{
@@ -2912,13 +2928,16 @@ func (s *MigrationImportSuite) TestSecrets(c *gc.C) {
 	mc.AddExpr(`_.UpdateTime`, jc.Almost, jc.ExpectedValue)
 	c.Assert(revs, mc, []*secrets.SecretRevisionMetadata{{
 		Revision:   1,
-		ProviderId: nil,
+		ValueRef:   nil,
 		CreateTime: createTime,
 		UpdateTime: updateTime,
 		ExpireTime: &expire,
 	}, {
-		Revision:   2,
-		ProviderId: ptr("provider-id"),
+		Revision: 2,
+		ValueRef: &secrets.ValueRef{
+			BackendID:  backendID,
+			RevisionID: "rev-id",
+		},
 		CreateTime: createTime,
 		UpdateTime: createTime,
 	}})
@@ -2934,6 +2953,59 @@ func (s *MigrationImportSuite) TestSecrets(c *gc.C) {
 		CurrentRevision: 666,
 		LatestRevision:  2,
 	})
+}
+
+func (s *MigrationImportSuite) TestSecretsMissingBackend(c *gc.C) {
+	store := state.NewSecrets(s.State)
+	owner := s.Factory.MakeApplication(c, nil)
+	uri := secrets.NewURI()
+	p := state.CreateSecretParams{
+		Version: 1,
+		Owner:   owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			ValueRef: &secrets.ValueRef{
+				BackendID:  "missing-id",
+				RevisionID: "rev-id",
+			},
+		},
+	}
+	_, err := store.CreateSecret(uri, p)
+	c.Assert(err, jc.ErrorIsNil)
+
+	out, err := s.State.Export(map[string]string{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	uuid := utils.MustNewUUID().String()
+	in := newModel(out, uuid, "new")
+	_, _, err = s.Controller.Import(in)
+	c.Assert(err, gc.ErrorMatches, "secrets: target controller does not have all required secret backends set up")
+}
+
+func (s *MigrationImportSuite) TestDefaultSecretBackend(c *gc.C) {
+	testModel, err := s.State.Export(map[string]string{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	newConfig := testModel.Config()
+	newConfig["uuid"] = "aabbccdd-1234-8765-abcd-0123456789ab"
+	newConfig["name"] = "something-new"
+	delete(newConfig, "secret-backend")
+	importModel := description.NewModel(description.ModelArgs{
+		Type:           string(state.ModelTypeIAAS),
+		Owner:          testModel.Owner(),
+		Config:         newConfig,
+		EnvironVersion: testModel.EnvironVersion(),
+		Blocks:         testModel.Blocks(),
+		Cloud:          testModel.Cloud(),
+		CloudRegion:    testModel.CloudRegion(),
+	})
+	imported, newSt, err := s.Controller.Import(importModel)
+	c.Assert(err, jc.ErrorIsNil)
+	defer func() { _ = newSt.Close() }()
+
+	importedCfg, err := imported.Config()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(importedCfg.SecretBackend(), gc.Equals, "auto")
 }
 
 // newModel replaces the uuid and name of the config attributes so we

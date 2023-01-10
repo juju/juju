@@ -83,7 +83,7 @@ func (s *charmHubRepositorySuite) testResolve(c *gc.C, id string) {
 	}
 
 	repo := NewCharmHubRepository(s.logger, s.client)
-	obtainedCurl, obtainedOrigin, obtainedSeries, err := repo.ResolveWithPreferredChannel(curl, origin, nil)
+	obtainedCurl, obtainedOrigin, obtainedSeries, err := repo.ResolveWithPreferredChannel(curl, origin)
 	c.Assert(err, jc.ErrorIsNil)
 
 	curl.Revision = rev
@@ -120,7 +120,7 @@ func (s *charmHubRepositorySuite) TestResolveWithChannel(c *gc.C) {
 	}
 
 	repo := NewCharmHubRepository(s.logger, s.client)
-	obtainedCurl, obtainedOrigin, obtainedSeries, err := repo.ResolveWithPreferredChannel(curl, origin, nil)
+	obtainedCurl, obtainedOrigin, obtainedSeries, err := repo.ResolveWithPreferredChannel(curl, origin)
 	c.Assert(err, jc.ErrorIsNil)
 
 	curl.Revision = 16
@@ -155,7 +155,7 @@ func (s *charmHubRepositorySuite) TestResolveWithoutBase(c *gc.C) {
 	}
 
 	repo := NewCharmHubRepository(s.logger, s.client)
-	obtainedCurl, obtainedOrigin, obtainedSeries, err := repo.ResolveWithPreferredChannel(curl, origin, nil)
+	obtainedCurl, obtainedOrigin, obtainedSeries, err := repo.ResolveWithPreferredChannel(curl, origin)
 	c.Assert(err, jc.ErrorIsNil)
 
 	curl.Revision = 16
@@ -188,7 +188,7 @@ func (s *charmHubRepositorySuite) TestResolveWithBundles(c *gc.C) {
 	}
 
 	repo := NewCharmHubRepository(s.logger, s.client)
-	obtainedCurl, obtainedOrigin, obtainedSeries, err := repo.ResolveWithPreferredChannel(curl, origin, nil)
+	obtainedCurl, obtainedOrigin, obtainedSeries, err := repo.ResolveWithPreferredChannel(curl, origin)
 	c.Assert(err, jc.ErrorIsNil)
 
 	curl.Revision = 17
@@ -222,7 +222,7 @@ func (s *charmHubRepositorySuite) TestResolveInvalidPlatformError(c *gc.C) {
 	}
 
 	repo := NewCharmHubRepository(s.logger, s.client)
-	obtainedCurl, obtainedOrigin, obtainedSeries, err := repo.ResolveWithPreferredChannel(curl, origin, nil)
+	obtainedCurl, obtainedOrigin, obtainedSeries, err := repo.ResolveWithPreferredChannel(curl, origin)
 	c.Assert(err, jc.ErrorIsNil)
 
 	curl.Revision = 16
@@ -257,7 +257,7 @@ func (s *charmHubRepositorySuite) TestResolveRevisionNotFoundErrorWithNoSeries(c
 	}
 
 	repo := NewCharmHubRepository(s.logger, s.client)
-	_, _, _, err := repo.ResolveWithPreferredChannel(curl, origin, nil)
+	_, _, _, err := repo.ResolveWithPreferredChannel(curl, origin)
 	c.Assert(err, gc.ErrorMatches,
 		`(?m)selecting releases: charm or bundle not found for channel "", platform "amd64"
 available releases are:
@@ -280,7 +280,7 @@ func (s *charmHubRepositorySuite) TestResolveRevisionNotFoundError(c *gc.C) {
 	}
 
 	repo := NewCharmHubRepository(s.logger, s.client)
-	obtainedCurl, obtainedOrigin, obtainedSeries, err := repo.ResolveWithPreferredChannel(curl, origin, nil)
+	obtainedCurl, obtainedOrigin, obtainedSeries, err := repo.ResolveWithPreferredChannel(curl, origin)
 	c.Assert(err, jc.ErrorIsNil)
 
 	curl.Revision = 16
@@ -342,7 +342,7 @@ func (s *charmHubRepositorySuite) TestDownloadCharm(c *gc.C) {
 
 	repo := NewCharmHubRepository(s.logger, s.client)
 
-	gotArchive, gotOrigin, err := repo.DownloadCharm(curl, requestedOrigin, nil, "/tmp/foo")
+	gotArchive, gotOrigin, err := repo.DownloadCharm(curl, requestedOrigin, "/tmp/foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotArchive, gc.Equals, resolvedArchive) // note: we are using gc.Equals to check the pointers here.
 	c.Assert(gotOrigin, gc.DeepEquals, resolvedOrigin)
@@ -386,7 +386,7 @@ func (s *charmHubRepositorySuite) TestGetDownloadURL(c *gc.C) {
 
 	repo := NewCharmHubRepository(s.logger, s.client)
 
-	gotURL, gotOrigin, err := repo.GetDownloadURL(curl, requestedOrigin, nil)
+	gotURL, gotOrigin, err := repo.GetDownloadURL(curl, requestedOrigin)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotURL, gc.DeepEquals, resolvedURL)
 	c.Assert(gotOrigin, gc.DeepEquals, resolvedOrigin)

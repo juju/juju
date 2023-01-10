@@ -92,7 +92,7 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 		charm: &mockCharm{
 			meta: &charm.Meta{},
 			url: &charm.URL{
-				Schema:   "cs",
+				Schema:   "ch",
 				Name:     "gitlab",
 				Revision: -1,
 			},
@@ -117,7 +117,7 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 				"juju-model-uuid":      coretesting.ModelTag.Id(),
 				"juju-controller-uuid": coretesting.ControllerTag.Id(),
 			},
-			CharmURL:             "cs:gitlab",
+			CharmURL:             "ch:gitlab",
 			CharmModifiedVersion: 10,
 			Scale:                3,
 			Trust:                true,
@@ -132,7 +132,7 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfoPendingCharmError(
 		charm: &mockCharm{
 			meta: &charm.Meta{},
 			url: &charm.URL{
-				Schema:   "cs",
+				Schema:   "ch",
 				Name:     "gitlab",
 				Revision: -1,
 			},
@@ -140,7 +140,7 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfoPendingCharmError(
 	}
 	result, err := s.api.ProvisioningInfo(params.Entities{Entities: []params.Entity{{"application-gitlab"}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results[0].Error, gc.ErrorMatches, `charm "cs:gitlab" pending not provisioned`)
+	c.Assert(result.Results[0].Error, gc.ErrorMatches, `charm "ch:gitlab" pending not provisioned`)
 }
 
 func (s *CAASApplicationProvisionerSuite) TestSetOperatorStatus(c *gc.C) {
@@ -149,7 +149,7 @@ func (s *CAASApplicationProvisionerSuite) TestSetOperatorStatus(c *gc.C) {
 		charm: &mockCharm{
 			meta: &charm.Meta{},
 			url: &charm.URL{
-				Schema:   "cs",
+				Schema:   "ch",
 				Name:     "gitlab",
 				Revision: -1,
 			},
@@ -174,7 +174,7 @@ func (s *CAASApplicationProvisionerSuite) TestUnits(c *gc.C) {
 		charm: &mockCharm{
 			meta: &charm.Meta{},
 			url: &charm.URL{
-				Schema:   "cs",
+				Schema:   "ch",
 				Name:     "gitlab",
 				Revision: -1,
 			},
@@ -255,7 +255,7 @@ func (s *CAASApplicationProvisionerSuite) TestGarbageCollectStateful(c *gc.C) {
 				},
 			},
 			url: &charm.URL{
-				Schema:   "cs",
+				Schema:   "ch",
 				Name:     "gitlab",
 				Revision: -1,
 			},
@@ -329,7 +329,7 @@ func (s *CAASApplicationProvisionerSuite) TestGarbageCollectDeployment(c *gc.C) 
 				},
 			},
 			url: &charm.URL{
-				Schema:   "cs",
+				Schema:   "ch",
 				Name:     "gitlab",
 				Revision: -1,
 			},
@@ -403,7 +403,7 @@ func (s *CAASApplicationProvisionerSuite) TestGarbageCollectDaemon(c *gc.C) {
 				},
 			},
 			url: &charm.URL{
-				Schema:   "cs",
+				Schema:   "ch",
 				Name:     "gitlab",
 				Revision: -1,
 			},
@@ -479,7 +479,7 @@ func (s *CAASApplicationProvisionerSuite) TestGarbageCollectForced(c *gc.C) {
 				},
 			},
 			url: &charm.URL{
-				Schema:   "cs",
+				Schema:   "ch",
 				Name:     "gitlab",
 				Revision: -1,
 			},
@@ -550,7 +550,7 @@ func (s *CAASApplicationProvisionerSuite) TestApplicationOCIResources(c *gc.C) {
 				},
 			},
 			url: &charm.URL{
-				Schema:   "cs",
+				Schema:   "ch",
 				Name:     "gitlab",
 				Revision: -1,
 			},
@@ -609,7 +609,7 @@ func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithStorage
 				},
 			},
 			url: &charm.URL{
-				Schema:   "cs",
+				Schema:   "ch",
 				Name:     "gitlab",
 				Revision: -1,
 			},
@@ -800,7 +800,7 @@ func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithoutStor
 				},
 			},
 			url: &charm.URL{
-				Schema:   "cs",
+				Schema:   "ch",
 				Name:     "gitlab",
 				Revision: -1,
 			},
@@ -889,7 +889,7 @@ func (s *CAASApplicationProvisionerSuite) TestClearApplicationsResources(c *gc.C
 		charm: &mockCharm{
 			meta: &charm.Meta{},
 			url: &charm.URL{
-				Schema:   "cs",
+				Schema:   "ch",
 				Name:     "gitlab",
 				Revision: -1,
 			},
@@ -914,7 +914,7 @@ func (s *CAASApplicationProvisionerSuite) TestWatchUnits(c *gc.C) {
 		charm: &mockCharm{
 			meta: &charm.Meta{},
 			url: &charm.URL{
-				Schema:   "cs",
+				Schema:   "ch",
 				Name:     "gitlab",
 				Revision: -1,
 			},

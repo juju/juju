@@ -172,7 +172,7 @@ func (cfg ContainerManifoldConfig) machineSupportsContainers(pr ContainerMachine
 		return nil, errors.Annotatef(err, "retrieving supported container types")
 	}
 	if !known {
-		return nil, errors.NotYetAvailablef("container types")
+		return nil, errors.NotYetAvailablef("container types not yet available")
 	}
 	if len(types) == 0 {
 		cfg.Logger.Infof("uninstalling no supported containers on %q", mTag)

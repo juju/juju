@@ -10,12 +10,13 @@ import (
 
 	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
-	"github.com/juju/description/v4"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/names/v4"
+
+	"github.com/juju/description/v4"
 
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
@@ -837,7 +838,6 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		Type:                 e.model.Type(),
 		Subordinate:          application.doc.Subordinate,
 		CharmURL:             *application.doc.CharmURL,
-		Channel:              application.doc.Channel,
 		CharmModifiedVersion: application.doc.CharmModifiedVersion,
 		ForceCharm:           application.doc.ForceCharm,
 		Exposed:              application.doc.Exposed,
@@ -1735,16 +1735,23 @@ func (e *exporter) secrets() error {
 	for _, rev := range allRevisions {
 		id, _ := splitSecretRevision(e.st.localID(rev.DocID))
 		revArg := description.SecretRevisionArgs{
-			Number:     rev.Revision,
-			Created:    rev.CreateTime,
-			Updated:    rev.UpdateTime,
-			ExpireTime: rev.ExpireTime,
-			ProviderId: rev.ProviderId,
+			Number:        rev.Revision,
+			Created:       rev.CreateTime,
+			Updated:       rev.UpdateTime,
+			ExpireTime:    rev.ExpireTime,
+			Obsolete:      rev.Obsolete,
+			PendingDelete: rev.PendingDelete,
 		}
 		if len(rev.Data) > 0 {
 			revArg.Content = make(secrets.SecretData)
 			for k, v := range rev.Data {
 				revArg.Content[k] = fmt.Sprintf("%v", v)
+			}
+		}
+		if rev.ValueRef != nil {
+			revArg.ValueRef = &description.SecretValueRefArgs{
+				BackendID:  rev.ValueRef.BackendID,
+				RevisionID: rev.ValueRef.RevisionID,
 			}
 		}
 		revisionArgsByID[id] = append(revisionArgsByID[id], revArg)

@@ -211,7 +211,7 @@ func (s *UpgradeSeriesSuite) TestPrepareCommandShouldAcceptYesAbbreviation(c *gc
 func (s *UpgradeSeriesSuite) TestPrepareCommandShouldPromptUserForConfirmation(c *gc.C) {
 	ctx, err := s.runUpgradeSeriesCommandWithConfirmation(c, "y", machineArg, machine.PrepareCommand, seriesArg)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), jc.HasSuffix, "Continue [y/N]?")
+	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Matches, `(?s).*Continue \[y\/N\]\? .*`)
 }
 
 func (s *UpgradeSeriesSuite) TestPrepareCommandShouldIndicateOnlySubordinatesOnMachine(c *gc.C) {

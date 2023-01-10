@@ -120,7 +120,7 @@ func (c *ModelConfigCreator) checkVersion(base *config.Config, attrs map[string]
 
 	// Look to see if we have tools available for that version.
 	list, err := c.FindTools(versionNumber)
-	if err != nil {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return errors.Trace(err)
 	}
 	if len(list) == 0 {

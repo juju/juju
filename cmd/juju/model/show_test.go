@@ -205,6 +205,39 @@ func (s *ShowCommandSuite) TestUnrecognizedArg(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["whoops"\]`)
 }
 
+func (s *ShowCommandSuite) addSecretBackendTestData() {
+	s.fake.info.SecretBackends = []params.SecretBackendResult{{
+		Result: params.SecretBackend{
+			Name: "myvault",
+		},
+		NumSecrets: 666,
+		Status:     "error",
+		Message:    "vault is sealed",
+	}}
+
+	modelOutput := s.expectedOutput["mymodel"].(attrs)
+	modelOutput["secret-backends"] = attrs{
+		"myvault": attrs{
+			"num-secrets": 666,
+			"status":      "error",
+			"message":     "vault is sealed",
+		}}
+}
+
+func (s *ShowCommandSuite) TestShowWithSecretBackendFormatYaml(c *gc.C) {
+	s.addSecretBackendTestData()
+	ctx, err := cmdtesting.RunCommand(c, s.newShowCommand(), "--format", "yaml")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), jc.YAMLEquals, s.expectedOutput)
+}
+
+func (s *ShowCommandSuite) TestShowWithSecretBackendFormatJson(c *gc.C) {
+	s.addSecretBackendTestData()
+	ctx, err := cmdtesting.RunCommand(c, s.newShowCommand(), "--format", "json")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), jc.JSONEquals, s.expectedOutput)
+}
+
 func (s *ShowCommandSuite) TestShowBasicIncompleteModelsYaml(c *gc.C) {
 	s.fake.infos = []params.ModelInfoResult{
 		{Result: createBasicModelInfo()},

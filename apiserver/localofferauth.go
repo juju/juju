@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/bakeryutil"
 	"github.com/juju/juju/apiserver/common/crossmodel"
-	"github.com/juju/juju/charmstore"
+	"github.com/juju/juju/core/macaroon"
 	"github.com/juju/juju/state"
 )
 
@@ -51,7 +51,7 @@ func newOfferAuthcontext(pool *state.StatePool) (*crossmodel.AuthContext, error)
 		return nil, errors.Trace(err)
 	}
 	location := "juju model " + st.ModelUUID()
-	checker := checkers.New(charmstore.MacaroonNamespace)
+	checker := checkers.New(macaroon.MacaroonNamespace)
 
 	// Create a bakery service for local offer access authentication. This service
 	// persists keys into MongoDB in a TTL collection.

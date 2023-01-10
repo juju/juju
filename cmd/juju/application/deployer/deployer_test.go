@@ -21,7 +21,6 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/client/resources"
@@ -467,7 +466,6 @@ func (s *deployerSuite) newDeployerFactory() DeployerFactory {
 		DeployResources: func(
 			string,
 			resources.CharmID,
-			*macaroon.Macaroon,
 			map[string]string,
 			map[string]charmresource.Meta,
 			base.APICallCloser,
@@ -543,6 +541,7 @@ func (s *deployerSuite) expectModelGet(c *gc.C) {
 		"uuid":            coretesting.ModelTag.Id(),
 		"controller-uuid": coretesting.ControllerTag.Id(),
 		"firewall-mode":   "instance",
+		"secret-backend":  "auto",
 		// While the ca-cert bits aren't entirely minimal, they avoid the need
 		// to set up a fake home.
 		"ca-cert":        coretesting.CACert,

@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/charm/v9"
 	"github.com/juju/charm/v9/assumes"
-	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -36,7 +35,6 @@ type DeployApplicationParams struct {
 	ApplicationName   string
 	Charm             *state.Charm
 	CharmOrigin       corecharm.Origin
-	Channel           csparams.Channel
 	ApplicationConfig *config.Config
 	CharmConfig       charm.Settings
 	Constraints       constraints.Value
@@ -107,7 +105,6 @@ func DeployApplication(st ApplicationDeployer, model Model, args DeployApplicati
 		Name:              args.ApplicationName,
 		Charm:             args.Charm,
 		CharmOrigin:       origin,
-		Channel:           args.Channel,
 		Storage:           stateStorageConstraints(args.Storage),
 		Devices:           stateDeviceConstraints(args.Devices),
 		AttachStorage:     args.AttachStorage,

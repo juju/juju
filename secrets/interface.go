@@ -18,17 +18,17 @@ const (
 )
 
 // ContentParams represents the content of a secret,
-// which is either a secret value or an id used to
+// which is either a secret value or a reference used to
 // access the content from an external provider like vault.
 type ContentParams struct {
 	secrets.SecretValue
-	ProviderId *string
+	ValueRef *secrets.ValueRef
 }
 
 // Validate returns an error if the content is invalid.
 func (p *ContentParams) Validate() error {
-	if p.ProviderId == nil && p.SecretValue == nil {
-		return errors.NotValidf("secret content without value or provider id")
+	if p.ValueRef == nil && p.SecretValue == nil {
+		return errors.NotValidf("secret content without value or backend reference")
 	}
 	return nil
 }
@@ -73,22 +73,30 @@ func (p *UpdateParams) Validate() error {
 	return p.SecretConfig.Validate()
 }
 
-type jujuAPIClient interface {
+// JujuAPIClient provides access to the SecretsManager facade.
+type JujuAPIClient interface {
 	// GetContentInfo returns info about the content of a secret.
 	GetContentInfo(uri *secrets.URI, label string, refresh, peek bool) (*ContentParams, error)
-	// GetSecretStoreConfig fetches the config needed to make a secret store client.
-	GetSecretStoreConfig() (*provider.StoreConfig, error)
+	// GetRevisionContentInfo returns info about the content of a secret revision.
+	// If pendingDelete is true, the revision is marked for deletion.
+	GetRevisionContentInfo(uri *secrets.URI, revision int, pendingDelete bool) (*ContentParams, error)
+	// GetSecretBackendConfig fetches the config needed to make secret backend clients.
+	GetSecretBackendConfig() (*provider.ModelBackendConfigInfo, error)
 }
 
-// Store provides access to a secrets store.
-type Store interface {
-	// GetContent returns the content of a secret, either from an external store if
+// BackendsClient provides access to a client which can access secret backends.
+type BackendsClient interface {
+	// GetContent returns the content of a secret, either from an external backend if
 	// one is configured, or from Juju.
 	GetContent(uri *secrets.URI, label string, refresh, peek bool) (secrets.SecretValue, error)
 
-	// SaveContent saves the content of a secret to an external store returning the provider id.
-	SaveContent(uri *secrets.URI, revision int, value secrets.SecretValue) (string, error)
+	// SaveContent saves the content of a secret to an external backend returning the backend id.
+	SaveContent(uri *secrets.URI, revision int, value secrets.SecretValue) (secrets.ValueRef, error)
 
-	// DeleteContent deletes a secret from an external store.
-	DeleteContent(providerId string) error
+	// DeleteContent deletes a secret from an external backend
+	// if it exists there.
+	DeleteContent(uri *secrets.URI, revision int) error
+
+	// DeleteExternalContent deletes a secret from an external backend.
+	DeleteExternalContent(ref secrets.ValueRef) error
 }

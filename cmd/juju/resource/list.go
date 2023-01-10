@@ -60,7 +60,7 @@ func (c *ListCommand) Info() *cmd.Info {
 		Doc: `
 This command shows the resources required by and those in use by an existing
 application or unit in your model.  When run for an application, it will also show any
-updates available for resources from the charmstore.
+updates available for resources from a store.
 `,
 	})
 }

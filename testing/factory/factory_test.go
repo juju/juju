@@ -516,10 +516,38 @@ func (s *factorySuite) TestMakeModelNil(c *gc.C) {
 
 	cfg, err := m.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.AllAttrs()["default-series"], gc.Equals, "")
+	c.Assert(cfg.AllAttrs()["default-base"], gc.Equals, "")
+	c.Assert(cfg.AllAttrs()["default-series"], gc.IsNil)
 }
 
 func (s *factorySuite) TestMakeModel(c *gc.C) {
+	owner := s.Factory.MakeUser(c, &factory.UserParams{
+		Name: "owner",
+	})
+	params := &factory.ModelParams{
+		Name:        "foo",
+		Owner:       owner.UserTag(),
+		ConfigAttrs: testing.Attrs{"default-base": "ubuntu@22.04"},
+	}
+
+	st := s.Factory.MakeModel(c, params)
+	defer st.Close()
+
+	env, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.Name(), gc.Equals, "foo")
+	c.Assert(env.UUID() == s.State.ModelUUID(), jc.IsFalse)
+	c.Assert(env.Owner(), gc.Equals, owner.UserTag())
+
+	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	cfg, err := m.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.AllAttrs()["default-base"], gc.Equals, "ubuntu@22.04")
+}
+
+// TODO(stickupkid): We can remove this once we remove series.
+func (s *factorySuite) TestMakeModelWithSeries(c *gc.C) {
 	owner := s.Factory.MakeUser(c, &factory.UserParams{
 		Name: "owner",
 	})

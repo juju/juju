@@ -274,6 +274,15 @@ func (s *environBrokerSuite) TestSettingImageStreamsViaConfigToDaily(c *gc.C) {
 	c.Check(c.GetTestLog(), jc.Contains, gce.UbuntuDailyImageBasePath)
 }
 
+func (s *environBrokerSuite) TestSettingImageStreamsViaConfigToPro(c *gc.C) {
+	s.FakeConn.Inst = s.BaseInstance
+	s.UpdateConfig(c, map[string]interface{}{"image-stream": "pro"})
+	result, err := gce.NewRawInstance(s.Env, s.CallCtx, s.StartInstArgs, s.spec)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, gc.NotNil)
+	c.Check(c.GetTestLog(), jc.Contains, gce.UbuntuProImageBasePath)
+}
+
 func (s *environBrokerSuite) TestSettingBaseImagePathOverwritesImageStreams(c *gc.C) {
 	s.FakeConn.Inst = s.BaseInstance
 	s.UpdateConfig(c, map[string]interface{}{

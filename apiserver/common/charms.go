@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/errors"
 
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/storage"
 )
@@ -78,4 +79,18 @@ func CharmArchiveEntry(charmPath, entryPath string, wantIcon bool) ([]byte, erro
 		return []byte(DefaultCharmIcon), nil
 	}
 	return nil, errors.NotFoundf("charm file")
+}
+
+// ValidateCharmOrigin validates the Source of the charm origin for args received
+// in a facade. This may evolve over time to include more pieces.
+func ValidateCharmOrigin(o *params.CharmOrigin) error {
+	switch {
+	case o == nil:
+		return errors.BadRequestf("charm origin source required")
+	case corecharm.CharmHub.Matches(o.Source), corecharm.Local.Matches(o.Source):
+		// Valid charm origin sources
+	default:
+		return errors.BadRequestf("%q not a valid charm origin source", o.Source)
+	}
+	return nil
 }

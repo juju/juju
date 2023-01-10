@@ -286,16 +286,36 @@ type UpdateApplicationServiceArg struct {
 	Generation *int64 `json:"generation,omitempty"`
 }
 
-// ApplicationDestroy holds the parameters for making the deprecated
-// Application.Destroy call.
-type ApplicationDestroy struct {
-	ApplicationName string `json:"application"`
+// DestroyApplicationsParams holds bulk parameters for the
+// Application.DestroyApplication call.
+type DestroyApplicationsParamsV15 struct {
+	Applications []DestroyApplicationParamsV15 `json:"applications"`
 }
 
 // DestroyApplicationsParams holds bulk parameters for the
 // Application.DestroyApplication call.
 type DestroyApplicationsParams struct {
 	Applications []DestroyApplicationParams `json:"applications"`
+}
+
+// DestroyApplicationParamsV15 holds parameters for the
+// Application.DestroyApplication call on the v15 facade.
+type DestroyApplicationParamsV15 struct {
+	// ApplicationTag holds the tag of the application to destroy.
+	ApplicationTag string `json:"application-tag"`
+
+	// DestroyStorage controls whether or not storage attached to
+	// units of the application should be destroyed.
+	DestroyStorage bool `json:"destroy-storage,omitempty"`
+
+	// Force controls whether or not the destruction of an application
+	// will be forced, i.e. ignore operational errors.
+	Force bool `json:"force"`
+
+	// MaxWait specifies the amount of time that each step in application removal
+	// will wait before forcing the next step to kick-off. This parameter
+	// only makes sense in combination with 'force' set to 'true'.
+	MaxWait *time.Duration `json:"max-wait,omitempty"`
 }
 
 // DestroyApplicationParams holds parameters for the
@@ -316,6 +336,10 @@ type DestroyApplicationParams struct {
 	// will wait before forcing the next step to kick-off. This parameter
 	// only makes sense in combination with 'force' set to 'true'.
 	MaxWait *time.Duration `json:"max-wait,omitempty"`
+
+	// DryRun specifies whether this should perform this destroy
+	// action or just return what this action will destroy
+	DryRun bool `json:"dry-run,omitempty"`
 }
 
 // DestroyConsumedApplicationsParams holds bulk parameters for the

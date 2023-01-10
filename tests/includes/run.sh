@@ -35,7 +35,7 @@ run() {
 
 	END_TIME=$(date +%s)
 
-	echo -e "\r===> [ $(green "✔") ] Success: ${DESC} ($((END_TIME - START_TIME))s)"
+	echo -e "\r\033[1A\033[0K===> [ $(green "✔") ] Success: ${DESC} ($((END_TIME - START_TIME))s)"
 }
 
 # run_linter will run until the end of a pipeline even if there is a failure.
@@ -78,9 +78,9 @@ run_linter() {
 	END_TIME=$(date +%s)
 
 	if [[ ${cmd_status} -eq 0 ]]; then
-		echo -e "\r===> [ $(green "✔") ] Success: ${DESC} ($((END_TIME - START_TIME))s)"
+		echo -e "\r\033[1A\033[0K===> [ $(green "✔") ] Success: ${DESC} ($((END_TIME - START_TIME))s)"
 	else
-		echo -e "\r===> [ $(red "x") ] Fail: ${DESC} ($((END_TIME - START_TIME))s)"
+		echo -e "\r\033[1A\033[0K===> [ $(red "x") ] Fail: ${DESC} ($((END_TIME - START_TIME))s)"
 		exit 1
 	fi
 }

@@ -65,16 +65,6 @@ func (f *CharmRepoFactory) GetCharmRepository(src corecharm.Source) (corecharm.R
 	var repo corecharm.Repository
 
 	switch src {
-	case corecharm.CharmStore:
-		controllerCfg, err := f.stateBackend.ControllerConfig()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		repo = charmrepo.NewCharmStoreRepository(
-			f.logger.Child("charmstorerepo"),
-			controllerCfg.CharmStoreURL(),
-		)
 	case corecharm.CharmHub:
 		cfg, err := f.modelBackend.Config()
 		if err != nil {

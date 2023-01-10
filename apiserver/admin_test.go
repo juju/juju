@@ -1493,7 +1493,7 @@ func (s *migrationSuite) TestExportingModel(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 
 	// Modifying commands like destroy machines are not.
-	_, err = machineclient.NewClient(userConn).DestroyMachinesWithParams(false, false, nil, "42")
+	_, err = machineclient.NewClient(userConn).DestroyMachinesWithParams(false, false, false, nil, "42")
 	c.Check(err, gc.ErrorMatches, "model migration in progress")
 }
 

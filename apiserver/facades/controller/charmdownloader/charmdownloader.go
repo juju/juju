@@ -117,11 +117,6 @@ func (a *CharmDownloaderAPI) downloadApplicationCharm(appTag names.ApplicationTa
 	}
 	pendingCharmURL := pendingCharm.URL()
 
-	macaroons, err := pendingCharm.Macaroon()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	resolvedOrigin := app.CharmOrigin()
 	if resolvedOrigin == nil {
 		return errors.NotFoundf("download charm for application %q; resolved origin", appTag.Name)
@@ -133,7 +128,7 @@ func (a *CharmDownloaderAPI) downloadApplicationCharm(appTag names.ApplicationTa
 	}
 
 	logger.Infof("downloading charm %q", pendingCharmURL)
-	downloadedOrigin, err := downloader.DownloadAndStore(pendingCharmURL, *resolvedOrigin, macaroons, force)
+	downloadedOrigin, err := downloader.DownloadAndStore(pendingCharmURL, *resolvedOrigin, force)
 	if err != nil {
 		return errors.Annotatef(err, "cannot download and store charm %q", pendingCharmURL)
 	}

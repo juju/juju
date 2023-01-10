@@ -8,7 +8,6 @@ import (
 
 	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/errors"
-	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/client/resources"
@@ -20,7 +19,6 @@ import (
 type DeployResourcesFunc func(
 	applicationID string,
 	chID resources.CharmID,
-	csMac *macaroon.Macaroon,
 	filesAndRevisions map[string]string,
 	resources map[string]charmresource.Meta,
 	conn base.APICallCloser,
@@ -33,7 +31,6 @@ type DeployResourcesFunc func(
 func DeployResources(
 	applicationID string,
 	chID resources.CharmID,
-	csMac *macaroon.Macaroon,
 	filesAndRevisions map[string]string,
 	res map[string]charmresource.Meta,
 	conn base.APICallCloser,
@@ -62,14 +59,13 @@ func DeployResources(
 	}
 
 	ids, err = resourcecmd.DeployResources(resourcecmd.DeployResourcesArgs{
-		ApplicationID:      applicationID,
-		CharmID:            chID,
-		CharmStoreMacaroon: csMac,
-		ResourceValues:     filenames,
-		Revisions:          revisions,
-		ResourcesMeta:      res,
-		Client:             &deployClient{apiClient},
-		Filesystem:         filesystem,
+		ApplicationID:  applicationID,
+		CharmID:        chID,
+		ResourceValues: filenames,
+		Revisions:      revisions,
+		ResourcesMeta:  res,
+		Client:         &deployClient{apiClient},
+		Filesystem:     filesystem,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -82,11 +78,10 @@ type deployClient struct {
 }
 
 // AddPendingResources adds pending metadata for store-based resources.
-func (cl *deployClient) AddPendingResources(applicationID string, chID resources.CharmID, csMac *macaroon.Macaroon, res []charmresource.Resource) ([]string, error) {
+func (cl *deployClient) AddPendingResources(applicationID string, chID resources.CharmID, res []charmresource.Resource) ([]string, error) {
 	return cl.Client.AddPendingResources(resources.AddPendingResourcesArgs{
-		ApplicationID:      applicationID,
-		CharmID:            chID,
-		CharmStoreMacaroon: csMac,
-		Resources:          res,
+		ApplicationID: applicationID,
+		CharmID:       chID,
+		Resources:     res,
 	})
 }

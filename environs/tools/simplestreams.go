@@ -226,7 +226,7 @@ func appendMatchingTools(source simplestreams.DataSource, matchingTools []interf
 		if toolsConstraint, ok := cons.(*ToolsConstraint); ok {
 			tmNumber := version.MustParse(tm.Version)
 			if toolsConstraint.Version == version.Zero {
-				if toolsConstraint.MajorVersion >= 0 && toolsConstraint.MajorVersion != tmNumber.Major {
+				if toolsConstraint.MajorVersion > 0 && toolsConstraint.MajorVersion != tmNumber.Major {
 					continue
 				}
 				if toolsConstraint.MinorVersion >= 0 && toolsConstraint.MinorVersion != tmNumber.Minor {

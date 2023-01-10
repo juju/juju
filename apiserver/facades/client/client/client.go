@@ -249,15 +249,27 @@ func (s *stripApplicationOffers) Next() ([]multiwatcher.Delta, error) {
 }
 
 // FindTools returns a List containing all tools matching the given parameters.
-func (c *Client) FindTools(args params.FindToolsParams) (result params.FindToolsResult, err error) {
+// TODO(juju 3.1) - remove, used by 2.9 client only
+func (c *Client) FindTools(args params.FindToolsParams) (params.FindToolsResult, error) {
 	if err := c.checkCanWrite(); err != nil {
 		return params.FindToolsResult{}, err
 	}
 	model, err := c.api.stateAccessor.Model()
 	if err != nil {
-		return result, errors.Trace(err)
+		return params.FindToolsResult{}, errors.Trace(err)
 	}
-	result, err = c.api.toolsFinder.FindTools(args)
+
+	list, err := c.api.toolsFinder.FindAgents(common.FindAgentsParams{
+		Number:       args.Number,
+		MajorVersion: args.MajorVersion,
+		Arch:         args.Arch,
+		OSType:       args.OSType,
+		AgentStream:  args.AgentStream,
+	})
+	result := params.FindToolsResult{
+		List:  list,
+		Error: apiservererrors.ServerError(err),
+	}
 	if model.Type() != state.ModelTypeCAAS {
 		// We return now for non CAAS model.
 		return result, errors.Annotate(err, "finding tool version from simple streams")

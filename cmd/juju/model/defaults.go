@@ -104,8 +104,8 @@ us-east-1 region
 Set model default values for the aws cloud as defined in path/to/file.yaml
     juju model-defaults --cloud=aws --file path/to/file.yaml
 
-Reset the value of default-series and test-mode to default
-    juju model-defaults --reset default-series,test-mode
+Reset the value of default-base and test-mode to default
+    juju model-defaults --reset default-base,test-mode
 
 Reset the value of http-proxy for the us-east-1 region to default
     juju model-defaults --region us-east-1 --reset http-proxy

@@ -467,8 +467,8 @@ func (b *BundleAPI) bundleDataApplications(
 		// We need to correctly handle charmhub urls. The internal
 		// representation of a charm url is not the same as a external
 		// representation, in that only the application name should be rendered.
-		// For charmstore and charmhub charms, ensure that the revision is
-		// listed separately, not in the charm url.
+		// For charmhub charms, ensure that the revision is listed separately,
+		// not in the charm url.
 		curl, err := charm.ParseURL(application.CharmURL())
 		if err != nil {
 			return nil, nil, nil, errors.Trace(err)
@@ -482,18 +482,13 @@ func (b *BundleAPI) bundleDataApplications(
 				cRev := curl.Revision
 				revision = &cRev
 			}
-		case charm.CharmStore.Matches(curl.Schema):
-			if curl.Revision >= 0 {
-				cRev := curl.Revision
-				revision = &cRev
-			}
-			curl.Revision = -1
-			charmURL = curl.String()
 		case charm.Local.Matches(curl.Schema):
 			charmURL = fmt.Sprintf("local:%s", curl.Name)
 			if curl.Revision >= 0 {
 				charmURL = fmt.Sprintf("%s-%d", charmURL, curl.Revision)
 			}
+		default:
+			return nil, nil, nil, errors.NotValidf("charm schema %q", curl.Schema)
 		}
 
 		var channel string

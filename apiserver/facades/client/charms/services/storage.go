@@ -79,7 +79,6 @@ func (s *CharmStorage) Store(charmURL *charm.URL, downloadedCharm charmdownloade
 		Charm:       downloadedCharm.Charm,
 		ID:          charmURL,
 		SHA256:      downloadedCharm.SHA256,
-		Macaroon:    downloadedCharm.Macaroons,
 		Version:     downloadedCharm.CharmVersion,
 	}
 

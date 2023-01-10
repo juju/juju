@@ -401,7 +401,7 @@ endif
 endif
 
 WAIT_FOR_DPKG=sh -c '. "${PROJECT_DIR}/make_functions.sh"; wait_for_dpkg "$$@"' wait_for_dpkg
-JUJU_DB_CHANNEL=5.3/stable
+JUJU_DB_CHANNEL=4.4/stable
 
 .PHONY: install-mongo-dependencies
 install-mongo-dependencies:

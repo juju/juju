@@ -30,12 +30,12 @@ type SecretsConsumer interface {
 	SecretAccess(uri *secrets.URI, subject names.Tag) (secrets.SecretRole, error)
 }
 
-type SecretsBackend interface {
+type SecretsState interface {
 	CreateSecret(*secrets.URI, state.CreateSecretParams) (*secrets.SecretMetadata, error)
 	UpdateSecret(*secrets.URI, state.UpdateSecretParams) (*secrets.SecretMetadata, error)
-	DeleteSecret(*secrets.URI, ...int) (bool, error)
+	DeleteSecret(*secrets.URI, ...int) ([]secrets.ValueRef, error)
 	GetSecret(*secrets.URI) (*secrets.SecretMetadata, error)
-	GetSecretValue(*secrets.URI, int) (secrets.SecretValue, *string, error)
+	GetSecretValue(*secrets.URI, int) (secrets.SecretValue, *secrets.ValueRef, error)
 	ListSecrets(state.SecretsFilter) ([]*secrets.SecretMetadata, error)
 	ListSecretRevisions(uri *secrets.URI) ([]*secrets.SecretRevisionMetadata, error)
 	WatchObsolete(owners []names.Tag) (state.StringsWatcher, error)

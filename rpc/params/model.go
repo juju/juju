@@ -145,7 +145,8 @@ type ModelInfo struct {
 	ControllerUUID     string `json:"controller-uuid"`
 	IsController       bool   `json:"is-controller"`
 	ProviderType       string `json:"provider-type,omitempty"`
-	DefaultSeries      string `json:"default-series,omitempty"`
+	DefaultSeries      string `json:"default-series,omitempty"` // default-series is deprecated, use default-base
+	DefaultBase        string `json:"default-base,omitempty"`
 	CloudTag           string `json:"cloud-tag"`
 	CloudRegion        string `json:"cloud-region,omitempty"`
 	CloudCredentialTag string `json:"cloud-credential-tag,omitempty"`
@@ -171,6 +172,10 @@ type ModelInfo struct {
 	// This information is available to owners and users with write
 	// access or greater.
 	Machines []ModelMachineInfo `json:"machines"`
+
+	// SecretBackends contains information about the secret backends
+	// currently in use by the model.
+	SecretBackends []SecretBackendResult `json:"secret-backends"`
 
 	// Migration contains information about the latest failed or
 	// currently-running migration. It'll be nil if there isn't one.

@@ -115,7 +115,7 @@ func BaseKubeCloudOpenParams(cloud cloud.Cloud, credential cloud.Credential) (en
 		config.TypeKey: "kubernetes",
 		config.UUIDKey: uuid.String(),
 	}
-	cfg, err := config.New(config.NoDefaults, attrs)
+	cfg, err := config.New(config.UseDefaults, attrs)
 	if err != nil {
 		return environs.OpenParams{}, errors.Trace(err)
 	}

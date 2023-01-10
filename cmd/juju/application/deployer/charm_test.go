@@ -15,7 +15,6 @@ import (
 	"github.com/juju/gnuflag"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/client/application"
@@ -74,7 +73,7 @@ func (s *charmSuite) TestRepositoryCharmDeployDryRun(c *gc.C) {
 	defer ctrl.Finish()
 	s.resolver = mocks.NewMockResolver(ctrl)
 	s.expectResolveChannel()
-	s.expectDeployerAPIModelGet(c, "")
+	s.expectDeployerAPIModelGet(c, series.Base{})
 
 	dCharm := s.newDeployCharm()
 	dCharm.dryRun = true
@@ -87,7 +86,7 @@ func (s *charmSuite) TestRepositoryCharmDeployDryRun(c *gc.C) {
 		clock:            clock.WallClock,
 	}
 
-	err := repoCharm.PrepareAndDeploy(s.ctx, s.deployerAPI, s.resolver, nil)
+	err := repoCharm.PrepareAndDeploy(s.ctx, s.deployerAPI, s.resolver)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -96,7 +95,7 @@ func (s *charmSuite) TestRepositoryCharmDeployDryRunDefaultSeriesForce(c *gc.C) 
 	defer ctrl.Finish()
 	s.resolver = mocks.NewMockResolver(ctrl)
 	s.expectResolveChannel()
-	s.expectDeployerAPIModelGet(c, "jammy")
+	s.expectDeployerAPIModelGet(c, series.MustParseBaseFromString("ubuntu@22.04"))
 
 	dCharm := s.newDeployCharm()
 	dCharm.dryRun = true
@@ -125,7 +124,7 @@ func (s *charmSuite) TestRepositoryCharmDeployDryRunDefaultSeriesForce(c *gc.C) 
 		Stdout: stdOut,
 	}
 
-	err := repoCharm.PrepareAndDeploy(ctx, s.deployerAPI, s.resolver, nil)
+	err := repoCharm.PrepareAndDeploy(ctx, s.deployerAPI, s.resolver)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(output.String(), gc.Equals, "\"testme\" from  charm \"testme\", revision -1 on ubuntu@22.04 would be deployed\n")
 }
@@ -136,7 +135,6 @@ func (s *charmSuite) newDeployCharm() *deployCharm {
 		deployResources: func(
 			string,
 			resources.CharmID,
-			*macaroon.Macaroon,
 			map[string]string,
 			map[string]charmresource.Meta,
 			base.APICallCloser,
@@ -178,11 +176,11 @@ func (s *charmSuite) expectResolveChannel() {
 		}).AnyTimes()
 }
 
-func (s *charmSuite) expectDeployerAPIModelGet(c *gc.C, defaultSeries string) {
+func (s *charmSuite) expectDeployerAPIModelGet(c *gc.C, defaultBase series.Base) {
 	cfg, err := config.New(true, minimalModelConfig())
 	c.Assert(err, jc.ErrorIsNil)
 	attrs := cfg.AllAttrs()
-	attrs["default-series"] = defaultSeries
+	attrs["default-base"] = defaultBase.String()
 	s.deployerAPI.EXPECT().ModelGet().Return(attrs, nil)
 }
 
@@ -193,6 +191,7 @@ func minimalModelConfig() map[string]interface{} {
 		"uuid":            coretesting.ModelTag.Id(),
 		"controller-uuid": coretesting.ControllerTag.Id(),
 		"firewall-mode":   "instance",
+		"secret-backend":  "auto",
 		// While the ca-cert bits aren't entirely minimal, they avoid the need
 		// to set up a fake home.
 		"ca-cert":        coretesting.CACert,

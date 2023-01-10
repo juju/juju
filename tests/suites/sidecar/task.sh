@@ -4,10 +4,6 @@ test_sidecar() {
 		return
 	fi
 
-	if [[ -n ${OPERATOR_IMAGE_ACCOUNT:-} ]]; then
-		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --config caas-image-repo=${OPERATOR_IMAGE_ACCOUNT}"
-	fi
-
 	set_verbosity
 
 	case "${BOOTSTRAP_PROVIDER:-}" in

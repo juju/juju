@@ -939,7 +939,7 @@ type SecretUpsertArg struct {
 	Description  *string
 	Label        *string
 	Value        secrets.SecretValue
-	ProviderId   *string
+	ValueRef     *secrets.ValueRef
 }
 
 // SecretCreateArg holds parameters for creating a secret.
@@ -977,6 +977,14 @@ func (b *CommitHookParamsBuilder) AddSecretCreates(creates []SecretCreateArg) {
 		}
 
 		uriStr := c.URI.String()
+		var valueRef *params.SecretValueRef
+		if c.ValueRef != nil {
+			valueRef = &params.SecretValueRef{
+				BackendID:  c.ValueRef.BackendID,
+				RevisionID: c.ValueRef.RevisionID,
+			}
+		}
+
 		b.arg.SecretCreates[i] = params.CreateSecretArg{
 			UpsertSecretArg: params.UpsertSecretArg{
 				RotatePolicy: c.RotatePolicy,
@@ -984,8 +992,8 @@ func (b *CommitHookParamsBuilder) AddSecretCreates(creates []SecretCreateArg) {
 				Description:  c.Description,
 				Label:        c.Label,
 				Content: params.SecretContentParams{
-					Data:       data,
-					ProviderId: c.ProviderId,
+					Data:     data,
+					ValueRef: valueRef,
 				},
 			},
 			URI:      &uriStr,
@@ -1010,6 +1018,14 @@ func (b *CommitHookParamsBuilder) AddSecretUpdates(updates []SecretUpsertArg) {
 			data = nil
 		}
 
+		var valueRef *params.SecretValueRef
+		if u.ValueRef != nil {
+			valueRef = &params.SecretValueRef{
+				BackendID:  u.ValueRef.BackendID,
+				RevisionID: u.ValueRef.RevisionID,
+			}
+		}
+
 		b.arg.SecretUpdates[i] = params.UpdateSecretArg{
 			UpsertSecretArg: params.UpsertSecretArg{
 				RotatePolicy: u.RotatePolicy,
@@ -1017,8 +1033,8 @@ func (b *CommitHookParamsBuilder) AddSecretUpdates(updates []SecretUpsertArg) {
 				Description:  u.Description,
 				Label:        u.Label,
 				Content: params.SecretContentParams{
-					Data:       data,
-					ProviderId: u.ProviderId,
+					Data:     data,
+					ValueRef: valueRef,
 				},
 			},
 			URI: u.URI.String(),

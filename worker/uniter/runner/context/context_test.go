@@ -26,6 +26,8 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets"
+	"github.com/juju/juju/secrets/provider/juju"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/context/mocks"
@@ -962,6 +964,50 @@ func (s *mockHookContextSuite) TestMissingAction(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *mockHookContextSuite) assertSecretGetFromPendingChanges(c *gc.C,
+	setPendingSecretChanges func(hc *context.HookContext, uri *coresecrets.URI, label string, value map[string]string),
+) {
+	defer s.setupMocks(c).Finish()
+
+	hookContext := context.NewMockUnitHookContext(s.mockUnit, s.mockLeadership)
+
+	uri := coresecrets.NewURI()
+	label := "label"
+	data := map[string]string{"foo": "bar"}
+	setPendingSecretChanges(hookContext, uri, label, data)
+	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), nil, nil, nil)
+
+	value, err := hookContext.GetSecret(nil, label, false, false)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(value.EncodedValues(), jc.DeepEquals, data)
+}
+
+func (s *mockHookContextSuite) TestSecretGetFromPendingCreateChanges(c *gc.C) {
+	s.assertSecretGetFromPendingChanges(c,
+		func(hc *context.HookContext, uri *coresecrets.URI, label string, value map[string]string) {
+			arg := uniter.SecretCreateArg{OwnerTag: s.mockUnit.Tag()}
+			arg.URI = uri
+			arg.Label = ptr(label)
+			arg.Value = coresecrets.NewSecretValue(value)
+			hc.SetPendingSecretCreates(
+				[]uniter.SecretCreateArg{arg})
+		},
+	)
+}
+
+func (s *mockHookContextSuite) TestSecretGetFromPendingUpdateChanges(c *gc.C) {
+	s.assertSecretGetFromPendingChanges(c,
+		func(hc *context.HookContext, uri *coresecrets.URI, label string, value map[string]string) {
+			arg := uniter.SecretUpdateArg{}
+			arg.URI = uri
+			arg.Label = ptr(label)
+			arg.Value = coresecrets.NewSecretValue(value)
+			hc.SetPendingSecretUpdates(
+				[]uniter.SecretUpdateArg{arg})
+		},
+	)
+}
+
 func (s *mockHookContextSuite) TestSecretGet(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -973,11 +1019,14 @@ func (s *mockHookContextSuite) TestSecretGet(c *gc.C) {
 			c.Assert(objType, gc.Equals, "SecretsManager")
 			c.Assert(version, gc.Equals, 0)
 			c.Assert(id, gc.Equals, "")
-			c.Assert(request, gc.Equals, "GetSecretStoreConfig")
+			c.Assert(request, gc.Equals, "GetSecretBackendConfig")
 			c.Assert(arg, gc.IsNil)
-			c.Assert(result, gc.FitsTypeOf, &params.SecretStoreConfig{})
-			*(result.(*params.SecretStoreConfig)) = params.SecretStoreConfig{
-				StoreType: "juju",
+			c.Assert(result, gc.FitsTypeOf, &params.SecretBackendConfigResults{})
+			*(result.(*params.SecretBackendConfigResults)) = params.SecretBackendConfigResults{
+				ActiveID: coretesting.ControllerTag.Id(),
+				Configs: map[string]params.SecretBackendConfig{
+					coretesting.ControllerTag.Id(): {BackendType: juju.BackendType},
+				},
 			}
 			return nil
 		}
@@ -1004,9 +1053,9 @@ func (s *mockHookContextSuite) TestSecretGet(c *gc.C) {
 
 	hookContext := context.NewMockUnitHookContext(s.mockUnit, s.mockLeadership)
 	jujuSecretsAPI := secretsmanager.NewClient(apiCaller)
-	secretsStore, err := secrets.NewClient(jujuSecretsAPI)
+	secretsBackend, err := secrets.NewClient(jujuSecretsAPI)
 	c.Assert(err, jc.ErrorIsNil)
-	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), nil, jujuSecretsAPI, secretsStore)
+	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), nil, jujuSecretsAPI, secretsBackend)
 
 	value, err := hookContext.GetSecret(uri, "label", true, true)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1044,7 +1093,7 @@ func (s *mockHookContextSuite) TestSecretGetOwnedSecretFailedWithUpdate(c *gc.C)
 }
 
 func (s *mockHookContextSuite) assertSecretGetOwnedSecretURILookup(
-	c *gc.C, patchContext func(*context.HookContext, *coresecrets.URI, string, context.SecretsAccessor, secrets.Store),
+	c *gc.C, patchContext func(*context.HookContext, *coresecrets.URI, string, context.SecretsAccessor, secrets.BackendsClient),
 ) {
 	defer s.setupMocks(c).Finish()
 
@@ -1056,11 +1105,13 @@ func (s *mockHookContextSuite) assertSecretGetOwnedSecretURILookup(
 			c.Assert(objType, gc.Equals, "SecretsManager")
 			c.Assert(version, gc.Equals, 0)
 			c.Assert(id, gc.Equals, "")
-			c.Assert(request, gc.Equals, "GetSecretStoreConfig")
+			c.Assert(request, gc.Equals, "GetSecretBackendConfig")
 			c.Assert(arg, gc.IsNil)
-			c.Assert(result, gc.FitsTypeOf, &params.SecretStoreConfig{})
-			*(result.(*params.SecretStoreConfig)) = params.SecretStoreConfig{
-				StoreType: "juju",
+			*(result.(*params.SecretBackendConfigResults)) = params.SecretBackendConfigResults{
+				ActiveID: coretesting.ControllerTag.Id(),
+				Configs: map[string]params.SecretBackendConfig{
+					coretesting.ControllerTag.Id(): {BackendType: juju.BackendType},
+				},
 			}
 			return nil
 		}
@@ -1086,11 +1137,11 @@ func (s *mockHookContextSuite) assertSecretGetOwnedSecretURILookup(
 
 	hookContext := context.NewMockUnitHookContext(s.mockUnit, s.mockLeadership)
 	jujuSecretsAPI := secretsmanager.NewClient(apiCaller)
-	secretsStore, err := secrets.NewClient(jujuSecretsAPI)
+	secretsBackend, err := secrets.NewClient(jujuSecretsAPI)
 	c.Assert(err, jc.ErrorIsNil)
-	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), nil, jujuSecretsAPI, secretsStore)
+	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), nil, jujuSecretsAPI, secretsBackend)
 
-	patchContext(hookContext, uri, "label", jujuSecretsAPI, secretsStore)
+	patchContext(hookContext, uri, "label", jujuSecretsAPI, secretsBackend)
 
 	value, err := hookContext.GetSecret(nil, "label", false, false)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1101,23 +1152,24 @@ func (s *mockHookContextSuite) assertSecretGetOwnedSecretURILookup(
 
 func (s *mockHookContextSuite) TestSecretGetOwnedSecretURILookupFromAppliedCache(c *gc.C) {
 	s.assertSecretGetOwnedSecretURILookup(c,
-		func(ctx *context.HookContext, uri *coresecrets.URI, label string, client context.SecretsAccessor, store secrets.Store) {
+		func(ctx *context.HookContext, uri *coresecrets.URI, label string, client context.SecretsAccessor, backend secrets.BackendsClient) {
 			context.SetEnvironmentHookContextSecret(
 				ctx, uri.String(),
 				map[string]jujuc.SecretMetadata{
 					uri.ID: {Label: "label", Owner: s.mockUnit.Tag()},
 				},
-				client, store)
+				client, backend)
 		},
 	)
 }
 
 func (s *mockHookContextSuite) TestSecretGetOwnedSecretURILookupFromPendingCreate(c *gc.C) {
 	s.assertSecretGetOwnedSecretURILookup(c,
-		func(ctx *context.HookContext, uri *coresecrets.URI, label string, client context.SecretsAccessor, store secrets.Store) {
+		func(ctx *context.HookContext, uri *coresecrets.URI, label string, client context.SecretsAccessor, backend secrets.BackendsClient) {
 			arg := uniter.SecretCreateArg{OwnerTag: s.mockUnit.Tag()}
 			arg.URI = uri
 			arg.Label = ptr(label)
+			arg.Value = coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
 			ctx.SetPendingSecretCreates(
 				[]uniter.SecretCreateArg{arg})
 		},
@@ -1126,10 +1178,11 @@ func (s *mockHookContextSuite) TestSecretGetOwnedSecretURILookupFromPendingCreat
 
 func (s *mockHookContextSuite) TestSecretGetOwnedSecretURILookupFromPendingUpdate(c *gc.C) {
 	s.assertSecretGetOwnedSecretURILookup(c,
-		func(ctx *context.HookContext, uri *coresecrets.URI, label string, client context.SecretsAccessor, store secrets.Store) {
+		func(ctx *context.HookContext, uri *coresecrets.URI, label string, client context.SecretsAccessor, backend secrets.BackendsClient) {
 			arg := uniter.SecretUpdateArg{}
 			arg.URI = uri
 			arg.Label = ptr(label)
+			arg.Value = coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
 			ctx.SetPendingSecretUpdates(
 				[]uniter.SecretUpdateArg{arg})
 		},
@@ -1201,6 +1254,51 @@ func (s *mockHookContextSuite) assertSecretCreate(c *gc.C, owner names.Tag) {
 		},
 		OwnerTag: owner,
 	}})
+}
+
+func (s *mockHookContextSuite) TestSecretCreateDupLabel(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	data := map[string]string{"foo": "bar"}
+	value := coresecrets.NewSecretValue(data)
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "SecretsManager")
+		c.Assert(version, gc.Equals, 0)
+		c.Assert(id, gc.Equals, "")
+		c.Assert(request, gc.Equals, "CreateSecretURIs")
+		c.Check(arg, gc.DeepEquals, params.CreateSecretURIsArg{
+			Count: 1,
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
+		*(result.(*params.StringResults)) = params.StringResults{
+			[]params.StringResult{{
+				Result: "secret:9m4e2mr0ui3e8a215n4g",
+			}},
+		}
+		return nil
+	})
+	s.mockLeadership.EXPECT().IsLeader().Return(true, nil).Times(2)
+
+	hookContext := context.NewMockUnitHookContext(s.mockUnit, s.mockLeadership)
+	jujuSecretsAPI := secretsmanager.NewClient(apiCaller)
+	context.SetEnvironmentHookContextSecret(hookContext, "", nil, jujuSecretsAPI, nil)
+
+	_, err := hookContext.CreateSecret(&jujuc.SecretCreateArgs{
+		SecretUpdateArgs: jujuc.SecretUpdateArgs{
+			Value: value,
+			Label: ptr("foo"),
+		},
+		OwnerTag: names.NewApplicationTag("myapp"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = hookContext.CreateSecret(&jujuc.SecretCreateArgs{
+		SecretUpdateArgs: jujuc.SecretUpdateArgs{
+			Value: value,
+			Label: ptr("foo"),
+		},
+		OwnerTag: names.NewApplicationTag("myapp"),
+	})
+	c.Assert(err, gc.ErrorMatches, `secret with label "foo" already exists`)
 }
 
 func (s *mockHookContextSuite) TestSecretUpdate(c *gc.C) {

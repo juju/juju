@@ -166,9 +166,9 @@ func (s *StatusSuite) TestStatusWhenFilteringByMachine(c *gc.C) {
 	context := s.run(c, "status", "--no-color")
 	c.Assert(cmdtesting.Stdout(context), jc.Contains, `
 App        Version  Status   Scale  Charm      Channel  Rev  Exposed  Message
-another             waiting    0/1  mysql                 5  no       waiting for machine
-mysql               waiting    0/1  mysql                 1  no       waiting for machine
-wordpress           waiting    0/1  wordpress             3  no       waiting for machine
+another             waiting    0/1  mysql      stable     5  no       waiting for machine
+mysql               waiting    0/1  mysql      stable     1  no       waiting for machine
+wordpress           waiting    0/1  wordpress  stable     3  no       waiting for machine
 
 Unit         Workload  Agent       Machine  Public address  Ports  Message
 another/0    waiting   allocating  1                               waiting for machine
@@ -183,8 +183,8 @@ Machine  State    Address  Inst id  Base          AZ  Message
 	context = s.run(c, "status", "--no-color", "0")
 	c.Assert(cmdtesting.Stdout(context), jc.Contains, `
 App        Version  Status   Scale  Charm      Channel  Rev  Exposed  Message
-mysql               waiting    0/1  mysql                 1  no       waiting for machine
-wordpress           waiting    0/1  wordpress             3  no       waiting for machine
+mysql               waiting    0/1  mysql      stable     1  no       waiting for machine
+wordpress           waiting    0/1  wordpress  stable     3  no       waiting for machine
 
 Unit         Workload  Agent       Machine  Public address  Ports  Message
 mysql/0      waiting   allocating  0                               waiting for machine

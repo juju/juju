@@ -1,6 +1,8 @@
 name: "Upgrade"
 on:
   push:
+    branches-ignore:
+      - 'develop'
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
@@ -8,6 +10,9 @@ on:
       - 'go.mod'
       - 'snap/**'
       - '.github/workflows/upgrade.yml'
+      - '.github/setup-lxd/**'
+    branches-ignore:
+      - 'develop'
   workflow_dispatch:
 
 permissions:
@@ -47,6 +52,10 @@ jobs:
         if: env.RUN_TEST == 'RUN'
         uses: actions/checkout@v3
 
+      - name: Setup LXD
+        if: env.RUN_TEST == 'RUN' && matrix.model_type == 'localhost'
+        uses: canonical/setup-lxd@90d76101915da56a42a562ba766b1a77019242fd
+
       - name: Set some variables
         if: env.RUN_TEST == 'RUN'
         run: |
@@ -66,27 +75,13 @@ jobs:
         uses: actions/setup-go@v3
         with:
           go-version-file: 'go.mod'
+          cache: true
 
       - name: setup env
         shell: bash
         run: |
           echo "GOPATH=$(go env GOPATH)" >> $GITHUB_ENV
           echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
-
-      - name: Setup LXD
-        if: env.RUN_TEST == 'RUN' && matrix.model_type == 'localhost'
-        shell: bash
-        run: |
-          if snap info lxd | grep "installed"; then
-            sudo snap refresh lxd --channel=latest/stable
-          else
-            sudo snap install lxd --channel=latest/stable
-          fi
-          
-          sudo lxd waitready
-          sudo lxd init --auto
-          sudo chmod a+wr /var/snap/lxd/common/lxd/unix.socket
-          lxc network set lxdbr0 ipv6.address none
 
       - name: Setup k8s
         if: env.RUN_TEST == 'RUN' && matrix.model_type == 'microk8s'

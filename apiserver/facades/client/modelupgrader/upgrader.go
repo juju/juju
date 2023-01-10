@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/docker/registry"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/bootstrap"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -152,18 +151,50 @@ func (m *ModelUpgraderAPI) UpgradeModel(arg params.UpgradeModelParams) (result p
 	}
 	defer st.Release()
 
+	controllerCfg, err := st.ControllerConfig()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
 	model, err := st.Model()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-
-	agentVersion, err := model.AgentVersion()
+	currentVersion, err := model.AgentVersion()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	targetVersion, err = m.decideVersion(
-		targetVersion, agentVersion, arg.AgentStream, st, model,
-	)
+
+	logger.Debugf("deciding target version for model upgrade, from %q to %q for stream %q", currentVersion, targetVersion, arg.AgentStream)
+	args := common.FindAgentsParams{
+		AgentStream:   arg.AgentStream,
+		ControllerCfg: controllerCfg,
+		ModelType:     model.Type(),
+	}
+	// For non controller models, we use the exact controller
+	// model version to upgrade to, unless an explicit target
+	// has been specified.
+	if !model.IsControllerModel() {
+		ctrlModel, err := m.statePool.ControllerModel()
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+		vers, err := ctrlModel.AgentVersion()
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+		if targetVersion == version.Zero {
+			targetVersion = vers
+		} else if vers.Compare(targetVersion.ToPatch()) > 0 {
+			return result, errors.Errorf("cannot upgrade to a version %q greater than that of the controller %q", args.Number, vers)
+		}
+	}
+	if targetVersion == version.Zero {
+		args.MajorVersion = currentVersion.Major
+		args.MinorVersion = currentVersion.Minor
+	} else {
+		args.Number = targetVersion
+	}
+	targetVersion, err = m.decideVersion(currentVersion, args)
 	if errors.Is(errors.Cause(err), errors.NotFound) || errors.Is(errors.Cause(err), errors.AlreadyExists) {
 		result.Error = apiservererrors.ServerError(err)
 		return result, nil
@@ -180,7 +211,7 @@ func (m *ModelUpgraderAPI) UpgradeModel(arg params.UpgradeModelParams) (result p
 		return result, errors.Trace(err)
 	}
 	if err := preCheckEnvironForUpgradeModel(
-		m.callContext, envOrBroker, model, agentVersion, targetVersion,
+		m.callContext, envOrBroker, model.IsControllerModel(), currentVersion, targetVersion,
 	); err != nil {
 		return result, errors.Trace(err)
 	}
@@ -205,13 +236,13 @@ func (m *ModelUpgraderAPI) UpgradeModel(arg params.UpgradeModelParams) (result p
 
 func preCheckEnvironForUpgradeModel(
 	ctx context.ProviderCallContext, env environs.BootstrapEnviron,
-	model Model, agentVersion, targetVersion version.Number,
+	controllerModel bool, currentVersion, targetVersion version.Number,
 ) error {
 	if err := environs.CheckProviderAPI(env, ctx); err != nil {
 		return errors.Trace(err)
 	}
 
-	if model.Name() != bootstrap.ControllerModelName {
+	if !controllerModel {
 		return nil
 	}
 
@@ -249,7 +280,7 @@ func preCheckEnvironForUpgradeModel(
 	}
 
 	for _, op := range precheckEnv.PrecheckUpgradeOperations() {
-		if skipTarget(agentVersion, op.TargetVersion, targetVersion) {
+		if skipTarget(currentVersion, op.TargetVersion, targetVersion) {
 			logger.Debugf("ignoring precheck upgrade operation for version %s", op.TargetVersion)
 			continue
 		}

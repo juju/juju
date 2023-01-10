@@ -6,7 +6,6 @@ package store
 import (
 	"github.com/juju/charm/v9"
 	csparams "github.com/juju/charmrepo/v7/csclient/params"
-	"gopkg.in/macaroon.v2"
 
 	apicharm "github.com/juju/juju/api/client/charms"
 	commoncharm "github.com/juju/juju/api/common/charm"
@@ -17,7 +16,6 @@ import (
 type CharmAdder interface {
 	AddLocalCharm(*charm.URL, charm.Charm, bool) (*charm.URL, error) // not used in utils
 	AddCharm(*charm.URL, commoncharm.Origin, bool) (commoncharm.Origin, error)
-	AddCharmWithAuthorization(*charm.URL, commoncharm.Origin, *macaroon.Macaroon, bool) (commoncharm.Origin, error)
 	CheckCharmPlacement(string, *charm.URL) error
 }
 
@@ -38,5 +36,5 @@ type MacaroonGetter interface {
 // CharmsAPI is functionality needed by the CharmAdapter from the Charms API.
 type CharmsAPI interface {
 	ResolveCharms(charms []apicharm.CharmToResolve) ([]apicharm.ResolvedCharm, error)
-	GetDownloadInfo(curl *charm.URL, origin commoncharm.Origin, mac *macaroon.Macaroon) (apicharm.DownloadInfo, error)
+	GetDownloadInfo(curl *charm.URL, origin commoncharm.Origin) (apicharm.DownloadInfo, error)
 }

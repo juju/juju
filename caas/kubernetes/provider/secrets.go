@@ -238,21 +238,25 @@ func (k *kubernetesClient) GetSecretToken(name string) (string, error) {
 }
 
 // GetJujuSecret implements SecretsStore.
-func (k *kubernetesClient) GetJujuSecret(ctx context.Context, providerId string) (secrets.SecretValue, error) {
-	// providerId is the secret name.
-	secret, err := k.getSecret(providerId)
+func (k *kubernetesClient) GetJujuSecret(ctx context.Context, backendId string) (secrets.SecretValue, error) {
+	// backendId is the secret name.
+	secret, err := k.getSecret(backendId)
 	if k8serrors.IsForbidden(err) {
-		logger.Tracef("getting secret %q: %v", providerId, err)
-		return nil, errors.Unauthorizedf("cannot access %q", providerId)
+		logger.Tracef("getting secret %q: %v", backendId, err)
+		return nil, errors.Unauthorizedf("cannot access %q", backendId)
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return secrets.NewSecretBytes(secret.Data), nil
+	data := map[string]string{}
+	for k, v := range secret.Data {
+		data[k] = base64.StdEncoding.EncodeToString(v)
+	}
+	return secrets.NewSecretValue(data), nil
 }
 
 // SaveJujuSecret implements SecretsStore.
-func (k *kubernetesClient) SaveJujuSecret(ctx context.Context, name string, value secrets.SecretValue) (string, error) {
+func (k *kubernetesClient) SaveJujuSecret(ctx context.Context, name string, value secrets.SecretValue) (_ string, err error) {
 	labels := utils.LabelsMerge(
 		utils.LabelsForModel(k.CurrentModel(), false),
 		utils.LabelsJuju)
@@ -261,27 +265,25 @@ func (k *kubernetesClient) SaveJujuSecret(ctx context.Context, name string, valu
 			Labels:      labels,
 			Annotations: k.annotations,
 		},
-		Type:       core.SecretTypeOpaque,
-		StringData: value.EncodedValues(),
+		Type: core.SecretTypeOpaque,
+	}
+	if in.StringData, err = value.Values(); err != nil {
+		return "", errors.Trace(err)
 	}
 	secret := resources.NewSecret(name, k.namespace, in)
-	err := secret.Apply(ctx, k.client())
-	if err != nil {
+	if err = secret.Apply(ctx, k.client()); err != nil {
 		return "", errors.Trace(err)
 	}
 	return name, nil
 }
 
 // DeleteJujuSecret implements SecretsStore.
-func (k *kubernetesClient) DeleteJujuSecret(ctx context.Context, providerId string) error {
-	// providerId is the secret name.
-	secret, err := k.getSecret(providerId)
+func (k *kubernetesClient) DeleteJujuSecret(ctx context.Context, backendId string) error {
+	// backendId is the secret name.
+	secret, err := k.getSecret(backendId)
 	if k8serrors.IsForbidden(err) {
-		logger.Tracef("deleting secret %q: %v", providerId, err)
-		return errors.Unauthorizedf("cannot access %q", providerId)
-	}
-	if errors.IsNotFound(err) {
-		return nil
+		logger.Tracef("deleting secret %q: %v", backendId, err)
+		return errors.Unauthorizedf("cannot access %q", backendId)
 	}
 	if err != nil {
 		return errors.Trace(err)

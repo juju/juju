@@ -11,7 +11,6 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v9"
 	services "github.com/juju/juju/apiserver/facades/client/charms/services"
-	controller "github.com/juju/juju/controller"
 	config "github.com/juju/juju/environs/config"
 	state "github.com/juju/juju/state"
 )
@@ -37,21 +36,6 @@ func NewMockStateBackend(ctrl *gomock.Controller) *MockStateBackend {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockStateBackend) EXPECT() *MockStateBackendMockRecorder {
 	return m.recorder
-}
-
-// ControllerConfig mocks base method.
-func (m *MockStateBackend) ControllerConfig() (controller.Config, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ControllerConfig")
-	ret0, _ := ret[0].(controller.Config)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ControllerConfig indicates an expected call of ControllerConfig.
-func (mr *MockStateBackendMockRecorder) ControllerConfig() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerConfig", reflect.TypeOf((*MockStateBackend)(nil).ControllerConfig))
 }
 
 // ModelUUID mocks base method.

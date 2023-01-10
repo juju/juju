@@ -5,6 +5,7 @@ package secrets
 
 import (
 	"context"
+	"sync"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -25,8 +26,10 @@ type SecretsAPI struct {
 	controllerUUID string
 	modelUUID      string
 
-	backend     SecretsBackend
-	storeGetter func() (provider.SecretsStore, error)
+	state         SecretsState
+	mu            sync.Mutex
+	backends      map[string]provider.SecretsBackend
+	backendGetter func(string) (provider.SecretsBackend, error)
 }
 
 func (s *SecretsAPI) checkCanRead() error {
@@ -81,21 +84,21 @@ func (s *SecretsAPI) ListSecrets(arg params.ListSecretsArgs) (params.ListSecretR
 		}
 		filter.OwnerTags = []names.Tag{tag}
 	}
-	metadata, err := s.backend.ListSecrets(filter)
+	metadata, err := s.state.ListSecrets(filter)
 	if err != nil {
 		return params.ListSecretResults{}, errors.Trace(err)
 	}
 	revisionMetadata := make(map[string][]*coresecrets.SecretRevisionMetadata)
 	for _, md := range metadata {
 		if arg.Filter.Revision == nil {
-			revs, err := s.backend.ListSecretRevisions(md.URI)
+			revs, err := s.state.ListSecretRevisions(md.URI)
 			if err != nil {
 				return params.ListSecretResults{}, errors.Trace(err)
 			}
 			revisionMetadata[md.URI.ID] = revs
 			continue
 		}
-		rev, err := s.backend.GetSecretRevision(md.URI, *arg.Filter.Revision)
+		rev, err := s.state.GetSecretRevision(md.URI, *arg.Filter.Revision)
 		if err != nil {
 			return params.ListSecretResults{}, errors.Trace(err)
 		}
@@ -129,9 +132,9 @@ func (s *SecretsAPI) ListSecrets(arg params.ListSecretsArgs) (params.ListSecretR
 			if arg.Filter.Revision != nil {
 				rev = *arg.Filter.Revision
 			}
-			val, providerId, err := s.backend.GetSecretValue(m.URI, rev)
-			if providerId != nil {
-				val, err = s.secretContentFromStore(*providerId)
+			val, ref, err := s.state.GetSecretValue(m.URI, rev)
+			if ref != nil {
+				val, err = s.secretContentFromBackend(ref)
 			}
 			valueResult := &params.SecretValueResult{
 				Error: apiservererrors.ServerError(err),
@@ -146,10 +149,26 @@ func (s *SecretsAPI) ListSecrets(arg params.ListSecretsArgs) (params.ListSecretR
 	return result, nil
 }
 
-func (s *SecretsAPI) secretContentFromStore(providerId string) (coresecrets.SecretValue, error) {
-	store, err := s.storeGetter()
+func (s *SecretsAPI) getBackend(ID string) (provider.SecretsBackend, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	b, ok := s.backends[ID]
+	if ok {
+		return b, nil
+	}
+	b, err := s.backendGetter(ID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	s.backends[ID] = b
+	return b, nil
+}
+
+func (s *SecretsAPI) secretContentFromBackend(ref *coresecrets.ValueRef) (coresecrets.SecretValue, error) {
+	backend, err := s.getBackend(ref.BackendID)
 	if err != nil {
 		return nil, err
 	}
-	return store.GetContent(context.Background(), providerId)
+	return backend.GetContent(context.TODO(), ref.RevisionID)
 }

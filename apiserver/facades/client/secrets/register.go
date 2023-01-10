@@ -27,20 +27,20 @@ func newSecretsAPI(context facade.Context) (*SecretsAPI, error) {
 	if !context.Auth().AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
-	backend := state.NewSecrets(context.State())
 
-	secretGetter := func() (provider.SecretsStore, error) {
+	backendGetter := func(backendID string) (provider.SecretsBackend, error) {
 		model, err := context.State().Model()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return secrets.StoreForInspect(model)
+		return secrets.BackendForInspect(secrets.SecretsModel(model), backendID)
 	}
 	return &SecretsAPI{
 		authorizer:     context.Auth(),
 		controllerUUID: context.State().ControllerUUID(),
 		modelUUID:      context.State().ModelUUID(),
-		backend:        backend,
-		storeGetter:    secretGetter,
+		state:          state.NewSecrets(context.State()),
+		backends:       make(map[string]provider.SecretsBackend),
+		backendGetter:  backendGetter,
 	}, nil
 }

@@ -11,6 +11,8 @@ import (
 	cookiejar "github.com/juju/persistent-cookiejar"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/series"
+	"github.com/juju/juju/environs/config"
 )
 
 // MemStore is an in-memory implementation of ClientStore.
@@ -468,6 +470,24 @@ func (c *MemStore) BootstrapConfigForController(controllerName string) (*Bootstr
 	defer c.mu.Unlock()
 
 	if cfg, ok := c.BootstrapConfig[controllerName]; ok {
+		// TODO(stickupkid): This can be removed once series has been removed.
+		// This is here to keep us honest with the tests, although not required.
+		if key, ok := cfg.Config[config.DefaultBaseKey]; ok {
+			if key == nil || key == "" {
+				cfg.Config[config.DefaultSeriesKey] = ""
+			} else {
+				base, err := series.ParseBaseFromString(key.(string))
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+
+				s, err := series.GetSeriesFromBase(base)
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				cfg.Config[config.DefaultSeriesKey] = s
+			}
+		}
 		return &cfg, nil
 	}
 	return nil, errors.NotFoundf("bootstrap config for controller %s", controllerName)

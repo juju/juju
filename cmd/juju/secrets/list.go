@@ -174,7 +174,7 @@ func gatherSecretInfo(secrets []apisecrets.SecretDetails, reveal, includeRevisio
 				}
 			}
 		}
-		if reveal && !m.Value.IsEmpty() {
+		if reveal && m.Value != nil && !m.Value.IsEmpty() {
 			valueDetails := &secretValueDetails{}
 			val, err := m.Value.Values()
 			if err != nil {

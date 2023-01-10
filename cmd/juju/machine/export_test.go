@@ -14,7 +14,8 @@ import (
 )
 
 var (
-	SSHProvisioner = &sshProvisioner
+	SSHProvisioner        = &sshProvisioner
+	ErrDryRunNotSupported = errDryRunNotSupported
 )
 
 type AddCommand struct {

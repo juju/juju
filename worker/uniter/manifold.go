@@ -170,7 +170,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 			payloadFacade := uniter.NewPayloadFacadeClient(apiConn)
 
-			secretsStoreGetter := func() (secrets.Store, error) {
+			secretsBackendGetter := func() (secrets.BackendsClient, error) {
 				return secrets.NewClient(jujuSecretsAPI)
 			}
 
@@ -179,7 +179,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				ResourcesFacade:              resourcesFacade,
 				PayloadFacade:                payloadFacade,
 				SecretsClient:                jujuSecretsAPI,
-				SecretsStoreGetter:           secretsStoreGetter,
+				SecretsBackendGetter:         secretsBackendGetter,
 				UnitTag:                      unitTag,
 				ModelType:                    config.ModelType,
 				LeadershipTrackerFunc:        leadershipTrackerFunc,

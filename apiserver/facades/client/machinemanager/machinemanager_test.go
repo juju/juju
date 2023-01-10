@@ -474,6 +474,89 @@ func (s *DestroyMachineManagerSuite) TestForceDestroyMachineFailedSomeStorageRet
 	})
 }
 
+func (s *DestroyMachineManagerSuite) TestDestroyMachineDryRun(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	machine0 := s.expectDestroyMachine(ctrl, nil, nil, false, false, false)
+	s.st.EXPECT().Machine("0").Return(machine0, nil)
+
+	results, err := s.api.DestroyMachineWithParams(params.DestroyMachinesParams{
+		MachineTags: []string{"machine-0"},
+		DryRun:      true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
+		Results: []params.DestroyMachineResult{{
+			Info: &params.DestroyMachineInfo{
+				MachineId: "0",
+				DestroyedUnits: []params.Entity{
+					{"unit-foo-0"},
+					{"unit-foo-1"},
+					{"unit-foo-2"},
+				},
+				DetachedStorage: []params.Entity{
+					{"storage-disks-0"},
+				},
+				DestroyedStorage: []params.Entity{
+					{"storage-disks-1"},
+				},
+			},
+		}},
+	})
+}
+
+func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainersDryRun(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	machine0 := s.expectDestroyMachine(ctrl, nil, []string{"0/lxd/0"}, false, false, false)
+	s.st.EXPECT().Machine("0").Return(machine0, nil)
+	container0 := s.expectDestroyMachine(ctrl, nil, nil, false, false, false)
+	s.st.EXPECT().Machine("0/lxd/0").Return(container0, nil)
+
+	results, err := s.api.DestroyMachineWithParams(params.DestroyMachinesParams{
+		MachineTags: []string{"machine-0"},
+		DryRun:      true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
+		Results: []params.DestroyMachineResult{{
+			Info: &params.DestroyMachineInfo{
+				MachineId: "0",
+				DestroyedUnits: []params.Entity{
+					{"unit-foo-0"},
+					{"unit-foo-1"},
+					{"unit-foo-2"},
+				},
+				DetachedStorage: []params.Entity{
+					{"storage-disks-0"},
+				},
+				DestroyedStorage: []params.Entity{
+					{"storage-disks-1"},
+				},
+				DestroyedContainers: []params.DestroyMachineResult{{
+					Info: &params.DestroyMachineInfo{
+						MachineId: "0/lxd/0",
+						DestroyedUnits: []params.Entity{
+							{"unit-foo-0"},
+							{"unit-foo-1"},
+							{"unit-foo-2"},
+						},
+						DetachedStorage: []params.Entity{
+							{"storage-disks-0"},
+						},
+						DestroyedStorage: []params.Entity{
+							{"storage-disks-1"},
+						},
+					},
+				}},
+			},
+		}},
+	})
+}
+
 func (s *DestroyMachineManagerSuite) TestDestroyMachineWithParamsNoWait(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()

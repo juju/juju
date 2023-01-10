@@ -20,7 +20,6 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/httprequest.v1"
-	"gopkg.in/macaroon.v2"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/charms"
@@ -163,7 +162,7 @@ func (s *charmsMockSuite) TestGetDownloadInfo(c *gc.C) {
 	client := charms.NewClientWithFacade(mockFacadeCaller)
 	origin, err := apicharm.APICharmOrigin(noChannelParamsOrigin)
 	c.Assert(err, jc.ErrorIsNil)
-	got, err := client.GetDownloadInfo(curl, origin, nil)
+	got, err := client.GetDownloadInfo(curl, origin)
 	c.Assert(err, gc.IsNil)
 
 	want := charms.DownloadInfo{
@@ -203,40 +202,6 @@ func (s *charmsMockSuite) TestAddCharm(c *gc.C) {
 
 	client := charms.NewClientWithFacade(mockFacadeCaller)
 	got, err := client.AddCharm(curl, origin, false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(got, gc.DeepEquals, origin)
-}
-
-func (s *charmsMockSuite) TestAddCharmWithAuthorization(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	curl := charm.MustParseURL("cs:testme-2")
-	origin := apicharm.Origin{
-		Source:       "charm-store",
-		ID:           "",
-		Hash:         "",
-		Risk:         "stable",
-		Revision:     &curl.Revision,
-		Track:        nil,
-		Architecture: arch.DefaultArchitecture,
-		Base:         series.MakeDefaultBase("ubuntu", "18.04"),
-	}
-	facadeArgs := params.AddCharmWithAuth{
-		URL:                curl.String(),
-		CharmStoreMacaroon: &macaroon.Macaroon{},
-		Origin:             origin.ParamsCharmOrigin(),
-	}
-	result := new(params.CharmOriginResult)
-	actualResult := params.CharmOriginResult{
-		Origin: origin.ParamsCharmOrigin(),
-	}
-
-	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("AddCharmWithAuthorization", facadeArgs, result).SetArg(2, actualResult).Return(nil)
-
-	client := charms.NewClientWithFacade(mockFacadeCaller)
-	got, err := client.AddCharmWithAuthorization(curl, origin, &macaroon.Macaroon{}, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got, gc.DeepEquals, origin)
 }

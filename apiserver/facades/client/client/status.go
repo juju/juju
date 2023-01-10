@@ -845,7 +845,7 @@ func fetchAllApplicationsAndUnits(st Backend, model *state.Model, spaceInfos net
 			// Record the base URL for the application's charm so that
 			// the latest store revision can be looked up.
 			switch {
-			case charm.CharmHub.Matches(charmURL.Schema), charm.CharmStore.Matches(charmURL.Schema):
+			case charm.CharmHub.Matches(charmURL.Schema):
 				latestCharms[*charmURL.WithRevision(-1)] = nil
 			default:
 				// Don't look up revision for local charms
@@ -1265,8 +1265,6 @@ func (context *statusContext) processApplication(application *state.Application)
 			Risk:   charm.Risk(stChannel.Risk),
 			Branch: stChannel.Branch,
 		}).Normalize().String()
-	} else {
-		channel = string(application.Channel())
 	}
 
 	origin := application.CharmOrigin()

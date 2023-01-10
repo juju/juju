@@ -58,13 +58,9 @@ func (s *cmdUpgradeSuite) TestControllerAdminCanUpgradeHostedModel(c *gc.C) {
 
 	// We are only testing here that controller admin can upgrade hosted model,
 	// so it does not matter that the model is empty.
-	// Upgrade hosted model.
-	v, _ := version.Parse(newVersion)
-	s.PatchValue(&coreversion.Current, v)
+	// We just check that there's no error (no upgrades are available)
 	ctx = s.run(c, "upgrade-model", "-m", fmt.Sprintf("%v/%v", s.hostedModelUser, s.hostedModel))
-	expectedUpgradeMsg := fmt.Sprintf("started upgrade to %v", newVersion)
-	c.Assert(cmdtesting.Stdout(ctx), jc.Contains, expectedUpgradeMsg)
-	s.assertHostModelAgentVersion(c, newVersion)
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 }
 
 var (

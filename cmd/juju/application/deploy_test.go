@@ -173,7 +173,6 @@ func (s *DeploySuiteBase) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
 	s.DeployResources = func(applicationID string,
 		chID resources.CharmID,
-		csMac *macaroon.Macaroon,
 		filesAndRevisions map[string]string,
 		resources map[string]charmresource.Meta,
 		conn base.APICallCloser,
@@ -182,16 +181,16 @@ func (s *DeploySuiteBase) SetUpTest(c *gc.C) {
 		return deployResources(s.State, applicationID, resources)
 	}
 	cfgAttrs := map[string]interface{}{
-		"name": "name",
-		"uuid": coretesting.ModelTag.Id(),
-		"type": "foo",
+		"name":           "name",
+		"uuid":           coretesting.ModelTag.Id(),
+		"type":           "foo",
+		"secret-backend": "auto",
 	}
 	s.fakeAPI = vanillaFakeModelAPI(cfgAttrs)
 	s.fakeAPI.CharmStoreAdaptor = &store.CharmStoreAdaptor{
 		CharmrepoForDeploy: &fakeCharmStoreAPI{
 			fakeDeployAPI: s.fakeAPI,
 		},
-		MacaroonGetter: &noopMacaroonGetter{},
 	}
 	s.fakeAPI.deployerFactoryFunc = deployer.NewDeployerFactory
 }
@@ -389,7 +388,7 @@ func (s *DeploySuite) TestDeployFromPathOldCharmMissingSeries(c *gc.C) {
 }
 
 func (s *DeploySuite) TestDeployFromPathOldCharmMissingSeriesUseDefaultSeries(c *gc.C) {
-	updateAttrs := map[string]interface{}{"default-series": version.DefaultSupportedLTS()}
+	updateAttrs := map[string]interface{}{"default-base": version.DefaultSupportedLTSBase().String()}
 	err := s.Model.UpdateModelConfig(updateAttrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -404,10 +403,10 @@ func (s *DeploySuite) TestDeployFromPathOldCharmMissingSeriesUseDefaultSeries(c 
 }
 
 func (s *DeploySuite) TestDeployFromPathDefaultSeries(c *gc.C) {
-	// multi-series/metadata.yaml provides "focal" as its default series
-	// and yet, here, the model defaults to the series "jammy". This test
+	// multi-series/metadata.yaml provides "focal" as its default base
+	// and yet, here, the model defaults to the base "ubuntu@22.04". This test
 	// asserts that the model's default takes precedence.
-	updateAttrs := map[string]interface{}{"default-series": "jammy"}
+	updateAttrs := map[string]interface{}{"default-base": "ubuntu@22.04"}
 	err := s.Model.UpdateModelConfig(updateAttrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "multi-series")
@@ -1057,7 +1056,7 @@ func (s *CAASDeploySuiteBase) expectDeployer(c *gc.C, cfg deployer.DeployerConfi
 		expected: cfg,
 	}
 	s.factory.EXPECT().GetDeployer(match, gomock.Any(), gomock.Any()).Return(s.deployer, nil)
-	s.deployer.EXPECT().PrepareAndDeploy(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+	s.deployer.EXPECT().PrepareAndDeploy(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 }
 
 func (s *CAASDeploySuiteBase) SetUpTest(c *gc.C) {
@@ -1088,6 +1087,7 @@ func (s *CAASDeploySuiteBase) fakeAPI() *fakeDeployAPI {
 		"uuid":             coretesting.ModelTag.Id(),
 		"type":             model.CAAS,
 		"operator-storage": "k8s-storage",
+		"secret-backend":   "auto",
 	}
 	fakeAPI := vanillaFakeModelAPI(cfgAttrs)
 	fakeAPI.deployerFactoryFunc = func(dep deployer.DeployerDependencies) deployer.DeployerFactory {
@@ -1108,7 +1108,7 @@ func (s *CAASDeploySuiteBase) runDeploy(c *gc.C, fakeAPI *fakeDeployAPI, args ..
 		},
 		DeployResources: s.DeployResources,
 		NewCharmRepo: func() (*store.CharmStoreAdaptor, error) {
-			return &store.CharmStoreAdaptor{MacaroonGetter: &noopMacaroonGetter{}}, nil
+			return &store.CharmStoreAdaptor{}, nil
 		},
 		NewResolver: func(charmsAPI store.CharmsAPI, charmRepoFn store.CharmStoreRepoFunc, downloadClientFn store.DownloadBundleClientFunc) deployer.Resolver {
 			return fakeAPI
@@ -1233,13 +1233,12 @@ func (s *CAASDeploySuite) TestDevices(c *gc.C) {
 	s.DeployResources = func(
 		applicationID string,
 		chID resources.CharmID,
-		csMac *macaroon.Macaroon,
 		filesAndRevisions map[string]string,
 		resources map[string]charmresource.Meta,
 		conn base.APICallCloser,
 		filesystem modelcmd.Filesystem,
 	) (ids map[string]string, err error) {
-		fakeAPI.AddCall("DeployResources", applicationID, chID, csMac, filesAndRevisions, resources, conn)
+		fakeAPI.AddCall("DeployResources", applicationID, chID, filesAndRevisions, resources, conn)
 		return nil, fakeAPI.NextErr()
 	}
 
@@ -2357,9 +2356,10 @@ func (s *DeployUnitTestSuite) SetUpTest(c *gc.C) {
 
 func (s *DeployUnitTestSuite) cfgAttrs() map[string]interface{} {
 	return map[string]interface{}{
-		"name": "name",
-		"uuid": "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-		"type": "foo",
+		"name":           "name",
+		"uuid":           "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		"type":           "foo",
+		"secret-backend": "auto",
 	}
 }
 
@@ -2558,7 +2558,7 @@ func (s *DeployUnitTestSuite) expectDeployer(c *gc.C, cfg deployer.DeployerConfi
 		expected: cfg,
 	}
 	s.factory.EXPECT().GetDeployer(match, gomock.Any(), gomock.Any()).Return(s.deployer, nil)
-	s.deployer.EXPECT().PrepareAndDeploy(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+	s.deployer.EXPECT().PrepareAndDeploy(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 }
 
 type deployerConfigMatcher struct {
@@ -2597,7 +2597,6 @@ func newDeployCommandForTest(fakeAPI *fakeDeployAPI) *DeployCommand {
 		DeployResources: func(
 			applicationID string,
 			chID resources.CharmID,
-			csMac *macaroon.Macaroon,
 			filesAndRevisions map[string]string,
 			resources map[string]charmresource.Meta,
 			conn base.APICallCloser,
@@ -2650,7 +2649,6 @@ func newDeployCommandForTest(fakeAPI *fakeDeployAPI) *DeployCommand {
 			risk := csparams.Channel(deployCmd.Channel.Risk)
 			cstoreClient := store.NewCharmStoreClient(bakeryClient, csURL).WithChannel(risk)
 			return &store.CharmStoreAdaptor{
-				MacaroonGetter:     cstoreClient,
 				CharmrepoForDeploy: charmrepo.NewCharmStoreFromClient(cstoreClient),
 			}, nil
 		}
@@ -2944,9 +2942,7 @@ func vanillaFakeModelAPI(cfgAttrs map[string]interface{}) *fakeDeployAPI {
 	var logger loggo.Logger
 	fakeAPI := &fakeDeployAPI{CallMocker: jujutesting.NewCallMocker(logger)}
 	fakeAPI.charmRepoFunc = func() (*store.CharmStoreAdaptor, error) {
-		return &store.CharmStoreAdaptor{
-			MacaroonGetter: &noopMacaroonGetter{},
-		}, nil
+		return &store.CharmStoreAdaptor{}, nil
 	}
 
 	fakeAPI.Call("Close").Returns(error(nil))

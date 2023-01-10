@@ -45,7 +45,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
-	coreseries "github.com/juju/juju/core/series"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -1406,23 +1406,41 @@ func (e *Environ) networksForInstance(
 	// We know that we are operating in the single configured network.
 	networkID := networks[0].NetworkId
 
-	// Attempt to filter the subnet IDs for the configured availability zone.
-	// If there is no configured zone, consider all subnet IDs.
+	// Attempt to filter the constraint/binding subnet IDs for the supplied
+	// availability zone.
+	// The zone is supplied by the provisioner based on its attempt to maintain
+	// distribution of units across zones.
+	// The zones recorded against O7k subnets in Juju are affected by the
+	// `availability_zone_hints` attribute on the network where they reside,
+	// and the default AZ configuration for the project.
+	// They are a read-only attribute.
+	// If a subnet in the subnets-to-zones map has no zones, we assume a basic
+	// O7k set-up where networks are not zone-limited. We log a warning and
+	// consider all the supplied subnets.
+	// See:
+	// - https://docs.openstack.org/neutron/latest/admin/config-az.html#availability-zone-related-attributes
+	// - https://docs.openstack.org/neutron/latest/admin/ovn/availability_zones.html#network-availability-zones
 	az := args.AvailabilityZone
 	subnetIDsForZone := make([][]network.Id, len(args.SubnetsToZones))
 	for i, nic := range args.SubnetsToZones {
-		var subnetIDs []network.Id
-		if az != "" {
-			var err error
-			if subnetIDs, err = network.FindSubnetIDsForAvailabilityZone(az, nic); err != nil {
-				return nil, errors.Annotatef(err, "getting subnets in zone %q", az)
+		subnetIDs, err := network.FindSubnetIDsForAvailabilityZone(az, nic)
+		if err != nil {
+			// We found no subnets in the zone.
+			// Add subnets without zone-limited networks.
+			for subnetID, zones := range nic {
+				if len(zones) == 0 {
+					logger.Warningf(
+						"subnet %q is not in a network with availability zones listed; assuming availability in zone %q",
+						subnetID, az)
+					subnetIDs = append(subnetIDs, subnetID)
+				}
 			}
+
 			if len(subnetIDs) == 0 {
-				return nil, errors.Errorf("availability zone %q has no subnets satisfying space constraints", az)
-			}
-		} else {
-			for subnetID := range nic {
-				subnetIDs = append(subnetIDs, subnetID)
+				// If we still have no candidate subnets, then they are all in
+				// networks with availability zones, and none of those zones
+				// match the input one. Return the error we have in hand.
+				return nil, errors.Annotatef(err, "determining subnets in zone %q", az)
 			}
 		}
 
@@ -2192,14 +2210,19 @@ func (e *Environ) terminateInstanceNetworkPorts(id instance.Id) error {
 
 // AgentMetadataLookupParams returns parameters which are used to query agent simple-streams metadata.
 func (e *Environ) AgentMetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
-	series := config.PreferredSeries(e.ecfg())
-	hostOSType := coreseries.DefaultOSTypeNameFromSeries(series)
-	return e.metadataLookupParams(region, hostOSType)
+	base := config.PreferredBase(e.ecfg())
+	return e.metadataLookupParams(region, base.OS)
 }
 
 // ImageMetadataLookupParams returns parameters which are used to query image simple-streams metadata.
 func (e *Environ) ImageMetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
-	release, err := imagemetadata.ImageRelease(config.PreferredSeries(e.ecfg()))
+	base := config.PreferredBase(e.ecfg())
+	baseSeries, err := series.GetSeriesFromBase(base)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	release, err := imagemetadata.ImageRelease(baseSeries)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -29,7 +29,6 @@ var ErrAlreadyUpToDate = errors.Errorf("already up-to-date")
 
 // RefresherDependencies are required for any deployer to be run.
 type RefresherDependencies struct {
-	Authorizer    store.MacaroonGetter
 	CharmAdder    store.CharmAdder
 	CharmResolver CharmResolver
 }
@@ -66,7 +65,7 @@ func NewRefresherFactory(deps RefresherDependencies) RefresherFactory {
 	}
 	d.refreshers = []RefresherFn{
 		d.maybeReadLocal(deps.CharmAdder, defaultCharmRepo{}),
-		d.maybeCharmStore(deps.Authorizer, deps.CharmAdder, deps.CharmResolver),
+		d.maybeCharmStore(deps.CharmAdder, deps.CharmResolver),
 		d.maybeCharmHub(deps.CharmAdder, deps.CharmResolver),
 	}
 	return d
@@ -122,7 +121,7 @@ func (d *factory) maybeReadLocal(charmAdder store.CharmAdder, charmRepo CharmRep
 	}
 }
 
-func (d *factory) maybeCharmStore(authorizer store.MacaroonGetter, charmAdder store.CharmAdder, charmResolver CharmResolver) func(RefresherConfig) (Refresher, error) {
+func (d *factory) maybeCharmStore(charmAdder store.CharmAdder, charmResolver CharmResolver) func(RefresherConfig) (Refresher, error) {
 	return func(cfg RefresherConfig) (Refresher, error) {
 		return &charmStoreRefresher{
 			baseRefresher: baseRefresher{
@@ -139,7 +138,6 @@ func (d *factory) maybeCharmStore(authorizer store.MacaroonGetter, charmAdder st
 				forceBase:       cfg.ForceBase,
 				logger:          cfg.Logger,
 			},
-			authorizer: authorizer,
 		}, nil
 	}
 }
@@ -351,7 +349,6 @@ func stdOriginResolver(curl *charm.URL, origin corecharm.Origin, channel charm.C
 
 type charmStoreRefresher struct {
 	baseRefresher
-	authorizer store.MacaroonGetter
 }
 
 // Allowed will attempt to check if the charm store is allowed to refresh.
@@ -376,19 +373,13 @@ func (r *charmStoreRefresher) Allowed(cfg RefresherConfig) (bool, error) {
 // Refresh a given charm store charm.
 // Bundles are not supported as there is no physical representation in Juju.
 func (r *charmStoreRefresher) Refresh() (*CharmID, error) {
-	newURL, origin, err := r.ResolveCharm()
+	curl, origin, err := r.ResolveCharm()
 	if errors.Is(err, ErrAlreadyUpToDate) {
 		// The charm itself is uptodate but we may need the
-		// URL, origin and macaroon (if there is one)
-		// for updating resources.
-		csMac, csErr := store.AuthorizeCharmStoreEntity(r.authorizer, newURL)
-		if csErr != nil && !strings.Contains(csErr.Error(), "404 NOT FOUND") {
-			return nil, errors.Trace(csErr)
-		}
+		// URL, origin for updating resources.
 		return &CharmID{
-			URL:      newURL,
-			Origin:   origin.CoreCharmOrigin(),
-			Macaroon: csMac,
+			URL:    curl,
+			Origin: origin.CoreCharmOrigin(),
 		}, err
 	} else if err != nil {
 		return nil, errors.Trace(err)
@@ -397,15 +388,14 @@ func (r *charmStoreRefresher) Refresh() (*CharmID, error) {
 	if !r.deployedBase.Channel.Empty() {
 		origin.Base = r.deployedBase
 	}
-	curl, csMac, _, err := store.AddCharmWithAuthorizationFromURL(r.charmAdder, r.authorizer, newURL, origin, r.force)
+	_, err = r.charmAdder.AddCharm(curl, origin, r.force)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	return &CharmID{
-		URL:      curl,
-		Origin:   origin.CoreCharmOrigin(),
-		Macaroon: csMac,
+		URL:    curl,
+		Origin: origin.CoreCharmOrigin(),
 	}, nil
 }
 
