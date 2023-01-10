@@ -782,19 +782,19 @@ func (s *DeploySuite) TestDeployBundleWithChannel(c *gc.C) {
 
 	// The second charm from the bundle does not require trust so no
 	// additional configuration should be injected
-	ubURL := charm.MustParseURL("cs:~jameinel/jammy/ubuntu-lite-7")
-	withCharmRepoResolvable(s.fakeAPI, ubURL, "jammy")
+	ubURL := charm.MustParseURL("ch:ubuntu")
+	withCharmRepoResolvable(s.fakeAPI, ubURL, "")
 
 	withCharmDeployable(
 		s.fakeAPI, ubURL, defaultBase,
-		&charm.Meta{Name: "ubuntu-lite", Series: []string{"jammy"}},
+		&charm.Meta{Name: "ubuntu"},
 		nil, false, false, 0, nil, nil,
 	)
 
 	s.fakeAPI.Call("AddUnits", application.AddUnitsParams{
-		ApplicationName: "ubuntu-lite",
+		ApplicationName: "ubuntu",
 		NumUnits:        1,
-	}).Returns([]string{"ubuntu-lite/0"}, error(nil))
+	}).Returns([]string{"ubuntu/0"}, error(nil))
 
 	s.fakeAPI.Call("ListSpaces").Returns([]params.Space{{Name: "alpha", Id: "0"}}, error(nil))
 
@@ -807,7 +807,7 @@ func (s *DeploySuite) TestDeployBundleWithChannel(c *gc.C) {
 func (s *DeploySuite) TestDeployBundlesRequiringTrust(c *gc.C) {
 	withAllWatcher(s.fakeAPI)
 
-	inURL := charm.MustParseURL("cs:~containers/aws-integrator")
+	inURL := charm.MustParseURL("ch:aws-integrator")
 	withCharmRepoResolvable(s.fakeAPI, inURL, "jammy")
 	withCharmRepoResolvable(s.fakeAPI, inURL, "")
 
@@ -825,15 +825,15 @@ func (s *DeploySuite) TestDeployBundlesRequiringTrust(c *gc.C) {
 	)
 
 	origin := commoncharm.Origin{
-		Source:       commoncharm.OriginCharmStore,
+		Source:       commoncharm.OriginCharmHub,
 		Architecture: arch.DefaultArchitecture,
 		Base:         series.MakeDefaultBase("ubuntu", "22.04"),
 	}
 
 	deployURL := *inURL
-	deployURL.Revision = 1
 	deployURL.Series = "jammy"
-	s.fakeAPI.Call("Deploy", application.DeployArgs{
+
+	dArgs := application.DeployArgs{
 		CharmID: application.CharmID{
 			URL:    &deployURL,
 			Origin: origin,
@@ -841,16 +841,9 @@ func (s *DeploySuite) TestDeployBundlesRequiringTrust(c *gc.C) {
 		CharmOrigin:     origin,
 		ApplicationName: inURL.Name,
 		ConfigYAML:      "aws-integrator:\n  trust: \"true\"\n",
-	}).Returns(error(nil))
-	s.fakeAPI.Call("Deploy", application.DeployArgs{
-		CharmID: application.CharmID{
-			URL:    &deployURL,
-			Origin: origin,
-		},
-		CharmOrigin:     origin,
-		ApplicationName: inURL.Name,
-	}).Returns(errors.New("expected Deploy for aws-integrator to be called with 'trust: true'"))
+	}
 
+	s.fakeAPI.Call("Deploy", dArgs).Returns(error(nil))
 	s.fakeAPI.Call("AddUnits", application.AddUnitsParams{
 		ApplicationName: "aws-integrator",
 		NumUnits:        1,
@@ -860,19 +853,19 @@ func (s *DeploySuite) TestDeployBundlesRequiringTrust(c *gc.C) {
 
 	// The second charm from the bundle does not require trust so no
 	// additional configuration should be injected
-	ubURL := charm.MustParseURL("cs:~jameinel/ubuntu-lite-7")
+	ubURL := charm.MustParseURL("ch:ubuntu")
 	withCharmRepoResolvable(s.fakeAPI, ubURL, "jammy")
 	withCharmRepoResolvable(s.fakeAPI, ubURL, "")
 	withCharmDeployable(
 		s.fakeAPI, ubURL, defaultBase,
-		&charm.Meta{Name: "ubuntu-lite", Series: []string{"jammy"}},
+		&charm.Meta{Name: "ubuntu", Series: []string{"jammy"}},
 		nil, false, false, 0, nil, nil,
 	)
 
 	s.fakeAPI.Call("AddUnits", application.AddUnitsParams{
-		ApplicationName: "ubuntu-lite",
+		ApplicationName: "ubuntu",
 		NumUnits:        1,
-	}).Returns([]string{"ubuntu-lite/0"}, error(nil))
+	}).Returns([]string{"ubuntu/0"}, error(nil))
 
 	deploy := s.deployCommand()
 	bundlePath := testcharms.RepoWithSeries("bionic").ClonedBundleDirPath(c.MkDir(), "aws-integrator-trust-single")
@@ -883,7 +876,7 @@ func (s *DeploySuite) TestDeployBundlesRequiringTrust(c *gc.C) {
 func (s *DeploySuite) TestDeployBundleWithOffers(c *gc.C) {
 	withAllWatcher(s.fakeAPI)
 
-	inURL := charm.MustParseURL("cs:apache2-26")
+	inURL := charm.MustParseURL("ch:apache2")
 	withCharmRepoResolvable(s.fakeAPI, inURL, "jammy")
 	withCharmRepoResolvable(s.fakeAPI, inURL, "")
 
@@ -951,7 +944,7 @@ func (s *DeploySuite) TestDeployBundleWithOffers(c *gc.C) {
 func (s *DeploySuite) TestDeployBundleWithSAAS(c *gc.C) {
 	withAllWatcher(s.fakeAPI)
 
-	inURL := charm.MustParseURL("cs:wordpress")
+	inURL := charm.MustParseURL("ch:wordpress")
 	withCharmRepoResolvable(s.fakeAPI, inURL, "jammy")
 	withCharmRepoResolvable(s.fakeAPI, inURL, "")
 
@@ -2310,7 +2303,7 @@ func (f *fakeDeployAPI) ResolveCharm(url *charm.URL, preferredChannel commonchar
 ) {
 	results := f.MethodCall(f, "ResolveCharm", url, preferredChannel, switchCharm)
 	if results == nil {
-		if url.Schema == "cs" || url.Schema == "ch" {
+		if url.Schema == "ch" {
 			return nil, commoncharm.Origin{}, nil, errors.Errorf(
 				"cannot resolve charm or bundle %q: charm or bundle not found", url.Name)
 		}
@@ -2688,6 +2681,9 @@ func withCharmDeployableWithDevicesAndStorage(
 	devices map[string]devices.Constraints,
 ) {
 	deployURL := *url
+	if deployURL.Series == "" {
+		deployURL.Series = "jammy"
+	}
 	fallbackCons := constraints.MustParse("arch=amd64")
 	platform := apputils.MakePlatform(constraints.Value{}, base, fallbackCons)
 	origin, _ := apputils.DeduceOrigin(url, charm.Channel{}, platform)
@@ -2700,7 +2696,7 @@ func withCharmDeployableWithDevicesAndStorage(
 		},
 		error(nil),
 	)
-	fakeAPI.Call("Deploy", application.DeployArgs{
+	deployArgs := application.DeployArgs{
 		CharmID: application.CharmID{
 			URL:    &deployURL,
 			Origin: origin,
@@ -2712,7 +2708,16 @@ func withCharmDeployableWithDevicesAndStorage(
 		Config:          config,
 		Storage:         storage,
 		Devices:         devices,
-	}).Returns(error(nil))
+	}
+
+	fakeAPI.Call("Deploy", deployArgs).Returns(error(nil))
+
+	stableArgs := deployArgs
+	stableOrigin := stableArgs.CharmOrigin
+	stableOrigin.Risk = "stable"
+	fakeAPI.Call("AddCharm", &deployURL, stableOrigin, force).Returns(origin, error(nil))
+	fakeAPI.Call("Deploy", stableArgs).Returns(error(nil))
+
 	fakeAPI.Call("IsMetered", deployURL.String()).Returns(metered, error(nil))
 
 	// `"hello registration"\n` (quotes and newline from json
@@ -2727,41 +2732,24 @@ func withCharmRepoResolvable(
 	url *charm.URL,
 	aseries string,
 ) {
-	// We have to handle all possible variations on the supplied URL.
-	// The real store can be queried with a base URL like "cs:foo" and
-	// resolve that to the real URL, it it may be queried with the fully
-	// qualified URL, or one without series set etc.
-	resultURL := *url
-	resolveURLs := []*charm.URL{url}
-	if url.Revision < 0 || url.Series == "" {
-		inURL := *url
-
-		if inURL.Revision < 0 {
-			inURL.Revision = 1
-		}
-		if inURL.Series == "" {
-			inURL.Series = "jammy"
-		}
-
-		resolveURLs = append(resolveURLs, &inURL)
-	}
-
 	base, _ := series.GetBaseFromSeries(aseries)
-	for _, url := range resolveURLs {
-		for _, arch := range []string{"", arch.DefaultArchitecture} {
-			origin := commoncharm.Origin{
-				Source:       commoncharm.OriginCharmHub,
-				Architecture: arch,
-				Base:         base,
-			}
-			fakeAPI.Call("ResolveCharm", url, origin, false).Returns(
-				&resultURL,
-				origin,
-				[]string{"jammy"}, // Supported series
-				error(nil),
-			)
+
+	for _, risk := range []string{"", "stable"} {
+		origin := commoncharm.Origin{
+			Source:       commoncharm.OriginCharmHub,
+			Architecture: arch.DefaultArchitecture,
+			Base:         base,
+			Risk:         risk,
 		}
+		logger.Criticalf("mocking ResolveCharm -- url : %v -- base : %v -- switch : %v", url, origin, false)
+		fakeAPI.Call("ResolveCharm", url, origin, false).Returns(
+			url,
+			origin,
+			[]string{"jammy"}, // Supported series
+			error(nil),
+		)
 	}
+
 }
 
 func withAllWatcher(fakeAPI *fakeDeployAPI) {
