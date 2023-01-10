@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
-	"github.com/juju/charmrepo/v7/csclient"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -111,9 +110,6 @@ const (
 
 	// CACertKey is the key for the controller's CA certificate attribute.
 	CACertKey = "ca-cert"
-
-	// CharmStoreURL is the key for the url to use for charmstore API calls
-	CharmStoreURL = "charmstore-url"
 
 	// ControllerUUIDKey is the key for the controller UUID attribute.
 	ControllerUUIDKey = "controller-uuid"
@@ -396,7 +392,6 @@ var (
 		AutocertDNSNameKey,
 		AutocertURLKey,
 		CACertKey,
-		CharmStoreURL,
 		ControllerAPIPort,
 		ControllerName,
 		ControllerUUIDKey,
@@ -759,15 +754,6 @@ func (c Config) Features() set.Strings {
 		}
 	}
 	return features
-}
-
-// CharmStoreURL returns the URL to use for charmstore api calls.
-func (c Config) CharmStoreURL() string {
-	url := c.asString(CharmStoreURL)
-	if url == "" {
-		return csclient.ServerURL
-	}
-	return url
 }
 
 // ControllerName returns the name for the controller
@@ -1375,7 +1361,6 @@ var configChecker = schema.FieldMap(schema.Fields{
 	CAASOperatorImagePath:            schema.String(),
 	CAASImageRepo:                    schema.String(),
 	Features:                         schema.List(schema.String()),
-	CharmStoreURL:                    schema.String(),
 	MeteringURL:                      schema.String(),
 	MaxCharmStateSize:                schema.ForceInt(),
 	MaxAgentStateSize:                schema.ForceInt(),
@@ -1422,7 +1407,6 @@ var configChecker = schema.FieldMap(schema.Fields{
 	CAASOperatorImagePath:            schema.Omit,
 	CAASImageRepo:                    schema.Omit,
 	Features:                         schema.Omit,
-	CharmStoreURL:                    csclient.ServerURL,
 	MeteringURL:                      romulus.DefaultAPIRoot,
 	MaxCharmStateSize:                DefaultMaxCharmStateSize,
 	MaxAgentStateSize:                DefaultMaxAgentStateSize,
@@ -1597,10 +1581,6 @@ Use "caas-image-repo" instead.`,
 	Features: {
 		Type:        environschema.Tlist,
 		Description: `A list of runtime changeable features to be updated`,
-	},
-	CharmStoreURL: {
-		Type:        environschema.Tstring,
-		Description: `The url for charmstore API calls`,
 	},
 	MeteringURL: {
 		Type:        environschema.Tstring,
