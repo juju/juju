@@ -25,7 +25,6 @@ type WorkerConfig struct {
 	MongoProfile             mongo.MemoryProfile
 	JujuDBSnapChannel        string
 	NonSyncedWritesToRaftLog bool
-	BatchRaftFSM             bool
 	Logger                   Logger
 }
 
@@ -65,7 +64,6 @@ func NewWorker(config WorkerConfig) (worker.Worker, error) {
 		mongoProfile:             config.MongoProfile,
 		jujuDBSnapChannel:        config.JujuDBSnapChannel,
 		nonSyncedWritesToRaftLog: config.NonSyncedWritesToRaftLog,
-		batchRaftFSM:             config.BatchRaftFSM,
 	}
 	w.tomb.Go(func() error {
 		return w.loop(started)
@@ -108,10 +106,7 @@ func (w *agentConfigUpdater) onConfigChanged(topic string, data controllermsg.Co
 	nonSyncedWritesToRaftLog := data.Config.NonSyncedWritesToRaftLog()
 	nonSyncedWritesToRaftLogChanged := nonSyncedWritesToRaftLog != w.nonSyncedWritesToRaftLog
 
-	batchRaftFSM := data.Config.BatchRaftFSM()
-	batchRaftFSMChanged := batchRaftFSM != w.batchRaftFSM
-
-	changeDetected := mongoProfileChanged || jujuDBSnapChannelChanged || nonSyncedWritesToRaftLogChanged || batchRaftFSMChanged
+	changeDetected := mongoProfileChanged || jujuDBSnapChannelChanged || nonSyncedWritesToRaftLogChanged
 	if !changeDetected {
 		// Nothing to do, all good.
 		return
@@ -129,10 +124,6 @@ func (w *agentConfigUpdater) onConfigChanged(topic string, data controllermsg.Co
 		if nonSyncedWritesToRaftLogChanged {
 			w.config.Logger.Debugf("setting no sync writes to raft log: %t => %t", w.nonSyncedWritesToRaftLog, nonSyncedWritesToRaftLog)
 			setter.SetNonSyncedWritesToRaftLog(nonSyncedWritesToRaftLog)
-		}
-		if batchRaftFSMChanged {
-			w.config.Logger.Debugf("setting batch raft fsm: %t => %t", w.batchRaftFSM, batchRaftFSM)
-			setter.SetBatchRaftFSM(batchRaftFSM)
 		}
 		return nil
 	})

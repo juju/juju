@@ -227,9 +227,6 @@ const (
 	// when writing to the raft log by setting this value to true.
 	NonSyncedWritesToRaftLog = "non-synced-writes-to-raft-log"
 
-	// BatchRaftFSM allows the operator to batch raft FSM calls.
-	BatchRaftFSM = "batch-raft-fsm"
-
 	// MigrationMinionWaitMax is the maximum time that the migration-master
 	// worker will wait for agents to report for a migration phase when
 	// executing a model migration.
@@ -376,10 +373,6 @@ const (
 	// non-synced-writes-to-raft-log value. It is set to false by default.
 	DefaultNonSyncedWritesToRaftLog = false
 
-	// DefaultBatchRaftFSM is the default value for batch-raft-fsm value.
-	// It is set to false by default.
-	DefaultBatchRaftFSM = false
-
 	// DefaultMigrationMinionWaitMax is the default value for
 	DefaultMigrationMinionWaitMax = "15m"
 )
@@ -432,7 +425,6 @@ var (
 		MaxCharmStateSize,
 		MaxAgentStateSize,
 		NonSyncedWritesToRaftLog,
-		BatchRaftFSM,
 		MigrationMinionWaitMax,
 		ApplicationResourceDownloadLimit,
 		ControllerResourceDownloadLimit,
@@ -484,7 +476,6 @@ var (
 		MaxCharmStateSize,
 		MaxAgentStateSize,
 		NonSyncedWritesToRaftLog,
-		BatchRaftFSM,
 		MigrationMinionWaitMax,
 		ApplicationResourceDownloadLimit,
 		ControllerResourceDownloadLimit,
@@ -1025,14 +1016,6 @@ func (c Config) NonSyncedWritesToRaftLog() bool {
 	return DefaultNonSyncedWritesToRaftLog
 }
 
-// BatchRaftFSM returns true if raft should use batch writing to the FSM.
-func (c Config) BatchRaftFSM() bool {
-	if v, ok := c[BatchRaftFSM]; ok {
-		return v.(bool)
-	}
-	return DefaultBatchRaftFSM
-}
-
 // MigrationMinionWaitMax returns a duration for the maximum time that the
 // migration-master worker should wait for migration-minion reports during
 // phases of a model migration.
@@ -1380,7 +1363,6 @@ var configChecker = schema.FieldMap(schema.Fields{
 	MaxCharmStateSize:                schema.ForceInt(),
 	MaxAgentStateSize:                schema.ForceInt(),
 	NonSyncedWritesToRaftLog:         schema.Bool(),
-	BatchRaftFSM:                     schema.Bool(),
 	MigrationMinionWaitMax:           schema.String(),
 	ApplicationResourceDownloadLimit: schema.ForceInt(),
 	ControllerResourceDownloadLimit:  schema.ForceInt(),
@@ -1427,7 +1409,6 @@ var configChecker = schema.FieldMap(schema.Fields{
 	MaxCharmStateSize:                DefaultMaxCharmStateSize,
 	MaxAgentStateSize:                DefaultMaxAgentStateSize,
 	NonSyncedWritesToRaftLog:         DefaultNonSyncedWritesToRaftLog,
-	BatchRaftFSM:                     DefaultBatchRaftFSM,
 	MigrationMinionWaitMax:           DefaultMigrationMinionWaitMax,
 	ApplicationResourceDownloadLimit: schema.Omit,
 	ControllerResourceDownloadLimit:  schema.Omit,
@@ -1617,10 +1598,6 @@ Use "caas-image-repo" instead.`,
 	NonSyncedWritesToRaftLog: {
 		Type:        environschema.Tbool,
 		Description: `Do not perform fsync calls after appending entries to the raft log. Disabling sync improves performance at the cost of reliability`,
-	},
-	BatchRaftFSM: {
-		Type:        environschema.Tbool,
-		Description: `Allow raft to use batch writing to the FSM.`,
 	},
 	MigrationMinionWaitMax: {
 		Type:        environschema.Tstring,
