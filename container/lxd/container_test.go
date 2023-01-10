@@ -737,10 +737,4 @@ func (s *managerSuite) TestSpecApplyConstraints(c *gc.C) {
 	spec.ApplyConstraints("3.10.0", cons)
 	c.Check(spec.Config, gc.DeepEquals, exp)
 	c.Check(spec.InstanceType, gc.Equals, instType)
-
-	// Uses the "MB" suffix.
-	exp["limits.memory"] = "2046MB"
-	spec.ApplyConstraints("2.0.11", cons)
-	c.Check(spec.Config, gc.DeepEquals, exp)
-	c.Check(spec.InstanceType, gc.Equals, instType)
 }

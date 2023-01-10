@@ -16,7 +16,6 @@ import (
 	"github.com/juju/utils/v3/arch"
 	"github.com/lxc/lxd/shared/api"
 	"github.com/lxc/lxd/shared/units"
-	"github.com/lxc/lxd/shared/version"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -44,10 +43,6 @@ type ContainerSpec struct {
 	VirtType     instance.VirtType
 }
 
-// minMiBVersion is the minimum LXD version that we are sure will recognise the
-// MiB suffix for memory constraints. By default we use "MB".
-var minMiBVersion = &version.DottedVersion{Major: 3, Minor: 10}
-
 // ApplyConstraints applies the input constraints as valid LXD container
 // configuration to the container spec.
 // Note that we pass these through as supplied. If an instance type constraint
@@ -61,14 +56,7 @@ func (c *ContainerSpec) ApplyConstraints(serverVersion string, cons constraints.
 		c.Config["limits.cpu"] = fmt.Sprintf("%d", *cons.CpuCores)
 	}
 	if cons.HasMem() {
-		// Ensure that we use the correct "MB"/"MiB" suffix.
-		template := "%dMB"
-		if current, err := version.Parse(serverVersion); err == nil {
-			if current.Compare(minMiBVersion) >= 0 {
-				template = "%dMiB"
-			}
-		}
-		c.Config["limits.memory"] = fmt.Sprintf(template, *cons.Mem)
+		c.Config["limits.memory"] = fmt.Sprintf("%dMiB", *cons.Mem)
 	}
 	if cons.HasArch() {
 		c.Architecture = *cons.Arch
@@ -93,20 +81,16 @@ func (c *ContainerSpec) ApplyConstraints(serverVersion string, cons constraints.
 		}
 
 		if cons.HasRootDisk() {
-			// Ensure that we use the correct "MB"/"MiB" suffix.
-			template := "%dMB"
-			if current, err := version.Parse(serverVersion); err == nil {
-				if current.Compare(minMiBVersion) >= 0 {
-					template = "%dMiB"
-				}
-			}
-			c.Devices["root"]["size"] = fmt.Sprintf(template, *cons.RootDisk)
+			c.Devices["root"]["size"] = fmt.Sprintf("%dMiB", *cons.RootDisk)
 		}
 	}
 
 	if cons.HasVirtType() {
+
 		virtType, err := instance.ParseVirtType(*cons.VirtType)
-		if err == nil {
+		if err != nil {
+			logger.Errorf("failed to parse virt-type constraint %q, ignoring err: %v", *cons.VirtType, err)
+		} else {
 			c.VirtType = virtType
 		}
 	}

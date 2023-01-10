@@ -46,7 +46,7 @@ func MustParseVirtType(s string) VirtType {
 	return v
 }
 
-// NormaliseVirtType converts the any type, which represents an unspecified
+// NormaliseVirtType converts the "any" type, which represents an unspecified
 // virtual type to a container type. Juju doesn't current support the idea of
 // selecting any type of container type.
 func NormaliseVirtType(virtType api.InstanceType) api.InstanceType {
