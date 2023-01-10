@@ -683,8 +683,6 @@ func (a *app) UpdateService(param caas.ServiceParam) error {
 	if err != nil {
 		return errors.Annotatef(err, "getting existing service %q", a.name)
 	}
-	logger.Criticalf("updating service %q, %v, %+v", a.name, param.Type, param.Ports)
-	logger.Criticalf("updating service %q, %v, %+v", a.name, svc.Service.Spec.Type, svc.Service.Spec.Ports)
 	svc.Service.Spec.Type = corev1.ServiceType(param.Type)
 	svc.Service.Spec.Ports = make([]corev1.ServicePort, len(param.Ports))
 	for i, p := range param.Ports {
@@ -744,10 +742,9 @@ func (a *app) UpdatePorts(ports []caas.ServicePort, updateContainerPorts bool) e
 	if err != nil {
 		return errors.Annotatef(err, "getting existing service %q", a.name)
 	}
+	// We want to replace rather than merge here.
 	svc.PatchType = &replacePortsPatchType
 
-	logger.Criticalf("port changed for app %q, %v", a.name, ports)
-	logger.Criticalf("current port for app %q, %v", a.name, svc.Service.Spec.Ports)
 	var expectedPorts []corev1.ServicePort
 	for _, p := range svc.Service.Spec.Ports {
 		if !strings.HasPrefix(p.Name, portNamePrefix) {
@@ -1426,7 +1423,7 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		AutomountServiceAccountToken:  &automountToken,
 		ServiceAccountName:            a.serviceAccountName(),
 		ImagePullSecrets:              imagePullSecrets,
-		TerminationGracePeriodSeconds: pointer.Int64Ptr(1),
+		TerminationGracePeriodSeconds: pointer.Int64Ptr(300),
 		InitContainers: []corev1.Container{{
 			Name:            constants.ApplicationInitContainer,
 			ImagePullPolicy: corev1.PullIfNotPresent,

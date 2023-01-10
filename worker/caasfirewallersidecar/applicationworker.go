@@ -172,8 +172,8 @@ func (w *applicationWorker) onPortChanged() error {
 	if err != nil {
 		return err
 	}
-	w.logger.Warningf("port changed for app %q, %v", w.appName, changedPortRanges)
-	w.logger.Warningf("current port for app %q, %v", w.appName, w.currentPorts)
+	w.logger.Tracef("current port for app %q, %v", w.appName, w.currentPorts)
+	w.logger.Tracef("port changed for app %q, %v", w.appName, changedPortRanges)
 	if w.currentPorts.EqualTo(changedPortRanges) {
 		w.logger.Debugf("no port changes for app %q", w.appName)
 		return nil

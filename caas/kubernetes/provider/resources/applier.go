@@ -18,8 +18,8 @@ var (
 	errConflict = errors.New("resource version conflict")
 )
 
-// patchStrategy is the default patch strategy.
-const patchStrategy = types.StrategicMergePatchType
+// preferedPatchStrategy is the default patch strategy used by Juju.
+const preferedPatchStrategy = types.StrategicMergePatchType
 
 type applier struct {
 	ops []operation

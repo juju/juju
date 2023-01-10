@@ -43,7 +43,7 @@ func (r *portRangeChangeRecorder) validatePortRangeForCAAS(portRange network.Por
 	if r.modelType == model.IAAS || portRange.FromPort == portRange.ToPort {
 		return nil
 	}
-	return errors.NewNotSupported(nil, "port ranges are not supported for CAAS, please specify a single port")
+	return errors.NewNotSupported(nil, "port ranges are not supported for k8s applications, please specify a single port")
 }
 
 // OpenPortRange registers a request to open the specified port range for the

@@ -54,12 +54,11 @@ func (s *Service) Apply(ctx context.Context, client kubernetes.Interface) error 
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// TODO: refactor here !!!!
-	strategy := patchStrategy
+	patchStrategy := preferedPatchStrategy
 	if s.PatchType != nil {
-		strategy = *s.PatchType
+		patchStrategy = *s.PatchType
 	}
-	res, err := api.Patch(ctx, s.Name, strategy, data, metav1.PatchOptions{
+	res, err := api.Patch(ctx, s.Name, patchStrategy, data, metav1.PatchOptions{
 		FieldManager: JujuFieldManager,
 	})
 	if k8serrors.IsNotFound(err) {

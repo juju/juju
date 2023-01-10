@@ -149,7 +149,7 @@ func (s *PortRangeChangeRecorderSuite) TestOpenPortRange(c *gc.C) {
 			targetEndpoint:  "",
 			targetPortRange: network.MustParsePortRange("1-200/tcp"),
 			isCAAS:          true,
-			expectErr:       `port ranges are not supported for CAAS, please specify a single port`,
+			expectErr:       `port ranges are not supported for k8s applications, please specify a single port`,
 		},
 		{
 			about:           "open a new range - all endpoints - CAAS",

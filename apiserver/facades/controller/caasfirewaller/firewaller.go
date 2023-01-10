@@ -249,6 +249,7 @@ func (f *FacadeSidecar) GetApplicationOpenedPorts(arg params.Entity) (params.App
 		)
 	}
 	sort.Slice(result.Results[0].ApplicationPortRanges, func(i, j int) bool {
+		// For test.
 		return result.Results[0].ApplicationPortRanges[i].Endpoint < result.Results[0].ApplicationPortRanges[j].Endpoint
 	})
 	return result, nil
