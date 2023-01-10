@@ -320,13 +320,6 @@ func (manager *Manager) retryingClaim(claim claim) {
 				manager.logContext, claim.holderName, claim.leaseKey.Lease)
 			claim.respond(lease.ErrClaimDenied)
 
-		case lease.IsDeadlineExceeded(err):
-			// This can happen if we were unable to process the claim in a
-			// given time. We should just return the claim denied.
-			manager.config.Logger.Warningf("[%s] deadline exceeded while handling claim %q for %q",
-				manager.logContext, claim.leaseKey, claim.holderName)
-			claim.respond(lease.ErrClaimDenied)
-
 		default:
 			// Stop the main loop because we got an abnormal error
 			manager.catacomb.Kill(errors.Trace(err))
@@ -456,11 +449,6 @@ func (manager *Manager) retryingRevoke(revoke revoke) {
 			manager.config.Logger.Infof("[%s] got %v after %d retries, revoke %q for %q",
 				manager.logContext, err, maxRetries, revoke.leaseKey, revoke.holderName)
 			revoke.respond(err)
-
-		case lease.IsDeadlineExceeded(err):
-			manager.config.Logger.Warningf("[%s] deadline exceeded while handling revoke %q for %q",
-				manager.logContext, revoke.leaseKey, revoke.holderName)
-			revoke.respond(lease.ErrDeadlineExceeded)
 
 		default:
 			// Stop the main loop because we got an abnormal error
@@ -667,12 +655,6 @@ func isFatalClaimRetryError(act action, err error, count int) bool {
 		return false
 	case lease.IsInvalid(err):
 		return false
-	case lease.IsDeadlineExceeded(err):
-		// Extend action we want to retry if the count is less that the number
-		// of retries.
-		if act == extendAction && count < maxDeadlineRetries {
-			return false
-		}
 	}
 	return true
 }
