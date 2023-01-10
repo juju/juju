@@ -60,26 +60,30 @@ func newTimedStatusUpdater(ctx *cmd.Context, api destroyControllerAPI, controlle
 
 		// If we hit an error, status.HostedModelCount will be 0, the polling
 		// loop will stop and we'll go directly to destroying the model.
-		ctrStatus, modelsStatus, applications, err := newData(api, controllerModelUUID)
+		envStatus, err := newData(api, controllerModelUUID)
 		if err != nil {
 			ctx.Infof("Unable to get the controller summary from the API: %s.", err)
 		}
 
-		return environmentStatus{
-			controller:   ctrStatus,
-			models:       modelsStatus,
-			applications: applications,
-		}
+		return envStatus
 	}
 }
 
-func newData(api destroyControllerAPI, controllerModelUUID string) (ctrData, []modelData, []base.Application, error) {
+func newData(api destroyControllerAPI, controllerModelUUID string) (environmentStatus, error) {
 	models, err := api.AllModels()
 	if err != nil {
-		return ctrData{}, nil, nil, errors.Trace(err)
+		return environmentStatus{
+			controller:   ctrData{},
+			models:       nil,
+			applications: nil,
+		}, errors.Trace(err)
 	}
 	if len(models) == 0 {
-		return ctrData{}, nil, nil, errors.New("no models found")
+		return environmentStatus{
+			controller:   ctrData{},
+			models:       nil,
+			applications: nil,
+		}, errors.New("no models found")
 	}
 
 	modelTags := make([]names.ModelTag, len(models))
@@ -91,7 +95,11 @@ func newData(api destroyControllerAPI, controllerModelUUID string) (ctrData, []m
 
 	status, err := api.ModelStatus(modelTags...)
 	if err != nil {
-		return ctrData{}, nil, nil, errors.Trace(err)
+		return environmentStatus{
+			controller:   ctrData{},
+			models:       nil,
+			applications: nil,
+		}, errors.Trace(err)
 	}
 
 	var hostedMachinesCount int
@@ -111,7 +119,11 @@ func newData(api destroyControllerAPI, controllerModelUUID string) (ctrData, []m
 				// to assume that we want to filter these models here too.
 				continue
 			}
-			return ctrData{}, nil, nil, errors.Trace(model.Error)
+			return environmentStatus{
+				controller:   ctrData{},
+				models:       nil,
+				applications: nil,
+			}, errors.Trace(model.Error)
 		}
 		var persistentVolumeCount int
 		var persistentFilesystemCount int
@@ -164,7 +176,11 @@ func newData(api destroyControllerAPI, controllerModelUUID string) (ctrData, []m
 		ctrModelData,
 	}
 
-	return ctrFinalStatus, modelsData, applications, nil
+	return environmentStatus{
+		controller:   ctrFinalStatus,
+		models:       modelsData,
+		applications: applications,
+	}, nil
 }
 
 func hasUnreclaimedResources(env environmentStatus) bool {

@@ -7,7 +7,7 @@ import (
 	"bytes"
 	stdcontext "context"
 	"fmt"
-	"strings"
+	"text/template"
 	"time"
 
 	"github.com/juju/clock"
@@ -118,13 +118,17 @@ var destroySysMsg = `
 WARNING! This command with destroy the %q controller and all it's resources`[1:]
 
 var destroySysMsgDetails = `
-:
- - %d model(s) will be destroyed;
-  - model list: %q;
- - %d machine(s) will be destroyed;
- - %d application(s) will be removed;
-  - application list: %q;
- - %d filesystem(s) and %d volume(s) will be %s`[1:]
+{{- if gt .ModelCount 0}}
+ - {{.ModelCount}} model{{if gt .ModelCount 1}}s{{end}} will be destroyed
+  - model list:{{range .ModelNames}} "{{.}}"{{end}}
+ - {{.MachineCount}} machine{{if gt .MachineCount 1}}s{{end}} will be destroyed
+ - {{.ApplicationCount}} application{{if gt .ApplicationCount 1}}s{{end}} will be removed
+ {{- if gt .ApplicationCount 0}}
+  - application list:{{range .ApplicationNames}} "{{.}}"{{end}}
+ {{- end}}
+ - {{.FilesystemCount}} filesystem{{if gt .FilesystemCount 1}}s{{end}} and {{.VolumeCount}} volume{{if gt .VolumeCount 1}}s{{end}} will be {{if .ReleaseStorage}}released{{else}}destroyed{{end}}
+{{- end}}
+`
 
 // destroyControllerAPI defines the methods on the controller API endpoint
 // that the destroy command calls.
@@ -187,28 +191,22 @@ func getApplicationNames(data []base.Application) []string {
 
 // printDestroyWarning prints to stdout the warning with additional info about destroying controller.
 func printDestroyWarning(ctx *cmd.Context, modelStatus environmentStatus, controllerName string, releaseStorage bool) error {
-	modelNames := getModelNames(modelStatus.models)
-	applicationNames := getApplicationNames(modelStatus.applications)
-	var actionStorageStr string
-	if releaseStorage {
-		actionStorageStr = "released"
-	} else {
-		actionStorageStr = "destroyed"
-	}
 	_, _ = fmt.Fprintf(ctx.Stderr, destroySysMsg, controllerName)
-	if len(modelNames) > 0 {
-		_, _ = fmt.Fprintf(ctx.Stdout, destroySysMsgDetails,
-			modelStatus.controller.HostedModelCount,
-			strings.Join(modelNames, ", "),
-			modelStatus.controller.HostedMachineCount,
-			modelStatus.controller.ApplicationCount-1, // - 1 not to confuse user with controller-app itself
-			strings.Join(applicationNames, ", "),
-			modelStatus.controller.TotalFilesystemCount,
-			modelStatus.controller.TotalVolumeCount,
-			actionStorageStr,
-		)
+	destroyMsgDetailsTmpl := template.New("destroyMsdDetails")
+	destroyMsgDetailsTmpl, err := destroyMsgDetailsTmpl.Parse(destroySysMsgDetails)
+	if err != nil {
+		return errors.Annotate(err, "Destroy controller message template parsing error.")
 	}
-	_, _ = fmt.Fprintf(ctx.Stderr, ".\n")
+	_ = destroyMsgDetailsTmpl.Execute(ctx.Stderr, map[string]any{
+		"ModelCount":       modelStatus.controller.HostedModelCount,
+		"ModelNames":       getModelNames(modelStatus.models),
+		"MachineCount":     modelStatus.controller.HostedMachineCount,
+		"ApplicationCount": modelStatus.controller.ApplicationCount - 1, // - 1 not to confuse user with controller-app itself
+		"ApplicationNames": getApplicationNames(modelStatus.applications),
+		"FilesystemCount":  modelStatus.controller.TotalFilesystemCount,
+		"VolumeCount":      modelStatus.controller.TotalVolumeCount,
+		"ReleaseStorage":   releaseStorage,
+	})
 	return nil
 }
 

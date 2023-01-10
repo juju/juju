@@ -4,6 +4,7 @@
 package common
 
 import (
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -19,6 +20,14 @@ type ModelStatusAPI struct {
 	authorizer facade.Authorizer
 	apiUser    names.UserTag
 	backend    ModelManagerBackend
+}
+
+// ModelApplicationInfo returns information about applications.
+func ModelApplicationInfo(applications []Application) ([]params.ModelApplicationInfo, error) {
+	applicationInfo := transform.Slice(applications, func(app Application) params.ModelApplicationInfo {
+		return params.ModelApplicationInfo{Name: app.Name()}
+	})
+	return applicationInfo, nil
 }
 
 // NewModelStatusAPI creates an implementation providing the ModelStatus() API.
@@ -99,7 +108,7 @@ func (c *ModelStatusAPI) modelStatus(tag string) (params.ModelStatus, error) {
 		return status, errors.Trace(err)
 	}
 
-	modelApplications, err := ModelApplicationInfo(st)
+	modelApplications, err := ModelApplicationInfo(applications)
 	if err != nil {
 		return status, errors.Trace(err)
 	}
@@ -110,7 +119,7 @@ func (c *ModelStatusAPI) modelStatus(tag string) (params.ModelStatus, error) {
 		Life:               life.Value(model.Life().String()),
 		Type:               string(model.Type()),
 		HostedMachineCount: len(hostedMachines),
-		ApplicationCount:   len(applications),
+		ApplicationCount:   len(modelApplications),
 		UnitCount:          unitCount,
 		Applications:       modelApplications,
 		Machines:           modelMachines,

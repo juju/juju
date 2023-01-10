@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
+	"text/template"
 	"time"
 
 	jujuclock "github.com/juju/clock"
@@ -102,21 +102,17 @@ See also:
 var destroyModelMsg = `
 WARNING! This command will destroy the %q model and all it's resources`[1:]
 
-var destroyIAASModelMsgWithDetails = `
-:
- - %d machine(s) will be destroyed;
-  - machine list: %q; 
- - %d application(s) will be removed;
-  - application list: %q;
- - %d filesystem(s) and %d volume(s) will be %s`[1:]
-
-var destroyCAASModelMsgWithDetails = `
-:
- - %d container(s) will be destroyed;
-  - container list: %q; 
- - %d application(s) will be removed;
-  - application list: %q;
- - %d filesystem(s) and %d volume(s) will be %s`[1:]
+var destroyModelMsgDetails = `
+{{- if gt .MachineCount 0}}
+ - {{.MachineCount}} {{if .IsCaaS}}container{{else}}machine{{end}}{{if gt .MachineCount 1}}s{{end}} will be destroyed
+  - {{if .IsCaaS}}container{{else}}machine{{end}} list:{{range .MachineIds}} "{{.}}"{{end}}
+ - {{.ApplicationCount}} application{{if gt .ApplicationCount 1}}s{{end}} will be removed
+ {{- if gt .ApplicationCount 0}}
+  - application list:{{range .ApplicationNames}} "{{.}}"{{end}}
+ {{- end}}
+ - {{.FilesystemCount}} filesystem{{if gt .FilesystemCount 1}}s{{end}} and {{.VolumeCount}} volume{{if gt .VolumeCount 1}}s{{end}} will be {{if .ReleaseStorage}}released{{else}}destroyed{{end}}
+{{- end}}
+`
 
 // DestroyModelAPI defines the methods on the modelmanager
 // API that the destroy command calls. It is exported for mocking in tests.
@@ -196,31 +192,22 @@ func getApplicationNames(data base.ModelStatus) []string {
 
 // printDestroyWarning prints to stdout the warning with additional info about destroying model.
 func printDestroyWarning(ctx *cmd.Context, modelStatus base.ModelStatus, modelName string, modelType model.ModelType, releaseStorage bool) error {
-	machineIds := getMachineIds(modelStatus)
-	appicationNames := getApplicationNames(modelStatus)
-	var actionStorageStr string
-	if releaseStorage {
-		actionStorageStr = "released"
-	} else {
-		actionStorageStr = "destroyed"
-	}
 	_, _ = fmt.Fprintf(ctx.Stderr, destroyModelMsg, modelName)
-	if len(machineIds) > 0 {
-		msg := destroyIAASModelMsgWithDetails
-		if modelType == model.CAAS {
-			msg = destroyCAASModelMsgWithDetails
-		}
-		_, _ = fmt.Fprintf(ctx.Stdout, msg,
-			modelStatus.TotalMachineCount,
-			strings.Join(machineIds, ", "),
-			modelStatus.ApplicationCount,
-			strings.Join(appicationNames, ", "),
-			len(modelStatus.Filesystems),
-			len(modelStatus.Volumes),
-			actionStorageStr,
-		)
+	destroyMsgDetailsTmpl := template.New("destroyMsdDetails")
+	destroyMsgDetailsTmpl, err := destroyMsgDetailsTmpl.Parse(destroyModelMsgDetails)
+	if err != nil {
+		return errors.Annotate(err, "Destroy controller message template parsing error.")
 	}
-	_, _ = fmt.Fprintf(ctx.Stderr, ".\n")
+	_ = destroyMsgDetailsTmpl.Execute(ctx.Stderr, map[string]any{
+		"IsCaaS":           modelType == model.CAAS,
+		"MachineCount":     modelStatus.HostedMachineCount,
+		"MachineIds":       getMachineIds(modelStatus),
+		"ApplicationCount": modelStatus.ApplicationCount,
+		"ApplicationNames": getApplicationNames(modelStatus),
+		"FilesystemCount":  len(modelStatus.Filesystems),
+		"VolumeCount":      len(modelStatus.Volumes),
+		"ReleaseStorage":   releaseStorage,
+	})
 	return nil
 }
 
