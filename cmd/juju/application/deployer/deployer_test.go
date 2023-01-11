@@ -224,19 +224,8 @@ func (s *deployerSuite) TestGetDeployerLocalBundle(c *gc.C) {
 	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy local bundle from: %s", bundlePath))
 }
 
-func (s *deployerSuite) TestGetDeployerCharmStoreBundle(c *gc.C) {
-	bundle := charm.MustParseURL("cs:test-bundle")
-	cfg := s.basicDeployerConfig()
-
-	cfg.CharmOrBundle = bundle.String()
-
-	deployer, err := s.testGetDeployerRepositoryBundle(c, cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy bundle: %s", bundle.String()))
-}
-
-func (s *deployerSuite) TestGetDeployerCharmStoreBundleWithChannel(c *gc.C) {
-	bundle := charm.MustParseURL("cs:test-bundle")
+func (s *deployerSuite) TestGetDeployerCharmHubBundleWithChannel(c *gc.C) {
+	bundle := charm.MustParseURL("ch:test-bundle")
 	cfg := s.channelDeployerConfig()
 	cfg.CharmOrBundle = bundle.String()
 
@@ -320,16 +309,12 @@ func (s *deployerSuite) TestResolveCharmURL(c *gc.C) {
 		url:           &charm.URL{Schema: "ch", Name: "wordpress", Revision: -1},
 	}, {
 		defaultSchema: charm.CharmHub,
-		path:          "cs:wordpress",
-		url:           &charm.URL{Schema: "cs", Name: "wordpress", Revision: -1},
-	}, {
-		defaultSchema: charm.CharmHub,
 		path:          "local:wordpress",
 		url:           &charm.URL{Schema: "local", Name: "wordpress", Revision: -1},
 	}, {
 		defaultSchema: charm.CharmHub,
-		path:          "cs:~user/series/name",
-		url:           &charm.URL{Schema: "cs", User: "user", Name: "name", Series: "series", Revision: -1},
+		path:          "ch:series/name",
+		url:           &charm.URL{Schema: "ch", User: "", Name: "name", Series: "series", Revision: -1},
 	}, {
 		defaultSchema: charm.CharmHub,
 		path:          "wordpress",

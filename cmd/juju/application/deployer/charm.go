@@ -388,7 +388,7 @@ type repositoryCharm struct {
 func (c *repositoryCharm) String() string {
 	str := fmt.Sprintf("deploy charm: %s", c.userRequestedURL.String())
 	origin := c.id.Origin
-	if isEmptyOrigin(origin, commoncharm.OriginCharmStore) {
+	if isEmptyOrigin(origin, commoncharm.OriginCharmHub) {
 		return str
 	}
 	var revision string
@@ -411,9 +411,7 @@ func (c *repositoryCharm) String() string {
 func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, resolver Resolver) error {
 	userRequestedURL := c.userRequestedURL
 	location := "charmhub"
-	if charm.CharmStore.Matches(userRequestedURL.Schema) {
-		location = "charm-store"
-	}
+
 	ctx.Verbosef("Preparing to deploy %q from the %s", userRequestedURL.Name, location)
 
 	modelCfg, workloadSeries, err := seriesSelectorRequirements(deployAPI, c.clock, userRequestedURL)
