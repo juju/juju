@@ -14,14 +14,12 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/client/application"
 	applicationapi "github.com/juju/juju/api/client/application"
 	"github.com/juju/juju/api/client/resources"
 	commoncharm "github.com/juju/juju/api/common/charm"
 	app "github.com/juju/juju/apiserver/facades/client/application"
-	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/core/constraints"
@@ -39,7 +37,6 @@ type deployCharm struct {
 	constraints      constraints.Value
 	dryRun           bool
 	modelConstraints constraints.Value
-	csMac            *macaroon.Macaroon
 	devices          map[string]devices.Constraints
 	deployResources  DeployResourcesFunc
 	force            bool
@@ -186,7 +183,6 @@ func (d *deployCharm) deploy(
 			URL:    id.URL,
 			Origin: id.Origin,
 		},
-		d.csMac,
 		d.resources,
 		charmInfo.Meta.Resources,
 		deployAPI,
@@ -285,7 +281,7 @@ func (d *predeployedLocalCharm) String() string {
 
 // PrepareAndDeploy finishes preparing to deploy a predeployed local charm,
 // then deploys it.
-func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _ Resolver, _ store.MacaroonGetter) error {
+func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _ Resolver) error {
 	userCharmURL := d.userCharmURL
 	ctx.Verbosef("Preparing to deploy local charm %q again", userCharmURL.Name)
 	if d.dryRun {
@@ -345,7 +341,7 @@ func (l *localCharm) String() string {
 
 // PrepareAndDeploy finishes preparing to deploy a local charm,
 // then deploys it.
-func (l *localCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _ Resolver, _ store.MacaroonGetter) error {
+func (l *localCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _ Resolver) error {
 	ctx.Verbosef("Preparing to deploy local charm: %q ", l.curl.Name)
 	if l.dryRun {
 		ctx.Infof("ignoring dry-run flag for local charms")
@@ -407,7 +403,7 @@ func (c *repositoryCharm) String() string {
 
 // PrepareAndDeploy finishes preparing to deploy a charm store charm,
 // then deploys it.
-func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, resolver Resolver, macaroonGetter store.MacaroonGetter) error {
+func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, resolver Resolver) error {
 	userRequestedURL := c.userRequestedURL
 	location := "charmhub"
 	if charm.CharmStore.Matches(userRequestedURL.Schema) {
@@ -425,8 +421,8 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	// argument so users can target a specific origin.
 	origin := c.id.Origin
 	var usingDefaultSeries bool
-	if defaultSeries, ok := modelCfg.DefaultSeries(); ok && origin.Base.Channel.Empty() {
-		base, err := coreseries.GetBaseFromSeries(defaultSeries)
+	if defaultBase, ok := modelCfg.DefaultBase(); ok && origin.Base.Channel.Empty() {
+		base, err := coreseries.ParseBaseFromString(defaultBase)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -496,19 +492,19 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	// In-order for the url to represent the following updates to the origin
 	// and machine, we need to ensure that the series is actually correct as
 	// well in the url.
-	deployableURL := storeCharmOrBundleURL
+	curl := storeCharmOrBundleURL
 	if charm.CharmHub.Matches(storeCharmOrBundleURL.Schema) {
 		series, err := coreseries.GetSeriesFromBase(origin.Base)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		deployableURL = storeCharmOrBundleURL.WithSeries(series)
+		curl = storeCharmOrBundleURL.WithSeries(series)
 	}
 
 	if c.dryRun {
 		name := c.applicationName
 		if name == "" {
-			name = deployableURL.Name
+			name = curl.Name
 		}
 		channel := origin.CharmChannel().String()
 		if channel != "" {
@@ -516,17 +512,17 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 		}
 
 		ctx.Infof(fmt.Sprintf("%q from %s charm %q, revision %d%s on %s would be deployed",
-			name, origin.Source, deployableURL.Name, deployableURL.Revision, channel, origin.Base.DisplayString()))
+			name, origin.Source, curl.Name, curl.Revision, channel, origin.Base.DisplayString()))
 		return nil
 	}
 
 	// Store the charm in the controller
-	curl, csMac, csOrigin, err := store.AddCharmWithAuthorizationFromURL(deployAPI, macaroonGetter, deployableURL, origin, c.force)
+	csOrigin, err := deployAPI.AddCharm(curl, origin, c.force)
 	if err != nil {
 		if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {
 			return errors.Trace(termErr.UserErr())
 		}
-		return errors.Annotatef(err, "storing charm %q", deployableURL.Name)
+		return errors.Annotatef(err, "storing charm %q", curl.Name)
 	}
 	ctx.Infof(formatLocatedText(curl, csOrigin))
 
@@ -544,7 +540,6 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 		}
 	}
 
-	c.csMac = csMac
 	c.id = application.CharmID{
 		URL:    curl,
 		Origin: csOrigin,

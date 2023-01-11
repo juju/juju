@@ -69,7 +69,7 @@ func (s *ShowApplicationSuite) TestInfo(c *gc.C) {
 		Doc: `
 This command shows the resources required by and those in use by an existing
 application or unit in your model.  When run for an application, it will also show any
-updates available for resources from the charmstore.
+updates available for resources from a store.
 `,
 		FlagKnownAs:    "option",
 		ShowSuperFlags: []string{"show-log", "debug", "logging-config", "verbose", "quiet", "h", "help"},
@@ -187,8 +187,8 @@ func (s *ShowApplicationSuite) TestRun(c *gc.C) {
 
 	c.Check(stdout, gc.Equals, `
 Resource  Supplied by  Revision
-openjdk   charmstore   7
-rsc1234   charmstore   15
+openjdk   store        7
+rsc1234   store        15
 website   upload       -
 website2  Bill User    2012-12-12T12:12
 

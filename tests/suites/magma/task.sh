@@ -11,9 +11,6 @@ test_magma() {
 
 	file="${TEST_DIR}/test-magma.log"
 
-	if [[ -n ${OPERATOR_IMAGE_ACCOUNT:-} ]]; then
-		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --config caas-image-repo=${OPERATOR_IMAGE_ACCOUNT}"
-	fi
 	bootstrap "test-magma" "${file}"
 
 	case "${BOOTSTRAP_PROVIDER:-}" in

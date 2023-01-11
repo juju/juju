@@ -126,8 +126,8 @@ func (s *uniterSuiteBase) setupState(c *gc.C) {
 	})
 
 	s.wpCharm = s.Factory.MakeCharm(c, &factory.CharmParams{
-		Name: "wordpress",
-		URL:  "cs:quantal/wordpress-3",
+		Name:     "wordpress",
+		Revision: "3",
 	})
 	s.wordpress = s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "wordpress",
@@ -919,9 +919,9 @@ func (s *uniterSuite) TestSetCharmURL(c *gc.C) {
 	c.Assert(charmURL, gc.IsNil)
 
 	args := params.EntitiesCharmURL{Entities: []params.EntityCharmURL{
-		{Tag: "unit-mysql-0", CharmURL: "cs:quantal/application-42"},
+		{Tag: "unit-mysql-0", CharmURL: "ch:amd64/quantal/application-42"},
 		{Tag: "unit-wordpress-0", CharmURL: s.wpCharm.String()},
-		{Tag: "unit-foo-42", CharmURL: "cs:quantal/foo-321"},
+		{Tag: "unit-foo-42", CharmURL: "ch:amd64/quantal/foo-321"},
 	}}
 	result, err := s.uniter.SetCharmURL(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1039,7 +1039,7 @@ func (s *uniterSuite) TestWatchConfigSettingsHash(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 			{
 				StringsWatcherId: "1",
-				Changes:          []string{"af35e298300150f2c357b4a1c40c1109bde305841c6343113b634b9dada22d00"},
+				Changes:          []string{"7579d9a32a0af2e5459c21b9a6ada743db4ed33662f5230d3ca8283518268746"},
 			},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
@@ -1368,7 +1368,7 @@ func (s *uniterSuite) TestWatchSubordinateUnitRelations(c *gc.C) {
 	// The logging charm is subordinate (and the info endpoint is scope=container).
 	loggingCharm := s.Factory.MakeCharm(c, &factory.CharmParams{
 		Name: "logging",
-		URL:  "cs:quantal/logging-1",
+		URL:  "ch:amd64/quantal/logging-1",
 	})
 	loggingApp := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "logging",
@@ -1425,7 +1425,7 @@ func (s *uniterSuite) TestWatchUnitRelationsSubordinateWithGlobalEndpoint(c *gc.
 	// The logging charm is subordinate (and the info endpoint is scope=container).
 	loggingCharm := s.Factory.MakeCharm(c, &factory.CharmParams{
 		Name: "logging",
-		URL:  "cs:quantal/logging-1",
+		URL:  "ch:amd64/quantal/logging-1",
 	})
 	loggingApp := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "logging",
@@ -1434,7 +1434,7 @@ func (s *uniterSuite) TestWatchUnitRelationsSubordinateWithGlobalEndpoint(c *gc.
 
 	uiCharm := s.Factory.MakeCharm(c, &factory.CharmParams{
 		Name: "logging-frontend",
-		URL:  "cs:quantal/logging-frontend-1",
+		URL:  "ch:amd64/quantal/logging-frontend-1",
 	})
 	uiApp := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "logging-frontend",
@@ -1483,7 +1483,7 @@ func (s *uniterSuite) TestWatchUnitRelationsWithSubSubRelation(c *gc.C) {
 	// container).
 	loggingCharm := s.Factory.MakeCharm(c, &factory.CharmParams{
 		Name: "logging",
-		URL:  "cs:quantal/logging-1",
+		URL:  "ch:amd64/quantal/logging-1",
 	})
 	loggingApp := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "logging",
@@ -1491,7 +1491,7 @@ func (s *uniterSuite) TestWatchUnitRelationsWithSubSubRelation(c *gc.C) {
 	})
 	monitoringCharm := s.Factory.MakeCharm(c, &factory.CharmParams{
 		Name: "monitoring",
-		URL:  "cs:quantal/monitoring-1",
+		URL:  "ch:amd64/quantal/monitoring-1",
 	})
 	monitoringApp := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "monitoring",
@@ -2016,7 +2016,7 @@ func (s *uniterSuite) TestEnterScope(c *gc.C) {
 func (s *uniterSuite) TestEnterScopeIgnoredForInvalidPrincipals(c *gc.C) {
 	loggingCharm := s.Factory.MakeCharm(c, &factory.CharmParams{
 		Name: "logging",
-		URL:  "cs:quantal/logging-1",
+		URL:  "ch:amd64/quantal/logging-1",
 	})
 	logging := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "logging",
@@ -3704,7 +3704,7 @@ func (s *unitMetricBatchesSuite) SetUpTest(c *gc.C) {
 
 	s.meteredCharm = s.Factory.MakeCharm(c, &factory.CharmParams{
 		Name: "metered",
-		URL:  "cs:quantal/metered",
+		URL:  "ch:amd64/quantal/metered",
 	})
 	s.meteredApplication = s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: s.meteredCharm,
@@ -3875,7 +3875,7 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 
 	s.wpCharm = s.Factory.MakeCharm(c, &factory.CharmParams{
 		Name: "wordpress-extra-bindings",
-		URL:  "cs:quantal/wordpress-extra-bindings-4",
+		URL:  "ch:amd64/quantal/wordpress-extra-bindings-4",
 	})
 	var err error
 	s.wordpress, err = s.State.AddApplication(state.AddApplicationArgs{

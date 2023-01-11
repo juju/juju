@@ -44,6 +44,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/annotations" // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/facades/client/modelupgrader"
+	"github.com/juju/juju/apiserver/facades/client/secretbackends"
 
 	// ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/applicationoffers"
@@ -193,6 +194,7 @@ func AllFacades() *facade.Registry {
 	retrystrategy.Register(registry)
 	singular.Register(registry)
 	secrets.Register(registry)
+	secretbackends.Register(registry)
 	secretsmanager.Register(registry)
 	sshclient.Register(registry)
 	spaces.Register(registry)

@@ -91,4 +91,4 @@ class ControllerConfig:
     def db_snap_channel(self):
         if 'juju-db-snap-channel' in self.cfg:
             return self.cfg["juju-db-snap-channel"]
-        return "5.3/stable"
+        return "4.4/stable"

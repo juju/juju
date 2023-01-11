@@ -10,7 +10,6 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v9"
 	charm0 "github.com/juju/juju/api/common/charm"
-	macaroon "gopkg.in/macaroon.v2"
 )
 
 // MockMacaroonGetter is a mock of MacaroonGetter interface.
@@ -86,21 +85,6 @@ func (m *MockCharmAdder) AddCharm(arg0 *charm.URL, arg1 charm0.Origin, arg2 bool
 func (mr *MockCharmAdderMockRecorder) AddCharm(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddCharm", reflect.TypeOf((*MockCharmAdder)(nil).AddCharm), arg0, arg1, arg2)
-}
-
-// AddCharmWithAuthorization mocks base method.
-func (m *MockCharmAdder) AddCharmWithAuthorization(arg0 *charm.URL, arg1 charm0.Origin, arg2 *macaroon.Macaroon, arg3 bool) (charm0.Origin, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddCharmWithAuthorization", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(charm0.Origin)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AddCharmWithAuthorization indicates an expected call of AddCharmWithAuthorization.
-func (mr *MockCharmAdderMockRecorder) AddCharmWithAuthorization(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddCharmWithAuthorization", reflect.TypeOf((*MockCharmAdder)(nil).AddCharmWithAuthorization), arg0, arg1, arg2, arg3)
 }
 
 // AddLocalCharm mocks base method.

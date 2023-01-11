@@ -11,6 +11,8 @@ export BOOTSTRAP_SERIES="${BOOTSTRAP_SERIES:-}"
 export BUILD_AGENT="${BUILD_AGENT:-false}"
 export RUN_SUBTEST="${RUN_SUBTEST:-}"
 
+export JUJU_SKIP_CONFIRMATION=1
+
 export CURRENT_LTS="jammy"
 
 current_pwd=$(pwd)
@@ -234,7 +236,6 @@ if [[ $# -eq 0 ]]; then
 		echo "$(red '---------------------------------------')"
 		echo ""
 		show_help
-		exit 1
 	fi
 fi
 

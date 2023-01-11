@@ -215,6 +215,14 @@ func IncSecretConsumerRefCount(st *State, uri *secrets.URI, inc int) error {
 	return st.db().RunTransaction([]txn.Op{incOp})
 }
 
+func SecretBackendRefCount(st *State, backendID string) (int, error) {
+	refcounts, closer := st.db().GetCollection(globalRefcountsC)
+	defer closer()
+
+	key := secretBackendRefCountKey(backendID)
+	return nsRefcounts.read(refcounts, key)
+}
+
 func AddTestingCharm(c *gc.C, st *State, name string) *Charm {
 	return addCharm(c, st, "quantal", testcharms.Repo.CharmDir(name))
 }
@@ -255,7 +263,7 @@ func AddTestingCharmhubCharmForSeries(c *gc.C, st *State, series, name string) *
 func AddTestingCharmMultiSeries(c *gc.C, st *State, name string) *Charm {
 	ch := testcharms.Repo.CharmDir(name)
 	ident := fmt.Sprintf("%s-%d", ch.Meta().Name, ch.Revision())
-	curl := charm.MustParseURL("cs:" + ident)
+	curl := charm.MustParseURL("ch:" + ident)
 	info := CharmInfo{
 		Charm:       ch,
 		ID:          curl,
@@ -351,10 +359,17 @@ func addTestingApplication(c *gc.C, params addTestingApplicationParams) *Applica
 	if origin == nil {
 		base, err := coreseries.GetBaseFromSeries(params.ch.URL().Series)
 		c.Assert(err, jc.ErrorIsNil)
-		origin = &CharmOrigin{Platform: &Platform{
-			OS:      base.OS,
-			Channel: base.Channel.String(),
-		}}
+		var channel *Channel
+		// local charms cannot have a channel
+		if charm.CharmHub.Matches(params.ch.URL().Schema) {
+			channel = &Channel{Risk: "stable"}
+		}
+		origin = &CharmOrigin{
+			Channel: channel,
+			Platform: &Platform{
+				OS:      base.OS,
+				Channel: base.Channel.String(),
+			}}
 	}
 	app, err := params.st.AddApplication(AddApplicationArgs{
 		Name:             params.name,

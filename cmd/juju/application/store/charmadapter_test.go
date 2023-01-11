@@ -10,11 +10,11 @@ import (
 	"github.com/juju/charm/v9"
 	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/errors"
-	apicharm "github.com/juju/juju/api/client/charms"
-	commoncharm "github.com/juju/juju/api/common/charm"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	apicharm "github.com/juju/juju/api/client/charms"
+	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/store/mocks"
 )
@@ -342,7 +342,7 @@ func (s *resolveSuite) expectedCharmStoreGetBundle(curl *charm.URL) {
 
 func (s *resolveSuite) expectedCharmHubGetBundle(c *gc.C, curl *charm.URL, origin commoncharm.Origin) {
 	surl := "http://messhuggah.com"
-	s.charmsAPI.EXPECT().GetDownloadInfo(curl, origin, nil).Return(apicharm.DownloadInfo{
+	s.charmsAPI.EXPECT().GetDownloadInfo(curl, origin).Return(apicharm.DownloadInfo{
 		URL: surl,
 	}, nil)
 	url, err := url.Parse(surl)

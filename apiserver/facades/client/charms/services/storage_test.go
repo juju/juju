@@ -15,7 +15,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
 	"github.com/juju/juju/apiserver/facades/client/charms/services/mocks"
@@ -82,10 +81,6 @@ func (s *storageTestSuite) TestStoreBlobFails(c *gc.C) {
 func (s *storageTestSuite) TestStoreBlobAlreadyStored(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	mac, err := macaroon.New(nil, []byte("id"), "", macaroon.LatestVersion)
-	c.Assert(err, jc.ErrorIsNil)
-	macaroons := macaroon.Slice{mac}
-
 	curl := charm.MustParseURL("ch:ubuntu-lite")
 	expStoreCharmPath := fmt.Sprintf("charms/%s-%s", curl.String(), s.uuid)
 	dlCharm := downloader.DownloadedCharm{
@@ -93,7 +88,6 @@ func (s *storageTestSuite) TestStoreBlobAlreadyStored(c *gc.C) {
 		Size:         7337,
 		SHA256:       "d357",
 		CharmVersion: "the-version",
-		Macaroons:    macaroons,
 	}
 
 	s.stateBackend.EXPECT().ModelUUID().Return("the-model-uuid")
@@ -103,14 +97,13 @@ func (s *storageTestSuite) TestStoreBlobAlreadyStored(c *gc.C) {
 		ID:          curl,
 		SHA256:      "d357",
 		Version:     "the-version",
-		Macaroon:    macaroons,
 	}).Return(nil, stateerrors.NewErrCharmAlreadyUploaded(curl))
 
 	// As the blob is already uploaded (to another path), we need to remove
 	// the duplicate we just uploaded from the store.
 	s.storageBackend.EXPECT().Remove(expStoreCharmPath).Return(nil)
 
-	err = s.storage.Store(curl, dlCharm)
+	err := s.storage.Store(curl, dlCharm)
 	c.Assert(err, jc.ErrorIsNil) // charm already uploaded by someone; no error
 }
 

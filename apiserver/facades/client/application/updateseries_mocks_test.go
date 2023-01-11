@@ -10,7 +10,6 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	v9 "github.com/juju/charm/v9"
-	params "github.com/juju/charmrepo/v7/csclient/params"
 	charmhub "github.com/juju/juju/charmhub"
 	transport "github.com/juju/juju/charmhub/transport"
 	config "github.com/juju/juju/core/config"
@@ -133,20 +132,6 @@ func (m *MockApplication) ChangeScale(arg0 int) (int, error) {
 func (mr *MockApplicationMockRecorder) ChangeScale(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChangeScale", reflect.TypeOf((*MockApplication)(nil).ChangeScale), arg0)
-}
-
-// Channel mocks base method.
-func (m *MockApplication) Channel() params.Channel {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Channel")
-	ret0, _ := ret[0].(params.Channel)
-	return ret0
-}
-
-// Channel indicates an expected call of Channel.
-func (mr *MockApplicationMockRecorder) Channel() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Channel", reflect.TypeOf((*MockApplication)(nil).Channel))
 }
 
 // Charm mocks base method.

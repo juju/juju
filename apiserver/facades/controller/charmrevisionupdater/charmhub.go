@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// TODO(benhoyt) - also add caching and retries, like we do with charmstore
+// TODO(benhoyt) - also add caching and retries
 
 package charmrevisionupdater
 

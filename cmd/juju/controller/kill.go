@@ -104,11 +104,6 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	store := c.ClientStore()
-	if !c.assumeYes {
-		if err := confirmDestruction(ctx, controllerName); err != nil {
-			return err
-		}
-	}
 
 	// Attempt to connect to the API.
 	api, err := c.getControllerAPIWithTimeout(10 * time.Second)
@@ -132,6 +127,17 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 	if api == nil {
 		ctx.Infof("Unable to connect to the API server, destroying through provider")
 		return c.environsDestroy(controllerName, controllerEnviron, cloudCallCtx, store)
+	}
+
+	if c.ConfirmationCommandBase.NeedsConfirmation() {
+		updateStatus := newTimedStatusUpdater(ctx, api, controllerEnviron.Config().UUID(), clock.WallClock)
+		modelStatus := updateStatus(0)
+		if err := printDestroyWarning(ctx, modelStatus, controllerName, false); err != nil {
+			return errors.Trace(err)
+		}
+		if err := jujucmd.UserConfirmName(controllerName, "controller", ctx); err != nil {
+			return errors.Annotate(err, "controller destruction")
+		}
 	}
 
 	// Attempt to destroy the controller and all models and storage.

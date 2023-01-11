@@ -147,7 +147,7 @@ func (ft *FakeTicket) Ready() <-chan struct{} {
 
 type SecretsContextAccessor struct {
 	context.SecretsAccessor
-	jujusecrets.Store
+	jujusecrets.BackendsClient
 }
 
 func (s SecretsContextAccessor) SecretMetadata(filter secrets.Filter) ([]secrets.SecretOwnerMetadata, error) {
@@ -161,14 +161,14 @@ func (s SecretsContextAccessor) SecretMetadata(filter secrets.Filter) ([]secrets
 			RotatePolicy:   secrets.RotateHourly,
 			Label:          "label",
 		},
-		ProviderIds: map[int]string{666: "provider-id"},
+		Revisions: []int{666},
 	}}, nil
 }
 
-func (s SecretsContextAccessor) SaveContent(uri *secrets.URI, revision int, value secrets.SecretValue) (string, error) {
-	return "", errors.NotSupportedf("")
+func (s SecretsContextAccessor) SaveContent(uri *secrets.URI, revision int, value secrets.SecretValue) (secrets.ValueRef, error) {
+	return secrets.ValueRef{}, errors.NotSupportedf("")
 }
 
-func (s SecretsContextAccessor) DeleteContent(providerId string) error {
+func (s SecretsContextAccessor) DeleteContent(uri *secrets.URI, revision int) error {
 	return errors.NotSupportedf("")
 }

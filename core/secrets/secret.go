@@ -146,16 +146,16 @@ type SecretMetadata struct {
 // SecretRevisionMetadata holds metadata about a secret revision.
 type SecretRevisionMetadata struct {
 	Revision   int
-	ProviderId *string
+	ValueRef   *ValueRef
 	CreateTime time.Time
 	UpdateTime time.Time
 	ExpireTime *time.Time
 }
 
-// SecretOwnerMetadata holds a secret metadata and any provider ids of revisions.
+// SecretOwnerMetadata holds a secret metadata and any backend references of revisions.
 type SecretOwnerMetadata struct {
-	Metadata    SecretMetadata
-	ProviderIds map[int]string
+	Metadata  SecretMetadata
+	Revisions []int
 }
 
 // SecretConsumerMetadata holds metadata about a secret

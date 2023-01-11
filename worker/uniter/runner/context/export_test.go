@@ -37,7 +37,7 @@ type HookContextParams struct {
 	Storage             StorageContextAccessor
 	StorageTag          names.StorageTag
 	SecretsClient       SecretsAccessor
-	SecretsStore        jujusecrets.Store
+	SecretsStore        jujusecrets.BackendsClient
 	SecretMetadata      map[string]jujuc.SecretMetadata
 	Paths               Paths
 	Clock               Clock
@@ -54,28 +54,28 @@ func (stub *stubLeadershipContext) IsLeader() (bool, error) {
 
 func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 	ctx := &HookContext{
-		unit:                hcParams.Unit,
-		state:               hcParams.State,
-		id:                  hcParams.ID,
-		uuid:                hcParams.UUID,
-		modelName:           hcParams.ModelName,
-		unitName:            hcParams.Unit.Name(),
-		relationId:          hcParams.RelationID,
-		remoteUnitName:      hcParams.RemoteUnitName,
-		relations:           hcParams.Relations,
-		apiAddrs:            hcParams.APIAddrs,
-		legacyProxySettings: hcParams.LegacyProxySettings,
-		jujuProxySettings:   hcParams.JujuProxySettings,
-		actionData:          hcParams.ActionData,
-		assignedMachineTag:  hcParams.AssignedMachineTag,
-		storage:             hcParams.Storage,
-		storageTag:          hcParams.StorageTag,
-		secretsClient:       hcParams.SecretsClient,
-		secretsStoreGetter:  func() (jujusecrets.Store, error) { return hcParams.SecretsStore, nil },
-		secretMetadata:      hcParams.SecretMetadata,
-		clock:               hcParams.Clock,
-		logger:              loggo.GetLogger("test"),
-		LeadershipContext:   &stubLeadershipContext{isLeader: true},
+		unit:                 hcParams.Unit,
+		state:                hcParams.State,
+		id:                   hcParams.ID,
+		uuid:                 hcParams.UUID,
+		modelName:            hcParams.ModelName,
+		unitName:             hcParams.Unit.Name(),
+		relationId:           hcParams.RelationID,
+		remoteUnitName:       hcParams.RemoteUnitName,
+		relations:            hcParams.Relations,
+		apiAddrs:             hcParams.APIAddrs,
+		legacyProxySettings:  hcParams.LegacyProxySettings,
+		jujuProxySettings:    hcParams.JujuProxySettings,
+		actionData:           hcParams.ActionData,
+		assignedMachineTag:   hcParams.AssignedMachineTag,
+		storage:              hcParams.Storage,
+		storageTag:           hcParams.StorageTag,
+		secretsClient:        hcParams.SecretsClient,
+		secretsBackendGetter: func() (jujusecrets.BackendsClient, error) { return hcParams.SecretsStore, nil },
+		secretMetadata:       hcParams.SecretMetadata,
+		clock:                hcParams.Clock,
+		logger:               loggo.GetLogger("test"),
+		LeadershipContext:    &stubLeadershipContext{isLeader: true},
 	}
 	// Get and cache the addresses.
 	var err error
@@ -135,13 +135,13 @@ func NewMockUnitHookContextWithState(mockUnit *mocks.MockHookUnit, state *uniter
 
 // SetEnvironmentHookContextSecret exists purely to set the fields used in hookVars.
 func SetEnvironmentHookContextSecret(
-	context *HookContext, secretURI string, metadata map[string]jujuc.SecretMetadata, client SecretsAccessor, store jujusecrets.Store,
+	context *HookContext, secretURI string, metadata map[string]jujuc.SecretMetadata, client SecretsAccessor, backend jujusecrets.BackendsClient,
 ) {
 	context.secretURI = secretURI
 	context.secretLabel = "label-" + secretURI
 	context.secretRevision = 666
 	context.secretsClient = client
-	context.secretsStore = store
+	context.secretsBackend = backend
 	context.secretMetadata = metadata
 }
 

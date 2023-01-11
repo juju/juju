@@ -49,9 +49,9 @@ func (s *MachineSuite) TestMachineAdd(c *gc.C) {
 func (s *MachineSuite) TestMachineRemove(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, nil)
 
-	ctx, err := s.RunCommand(c, "remove-machine", machine.Id())
+	ctx, err := s.RunCommand(c, "remove-machine", "--no-prompt", machine.Id())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
+	c.Assert(cmdtesting.Stdout(ctx), jc.Contains, `will remove machine`)
 
 	err = machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)

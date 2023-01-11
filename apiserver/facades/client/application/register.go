@@ -16,10 +16,21 @@ func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Application", 15, func(ctx facade.Context) (facade.Facade, error) {
 		return newFacadeV15(ctx)
 	}, reflect.TypeOf((*APIv15)(nil)))
+	registry.MustRegister("Application", 16, func(ctx facade.Context) (facade.Facade, error) {
+		return newFacadeV16(ctx) // DestroyApplication & DestroyUnit gains dry-run
+	}, reflect.TypeOf((*APIv16)(nil)))
+}
+
+func newFacadeV16(ctx facade.Context) (*APIv16, error) {
+	api, err := newFacadeBase(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIv16{api}, nil
 }
 
 func newFacadeV15(ctx facade.Context) (*APIv15, error) {
-	api, err := newFacadeBase(ctx)
+	api, err := newFacadeV16(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

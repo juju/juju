@@ -27,12 +27,13 @@ func newUndertakerFacade(ctx facade.Context) (*UndertakerAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	secretsProviderGetter := func() (provider.SecretStoreProvider, provider.Model, error) {
+	secretsBackendsGetter := func() (*provider.ModelBackendConfigInfo, error) {
 		model, err := st.Model()
 		if err != nil {
-			return nil, nil, errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
-		return secrets.ProviderInfoForModel(model)
+		cfgInfo, _, err := secrets.AdminBackendConfigInfo(secrets.SecretsModel(model))
+		return cfgInfo, err
 	}
-	return newUndertakerAPI(&stateShim{st, m}, ctx.Resources(), ctx.Auth(), secretsProviderGetter)
+	return newUndertakerAPI(&stateShim{st, m}, ctx.Resources(), ctx.Auth(), secretsBackendsGetter)
 }

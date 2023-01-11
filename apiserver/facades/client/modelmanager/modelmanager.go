@@ -17,6 +17,7 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/common"
+	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
@@ -24,6 +25,7 @@ import (
 	"github.com/juju/juju/controller/modelmanager"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -33,6 +35,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 )
 
 var (
@@ -170,13 +173,13 @@ func (m *ModelManagerAPI) newModelConfig(
 			if jujucloud.CloudTypeIsCAAS(cloudSpec.Type) {
 				return tools.List{&tools.Tools{Version: version.Binary{Number: n}}}, nil
 			}
-			result, err := m.toolsFinder.FindTools(params.FindToolsParams{
+			toolsList, err := m.toolsFinder.FindAgents(common.FindAgentsParams{
 				Number: n,
 			})
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			return result.List, nil
+			return toolsList, nil
 		},
 	}
 	return creator.NewModelConfig(cloudSpec, baseConfig, joint)
@@ -311,6 +314,25 @@ func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model
 		credential = &cloudCredential
 	}
 
+	// Swap out the config default-series for default-base if it's set.
+	// TODO(stickupkid): This can be removed once we've fully migrated to bases.
+	if s, ok := args.Config[config.DefaultSeriesKey]; ok {
+		if _, ok := args.Config[config.DefaultBaseKey]; ok {
+			return result, errors.New("default-base and default-series cannot both be set")
+		}
+		if s == "" {
+			args.Config[config.DefaultBaseKey] = ""
+		} else {
+			series, err := series.GetBaseFromSeries(s.(string))
+			if err != nil {
+				return result, errors.Trace(err)
+			}
+			args.Config[config.DefaultBaseKey] = series.String()
+		}
+
+		delete(args.Config, config.DefaultSeriesKey)
+	}
+
 	cloudSpec, err := environscloudspec.MakeCloudSpec(cloud, cloudRegionName, credential)
 	if err != nil {
 		return result, errors.Trace(err)
@@ -339,7 +361,7 @@ func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	return m.getModelInfo(model.ModelTag())
+	return m.getModelInfo(model.ModelTag(), false)
 }
 
 func (m *ModelManagerAPI) newCAASModel(
@@ -793,7 +815,7 @@ func (m *ModelManagerAPI) ModelInfo(args params.Entities) (params.ModelInfoResul
 		if err != nil {
 			return params.ModelInfo{}, errors.Trace(err)
 		}
-		modelInfo, err := m.getModelInfo(tag)
+		modelInfo, err := m.getModelInfo(tag, true)
 		if err != nil {
 			return params.ModelInfo{}, errors.Trace(err)
 		}
@@ -823,7 +845,7 @@ func (m *ModelManagerAPI) ModelInfo(args params.Entities) (params.ModelInfoResul
 	return results, nil
 }
 
-func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, error) {
+func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag, withSecrets bool) (params.ModelInfo, error) {
 	st, release, err := m.state.GetBackend(tag.Id())
 	if errors.IsNotFound(err) {
 		return params.ModelInfo{}, errors.Trace(apiservererrors.ErrPerm)
@@ -881,9 +903,22 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 	}
 	if err == nil {
 		info.ProviderType = cfg.Type()
-		info.DefaultSeries = config.PreferredSeries(cfg)
+
 		if agentVersion, exists := cfg.AgentVersion(); exists {
 			info.AgentVersion = &agentVersion
+		}
+
+		// TODO(stickupkid): Series is deprecated, always use a base as the
+		// source of truth.
+		defaultBase := config.PreferredBase(cfg)
+		info.DefaultBase = defaultBase.String()
+		if defaultSeries, err := series.GetSeriesFromBase(defaultBase); err == nil {
+			info.DefaultSeries = defaultSeries
+		} else {
+			logger.Errorf("cannot get default series from base %q: %v", defaultBase, err)
+			// This is slightly defensive, but we should always show a series
+			// in the model info.
+			info.DefaultSeries = jujuversion.DefaultSupportedLTS()
 		}
 	}
 
@@ -933,15 +968,26 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 		}
 	}
 
-	canSeeMachines := modelAdmin
-	if !canSeeMachines {
-		if canSeeMachines, err = m.hasWriteAccess(tag); err != nil {
+	canSeeMachinesAndSecrets := modelAdmin
+	if !canSeeMachinesAndSecrets {
+		if canSeeMachinesAndSecrets, err = m.hasWriteAccess(tag); err != nil {
 			return params.ModelInfo{}, errors.Trace(err)
 		}
 	}
-	if canSeeMachines {
+	if canSeeMachinesAndSecrets {
 		if info.Machines, err = common.ModelMachineInfo(st); shouldErr(err) {
 			return params.ModelInfo{}, err
+		}
+	}
+	if withSecrets && canSeeMachinesAndSecrets {
+		if info.SecretBackends, err = commonsecrets.BackendSummaryInfo(
+			m.state, st, st, st.ControllerUUID(), false, false,
+		); shouldErr(err) {
+			return params.ModelInfo{}, err
+		}
+		// Don't expose the id.
+		for i := range info.SecretBackends {
+			info.SecretBackends[i].ID = ""
 		}
 	}
 

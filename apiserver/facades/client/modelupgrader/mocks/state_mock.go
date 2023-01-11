@@ -39,6 +39,21 @@ func (m *MockStatePool) EXPECT() *MockStatePoolMockRecorder {
 	return m.recorder
 }
 
+// ControllerModel mocks base method.
+func (m *MockStatePool) ControllerModel() (modelupgrader.Model, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ControllerModel")
+	ret0, _ := ret[0].(modelupgrader.Model)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ControllerModel indicates an expected call of ControllerModel.
+func (mr *MockStatePoolMockRecorder) ControllerModel() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerModel", reflect.TypeOf((*MockStatePool)(nil).ControllerModel))
+}
+
 // Get mocks base method.
 func (m *MockStatePool) Get(arg0 string) (modelupgrader.State, error) {
 	m.ctrl.T.Helper()
@@ -104,6 +119,21 @@ func (m *MockState) AbortCurrentUpgrade() error {
 func (mr *MockStateMockRecorder) AbortCurrentUpgrade() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AbortCurrentUpgrade", reflect.TypeOf((*MockState)(nil).AbortCurrentUpgrade))
+}
+
+// AllCharmURLs mocks base method.
+func (m *MockState) AllCharmURLs() ([]*string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AllCharmURLs")
+	ret0, _ := ret[0].([]*string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AllCharmURLs indicates an expected call of AllCharmURLs.
+func (mr *MockStateMockRecorder) AllCharmURLs() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllCharmURLs", reflect.TypeOf((*MockState)(nil).AllCharmURLs))
 }
 
 // AllModelUUIDs mocks base method.

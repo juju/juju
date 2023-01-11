@@ -404,7 +404,7 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectProfileExtraction() {
 
 	unitExp.ApplicationName().Return("foo")
 	stateExp.Application("foo").Return(s.application, nil)
-	chURLStr := "cs:app-0"
+	chURLStr := "ch:app-0"
 	appExp.CharmURL().Return(&chURLStr)
 	chURL := charm.MustParseURL(chURLStr)
 	stateExp.Charm(chURL).Return(s.charm, nil)
@@ -430,7 +430,7 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectProfileExtractionWithE
 
 	unitExp.ApplicationName().Return("foo")
 	stateExp.Application("foo").Return(s.application, nil)
-	chURLStr := "cs:app-0"
+	chURLStr := "ch:app-0"
 	appExp.CharmURL().Return(&chURLStr)
 	chURL := charm.MustParseURL(chURLStr)
 	stateExp.Charm(chURL).Return(s.charm, nil)

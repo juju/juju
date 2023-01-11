@@ -28,35 +28,25 @@ func NewSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 	if !context.Auth().AuthUnitAgent() && !context.Auth().AuthApplicationAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
-	secretsBackend := state.NewSecrets(context.State())
 	leadershipChecker, err := context.LeadershipChecker()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	secretStoreConfigGetter := func() (*provider.StoreConfig, error) {
+	secretBackendConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
 		model, err := context.State().Model()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return secrets.StoreConfig(model, context.Auth().GetAuthTag(), leadershipChecker)
-	}
-	providerGetter := func() (provider.SecretStoreProvider, provider.Model, error) {
-		model, err := context.State().Model()
-		if err != nil {
-			return nil, nil, errors.Trace(err)
-		}
-		return secrets.ProviderInfoForModel(model)
+		return secrets.BackendConfigInfo(secrets.SecretsModel(model), context.Auth().GetAuthTag(), leadershipChecker)
 	}
 	return &SecretsManagerAPI{
-		authTag:           context.Auth().GetAuthTag(),
-		modelUUID:         context.State().ModelUUID(),
-		leadershipChecker: leadershipChecker,
-		secretsBackend:    secretsBackend,
-		resources:         context.Resources(),
-		secretsTriggers:   context.State(),
-		secretsConsumer:   context.State(),
-		clock:             clock.WallClock,
-		storeConfigGetter: secretStoreConfigGetter,
-		providerGetter:    providerGetter,
+		authTag:             context.Auth().GetAuthTag(),
+		leadershipChecker:   leadershipChecker,
+		secretsState:        state.NewSecrets(context.State()),
+		resources:           context.Resources(),
+		secretsTriggers:     context.State(),
+		secretsConsumer:     context.State(),
+		clock:               clock.WallClock,
+		backendConfigGetter: secretBackendConfigGetter,
 	}, nil
 }

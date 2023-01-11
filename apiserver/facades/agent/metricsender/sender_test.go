@@ -33,7 +33,7 @@ var _ = gc.Suite(&SenderSuite{})
 
 func (s *SenderSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
+	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:quantal/metered"})
 	s.meteredService = s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
 	s.unit = s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.meteredService, SetCharmURL: true})
 	s.clock = testclock.NewClock(time.Now())

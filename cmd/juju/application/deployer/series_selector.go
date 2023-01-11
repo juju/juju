@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/version"
 )
 
@@ -21,10 +22,10 @@ const (
 )
 
 type modelConfig interface {
-	// DefaultSeries returns the configured default Ubuntu series
-	// for the environment, and whether the default series was
+	// DefaultBase returns the configured default base
+	// for the environment, and whether the default base was
 	// explicitly configured on the environment.
-	DefaultSeries() (string, bool)
+	DefaultBase() (string, bool)
 }
 
 // seriesSelector is a helper type that determines what series the charm should
@@ -77,7 +78,16 @@ func (s seriesSelector) charmSeries() (selectedSeries string, err error) {
 
 	// No series explicitly requested by the user.
 	// Use model default series, if explicitly set and supported by the charm.
-	if defaultSeries, explicit := s.conf.DefaultSeries(); explicit {
+	if defaultBase, explicit := s.conf.DefaultBase(); explicit {
+		base, err := series.ParseBaseFromString(defaultBase)
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+
+		defaultSeries, err := series.GetSeriesFromBase(base)
+		if err != nil {
+			return "", errors.Trace(err)
+		}
 		return s.userRequested(defaultSeries)
 	}
 

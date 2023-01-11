@@ -22,8 +22,8 @@ import (
 	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/common/firewall"
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelrelations"
-	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/core/crossmodel"
+	coremacaroon "github.com/juju/juju/core/macaroon"
 	corefirewall "github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -655,7 +655,7 @@ type mockVerifier struct {
 }
 
 func (m mockVerifier) VerifyMacaroon(ctx context.Context, ms macaroon.Slice) ([]bakery.Op, []string, error) {
-	declared := checkers.InferDeclared(charmstore.MacaroonNamespace, ms)
+	declared := checkers.InferDeclared(coremacaroon.MacaroonNamespace, ms)
 	var conditions []string
 	for k, v := range declared {
 		conditions = append(conditions, fmt.Sprintf("declared %v %v", k, v))

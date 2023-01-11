@@ -3344,10 +3344,10 @@ func bootstrapEnvWithConstraints(c *gc.C, env environs.Environ, cons constraints
 	return bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
 		context.NewEmptyCloudCallContext(),
 		bootstrap.BootstrapParams{
-			ControllerConfig:         coretesting.FakeControllerConfig(),
-			AdminSecret:              testing.AdminSecret,
-			CAPrivateKey:             coretesting.CAKey,
-			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
-			BootstrapConstraints:     cons,
+			ControllerConfig:        coretesting.FakeControllerConfig(),
+			AdminSecret:             testing.AdminSecret,
+			CAPrivateKey:            coretesting.CAKey,
+			SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
+			BootstrapConstraints:    cons,
 		})
 }

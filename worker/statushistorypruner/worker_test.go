@@ -14,6 +14,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/environs/config"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/pruner"
 	"github.com/juju/juju/worker/pruner/mocks"
 	"github.com/juju/juju/worker/statushistorypruner"
@@ -31,8 +33,16 @@ func (s *PrunerSuite) TestRunStop(c *gc.C) {
 	ch <- struct{}{}
 	w := watchertest.NewMockNotifyWatcher(ch)
 
+	attrs := coretesting.FakeConfig().Merge(map[string]interface{}{
+		"max-status-history-size": "0",
+		"max-status-history-age":  "0",
+	})
+	modelConfig, err := config.New(config.UseDefaults, attrs)
+	c.Assert(err, jc.ErrorIsNil)
+
 	facade := mocks.NewMockFacade(ctrl)
 	facade.EXPECT().WatchForModelConfigChanges().Return(w, nil)
+	facade.EXPECT().ModelConfig().Return(modelConfig, nil).AnyTimes()
 
 	updater, err := statushistorypruner.New(pruner.Config{
 		Facade:        facade,

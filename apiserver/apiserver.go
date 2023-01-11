@@ -847,8 +847,9 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		pattern: modelRoutePrefix + "/units/:unit/resources/:resource",
 		handler: unitResourcesHandler,
 	}, {
-		pattern: modelRoutePrefix + "/backups",
-		handler: backupHandler,
+		pattern:    modelRoutePrefix + "/backups",
+		handler:    backupHandler,
+		authorizer: controllerAdminAuthorizer,
 	}, {
 		pattern:    "/migrate/charms",
 		handler:    migrateCharmsHTTPHandler,

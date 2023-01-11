@@ -380,7 +380,7 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherMachineProvisioned(
 }
 
 func (s *lxdProfileWatcherSuite) updateCharmForMachineLXDProfileWatcher(rev string, profile bool) {
-	curl := "cs:name-me-" + rev
+	curl := "ch:name-me-" + rev
 	if profile {
 		s.charm.EXPECT().LXDProfile().Return(lxdprofile.Profile{
 			Config: map[string]string{"key1": "value1"},

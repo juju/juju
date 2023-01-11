@@ -4,10 +4,13 @@
 package state
 
 import (
-	"github.com/juju/description/v4"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
+	"github.com/juju/utils/v3"
+
+	"github.com/juju/description/v4"
 
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/permission"
@@ -520,12 +523,13 @@ type ImportSecrets struct{}
 
 // Execute the import on the secrets description, carefully modelling
 // the dependencies we have.
-func (ImportSecrets) Execute(src SecretsInput, runner TransactionRunner) error {
+func (ImportSecrets) Execute(src SecretsInput, runner TransactionRunner, knownSecretBackends set.Strings) error {
 	allSecrets := src.Secrets()
 	if len(allSecrets) == 0 {
 		return nil
 	}
 
+	seenBackendIds := set.NewStrings()
 	var ops []txn.Op
 	for _, secret := range allSecrets {
 		uri := &secrets.URI{ID: secret.Id()}
@@ -569,20 +573,39 @@ func (ImportSecrets) Execute(src SecretsInput, runner TransactionRunner) error {
 			for k, v := range rev.Content() {
 				dataCopy[k] = v
 			}
+			var valueRef *valueRefDoc
+			if len(dataCopy) == 0 {
+				valueRef = &valueRefDoc{
+					BackendID:  rev.ValueRef().BackendID(),
+					RevisionID: rev.ValueRef().RevisionID(),
+				}
+				if !utils.IsValidUUIDString(valueRef.BackendID) && !seenBackendIds.Contains(valueRef.BackendID) {
+					if !knownSecretBackends.Contains(valueRef.BackendID) {
+						return errors.New("target controller does not have all required secret backends set up")
+					}
+					ops = append(ops, txn.Op{
+						C:      secretBackendsC,
+						Id:     valueRef.BackendID,
+						Assert: txn.DocExists,
+					})
+				}
+				seenBackendIds.Add(valueRef.BackendID)
+			}
 			ops = append(ops, txn.Op{
 				C:      secretRevisionsC,
 				Id:     key,
 				Assert: txn.DocMissing,
 				Insert: secretRevisionDoc{
-					DocID:      key,
-					Revision:   rev.Number(),
-					CreateTime: rev.Created(),
-					UpdateTime: rev.Updated(),
-					ExpireTime: rev.ExpireTime(),
-					Obsolete:   rev.Obsolete(),
-					Data:       dataCopy,
-					ProviderId: rev.ProviderId(),
-					OwnerTag:   owner.String(),
+					DocID:         key,
+					Revision:      rev.Number(),
+					CreateTime:    rev.Created(),
+					UpdateTime:    rev.Updated(),
+					ExpireTime:    rev.ExpireTime(),
+					Obsolete:      rev.Obsolete(),
+					PendingDelete: rev.PendingDelete(),
+					Data:          dataCopy,
+					ValueRef:      valueRef,
+					OwnerTag:      owner.String(),
 				},
 			})
 		}

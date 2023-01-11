@@ -16,7 +16,6 @@ import (
 	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
-	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/base"
 	api "github.com/juju/juju/api/client/resources"
@@ -119,12 +118,11 @@ type DownloadInfo struct {
 
 // GetDownloadInfo will get a download information from the given charm URL
 // using the appropriate charm store.
-func (c *Client) GetDownloadInfo(curl *charm.URL, origin apicharm.Origin, mac *macaroon.Macaroon) (DownloadInfo, error) {
+func (c *Client) GetDownloadInfo(curl *charm.URL, origin apicharm.Origin) (DownloadInfo, error) {
 	args := params.CharmURLAndOrigins{
 		Entities: []params.CharmURLAndOrigin{{
 			CharmURL: curl.String(),
 			Origin:   origin.ParamsCharmOrigin(),
-			Macaroon: mac,
 		}},
 	}
 	var results params.DownloadInfoResults
@@ -160,31 +158,6 @@ func (c *Client) AddCharm(curl *charm.URL, origin apicharm.Origin, force bool) (
 	}
 	var result params.CharmOriginResult
 	if err := c.facade.FacadeCall("AddCharm", args, &result); err != nil {
-		return apicharm.Origin{}, errors.Trace(err)
-	}
-	return apicharm.APICharmOrigin(result.Origin)
-}
-
-// AddCharmWithAuthorization is like AddCharm except it also provides
-// the given charmstore macaroon for the juju server to use when
-// obtaining the charm from the charm store or from charm hub. The
-// macaroon is conventionally obtained from the /delegatable-macaroon
-// endpoint in the charm store.
-//
-// If the AddCharmWithAuthorization API call fails because of an
-// authorization error when retrieving the charm from the charm store,
-// an error satisfying params.IsCodeUnauthorized will be returned.
-// Force is used to overload any validation errors that could occur during
-// a deploy
-func (c *Client) AddCharmWithAuthorization(curl *charm.URL, origin apicharm.Origin, csMac *macaroon.Macaroon, force bool) (apicharm.Origin, error) {
-	args := params.AddCharmWithAuth{
-		URL:                curl.String(),
-		Origin:             origin.ParamsCharmOrigin(),
-		CharmStoreMacaroon: csMac,
-		Force:              force,
-	}
-	var result params.CharmOriginResult
-	if err := c.facade.FacadeCall("AddCharmWithAuthorization", args, &result); err != nil {
 		return apicharm.Origin{}, errors.Trace(err)
 	}
 	return apicharm.APICharmOrigin(result.Origin)

@@ -44,7 +44,7 @@ var _ metricsender.MetricSender = (*metricsender.NopSender)(nil)
 func (s *MetricSenderSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
-	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
+	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:quantal/metered"})
 	// Application with metrics credentials set.
 	credApp := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm, Name: "cred"})
 	err := credApp.SetMetricCredentials([]byte("something here"))
@@ -97,7 +97,7 @@ func (s *MetricSenderSuite) TestSendMetricsFromNewModel(c *gc.C) {
 	modelName := model.Name()
 	c.Assert(modelName, gc.Equals, "test-model")
 
-	meteredCharm := f.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
+	meteredCharm := f.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:quantal/metered"})
 	// Application with metrics credentials set.
 	credApp := f.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm, Name: "cred"})
 	err = credApp.SetMetricCredentials([]byte("something here"))

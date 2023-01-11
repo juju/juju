@@ -19,7 +19,7 @@ var waitUntilReady = func(s *mgo.Session, timeout int) error {
 // Create is the API method that requests juju to create a new backup
 // of its state.
 func (a *API) Create(args params.BackupsCreateArgs) (params.BackupsMetadataResult, error) {
-	backupsMethods := newBackups()
+	backupsMethods := newBackups(a.paths)
 
 	session := a.backend.MongoSession().Copy()
 	defer session.Close()
@@ -66,7 +66,7 @@ func (a *API) Create(args params.BackupsCreateArgs) (params.BackupsMetadataResul
 	}
 	meta.Controller.HANodes = int64(len(nodes))
 
-	fileName, err := backupsMethods.Create(meta, a.paths, dbInfo)
+	fileName, err := backupsMethods.Create(meta, dbInfo)
 	if err != nil {
 		return result, errors.Trace(err)
 	}

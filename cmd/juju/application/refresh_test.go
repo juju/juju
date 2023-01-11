@@ -28,7 +28,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/agent/unitassigner"
@@ -98,13 +97,12 @@ func (s *BaseRefreshSuite) SetUpTest(c *gc.C) {
 	s.deployResources = func(
 		applicationID string,
 		chID resources.CharmID,
-		csMac *macaroon.Macaroon,
 		filesAndRevisions map[string]string,
 		resources map[string]charmresource.Meta,
 		conn base.APICallCloser,
 		filesystem modelcmd.Filesystem,
 	) (ids map[string]string, err error) {
-		s.AddCall("DeployResources", applicationID, chID, csMac, filesAndRevisions, resources, conn)
+		s.AddCall("DeployResources", applicationID, chID, filesAndRevisions, resources, conn)
 		ids = make(map[string]string)
 		for _, r := range resources {
 			ids[r.Name] = r.Name + "Id"
@@ -191,9 +189,9 @@ func (s *BaseRefreshSuite) refreshCommand() cmd.Command {
 			bakeryClient *httpbakery.Client,
 			csURL string,
 			channel csclientparams.Channel,
-		) (store.MacaroonGetter, store.CharmrepoForDeploy) {
+		) store.CharmrepoForDeploy {
 			s.AddCall("NewCharmStore", csURL)
-			return s.fakeAPI, &fakeCharmStoreAPI{
+			return &fakeCharmStoreAPI{
 				fakeDeployAPI: s.fakeAPI,
 			}
 		},
@@ -391,9 +389,10 @@ func (s *RefreshErrorsStateSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
 
 	cfgAttrs := map[string]interface{}{
-		"name": "name",
-		"uuid": coretesting.ModelTag.Id(),
-		"type": "foo",
+		"name":           "name",
+		"uuid":           coretesting.ModelTag.Id(),
+		"type":           "foo",
+		"secret-backend": "auto",
 	}
 	s.fakeAPI = vanillaFakeModelAPI(cfgAttrs)
 	s.cmd = NewRefreshCommandForStateTest(
@@ -401,8 +400,8 @@ func (s *RefreshErrorsStateSuite) SetUpTest(c *gc.C) {
 			bakeryClient *httpbakery.Client,
 			csURL string,
 			channel csclientparams.Channel,
-		) (store.MacaroonGetter, store.CharmrepoForDeploy) {
-			return s.fakeAPI, &fakeCharmStoreAPI{
+		) store.CharmrepoForDeploy {
+			return &fakeCharmStoreAPI{
 				fakeDeployAPI: s.fakeAPI,
 			}
 		},
@@ -541,8 +540,8 @@ func (s *RefreshSuccessStateSuite) SetUpTest(c *gc.C) {
 			bakeryClient *httpbakery.Client,
 			csURL string,
 			channel csclientparams.Channel,
-		) (store.MacaroonGetter, store.CharmrepoForDeploy) {
-			return s.fakeAPI, &fakeCharmStoreAPI{
+		) store.CharmrepoForDeploy {
+			return &fakeCharmStoreAPI{
 				fakeDeployAPI: s.fakeAPI,
 			}
 		},
