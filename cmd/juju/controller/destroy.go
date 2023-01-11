@@ -124,12 +124,12 @@ var destroySysMsgDetails = `
   - model list:{{range .ModelNames}} "{{.}}"{{end}}
  - {{.MachineCount}} machine{{if gt .MachineCount 1}}s{{end}} will be destroyed
  - {{.ApplicationCount}} application{{if gt .ApplicationCount 1}}s{{end}} will be removed
- {{- if gt .ApplicationCount 0}}
+ {{- if gt (len .ApplicationNames) 0}}
   - application list:{{range .ApplicationNames}} "{{.}}"{{end}}
  {{- end}}
  - {{.FilesystemCount}} filesystem{{if gt .FilesystemCount 1}}s{{end}} and {{.VolumeCount}} volume{{if gt .VolumeCount 1}}s{{end}} will be {{if .ReleaseStorage}}released{{else}}destroyed{{end}}
 {{- end}}
-`
+`[1:]
 
 // destroyControllerAPI defines the methods on the controller API endpoint
 // that the destroy command calls.
@@ -238,7 +238,6 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 
 	for {
 		// Attempt to destroy the controller.
-		ctx.Infof("Destroying controller")
 		var hasHostedModels bool
 		var hasPersistentStorage bool
 		var destroyStorage *bool
@@ -317,6 +316,8 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 				return errors.Annotate(err, "Invalid controller name")
 			}
 		}
+
+		ctx.Infof("Destroying controller")
 
 		// Even if we've not just requested for hosted models to be destroyed,
 		// there may be some being destroyed already. We need to wait for them.
