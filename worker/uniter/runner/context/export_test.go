@@ -12,6 +12,8 @@ import (
 
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
 	jujusecrets "github.com/juju/juju/secrets"
 	"github.com/juju/juju/worker/uniter/runner/context/mocks"
@@ -64,6 +66,7 @@ func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 		remoteUnitName:       hcParams.RemoteUnitName,
 		relations:            hcParams.Relations,
 		apiAddrs:             hcParams.APIAddrs,
+		modelType:            model.IAAS,
 		legacyProxySettings:  hcParams.LegacyProxySettings,
 		jujuProxySettings:    hcParams.JujuProxySettings,
 		actionData:           hcParams.ActionData,
@@ -95,7 +98,13 @@ func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	ctx.portRangeChanges = newPortRangeChangeRecorder(ctx.logger, hcParams.Unit.Tag(), machPorts)
+
+	appPortRanges, err := hcParams.State.OpenedApplicationPortRangesByEndpoint(hcParams.Unit.ApplicationTag())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ctx.portRangeChanges = newPortRangeChangeRecorder(ctx.logger, hcParams.Unit.Tag(), ctx.modelType, machPorts, appPortRanges)
+
 	ctx.secretChanges = newSecretsChangeRecorder(ctx.logger)
 
 	statusCode, statusInfo, err := hcParams.Unit.MeterStatus()
@@ -109,15 +118,20 @@ func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 	return ctx, nil
 }
 
-func NewMockUnitHookContext(mockUnit *mocks.MockHookUnit, leadership LeadershipContext) *HookContext {
+func NewMockUnitHookContext(mockUnit *mocks.MockHookUnit, modelType model.ModelType, leadership LeadershipContext) *HookContext {
 	logger := loggo.GetLogger("test")
 	return &HookContext{
 		unit:              mockUnit,
 		unitName:          mockUnit.Tag().Id(),
 		logger:            logger,
+		modelType:         modelType,
 		LeadershipContext: leadership,
-		portRangeChanges:  newPortRangeChangeRecorder(logger, mockUnit.Tag(), nil),
-		secretChanges:     newSecretsChangeRecorder(logger),
+		portRangeChanges: newPortRangeChangeRecorder(logger, mockUnit.Tag(), modelType, nil,
+			network.GroupedPortRanges{
+				"": []network.PortRange{network.MustParsePortRange("666-888/tcp")},
+			},
+		),
+		secretChanges: newSecretsChangeRecorder(logger),
 	}
 }
 
@@ -128,7 +142,8 @@ func NewMockUnitHookContextWithState(mockUnit *mocks.MockHookUnit, state *uniter
 		unit:             mockUnit,
 		state:            state,
 		logger:           logger,
-		portRangeChanges: newPortRangeChangeRecorder(logger, mockUnit.Tag(), nil),
+		modelType:        model.IAAS,
+		portRangeChanges: newPortRangeChangeRecorder(logger, mockUnit.Tag(), model.IAAS, nil, nil),
 		secretChanges:    newSecretsChangeRecorder(logger),
 	}
 }

@@ -834,6 +834,26 @@ type HostNetworkChangeResults struct {
 	Results []HostNetworkChange `json:"results"`
 }
 
+// ApplicationOpenedPorts describes the set of port ranges that have been
+// opened by an application for an endpoint.
+type ApplicationOpenedPorts struct {
+	Endpoint   string      `json:"endpoint"`
+	PortRanges []PortRange `json:"port-ranges"`
+}
+
+// ApplicationOpenedPortsResult holds a single result of the
+// CAASFirewallerEmbedded.GetApplicationOpenedPorts() API calls.
+type ApplicationOpenedPortsResult struct {
+	Error                 *Error                   `json:"error,omitempty"`
+	ApplicationPortRanges []ApplicationOpenedPorts `json:"application-port-ranges"`
+}
+
+// ApplicationOpenedPortsResults holds all the results of the
+// CAASFirewallerEmbedded.GetApplicationOpenedPorts() API calls.
+type ApplicationOpenedPortsResults struct {
+	Results []ApplicationOpenedPortsResult `json:"results"`
+}
+
 // OpenMachinePortRangesByEndpointResults holds the results of a request to the
 // uniter's OpenedMachinePortRangesByEndpoint API.
 type OpenMachinePortRangesByEndpointResults struct {

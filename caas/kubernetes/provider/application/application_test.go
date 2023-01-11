@@ -21,6 +21,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8sresource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
@@ -1569,30 +1570,33 @@ func (s *applicationSuite) TestUpdatePortsStatelessUpdateContainerPorts(c *gc.C)
 	updatedSvc := getDefaultSvc()
 	updatedSvc.Spec.Ports = []corev1.ServicePort{
 		{
-			Name:       "port1",
-			Port:       int32(80),
+			Name:       "juju-port1",
+			Port:       int32(8080),
 			TargetPort: intstr.FromInt(8080),
 			Protocol:   corev1.ProtocolTCP,
 		},
 	}
+	updatedSvcResource := resources.NewService("gitlab", "test", updatedSvc)
+	replacePortsPatchType := types.MergePatchType
+	updatedSvcResource.PatchType = &replacePortsPatchType
 
 	updatedMainResource := getMainResourceSpec()
 	updatedMainResource.Spec.Template.Spec.Containers[1].Ports = []corev1.ContainerPort{
 		{
-			Name:          "port1",
+			Name:          "juju-port1",
 			ContainerPort: int32(8080),
 			Protocol:      corev1.ProtocolTCP,
 		},
 	}
 	gomock.InOrder(
-		s.applier.EXPECT().Apply(resources.NewService("gitlab", "test", updatedSvc)),
+		s.applier.EXPECT().Apply(updatedSvcResource),
 		s.applier.EXPECT().Apply(resources.NewDeployment("gitlab", "test", updatedMainResource)),
 		s.applier.EXPECT().Run(context.Background(), s.client, false).Return(nil),
 	)
 	c.Assert(app.UpdatePorts([]caas.ServicePort{
 		{
 			Name:       "port1",
-			Port:       80,
+			Port:       8080,
 			TargetPort: 8080,
 			Protocol:   "TCP",
 		},
@@ -1699,30 +1703,33 @@ func (s *applicationSuite) TestUpdatePortsStatefulUpdateContainerPorts(c *gc.C) 
 	updatedSvc := getDefaultSvc()
 	updatedSvc.Spec.Ports = []corev1.ServicePort{
 		{
-			Name:       "port1",
-			Port:       int32(80),
+			Name:       "juju-port1",
+			Port:       int32(8080),
 			TargetPort: intstr.FromInt(8080),
 			Protocol:   corev1.ProtocolTCP,
 		},
 	}
+	updatedSvcResource := resources.NewService("gitlab", "test", updatedSvc)
+	replacePortsPatchType := types.MergePatchType
+	updatedSvcResource.PatchType = &replacePortsPatchType
 
 	updatedMainResource := getMainResourceSpec()
 	updatedMainResource.Spec.Template.Spec.Containers[1].Ports = []corev1.ContainerPort{
 		{
-			Name:          "port1",
+			Name:          "juju-port1",
 			ContainerPort: int32(8080),
 			Protocol:      corev1.ProtocolTCP,
 		},
 	}
 	gomock.InOrder(
-		s.applier.EXPECT().Apply(resources.NewService("gitlab", "test", updatedSvc)),
+		s.applier.EXPECT().Apply(updatedSvcResource),
 		s.applier.EXPECT().Apply(resources.NewStatefulSet("gitlab", "test", updatedMainResource)),
 		s.applier.EXPECT().Run(context.Background(), s.client, false).Return(nil),
 	)
 	c.Assert(app.UpdatePorts([]caas.ServicePort{
 		{
 			Name:       "port1",
-			Port:       80,
+			Port:       8080,
 			TargetPort: 8080,
 			Protocol:   "TCP",
 		},
@@ -1789,34 +1796,148 @@ func (s *applicationSuite) TestUpdatePortsDaemonUpdateContainerPorts(c *gc.C) {
 	updatedSvc := getDefaultSvc()
 	updatedSvc.Spec.Ports = []corev1.ServicePort{
 		{
-			Name:       "port1",
-			Port:       int32(80),
+			Name:       "juju-port1",
+			Port:       int32(8080),
 			TargetPort: intstr.FromInt(8080),
 			Protocol:   corev1.ProtocolTCP,
 		},
 	}
+	updatedSvcResource := resources.NewService("gitlab", "test", updatedSvc)
+	replacePortsPatchType := types.MergePatchType
+	updatedSvcResource.PatchType = &replacePortsPatchType
 
 	updatedMainResource := getMainResourceSpec()
 	updatedMainResource.Spec.Template.Spec.Containers[1].Ports = []corev1.ContainerPort{
 		{
-			Name:          "port1",
+			Name:          "juju-port1",
 			ContainerPort: int32(8080),
 			Protocol:      corev1.ProtocolTCP,
 		},
 	}
 	gomock.InOrder(
-		s.applier.EXPECT().Apply(resources.NewService("gitlab", "test", updatedSvc)),
+		s.applier.EXPECT().Apply(updatedSvcResource),
 		s.applier.EXPECT().Apply(resources.NewDaemonSet("gitlab", "test", updatedMainResource)),
 		s.applier.EXPECT().Run(context.Background(), s.client, false).Return(nil),
 	)
 	c.Assert(app.UpdatePorts([]caas.ServicePort{
 		{
 			Name:       "port1",
-			Port:       80,
+			Port:       8080,
 			TargetPort: 8080,
 			Protocol:   "TCP",
 		},
 	}, true), jc.ErrorIsNil)
+}
+
+func (s *applicationSuite) TestUpdatePortsInvalidProtocol(c *gc.C) {
+	app, ctrl := s.getApp(c, caas.DeploymentStateful, true)
+	defer ctrl.Finish()
+
+	_, err := s.client.CoreV1().Services("test").Create(context.TODO(), getDefaultSvc(), metav1.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(app.UpdatePorts([]caas.ServicePort{
+		{
+			Name:       "port1",
+			Port:       8080,
+			TargetPort: 8080,
+			Protocol:   "bad-protocol",
+		},
+	}, false), gc.ErrorMatches, `protocol "bad-protocol" for service "port1" not valid`)
+}
+
+func (s *applicationSuite) TestUpdatePortsWithExistingPorts(c *gc.C) {
+	app, ctrl := s.getApp(c, caas.DeploymentStateful, true)
+	defer ctrl.Finish()
+
+	existingSvc := getDefaultSvc()
+	existingSvc.Spec.Ports = []corev1.ServicePort{
+		{
+			Name:       "existing-port",
+			Port:       int32(3000),
+			TargetPort: intstr.FromInt(3000),
+			Protocol:   corev1.ProtocolTCP,
+		},
+	}
+	svc, err := s.client.CoreV1().Services("test").Create(context.TODO(), existingSvc, metav1.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(svc.Spec.Ports, gc.DeepEquals, existingSvc.Spec.Ports)
+
+	updatedSvc := getDefaultSvc()
+	updatedSvc.Spec.Ports = []corev1.ServicePort{
+		{
+			Name:       "existing-port",
+			Port:       int32(3000),
+			TargetPort: intstr.FromInt(3000),
+			Protocol:   corev1.ProtocolTCP,
+		},
+		{
+			Name:       "juju-port1",
+			Port:       int32(8080),
+			TargetPort: intstr.FromInt(8080),
+			Protocol:   corev1.ProtocolTCP,
+		},
+		{
+			Name:       "juju-port2",
+			Port:       int32(8888),
+			TargetPort: intstr.FromInt(8888),
+			Protocol:   corev1.ProtocolTCP,
+		},
+	}
+	updatedSvcResource := resources.NewService("gitlab", "test", updatedSvc)
+	replacePortsPatchType := types.MergePatchType
+	updatedSvcResource.PatchType = &replacePortsPatchType
+
+	updatedSvc2nd := getDefaultSvc()
+	updatedSvc2nd.Spec.Ports = []corev1.ServicePort{
+		{
+			Name:       "existing-port",
+			Port:       int32(3000),
+			TargetPort: intstr.FromInt(3000),
+			Protocol:   corev1.ProtocolTCP,
+		},
+		{
+			Name:       "juju-port2",
+			Port:       int32(8888),
+			TargetPort: intstr.FromInt(8888),
+			Protocol:   corev1.ProtocolTCP,
+		},
+	}
+	updatedSvcResource2nd := resources.NewService("gitlab", "test", updatedSvc2nd)
+	updatedSvcResource2nd.PatchType = &replacePortsPatchType
+
+	gomock.InOrder(
+		s.applier.EXPECT().Apply(updatedSvcResource),
+		s.applier.EXPECT().Run(context.Background(), s.client, false).Return(nil),
+
+		s.applier.EXPECT().Apply(updatedSvcResource2nd),
+		s.applier.EXPECT().Run(context.Background(), s.client, false).Return(nil),
+	)
+	c.Assert(app.UpdatePorts([]caas.ServicePort{
+		// Added ports: 8080 and 8888.
+		{
+			Name:       "port1",
+			Port:       8080,
+			TargetPort: 8080,
+			Protocol:   "TCP",
+		},
+		{
+			Name:       "port2",
+			Port:       8888,
+			TargetPort: 8888,
+			Protocol:   "TCP",
+		},
+	}, false), jc.ErrorIsNil)
+
+	c.Assert(app.UpdatePorts([]caas.ServicePort{
+		// Removed port: 8080.
+		{
+			Name:       "port2",
+			Port:       8888,
+			TargetPort: 8888,
+			Protocol:   "TCP",
+		},
+	}, false), jc.ErrorIsNil)
 }
 
 func (s *applicationSuite) TestUpdatePortsStateless(c *gc.C) {
@@ -1829,21 +1950,24 @@ func (s *applicationSuite) TestUpdatePortsStateless(c *gc.C) {
 	updatedSvc := getDefaultSvc()
 	updatedSvc.Spec.Ports = []corev1.ServicePort{
 		{
-			Name:       "port1",
-			Port:       int32(80),
+			Name:       "juju-port1",
+			Port:       int32(8080),
 			TargetPort: intstr.FromInt(8080),
 			Protocol:   corev1.ProtocolTCP,
 		},
 	}
+	updatedSvcResource := resources.NewService("gitlab", "test", updatedSvc)
+	replacePortsPatchType := types.MergePatchType
+	updatedSvcResource.PatchType = &replacePortsPatchType
 
 	gomock.InOrder(
-		s.applier.EXPECT().Apply(resources.NewService("gitlab", "test", updatedSvc)),
+		s.applier.EXPECT().Apply(updatedSvcResource),
 		s.applier.EXPECT().Run(context.Background(), s.client, false).Return(nil),
 	)
 	c.Assert(app.UpdatePorts([]caas.ServicePort{
 		{
 			Name:       "port1",
-			Port:       80,
+			Port:       8080,
 			TargetPort: 8080,
 			Protocol:   "TCP",
 		},
@@ -1860,21 +1984,24 @@ func (s *applicationSuite) TestUpdatePortsStateful(c *gc.C) {
 	updatedSvc := getDefaultSvc()
 	updatedSvc.Spec.Ports = []corev1.ServicePort{
 		{
-			Name:       "port1",
-			Port:       int32(80),
+			Name:       "juju-port1",
+			Port:       int32(8080),
 			TargetPort: intstr.FromInt(8080),
 			Protocol:   corev1.ProtocolTCP,
 		},
 	}
+	updatedSvcResource := resources.NewService("gitlab", "test", updatedSvc)
+	replacePortsPatchType := types.MergePatchType
+	updatedSvcResource.PatchType = &replacePortsPatchType
 
 	gomock.InOrder(
-		s.applier.EXPECT().Apply(resources.NewService("gitlab", "test", updatedSvc)),
+		s.applier.EXPECT().Apply(updatedSvcResource),
 		s.applier.EXPECT().Run(context.Background(), s.client, false).Return(nil),
 	)
 	c.Assert(app.UpdatePorts([]caas.ServicePort{
 		{
 			Name:       "port1",
-			Port:       80,
+			Port:       8080,
 			TargetPort: 8080,
 			Protocol:   "TCP",
 		},
@@ -1891,21 +2018,24 @@ func (s *applicationSuite) TestUpdatePortsDaemonUpdate(c *gc.C) {
 	updatedSvc := getDefaultSvc()
 	updatedSvc.Spec.Ports = []corev1.ServicePort{
 		{
-			Name:       "port1",
-			Port:       int32(80),
+			Name:       "juju-port1",
+			Port:       int32(8080),
 			TargetPort: intstr.FromInt(8080),
 			Protocol:   corev1.ProtocolTCP,
 		},
 	}
+	updatedSvcResource := resources.NewService("gitlab", "test", updatedSvc)
+	replacePortsPatchType := types.MergePatchType
+	updatedSvcResource.PatchType = &replacePortsPatchType
 
 	gomock.InOrder(
-		s.applier.EXPECT().Apply(resources.NewService("gitlab", "test", updatedSvc)),
+		s.applier.EXPECT().Apply(updatedSvcResource),
 		s.applier.EXPECT().Run(context.Background(), s.client, false).Return(nil),
 	)
 	c.Assert(app.UpdatePorts([]caas.ServicePort{
 		{
 			Name:       "port1",
-			Port:       80,
+			Port:       8080,
 			TargetPort: 8080,
 			Protocol:   "TCP",
 		},
