@@ -139,14 +139,6 @@ type destroyControllerAPI interface {
 	ControllerConfig() (controller.Config, error)
 }
 
-// destroyClientAPI defines the methods on the client API endpoint that the
-// destroy command might call.
-type destroyClientAPI interface {
-	Close() error
-	ModelGet() (map[string]interface{}, error)
-	DestroyModel() error
-}
-
 // Info implements Command.Info.
 func (c *destroyCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
@@ -494,9 +486,8 @@ type destroyCommandBase struct {
 
 	// The following fields are for mocking out
 	// api behavior for testing.
-	api       destroyControllerAPI
-	apierr    error
-	clientapi destroyClientAPI
+	api    destroyControllerAPI
+	apierr error
 
 	controllerCredentialAPIFunc newCredentialAPIFunc
 
