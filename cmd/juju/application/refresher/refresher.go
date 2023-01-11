@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/juju/charm/v10"
-	"github.com/juju/charmrepo/v7"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
 
@@ -194,12 +193,12 @@ func (d *localCharmRefresher) Refresh() (*CharmID, error) {
 			Origin: newOrigin,
 		}, nil
 	}
-	if _, ok := err.(*charmrepo.NotFoundError); ok {
+	if errors.Is(err, errors.NotFound) {
 		return nil, errors.Errorf("no charm found at %q", d.charmRef)
 	}
 	// If we get a "not exists" or invalid path error then we attempt to interpret
 	// the supplied charm reference as a URL below, otherwise we return the error.
-	if err != os.ErrNotExist && !charmrepo.IsInvalidPathError(err) {
+	if err != os.ErrNotExist && !corecharm.IsInvalidPathError(err) {
 		return nil, errors.Trace(err)
 	}
 
