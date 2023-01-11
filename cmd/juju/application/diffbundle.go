@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/core/arch"
 	bundlechanges "github.com/juju/juju/core/bundle/changes"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 )
@@ -76,12 +77,16 @@ existing is always assumed, so it doesn't need to be specified.
 Config values for comparison are always source from the "current" model
 generation.
 
+Specifying a base will retrieve the bundle for the relevant store for
+the give base.
+
 Examples:
+
     juju diff-bundle localbundle.yaml
-    juju diff-bundle cs:canonical-kubernetes
+    juju diff-bundle charmed-kubernetes
+    juju diff-bundle charmed-kubernetes --overlay local-config.yaml --overlay extra.yaml
+	juju diff-bundle charmed-kubernetes --base ubuntu@22.04
     juju diff-bundle -m othermodel hadoop-spark
-    juju diff-bundle cs:mongodb-cluster --channel beta
-    juju diff-bundle cs:canonical-kubernetes --overlay local-config.yaml --overlay extra.yaml
     juju diff-bundle localbundle.yaml --map-machines 3=4
 
 See also:
@@ -125,6 +130,7 @@ type diffBundleCommand struct {
 	arch           string
 	arches         arch.Arches
 	series         string
+	base           string
 	annotations    bool
 
 	bundleMachines map[string]string
@@ -159,7 +165,8 @@ func (c *diffBundleCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 
 	f.StringVar(&c.arch, "arch", "", fmt.Sprintf("specify an arch <%s>", c.archArgumentList()))
-	f.StringVar(&c.series, "series", "", "specify a series")
+	f.StringVar(&c.series, "series", "", "specify a series. DEPRECATED: use --base")
+	f.StringVar(&c.base, "base", "", "specify a base")
 	f.StringVar(&c.channelStr, "channel", "", "Channel to use when getting the bundle from the charm hub or charm store")
 	f.Var(cmd.NewAppendStringsValue(&c.bundleOverlays), "overlay", "Bundles to overlay on the primary bundle, applied in order")
 	f.StringVar(&c.machineMap, "map-machines", "", "Indicates how existing machines correspond to bundle machines")
@@ -168,6 +175,10 @@ func (c *diffBundleCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Init is part of cmd.Command.
 func (c *diffBundleCommand) Init(args []string) error {
+	if c.base != "" && c.series != "" {
+		return errors.New("--series and --base cannot be specified together")
+	}
+
 	if len(args) < 1 {
 		return errors.New("no bundle specified")
 	}
@@ -193,6 +204,26 @@ func (c *diffBundleCommand) Init(args []string) error {
 
 // Run is part of cmd.Command.
 func (c *diffBundleCommand) Run(ctx *cmd.Context) error {
+	var (
+		base series.Base
+		err  error
+	)
+	// Note: we validated that both series and base cannot be specified in
+	// Init(), so it's safe to assume that only one of them is set here.
+	if c.series != "" {
+		ctx.Warningf("series flag is deprecated, use --base instead")
+		if base, err = series.GetBaseFromSeries(c.series); err != nil {
+			return errors.Annotatef(err, "attempting to convert %q to a base", c.series)
+		}
+		c.base = base.String()
+		c.series = ""
+	}
+	if c.base != "" {
+		if base, err = series.ParseBaseFromString(c.base); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	apiRoot, err := c.newAPIRootFn()
 	if err != nil {
 		return errors.Trace(err)
@@ -200,7 +231,7 @@ func (c *diffBundleCommand) Run(ctx *cmd.Context) error {
 	defer func() { _ = apiRoot.Close() }()
 
 	// Load up the bundle data, with includes and overlays.
-	baseSrc, err := c.bundleDataSource(ctx, apiRoot)
+	baseSrc, err := c.bundleDataSource(ctx, apiRoot, base)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -273,7 +304,7 @@ func missingRelationEndpoint(rel string) bool {
 	return len(tokens) != 2 || tokens[1] == ""
 }
 
-func (c *diffBundleCommand) bundleDataSource(ctx *cmd.Context, apiRoot base.APICallCloser) (charm.BundleDataSource, error) {
+func (c *diffBundleCommand) bundleDataSource(ctx *cmd.Context, apiRoot base.APICallCloser, base series.Base) (charm.BundleDataSource, error) {
 	ds, err := charm.LocalBundleDataSource(c.bundle)
 
 	// NotValid/NotFound means we should try interpreting it as a charm store
@@ -295,12 +326,9 @@ func (c *diffBundleCommand) bundleDataSource(ctx *cmd.Context, apiRoot base.APIC
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	platform, err := utils.DeducePlatform(constraints.Value{
+	platform := utils.MakePlatform(constraints.Value{
 		Arch: &c.arch,
-	}, c.series, modelConstraints)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	}, base, modelConstraints)
 	origin, err := utils.DeduceOrigin(bURL, c.channel, platform)
 	if err != nil {
 		return nil, errors.Trace(err)

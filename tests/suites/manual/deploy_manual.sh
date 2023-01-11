@@ -47,14 +47,13 @@ manual_deploy() {
 	wait_for "controller" "$(active_condition "controller" 0)"
 
 	machine_base=$(juju machines --format=json | jq -r '.machines | .["0"] | (.base.name+"@"+.base.channel)')
-	machine_series=$(base_to_series "${machine_base}")
 
-	if [[ -z ${machine_series} ]]; then
-		echo "machine 0 has invalid series"
+	if [[ -z ${machine_base} ]]; then
+		echo "machine 0 has invalid base"
 		exit 1
 	fi
 
-	juju deploy ubuntu --to=0 --series="${machine_series}"
+	juju deploy ubuntu --to=0 --base="${machine_base}"
 
 	wait_for "ubuntu" "$(idle_condition "ubuntu" 1)"
 
