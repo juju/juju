@@ -1410,7 +1410,7 @@ func (ctx *HookContext) doFlush(process string) error {
 
 	if len(ctx.portRangeChanges.pendingOpenRanges)+len(ctx.portRangeChanges.pendingCloseRanges) > 0 {
 		// Open/Close port can be done on leaders only for CAAS model.
-		if err := ctx.caasLeaderShipCheck(); err != nil {
+		if err := ctx.caasLeadershipCheck(); err != nil {
 			return errors.Trace(err)
 		}
 
@@ -1543,7 +1543,7 @@ func (ctx *HookContext) doFlush(process string) error {
 	return nil
 }
 
-func (ctx *HookContext) caasLeaderShipCheck() error {
+func (ctx *HookContext) caasLeadershipCheck() error {
 	if ctx.modelType == model.IAAS {
 		return nil
 	}

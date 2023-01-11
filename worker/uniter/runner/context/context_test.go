@@ -833,15 +833,15 @@ func (s *mockHookContextSuite) TestOpenPortRange(c *gc.C) {
 						Tag:      "unit-wordpress-0",
 						Endpoint: "",
 						Protocol: "tcp",
-						FromPort: 100,
-						ToPort:   200,
+						FromPort: 8080,
+						ToPort:   8080,
 					},
 				},
 			},
 		},
 	}).Return(nil)
 
-	err := hookContext.OpenPortRange("", network.MustParsePortRange("100-200/tcp"))
+	err := hookContext.OpenPortRange("", network.MustParsePortRange("8080/tcp"))
 	c.Assert(err, jc.ErrorIsNil)
 	err = hookContext.Flush("success", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -862,15 +862,15 @@ func (s *mockHookContextSuite) TestClosePortRange(c *gc.C) {
 						Tag:      "unit-wordpress-0",
 						Endpoint: "",
 						Protocol: "tcp",
-						FromPort: 666,
-						ToPort:   888,
+						FromPort: 8080,
+						ToPort:   8080,
 					},
 				},
 			},
 		},
 	}).Return(nil)
 
-	err := hookContext.ClosePortRange("", network.MustParsePortRange("666-888/tcp"))
+	err := hookContext.ClosePortRange("", network.MustParsePortRange("8080/tcp"))
 	c.Assert(err, jc.ErrorIsNil)
 	err = hookContext.Flush("success", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -883,7 +883,7 @@ func (s *mockHookContextSuite) TestOpenPortRangeFailedForNonLeaderUnit(c *gc.C) 
 
 	s.mockLeadership.EXPECT().IsLeader().Return(false, nil)
 
-	err := hookContext.OpenPortRange("", network.MustParsePortRange("100-200/tcp"))
+	err := hookContext.OpenPortRange("", network.MustParsePortRange("8080/tcp"))
 	c.Assert(err, jc.ErrorIsNil)
 	err = hookContext.Flush("success", nil)
 	c.Assert(err, gc.ErrorMatches, `this unit is not the leader`)
@@ -896,7 +896,7 @@ func (s *mockHookContextSuite) TestClosePortRangeFailedForNonLeaderUnit(c *gc.C)
 
 	s.mockLeadership.EXPECT().IsLeader().Return(false, nil)
 
-	err := hookContext.ClosePortRange("", network.MustParsePortRange("666-888/tcp"))
+	err := hookContext.ClosePortRange("", network.MustParsePortRange("8080/tcp"))
 	c.Assert(err, jc.ErrorIsNil)
 	err = hookContext.Flush("success", nil)
 	c.Assert(err, gc.ErrorMatches, `this unit is not the leader`)

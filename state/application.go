@@ -3219,7 +3219,6 @@ func (a *Application) SetConstraints(cons constraints.Value) (err error) {
 }
 
 func assertApplicationAliveOp(docID string) txn.Op {
-	logger.Criticalf("assertApplicationAliveOp docID %q", docID)
 	return txn.Op{
 		C:      applicationsC,
 		Id:     docID,
@@ -3230,7 +3229,6 @@ func assertApplicationAliveOp(docID string) txn.Op {
 // OpenedPortRanges returns a ApplicationPortRanges object that can be used to query
 // and/or mutate the port ranges opened by the embedded k8s application.
 func (a *Application) OpenedPortRanges() (ApplicationPortRanges, error) {
-	logger.Criticalf("OpenedPortRanges a.doc.DocID %q", a.doc.DocID)
 	return getOpenedApplicationPortRanges(a.st, a.Name())
 }
 

@@ -199,7 +199,6 @@ func (r *portRangeChangeRecorder) checkForConflict(incomingEndpoint string, inco
 // OpenedUnitPortRanges returns the set of port ranges currently open by the
 // current unit grouped by endpoint.
 func (r *portRangeChangeRecorder) OpenedUnitPortRanges() network.GroupedPortRanges {
-	// return r.machinePortRanges[r.unitTag]
 	if len(r.machinePortRanges[r.unitTag]) > 0 {
 		return r.machinePortRanges[r.unitTag]
 	}

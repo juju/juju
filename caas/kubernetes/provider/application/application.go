@@ -734,14 +734,13 @@ func (a *app) getService() (*resources.Service, error) {
 
 const portNamePrefix = "juju-"
 
-var replacePortsPatchType = types.MergePatchType
-
 // UpdatePorts updates port mappings on the specified service.
 func (a *app) UpdatePorts(ports []caas.ServicePort, updateContainerPorts bool) error {
 	svc, err := a.getService()
 	if err != nil {
 		return errors.Annotatef(err, "getting existing service %q", a.name)
 	}
+	var replacePortsPatchType = types.MergePatchType
 	// We want to replace rather than merge here.
 	svc.PatchType = &replacePortsPatchType
 

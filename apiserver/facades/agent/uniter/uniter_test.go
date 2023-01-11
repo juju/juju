@@ -3704,11 +3704,11 @@ func (s *uniterSuite) TestOpenedApplicationPortRangesByEndpoint(c *gc.C) {
 	expectPortRanges := []params.ApplicationOpenedPorts{
 		{
 			Endpoint:   "",
-			PortRanges: []params.PortRange{{FromPort: 1000, Protocol: "tcp"}},
+			PortRanges: []params.PortRange{{FromPort: 1000, ToPort: 1000, Protocol: "tcp"}},
 		},
 		{
 			Endpoint:   "monitoring-port",
-			PortRanges: []params.PortRange{{FromPort: 1111, Protocol: "udp"}},
+			PortRanges: []params.PortRange{{FromPort: 1111, ToPort: 1111, Protocol: "udp"}},
 		},
 	}
 	result, err := s.uniter.OpenedApplicationPortRangesByEndpoint(arg)
