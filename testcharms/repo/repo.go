@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package testcharms
+package repo
 
 // File moved from github.com/juju/charmrepo/v7/testing/charm.go
 // Attempting to remove use of the charmrepo package from juju

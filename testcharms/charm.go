@@ -14,6 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/testcharms/repo"
 	jtesting "github.com/juju/juju/testing"
 )
 
@@ -24,21 +25,21 @@ const (
 )
 
 // Repo provides access to the test charm repository.
-var Repo = NewRepo(localCharmRepo, defaultSeries)
+var Repo = repo.NewRepo(localCharmRepo, defaultSeries)
 
 // Hub provides access to the test charmhub repository.
-var Hub = NewRepo(localCharmHub, defaultSeries)
+var Hub = repo.NewRepo(localCharmHub, defaultSeries)
 
 // RepoForSeries returns a new charm repository for the specified series.
 // Note: this is a bit weird, as it ignores the series if it's NOT kubernetes
 // and falls back to the default series, which makes this pretty pointless.
-func RepoForSeries(series string) *CharmRepo {
-	return NewRepo(localCharmRepo, series)
+func RepoForSeries(series string) *repo.CharmRepo {
+	return repo.NewRepo(localCharmRepo, series)
 }
 
 // RepoWithSeries returns a new charm repository for the specified series.
-func RepoWithSeries(series string) *CharmRepo {
-	return NewRepo(localCharmRepo, series)
+func RepoWithSeries(series string) *repo.CharmRepo {
+	return repo.NewRepo(localCharmRepo, series)
 }
 
 // CheckCharmReady ensures that a desired charm archive exists and

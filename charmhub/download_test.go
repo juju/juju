@@ -16,7 +16,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/testcharms"
+	"github.com/juju/juju/testcharms/repo"
 )
 
 const defaultSeries = "bionic"
@@ -125,7 +125,7 @@ func (s *DownloadSuite) createCharmArchieve(c *gc.C) []byte {
 	tmpDir, err := os.MkdirTemp("", "charm")
 	c.Assert(err, jc.ErrorIsNil)
 
-	repo := testcharms.NewRepo(localCharmRepo, defaultSeries)
+	repo := repo.NewRepo(localCharmRepo, defaultSeries)
 	charmPath := repo.CharmArchivePath(tmpDir, "dummy")
 
 	path, err := os.ReadFile(charmPath)
