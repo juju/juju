@@ -135,8 +135,8 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleSuccess(c *gc.C) {
 	s.assertDeployArgsConfig(c, "mysql", map[string]interface{}{"foo": "bar"})
 
 	c.Check(s.output.String(), gc.Equals, ""+
-		"Located charm \"mysql\" in charm-store, revision 42\n"+
-		"Located charm \"wordpress\" in charm-store, revision 47\n"+
+		"Located charm \"mysql\" in charm-hub, revision 42\n"+
+		"Located charm \"wordpress\" in charm-hub, revision 47\n"+
 		"Executing changes:\n"+
 		"- upload charm mysql from charm-store for series xenial with architecture=amd64\n"+
 		"- deploy application mysql from charm-store on xenial\n"+
@@ -239,8 +239,8 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleWithInvalidSeriesWithForce
 	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "ubuntu", "18.04")
 	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "ubuntu", "20.04")
 	c.Check(s.output.String(), gc.Equals, ""+
-		"Located charm \"mysql\" in charm-store, revision 42\n"+
-		"Located charm \"wordpress\" in charm-store, revision 47\n"+
+		"Located charm \"mysql\" in charm-hub, revision 42\n"+
+		"Located charm \"wordpress\" in charm-hub, revision 47\n"+
 		"Executing changes:\n"+
 		"- upload charm mysql from charm-store for series focal with architecture=amd64\n"+
 		"- deploy application mysql from charm-store on focal\n"+
@@ -374,8 +374,8 @@ func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccess(c *gc.C)
 	s.assertDeployArgsConfig(c, "mariadb", map[string]interface{}{"dataset-size": "70%"})
 
 	c.Check(s.output.String(), gc.Equals, ""+
-		"Located charm \"gitlab-k8s\" in charm-store\n"+
-		"Located charm \"mariadb-k8s\" in charm-store\n"+
+		"Located charm \"gitlab-k8s\" in charm-hub\n"+
+		"Located charm \"mariadb-k8s\" in charm-hub\n"+
 		"Executing changes:\n"+
 		"- upload charm gitlab-k8s from charm-store with architecture=amd64\n"+
 		"- deploy application gitlab from charm-store with 1 unit using gitlab-k8s\n"+
@@ -665,8 +665,8 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleStorage(c *gc.C) {
 	s.assertDeployArgsStorage(c, "mysql", map[string]storage.Constraints{"database": {Pool: "mysql-pv", Size: 0x14, Count: 0x1}})
 
 	c.Check(s.output.String(), gc.Equals, ""+
-		"Located charm \"mysql\" in charm-store, revision 42\n"+
-		"Located charm \"wordpress\" in charm-store, revision 47\n"+
+		"Located charm \"mysql\" in charm-hub, revision 42\n"+
+		"Located charm \"wordpress\" in charm-hub, revision 47\n"+
 		"Executing changes:\n"+
 		"- upload charm mysql from charm-store for series bionic with architecture=amd64\n"+
 		"- deploy application mysql from charm-store on bionic\n"+
@@ -729,8 +729,8 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleDevices(c *gc.C) {
 	s.assertDeployArgsDevices(c, bitcoinCurl.Name, devConstraints)
 
 	c.Check(s.output.String(), gc.Equals, ""+
-		"Located charm \"bitcoin-miner\" in charm-store\n"+
-		"Located charm \"dashboard4miner\" in charm-store\n"+
+		"Located charm \"bitcoin-miner\" in charm-hub\n"+
+		"Located charm \"dashboard4miner\" in charm-hub\n"+
 		"Executing changes:\n"+
 		"- upload charm bitcoin-miner from charm-store with architecture=amd64\n"+
 		"- deploy application bitcoin-miner from charm-store with 1 unit\n"+
@@ -910,8 +910,8 @@ func (s *BundleDeployRepositorySuite) testExistingModel(c *gc.C, dryRun bool) {
 	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "ubuntu", "18.04")
 
 	expectedOutput := "" +
-		"Located charm \"mysql\" in charm-store, revision 42\n" +
-		"Located charm \"wordpress\" in charm-store, revision 47\n" +
+		"Located charm \"mysql\" in charm-hub, revision 42\n" +
+		"Located charm \"wordpress\" in charm-hub, revision 47\n" +
 		"Executing changes:\n" +
 		"- upload charm mysql from charm-store for series bionic with architecture=amd64\n" +
 		"- deploy application mysql from charm-store on bionic\n" +
@@ -1095,7 +1095,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleApplicationUpgrade(c *gc.C
 	s.runDeploy(c, wordpressBundleWithStorageUpgradeConstraints)
 
 	c.Assert(s.output.String(), gc.Equals, ""+
-		"Located charm \"wordpress\" in charm-store, revision 52\n"+
+		"Located charm \"wordpress\" in charm-hub, revision 52\n"+
 		"Executing changes:\n"+
 		"- upload charm wordpress from charm-store for series bionic with architecture=amd64\n"+
 		"- upgrade wordpress from charm-store using charm wordpress for series bionic\n"+
@@ -1156,7 +1156,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleNewRelations(c *gc.C) {
 	s.runDeploy(c, wordpressBundleWithStorageUpgradeRelations)
 
 	c.Assert(s.output.String(), gc.Equals, ""+
-		"Located charm \"varnish\" in charm-store\n"+
+		"Located charm \"varnish\" in charm-hub\n"+
 		"Executing changes:\n"+
 		"- upload charm varnish from charm-store for series bionic with architecture=amd64\n"+
 		"- deploy application varnish from charm-store on bionic\n"+
@@ -1801,7 +1801,7 @@ func (s *BundleDeployRepositorySuite) testDeployBundleUnitPlacedToMachines(c *gc
 	s.runDeploy(c, quickBundle)
 
 	c.Check(s.output.String(), gc.Equals, ""+
-		"Located charm \"wordpress\" in charm-store, revision 47\n"+
+		"Located charm \"wordpress\" in charm-hub, revision 47\n"+
 		"Executing changes:\n"+
 		"- upload charm wordpress from charm-store for series bionic with architecture=amd64\n"+
 		"- deploy application wp from charm-store on bionic using wordpress\n"+
@@ -1850,7 +1850,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleExpose(c *gc.C) {
 
 	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "ubuntu", "18.04")
 	c.Check(s.output.String(), gc.Equals, ""+
-		"Located charm \"wordpress\" in charm-store, revision 47\n"+
+		"Located charm \"wordpress\" in charm-hub, revision 47\n"+
 		"Executing changes:\n"+
 		"- upload charm wordpress from charm-store with architecture=amd64\n"+
 		"- deploy application wordpress from charm-store\n"+
@@ -1919,10 +1919,10 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleMultipleRelations(c *gc.C)
 	s.assertDeployArgs(c, varnishCurl.String(), "varnish", "ubuntu", "16.04")
 	s.assertDeployArgs(c, pgresCurl.String(), "postgres", "ubuntu", "16.04")
 	c.Check(s.output.String(), gc.Equals, ""+
-		"Located charm \"mysql\" in charm-store, revision 32\n"+
-		"Located charm \"postgres\" in charm-store, revision 2\n"+
-		"Located charm \"varnish\" in charm-store\n"+
-		"Located charm \"wordpress\" in charm-store, revision 47\n"+
+		"Located charm \"mysql\" in charm-hub, revision 32\n"+
+		"Located charm \"postgres\" in charm-hub, revision 2\n"+
+		"Located charm \"varnish\" in charm-hub\n"+
+		"Located charm \"wordpress\" in charm-hub, revision 47\n"+
 		"Executing changes:\n"+
 		"- upload charm mysql from charm-store for series bionic with architecture=amd64\n"+
 		"- deploy application mysql from charm-store on bionic\n"+
