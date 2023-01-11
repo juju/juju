@@ -94,28 +94,28 @@ See also:
 // NewDiffBundleCommand returns a command to compare a bundle against
 // the selected model.
 func NewDiffBundleCommand() cmd.Command {
-	cmd := &diffBundleCommand{
+	command := &diffBundleCommand{
 		arches: arch.AllArches(),
 	}
-	cmd.charmAdaptorFn = cmd.charmAdaptor
-	cmd.newAPIRootFn = func() (base.APICallCloser, error) {
-		return cmd.NewAPIRoot()
+	command.charmAdaptorFn = command.charmAdaptor
+	command.newAPIRootFn = func() (base.APICallCloser, error) {
+		return command.NewAPIRoot()
 	}
-	cmd.newControllerAPIRootFn = func() (base.APICallCloser, error) {
-		return cmd.NewControllerAPIRoot()
+	command.newControllerAPIRootFn = func() (base.APICallCloser, error) {
+		return command.NewControllerAPIRoot()
 	}
-	cmd.modelConfigClientFunc = func(api base.APICallCloser) ModelConfigClient {
+	command.modelConfigClientFunc = func(api base.APICallCloser) ModelConfigClient {
 		return modelconfig.NewClient(api)
 	}
-	cmd.modelConstraintsClientFunc = func() (ModelConstraintsClient, error) {
-		root, err := cmd.NewAPIRoot()
+	command.modelConstraintsClientFunc = func() (ModelConstraintsClient, error) {
+		root, err := command.NewAPIRoot()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		client := modelconfig.NewClient(root)
 		return client, nil
 	}
-	return modelcmd.Wrap(cmd)
+	return modelcmd.Wrap(command)
 }
 
 // diffBundleCommand compares a bundle to a model.
@@ -229,7 +229,7 @@ func (c *diffBundleCommand) Run(ctx *cmd.Context) error {
 	defer func() { _ = apiRoot.Close() }()
 
 	// Load up the bundle data, with includes and overlays.
-	baseSrc, err := c.bundleDataSource(ctx, apiRoot, base)
+	baseSrc, err := c.bundleDataSource(apiRoot, base)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -302,12 +302,12 @@ func missingRelationEndpoint(rel string) bool {
 	return len(tokens) != 2 || tokens[1] == ""
 }
 
-func (c *diffBundleCommand) bundleDataSource(ctx *cmd.Context, apiRoot base.APICallCloser, base series.Base) (charm.BundleDataSource, error) {
+func (c *diffBundleCommand) bundleDataSource(apiRoot base.APICallCloser, base series.Base) (charm.BundleDataSource, error) {
 	ds, err := charm.LocalBundleDataSource(c.bundle)
 
 	// NotValid/NotFound means we should try interpreting it as a charm store
 	// bundle URL.
-	if err != nil && !errors.IsNotValid(err) && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotValid) && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
 	}
 	if ds != nil {
@@ -319,7 +319,7 @@ func (c *diffBundleCommand) bundleDataSource(ctx *cmd.Context, apiRoot base.APIC
 		return nil, errors.Trace(err)
 	}
 
-	// Not a local bundle, so it must be from charmhub or the charmstore.
+	// Not a local bundle, so it must be from charmhub.
 	bURL, err := charm.ParseURL(c.bundle)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -338,21 +338,13 @@ func (c *diffBundleCommand) bundleDataSource(ctx *cmd.Context, apiRoot base.APIC
 
 	bundleURL, bundleOrigin, err := charmAdaptor.ResolveBundleURL(bURL, origin)
 	if err != nil {
-		// Handle the charmhub failures during a resolving a bundle.
-		isCharmHub := charm.CharmHub.Matches(bURL.Schema)
-		if isCharmHub && errors.IsNotSupported(err) {
-			msg := `
-Current controller version is not compatible with CharmHub bundles.
-Consider using a CharmStore bundle instead.`
-			return nil, errors.Errorf(msg[1:])
-		} else if isCharmHub && errors.IsNotValid(err) {
+		if errors.Is(err, errors.NotValid) {
 			return nil, errors.Errorf("%q can not be found or is not a valid bundle", c.bundle)
 		}
 		return nil, errors.Trace(err)
 	}
 	if bundleURL == nil {
-		// This isn't a charmstore bundle either! Complain.
-		return nil, errors.Errorf("couldn't interpret %q as a local or charmstore bundle", c.bundle)
+		return nil, errors.Errorf("couldn't interpret %q as a local bundle", c.bundle)
 	}
 
 	// GetBundle creates the directory so we actually want to create a temp
@@ -434,12 +426,12 @@ func (c *diffBundleCommand) getCharmHubURL(apiRoot base.APICallCloser) (string, 
 		return "", errors.Trace(err)
 	}
 
-	config, err := config.New(config.NoDefaults, attrs)
+	conf, err := config.New(config.NoDefaults, attrs)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 
-	charmHubURL, _ := config.CharmHubURL()
+	charmHubURL, _ := conf.CharmHubURL()
 	return charmHubURL, nil
 }
 

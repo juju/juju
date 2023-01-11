@@ -32,7 +32,7 @@ import (
 type diffSuite struct {
 	jujutesting.IsolationSuite
 	apiRoot     *mockAPIRoot
-	charmStore  *mockCharmStore
+	charmHub    *mockCharmHub
 	modelClient *mockModelClient
 	dir         string
 }
@@ -44,7 +44,7 @@ func (s *diffSuite) SetUpTest(c *gc.C) {
 	s.apiRoot = &mockAPIRoot{
 		responses: makeAPIResponses(),
 	}
-	s.charmStore = &mockCharmStore{}
+	s.charmHub = &mockCharmHub{}
 	s.modelClient = &mockModelClient{
 		constraints: constraints.MustParse("arch=amd64"),
 	}
@@ -53,7 +53,7 @@ func (s *diffSuite) SetUpTest(c *gc.C) {
 
 func (s *diffSuite) runDiffBundle(c *gc.C, args ...string) (*cmd.Context, error) {
 	return s.runDiffBundleWithCharmAdapter(c, func(base.APICallCloser, *charm.URL) (application.BundleResolver, error) {
-		return s.charmStore, nil
+		return s.charmHub, nil
 	}, func() (application.ModelConstraintsClient, error) {
 		return s.modelClient, nil
 	}, args...)
@@ -91,8 +91,8 @@ func (s *diffSuite) TestVerifiesBundle(c *gc.C) {
 }
 
 func (s *diffSuite) TestNotABundle(c *gc.C) {
-	s.charmStore.url = &charm.URL{
-		Schema:   "cs",
+	s.charmHub.url = &charm.URL{
+		Schema:   "ch",
 		Name:     "prometheus",
 		Revision: 23,
 		Series:   "xenial",
@@ -106,7 +106,7 @@ func (s *diffSuite) TestNotABundle(c *gc.C) {
 			"secret-backend": {Value: "auto"},
 		},
 	}
-	s.charmStore.stub.SetErrors(nil, errors.NotValidf("not a bundle"))
+	s.charmHub.stub.SetErrors(nil, errors.NotValidf("not a bundle"))
 	_, err := s.runDiffBundle(c, "prometheus")
 	c.Logf(errors.ErrorStack(err))
 	// Fails because the series that comes back from the charm store
@@ -115,13 +115,16 @@ func (s *diffSuite) TestNotABundle(c *gc.C) {
 }
 
 func (s *diffSuite) TestLocalBundle(c *gc.C) {
-	ctx, err := s.runDiffBundle(c, s.writeLocalBundle(c, testCharmStoreBundle))
+	ctx, err := s.runDiffBundle(c, s.writeLocalBundle(c, testCharmHubBundle))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
 applications:
   grafana:
     missing: bundle
   prometheus:
+    charm:
+      bundle: ch:prometheus2
+      model: prometheus2
     options:
       ontology:
         bundle: anselm
@@ -136,13 +139,16 @@ machines:
 }
 
 func (s *diffSuite) TestIncludeAnnotations(c *gc.C) {
-	ctx, err := s.runDiffBundle(c, "--annotations", s.writeLocalBundle(c, testCharmStoreBundle))
+	ctx, err := s.runDiffBundle(c, "--annotations", s.writeLocalBundle(c, testCharmHubBundle))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
 applications:
   grafana:
     missing: bundle
   prometheus:
+    charm:
+      bundle: ch:prometheus2
+      model: prometheus2
     options:
       ontology:
         bundle: anselm
@@ -169,6 +175,9 @@ applications:
   grafana:
     missing: bundle
   prometheus:
+    charm:
+      bundle: ch:prometheus2
+      model: prometheus2
     options:
       ontology:
         bundle: hume
@@ -188,13 +197,16 @@ func (s *diffSuite) TestHandlesOverlays(c *gc.C) {
 	ctx, err := s.runDiffBundle(c,
 		"--overlay", path1,
 		"--overlay", path2,
-		s.writeLocalBundle(c, testCharmStoreBundle))
+		s.writeLocalBundle(c, testCharmHubBundle))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
 applications:
   grafana:
     missing: bundle
   prometheus:
+    charm:
+      bundle: ch:prometheus2
+      model: prometheus2
     options:
       admin-user:
         bundle: lovecraft
@@ -217,71 +229,47 @@ relations:
 `[1:])
 }
 
-func (s *diffSuite) TestCharmStoreBundle(c *gc.C) {
-	bundleData, err := charm.ReadBundleData(strings.NewReader(testCharmStoreBundle))
+func (s *diffSuite) TestCharmSeriesBundle(c *gc.C) {
+	bundleData, err := charm.ReadBundleData(strings.NewReader(withSeries))
 	c.Assert(err, jc.ErrorIsNil)
-	s.charmStore.url = &charm.URL{
-		Schema: "cs",
+	s.charmHub.url = &charm.URL{
+		Schema: "ch",
 		Name:   "my-bundle",
 		Series: "bundle",
 	}
-	s.charmStore.bundle = &mockBundle{data: bundleData}
+	s.charmHub.bundle = &mockBundle{data: bundleData}
 
 	ctx, err := s.runDiffBundle(c, "my-bundle")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
 applications:
-  grafana:
-    missing: bundle
   prometheus:
-    options:
-      ontology:
-        bundle: anselm
-        model: kant
-    constraints:
-      bundle: cores=4
-      model: cores=3
-machines:
-  "1":
-    missing: bundle
-`[1:])
-}
-
-func (s *diffSuite) TestCharmSeriesBundle(c *gc.C) {
-	bundleData, err := charm.ReadBundleData(strings.NewReader(withSeries))
-	c.Assert(err, jc.ErrorIsNil)
-	s.charmStore.url = &charm.URL{
-		Schema: "cs",
-		Name:   "my-bundle",
-		Series: "bundle",
-	}
-	s.charmStore.bundle = &mockBundle{data: bundleData}
-
-	ctx, err := s.runDiffBundle(c, "my-bundle")
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
-{}
+    charm:
+      bundle: ch:prometheus2
+      model: prometheus2
 `[1:])
 }
 
 func (s *diffSuite) TestBundleNotFound(c *gc.C) {
-	s.charmStore.stub.SetErrors(errors.NotFoundf(`cannot resolve URL "cs:my-bundle": charm or bundle`))
-	_, err := s.runDiffBundle(c, "cs:my-bundle")
-	c.Assert(err, gc.ErrorMatches, `cannot resolve URL "cs:my-bundle": charm or bundle not found`)
+	s.charmHub.stub.SetErrors(errors.NotFoundf(`cannot resolve URL "ch:my-bundle": charm or bundle`))
+	_, err := s.runDiffBundle(c, "ch:my-bundle")
+	c.Assert(err, gc.ErrorMatches, `cannot resolve URL "ch:my-bundle": charm or bundle not found`)
 }
 
 func (s *diffSuite) TestMachineMap(c *gc.C) {
 	ctx, err := s.runDiffBundle(c,
 		"--map-machines", "0=1",
-		s.writeLocalBundle(c, testCharmStoreBundle))
+		s.writeLocalBundle(c, testCharmHubBundle))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
 applications:
   grafana:
     missing: bundle
   prometheus:
+    charm:
+      bundle: ch:prometheus2
+      model: prometheus2
     options:
       ontology:
         bundle: anselm
@@ -302,12 +290,12 @@ machines:
 func (s *diffSuite) TestCharmHubBundle(c *gc.C) {
 	bundleData, err := charm.ReadBundleData(strings.NewReader(testCharmHubBundle))
 	c.Assert(err, jc.ErrorIsNil)
-	s.charmStore.url = &charm.URL{
+	s.charmHub.url = &charm.URL{
 		Schema: "ch",
 		Name:   "my-bundle",
 		Series: "bundle",
 	}
-	s.charmStore.bundle = &mockBundle{data: bundleData}
+	s.charmHub.bundle = &mockBundle{data: bundleData}
 
 	ctx, err := s.runDiffBundle(c, "my-bundle")
 	c.Assert(err, jc.ErrorIsNil)
@@ -317,6 +305,9 @@ applications:
   grafana:
     missing: bundle
   prometheus:
+    charm:
+      bundle: ch:prometheus2
+      model: prometheus2
     options:
       ontology:
         bundle: anselm
@@ -378,7 +369,7 @@ func (s *diffSuite) TestExposedEndpoints(c *gc.C) {
 			bundle: `
 applications:
   prometheus:
-    charm: 'cs:prometheus2-7'
+    charm: 'ch:prometheus2'
     num_units: 1
     series: xenial
     expose: true
@@ -391,6 +382,9 @@ machines:
 			expDiff: `
 applications:
   prometheus:
+    charm:
+      bundle: ch:prometheus2
+      model: prometheus2
     exposed_endpoints:
       "":
         bundle:
@@ -415,7 +409,7 @@ applications:
 			bundle: `
 applications:
   prometheus:
-    charm: 'cs:prometheus2-7'
+    charm: 'ch:prometheus2'
     num_units: 1
     series: xenial
     to:
@@ -437,6 +431,9 @@ applications:
 			expDiff: `
 applications:
   prometheus:
+    charm:
+      bundle: ch:prometheus2
+      model: prometheus2
     exposed_endpoints:
       "":
         bundle:
@@ -501,7 +498,7 @@ func makeAPIResponsesWithRelations(relations []params.RelationStatus) map[string
 		"Client.FullStatus": params.FullStatus{
 			Applications: map[string]params.ApplicationStatus{
 				"prometheus": {
-					Charm: "cs:prometheus2-7",
+					Charm: "ch:prometheus2",
 					Base:  params.Base{Name: "ubuntu", Channel: "16.04"},
 					Life:  "alive",
 					Units: map[string]params.UnitStatus{
@@ -571,7 +568,7 @@ func makeAPIResponsesWithExposedEndpoints(exposedEndpoints map[string]params.Exp
 		"Client.FullStatus": params.FullStatus{
 			Applications: map[string]params.ApplicationStatus{
 				"prometheus": {
-					Charm: "cs:prometheus2-7",
+					Charm: "ch:prometheus2",
 					Base:  params.Base{Name: "ubuntu", Channel: "16.04"},
 					Life:  "alive",
 					Units: map[string]params.UnitStatus{
@@ -610,7 +607,7 @@ func (s *mockModelClient) Close() error {
 	return nil
 }
 
-type mockCharmStore struct {
+type mockCharmHub struct {
 	stub   jujutesting.Stub
 	url    *charm.URL
 	origin commoncharm.Origin
@@ -618,12 +615,12 @@ type mockCharmStore struct {
 	bundle *mockBundle
 }
 
-func (s *mockCharmStore) ResolveBundleURL(url *charm.URL, preferredOrigin commoncharm.Origin) (*charm.URL, commoncharm.Origin, error) {
+func (s *mockCharmHub) ResolveBundleURL(url *charm.URL, preferredOrigin commoncharm.Origin) (*charm.URL, commoncharm.Origin, error) {
 	s.stub.AddCall("ResolveBundleURL", url, preferredOrigin)
 	return s.url, s.origin, s.stub.NextErr()
 }
 
-func (s *mockCharmStore) GetBundle(url *charm.URL, _ commoncharm.Origin, path string) (charm.Bundle, error) {
+func (s *mockCharmHub) GetBundle(url *charm.URL, _ commoncharm.Origin, path string) (charm.Bundle, error) {
 	s.stub.AddCall("GetBundle", url, path)
 	return s.bundle, s.stub.NextErr()
 }
@@ -670,27 +667,10 @@ func (r *mockAPIRoot) Close() error {
 }
 
 const (
-	testCharmStoreBundle = `
-applications:
-  prometheus:
-    charm: 'cs:prometheus2-7'
-    num_units: 1
-    series: xenial
-    options:
-      ontology: anselm
-    annotations:
-      aspect: west
-    constraints: 'cores=4'
-    to:
-      - 0
-machines:
-  '0':
-    series: xenial
-`
 	testCharmHubBundle = `
 applications:
   prometheus:
-    charm: 'cs:prometheus2-7'
+    charm: 'ch:prometheus2'
     num_units: 1
     series: xenial
     options:
@@ -707,7 +687,7 @@ machines:
 	withInclude = `
 applications:
   prometheus:
-    charm: 'cs:prometheus2-7'
+    charm: 'ch:prometheus2'
     num_units: 1
     series: xenial
     options:
@@ -735,7 +715,7 @@ applications:
 	overlay2 = `
 applications:
   telegraf:
-    charm: 'cs:telegraf-3'
+    charm: 'ch:telegraf'
 relations:
 - - telegraf:info
   - prometheus:juju-info
@@ -745,7 +725,7 @@ relations:
 series: xenial
 applications:
   prometheus:
-    charm: 'cs:prometheus2-7'
+    charm: 'ch:prometheus2'
     num_units: 1
     series: xenial
     options:
@@ -754,7 +734,7 @@ applications:
       aspect: west
     constraints: 'cores=4'
   grafana:
-    charm: 'cs:grafana-19'
+    charm: 'ch:grafana'
     num_units: 1
     series: bionic
 relations:
@@ -765,7 +745,7 @@ relations:
 series: bionic
 applications:
   prometheus:
-    charm: 'cs:prometheus2-7'
+    charm: 'ch:prometheus2'
     num_units: 1
     series: xenial
     constraints: 'cores=3'
