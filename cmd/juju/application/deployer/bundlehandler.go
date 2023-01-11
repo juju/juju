@@ -165,10 +165,6 @@ type bundleHandler struct {
 	// data is the original bundle data that we want to deploy.
 	data *charm.BundleData
 
-	// bundleURL is the URL of the bundle when deploying a bundle from the
-	// charmstore, nil otherwise.
-	bundleURL *charm.URL
-
 	// unitStatus reflects the environment status and maps unit names to their
 	// corresponding machine identifiers. This is kept updated by both change
 	// handlers (addCharm, addApplication etc.) and by updateUnitStatus.
@@ -231,7 +227,6 @@ func makeBundleHandler(defaultCharmSchema charm.Schema, bundleData *charm.Bundle
 		ctx:                  spec.ctx,
 		filesystem:           spec.filesystem,
 		data:                 bundleData,
-		bundleURL:            spec.bundleURL,
 		unitStatus:           make(map[string]string),
 		origins:              make(map[charm.URL]map[string]commoncharm.Origin),
 		knownSpaceNames:      spec.knownSpaceNames,
@@ -254,10 +249,6 @@ func (h *bundleHandler) makeModel(
 	if err != nil {
 		return errors.Annotate(err, "cannot get model status")
 	}
-	status, err = h.updateChannelsModelStatus(status)
-	if err != nil {
-		return errors.Annotate(err, "updating current application channels")
-	}
 
 	h.model, err = appbundle.BuildModelRepresentation(status, h.deployAPI, useExistingMachines, bundleMachines)
 	if err != nil {
@@ -273,38 +264,6 @@ func (h *bundleHandler) makeModel(
 
 	h.modelConfig, err = getModelConfig(h.deployAPI)
 	return err
-}
-
-// updateChannelsModelStatus gets the application's channel from a different
-// source when the default charm schema is charmstore.  Required for compatibility
-// between pre 2.9 controllers and newer clients.  The controller has the data,
-// status output does not.
-func (h *bundleHandler) updateChannelsModelStatus(status *params.FullStatus) (*params.FullStatus, error) {
-	if !h.defaultCharmSchema.Matches(charm.CharmStore.String()) || len(status.Applications) <= 0 {
-		return status, nil
-	}
-	var tags []names.ApplicationTag
-	for k := range status.Applications {
-		tags = append(tags, names.NewApplicationTag(k))
-	}
-	infoResults, err := h.deployAPI.ApplicationsInfo(tags)
-	if err != nil {
-		return nil, err
-	}
-
-	for i, result := range infoResults {
-		name := tags[i].Id()
-		if result.Error != nil {
-			return nil, errors.Annotatef(err, "%s", name)
-		}
-		appStatus, ok := status.Applications[name]
-		if !ok {
-			return nil, errors.NotFoundf("programming error: %q application info", name)
-		}
-		appStatus.CharmChannel = result.Result.Channel
-		status.Applications[name] = appStatus
-	}
-	return status, nil
 }
 
 // resolveCharmsAndEndpoints will go through the bundle and
@@ -359,7 +318,7 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 		}
 
 		// To deploy by revision, the revision number must be in the origin for a
-		// charmhub charm and in the url for a charmstore charm.
+		// charmhub charm.
 		if charm.CharmHub.Matches(ch.Schema) {
 			if ch.Revision != -1 {
 				return errors.Errorf("cannot specify revision in %q, please use revision", ch)
@@ -373,13 +332,6 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 			}
 			if spec.Revision != nil && *spec.Revision != -1 && channel.Empty() {
 				return errors.Errorf("application %q with a revision requires a channel for future upgrades, please use channel", name)
-			}
-		} else if charm.CharmStore.Matches(ch.Schema) {
-			if ch.Revision != -1 && spec.Revision != nil && *spec.Revision != -1 && ch.Revision != *spec.Revision {
-				return errors.Errorf("two different revisions to deploy %q: specified %d and %d, please choose one.", name, ch.Revision, *spec.Revision)
-			}
-			if ch.Revision == -1 && spec.Revision != nil && *spec.Revision != -1 {
-				ch = ch.WithRevision(*spec.Revision)
 			}
 		}
 
@@ -410,8 +362,6 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 				Revision: -1,
 			}
 			origin = origin.WithBase(nil)
-		} else if charm.CharmStore.Matches(url.Schema) {
-			h.ctx.Warningf("Deploying %q.\n\tCharm store charms, those with cs: before the charm name, will not be supported in juju 3.1.\n\tMigration of this model to a juju 3.1 controller will be prohibited.", ch)
 		}
 
 		h.ctx.Infof(formatLocatedText(ch, origin))
@@ -507,9 +457,7 @@ func (h *bundleHandler) constructChannelAndOrigin(curl *charm.URL, charmBase ser
 
 func (h *bundleHandler) getChanges() error {
 	bundleURL := ""
-	if h.bundleURL != nil {
-		bundleURL = h.bundleURL.String()
-	}
+
 	// TODO(stickupkid): The following should use the new
 	// Bundle.getChangesMapArgs, with the fallback to Bundle.getChanges and
 	// with controllers without a Bundle facade should use the bundlechanges
@@ -654,11 +602,6 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		return errors.Trace(err)
 	}
 
-	// Verification of the revision piece was done when the bundle was
-	// read in.  Ensure that the validated charm has correct revision.
-	if charm.CharmStore.Matches(ch.Schema) && change.Params.Revision != nil && *change.Params.Revision >= 0 {
-		ch = ch.WithRevision(*change.Params.Revision)
-	}
 	urlForOrigin := ch
 	if change.Params.Revision != nil && *change.Params.Revision >= 0 {
 		urlForOrigin = urlForOrigin.WithRevision(*change.Params.Revision)
@@ -727,9 +670,8 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if url.Schema != charm.CharmStore.String() {
-			url = url.WithSeries(chSeries)
-		}
+		url = url.WithSeries(chSeries)
+
 		// TODO(juju3) - use os/channel, not series
 		base, err := series.GetBaseFromSeries(chSeries)
 		if err != nil {
@@ -938,13 +880,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		numUnits = p.NumUnits
 	}
 
-	// For charmstore charms we require a corrected channel for deploying an
-	// application. This isn't required for any other store type (local,
-	// charmhub).
-	// We should remove this when charmstore charms are defunct and remove this
-	// specialization.
-	switch {
-	case charm.Local.Matches(chID.URL.Schema):
+	if charm.Local.Matches(chID.URL.Schema) {
 		// Figure out what series we need to deploy with. For Local charms,
 		// this was determined when addcharm was called.
 		selectedSeries, err := h.selectedSeries(charmInfo.Charm(), chID, curl, p.Series)
@@ -957,26 +893,6 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 			return errors.Trace(err)
 		}
 		origin.Base = base
-	case charm.CharmStore.Matches(chID.URL.Schema):
-		// Figure out what series we need to deploy with. For CharmHub charms,
-		// this was determined when addcharm was called.
-		selectedSeries, err := h.selectedSeries(charmInfo.Charm(), chID, curl, p.Series)
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		base, err := series.GetBaseFromSeries(selectedSeries)
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		// A channel is needed whether the risk is valid or not.
-		channel, _ := charm.MakeChannel("", origin.Risk, "")
-		platform := utils.MakePlatform(cons, base, h.modelConstraints)
-		origin, err = utils.DeduceOrigin(chID.URL, channel, platform)
-		if err != nil {
-			return errors.Trace(err)
-		}
 	}
 
 	args := application.DeployArgs{

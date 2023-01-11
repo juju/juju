@@ -84,12 +84,12 @@ func (s *BundleDeployRepositorySuite) TearDownTest(_ *gc.C) {
 // target in testing/base.go:SetupSuite we'll need to also update the entries
 // herein.
 
-func (s *BundleDeployRepositorySuite) TestDeployBundleNotFoundCharmStore(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDeployBundleNotFoundCharmHub(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
 
 	// bundleHandler.addCharm():
-	curl := charm.MustParseURL("cs:bundle/no-such")
+	curl := charm.MustParseURL("ch:bundle/no-such")
 	s.expectResolveCharm(errors.NotFoundf("bundle"))
 	bundleData := &charm.BundleData{
 		Applications: map[string]*charm.ApplicationSpec{
@@ -108,8 +108,8 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleSuccess(c *gc.C) {
 	s.expectEmptyModelToStart(c)
 	s.expectWatchAll()
 
-	mysqlCurl := charm.MustParseURL("cs:mysql-42")
-	wordpressCurl := charm.MustParseURL("cs:wordpress-47")
+	mysqlCurl := charm.MustParseURL("ch:mysql")
+	wordpressCurl := charm.MustParseURL("ch:wordpress")
 	chUnits := []charmUnit{
 		{
 			curl:                 mysqlCurl,
@@ -135,13 +135,13 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleSuccess(c *gc.C) {
 	s.assertDeployArgsConfig(c, "mysql", map[string]interface{}{"foo": "bar"})
 
 	c.Check(s.output.String(), gc.Equals, ""+
-		"Located charm \"mysql\" in charm-hub, revision 42\n"+
-		"Located charm \"wordpress\" in charm-hub, revision 47\n"+
+		"Located charm \"mysql\" in charm-hub\n"+
+		"Located charm \"wordpress\" in charm-hub\n"+
 		"Executing changes:\n"+
-		"- upload charm mysql from charm-store for series xenial with architecture=amd64\n"+
-		"- deploy application mysql from charm-store on xenial\n"+
-		"- upload charm wordpress from charm-store for series xenial with architecture=amd64\n"+
-		"- deploy application wordpress from charm-store on xenial\n"+
+		"- upload charm mysql from charm-hub for series xenial with architecture=amd64\n"+
+		"- deploy application mysql from charm-hub on xenial\n"+
+		"- upload charm wordpress from charm-hub for series xenial with architecture=amd64\n"+
+		"- deploy application wordpress from charm-hub on xenial\n"+
 		"- add new machine 0\n"+
 		"- add new machine 1\n"+
 		"- add relation wordpress:db - mysql:db\n"+
@@ -638,8 +638,8 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleStorage(c *gc.C) {
 	s.expectEmptyModelToStart(c)
 	s.expectWatchAll()
 
-	mysqlCurl := charm.MustParseURL("cs:mysql-42")
-	wordpressCurl := charm.MustParseURL("cs:wordpress-47")
+	mysqlCurl := charm.MustParseURL("ch:mysql")
+	wordpressCurl := charm.MustParseURL("ch:wordpress")
 	chUnits := []charmUnit{
 		{
 			curl:                 mysqlCurl,
@@ -665,13 +665,13 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleStorage(c *gc.C) {
 	s.assertDeployArgsStorage(c, "mysql", map[string]storage.Constraints{"database": {Pool: "mysql-pv", Size: 0x14, Count: 0x1}})
 
 	c.Check(s.output.String(), gc.Equals, ""+
-		"Located charm \"mysql\" in charm-hub, revision 42\n"+
-		"Located charm \"wordpress\" in charm-hub, revision 47\n"+
+		"Located charm \"mysql\" in charm-hub\n"+
+		"Located charm \"wordpress\" in charm-hub\n"+
 		"Executing changes:\n"+
-		"- upload charm mysql from charm-store for series bionic with architecture=amd64\n"+
-		"- deploy application mysql from charm-store on bionic\n"+
-		"- upload charm wordpress from charm-store for series bionic with architecture=amd64\n"+
-		"- deploy application wordpress from charm-store on bionic\n"+
+		"- upload charm mysql from charm-hub for series bionic with architecture=amd64\n"+
+		"- deploy application mysql from charm-hub on bionic\n"+
+		"- upload charm wordpress from charm-hub for series bionic with architecture=amd64\n"+
+		"- deploy application wordpress from charm-hub on bionic\n"+
 		"- add new machine 0\n"+
 		"- add new machine 1\n"+
 		"- add relation wordpress:db - mysql:db\n"+
@@ -684,14 +684,14 @@ const wordpressBundleWithStorage = `
 series: bionic
 applications:
   mysql:
-    charm: cs:mysql-42
+    charm: ch:mysql
     num_units: 1
     storage:
       database: mysql-pv,20M
     to:
     - "0"
   wordpress:
-    charm: cs:wordpress-47
+    charm: ch:wordpress
     num_units: 1
     to:
     - "1"
@@ -708,8 +708,8 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleDevices(c *gc.C) {
 	s.expectEmptyModelToStart(c)
 	s.expectWatchAll()
 
-	bitcoinCurl := s.expectCharmstoreK8sCharm(charm.MustParseURL("cs:bitcoin-miner"), 3)
-	dashboardCurl := s.expectCharmstoreK8sCharm(charm.MustParseURL("cs:dashboard4miner"), 43)
+	bitcoinCurl := s.expectCharmhubK8sCharm(charm.MustParseURL("ch:bitcoin-miner"), 3)
+	dashboardCurl := s.expectCharmhubK8sCharm(charm.MustParseURL("ch:dashboard4miner"), 43)
 	s.expectAddRelation([]string{"dashboard4miner:miner", "bitcoin-miner:miner"})
 
 	spec := s.bundleDeploySpec()
@@ -740,7 +740,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleDevices(c *gc.C) {
 		"Deploy of bundle completed.\n")
 }
 
-func (s *BundleDeployRepositorySuite) expectCharmstoreK8sCharm(curl *charm.URL, rev int) *charm.URL {
+func (s *BundleDeployRepositorySuite) expectCharmhubK8sCharm(curl *charm.URL, rev int) *charm.URL {
 	fullCurl := curl.WithRevision(rev)
 	// Called from resolveCharmsAndEndpoints & resolveCharmChannelAndRevision && addCharm
 	s.bundleResolver.EXPECT().ResolveCharm(
@@ -1615,8 +1615,8 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleAnnotations(c *gc.C) {
 	s.expectEmptyModelToStart(c)
 	s.expectWatchAll()
 
-	djangoCurl := charm.MustParseURL("cs:django")
-	memCurl := charm.MustParseURL("cs:mem-47")
+	djangoCurl := charm.MustParseURL("ch:django")
+	memCurl := charm.MustParseURL("ch:mem")
 	chUnits := []charmUnit{
 		{
 			curl:                 memCurl,
@@ -1634,6 +1634,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleAnnotations(c *gc.C) {
 	s.setupCharmUnits(chUnits)
 	s.expectSetAnnotation("application-django", map[string]string{"key1": "value1", "key2": "value2"})
 	s.expectSetAnnotation("machine-1", map[string]string{"foo": "bar"})
+	s.expectCharmInfo("ch:bionic/django", &apicharms.CharmInfo{URL: "ch:bionic/django"})
 
 	s.runDeploy(c, annotationsBundle)
 }
@@ -1641,7 +1642,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleAnnotations(c *gc.C) {
 const annotationsChangeBundle = `
         applications:
             django:
-                charm: cs:django
+                charm: ch:django
                 num_units: 1
                 annotations:
                     key1: new value!
@@ -2779,7 +2780,7 @@ func (s *BundleHandlerMakeModelSuite) TestEmptyModelOldController(c *gc.C) {
 
 	handler := &bundleHandler{
 		deployAPI:          s.deployerAPI,
-		defaultCharmSchema: charm.CharmStore,
+		defaultCharmSchema: charm.CharmHub,
 	}
 
 	err := handler.makeModel(false, nil)
@@ -2790,22 +2791,21 @@ func (s *BundleHandlerMakeModelSuite) TestModelOldController(c *gc.C) {
 	// An old controller is pre juju 2.9
 	defer s.setupMocks(c).Finish()
 	s.expectDeployerAPIStatusWordpressBundle()
-	s.expectApplicationInfo(c)
 	s.expectEmptyModelRepresentation()
 	s.expectDeployerAPIModelGet(c)
 
 	handler := &bundleHandler{
 		deployAPI:          s.deployerAPI,
-		defaultCharmSchema: charm.CharmStore,
+		defaultCharmSchema: charm.CharmHub,
 		unitStatus:         make(map[string]string),
 	}
 
 	err := handler.makeModel(false, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	app := handler.model.GetApplication("mysql")
-	c.Assert(app.Channel, gc.Equals, "stable")
+	c.Assert(app.Base.Channel.Track, gc.Equals, "18.04")
 	app = handler.model.GetApplication("wordpress")
-	c.Assert(app.Channel, gc.Equals, "candidate")
+	c.Assert(app.Base.Channel.Track, gc.Equals, "18.04")
 }
 
 func (s *BundleHandlerMakeModelSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -2851,7 +2851,7 @@ func (s *BundleHandlerMakeModelSuite) expectDeployerAPIStatusWordpressBundle() {
 		},
 		Applications: map[string]params.ApplicationStatus{
 			"mysql": {
-				Charm: "cs:mysql-42",
+				Charm: "ch:mysql",
 				Scale: 1,
 				Base:  params.Base{Name: "ubuntu", Channel: "18.04/stable"},
 				Units: map[string]params.UnitStatus{
@@ -2859,7 +2859,7 @@ func (s *BundleHandlerMakeModelSuite) expectDeployerAPIStatusWordpressBundle() {
 				},
 			},
 			"wordpress": {
-				Charm: "cs:wordpress-47",
+				Charm: "ch:wordpress",
 				Scale: 1,
 				Base:  params.Base{Name: "ubuntu", Channel: "18.04/stable"},
 				Units: map[string]params.UnitStatus{
