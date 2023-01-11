@@ -35,7 +35,9 @@ const (
 	downloadSummary = "Locates and then downloads a CharmHub charm."
 	downloadDoc     = `
 Download a charm to the current directory from the CharmHub store
-by a specified name.
+by a specified name. Downloading for a specific base can be done via
+--base. --base can be specified using the OS name and the version of
+the OS, separated by @. For example, --base ubuntu@22.04.
 
 Adding a hyphen as the second argument allows the download to be piped
 to stdout.
