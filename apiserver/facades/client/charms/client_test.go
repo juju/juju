@@ -8,7 +8,6 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v9"
-	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v4"
@@ -178,18 +177,16 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 	seriesCurl, err := charm.ParseURL("ch:amd64/focal/testme")
 	c.Assert(err, jc.ErrorIsNil)
 
-	edge := string(csparams.EdgeChannel)
-	stable := string(csparams.StableChannel)
 	edgeOrigin := params.CharmOrigin{
 		Source:       corecharm.CharmHub.String(),
 		Type:         "charm",
-		Risk:         edge,
+		Risk:         "edge",
 		Architecture: "amd64",
 	}
 	stableOrigin := params.CharmOrigin{
 		Source:       corecharm.CharmHub.String(),
 		Type:         "charm",
-		Risk:         stable,
+		Risk:         "stable",
 		Architecture: "amd64",
 	}
 
@@ -250,11 +247,10 @@ func (s *charmsMockSuite) TestResolveCharmNoDefinedSeries(c *gc.C) {
 	seriesCurl, err := charm.ParseURL("ch:focal/testme")
 	c.Assert(err, jc.ErrorIsNil)
 
-	edge := string(csparams.EdgeChannel)
 	edgeOrigin := params.CharmOrigin{
 		Source:       corecharm.CharmHub.String(),
 		Type:         "charm",
-		Risk:         edge,
+		Risk:         "edge",
 		Architecture: "amd64",
 	}
 
@@ -639,13 +635,12 @@ func (s *charmsMockSuite) expectResolveWithPreferredChannel(times int, err error
 			resolvedOrigin := requestedOrigin
 			resolvedOrigin.Type = "charm"
 
-			if requestedOrigin.Channel == nil || csparams.Channel(requestedOrigin.Channel.Risk) == csparams.NoChannel {
+			if requestedOrigin.Channel == nil || requestedOrigin.Channel.Risk == "" {
 				if requestedOrigin.Channel == nil {
 					resolvedOrigin.Channel = new(charm.Channel)
 				}
 
-				// minor attempt at mimicing charmrepo/charmstore.go.bestChannel()
-				resolvedOrigin.Channel.Risk = charm.Risk(csparams.StableChannel)
+				resolvedOrigin.Channel.Risk = "stable"
 			}
 
 			return curl, resolvedOrigin, []string{"bionic", "focal", "xenial"}, err
@@ -663,13 +658,12 @@ func (s *charmsMockSuite) expectResolveWithPreferredChannelNoSeries() {
 			resolvedOrigin := requestedOrigin
 			resolvedOrigin.Type = "charm"
 
-			if requestedOrigin.Channel == nil || csparams.Channel(requestedOrigin.Channel.Risk) == csparams.NoChannel {
+			if requestedOrigin.Channel == nil || requestedOrigin.Channel.Risk == "" {
 				if requestedOrigin.Channel == nil {
 					resolvedOrigin.Channel = new(charm.Channel)
 				}
 
-				// minor attempt at mimicing charmrepo/charmstore.go.bestChannel()
-				resolvedOrigin.Channel.Risk = charm.Risk(csparams.StableChannel)
+				resolvedOrigin.Channel.Risk = "stable"
 			}
 
 			return curl, resolvedOrigin, []string{}, nil
