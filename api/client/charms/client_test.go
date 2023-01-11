@@ -65,7 +65,7 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 
 	curl := charm.MustParseURL("cs:a-charm")
 	curl2 := charm.MustParseURL("cs:jammy/dummy-1")
-	no := "no"
+	no := ""
 	edge := "edge"
 	stable := "stable"
 
