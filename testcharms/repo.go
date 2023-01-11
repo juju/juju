@@ -5,7 +5,7 @@ package testcharms
 
 // File moved from github.com/juju/charmrepo/v7/testing/charm.go
 // Attempting to remove use of the charmrepo package from juju
-//with the removal of charmstore support.
+// with the removal of charmstore support.
 
 import (
 	"fmt"
