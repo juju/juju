@@ -71,12 +71,6 @@ import (
 
 var defaultBase = series.MustParseBaseFromString("ubuntu@22.04")
 
-var defaultLocalOrigin = commoncharm.Origin{
-	Source:       commoncharm.OriginLocal,
-	Architecture: arch.DefaultArchitecture,
-	Base:         series.MakeDefaultBase("ubuntu", "20.04"),
-}
-
 type DeploySuiteBase struct {
 	jjtesting.RepoSuite
 	coretesting.CmdBlockHelper
