@@ -55,7 +55,8 @@ machine instance from the current cloud. The machine's specifications,
 including whether the machine is virtual or physical depends on the cloud.
 
 To control which instance type is provisioned, use the --constraints and 
---base options.
+--base options. --base can be specified using the OS name and the version of
+the OS, separated by @. For example, --base ubuntu@22.04.
 
 To add storage volumes to the instance, provide a whitespace-delimited
 list of storage constraints to the --disks option. 
@@ -282,8 +283,7 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 	// Init(), so it's safe to assume that only one of them is set here.
 	if c.Series != "" {
 		if c.Series == "kubernetes" {
-			ctx.Warningf("using kubernetes as a series flag is deprecated, use --base instead")
-			base = series.LegacyKubernetesBase()
+			return fmt.Errorf(`command "add-machine" does not support container models`)
 		} else {
 			ctx.Warningf("series flag is deprecated, use --base instead")
 			if base, err = series.GetBaseFromSeries(c.Series); err != nil {
