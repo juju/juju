@@ -160,7 +160,7 @@ func (n *NeutronNetworking) getExternalNetworkIDsFromHostAddrs(addrs map[string]
 		return extNetworkIds, nil
 	}
 
-	logger.Debugf("unique match for external network %s not found; searching for one", externalNetwork)
+	logger.Debugf("unique match for external network %q not found; searching for one", externalNetwork)
 
 	hostAddrAZs, err := n.findNetworkAZForHostAddrs(addrs)
 	if err != nil {
