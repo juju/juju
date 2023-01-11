@@ -135,7 +135,8 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 	if c.DestroyConfirmationCommandBase.NeedsConfirmation() {
 		updateStatus := newTimedStatusUpdater(ctx, api, controllerEnviron.Config().UUID(), clock.WallClock)
 		modelStatus := updateStatus(0)
-		if err := printDestroyWarning(ctx, modelStatus, controllerName, false); err != nil {
+		_, _ = fmt.Fprintf(ctx.Stderr, destroySysMsg, controllerName)
+		if err := printDestroyWarning(ctx, modelStatus, false); err != nil {
 			return errors.Trace(err)
 		}
 		if err := jujucmd.UserConfirmName(controllerName, "controller", ctx); err != nil {

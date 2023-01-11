@@ -115,7 +115,8 @@ var usageSummary = `
 Destroys a controller.`[1:]
 
 var destroySysMsg = `
-WARNING! This command with destroy the %q controller and all it's resources`[1:]
+This command with destroy the %q controller and all it's resources
+`[1:]
 
 var destroySysMsgDetails = `
 {{- if gt .ModelCount 0}}
@@ -178,7 +179,7 @@ func (c *destroyCommand) Init(args []string) error {
 // getModelNames gets slice of model names from modelData.
 func getModelNames(data []modelData) []string {
 	return transform.Slice(data, func(f modelData) string {
-		return f.Name
+		return fmt.Sprintf("%s/%s (%s)", f.Owner, f.Name, f.Life)
 	})
 }
 
@@ -190,8 +191,7 @@ func getApplicationNames(data []base.Application) []string {
 }
 
 // printDestroyWarning prints to stdout the warning with additional info about destroying controller.
-func printDestroyWarning(ctx *cmd.Context, modelStatus environmentStatus, controllerName string, releaseStorage bool) error {
-	_, _ = fmt.Fprintf(ctx.Stderr, destroySysMsg, controllerName)
+func printDestroyWarning(ctx *cmd.Context, modelStatus environmentStatus, releaseStorage bool) error {
 	destroyMsgDetailsTmpl := template.New("destroyMsdDetails")
 	destroyMsgDetailsTmpl, err := destroyMsgDetailsTmpl.Parse(destroySysMsgDetails)
 	if err != nil {
@@ -201,7 +201,7 @@ func printDestroyWarning(ctx *cmd.Context, modelStatus environmentStatus, contro
 		"ModelCount":       modelStatus.controller.HostedModelCount,
 		"ModelNames":       getModelNames(modelStatus.models),
 		"MachineCount":     modelStatus.controller.HostedMachineCount,
-		"ApplicationCount": modelStatus.controller.ApplicationCount - 1, // - 1 not to confuse user with controller-app itself
+		"ApplicationCount": modelStatus.controller.ApplicationCount,
 		"ApplicationNames": getApplicationNames(modelStatus.applications),
 		"FilesystemCount":  modelStatus.controller.TotalFilesystemCount,
 		"VolumeCount":      modelStatus.controller.TotalVolumeCount,
@@ -232,20 +232,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "getting controller environ")
 	}
 
-	if err := c.DestroyConfirmationCommandBase.Run(ctx); err != nil {
-		return errors.Trace(err)
-	}
-
-	if c.DestroyConfirmationCommandBase.NeedsConfirmation() {
-		updateStatus := newTimedStatusUpdater(ctx, api, controllerEnviron.Config().UUID(), clock.WallClock)
-		modelStatus := updateStatus(0)
-		if err := printDestroyWarning(ctx, modelStatus, controllerName, c.releaseStorage); err != nil {
-			return errors.Trace(err)
-		}
-		if err := jujucmd.UserConfirmName(controllerName, "controller", ctx); err != nil {
-			return errors.Annotate(err, "controller destruction")
-		}
-	}
+	ctx.Warningf(destroySysMsg, controllerName)
 
 	cloudCallCtx := cloudCallContext(c.controllerCredentialAPIFunc)
 
@@ -316,6 +303,19 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 			// When we checked just now, there was none. We should
 			// try destroying again.
 			continue
+		}
+
+		if err := c.DestroyConfirmationCommandBase.Run(ctx); err != nil {
+			return errors.Trace(err)
+		}
+
+		if c.DestroyConfirmationCommandBase.NeedsConfirmation() {
+			if err := printDestroyWarning(ctx, modelStatus, c.releaseStorage); err != nil {
+				return errors.Trace(err)
+			}
+			if err := jujucmd.UserConfirmName(controllerName, "controller", ctx); err != nil {
+				return errors.Annotate(err, "Invalid controller name")
+			}
 		}
 
 		// Even if we've not just requested for hosted models to be destroyed,

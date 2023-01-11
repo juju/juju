@@ -176,7 +176,7 @@ func FmtModelStatus(data ModelData) string {
 	return fmtModelStatus(modelData(data))
 }
 
-func NewData(api destroyControllerAPI, ctrUUID string) (ctrData, []modelData, []base.Application, error) {
+func NewData(api destroyControllerAPI, ctrUUID string) (environmentStatus, error) {
 	return newData(api, ctrUUID)
 }
 

@@ -108,10 +108,26 @@ func (c *ModelStatusAPI) modelStatus(tag string) (params.ModelStatus, error) {
 		return status, errors.Trace(err)
 	}
 
+	// TODO (Anvial): we need to think about common parameter list (maybe "st") to all these functions:
+	// ModelMachineInfo, ModelApplicationInfo, ModelVolumeInfo, ModelFilesystemInfo. Looks like better to do in
+	// ModelMachineInfo style and optimize st.*() calls.
+
 	modelApplications, err := ModelApplicationInfo(applications)
 	if err != nil {
 		return status, errors.Trace(err)
 	}
+
+	volumes, err := st.AllVolumes()
+	if err != nil {
+		return status, errors.Trace(err)
+	}
+	modelVolumes := ModelVolumeInfo(volumes)
+
+	filesystems, err := st.AllFilesystems()
+	if err != nil {
+		return status, errors.Trace(err)
+	}
+	modelFilesystems := ModelFilesystemInfo(filesystems)
 
 	result := params.ModelStatus{
 		ModelTag:           tag,
@@ -123,19 +139,10 @@ func (c *ModelStatusAPI) modelStatus(tag string) (params.ModelStatus, error) {
 		UnitCount:          unitCount,
 		Applications:       modelApplications,
 		Machines:           modelMachines,
+		Volumes:            modelVolumes,
+		Filesystems:        modelFilesystems,
 	}
 
-	volumes, err := st.AllVolumes()
-	if err != nil {
-		return status, errors.Trace(err)
-	}
-	result.Volumes = ModelVolumeInfo(volumes)
-
-	filesystems, err := st.AllFilesystems()
-	if err != nil {
-		return status, errors.Trace(err)
-	}
-	result.Filesystems = ModelFilesystemInfo(filesystems)
 	return result, nil
 }
 
