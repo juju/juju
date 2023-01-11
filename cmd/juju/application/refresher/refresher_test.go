@@ -15,7 +15,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	commoncharm "github.com/juju/juju/api/common/charm"
-	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/series"
 )
@@ -300,121 +299,6 @@ func (s *localCharmRefresherSuite) TestRefreshDoesNotFindLocal(c *gc.C) {
 
 	_, err = task.Refresh()
 	c.Assert(err, gc.ErrorMatches, `no charm found at "local:meshuggah"`)
-}
-
-type charmStoreCharmRefresherSuite struct{}
-
-var _ = gc.Suite(&charmStoreCharmRefresherSuite{})
-
-func (s *charmStoreCharmRefresherSuite) TestRefresh(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	ref := "cs:meshuggah"
-	curl := charm.MustParseURL(ref)
-	newCurl := charm.MustParseURL(fmt.Sprintf("%s-1", ref))
-	origin := commoncharm.Origin{
-		Source:       commoncharm.OriginCharmStore,
-		Architecture: arch.DefaultArchitecture,
-	}
-
-	charmAdder := NewMockCharmAdder(ctrl)
-	charmAdder.EXPECT().AddCharm(newCurl, origin, false).Return(origin, nil)
-
-	charmResolver := NewMockCharmResolver(ctrl)
-	charmResolver.EXPECT().ResolveCharm(curl, origin, false).Return(newCurl, origin, []string{}, nil)
-
-	cfg := basicRefresherConfig(curl, ref)
-
-	refresher := (&factory{}).maybeCharmStore(charmAdder, charmResolver)
-	task, err := refresher(cfg)
-	c.Assert(err, jc.ErrorIsNil)
-
-	charmID, err := task.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(charmID, gc.DeepEquals, &CharmID{
-		URL:    newCurl,
-		Origin: origin.CoreCharmOrigin(),
-	})
-}
-
-func (s *charmStoreCharmRefresherSuite) TestRefreshWithNoUpdates(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	ref := "cs:meshuggah"
-	curl := charm.MustParseURL(ref)
-	origin := commoncharm.Origin{
-		Source:       commoncharm.OriginCharmStore,
-		Architecture: arch.DefaultArchitecture,
-	}
-
-	charmAdder := NewMockCharmAdder(ctrl)
-
-	charmResolver := NewMockCharmResolver(ctrl)
-	charmResolver.EXPECT().ResolveCharm(curl, origin, false).Return(curl, origin, []string{}, nil)
-
-	cfg := basicRefresherConfig(curl, ref)
-
-	refresher := (&factory{}).maybeCharmStore(charmAdder, charmResolver)
-	task, err := refresher(cfg)
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = task.Refresh()
-	c.Assert(err, gc.ErrorMatches, `charm "meshuggah": already up-to-date`)
-}
-
-func (s *charmStoreCharmRefresherSuite) TestRefreshWithARevision(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	ref := "cs:meshuggah-1"
-	curl := charm.MustParseURL(ref)
-	origin := commoncharm.Origin{
-		Source:       commoncharm.OriginCharmStore,
-		Architecture: arch.DefaultArchitecture,
-	}
-
-	charmAdder := NewMockCharmAdder(ctrl)
-
-	charmResolver := NewMockCharmResolver(ctrl)
-	charmResolver.EXPECT().ResolveCharm(curl, origin, false).Return(curl, origin, []string{}, nil)
-
-	cfg := basicRefresherConfig(curl, ref)
-
-	refresher := (&factory{}).maybeCharmStore(charmAdder, charmResolver)
-	task, err := refresher(cfg)
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = task.Refresh()
-	c.Assert(err, gc.ErrorMatches, `charm "meshuggah", revision 1: already up-to-date`)
-}
-
-func (s *charmStoreCharmRefresherSuite) TestRefreshWithCharmSwitch(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	ref := "cs:aloupi-1"
-	curl := charm.MustParseURL(ref)
-	origin := commoncharm.Origin{
-		Source:       commoncharm.OriginCharmStore,
-		Architecture: arch.DefaultArchitecture,
-	}
-
-	charmAdder := NewMockCharmAdder(ctrl)
-
-	charmResolver := NewMockCharmResolver(ctrl)
-	charmResolver.EXPECT().ResolveCharm(curl, origin, true).Return(curl, origin, []string{}, nil)
-
-	cfg := basicRefresherConfig(curl, ref)
-	cfg.Switch = true
-
-	refresher := (&factory{}).maybeCharmStore(charmAdder, charmResolver)
-	task, err := refresher(cfg)
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = task.Refresh()
-	c.Assert(err, gc.ErrorMatches, `charm "aloupi", revision 1: already up-to-date`)
 }
 
 type charmHubCharmRefresherSuite struct{}

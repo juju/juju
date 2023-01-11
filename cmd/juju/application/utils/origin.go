@@ -41,12 +41,6 @@ func DeduceOrigin(url *charm.URL, channel charm.Channel, platform corecharm.Plat
 		platform.Channel = b.Channel.Track
 	}
 	switch url.Schema {
-	case "cs":
-		origin = commoncharm.Origin{
-			Source:       commoncharm.OriginCharmStore,
-			Risk:         string(channel.Risk),
-			Architecture: architecture,
-		}
 	case "local":
 		origin = commoncharm.Origin{
 			Source:       commoncharm.OriginLocal,

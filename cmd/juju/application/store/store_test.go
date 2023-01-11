@@ -20,8 +20,7 @@ import (
 )
 
 type storeSuite struct {
-	charmAdder     *mocks.MockCharmAdder
-	macaroonGetter *mocks.MockMacaroonGetter
+	charmAdder *mocks.MockCharmAdder
 }
 
 var _ = gc.Suite(&storeSuite{})
@@ -87,7 +86,6 @@ func (s *storeSuite) TestAddCharmFromURLFailAddCharmFailUnauthorized(c *gc.C) {
 func (s *storeSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.charmAdder = mocks.NewMockCharmAdder(ctrl)
-	s.macaroonGetter = mocks.NewMockMacaroonGetter(ctrl)
 	return ctrl
 }
 
@@ -100,8 +98,4 @@ func (s *storeSuite) expectAddCharm(err error) {
 		func(_ *charm.URL, origin commoncharm.Origin, _ bool) (commoncharm.Origin, error) {
 			return origin, err
 		})
-}
-
-func (s *storeSuite) expectGet(path string) {
-	s.macaroonGetter.EXPECT().Get(path, gomock.Any()).Return(nil)
 }

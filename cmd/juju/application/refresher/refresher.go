@@ -65,7 +65,6 @@ func NewRefresherFactory(deps RefresherDependencies) RefresherFactory {
 	}
 	d.refreshers = []RefresherFn{
 		d.maybeReadLocal(deps.CharmAdder, defaultCharmRepo{}),
-		d.maybeCharmStore(deps.CharmAdder, deps.CharmResolver),
 		d.maybeCharmHub(deps.CharmAdder, deps.CharmResolver),
 	}
 	return d
@@ -117,27 +116,6 @@ func (d *factory) maybeReadLocal(charmAdder store.CharmAdder, charmRepo CharmRep
 			deployedBase: cfg.DeployedBase,
 			force:        cfg.Force,
 			forceBase:    cfg.ForceBase,
-		}, nil
-	}
-}
-
-func (d *factory) maybeCharmStore(charmAdder store.CharmAdder, charmResolver CharmResolver) func(RefresherConfig) (Refresher, error) {
-	return func(cfg RefresherConfig) (Refresher, error) {
-		return &charmStoreRefresher{
-			baseRefresher: baseRefresher{
-				charmAdder:      charmAdder,
-				charmResolver:   charmResolver,
-				resolveOriginFn: stdOriginResolver,
-				charmURL:        cfg.CharmURL,
-				charmOrigin:     cfg.CharmOrigin,
-				charmRef:        cfg.CharmRef,
-				channel:         cfg.Channel,
-				deployedBase:    cfg.DeployedBase,
-				switchCharm:     cfg.Switch,
-				force:           cfg.Force,
-				forceBase:       cfg.ForceBase,
-				logger:          cfg.Logger,
-			},
 		}, nil
 	}
 }
@@ -248,7 +226,7 @@ func (d *localCharmRefresher) String() string {
 }
 
 // ResolveOriginFunc attempts to resolve a new charm Origin from the given
-// arguments, ensuring that we work for multiple stores (charmhub vs charmstore)
+// arguments
 type ResolveOriginFunc = func(*charm.URL, corecharm.Origin, charm.Channel) (commoncharm.Origin, error)
 
 type baseRefresher struct {
@@ -336,71 +314,13 @@ func (r baseRefresher) ResolveCharm() (*charm.URL, commoncharm.Origin, error) {
 }
 
 // stdOriginResolver attempts to resolve the origin required to resolve a
-// charm. It works not only with charmstore charms but it also encapsulates the
-// required logic to deduce the appropriate origin for a charmstore to charmhub
-// switch.
+// charm.
 func stdOriginResolver(curl *charm.URL, origin corecharm.Origin, channel charm.Channel) (commoncharm.Origin, error) {
 	result, err := utils.DeduceOrigin(curl, channel, origin.Platform)
 	if err != nil {
 		return commoncharm.Origin{}, errors.Trace(err)
 	}
 	return result, nil
-}
-
-type charmStoreRefresher struct {
-	baseRefresher
-}
-
-// Allowed will attempt to check if the charm store is allowed to refresh.
-// Depending on the charm url, will then determine if that's true or not.
-func (r *charmStoreRefresher) Allowed(cfg RefresherConfig) (bool, error) {
-	path, err := charm.EnsureSchema(cfg.CharmRef, charm.CharmStore)
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-
-	curl, err := charm.ParseURL(path)
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-
-	if charm.CharmHub.Matches(curl.Schema) {
-		return false, nil
-	}
-	return true, nil
-}
-
-// Refresh a given charm store charm.
-// Bundles are not supported as there is no physical representation in Juju.
-func (r *charmStoreRefresher) Refresh() (*CharmID, error) {
-	curl, origin, err := r.ResolveCharm()
-	if errors.Is(err, ErrAlreadyUpToDate) {
-		// The charm itself is uptodate but we may need the
-		// URL, origin for updating resources.
-		return &CharmID{
-			URL:    curl,
-			Origin: origin.CoreCharmOrigin(),
-		}, err
-	} else if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	if !r.deployedBase.Channel.Empty() {
-		origin.Base = r.deployedBase
-	}
-	_, err = r.charmAdder.AddCharm(curl, origin, r.force)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return &CharmID{
-		URL:    curl,
-		Origin: origin.CoreCharmOrigin(),
-	}, nil
-}
-
-func (r *charmStoreRefresher) String() string {
-	return fmt.Sprintf("attempting to refresh charm store charm %q", r.charmRef)
 }
 
 type defaultCharmRepo struct{}

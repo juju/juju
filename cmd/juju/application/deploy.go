@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/api/client/modelconfig"
 	"github.com/juju/juju/api/client/spaces"
 	commoncharm "github.com/juju/juju/api/common/charm"
-	"github.com/juju/juju/api/controller/controller"
 	"github.com/juju/juju/charmhub"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/application/deployer"
@@ -84,14 +83,6 @@ type annotationsClient struct {
 	*annotations.Client
 }
 
-type plansClient struct {
-	planURL string
-}
-
-func (c *plansClient) PlanURL() string {
-	return c.planURL
-}
-
 type offerClient struct {
 	*applicationoffers.Client
 }
@@ -106,7 +97,6 @@ type deployAPIAdapter struct {
 	*applicationClient
 	*modelConfigClient
 	*annotationsClient
-	*plansClient
 	*offerClient
 	*spacesClient
 	*machineManagerClient
@@ -190,21 +180,6 @@ func newDeployCommand() *DeployCommand {
 	deployCmd := &DeployCommand{
 		Steps: deployer.Steps(),
 	}
-	deployCmd.NewCharmRepo = func() (*store.CharmStoreAdaptor, error) {
-		controllerAPIRoot, err := deployCmd.newControllerAPIRoot()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		url, err := getCharmStoreAPIURL(controllerAPIRoot)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		bakeryClient, err := deployCmd.BakeryClient()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return store.NewCharmStoreAdaptor(bakeryClient, url), nil
-	}
 	deployCmd.NewModelConfigAPI = func(api base.APICallCloser) ModelConfigGetter {
 		return modelconfig.NewClient(api)
 	}
@@ -236,10 +211,6 @@ func newDeployCommand() *DeployCommand {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		mURL, err := deployCmd.getMeteringAPIURL(controllerAPIRoot)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
 		return &deployAPIAdapter{
 			Connection:           apiRoot,
 			legacyClient:         &apiClient{Client: apiclient.NewClient(apiRoot)},
@@ -248,7 +219,6 @@ func newDeployCommand() *DeployCommand {
 			machineManagerClient: &machineManagerClient{Client: machinemanager.NewClient(apiRoot)},
 			modelConfigClient:    &modelConfigClient{Client: modelconfig.NewClient(apiRoot)},
 			annotationsClient:    &annotationsClient{Client: annotations.NewClient(apiRoot)},
-			plansClient:          &plansClient{planURL: mURL},
 			offerClient:          &offerClient{Client: applicationoffers.NewClient(controllerAPIRoot)},
 			spacesClient:         &spacesClient{API: spaces.NewAPI(apiRoot)},
 		}, nil
@@ -261,8 +231,8 @@ func newDeployCommand() *DeployCommand {
 		return applicationoffers.NewClient(root), nil
 	}
 	deployCmd.NewDeployerFactory = deployer.NewDeployerFactory
-	deployCmd.NewResolver = func(charmsAPI store.CharmsAPI, charmRepoFn store.CharmStoreRepoFunc, downloadClientFn store.DownloadBundleClientFunc) deployer.Resolver {
-		return store.NewCharmAdaptor(charmsAPI, charmRepoFn, downloadClientFn)
+	deployCmd.NewResolver = func(charmsAPI store.CharmsAPI, downloadClientFn store.DownloadBundleClientFunc) deployer.Resolver {
+		return store.NewCharmAdaptor(charmsAPI, downloadClientFn)
 	}
 	return deployCmd
 }
@@ -366,9 +336,6 @@ type DeployCommand struct {
 	// NewDeployAPI stores a function which returns a new deploy client.
 	NewDeployAPI func() (deployer.DeployerAPI, error)
 
-	// NewCharmRepo stores a function which returns a charm store client.
-	NewCharmRepo func() (*store.CharmStoreAdaptor, error)
-
 	// NewDownloadClient stores a function for getting a charm/bundle.
 	NewDownloadClient func() (store.DownloadBundleClient, error)
 
@@ -380,7 +347,7 @@ type DeployCommand struct {
 	NewCharmsAPI func(caller base.APICallCloser) CharmsAPI
 
 	// NewResolver stores a function which returns a charm adaptor.
-	NewResolver func(store.CharmsAPI, store.CharmStoreRepoFunc, store.DownloadBundleClientFunc) deployer.Resolver
+	NewResolver func(store.CharmsAPI, store.DownloadBundleClientFunc) deployer.Resolver
 
 	// NewDeployerFactory stores a function which returns a deployer factory.
 	NewDeployerFactory func(dep deployer.DeployerDependencies) deployer.DeployerFactory
@@ -850,10 +817,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	if c.Constraints, err = common.ParseConstraints(ctx, c.ConstraintsStr); err != nil {
 		return errors.Trace(err)
 	}
-	cstoreAPI, err := c.NewCharmRepo()
-	if err != nil {
-		return errors.Trace(err)
-	}
+
 	deployAPI, err := c.NewDeployAPI()
 	if err != nil {
 		return errors.Trace(err)
@@ -875,19 +839,12 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	for _, step := range c.Steps {
-		step.SetPlanURL(deployAPI.PlanURL())
-	}
-
-	csRepoFn := func() (store.CharmrepoForDeploy, error) {
-		return cstoreAPI, nil
-	}
 	downloadClientFn := func() (store.DownloadBundleClient, error) {
 		return c.NewDownloadClient()
 	}
 
 	charmAPIClient := c.NewCharmsAPI(c.apiRoot)
-	charmAdapter := c.NewResolver(charmAPIClient, csRepoFn, downloadClientFn)
+	charmAdapter := c.NewResolver(charmAPIClient, downloadClientFn)
 
 	factory, cfg := c.getDeployerFactory(base, charm.CharmHub)
 	deploy, err := factory.GetDeployer(cfg, deployAPI, charmAdapter)
@@ -922,15 +879,6 @@ func (c *DeployCommand) parseBindFlag(api SpacesAPI) error {
 
 	c.Bindings = bindings
 	return nil
-}
-
-func (c *DeployCommand) getMeteringAPIURL(controllerAPIRoot api.Connection) (string, error) {
-	controllerAPI := controller.NewClient(controllerAPIRoot)
-	controllerCfg, err := controllerAPI.ControllerConfig()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return controllerCfg.MeteringURL(), nil
 }
 
 func (c *DeployCommand) getDeployerFactory(base series.Base, defaultCharmSchema charm.Schema) (deployer.DeployerFactory, deployer.DeployerConfig) {

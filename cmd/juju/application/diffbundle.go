@@ -10,8 +10,6 @@ import (
 	"strings"
 
 	"github.com/juju/charm/v9"
-	"github.com/juju/charmrepo/v7"
-	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -374,26 +372,6 @@ Consider using a CharmStore bundle instead.`
 }
 
 func (c *diffBundleCommand) charmAdaptor(apiRoot base.APICallCloser, curl *charm.URL) (BundleResolver, error) {
-	charmStoreRepo := func() (store.CharmrepoForDeploy, error) {
-		controllerAPIRoot, err := c.newControllerAPIRootFn()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		defer func() { _ = controllerAPIRoot.Close() }()
-		csURL, err := getCharmStoreAPIURL(controllerAPIRoot)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		bakeryClient, err := c.BakeryClient()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		risk := csparams.Channel(c.channel.Risk)
-		cstoreClient := store.NewCharmStoreClient(bakeryClient, csURL).WithChannel(risk)
-		return charmrepo.NewCharmStoreFromClient(cstoreClient), nil
-	}
 	downloadClient := func() (store.DownloadBundleClient, error) {
 		apiRoot, err := c.newAPIRootFn()
 		if err != nil {
@@ -410,7 +388,7 @@ func (c *diffBundleCommand) charmAdaptor(apiRoot base.APICallCloser, curl *charm
 		})
 	}
 
-	return store.NewCharmAdaptor(apicharms.NewClient(apiRoot), charmStoreRepo, downloadClient), nil
+	return store.NewCharmAdaptor(apicharms.NewClient(apiRoot), downloadClient), nil
 }
 
 func (c *diffBundleCommand) readModel(apiRoot base.APICallCloser) (*bundlechanges.Model, error) {
