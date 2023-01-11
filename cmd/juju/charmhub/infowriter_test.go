@@ -34,7 +34,7 @@ description: |-
   By default it will place Ngnix and php-fpm configured to scale horizontally with
   Nginx's reverse proxy.
 charm-id: charmCHARMcharmCHARMcharmCHARM01
-supports: bionic, xenial
+supports: ubuntu@18.04, ubuntu@16.04
 tags: app, seven
 subordinate: true
 relations:
@@ -44,9 +44,9 @@ relations:
   requires:
     five: six
 channels: |
-  latest/stable:     1.0.3  2019-12-16  (16)  12MB  amd64  jammy, focal
-  latest/candidate:  1.0.3  2019-12-16  (17)  12MB  amd64  jammy
-  latest/beta:       1.0.3  2019-12-16  (17)  12MB  amd64  jammy
+  latest/stable:     1.0.3  2019-12-16  (16)  12MB  amd64  ubuntu@22.04, ubuntu@20.04
+  latest/candidate:  1.0.3  2019-12-16  (17)  12MB  amd64  ubuntu@22.04
+  latest/beta:       1.0.3  2019-12-16  (17)  12MB  amd64  ubuntu@22.04
   latest/edge:       1.0.3  2019-12-16  (18)  12MB  amd64  coolos@3.14
 `
 	c.Assert(obtained, gc.Equals, expected)
@@ -68,7 +68,7 @@ description: |-
   By default it will place Ngnix and php-fpm configured to scale horizontally with
   Nginx's reverse proxy.
 charm-id: charmCHARMcharmCHARMcharmCHARM01
-supports: bionic, xenial
+supports: ubuntu@18.04, ubuntu@16.04
 tags: app, seven
 subordinate: true
 relations:
@@ -102,7 +102,7 @@ description: |-
   By default it will place Ngnix and php-fpm configured to scale horizontally with
   Nginx's reverse proxy.
 charm-id: charmCHARMcharmCHARMcharmCHARM01
-supports: bionic, xenial
+supports: ubuntu@18.04, ubuntu@16.04
 tags: app, seven
 subordinate: true
 relations:
@@ -137,7 +137,7 @@ description: |-
   By default it will place Ngnix and php-fpm configured to scale horizontally with
   Nginx's reverse proxy.
 charm-id: charmCHARMcharmCHARMcharmCHARM01
-supports: bionic, xenial
+supports: ubuntu@18.04, ubuntu@16.04
 tags: app, seven
 subordinate: true
 relations:
@@ -147,9 +147,9 @@ relations:
   requires:
     five: six
 channels: |
-  latest/stable:     1.0.3  2019-12-16  (16)  12MB  jammy, focal
-  latest/candidate:  1.0.3  2019-12-16  (17)  12MB  jammy
-  latest/beta:       1.0.3  2019-12-16  (17)  12MB  jammy
+  latest/stable:     1.0.3  2019-12-16  (16)  12MB  ubuntu@22.04, ubuntu@20.04
+  latest/candidate:  1.0.3  2019-12-16  (17)  12MB  ubuntu@22.04
+  latest/beta:       1.0.3  2019-12-16  (17)  12MB  ubuntu@22.04
   latest/edge:       1.0.3  2019-12-16  (18)  12MB  coolos@3.14
 `
 	c.Assert(obtained, gc.Equals, expected)
@@ -171,7 +171,7 @@ description: |-
   By default it will place Ngnix and php-fpm configured to scale horizontally with
   Nginx's reverse proxy.
 charm-id: charmCHARMcharmCHARMcharmCHARM01
-supports: bionic, xenial
+supports: ubuntu@18.04, ubuntu@16.04
 tags: app, seven
 subordinate: true
 relations:

@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/charmhub"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/core/series"
 )
 
 const (
@@ -22,8 +23,10 @@ const (
 	infoDoc     = `
 The charm can be specified by name or by path.
 
-Channels displayed are supported by any series.
-To see channels supported for only a specific series, use the --series flag.
+Channels displayed are supported by any base.
+To see channels supported for only a specific base, use the --base flag.
+--base can be specified using the OS name and the version of the OS, 
+separated by @. For example, --base ubuntu@22.04.
 
 Examples:
     juju info postgresql
@@ -74,7 +77,8 @@ func (c *infoCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.charmHubCommand.SetFlags(f)
 
 	f.StringVar(&c.arch, "arch", ArchAll, fmt.Sprintf("specify an arch <%s>", c.archArgumentList()))
-	f.StringVar(&c.series, "series", SeriesAll, "specify a series")
+	f.StringVar(&c.series, "series", SeriesAll, "specify a series. DEPRECATED use --base")
+	f.StringVar(&c.base, "base", "", "specify a base")
 	f.StringVar(&c.channel, "channel", "", "specify a channel to use instead of the default release")
 	f.BoolVar(&c.config, "config", false, "display config for this charm")
 	f.StringVar(&c.unicode, "unicode", "auto", "display output using unicode <auto|never|always>")
@@ -88,6 +92,10 @@ func (c *infoCommand) SetFlags(f *gnuflag.FlagSet) {
 // Init initializes the info command, including validating the provided
 // flags. It implements part of the cmd.Command interface.
 func (c *infoCommand) Init(args []string) error {
+	if c.base != "" && (c.series != "" && c.series != SeriesAll) {
+		return errors.New("--series and --base cannot be specified together")
+	}
+
 	if err := c.charmHubCommand.Init(args); err != nil {
 		return errors.Trace(err)
 	}
@@ -125,6 +133,28 @@ func (c *infoCommand) validateCharmOrBundle(charmOrBundle string) error {
 // Run is the business logic of the info command.  It implements the meaty
 // part of the cmd.Command interface.
 func (c *infoCommand) Run(cmdContext *cmd.Context) error {
+	var (
+		base series.Base
+		err  error
+	)
+	// Note: we validated that both series and base cannot be specified in
+	// Init(), so it's safe to assume that only one of them is set here.
+	if c.series == SeriesAll {
+		c.series = ""
+	} else if c.series != "" {
+		cmdContext.Warningf("series flag is deprecated, use --base instead")
+		if base, err = series.GetBaseFromSeries(c.series); err != nil {
+			return errors.Annotatef(err, "attempting to convert %q to a base", c.series)
+		}
+		c.base = base.String()
+		c.series = ""
+	}
+	if c.base != "" {
+		if base, err = series.ParseBaseFromString(c.base); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	cfg := charmhub.Config{
 		URL:    c.charmHubURL,
 		Logger: logger,
@@ -154,7 +184,7 @@ func (c *infoCommand) Run(cmdContext *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	view, err := convertInfoResponse(info, c.arch, c.series)
+	view, err := convertInfoResponse(info, c.arch, base)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -177,14 +207,14 @@ func (c *infoCommand) formatter(writer io.Writer, value interface{}) error {
 	// Default is to include both architecture and bases
 	mode := baseModeBoth
 	switch {
-	case c.arch != ArchAll && c.series != SeriesAll:
-		// If --arch and --series given, don't show arch or bases
+	case c.arch != ArchAll && c.base != "":
+		// If --arch and --base given, don't show arch or bases
 		mode = baseModeNone
-	case c.arch != ArchAll && c.series == SeriesAll:
+	case c.arch != ArchAll && c.base == "":
 		// If only --arch given, show bases
 		mode = baseModeBases
-	case c.arch == ArchAll && c.series != SeriesAll:
-		// If only --series given, show arch
+	case c.arch == ArchAll && c.base != "":
+		// If only --base given, show arch
 		mode = baseModeArches
 	}
 
