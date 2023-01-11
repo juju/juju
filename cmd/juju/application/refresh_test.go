@@ -124,8 +124,8 @@ func (s *BaseRefreshSuite) SetUpTest(c *gc.C) {
 		},
 	}
 
-	currentCharmURL := charm.MustParseURL("cs:quantal/foo-1")
-	latestCharmURL := charm.MustParseURL("cs:quantal/foo-2")
+	currentCharmURL := charm.MustParseURL("ch:quantal/foo-1")
+	latestCharmURL := charm.MustParseURL("ch:quantal/foo-2")
 	s.resolvedCharmURL = latestCharmURL
 
 	s.apiConnection = mockAPIConnection{
@@ -233,9 +233,7 @@ func (s *RefreshSuite) TestStorageConstraints(c *gc.C) {
 		CharmID: application.CharmID{
 			URL: s.resolvedCharmURL,
 			Origin: commoncharm.Origin{
-				Source:       "charm-store",
-				Architecture: arch.DefaultArchitecture,
-				Risk:         "stable",
+				Risk: "stable",
 			},
 		},
 		StorageConstraints: map[string]storage.Constraints{
@@ -260,9 +258,7 @@ func (s *RefreshSuite) TestConfigSettings(c *gc.C) {
 		CharmID: application.CharmID{
 			URL: s.resolvedCharmURL,
 			Origin: commoncharm.Origin{
-				Source:       "charm-store",
-				Architecture: arch.DefaultArchitecture,
-				Risk:         "stable",
+				Risk: "stable",
 			},
 		},
 		ConfigSettingsYAML: "foo:{}",
@@ -305,9 +301,7 @@ func (s *RefreshSuite) testUpgradeWithBind(c *gc.C, expectedBindings map[string]
 		CharmID: application.CharmID{
 			URL: s.resolvedCharmURL,
 			Origin: commoncharm.Origin{
-				Source:       "charm-store",
-				Architecture: arch.DefaultArchitecture,
-				Risk:         "stable",
+				Risk: "stable",
 			},
 		},
 		EndpointBindings: expectedBindings,
@@ -410,7 +404,7 @@ func (s *RefreshErrorsStateSuite) deployApplication(c *gc.C) {
 func (s *RefreshErrorsStateSuite) TestInvalidSwitchURL(c *gc.C) {
 	s.deployApplication(c)
 	_, err := s.runRefresh(c, s.cmd, "riak", "--switch=cs:missing")
-	c.Assert(err, gc.ErrorMatches, `unknown schema for charm URL "cs:missing"`)
+	c.Assert(err, gc.ErrorMatches, `unable to refresh "cs:missing"`)
 }
 
 func (s *RefreshErrorsStateSuite) TestNoPathFails(c *gc.C) {
@@ -547,6 +541,9 @@ func (s *RefreshSuite) TestUpgradeWithChannel(c *gc.C) {
 	origin, _ := utils.DeduceOrigin(s.resolvedCharmURL, charm.Channel{Risk: charm.Beta}, corecharm.Platform{
 		Architecture: arch.DefaultArchitecture,
 	})
+	origin.Source = ""
+	origin.Revision = (*int)(nil)
+	origin.Architecture = ""
 	s.charmAdder.CheckCall(c, 0, "AddCharm", s.resolvedCharmURL, origin, false)
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
@@ -554,9 +551,7 @@ func (s *RefreshSuite) TestUpgradeWithChannel(c *gc.C) {
 		CharmID: application.CharmID{
 			URL: s.resolvedCharmURL,
 			Origin: commoncharm.Origin{
-				Source:       "charm-store",
-				Architecture: arch.DefaultArchitecture,
-				Risk:         "beta",
+				Risk: "beta",
 			},
 		},
 		EndpointBindings: map[string]string{},
@@ -570,6 +565,9 @@ func (s *RefreshSuite) TestRefreshShouldRespectDeployedChannelByDefault(c *gc.C)
 
 	s.charmAdder.CheckCallNames(c, "AddCharm")
 	origin, _ := utils.DeduceOrigin(s.resolvedCharmURL, charm.Channel{Risk: charm.Beta}, corecharm.Platform{})
+	origin.Source = ""
+	origin.Revision = (*int)(nil)
+	origin.Architecture = ""
 	s.charmAdder.CheckCall(c, 0, "AddCharm", s.resolvedCharmURL, origin, false)
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
@@ -577,9 +575,7 @@ func (s *RefreshSuite) TestRefreshShouldRespectDeployedChannelByDefault(c *gc.C)
 		CharmID: application.CharmID{
 			URL: s.resolvedCharmURL,
 			Origin: commoncharm.Origin{
-				Source:       "charm-store",
-				Architecture: arch.DefaultArchitecture,
-				Risk:         "beta",
+				Risk: "beta",
 			},
 		},
 		EndpointBindings: map[string]string{},
@@ -595,21 +591,26 @@ func (s *RefreshSuite) TestUpgradeFailWithoutCharmHubOriginID(c *gc.C) {
 }
 
 func (s *RefreshSuite) TestSwitch(c *gc.C) {
-	_, err := s.runRefresh(c, "foo", "--switch=cs:~other/trusty/anotherriak")
+	_, err := s.runRefresh(c, "foo", "--switch=ch:trusty/anotherriak")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.charmClient.CheckCallNames(c, "CharmInfo")
 	s.charmClient.CheckCall(c, 0, "CharmInfo", s.resolvedCharmURL.String())
-	s.charmAdder.CheckCallNames(c, "AddCharm")
+	s.charmAdder.CheckCallNames(c, "CheckCharmPlacement", "AddCharm")
 	origin, _ := utils.DeduceOrigin(s.resolvedCharmURL, charm.Channel{Risk: charm.Stable}, corecharm.Platform{})
-	s.charmAdder.CheckCall(c, 0, "AddCharm", s.resolvedCharmURL, origin, false)
+
+	parsedSwitchUrl, err := charm.ParseURL("ch:trusty/anotherriak")
+	c.Assert(err, jc.ErrorIsNil)
+	s.charmAdder.CheckCall(c, 0, "CheckCharmPlacement", "foo", parsedSwitchUrl)
+	origin.Revision = (*int)(nil)
+	s.charmAdder.CheckCall(c, 1, "AddCharm", s.resolvedCharmURL, origin, false)
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
 		ApplicationName: "foo",
 		CharmID: application.CharmID{
 			URL: s.resolvedCharmURL,
 			Origin: commoncharm.Origin{
-				Source:       "charm-store",
+				Source:       "charm-hub",
 				Architecture: arch.DefaultArchitecture,
 				Risk:         "stable",
 			},
@@ -624,7 +625,7 @@ func (s *RefreshSuite) TestSwitch(c *gc.C) {
 		}
 	}
 	c.Assert(curl, gc.NotNil)
-	c.Assert(curl.String(), gc.Equals, "cs:~other/trusty/anotherriak")
+	c.Assert(curl.String(), gc.Equals, "ch:trusty/anotherriak")
 }
 
 func (s *RefreshSuite) TestSwitchSameURL(c *gc.C) {
@@ -819,7 +820,7 @@ func (s *RefreshSuccessStateSuite) TestInitWithResources(c *gc.C) {
 }
 
 func (s *RefreshSuite) TestUpgradeSameVersionWithResources(c *gc.C) {
-	s.resolvedCharmURL = charm.MustParseURL("cs:quantal/foo-1")
+	s.resolvedCharmURL = charm.MustParseURL("ch:quantal/foo-1")
 	s.charmClient.charmInfo = &apicommoncharms.CharmInfo{
 		URL: s.resolvedCharmURL.String(),
 		Meta: &charm.Meta{
@@ -848,9 +849,7 @@ func (s *RefreshSuite) TestUpgradeSameVersionWithResources(c *gc.C) {
 		CharmID: application.CharmID{
 			URL: s.resolvedCharmURL,
 			Origin: commoncharm.Origin{
-				Source:       "charm-store",
-				Architecture: arch.DefaultArchitecture,
-				Risk:         "stable",
+				Risk: "stable",
 			},
 		},
 		EndpointBindings: map[string]string{},
@@ -997,6 +996,11 @@ type mockCharmAdder struct {
 func (m *mockCharmAdder) AddCharm(curl *charm.URL, origin commoncharm.Origin, force bool) (commoncharm.Origin, error) {
 	m.MethodCall(m, "AddCharm", curl, origin, force)
 	return origin, m.NextErr()
+}
+
+func (m *mockCharmAdder) CheckCharmPlacement(appName string, curl *charm.URL) error {
+	m.MethodCall(m, "CheckCharmPlacement", appName, curl)
+	return m.NextErr()
 }
 
 func (m *mockCharmAdder) AddLocalCharm(curl *charm.URL, ch charm.Charm, force bool) (*charm.URL, error) {
