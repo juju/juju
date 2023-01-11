@@ -2261,7 +2261,6 @@ type fakeDeployAPI struct {
 	deployer.DeployerAPI
 	*jujutesting.CallMocker
 	deployerFactoryFunc func(dep deployer.DeployerDependencies) deployer.DeployerFactory
-	charmRepoFunc       func() (*store.CharmStoreAdaptor, error)
 	modelCons           constraints.Value
 }
 
@@ -2494,18 +2493,6 @@ func (f *fakeDeployAPI) ResolveWithPreferredChannel(url *charm.URL, risk csparam
 	return results[0].(*charm.URL), results[1].(csparams.Channel), results[2].([]string), results[3].(error)
 }
 
-type fakeCharmStoreAPI struct {
-	*fakeDeployAPI
-}
-
-func (f *fakeCharmStoreAPI) GetBundle(url *charm.URL, _ string) (charm.Bundle, error) {
-	results := f.MethodCall(f, "GetBundle", url)
-	if results == nil {
-		return nil, errors.NotFoundf("bundle %v", url)
-	}
-	return results[0].(charm.Bundle), jujutesting.TypeAssertError(results[1])
-}
-
 func stringToInterface(args []string) []interface{} {
 	interfaceArgs := make([]interface{}, len(args))
 	for i, a := range args {
@@ -2517,9 +2504,6 @@ func stringToInterface(args []string) []interface{} {
 func vanillaFakeModelAPI(cfgAttrs map[string]interface{}) *fakeDeployAPI {
 	var logger loggo.Logger
 	fakeAPI := &fakeDeployAPI{CallMocker: jujutesting.NewCallMocker(logger)}
-	fakeAPI.charmRepoFunc = func() (*store.CharmStoreAdaptor, error) {
-		return &store.CharmStoreAdaptor{}, nil
-	}
 
 	fakeAPI.Call("Close").Returns(error(nil))
 	fakeAPI.Call("ModelGet").Returns(cfgAttrs, error(nil))
