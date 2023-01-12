@@ -17,7 +17,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v9"
 	charmresource "github.com/juju/charm/v9/resource"
-	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/collections/set"
@@ -2486,11 +2485,6 @@ func (f *fakeDeployAPI) Consume(arg crossmodel.ConsumeApplicationArgs) (string, 
 func (f *fakeDeployAPI) GrantOffer(user, access string, offerURLs ...string) error {
 	res := f.MethodCall(f, "GrantOffer", user, access, offerURLs)
 	return jujutesting.TypeAssertError(res[0])
-}
-
-func (f *fakeDeployAPI) ResolveWithPreferredChannel(url *charm.URL, risk csparams.Channel) (*charm.URL, csparams.Channel, []string, error) {
-	results := f.MethodCall(f, "ResolveWithPreferredChannel", url)
-	return results[0].(*charm.URL), results[1].(csparams.Channel), results[2].([]string), results[3].(error)
 }
 
 func stringToInterface(args []string) []interface{} {

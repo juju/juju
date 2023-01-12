@@ -229,7 +229,7 @@ func (c *diffBundleCommand) Run(ctx *cmd.Context) error {
 	defer func() { _ = apiRoot.Close() }()
 
 	// Load up the bundle data, with includes and overlays.
-	baseSrc, err := c.bundleDataSource(apiRoot, base)
+	baseSrc, err := c.bundleDataSource(ctx, apiRoot, base)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -302,7 +302,7 @@ func missingRelationEndpoint(rel string) bool {
 	return len(tokens) != 2 || tokens[1] == ""
 }
 
-func (c *diffBundleCommand) bundleDataSource(apiRoot base.APICallCloser, base series.Base) (charm.BundleDataSource, error) {
+func (c *diffBundleCommand) bundleDataSource(ctx *cmd.Context, apiRoot base.APICallCloser, base series.Base) (charm.BundleDataSource, error) {
 	ds, err := charm.LocalBundleDataSource(c.bundle)
 
 	// NotValid/NotFound means we should try interpreting it as a charm store
@@ -339,7 +339,7 @@ func (c *diffBundleCommand) bundleDataSource(apiRoot base.APICallCloser, base se
 	bundleURL, bundleOrigin, err := charmAdaptor.ResolveBundleURL(bURL, origin)
 	if err != nil {
 		if errors.Is(err, errors.NotValid) {
-			return nil, errors.Errorf("%q can not be found or is not a valid bundle", c.bundle)
+			ctx.Verbosef("%q can not be found or is not a valid bundle", c.bundle)
 		}
 		return nil, errors.Trace(err)
 	}
