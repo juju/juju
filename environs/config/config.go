@@ -277,6 +277,10 @@ const (
 	//  - strict mode ensures that we handle any fallbacks as errors.
 	ModeKey = "mode"
 
+	// ConfirmRemoval is used to configure whether clients should prompt users
+	// to confirm their actions when they run remove commands
+	ConfirmRemoval = "confirm-removal"
+
 	//
 	// Deprecated Settings Attributes
 	//
@@ -594,6 +598,9 @@ var defaultConfigValues = map[string]interface{}{
 	// By default the Juju backend is used.
 	SecretBackendKey:       "",
 	SecretBackendConfigKey: "",
+
+	// TODO (jack-w-shaw): Set this to true in 3.2
+	ConfirmRemoval: false,
 }
 
 // defaultLoggingConfig is the default value for logging-config if it is otherwise not set.
@@ -1498,6 +1505,13 @@ func (c *Config) validateMode() error {
 	return nil
 }
 
+// ConfirmRemoval is used to configure whether clients should prompt users
+// to confirm their actions when they run remove commands
+func (c *Config) ConfirmRemoval() (bool, bool) {
+	v, ok := c.defined[ConfirmRemoval].(bool)
+	return v, ok
+}
+
 // LoggingOutput is a for determining the destination of output for
 // logging.
 func (c *Config) LoggingOutput() ([]string, bool) {
@@ -1810,6 +1824,7 @@ var alwaysOptional = schema.Defaults{
 	CharmHubURLKey:                  schema.Omit,
 	SecretBackendKey:                schema.Omit,
 	SecretBackendConfigKey:          schema.Omit,
+	ConfirmRemoval:                  schema.Omit,
 }
 
 func allowEmpty(attr string) bool {
@@ -2032,6 +2047,11 @@ var configSchema = environschema.Fields{
 	AuthorizedKeysKey: {
 		Description: "Any authorized SSH public keys for the model, as found in a ~/.ssh/authorized_keys file",
 		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	ConfirmRemoval: {
+		Description: "Whether the Juju client should ask for confirmation when running remove commands",
+		Type:        environschema.Tbool,
 		Group:       environschema.EnvironGroup,
 	},
 	DefaultSeriesKey: {

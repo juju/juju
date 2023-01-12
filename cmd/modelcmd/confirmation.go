@@ -4,52 +4,72 @@
 package modelcmd
 
 import (
-	"fmt"
-
 	"github.com/juju/cmd/v3"
-	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
-	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/environs/config"
 )
 
-// ConfirmationCommandBase provides common attributes and methods that
-// commands require to confirm the execution.
-type ConfirmationCommandBase struct {
+// TODO (jack-w-shaw): When confirm-removal config item defaults to true, we can combine these
+
+// DestroyConfirmationCommandBase provides common attributes and methods that
+// commands require to confirm the execution of destroy-* commands
+type DestroyConfirmationCommandBase struct {
 	assumeYes      bool // DEPRECATED
 	assumeNoPrompt bool
 }
 
 // SetFlags implements Command.SetFlags.
-func (c *ConfirmationCommandBase) SetFlags(f *gnuflag.FlagSet) {
+func (c *DestroyConfirmationCommandBase) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.assumeYes, "y", false, "Do not ask for confirmation. Option present for backwards compatibility with Juju 2.9")
 	f.BoolVar(&c.assumeYes, "yes", false, "")
 	f.BoolVar(&c.assumeNoPrompt, "no-prompt", false, "Do not ask for confirmation")
 }
 
-// Init implements Command.Init.
-func (c *ConfirmationCommandBase) Init(args []string) error {
-	if !c.assumeNoPrompt {
-		assumeNoPrompt, skipErr := jujucmd.CheckSkipConfirmationEnvVar()
-		if skipErr != nil && !errors.IsNotFound(skipErr) {
-			return errors.Trace(skipErr)
-		}
-		if !errors.IsNotFound(skipErr) {
-			c.assumeNoPrompt = assumeNoPrompt
-		}
-	}
-	return nil
-}
-
 // Run implements Command.Run
-func (c *ConfirmationCommandBase) Run(ctx *cmd.Context) error {
+func (c *DestroyConfirmationCommandBase) Run(ctx *cmd.Context) error {
 	if c.assumeYes {
-		fmt.Fprint(ctx.Stdout, "WARNING: '-y'/'--yes' flags are deprecated and will be removed in Juju 3.1\n")
+		ctx.Warningf("'-y'/'--yes' flags are deprecated and will be removed in Juju 3.1\n")
 	}
 	return nil
 }
 
-// NeedsConfirmation returns if flags require the confirmation or not.
-func (c *ConfirmationCommandBase) NeedsConfirmation() bool {
+// NeedsConfirmation returns indicates whether confirmation is required or not.
+func (c *DestroyConfirmationCommandBase) NeedsConfirmation() bool {
 	return !(c.assumeYes || c.assumeNoPrompt)
+}
+
+type ModelConfigAPI interface {
+	ModelGet() (map[string]interface{}, error)
+}
+
+// RemoveConfirmationCommandBase provides common attributes and methods that
+// commands require to confirm the execution of remove-* commands
+type RemoveConfirmationCommandBase struct {
+	assumeNoPrompt bool
+}
+
+// SetFlags implements Command.SetFlags.
+func (c *RemoveConfirmationCommandBase) SetFlags(f *gnuflag.FlagSet) {
+	f.BoolVar(&c.assumeNoPrompt, "no-prompt", false, "Do not ask for confirmation")
+}
+
+// NeedsConfirmation returns indicates whether confirmation is required or not.
+func (c *RemoveConfirmationCommandBase) NeedsConfirmation(client ModelConfigAPI) bool {
+	if c.assumeNoPrompt {
+		return false
+	}
+
+	configAttrs, err := client.ModelGet()
+	if err != nil {
+		// Play it safe
+		return true
+	}
+	cfg, err := config.New(config.UseDefaults, configAttrs)
+	if err != nil {
+		return true
+	}
+	// We know for sure this option is present because we use defaulting
+	confirmRemovalOption, _ := cfg.ConfirmRemoval()
+	return confirmRemovalOption
 }

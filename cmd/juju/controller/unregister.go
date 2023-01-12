@@ -27,7 +27,7 @@ func NewUnregisterCommand(store jujuclient.ClientStore) cmd.Command {
 // unregisterCommand removes a Juju controller from the local store.
 type unregisterCommand struct {
 	modelcmd.CommandBase
-	modelcmd.ConfirmationCommandBase
+	modelcmd.DestroyConfirmationCommandBase
 
 	controllerName string
 	assumeYes      bool // DEPRECATED
@@ -63,7 +63,7 @@ func (c *unregisterCommand) Info() *cmd.Info {
 
 // SetFlags implements Command.SetFlags.
 func (c *unregisterCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.ConfirmationCommandBase.SetFlags(f)
+	c.DestroyConfirmationCommandBase.SetFlags(f)
 }
 
 // SetClientStore implements Command.SetClientStore.
@@ -86,9 +86,6 @@ func (c *unregisterCommand) Init(args []string) error {
 		return errors.Trace(err)
 	}
 
-	if err := c.ConfirmationCommandBase.Init(args); err != nil {
-		return errors.Trace(err)
-	}
 	return nil
 }
 
@@ -105,10 +102,10 @@ func (c *unregisterCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	if err := c.ConfirmationCommandBase.Run(ctx); err != nil {
+	if err := c.DestroyConfirmationCommandBase.Run(ctx); err != nil {
 		return errors.Trace(err)
 	}
-	if c.ConfirmationCommandBase.NeedsConfirmation() {
+	if c.DestroyConfirmationCommandBase.NeedsConfirmation() {
 		fmt.Fprintf(ctx.Stderr, unregisterMsg, c.controllerName)
 		if err := jujucmd.UserConfirmName(c.controllerName, "controller", ctx); err != nil {
 			return errors.Annotate(err, "unregistering controller")

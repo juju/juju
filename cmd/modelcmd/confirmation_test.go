@@ -4,65 +4,105 @@
 package modelcmd_test
 
 import (
+	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd/v3/cmdtesting"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/testing"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/modelcmd/mocks"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/provider/dummy"
 )
 
-type ConfirmationCommandBaseSuite struct {
-	testing.IsolationSuite
-}
+type DestroyConfirmationCommandBaseSuite struct{}
 
-var _ = gc.Suite(&ConfirmationCommandBaseSuite{})
+var _ = gc.Suite(&DestroyConfirmationCommandBaseSuite{})
 
-func (s *ConfirmationCommandBaseSuite) getCmdBase(args []string) modelcmd.ConfirmationCommandBase {
+func (*DestroyConfirmationCommandBaseSuite) getCmdBase(args []string) modelcmd.DestroyConfirmationCommandBase {
 	f := cmdtesting.NewFlagSet()
-	cmd := modelcmd.ConfirmationCommandBase{}
+	cmd := modelcmd.DestroyConfirmationCommandBase{}
 	cmd.SetFlags(f)
 	f.Parse(true, args)
-	cmd.Init(f.Args())
 	return cmd
 }
 
-func (s *ConfirmationCommandBaseSuite) TestSimple(c *gc.C) {
+func (s *DestroyConfirmationCommandBaseSuite) TestSimple(c *gc.C) {
 	commandBase := s.getCmdBase([]string{"--foo", "bar"})
 
 	c.Assert(commandBase.NeedsConfirmation(), jc.IsTrue)
 }
 
-func (s *ConfirmationCommandBaseSuite) TestNoPromptFlag(c *gc.C) {
+func (s *DestroyConfirmationCommandBaseSuite) TestNoPromptFlag(c *gc.C) {
 	commandBase := s.getCmdBase([]string{"--no-prompt", "--foo", "bar"})
 
 	c.Assert(commandBase.NeedsConfirmation(), jc.IsFalse)
 }
 
-func (s *ConfirmationCommandBaseSuite) TestSkipConfVarTrue(c *gc.C) {
-	for _, trueVal := range []string{"1", "t", "true", "TRUE"} {
-		s.PatchEnvironment(osenv.JujuSkipConfirmationEnvKey, trueVal)
-
-		commandBase := s.getCmdBase([]string{"--foo", "bar"})
-
-		c.Assert(commandBase.NeedsConfirmation(), jc.IsFalse)
-	}
-}
-
-func (s *ConfirmationCommandBaseSuite) TestSkipConfVarFalse(c *gc.C) {
-	for _, falseVal := range []string{"0", "f", "false", "FALSE"} {
-		s.PatchEnvironment(osenv.JujuSkipConfirmationEnvKey, falseVal)
-
-		commandBase := s.getCmdBase([]string{"--foo", "bar"})
-
-		c.Assert(commandBase.NeedsConfirmation(), jc.IsTrue)
-	}
-}
-
-func (s *ConfirmationCommandBaseSuite) TestPrecedence(c *gc.C) {
-	s.PatchEnvironment(osenv.JujuSkipConfirmationEnvKey, "0")
-
-	commandBase := s.getCmdBase([]string{"--no-prompt", "--foo", "bar"})
+func (s *DestroyConfirmationCommandBaseSuite) TestYesFlag(c *gc.C) {
+	commandBase := s.getCmdBase([]string{"--yes", "--foo", "bar"})
 
 	c.Assert(commandBase.NeedsConfirmation(), jc.IsFalse)
+}
+
+func (s *DestroyConfirmationCommandBaseSuite) TestYFlag(c *gc.C) {
+	commandBase := s.getCmdBase([]string{"-y", "--foo", "bar"})
+
+	c.Assert(commandBase.NeedsConfirmation(), jc.IsFalse)
+}
+
+type RemoveConfirmationCommandBaseSuite struct {
+	modelConfigAPI *mocks.MockModelConfigAPI
+}
+
+var _ = gc.Suite(&RemoveConfirmationCommandBaseSuite{})
+
+func (s *RemoveConfirmationCommandBaseSuite) setup(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.modelConfigAPI = mocks.NewMockModelConfigAPI(ctrl)
+
+	return ctrl
+}
+
+func (*RemoveConfirmationCommandBaseSuite) getCmdBase(args []string) modelcmd.RemoveConfirmationCommandBase {
+	f := cmdtesting.NewFlagSet()
+	cmd := modelcmd.RemoveConfirmationCommandBase{}
+	cmd.SetFlags(f)
+	f.Parse(true, args)
+	return cmd
+}
+
+func (s *RemoveConfirmationCommandBaseSuite) TestSimpleFalse(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ConfirmRemoval: false})
+	s.modelConfigAPI.EXPECT().ModelGet().Return(attrs, nil)
+
+	commandBase := s.getCmdBase([]string{"--foo", "bar"})
+	c.Assert(commandBase.NeedsConfirmation(s.modelConfigAPI), jc.IsFalse)
+}
+
+func (s *RemoveConfirmationCommandBaseSuite) TestSimpleTrue(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ConfirmRemoval: true})
+	s.modelConfigAPI.EXPECT().ModelGet().Return(attrs, nil)
+
+	commandBase := s.getCmdBase([]string{"--foo", "bar"})
+	c.Assert(commandBase.NeedsConfirmation(s.modelConfigAPI), jc.IsTrue)
+}
+
+func (s *RemoveConfirmationCommandBaseSuite) TestModelGetError(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.modelConfigAPI.EXPECT().ModelGet().Return(nil, errors.Errorf("doink"))
+
+	commandBase := s.getCmdBase([]string{"--foo", "bar"})
+	c.Assert(commandBase.NeedsConfirmation(s.modelConfigAPI), jc.IsTrue)
+}
+
+func (s *RemoveConfirmationCommandBaseSuite) TestNoPromptFlag(c *gc.C) {
+	commandBase := s.getCmdBase([]string{"--no-prompt", "--foo", "bar"})
+	c.Assert(commandBase.NeedsConfirmation(nil), jc.IsFalse)
 }

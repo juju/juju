@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/client/machinemanager"
+	"github.com/juju/juju/api/client/modelconfig"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -28,10 +29,13 @@ func NewRemoveCommand() cmd.Command {
 
 // removeCommand causes an existing machine to be destroyed.
 type removeCommand struct {
-	modelcmd.ConfirmationCommandBase
+	modelcmd.RemoveConfirmationCommandBase
 	baseMachinesCommand
-	apiRoot      api.Connection
-	machineAPI   RemoveMachineAPI
+	apiRoot api.Connection
+
+	machineAPI     RemoveMachineAPI
+	modelConfigApi ModelConfigAPI
+
 	MachineIds   []string
 	Force        bool
 	KeepInstance bool
@@ -90,7 +94,7 @@ func (c *removeCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *removeCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	c.ConfirmationCommandBase.SetFlags(f)
+	c.RemoveConfirmationCommandBase.SetFlags(f)
 	f.BoolVar(&c.DryRun, "dry-run", false, "Print what this command would be removed without removing")
 	f.BoolVar(&c.Force, "force", false, "Completely remove a machine and all its dependencies")
 	f.BoolVar(&c.KeepInstance, "keep-instance", false, "Do not stop the running cloud instance")
@@ -99,9 +103,6 @@ func (c *removeCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *removeCommand) Init(args []string) error {
-	if err := c.ConfirmationCommandBase.Init(args); err != nil {
-		return errors.Trace(err)
-	}
 	if len(args) == 0 {
 		return errors.Errorf("no machines specified")
 	}
@@ -142,6 +143,17 @@ func (c *removeCommand) getRemoveMachineAPI() (RemoveMachineAPI, error) {
 	return machinemanager.NewClient(root), nil
 }
 
+func (c *removeCommand) getModelConfigAPI() (ModelConfigAPI, error) {
+	if c.modelConfigApi != nil {
+		return c.modelConfigApi, nil
+	}
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return modelconfig.NewClient(root), nil
+}
+
 // Run implements Command.Run.
 func (c *removeCommand) Run(ctx *cmd.Context) error {
 	var maxWait *time.Duration
@@ -156,11 +168,18 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
+	modelConfigClient, err := c.getModelConfigAPI()
+	if err != nil {
+		return err
+	}
+	defer modelConfigClient.Close()
+
 	if c.DryRun {
 		return c.performDryRun(ctx, client)
 	}
 
-	if c.NeedsConfirmation() {
+	needsConfirmation := c.NeedsConfirmation(modelConfigClient)
+	if needsConfirmation {
 		err := c.performDryRun(ctx, client)
 		if err == errDryRunNotSupported {
 			ctx.Warningf(removeMachineMsgNoDryRun, strings.Join(c.MachineIds, ", "))
@@ -177,7 +196,7 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	logAll := !c.NeedsConfirmation() || client.BestAPIVersion() < 10
+	logAll := !needsConfirmation || client.BestAPIVersion() < 10
 	if logAll {
 		return c.logResults(ctx, results)
 	} else {
