@@ -117,7 +117,7 @@ func (s *ExportBundleCommandSuite) TestExportBundleSuccessFilename(c *gc.C) {
 	s.fakeBundle.filename = filepath.Join(c.MkDir(), "mymodel")
 	s.fakeBundle.result = "applications:\n" +
 		"  magic:\n" +
-		"    charm: cs:zesty/magic\n" +
+		"    charm: ch:zesty/magic\n" +
 		"    series: zesty\n" +
 		"    expose: true\n" +
 		"    options:\n" +
@@ -139,7 +139,7 @@ func (s *ExportBundleCommandSuite) TestExportBundleSuccessFilename(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(string(output), gc.Equals, "applications:\n"+
 		"  magic:\n"+
-		"    charm: cs:zesty/magic\n"+
+		"    charm: ch:zesty/magic\n"+
 		"    series: zesty\n"+
 		"    expose: true\n"+
 		"    options:\n"+

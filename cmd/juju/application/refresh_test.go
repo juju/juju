@@ -400,12 +400,6 @@ func (s *RefreshErrorsStateSuite) deployApplication(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *RefreshErrorsStateSuite) TestInvalidSwitchURL(c *gc.C) {
-	s.deployApplication(c)
-	_, err := s.runRefresh(c, s.cmd, "riak", "--switch=cs:missing")
-	c.Assert(err, gc.ErrorMatches, `unable to refresh "cs:missing"`)
-}
-
 func (s *RefreshErrorsStateSuite) TestNoPathFails(c *gc.C) {
 	s.deployApplication(c)
 	_, err := s.runRefresh(c, s.cmd, "riak")

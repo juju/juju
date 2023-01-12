@@ -252,7 +252,7 @@ func (s *ClientSuite) TestExport(c *gc.C) {
 		out := result.(*params.SerializedModel)
 		*out = params.SerializedModel{
 			Bytes:  []byte("foo"),
-			Charms: []string{"cs:foo-1"},
+			Charms: []string{"ch:foo-1"},
 			Tools: []params.SerializedModelTools{{
 				Version: "2.0.0-ubuntu-amd64",
 				URI:     "/tools/0",
@@ -307,7 +307,7 @@ func (s *ClientSuite) TestExport(c *gc.C) {
 	})
 	c.Assert(out, gc.DeepEquals, migration.SerializedModel{
 		Bytes:  []byte("foo"),
-		Charms: []string{"cs:foo-1"},
+		Charms: []string{"ch:foo-1"},
 		Tools: map[version.Binary]string{
 			version.MustParseBinary("2.0.0-ubuntu-amd64"): "/tools/0",
 		},

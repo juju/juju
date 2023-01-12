@@ -433,7 +433,7 @@ func (s *unitSuite) TestCharmURL(c *gc.C) {
 		c.Assert(result, gc.FitsTypeOf, &params.StringBoolResults{})
 		*(result.(*params.StringBoolResults)) = params.StringBoolResults{
 			Results: []params.StringBoolResult{{
-				Result: "cs:mysql",
+				Result: "ch:mysql",
 			}},
 		}
 		return nil
@@ -443,7 +443,7 @@ func (s *unitSuite) TestCharmURL(c *gc.C) {
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	curl, err := unit.CharmURL()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(curl, gc.Equals, "cs:mysql")
+	c.Assert(curl, gc.Equals, "ch:mysql")
 }
 
 func (s *unitSuite) TestSetCharmURL(c *gc.C) {
@@ -452,7 +452,7 @@ func (s *unitSuite) TestSetCharmURL(c *gc.C) {
 		c.Assert(request, gc.Equals, "SetCharmURL")
 		c.Assert(arg, gc.DeepEquals, params.EntitiesCharmURL{
 			Entities: []params.EntityCharmURL{
-				{Tag: "unit-mysql-0", CharmURL: "cs:mysql"},
+				{Tag: "unit-mysql-0", CharmURL: "ch:mysql"},
 			},
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
@@ -464,7 +464,7 @@ func (s *unitSuite) TestSetCharmURL(c *gc.C) {
 	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	err := unit.SetCharmURL("cs:mysql")
+	err := unit.SetCharmURL("ch:mysql")
 	c.Assert(err, gc.ErrorMatches, "biff")
 }
 
@@ -791,7 +791,7 @@ func (s *unitSuite) TestAddMetricBatch(c *gc.C) {
 	uuid := utils.MustNewUUID().String()
 	batch := params.MetricBatch{
 		UUID:     uuid,
-		CharmURL: "cs:mysql",
+		CharmURL: "ch:mysql",
 		Created:  time.Now(),
 		Metrics:  metrics,
 	}

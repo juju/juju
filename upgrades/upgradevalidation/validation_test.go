@@ -403,30 +403,6 @@ func (s *upgradeValidationSuite) TestGetCheckForLXDVersionFailed(c *gc.C) {
 	c.Assert(blocker.Error(), gc.Equals, `LXD version has to be at least "5.0.0", but current version is only "4.0.0"`)
 }
 
-func (s *upgradeValidationSuite) TestCheckForCharmStoreCharms(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	one := "ch:amd64/jammy/test-4"
-	two := "cs:jammy/cstest-4"
-	three := "cs:cstest-4"
-	four := "local:quantal/quantal-mysql-7"
-	five := "cs:jammy/five-42"
-
-	st := mocks.NewMockState(ctrl)
-	st.EXPECT().AllCharmURLs().Return([]*string{
-		&one,
-		&two,
-		&three,
-		&four,
-		&five,
-	}, nil)
-
-	blocker, err := upgradevalidation.CheckForCharmStoreCharms("", nil, st, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blocker.Error(), gc.Equals, `the model hosts deprecated charm store charms(s): cs:cstest-4, cs:five-42`)
-}
-
 func (s *upgradeValidationSuite) TestCheckForCharmStoreCharmsNotFound(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

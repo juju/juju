@@ -82,9 +82,9 @@ func (s *FactorySuite) TestNewResolvedUpgradeError(c *gc.C) {
 }
 
 func (s *FactorySuite) testNewDeployString(c *gc.C, newDeploy newDeploy, expectPrefix string) {
-	op, err := newDeploy(s.factory, "cs:quantal/wordpress-1")
+	op, err := newDeploy(s.factory, "ch:quantal/wordpress-1")
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(op.String(), gc.Equals, expectPrefix+" cs:quantal/wordpress-1")
+	c.Check(op.String(), gc.Equals, expectPrefix+" ch:quantal/wordpress-1")
 }
 
 func (s *FactorySuite) TestNewInstallString(c *gc.C) {

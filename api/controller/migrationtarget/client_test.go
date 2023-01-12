@@ -177,7 +177,7 @@ func (s *ClientSuite) TestCheckMachines(c *gc.C) {
 
 func (s *ClientSuite) TestUploadCharm(c *gc.C) {
 	const charmBody = "charming"
-	curl := charm.MustParseURL("cs:~user/foo-2")
+	curl := charm.MustParseURL("ch:foo-2")
 	doer := newFakeDoer(c, params.CharmsResponse{
 		CharmURL: curl.String(),
 	})
@@ -189,7 +189,7 @@ func (s *ClientSuite) TestUploadCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(outCurl, gc.DeepEquals, curl)
 	c.Assert(doer.method, gc.Equals, "POST")
-	c.Assert(doer.url, gc.Equals, "/migrate/charms?arch=&name=foo&revision=2&schema=cs&series=&user=user")
+	c.Assert(doer.url, gc.Equals, "/migrate/charms?arch=&name=foo&revision=2&schema=ch&series=")
 	c.Assert(doer.body, gc.Equals, charmBody)
 }
 
@@ -207,7 +207,7 @@ func (s *ClientSuite) TestUploadCharmHubCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(outCurl, gc.DeepEquals, curl)
 	c.Assert(doer.method, gc.Equals, "POST")
-	c.Assert(doer.url, gc.Equals, "/migrate/charms?arch=s390x&name=juju-qa-test&revision=15&schema=ch&series=bionic&user=")
+	c.Assert(doer.url, gc.Equals, "/migrate/charms?arch=s390x&name=juju-qa-test&revision=15&schema=ch&series=bionic")
 	c.Assert(doer.body, gc.Equals, charmBody)
 }
 

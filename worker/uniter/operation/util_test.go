@@ -579,7 +579,7 @@ var overwriteState = operation.State{
 	Kind:     operation.Continue,
 	Step:     operation.Pending,
 	Started:  true,
-	CharmURL: "cs:quantal/wordpress-2",
+	CharmURL: "ch:quantal/wordpress-2",
 	ActionId: &randomActionId,
 	Hook:     &hook.Info{Kind: hooks.Install},
 }

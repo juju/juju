@@ -184,7 +184,7 @@ func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
 					RegistryPath: "juju-operator-image",
 				},
 				CharmModifiedVersion: 1,
-				CharmURL:             "cs:~test/charm-1",
+				CharmURL:             "ch:charm-1",
 				Trust:                true,
 				Scale:                3,
 			}}}
@@ -202,7 +202,7 @@ func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
 			RegistryPath: "juju-operator-image",
 		}),
 		CharmModifiedVersion: 1,
-		CharmURL:             &charm.URL{Schema: "cs", User: "test", Name: "charm", Revision: 1},
+		CharmURL:             &charm.URL{Schema: "ch", Name: "charm", Revision: 1},
 		Trust:                true,
 		Scale:                3,
 	})
