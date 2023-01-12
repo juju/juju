@@ -319,7 +319,7 @@ func (s *factorySuite) TestMakeCharm(c *gc.C) {
 	series := "quantal"
 	name := "wordpress"
 	revision := 13
-	url := fmt.Sprintf("cs:%s/%s-%d", series, name, revision)
+	url := fmt.Sprintf("ch:%s/%s-%d", series, name, revision)
 	ch := s.Factory.MakeCharm(c, &factory.CharmParams{
 		Name: name,
 		URL:  url,
@@ -473,7 +473,7 @@ func (s *factorySuite) TestMakeMetricNil(c *gc.C) {
 
 func (s *factorySuite) TestMakeMetric(c *gc.C) {
 	now := time.Now().Round(time.Second).UTC()
-	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
+	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:quantal/metered"})
 	meteredApplication := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredApplication, SetCharmURL: true})
 	metric := s.Factory.MakeMetric(c, &factory.MetricParams{

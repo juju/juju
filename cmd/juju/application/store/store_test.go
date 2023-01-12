@@ -29,7 +29,7 @@ func (s *storeSuite) TestAddCharmFromURLAddCharmSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectAddCharm(nil)
 
-	curl, err := charm.ParseURL("cs:testme")
+	curl, err := charm.ParseURL("ch:testme")
 	c.Assert(err, jc.ErrorIsNil)
 	origin, err := utils.DeduceOrigin(curl, charm.Channel{Risk: charm.Beta}, corecharm.Platform{Architecture: arch.DefaultArchitecture})
 	c.Assert(err, jc.ErrorIsNil)
@@ -47,7 +47,7 @@ func (s *storeSuite) TestAddCharmFromURLAddCharmSuccess(c *gc.C) {
 func (s *storeSuite) TestAddCharmFromURLFailAddCharmFail(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectAddCharm(errors.NotFoundf("testing"))
-	curl, err := charm.ParseURL("cs:testme")
+	curl, err := charm.ParseURL("ch:testme")
 	c.Assert(err, jc.ErrorIsNil)
 	origin, err := utils.DeduceOrigin(curl, charm.Channel{Risk: charm.Beta}, corecharm.Platform{Architecture: arch.DefaultArchitecture})
 	c.Assert(err, jc.ErrorIsNil)
@@ -68,7 +68,7 @@ func (s *storeSuite) TestAddCharmFromURLFailAddCharmFailUnauthorized(c *gc.C) {
 		Code:    params.CodeUnauthorized,
 		Message: "permission denied",
 	})
-	curl, err := charm.ParseURL("cs:testme")
+	curl, err := charm.ParseURL("ch:testme")
 	c.Assert(err, jc.ErrorIsNil)
 	origin, err := utils.DeduceOrigin(curl, charm.Channel{Risk: charm.Beta}, corecharm.Platform{Architecture: arch.DefaultArchitecture})
 	c.Assert(err, jc.ErrorIsNil)

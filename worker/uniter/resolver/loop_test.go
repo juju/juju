@@ -48,7 +48,7 @@ func (s *LoopSuite) SetUpTest(c *gc.C) {
 	}
 	s.opFactory = &mockOpFactory{}
 	s.executor = &mockOpExecutor{}
-	s.charmURL = "cs:trusty/mysql-1"
+	s.charmURL = "ch:trusty/mysql-1"
 	s.abort = make(chan struct{})
 }
 
@@ -329,7 +329,7 @@ func (s *LoopSuite) TestCheckCharmUpgradeNotInstalled(c *gc.C) {
 	}
 	s.watcher = &mockRemoteStateWatcher{
 		snapshot: remotestate.Snapshot{
-			CharmURL: "cs:trusty/mysql-2",
+			CharmURL: "ch:trusty/mysql-2",
 		},
 	}
 	s.charmDir = testcharms.Repo.CharmDirPath("mysql")
@@ -349,7 +349,7 @@ func (s *LoopSuite) TestCheckCharmUpgradeIncorrectLXDProfile(c *gc.C) {
 	}
 	s.watcher = &mockRemoteStateWatcher{
 		snapshot: remotestate.Snapshot{
-			CharmURL:             "cs:trusty/mysql-2",
+			CharmURL:             "ch:trusty/mysql-2",
 			CharmProfileRequired: true,
 			LXDProfileName:       "juju-test-mysql-1",
 		},
@@ -386,7 +386,7 @@ func (s *LoopSuite) TestCheckCharmUpgrade(c *gc.C) {
 	}
 	s.watcher = &mockRemoteStateWatcher{
 		snapshot: remotestate.Snapshot{
-			CharmURL: "cs:trusty/mysql-2",
+			CharmURL: "ch:trusty/mysql-2",
 		},
 	}
 	s.testCheckCharmUpgradeCallsRun(c)
@@ -423,7 +423,7 @@ func (s *LoopSuite) TestCheckCharmUpgradeLXDProfile(c *gc.C) {
 	}
 	s.watcher = &mockRemoteStateWatcher{
 		snapshot: remotestate.Snapshot{
-			CharmURL:             "cs:trusty/mysql-2",
+			CharmURL:             "ch:trusty/mysql-2",
 			CharmProfileRequired: true,
 			LXDProfileName:       "juju-test-mysql-2",
 		},

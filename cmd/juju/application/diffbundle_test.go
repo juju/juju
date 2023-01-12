@@ -669,7 +669,7 @@ machines:
 applications:
   prometheus:
     charm: 'prometheus2'
-    revision: 7
+    revision: 47
     channel: stable
     num_units: 1
     series: xenial
@@ -729,7 +729,7 @@ series: bionic
 applications:
   prometheus:
     charm: 'prometheus2'
-    revision: 7
+    revision: 47
     channel: stable
     num_units: 1
     series: xenial

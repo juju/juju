@@ -180,7 +180,7 @@ func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
 			// These 2 are out of order. Rev 2 must be uploaded first.
 			"local:trusty/magic-10",
 			"local:trusty/magic-2",
-			"cs:trusty/postgresql-42",
+			"ch:trusty/postgresql-42",
 		},
 		CharmDownloader:    downloader,
 		CharmUploader:      uploader,
@@ -196,7 +196,7 @@ func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
 
 	expectedCharms := []string{
 		// Note ordering.
-		"cs:trusty/postgresql-42",
+		"ch:trusty/postgresql-42",
 		"local:trusty/magic-2",
 		"local:trusty/magic-10",
 	}

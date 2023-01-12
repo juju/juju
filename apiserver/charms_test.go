@@ -358,7 +358,7 @@ func (s *charmsSuite) TestNonLocalCharmUploadFailsIfNotMigrating(c *gc.C) {
 	_, err := s.State.AddCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
 
-	resp := s.uploadRequest(c, s.charmsURI("?schema=cs&series=quantal"), "application/zip", &fileReader{path: ch.Path})
+	resp := s.uploadRequest(c, s.charmsURI("?schema=ch&series=quantal"), "application/zip", &fileReader{path: ch.Path})
 	s.assertErrorResponse(c, resp, 400, ".*charms may only be uploaded during model migration import$")
 }
 

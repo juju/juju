@@ -23,7 +23,7 @@ type StateOpsSuite struct {
 
 var _ = gc.Suite(&StateOpsSuite{})
 
-var stcurl = "cs:quantal/application-name-123"
+var stcurl = "ch:quantal/application-name-123"
 var relhook = &hook.Info{
 	Kind:              hooks.RelationJoined,
 	RemoteUnit:        "some-thing/123",

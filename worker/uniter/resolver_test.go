@@ -129,7 +129,7 @@ func (s *baseResolverSuite) SetUpTest(c *gc.C, modelType model.ModelType, reboot
 	}
 
 	s.stub = testing.Stub{}
-	s.charmURL = "cs:precise/mysql-2"
+	s.charmURL = "ch:precise/mysql-2"
 	s.remoteState = remotestate.Snapshot{
 		CharmURL: s.charmURL,
 	}
