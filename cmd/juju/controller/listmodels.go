@@ -97,8 +97,7 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 		c.user = accountDetails.User
 	}
 	if !names.IsValidUser(c.user) {
-		err := errors.NotValidf("user %q", c.user)
-		return err
+		return errors.NotValidf("user %q", c.user)
 	}
 
 	c.runVars = modelsRunValues{
