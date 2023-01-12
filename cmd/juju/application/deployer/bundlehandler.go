@@ -165,6 +165,8 @@ type bundleHandler struct {
 	// data is the original bundle data that we want to deploy.
 	data *charm.BundleData
 
+	bundleURL *charm.URL
+
 	// unitStatus reflects the environment status and maps unit names to their
 	// corresponding machine identifiers. This is kept updated by both change
 	// handlers (addCharm, addApplication etc.) and by updateUnitStatus.
@@ -457,7 +459,9 @@ func (h *bundleHandler) constructChannelAndOrigin(curl *charm.URL, charmBase ser
 
 func (h *bundleHandler) getChanges() error {
 	bundleURL := ""
-
+	if h.bundleURL != nil {
+		bundleURL = h.bundleURL.String()
+	}
 	// TODO(stickupkid): The following should use the new
 	// Bundle.getChangesMapArgs, with the fallback to Bundle.getChanges and
 	// with controllers without a Bundle facade should use the bundlechanges
