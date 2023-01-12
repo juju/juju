@@ -48,9 +48,16 @@ jobs:
         echo "GOPATH=$(go env GOPATH)" >> $GITHUB_ENV
         echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
 
+        sudo add-apt-repository ppa:dqlite/dev -y --no-update
+        sudo apt-get update
+        sudo apt-get install -y \
+          expect \
+          libdqlite-dev \
+          libsqlite3-dev \
+          sqlite3
+
         curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.46.2
-        sudo snap install shfmt
-        sudo apt install expect
+
     
     - name: Download Dependencies
       run: go mod download
@@ -115,7 +122,13 @@ jobs:
     - name: Install Dependencies
       if: steps.filter.outputs.schema == 'true'
       run: |
-        sudo apt install expect
+        sudo add-apt-repository ppa:dqlite/dev -y --no-update
+        sudo apt-get update
+        sudo apt-get install -y \
+          expect \
+          libdqlite-dev \
+          libsqlite3-dev \
+          sqlite3
 
     - name: Schema Check
       if: steps.filter.outputs.schema == 'true'
