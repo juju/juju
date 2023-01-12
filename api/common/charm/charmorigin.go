@@ -22,8 +22,6 @@ func (c OriginSource) String() string {
 const (
 	// OriginLocal represents a local charm.
 	OriginLocal OriginSource = "local"
-	// OriginCharmStore represents a charm from the now old charm-store.
-	OriginCharmStore OriginSource = "charm-store"
 	// OriginCharmHub represents a charm from the new charm-hub.
 	OriginCharmHub OriginSource = "charm-hub"
 )
