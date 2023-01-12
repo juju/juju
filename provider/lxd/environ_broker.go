@@ -32,12 +32,12 @@ func (env *environ) StartInstance(
 ) (*environs.StartInstanceResult, error) {
 	logger.Debugf("StartInstance: %q, %s", args.InstanceConfig.MachineId, args.InstanceConfig.Base)
 
-	arch, err := env.finishInstanceConfig(args)
+	arch, virtType, err := env.finishInstanceConfig(args)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	container, err := env.newContainer(ctx, args, arch)
+	container, err := env.newContainer(ctx, args, arch, virtType)
 	if err != nil {
 		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 		if args.StatusCallback != nil {
@@ -57,19 +57,30 @@ func (env *environ) StartInstance(
 	return &result, nil
 }
 
-func (env *environ) finishInstanceConfig(args environs.StartInstanceParams) (string, error) {
+func (env *environ) finishInstanceConfig(args environs.StartInstanceParams) (string, instance.VirtType, error) {
+	// Use the HostArch to determine the tools to use.
 	arch := env.server().HostArch()
 	tools, err := args.Tools.Match(tools.Filter{Arch: arch})
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", "", errors.Trace(err)
 	}
 	if err := args.InstanceConfig.SetTools(tools); err != nil {
-		return "", errors.Trace(err)
+		return "", "", errors.Trace(err)
 	}
+
+	// Parse the virt-type from the constraints, so we can pass it to the
+	// findImage function.
+	virtType := instance.DefaultInstanceType
+	if args.Constraints.HasVirtType() {
+		if virtType, err = instance.ParseVirtType(*args.Constraints.VirtType); err != nil {
+			return "", "", errors.Trace(err)
+		}
+	}
+
 	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, env.Config()); err != nil {
-		return "", errors.Trace(err)
+		return "", "", errors.Trace(err)
 	}
-	return arch, nil
+	return arch, virtType, nil
 }
 
 // newContainer is where the new physical instance is actually
@@ -79,6 +90,7 @@ func (env *environ) newContainer(
 	ctx context.ProviderCallContext,
 	args environs.StartInstanceParams,
 	arch string,
+	virtType instance.VirtType,
 ) (*lxd.Container, error) {
 	// Note: other providers have the ImageMetadata already read for them
 	// and passed in as args.ImageMetadata. However, lxd provider doesn't
@@ -112,7 +124,7 @@ func (env *environ) newContainer(
 		return nil, errors.Trace(err)
 	}
 
-	image, err := target.FindImage(args.InstanceConfig.Base, arch, imageSources, true, statusCallback)
+	image, err := target.FindImage(args.InstanceConfig.Base, arch, virtType, imageSources, true, statusCallback)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -396,6 +408,7 @@ func (env *environ) getHardwareCharacteristics(
 		Arch:     &archStr,
 		CpuCores: &cores,
 		Mem:      &mem,
+		VirtType: &container.Type,
 	}
 }
 

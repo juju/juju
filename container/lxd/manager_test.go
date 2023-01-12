@@ -329,7 +329,7 @@ func (s *managerSuite) TestListContainers(c *gc.C) {
 		{Name: "nothing-to-see-here-please", Type: "container"},
 	}
 
-	s.cSvr.EXPECT().GetInstances(lxdapi.InstanceTypeContainer).Return(containers, nil)
+	s.cSvr.EXPECT().GetInstances(lxdapi.InstanceTypeAny).Return(containers, nil)
 
 	result, err := s.manager.ListContainers()
 	c.Assert(err, jc.ErrorIsNil)

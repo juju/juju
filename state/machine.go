@@ -246,6 +246,7 @@ type instanceData struct {
 	CpuPower       *uint64     `bson:"cpupower,omitempty"`
 	Tags           *[]string   `bson:"tags,omitempty"`
 	AvailZone      *string     `bson:"availzone,omitempty"`
+	VirtType       *string     `bson:"virt-type,omitempty"`
 
 	// KeepInstance is set to true if, on machine removal from Juju,
 	// the cloud instance should be retained.
@@ -266,6 +267,7 @@ func hardwareCharacteristics(instData instanceData) *instance.HardwareCharacteri
 		CpuPower:         instData.CpuPower,
 		Tags:             instData.Tags,
 		AvailabilityZone: instData.AvailZone,
+		VirtType:         instData.VirtType,
 	}
 }
 
@@ -1442,6 +1444,7 @@ func (m *Machine) SetProvisioned(
 		CpuPower:       characteristics.CpuPower,
 		Tags:           characteristics.Tags,
 		AvailZone:      characteristics.AvailabilityZone,
+		VirtType:       characteristics.VirtType,
 	}
 
 	ops := []txn.Op{
