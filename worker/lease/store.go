@@ -92,7 +92,7 @@ AND    l.name = ?`
 	}
 
 	result, err := leasesFromRows(rows)
-	return result, errors.Trace(rows.Err())
+	return result, err
 }
 
 // ClaimLease (lease.Store) claims the lease indicated by the input key,

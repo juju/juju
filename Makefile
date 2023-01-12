@@ -382,6 +382,10 @@ check: pre-check run-tests
 test: run-tests
 ## test: Verify Juju code using unit tests
 
+define test_runner
+	
+endef
+
 .PHONY: run-tests
 # Can't make the length of the TMP dir too long or it hits socket name length issues.
 run-tests:
@@ -399,6 +403,20 @@ run-tests:
 		CGO_ENABLED=1 \
 		go test -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(TEST_PACKAGES) -check.v
 	@rm -r $(TMP)
+
+run-go-tests:
+## run-go-tests: Run the unit tests
+	$(eval TEST_PACKAGES ?= "./...")
+	$(eval TEST_FILTER ?= "")
+	@echo 'go test -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $$TEST_PACKAGES -check.v -check.f $(TEST_FILTER)'
+	@PATH=${PATH}:/usr/local/musl/bin \
+		CC="musl-gcc" \
+		CGO_CFLAGS="-I${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}/include" \
+		CGO_LDFLAGS="-L${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} -luv -lraft -ldqlite -llz4 -lsqlite3" \
+		CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
+		LD_LIBRARY_PATH="${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}" \
+		CGO_ENABLED=1 \
+		go test -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) ${TEST_PACKAGES} -check.v -check.f $(TEST_FILTER)
 
 .PHONY: install
 install: rebuild-schema go-install

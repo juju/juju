@@ -32,8 +32,9 @@ linters:
     - ineffassign
     - misspell
     - unconvert
-    - unused
+
 run:
   timeout: 30m
+  modules-download-mode: readonly
 skip-dirs:
   - acceptancetests
