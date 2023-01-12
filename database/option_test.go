@@ -54,36 +54,13 @@ func (s *optionSuite) TestEnsureDataDirSuccess(c *gc.C) {
 func (s *optionSuite) TestWithAddressOptionSuccess(c *gc.C) {
 	f := NewOptionFactory(nil, stubLogger{})
 
-	f.interfaceAddrs = func() ([]net.Addr, error) {
-		return []net.Addr{
-			&net.IPAddr{IP: net.ParseIP("10.0.0.5")},
-			&net.IPAddr{IP: net.ParseIP("127.0.0.1")},
-		}, nil
-	}
-
-	// We can not actually test the realisation of this option,
-	// as the options type from the go-dqlite is not exported.
-	// We are also unable to test by creating a new dqlite app,
-	// because it fails to bind to the contrived address.
-	// The best we can do is check that we selected an address
-	// based on the absence of an error.
-	_, err := f.WithAddressOption()
+	withAddress, err := f.WithAddressOption()
 	c.Assert(err, jc.ErrorIsNil)
-}
 
-func (s *optionSuite) TestWithAddressOptionMultipleAddressError(c *gc.C) {
-	f := NewOptionFactory(nil, stubLogger{})
+	dqlite, err := app.New(c.MkDir(), withAddress)
+	c.Assert(err, jc.ErrorIsNil)
 
-	f.interfaceAddrs = func() ([]net.Addr, error) {
-		return []net.Addr{
-			&net.IPAddr{IP: net.ParseIP("10.0.0.5")},
-			&net.IPAddr{IP: net.ParseIP("10.0.0.6")},
-		}, nil
-	}
-
-	_, err := f.WithAddressOption()
-	c.Assert(err, gc.ErrorMatches,
-		`.* found \[local-cloud:10.0.0.5 local-cloud:10.0.0.6\]`)
+	_ = dqlite.Close()
 }
 
 func (s *optionSuite) TestWithTLSOptionSuccess(c *gc.C) {
@@ -100,22 +77,19 @@ func (s *optionSuite) TestWithTLSOptionSuccess(c *gc.C) {
 }
 
 func (s *optionSuite) TestWithClusterOptionSuccess(c *gc.C) {
+	// Hack to get a bind address to add to config.
+	h := NewOptionFactory(fakeAgentConfig{}, stubLogger{})
+	err := h.ensureBindAddress()
+
 	cfg := fakeAgentConfig{
 		apiAddrs: []string{
 			"10.0.0.5:17070",
-			"10.0.0.6:17070",
-			"10.0.0.7:17070",
+			h.bindAddress,     // Filtered out as not being us.
 			"127.0.0.1:17070", // Filtered out as a non-local-cloud address.
 		},
 	}
 
 	f := NewOptionFactory(cfg, stubLogger{})
-
-	f.interfaceAddrs = func() ([]net.Addr, error) {
-		return []net.Addr{
-			&net.IPAddr{IP: net.ParseIP("10.0.0.5")}, // One of the unique local-cloud addresses.
-		}, nil
-	}
 
 	withCluster, err := f.WithClusterOption()
 	c.Assert(err, jc.ErrorIsNil)
@@ -127,15 +101,13 @@ func (s *optionSuite) TestWithClusterOptionSuccess(c *gc.C) {
 }
 
 func (s *optionSuite) TestWithClusterNotHASuccess(c *gc.C) {
-	cfg := fakeAgentConfig{apiAddrs: []string{"10.0.0.5:17070"}}
+	// Hack to get a bind address to add to config.
+	h := NewOptionFactory(fakeAgentConfig{}, stubLogger{})
+	err := h.ensureBindAddress()
+
+	cfg := fakeAgentConfig{apiAddrs: []string{h.bindAddress}}
 
 	f := NewOptionFactory(cfg, stubLogger{})
-
-	f.interfaceAddrs = func() ([]net.Addr, error) {
-		return []net.Addr{
-			&net.IPAddr{IP: net.ParseIP("10.0.0.5")},
-		}, nil
-	}
 
 	withCluster, err := f.WithClusterOption()
 	c.Assert(err, jc.ErrorIsNil)
@@ -144,6 +116,20 @@ func (s *optionSuite) TestWithClusterNotHASuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_ = dqlite.Close()
+}
+
+func (s *optionSuite) TestIgnoreInterface(c *gc.C) {
+	shouldIgnore := []string{
+		"lxdbr0",
+		"virbr0",
+		"docker0",
+	}
+	for _, devName := range shouldIgnore {
+		c.Check(ignoreInterface(net.Interface{Name: devName}), jc.IsTrue)
+	}
+
+	c.Check(ignoreInterface(net.Interface{Flags: net.FlagLoopback}), jc.IsTrue)
+	c.Check(ignoreInterface(net.Interface{Name: "enp5s0"}), jc.IsFalse)
 }
 
 type fakeAgentConfig struct {

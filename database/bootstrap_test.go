@@ -46,8 +46,8 @@ func (s *bootstrapSuite) TestBootstrapSuccess(c *gc.C) {
 			return err
 		}
 
-		if count != 3 {
-			return fmt.Errorf("expected 3 rows, got %d", count)
+		if count != 2 {
+			return fmt.Errorf("expected 2 rows, got %d", count)
 		}
 
 		return nil
