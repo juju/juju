@@ -10,13 +10,15 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/canonical/go-dqlite/app"
 	"github.com/canonical/go-dqlite/client"
 	"github.com/juju/errors"
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/core/network"
+	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/network"
 	"github.com/juju/loggo"
 )
 
@@ -25,13 +27,16 @@ const (
 	dqlitePort    = 17666
 )
 
+// DefaultBindAddress is the address that will *always* be returned by
+// WithAddressOption. It is used in tests to override address detection.
+var DefaultBindAddress = ""
+
 // OptionFactory creates Dqlite `App` initialisation arguments and options.
 // These generally depend on a controller's agent config.
 type OptionFactory struct {
-	cfg            agent.Config
-	port           int
-	logger         Logger
-	interfaceAddrs func() ([]net.Addr, error)
+	cfg    agent.Config
+	port   int
+	logger Logger
 
 	bindAddress string
 }
@@ -40,11 +45,10 @@ type OptionFactory struct {
 // based on the input agent configuration.
 func NewOptionFactory(cfg agent.Config, logger Logger) *OptionFactory {
 	return &OptionFactory{
-		cfg:    cfg,
-		port:   dqlitePort,
-		logger: logger,
-
-		interfaceAddrs: net.InterfaceAddrs,
+		cfg:         cfg,
+		port:        dqlitePort,
+		logger:      logger,
+		bindAddress: DefaultBindAddress,
 	}
 }
 
@@ -131,7 +135,7 @@ func (f *OptionFactory) WithClusterOption() (app.Option, error) {
 		apiAddrs[i] = strings.Split(addr, ":")[0]
 	}
 
-	apiAddrs = network.NewMachineAddresses(apiAddrs).AllMatchingScope(network.ScopeMatchCloudLocal).Values()
+	apiAddrs = corenetwork.NewMachineAddresses(apiAddrs).AllMatchingScope(corenetwork.ScopeMatchCloudLocal).Values()
 
 	// Using this option with no addresses works fine.
 	// In fact, we only need a single other address to join a cluster.
@@ -148,45 +152,59 @@ func (f *OptionFactory) WithClusterOption() (app.Option, error) {
 }
 
 // ensureBindAddress sets the bind address, used by clients and peers.
-// TODO (manadart 2022-09-30): For now, this is *similar* to the peergrouper
-// logic in that we require a unique local-cloud IP. We will need to revisit
-// this because at present it is not influenced by a configured juju-ha-space.
+// We will need to revisit this because at present it is not influenced
+// by a configured juju-ha-space.
 func (f *OptionFactory) ensureBindAddress() error {
 	if f.bindAddress != "" {
 		return nil
 	}
 
-	sysAddrs, err := f.interfaceAddrs()
+	nics, err := net.Interfaces()
 	if err != nil {
-		return errors.Annotate(err, "querying addresses of system NICs")
+		return errors.Annotate(err, "querying local network interfaces")
 	}
 
-	var addrs network.MachineAddresses
-	for _, sysAddr := range sysAddrs {
-		var host string
-
-		switch v := sysAddr.(type) {
-		case *net.IPNet:
-			host = v.IP.String()
-		case *net.IPAddr:
-			host = v.IP.String()
-		default:
+	var addrs corenetwork.MachineAddresses
+	for _, nic := range nics {
+		if ignoreInterface(nic) {
 			continue
 		}
 
-		addrs = append(addrs, network.NewMachineAddress(host))
+		sysAddrs, err := nic.Addrs()
+		if err != nil || len(sysAddrs) == 0 {
+			continue
+		}
+
+		for _, addr := range sysAddrs {
+			switch v := addr.(type) {
+			case *net.IPNet:
+				addrs = append(addrs, corenetwork.NewMachineAddress(v.IP.String()))
+			case *net.IPAddr:
+				addrs = append(addrs, corenetwork.NewMachineAddress(v.IP.String()))
+			default:
+			}
+		}
 	}
 
-	cloudLocal := addrs.AllMatchingScope(network.ScopeMatchCloudLocal)
+	cloudLocal := addrs.AllMatchingScope(corenetwork.ScopeMatchCloudLocal).Values()
+
 	if len(cloudLocal) == 0 {
 		return errors.NotFoundf("suitable local address for advertising to Dqlite peers")
 	}
-	if len(cloudLocal) > 1 {
-		return errors.Errorf(
-			"multiple local-cloud addresses detected. Dqlite bootstrap requires a unique address; found %v", cloudLocal)
-	}
 
-	f.bindAddress = cloudLocal.Values()[0]
-	f.logger.Debugf("determined Dqlite bind address: %s", f.bindAddress)
+	sort.Strings(cloudLocal)
+	f.bindAddress = cloudLocal[0]
+	f.logger.Debugf("chose Dqlite bind address %v from %v", f.bindAddress, cloudLocal)
 	return nil
+}
+
+// ignoreInterface returns true if we should discount the input
+// interface as one suitable for binding Dqlite to.
+// Such interfaces are loopback devices and the default bridges
+// for LXD/KVM/Docker.
+func ignoreInterface(nic net.Interface) bool {
+	return int(nic.Flags&net.FlagLoopback) > 0 ||
+		nic.Name == network.DefaultLXDBridge ||
+		nic.Name == network.DefaultKVMBridge ||
+		nic.Name == network.DefaultDockerBridge
 }
