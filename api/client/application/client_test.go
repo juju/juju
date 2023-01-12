@@ -88,8 +88,8 @@ func (s *applicationSuite) TestDeploy(c *gc.C) {
 			c.Assert(ok, jc.IsTrue)
 			c.Assert(args.Applications, gc.HasLen, 1)
 			app := args.Applications[0]
-			c.Assert(app.CharmURL, gc.Equals, "cs:trusty/a-charm-1")
-			c.Assert(app.CharmOrigin, gc.DeepEquals, &params.CharmOrigin{Source: "charm-store"})
+			c.Assert(app.CharmURL, gc.Equals, "ch:a-charm-1")
+			c.Assert(app.CharmOrigin, gc.DeepEquals, &params.CharmOrigin{Source: "charm-hub"})
 			c.Assert(app.ApplicationName, gc.Equals, "applicationA")
 			c.Assert(app.NumUnits, gc.Equals, 1)
 			c.Assert(app.ConfigYAML, gc.Equals, "configYAML")
@@ -109,10 +109,10 @@ func (s *applicationSuite) TestDeploy(c *gc.C) {
 
 	args := application.DeployArgs{
 		CharmID: application.CharmID{
-			URL: charm.MustParseURL("cs:trusty/a-charm-1"),
+			URL: charm.MustParseURL("ch:a-charm-1"),
 		},
 		CharmOrigin: apicharm.Origin{
-			Source: apicharm.OriginCharmStore,
+			Source: apicharm.OriginCharmHub,
 		},
 		ApplicationName:  "applicationA",
 		NumUnits:         1,
@@ -153,10 +153,10 @@ func (s *applicationSuite) TestDeployAlreadyExists(c *gc.C) {
 
 	args := application.DeployArgs{
 		CharmID: application.CharmID{
-			URL: charm.MustParseURL("cs:trusty/a-charm-1"),
+			URL: charm.MustParseURL("ch:a-charm-1"),
 		},
 		CharmOrigin: apicharm.Origin{
-			Source: apicharm.OriginCharmStore,
+			Source: apicharm.OriginCharmHub,
 		},
 		ApplicationName:  "applicationA",
 		NumUnits:         1,

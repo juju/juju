@@ -77,13 +77,3 @@ func (s *clientValidateOriginSuite) TestValidateOriginWithEmptyArch(c *gc.C) {
 	err := validateOrigin(origin, charm.MustParseURL("ch:ubuntu"), false)
 	c.Assert(err, gc.ErrorMatches, "empty architecture not valid")
 }
-
-func (s *clientValidateOriginSuite) TestValidateOriginWhenSwitchingCharmsFromDifferentStores(c *gc.C) {
-	origin := corecharm.Origin{
-		Source:   "charm-store",
-		Platform: corecharm.Platform{Architecture: "all"},
-	}
-
-	err := validateOrigin(origin, charm.MustParseURL("ch:ubuntu"), true)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("expected validateOrigin to succeed when switching from charmstore to charmhub"))
-}
