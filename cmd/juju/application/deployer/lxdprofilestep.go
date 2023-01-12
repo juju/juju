@@ -21,11 +21,6 @@ type ValidateLXDProfileCharm struct{}
 func (r *ValidateLXDProfileCharm) SetFlags(f *gnuflag.FlagSet) {
 }
 
-// SetPlanURL implements DeployStep.
-func (r *ValidateLXDProfileCharm) SetPlanURL(planURL string) {
-	// noop
-}
-
 // RunPre obtains authorization to deploy this charm. The authorization, if received is not
 // sent to the controller, rather it is kept as an attribute on RegisterMeteredCharm.
 func (r *ValidateLXDProfileCharm) RunPre(api DeployStepAPI, bakeryClient *httpbakery.Client, ctx *cmd.Context, deployInfo DeploymentInfo) error {

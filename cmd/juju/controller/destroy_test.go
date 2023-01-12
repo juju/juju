@@ -51,10 +51,9 @@ var _ = gc.Suite(&DestroySuite{})
 
 type baseDestroySuite struct {
 	testing.FakeJujuXDGDataHomeSuite
-	api       *fakeDestroyAPI
-	clientapi *fakeDestroyAPIClient
-	store     *jujuclient.MemStore
-	apierror  error
+	api      *fakeDestroyAPI
+	store    *jujuclient.MemStore
+	apierror error
 
 	controllerCredentialAPI *mockCredentialAPI
 	environsDestroy         func(string, environs.ControllerDestroyer, context.ProviderCallContext, jujuclient.ControllerStore) error
@@ -132,28 +131,6 @@ func (f *fakeDestroyAPI) AllModels() ([]base.UserModel, error) {
 	return f.allModels, f.NextErr()
 }
 
-// fakeDestroyAPIClient mocks out the client API
-type fakeDestroyAPIClient struct {
-	err            error
-	modelgetcalled bool
-	destroycalled  bool
-}
-
-func (f *fakeDestroyAPIClient) Close() error { return nil }
-
-func (f *fakeDestroyAPIClient) ModelGet() (map[string]interface{}, error) {
-	f.modelgetcalled = true
-	if f.err != nil {
-		return nil, f.err
-	}
-	return map[string]interface{}{}, nil
-}
-
-func (f *fakeDestroyAPIClient) DestroyModel() error {
-	f.destroycalled = true
-	return f.err
-}
-
 func createBootstrapInfo(c *gc.C, name string) map[string]interface{} {
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
 		"type":       "dummy",
@@ -167,7 +144,6 @@ func createBootstrapInfo(c *gc.C, name string) map[string]interface{} {
 
 func (s *baseDestroySuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	s.clientapi = &fakeDestroyAPIClient{}
 	owner := names.NewUserTag("owner")
 	s.api = &fakeDestroyAPI{
 		cloud:     dummy.SampleCloudSpec(),
@@ -254,7 +230,7 @@ func (s *DestroySuite) runDestroyCommand(c *gc.C, args ...string) (*cmd.Context,
 
 func (s *DestroySuite) newDestroyCommand() cmd.Command {
 	return controller.NewDestroyCommandForTest(
-		s.api, s.clientapi, s.store, s.apierror,
+		s.api, s.store, s.apierror,
 		func() (controller.CredentialAPI, error) { return s.controllerCredentialAPI, nil },
 		s.environsDestroy,
 	)
@@ -309,7 +285,6 @@ func (s *DestroySuite) TestDestroyCannotConnectToAPI(c *gc.C) {
 func (s *DestroySuite) TestDestroy(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test1", "--no-prompt")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.clientapi.destroycalled, jc.IsFalse)
 	checkControllerRemovedFromStore(c, "test1", s.store)
 }
 
@@ -317,7 +292,6 @@ func (s *DestroySuite) TestDestroyWithSkipConfirmEnvVar(c *gc.C) {
 	s.PatchEnvironment(osenv.JujuSkipConfirmationEnvKey, "true")
 	_, err := s.runDestroyCommand(c, "test1")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.clientapi.destroycalled, jc.IsFalse)
 	checkControllerRemovedFromStore(c, "test1", s.store)
 }
 
@@ -330,7 +304,6 @@ func (s *DestroySuite) TestDestroyWithSkipConfirmIncorrectEnvVar(c *gc.C) {
 func (s *DestroySuite) TestDestroyAlias(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test1", "--no-prompt")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.clientapi.destroycalled, jc.IsFalse)
 	checkControllerRemovedFromStore(c, "test1", s.store)
 }
 

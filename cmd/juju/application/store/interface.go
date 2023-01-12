@@ -27,12 +27,6 @@ type CharmrepoForDeploy interface {
 	ResolveWithPreferredChannel(*charm.URL, csparams.Channel) (*charm.URL, csparams.Channel, []string, error)
 }
 
-// MacaroonGetter defines a subset of a charmstore client,
-// as required by different application commands.
-type MacaroonGetter interface {
-	Get(endpoint string, extra interface{}) error
-}
-
 // CharmsAPI is functionality needed by the CharmAdapter from the Charms API.
 type CharmsAPI interface {
 	ResolveCharms(charms []apicharm.CharmToResolve) ([]apicharm.ResolvedCharm, error)

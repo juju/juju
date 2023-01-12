@@ -904,7 +904,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 		// The machineSetupName manifold runs small tasks required
 		// to setup a machine, but requires the machine agent's API
-		// connection. Once its work is comlete, it stops.
+		// connection. Once its work is complete, it stops.
 		machineSetupName: ifNotMigrating(MachineStartupManifold(MachineStartupConfig{
 			APICallerName:  apiCallerName,
 			MachineStartup: config.MachineStartup,

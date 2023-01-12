@@ -418,6 +418,34 @@ func (st *State) OpenedMachinePortRangesByEndpoint(machineTag names.MachineTag) 
 	return portRangeMap, nil
 }
 
+// OpenedApplicationPortRangesByEndpoint returns all port ranges currently open for the given
+// application, grouped by application endpoint.
+func (st *State) OpenedApplicationPortRangesByEndpoint(appTag names.ApplicationTag) (network.GroupedPortRanges, error) {
+	if st.BestAPIVersion() < 18 {
+		// OpenedApplicationPortRangesByEndpoint() was introduced in UniterAPIV18.
+		return nil, errors.NotImplementedf("OpenedApplicationPortRangesByEndpoint() (need V17+)")
+	}
+	arg := params.Entity{Tag: appTag.String()}
+	var result params.ApplicationOpenedPortsResults
+	if err := st.facade.FacadeCall("OpenedApplicationPortRangesByEndpoint", arg, &result); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(result.Results) != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", len(result.Results))
+	}
+	res := result.Results[0]
+	if res.Error != nil {
+		return nil, errors.Annotatef(res.Error, "unable to fetch opened ports for application %s", appTag)
+	}
+	out := make(network.GroupedPortRanges)
+	for _, pgs := range res.ApplicationPortRanges {
+		for _, pg := range pgs.PortRanges {
+			out[pgs.Endpoint] = append(out[pgs.Endpoint], pg.NetworkPortRange())
+		}
+	}
+	return out, nil
+}
+
 // WatchRelationUnits returns a watcher that notifies of changes to the
 // counterpart units in the relation for the given unit.
 func (st *State) WatchRelationUnits(

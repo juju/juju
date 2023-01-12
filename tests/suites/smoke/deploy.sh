@@ -10,7 +10,7 @@ run_local_deploy() {
 
 	ensure "test-local-deploy" "${file}"
 
-	juju deploy --revision=1 --channel=stable --series=focal juju-qa-refresher
+	juju deploy --revision=1 --channel=stable --base ubuntu@20.04 juju-qa-refresher
 	wait_for "refresher" "$(idle_condition "refresher")"
 
 	juju refresh refresher

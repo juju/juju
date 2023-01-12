@@ -3074,6 +3074,99 @@ func (s *ApplicationSuite) TestDestroyWithRemovableRelation(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
+func (s *ApplicationSuite) TestDestroyWithRemovableApplicationOpenedPortRanges(c *gc.C) {
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	appPortRanges, err := wordpress.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appPortRanges.UniquePortRanges(), gc.HasLen, 0)
+	appPortRanges.Open(allEndpoints, network.MustParsePortRange("3000/tcp"))
+	c.Assert(s.State.ApplyOperation(appPortRanges.Changes()), jc.ErrorIsNil)
+	err = appPortRanges.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appPortRanges.UniquePortRanges(), gc.HasLen, 1)
+
+	// Destroy a application; check application and
+	// openedApplicationportRanges removed.
+	err = wordpress.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = wordpress.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	err = appPortRanges.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *ApplicationSuite) TestOpenedPortRanges(c *gc.C) {
+
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	appPortRanges, err := wordpress.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+
+	flush := func(err string) {
+		if len(err) == 0 {
+			c.Assert(s.State.ApplyOperation(appPortRanges.Changes()), jc.ErrorIsNil)
+		} else {
+			c.Assert(s.State.ApplyOperation(appPortRanges.Changes()), gc.ErrorMatches, err)
+		}
+		c.Assert(appPortRanges.Refresh(), jc.ErrorIsNil)
+	}
+
+	c.Assert(appPortRanges.UniquePortRanges(), gc.HasLen, 0)
+	c.Assert(appPortRanges.Persisted(), jc.IsFalse)
+	appPortRanges.Open(allEndpoints, network.MustParsePortRange("3000/tcp"))
+	appPortRanges.Open("monitoring-port", network.MustParsePortRange("2000/udp"))
+	// All good.
+	flush(``)
+	c.Assert(appPortRanges.Persisted(), jc.IsTrue)
+	c.Assert(appPortRanges.ApplicationName(), jc.DeepEquals, `wordpress`)
+	c.Assert(appPortRanges.UniquePortRanges(), jc.DeepEquals, []network.PortRange{
+		network.MustParsePortRange("3000/tcp"),
+		network.MustParsePortRange("2000/udp"),
+	})
+	c.Assert(appPortRanges.ByEndpoint(), jc.DeepEquals, network.GroupedPortRanges{
+		allEndpoints:      []network.PortRange{network.MustParsePortRange("3000/tcp")},
+		"monitoring-port": []network.PortRange{network.MustParsePortRange("2000/udp")},
+	})
+
+	// Errors for unknown endpoint.
+	appPortRanges.Open("bad-endpoint", network.MustParsePortRange("2000/udp"))
+	flush(`cannot open/close ports: open port range: endpoint "bad-endpoint" for application "wordpress" not found`)
+	c.Assert(appPortRanges.ByEndpoint(), jc.DeepEquals, network.GroupedPortRanges{
+		allEndpoints:      []network.PortRange{network.MustParsePortRange("3000/tcp")},
+		"monitoring-port": []network.PortRange{network.MustParsePortRange("2000/udp")},
+	})
+
+	// No ops for duplicated Open.
+	appPortRanges.Open("monitoring-port", network.MustParsePortRange("2000/udp"))
+	flush(``)
+	c.Assert(appPortRanges.ByEndpoint(), jc.DeepEquals, network.GroupedPortRanges{
+		allEndpoints:      []network.PortRange{network.MustParsePortRange("3000/tcp")},
+		"monitoring-port": []network.PortRange{network.MustParsePortRange("2000/udp")},
+	})
+
+	// Close one port.
+	appPortRanges.Close("monitoring-port", network.MustParsePortRange("2000/udp"))
+	flush(``)
+	c.Assert(appPortRanges.ByEndpoint(), jc.DeepEquals, network.GroupedPortRanges{
+		allEndpoints: []network.PortRange{network.MustParsePortRange("3000/tcp")},
+	})
+
+	// No ops for Close non existing port.
+	appPortRanges.Close("monitoring-port", network.MustParsePortRange("2000/udp"))
+	flush(``)
+	c.Assert(appPortRanges.ByEndpoint(), jc.DeepEquals, network.GroupedPortRanges{
+		allEndpoints: []network.PortRange{network.MustParsePortRange("3000/tcp")},
+	})
+
+	// Destroy a application; check application and
+	// openedApplicationportRanges removed.
+	err = wordpress.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = wordpress.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	err = appPortRanges.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
 func (s *ApplicationSuite) TestDestroyWithReferencedRelation(c *gc.C) {
 	s.assertDestroyWithReferencedRelation(c, true)
 }
