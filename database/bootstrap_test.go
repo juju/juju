@@ -5,6 +5,8 @@ package database
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"net"
 
@@ -24,35 +26,36 @@ var _ = gc.Suite(&bootstrapSuite{})
 func (s *bootstrapSuite) TestBootstrapSuccess(c *gc.C) {
 	opt := &testOptFactory{c: c}
 
-	c.Assert(BootstrapDqlite(context.TODO(), opt, stubLogger{}), jc.ErrorIsNil)
+	// check tests the variadic operation functionality
+	// and ensures that bootstrap applied the DDL.
+	check := func(db *sql.DB) error {
+		rows, err := db.Query("SELECT COUNT(*) FROM lease_type")
+		if err != nil {
+			return err
+		}
 
-	// Now use the same options to reopen the controller database
-	// and check that we can see bootstrap side effects.
-	dir, err := opt.EnsureDataDir()
+		defer func() { _ = rows.Close() }()
+
+		if !rows.Next() {
+			return errors.New("no rows in lease_type")
+		}
+
+		var count int
+		err = rows.Scan(&count)
+		if err != nil {
+			return err
+		}
+
+		if count != 3 {
+			return fmt.Errorf("expected 3 rows, got %d", count)
+		}
+
+		return nil
+	}
+
+	err := BootstrapDqlite(context.TODO(), opt, stubLogger{}, check)
 	c.Assert(err, jc.ErrorIsNil)
 
-	addrOpt, err := opt.WithAddressOption()
-	c.Assert(err, jc.ErrorIsNil)
-
-	dqlite, err := app.New(dir, addrOpt)
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(*gc.C) { _ = dqlite.Close() })
-
-	ctx := context.TODO()
-	c.Assert(dqlite.Ready(ctx), jc.ErrorIsNil)
-
-	db, err := dqlite.Open(ctx, "controller")
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(*gc.C) { _ = db.Close() })
-
-	rows, err := db.Query("SELECT COUNT(*) FROM lease_type")
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(*gc.C) { _ = rows.Close() })
-
-	var count int
-	c.Assert(rows.Next(), jc.IsTrue)
-	c.Assert(rows.Scan(&count), jc.ErrorIsNil)
-	c.Check(count, gc.Equals, 3)
 }
 
 type testOptFactory struct {

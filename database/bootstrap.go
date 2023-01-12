@@ -5,6 +5,7 @@ package database
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/canonical/go-dqlite/app"
 	"github.com/juju/errors"
@@ -30,10 +31,13 @@ type bootstrapOptFactory interface {
 // BootstrapDqlite opens a new database for the controller, and runs the
 // DDL to create its schema.
 //
+// It accepts an optional list of functions to perform operations on the
+// controller database.
+//
 // At this point we know there are no peers and that we are the only user
 // of Dqlite, so we can eschew external address and clustering concerns.
 // Those will be handled by the db-accessor worker.
-func BootstrapDqlite(ctx context.Context, opt bootstrapOptFactory, logger Logger) error {
+func BootstrapDqlite(ctx context.Context, opt bootstrapOptFactory, logger Logger, ops ...func(db *sql.DB) error) error {
 	dir, err := opt.EnsureDataDir()
 	if err != nil {
 		return errors.Trace(err)
@@ -73,6 +77,12 @@ func BootstrapDqlite(ctx context.Context, opt bootstrapOptFactory, logger Logger
 
 	if err := NewDBMigration(db, logger, schema.ControllerDDL()).Apply(); err != nil {
 		return errors.Annotate(err, "creating controller database schema")
+	}
+
+	for i, op := range ops {
+		if err := op(db); err != nil {
+			return errors.Annotatef(err, "running bootstrap operation at index %d", i)
+		}
 	}
 
 	return nil
