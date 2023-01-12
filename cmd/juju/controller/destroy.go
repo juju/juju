@@ -201,7 +201,7 @@ func printDestroyWarningDetails(ctx *cmd.Context, modelStatus environmentStatus,
 		"ModelCount":       modelStatus.Controller.HostedModelCount,
 		"ModelNames":       getModelNames(modelStatus.Models),
 		"MachineCount":     modelStatus.Controller.HostedMachineCount,
-		"ApplicationCount": modelStatus.Controller.ApplicationCount,
+		"ApplicationCount": modelStatus.Controller.ApplicationCount - 1, //  -1 not to count controller app itself
 		"ApplicationNames": getApplicationNames(modelStatus.Applications),
 		"FilesystemCount":  modelStatus.Controller.TotalFilesystemCount,
 		"VolumeCount":      modelStatus.Controller.TotalVolumeCount,
@@ -241,6 +241,13 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	// check Alive models and --destroy-all-models flag usage
 	if !c.destroyModels {
 		if err := c.checkNoAliveHostedModels(modelStatus.Models); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	// check user has not specified whether storage should be destroyed or released.
+	// Make sure there are no filesystems or volumes in the model.
+	if !c.destroyStorage && !c.releaseStorage {
+		if err := c.checkNoPersistentStorage(modelStatus); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -309,9 +316,6 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 			continue
 		}
 		if !c.destroyStorage && !c.releaseStorage && hasPersistentStorage {
-			if err := c.checkNoPersistentStorage(modelStatus); err != nil {
-				return errors.Trace(err)
-			}
 			// When we called DestroyController before, we were
 			// informed that there was persistent storage remaining.
 			// When we checked just now, there was none. We should
@@ -404,7 +408,9 @@ func (c *destroyCommand) checkNoPersistentStorage(envStatus environmentStatus) e
 		}
 	}
 	buf.WriteRune(' ')
-	if n := modelsWithPersistentStorage; n == 1 {
+	if n := modelsWithPersistentStorage; n == 0 {
+		return nil
+	} else if n == 1 {
 		buf.WriteString("in 1 model")
 	} else {
 		fmt.Fprintf(&buf, "across %d models", n)

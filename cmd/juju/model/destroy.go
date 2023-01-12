@@ -269,7 +269,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// Attempt to destroy the model.
-	fmt.Fprint(ctx.Stderr, "Destroying model")
+	_, _ = fmt.Fprint(ctx.Stderr, "Destroying model")
 	var destroyStorage *bool
 	if c.destroyStorage || c.releaseStorage {
 		destroyStorage = &c.destroyStorage
