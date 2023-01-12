@@ -55,6 +55,7 @@ import (
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	"github.com/juju/juju/cmd/jujud/agent/mocks"
 	"github.com/juju/juju/cmd/jujud/agent/model"
+	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/instance"
@@ -1166,10 +1167,11 @@ func (s *MachineSuite) TestMachineWorkers(c *gc.C) {
 	// Wait for it to stabilise, running as normal.
 	matcher := agenttest.NewWorkerMatcher(c, tracker, a.Tag().String(),
 		append(alwaysMachineWorkers, notMigratingMachineWorkers...))
-	agenttest.WaitMatch(c, matcher.Check, coretesting.LongWait)
-	// kvm-container-provisioner only runs where the hardware the
-	// test is run on supports kvm. This is not optimal.
-	matcher.AddOptionalWorkers([]string{"kvm-container-provisioner"})
+
+	// Indicate that this machine supports KVM containers rather than doing
+	// detection that may return true/false based on the machine running tests.
+	s.PatchValue(&kvm.IsKVMSupported, func() (bool, error) { return true, nil })
+
 	agenttest.WaitMatch(c, matcher.Check, coretesting.LongWait)
 }
 
