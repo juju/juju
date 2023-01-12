@@ -510,12 +510,12 @@ func (s *KillSuite) TestControllerStatus(c *gc.C) {
 		}
 	}
 
-	ctrStatus, envsStatus, _, err := controller.NewData(s.api, "123")
+	environmentStatus, err := controller.NewData(s.api, "123")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctrStatus.HostedModelCount, gc.Equals, 2)
-	c.Assert(ctrStatus.HostedMachineCount, gc.Equals, 6)
-	c.Assert(ctrStatus.ApplicationCount, gc.Equals, 3)
-	c.Assert(envsStatus, gc.HasLen, 2)
+	c.Assert(environmentStatus.Controller.HostedModelCount, gc.Equals, 2)
+	c.Assert(environmentStatus.Controller.HostedMachineCount, gc.Equals, 6)
+	c.Assert(environmentStatus.Controller.ApplicationCount, gc.Equals, 3)
+	c.Assert(environmentStatus.Models, gc.HasLen, 2)
 
 	for i, expected := range []struct {
 		Owner              string
@@ -538,11 +538,11 @@ func (s *KillSuite) TestControllerStatus(c *gc.C) {
 			ApplicationCount:   1,
 		},
 	} {
-		c.Assert(envsStatus[i].Owner, gc.Equals, expected.Owner)
-		c.Assert(envsStatus[i].Name, gc.Equals, expected.Name)
-		c.Assert(envsStatus[i].Life, gc.Equals, expected.Life)
-		c.Assert(envsStatus[i].HostedMachineCount, gc.Equals, expected.HostedMachineCount)
-		c.Assert(envsStatus[i].ApplicationCount, gc.Equals, expected.ApplicationCount)
+		c.Assert(environmentStatus.Models[i].Owner, gc.Equals, expected.Owner)
+		c.Assert(environmentStatus.Models[i].Name, gc.Equals, expected.Name)
+		c.Assert(environmentStatus.Models[i].Life, gc.Equals, expected.Life)
+		c.Assert(environmentStatus.Models[i].HostedMachineCount, gc.Equals, expected.HostedMachineCount)
+		c.Assert(environmentStatus.Models[i].ApplicationCount, gc.Equals, expected.ApplicationCount)
 	}
 
 }

@@ -60,8 +60,9 @@ func UserConfirmName(verificationName string, objectType string, ctx *cmd.Contex
 		return errors.Trace(err)
 	}
 	answer := strings.ToLower(scanner.Text())
-	if answer == verificationName {
-		return nil
+	if answer != verificationName {
+		return errors.Trace(userAbortedError("aborted"))
 	}
-	return errors.Trace(userAbortedError("aborted"))
+	return nil
+
 }

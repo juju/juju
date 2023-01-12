@@ -100,14 +100,14 @@ See also:
 `
 
 var destroyModelMsg = `
-WARNING! This command will destroy the %q model and all it's resources`[1:]
+This command will destroy the %q model and all it's resources`[1:]
 
 var destroyModelMsgDetails = `
 {{- if gt .MachineCount 0}}
  - {{.MachineCount}} {{if .IsCaaS}}container{{else}}machine{{end}}{{if gt .MachineCount 1}}s{{end}} will be destroyed
   - {{if .IsCaaS}}container{{else}}machine{{end}} list:{{range .MachineIds}} "{{.}}"{{end}}
  - {{.ApplicationCount}} application{{if gt .ApplicationCount 1}}s{{end}} will be removed
- {{- if gt .ApplicationCount 0}}
+ {{- if gt (len .ApplicationNames) 0}}
   - application list:{{range .ApplicationNames}} "{{.}}"{{end}}
  {{- end}}
  - {{.FilesystemCount}} filesystem{{if gt .FilesystemCount 1}}s{{end}} and {{.VolumeCount}} volume{{if gt .VolumeCount 1}}s{{end}} will be {{if .ReleaseStorage}}released{{else}}destroyed{{end}}
@@ -190,9 +190,8 @@ func getApplicationNames(data base.ModelStatus) []string {
 	})
 }
 
-// printDestroyWarning prints to stdout the warning with additional info about destroying model.
-func printDestroyWarning(ctx *cmd.Context, modelStatus base.ModelStatus, modelName string, modelType model.ModelType, releaseStorage bool) error {
-	_, _ = fmt.Fprintf(ctx.Stderr, destroyModelMsg, modelName)
+// printDestroyWarningDetails prints to stderr the warning with additional info about destroying model.
+func printDestroyWarningDetails(ctx *cmd.Context, modelStatus base.ModelStatus, modelName string, modelType model.ModelType, releaseStorage bool) error {
 	destroyMsgDetailsTmpl := template.New("destroyMsdDetails")
 	destroyMsgDetailsTmpl, err := destroyMsgDetailsTmpl.Parse(destroyModelMsgDetails)
 	if err != nil {
@@ -260,7 +259,8 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 		if err != nil {
 			return errors.Annotate(err, "getting model status")
 		}
-		if err := printDestroyWarning(ctx, modelStatuses[0], modelName, modelDetails.ModelType, c.releaseStorage); err != nil {
+		ctx.Warningf(destroyModelMsg, modelName)
+		if err := printDestroyWarningDetails(ctx, modelStatuses[0], modelName, modelDetails.ModelType, c.releaseStorage); err != nil {
 			return errors.Trace(err)
 		}
 		if err := jujucmd.UserConfirmName(modelName, "model", ctx); err != nil {

@@ -43,11 +43,11 @@ type modelData struct {
 }
 
 type environmentStatus struct {
-	controller ctrData
+	Controller ctrData
 	// models contains only the hosted models. controller.Model
 	// contains data specific to the controller model.
-	models       []modelData
-	applications []base.Application
+	Models       []modelData
+	Applications []base.Application
 }
 
 // newTimedStatusUpdater returns a function which waits a given period of time
@@ -73,16 +73,16 @@ func newData(api destroyControllerAPI, controllerModelUUID string) (environmentS
 	models, err := api.AllModels()
 	if err != nil {
 		return environmentStatus{
-			controller:   ctrData{},
-			models:       nil,
-			applications: nil,
+			Controller:   ctrData{},
+			Models:       nil,
+			Applications: nil,
 		}, errors.Trace(err)
 	}
 	if len(models) == 0 {
 		return environmentStatus{
-			controller:   ctrData{},
-			models:       nil,
-			applications: nil,
+			Controller:   ctrData{},
+			Models:       nil,
+			Applications: nil,
 		}, errors.New("no models found")
 	}
 
@@ -96,9 +96,9 @@ func newData(api destroyControllerAPI, controllerModelUUID string) (environmentS
 	status, err := api.ModelStatus(modelTags...)
 	if err != nil {
 		return environmentStatus{
-			controller:   ctrData{},
-			models:       nil,
-			applications: nil,
+			Controller:   ctrData{},
+			Models:       nil,
+			Applications: nil,
 		}, errors.Trace(err)
 	}
 
@@ -120,9 +120,9 @@ func newData(api destroyControllerAPI, controllerModelUUID string) (environmentS
 				continue
 			}
 			return environmentStatus{
-				controller:   ctrData{},
-				models:       nil,
-				applications: nil,
+				Controller:   ctrData{},
+				Models:       nil,
+				Applications: nil,
 			}, errors.Trace(model.Error)
 		}
 		var persistentVolumeCount int
@@ -177,15 +177,15 @@ func newData(api destroyControllerAPI, controllerModelUUID string) (environmentS
 	}
 
 	return environmentStatus{
-		controller:   ctrFinalStatus,
-		models:       modelsData,
-		applications: applications,
+		Controller:   ctrFinalStatus,
+		Models:       modelsData,
+		Applications: applications,
 	}, nil
 }
 
 func hasUnreclaimedResources(env environmentStatus) bool {
-	return hasUnDeadModels(env.models) ||
-		env.controller.HostedMachineCount > 0
+	return hasUnDeadModels(env.Models) ||
+		env.Controller.HostedMachineCount > 0
 }
 
 func hasUnDeadModels(models []modelData) bool {
