@@ -6,6 +6,7 @@ package database
 import (
 	"fmt"
 	"math/rand"
+	"net"
 	"os"
 	"strconv"
 
@@ -115,6 +116,20 @@ func (s *optionSuite) TestWithClusterNotHASuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_ = dqlite.Close()
+}
+
+func (s *optionSuite) TestIgnoreInterface(c *gc.C) {
+	shouldIgnore := []string{
+		"lxdbr0",
+		"virbr0",
+		"docker0",
+	}
+	for _, devName := range shouldIgnore {
+		c.Check(ignoreInterface(net.Interface{Name: devName}), jc.IsTrue)
+	}
+
+	c.Check(ignoreInterface(net.Interface{Flags: net.FlagLoopback}), jc.IsTrue)
+	c.Check(ignoreInterface(net.Interface{Name: "enp5s0"}), jc.IsFalse)
 }
 
 type fakeAgentConfig struct {
