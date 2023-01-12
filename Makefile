@@ -603,4 +603,5 @@ STATIC_ANALYSIS_JOB ?=
 .PHONY: static-analysis
 static-analysis:
 ## static-analysis: Check the go code using static-analysis
+	@export CGO_ENABLED=1
 	@cd tests && ./main.sh static_analysis ${STATIC_ANALYSIS_JOB}
