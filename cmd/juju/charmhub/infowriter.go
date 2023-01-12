@@ -107,7 +107,7 @@ func (iw infoWriter) channels() string {
 			case baseModeBases:
 				latest := revisions[0]
 				args := []any{formatRevision(latest, true)}
-				bases := strings.Join(basesToSeries(latest.Bases), ", ")
+				bases := strings.Join(basesDisplay(latest.Bases), ", ")
 				if bases != "" {
 					args = append(args, bases)
 				}
@@ -119,7 +119,7 @@ func (iw infoWriter) channels() string {
 				if arches != "" {
 					args = append(args, arches)
 				}
-				bases := strings.Join(basesToSeries(latest.Bases), ", ")
+				bases := strings.Join(basesDisplay(latest.Bases), ", ")
 				if bases != "" {
 					args = append(args, bases)
 				}
@@ -143,27 +143,19 @@ func formatRevision(r Revision, showName bool) string {
 		namePrefix, r.Version, r.ReleasedAt[:10], r.Revision, sizeToStr(r.Size))
 }
 
-// basesToSeries converts a list of bases to a list of series ("jammy").
-// Any bases that can't be mapped will be included in the
-// result unmodified.
-//
-// NOTE: This will go away when we switch to --base and bases output.
-func basesToSeries(bases []Base) []string {
-	series := make([]string, len(bases))
+// basesDisplay returns a slice of bases in the format "name@channel".
+func basesDisplay(bases []Base) []string {
+	strs := make([]string, len(bases))
 	for i, b := range bases {
 		base, err := coreseries.ParseBase(b.Name, b.Channel)
 		if err != nil {
-			series[i] = base.DisplayString()
+			strs[i] = base.DisplayString()
 			continue
 		}
-		s, err := coreseries.GetSeriesFromBase(base)
-		if err != nil {
-			series[i] = base.DisplayString()
-			continue
-		}
-		series[i] = s
+
+		strs[i] = b.Name + "@" + b.Channel
 	}
-	return series
+	return strs
 }
 
 type bundleInfoOutput struct {
@@ -227,7 +219,7 @@ func (c charmInfoWriter) Print() error {
 		ID:          c.in.ID,
 		Summary:     c.in.Summary,
 		Publisher:   c.in.Publisher,
-		Supports:    strings.Join(basesToSeries(c.in.Supports), ", "),
+		Supports:    strings.Join(basesDisplay(c.in.Supports), ", "),
 		StoreURL:    c.in.StoreURL,
 		Description: c.in.Description,
 		Channels:    c.channels(),

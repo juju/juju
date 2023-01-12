@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/storage"
 )
 
@@ -123,11 +124,12 @@ Please repeat the deploy command with the --trust argument if you consent to tru
 					return errors.Trace(err)
 				}
 
-				platform, err := utils.DeducePlatform(cons, applicationSpec.Series, d.modelConstraints)
+				base, err := series.GetBaseFromSeries(applicationSpec.Series)
 				if err != nil {
 					return errors.Trace(err)
 				}
 
+				platform := utils.MakePlatform(cons, base, d.modelConstraints)
 				origin, err := utils.DeduceOrigin(charmURL, d.origin.CharmChannel(), platform)
 				if err != nil {
 					return errors.Trace(err)

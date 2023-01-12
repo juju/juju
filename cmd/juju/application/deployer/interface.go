@@ -53,9 +53,6 @@ type DeployStep interface {
 	// SetFlags sets flags necessary for the deploy step.
 	SetFlags(*gnuflag.FlagSet)
 
-	// SetPlanURL sets the plan URL prefix.
-	SetPlanURL(planURL string)
-
 	// RunPre runs before the call is made to add the charm to the environment.
 	RunPre(DeployStepAPI, *httpbakery.Client, *cmd.Context, DeploymentInfo) error
 
@@ -111,9 +108,6 @@ type DeployerAPI interface {
 	CharmDeployAPI
 	ModelAPI
 	OfferAPI
-
-	// PlanURL returns the configured URL prefix for the metering plan API.
-	PlanURL() string
 
 	ListSpaces() ([]apiparams.Space, error)
 	Deploy(application.DeployArgs) error

@@ -53,7 +53,7 @@ func (r *resolver) handleApplications() (map[string]string, error) {
 			application.Series = series.LegacyKubernetesSeries()
 		}
 		existingApp := existing.GetApplication(name)
-		series, err := getSeries(application, defaultSeries)
+		computedSeries, err := getSeries(application, defaultSeries)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -92,7 +92,15 @@ func (r *resolver) handleApplications() (map[string]string, error) {
 			// The case of upgrade charmhub charm with by channel... need the correct revision,
 			// or we will not have an addCharmChange corresponding to the upgradeCharmChange.
 			if r.charmResolver != nil {
-				_, rev, err := r.charmResolver(application.Charm, application.Series, channel, arch, revision)
+				var base series.Base
+				if application.Series != "" {
+					var err error
+					base, err = series.GetBaseFromSeries(application.Series)
+					if err != nil {
+						return nil, errors.Trace(err)
+					}
+				}
+				_, rev, err := r.charmResolver(application.Charm, base, channel, arch, revision)
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
@@ -103,12 +111,12 @@ func (r *resolver) handleApplications() (map[string]string, error) {
 		// Add the addCharm record if one hasn't been added yet, this means
 		// if the arch and series differ from an existing charm, then we create
 		// a new charm.
-		key := applicationKey(application.Charm, arch, series, channel, revision)
-		if charms[key] == "" && !existing.matchesCharmPermutation(application.Charm, arch, series, channel, revision, r.constraintGetter) {
+		key := applicationKey(application.Charm, arch, computedSeries, channel, revision)
+		if charms[key] == "" && !existing.matchesCharmPermutation(application.Charm, arch, computedSeries, channel, revision, r.constraintGetter) {
 			change = newAddCharmChange(AddCharmParams{
 				Charm:        application.Charm,
 				Revision:     application.Revision,
-				Series:       series,
+				Series:       computedSeries,
 				Channel:      application.Channel,
 				Architecture: arch,
 			})
@@ -150,7 +158,7 @@ func (r *resolver) handleApplications() (map[string]string, error) {
 			// Add the addApplication record for this application.
 			change = newAddApplicationChange(AddApplicationParams{
 				Charm:            charmOrChange,
-				Series:           series,
+				Series:           computedSeries,
 				Application:      name,
 				NumUnits:         numUnits,
 				Options:          application.Options,
@@ -190,7 +198,7 @@ func (r *resolver) handleApplications() (map[string]string, error) {
 				change = newUpgradeCharm(UpgradeCharmParams{
 					Charm:          charmOrChange,
 					Application:    name,
-					Series:         series,
+					Series:         computedSeries,
 					Channel:        application.Channel,
 					Resources:      resources,
 					LocalResources: localResources,
@@ -308,8 +316,17 @@ func (r *resolver) allowCharmUpgrade(existingApp *Application, bundleApp *charm.
 		if bundleApp.Revision != nil {
 			rev = *bundleApp.Revision
 		}
-		var err error
-		resolvedChan, resolvedRev, err = r.charmResolver(bundleApp.Charm, bundleApp.Series, bundleApp.Channel, bundleArch, rev)
+		var (
+			err  error
+			base series.Base
+		)
+		if bundleApp.Series != "" {
+			base, err = series.GetBaseFromSeries(bundleApp.Series)
+			if err != nil {
+				return false, errors.Trace(err)
+			}
+		}
+		resolvedChan, resolvedRev, err = r.charmResolver(bundleApp.Charm, base, bundleApp.Channel, bundleArch, rev)
 		if err != nil {
 			return false, errors.Trace(err)
 		}
@@ -1237,6 +1254,8 @@ func applicationKey(charm, arch, series, channel string, revision int) string {
 
 // getSeries retrieves the series of a application from the ApplicationSpec or from the
 // charm path or URL if provided, otherwise falling back on a default series.
+//
+// DEPRECATED: This should be all about bases.
 func getSeries(application *charm.ApplicationSpec, defaultSeries string) (string, error) {
 	if application.Series != "" {
 		return application.Series, nil

@@ -28,6 +28,7 @@ type Application interface {
 	ApplicationConfig() (config.ConfigAttributes, error)
 	Watch() state.NotifyWatcher
 	Charm() (ch charmscommon.Charm, force bool, err error)
+	OpenedPortRanges() (state.ApplicationPortRanges, error)
 }
 
 type stateShim struct {

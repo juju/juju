@@ -276,7 +276,7 @@ func getOpenedPortRangesForAllMachines(st *State) ([]*machinePortRanges, error) 
 
 // getOpenedMachinePortRanges attempts to retrieve the set of opened ports for
 // a particular machine. If the underlying document does not exist, a blank
-// machinePortRanges instance with the docExists flag set to true will be
+// machinePortRanges instance with the docExists flag set to false will be
 // returned instead.
 func getOpenedMachinePortRanges(st *State, machineID string) (*machinePortRanges, error) {
 	openedPorts, closer := st.db().GetCollection(openedPortsC)

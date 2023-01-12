@@ -13,7 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	types "k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
@@ -23,6 +23,7 @@ import (
 // Service extends the k8s service.
 type Service struct {
 	corev1.Service
+	PatchType *types.PatchType
 }
 
 // NewService creates a new service resource.
@@ -32,7 +33,7 @@ func NewService(name string, namespace string, in *corev1.Service) *Service {
 	}
 	in.SetName(name)
 	in.SetNamespace(namespace)
-	return &Service{*in}
+	return &Service{Service: *in}
 }
 
 // Clone returns a copy of the resource.
@@ -53,7 +54,11 @@ func (s *Service) Apply(ctx context.Context, client kubernetes.Interface) error 
 	if err != nil {
 		return errors.Trace(err)
 	}
-	res, err := api.Patch(ctx, s.Name, types.StrategicMergePatchType, data, metav1.PatchOptions{
+	patchStrategy := preferedPatchStrategy
+	if s.PatchType != nil {
+		patchStrategy = *s.PatchType
+	}
+	res, err := api.Patch(ctx, s.Name, patchStrategy, data, metav1.PatchOptions{
 		FieldManager: JujuFieldManager,
 	})
 	if k8serrors.IsNotFound(err) {

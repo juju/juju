@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/cmd/juju/application/mocks"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/provider/dummy"
@@ -76,7 +75,7 @@ func (s *RemoveUnitSuite) TestRemoveUnit(c *gc.C) {
 		Error: apiservererrors.ServerError(errors.New("doink")),
 	}}, nil)
 
-	ctx, err := s.runRemoveUnit(c, "unit/0", "unit/1", "unit/2")
+	ctx, err := s.runRemoveUnit(c, "--no-prompt", "unit/0", "unit/1", "unit/2")
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 
 	stdout := cmdtesting.Stdout(ctx)
@@ -106,7 +105,7 @@ func (s *RemoveUnitSuite) TestRemoveUnitDestroyStorage(c *gc.C) {
 		Error: apiservererrors.ServerError(errors.New("doink")),
 	}}, nil)
 
-	ctx, err := s.runRemoveUnit(c, "unit/0", "unit/1", "unit/2", "--destroy-storage")
+	ctx, err := s.runRemoveUnit(c, "--no-prompt", "unit/0", "unit/1", "unit/2", "--destroy-storage")
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 
 	stdout := cmdtesting.Stdout(ctx)
@@ -134,7 +133,7 @@ func (s *RemoveUnitSuite) TestBlockRemoveUnit(c *gc.C) {
 		Units: []string{"some-unit-name/0"},
 	}).Return(nil, apiservererrors.OperationBlockedError("TestBlockRemoveUnit"))
 
-	s.runRemoveUnit(c, "some-unit-name/0")
+	s.runRemoveUnit(c, "--no-prompt", "some-unit-name/0")
 
 	c.Check(c.GetTestLog(), gc.Matches, "(?s).*TestBlockRemoveUnit.*")
 }
@@ -174,8 +173,6 @@ func (s *RemoveUnitSuite) TestRemoveUnitDryRunOldFacade(c *gc.C) {
 func (s *RemoveUnitSuite) TestRemoveUnitWithPrompt(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.PatchEnvironment(osenv.JujuSkipConfirmationEnvKey, "0")
-
 	var stdin bytes.Buffer
 	ctx := cmdtesting.Context(c)
 	ctx.Stdin = &stdin
@@ -210,8 +207,6 @@ func (s *RemoveUnitSuite) TestRemoveUnitWithPrompt(c *gc.C) {
 func (s *RemoveUnitSuite) TestRemoveUnitWithPromptOldFacade(c *gc.C) {
 	s.facadeVersion = 15
 	defer s.setup(c).Finish()
-
-	s.PatchEnvironment(osenv.JujuSkipConfirmationEnvKey, "0")
 
 	var stdin bytes.Buffer
 	ctx := cmdtesting.Context(c)

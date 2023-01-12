@@ -739,6 +739,12 @@ func (a *Application) removeOps(asserts bson.D, op *ForcedOperation) ([]txn.Op, 
 		removePodSpecOp(a.ApplicationTag()),
 	)
 
+	openedApplicationPortRanges, err := getOpenedApplicationPortRanges(a.st, a.Name())
+	if op.FatalError(err) {
+		return nil, errors.Trace(err)
+	}
+	ops = append(ops, openedApplicationPortRanges.removeOps()...)
+
 	cancelCleanupOps, err := a.cancelScheduledCleanupOps()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -3194,6 +3200,20 @@ func (a *Application) SetConstraints(cons constraints.Value) (err error) {
 	}}
 	ops = append(ops, setConstraintsOp(a.globalKey(), cons))
 	return onAbort(a.st.db().RunTransaction(ops), applicationNotAliveErr)
+}
+
+func assertApplicationAliveOp(docID string) txn.Op {
+	return txn.Op{
+		C:      applicationsC,
+		Id:     docID,
+		Assert: isAliveDoc,
+	}
+}
+
+// OpenedPortRanges returns a ApplicationPortRanges object that can be used to query
+// and/or mutate the port ranges opened by the embedded k8s application.
+func (a *Application) OpenedPortRanges() (ApplicationPortRanges, error) {
+	return getOpenedApplicationPortRanges(a.st, a.Name())
 }
 
 // EndpointBindings returns the mapping for each endpoint name and the space

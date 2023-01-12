@@ -383,7 +383,16 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 			}
 		}
 
-		channel, origin, err := h.constructChannelAndOrigin(ch, spec.Series, spec.Channel, cons)
+		var base series.Base
+		if spec.Series != "" {
+			var err error
+			base, err = series.GetBaseFromSeries(spec.Series)
+			if err != nil {
+				return errors.Trace(err)
+			}
+		}
+
+		channel, origin, err := h.constructChannelAndOrigin(ch, base, spec.Channel, cons)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -427,7 +436,7 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 	return nil
 }
 
-func (h *bundleHandler) resolveCharmChannelAndRevision(charmURL, charmSeries, charmChannel, arch string, revision int) (string, int, error) {
+func (h *bundleHandler) resolveCharmChannelAndRevision(charmURL string, charmBase series.Base, charmChannel, arch string, revision int) (string, int, error) {
 	if h.isLocalCharm(charmURL) {
 		return charmChannel, -1, nil
 	}
@@ -460,7 +469,7 @@ func (h *bundleHandler) resolveCharmChannelAndRevision(charmURL, charmSeries, ch
 		ch = ch.WithRevision(revision)
 	}
 
-	_, origin, err := h.constructChannelAndOrigin(ch, charmSeries, charmChannel, cons)
+	_, origin, err := h.constructChannelAndOrigin(ch, charmBase, charmChannel, cons)
 	if err != nil {
 		return "", -1, errors.Trace(err)
 	}
@@ -479,7 +488,7 @@ func (h *bundleHandler) resolveCharmChannelAndRevision(charmURL, charmSeries, ch
 // constructChannelAndOrigin attempts to construct a fully qualified channel
 // along with an origin that matches the hardware constraints and the charm url
 // source.
-func (h *bundleHandler) constructChannelAndOrigin(curl *charm.URL, charmSeries, charmChannel string, cons constraints.Value) (charm.Channel, commoncharm.Origin, error) {
+func (h *bundleHandler) constructChannelAndOrigin(curl *charm.URL, charmBase series.Base, charmChannel string, cons constraints.Value) (charm.Channel, commoncharm.Origin, error) {
 	var channel charm.Channel
 	if charmChannel != "" {
 		var err error
@@ -488,11 +497,7 @@ func (h *bundleHandler) constructChannelAndOrigin(curl *charm.URL, charmSeries, 
 		}
 	}
 
-	platform, err := utils.DeducePlatform(cons, charmSeries, h.modelConstraints)
-	if err != nil {
-		return charm.Channel{}, commoncharm.Origin{}, errors.Trace(err)
-	}
-
+	platform := utils.MakePlatform(cons, charmBase, h.modelConstraints)
 	origin, err := utils.DeduceOrigin(curl, channel, platform)
 	if err != nil {
 		return charm.Channel{}, commoncharm.Origin{}, errors.Trace(err)
@@ -666,9 +671,14 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 			Arch: &change.Params.Architecture,
 		}
 	}
-	platform, err := utils.DeducePlatform(cons, chSeries, h.modelConstraints)
-	if err != nil {
-		return errors.Trace(err)
+
+	var base series.Base
+	if chSeries != "" {
+		var err error
+		base, err = series.GetBaseFromSeries(chSeries)
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	// A channel is needed whether the risk is valid or not.
@@ -685,6 +695,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		channel = corecharm.MakeRiskOnlyChannel(chParams.Channel)
 	}
 
+	platform := utils.MakePlatform(cons, base, h.modelConstraints)
 	origin, err := utils.DeduceOrigin(urlForOrigin, channel, platform)
 	if err != nil {
 		return errors.Trace(err)
@@ -954,12 +965,14 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 			return errors.Trace(err)
 		}
 
-		platform, err := utils.DeducePlatform(cons, selectedSeries, h.modelConstraints)
+		base, err := series.GetBaseFromSeries(selectedSeries)
 		if err != nil {
 			return errors.Trace(err)
 		}
+
 		// A channel is needed whether the risk is valid or not.
 		channel, _ := charm.MakeChannel("", origin.Risk, "")
+		platform := utils.MakePlatform(cons, base, h.modelConstraints)
 		origin, err = utils.DeduceOrigin(chID.URL, channel, platform)
 		if err != nil {
 			return errors.Trace(err)

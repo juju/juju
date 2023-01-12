@@ -26,13 +26,11 @@ func NewRefreshCommandForTest(
 	store jujuclient.ClientStore,
 	apiOpen api.OpenFunc,
 	deployResources deployer.DeployResourcesFunc,
-	newCharmStore NewCharmStoreFunc,
 	newCharmResolver NewCharmResolverFunc,
 	newCharmAdder NewCharmAdderFunc,
 	newCharmClient func(base.APICallCloser) utils.CharmClient,
 	newCharmRefreshClient func(base.APICallCloser) CharmRefreshClient,
 	newResourceLister func(base.APICallCloser) (utils.ResourceLister, error),
-	charmStoreURLGetter func(base.APICallCloser) (string, error),
 	newSpacesClient func(base.APICallCloser) SpacesAPI,
 	newModelConfigClient func(base.APICallCloser) ModelConfigClient,
 	newCharmHubClient func(string) (store.DownloadBundleClient, error),
@@ -44,9 +42,7 @@ func NewRefreshCommandForTest(
 		NewCharmClient:        newCharmClient,
 		NewCharmRefreshClient: newCharmRefreshClient,
 		NewResourceLister:     newResourceLister,
-		CharmStoreURLGetter:   charmStoreURLGetter,
 		NewSpacesClient:       newSpacesClient,
-		NewCharmStore:         newCharmStore,
 		NewCharmResolver:      newCharmResolver,
 		NewRefresherFactory:   refresher.NewRefresherFactory,
 		ModelConfigClient:     newModelConfigClient,
@@ -58,14 +54,12 @@ func NewRefreshCommandForTest(
 }
 
 func NewRefreshCommandForStateTest(
-	newCharmStore NewCharmStoreFunc,
 	newCharmAdder NewCharmAdderFunc,
 	newCharmClient func(base.APICallCloser) utils.CharmClient,
 	deployResources deployer.DeployResourcesFunc,
 	newCharmAPIClient func(conn base.APICallCloser) CharmRefreshClient,
 ) cmd.Command {
 	cmd := newRefreshCommand()
-	cmd.NewCharmStore = newCharmStore
 	cmd.NewCharmAdder = newCharmAdder
 	cmd.NewCharmClient = newCharmClient
 	if newCharmAPIClient != nil {

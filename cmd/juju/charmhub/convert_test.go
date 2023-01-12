@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/juju/core/arch"
+	coreseries "github.com/juju/juju/core/series"
 )
 
 type filterSuite struct {
@@ -22,13 +23,13 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 	tests := []struct {
 		Name     string
 		Arch     string
-		Series   string
+		Base     coreseries.Base
 		Input    []transport.InfoChannelMap
 		Expected RevisionsMap
 	}{{
-		Name:   "match all",
-		Arch:   "all",
-		Series: "all",
+		Name: "match all",
+		Arch: "all",
+		Base: coreseries.Base{},
 		Input: []transport.InfoChannelMap{{
 			Channel: transport.Channel{Risk: "stable"},
 			Revision: transport.InfoRevision{
@@ -50,9 +51,9 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 			},
 		},
 	}, {
-		Name:   "match all architectures",
-		Arch:   "all",
-		Series: "bionic",
+		Name: "match all architectures",
+		Arch: "all",
+		Base: coreseries.MustParseBaseFromString("ubuntu@18.04"),
 		Input: []transport.InfoChannelMap{{
 			Channel: transport.Channel{Risk: "stable"},
 			Revision: transport.InfoRevision{
@@ -74,9 +75,9 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 			},
 		},
 	}, {
-		Name:   "match all series",
-		Arch:   "amd64",
-		Series: "all",
+		Name: "match all series",
+		Arch: "amd64",
+		Base: coreseries.Base{},
 		Input: []transport.InfoChannelMap{{
 			Channel: transport.Channel{Risk: "stable"},
 			Revision: transport.InfoRevision{
@@ -98,9 +99,9 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 			},
 		},
 	}, {
-		Name:   "match only ppc64 with focal series",
-		Arch:   "ppc64",
-		Series: "focal",
+		Name: "match only ppc64 with focal series",
+		Arch: "ppc64",
+		Base: coreseries.MustParseBaseFromString("ubuntu@20.04"),
 		Input: []transport.InfoChannelMap{{
 			Revision: transport.InfoRevision{
 				Bases: []transport.Base{{
@@ -112,9 +113,9 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 		}},
 		Expected: RevisionsMap{},
 	}, {
-		Name:   "channel has all architectures with same series",
-		Arch:   "amd64",
-		Series: "bionic",
+		Name: "channel has all architectures with same series",
+		Arch: "amd64",
+		Base: coreseries.MustParseBaseFromString("ubuntu@18.04"),
 		Input: []transport.InfoChannelMap{{
 			Channel: transport.Channel{Risk: "stable"},
 			Revision: transport.InfoRevision{
@@ -136,9 +137,9 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 			},
 		},
 	}, {
-		Name:   "channel has all architectures with no matching series",
-		Arch:   "amd64",
-		Series: "focal",
+		Name: "channel has all architectures with no matching series",
+		Arch: "amd64",
+		Base: coreseries.MustParseBaseFromString("ubuntu@20.04"),
 		Input: []transport.InfoChannelMap{{
 			Channel: transport.Channel{Risk: "stable"},
 			Revision: transport.InfoRevision{
@@ -151,9 +152,9 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 		}},
 		Expected: RevisionsMap{},
 	}, {
-		Name:   "multiple channels have all architectures with same series",
-		Arch:   "amd64",
-		Series: "focal",
+		Name: "multiple channels have all architectures with same series",
+		Arch: "amd64",
+		Base: coreseries.MustParseBaseFromString("ubuntu@20.04"),
 		Input: []transport.InfoChannelMap{{
 			Channel: transport.Channel{Risk: "stable"},
 			Revision: transport.InfoRevision{
@@ -184,9 +185,9 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 			},
 		},
 	}, {
-		Name:   "multiple channels have all architectures with no matching series",
-		Arch:   "amd64",
-		Series: "bionic",
+		Name: "multiple channels have all architectures with no matching series",
+		Arch: "amd64",
+		Base: coreseries.MustParseBaseFromString("ubuntu@18.04"),
 		Input: []transport.InfoChannelMap{{
 			Channel: transport.Channel{Risk: "stable"},
 			Revision: transport.InfoRevision{
@@ -217,9 +218,9 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 			},
 		},
 	}, {
-		Name:   "exact match finds no valid channels",
-		Arch:   "ppc64",
-		Series: "focal",
+		Name: "exact match finds no valid channels",
+		Arch: "ppc64",
+		Base: coreseries.MustParseBaseFromString("ubuntu@20.04"),
 		Input: []transport.InfoChannelMap{{
 			Channel: transport.Channel{Risk: "stable"},
 			Revision: transport.InfoRevision{
@@ -241,9 +242,9 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 		}},
 		Expected: RevisionsMap{},
 	}, {
-		Name:   "exact match finds no valid channels",
-		Arch:   "amd64",
-		Series: "focal",
+		Name: "exact match finds no valid channels",
+		Arch: "amd64",
+		Base: coreseries.MustParseBaseFromString("ubuntu@20.04"),
 		Input: []transport.InfoChannelMap{{
 			Channel: transport.Channel{
 				Name:       "xena/edge",
@@ -282,9 +283,9 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 			},
 		},
 	}, {
-		Name:   "sorts latest revisions first",
-		Arch:   "all",
-		Series: "all",
+		Name: "sorts latest revisions first",
+		Arch: "all",
+		Base: coreseries.Base{},
 		Input: []transport.InfoChannelMap{{
 			Channel: transport.Channel{
 				Name:       "xena/edge",
@@ -332,7 +333,7 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 	}}
 	for k, v := range tests {
 		c.Logf("Test %d %s", k, v.Name)
-		_, got, err := filterChannels(v.Input, v.Arch, v.Series)
+		_, got, err := filterChannels(v.Input, v.Arch, v.Base)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(got, jc.DeepEquals, v.Expected)
 	}

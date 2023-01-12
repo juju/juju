@@ -403,7 +403,9 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 	}
 
 	var machPortRanges map[names.UnitTag]network.GroupedPortRanges
-	if f.modelType == model.IAAS {
+	var appPortRanges network.GroupedPortRanges
+	switch f.modelType {
+	case model.IAAS:
 		if machPortRanges, err = f.state.OpenedMachinePortRangesByEndpoint(f.machineTag); err != nil {
 			return errors.Trace(err)
 		}
@@ -412,9 +414,13 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 		if err != nil && !params.IsCodeNoAddressSet(err) {
 			f.logger.Warningf("cannot get legacy private address for %v: %v", f.unit.Name(), err)
 		}
+	case model.CAAS:
+		if appPortRanges, err = f.state.OpenedApplicationPortRangesByEndpoint(f.unit.ApplicationTag()); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
-	ctx.portRangeChanges = newPortRangeChangeRecorder(ctx.logger, f.unit.Tag(), machPortRanges)
+	ctx.portRangeChanges = newPortRangeChangeRecorder(ctx.logger, f.unit.Tag(), f.modelType, machPortRanges, appPortRanges)
 	ctx.secretChanges = newSecretsChangeRecorder(ctx.logger)
 	owner := f.unit.Tag().String()
 	info, err := ctx.secretsClient.SecretMetadata(secrets.Filter{

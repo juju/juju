@@ -28,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -688,7 +689,9 @@ func (a *app) UpdateService(param caas.ServiceParam) error {
 	svc.Service.Spec.Type = corev1.ServiceType(param.Type)
 	svc.Service.Spec.Ports = make([]corev1.ServicePort, len(param.Ports))
 	for i, p := range param.Ports {
-		svc.Service.Spec.Ports[i] = convertServicePort(p)
+		if svc.Service.Spec.Ports[i], err = convertServicePort(p); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	applier := a.newApplier()
@@ -699,13 +702,26 @@ func (a *app) UpdateService(param caas.ServiceParam) error {
 	return applier.Run(context.Background(), a.client, false)
 }
 
-func convertServicePort(p caas.ServicePort) corev1.ServicePort {
-	return corev1.ServicePort{
-		Name:       p.Name,
-		Port:       int32(p.Port),
-		TargetPort: intstr.FromInt(p.TargetPort),
-		Protocol:   corev1.Protocol(p.Protocol),
+func convertServicePort(port caas.ServicePort) (out corev1.ServicePort, err error) {
+	var protocol corev1.Protocol
+
+	switch port.Protocol {
+	case "TCP", "tcp":
+		protocol = corev1.ProtocolTCP
+	case "UDP", "udp":
+		protocol = corev1.ProtocolUDP
+	case "SCTP", "sctp":
+		protocol = corev1.ProtocolSCTP
+	default:
+		return out, errors.NotValidf("protocol %q for service %q", port.Protocol, port.Name)
 	}
+
+	return corev1.ServicePort{
+		Name:       port.Name,
+		Port:       int32(port.Port),
+		TargetPort: intstr.FromInt(port.TargetPort),
+		Protocol:   protocol,
+	}, nil
 }
 
 func (a *app) getService() (*resources.Service, error) {
@@ -719,19 +735,37 @@ func (a *app) getService() (*resources.Service, error) {
 	return svc, nil
 }
 
+const portNamePrefix = "juju-"
+
 // UpdatePorts updates port mappings on the specified service.
 func (a *app) UpdatePorts(ports []caas.ServicePort, updateContainerPorts bool) error {
 	svc, err := a.getService()
 	if err != nil {
 		return errors.Annotatef(err, "getting existing service %q", a.name)
 	}
-	svc.Service.Spec.Ports = make([]corev1.ServicePort, len(ports))
-	for i, port := range ports {
-		svc.Service.Spec.Ports[i] = convertServicePort(port)
+	var replacePortsPatchType = types.MergePatchType
+	// We want to replace rather than merge here.
+	svc.PatchType = &replacePortsPatchType
+
+	var expectedPorts []corev1.ServicePort
+	for _, p := range svc.Service.Spec.Ports {
+		if !strings.HasPrefix(p.Name, portNamePrefix) {
+			// The ports are not mamanged by Juju should be kept.
+			expectedPorts = append(expectedPorts, p)
+		}
 	}
+	for _, port := range ports {
+		sp, err := convertServicePort(port)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		sp.Name = portNamePrefix + sp.Name
+		expectedPorts = append(expectedPorts, sp)
+	}
+	svc.Service.Spec.Ports = expectedPorts
+
 	applier := a.newApplier()
 	applier.Apply(svc)
-
 	if updateContainerPorts {
 		if err := a.updateContainerPorts(applier, svc.Service.Spec.Ports); err != nil {
 			return errors.Trace(err)
