@@ -39,14 +39,6 @@ type WorkerMatcher struct {
 	id        string
 	expect    set.Strings
 	matchTime time.Time
-	optional  set.Strings
-}
-
-// AddOptionalWorkers adds workers which may or maynot start.
-// Use sparingly. Intended when these unit tests have different
-// results based on hardware.
-func (m *WorkerMatcher) AddOptionalWorkers(optional []string) {
-	m.optional = set.NewStrings(optional...)
 }
 
 // Check returns true if the workers which are expected to be running
@@ -73,7 +65,7 @@ func (m *WorkerMatcher) checkOnce() bool {
 	m.c.Logf("\n%s: has workers %v", m.id, actual.SortedValues())
 	extras := actual.Difference(m.expect)
 	missed := m.expect.Difference(actual)
-	if (len(extras) == 0 || extras.Difference(m.optional).IsEmpty()) && len(missed) == 0 {
+	if len(extras) == 0 && len(missed) == 0 {
 		return true
 	}
 	m.c.Logf("%s: waiting for %v", m.id, missed.SortedValues())
