@@ -25,30 +25,9 @@ Add image metadata to Juju model.
 Image metadata properties vary between providers. Consequently, some properties
 are optional for this command but they may still be needed by your provider.
 
-This command takes only one positional argument - an image id.
-
-arguments:
-image-id
-   image identifier
-
-options:
--m, --model (= "")
-   juju model to operate in
---region
-   cloud region (= region of current model)
---base (= current model preferred base)
-   image base
---arch (= "amd64")
-   image architectures
---virt-type
-   virtualisation type [provider specific], e.g. hmv
---storage-type
-   root storage type [provider specific], e.g. ebs
---storage-size
-   root storage size [provider specific]
---stream (= "released")
-   image stream
-
+Adding an image for a specific base can be done via --base. --base can be 
+specified using the OS name and the version of the OS, separated by @. For 
+example, --base ubuntu@22.04.
 `
 
 // addImageMetadataCommand stores image metadata in Juju environment.

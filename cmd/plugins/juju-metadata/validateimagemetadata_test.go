@@ -48,10 +48,10 @@ var validateInitImageErrorTests = []struct {
 		args: []string{"-p", "ec2", "-r", "region", "-d", "dir"},
 		err:  `base required if provider type is specified`,
 	}, {
-		args: []string{"-p", "ec2", "-b", "base", "-d", "dir"},
+		args: []string{"-p", "ec2", "--base", "base", "-d", "dir"},
 		err:  `region required if provider type is specified`,
 	}, {
-		args: []string{"-p", "ec2", "-b", "base", "-r", "region"},
+		args: []string{"-p", "ec2", "--base", "base", "-r", "region"},
 		err:  `metadata directory required if provider type is specified`,
 	},
 }
@@ -67,12 +67,12 @@ func (s *ValidateImageMetadataSuite) TestInitErrors(c *gc.C) {
 }
 
 func (s *ValidateImageMetadataSuite) TestInvalidProviderError(c *gc.C) {
-	_, err := runValidateImageMetadata(c, s.store, "-p", "foo", "-b", "ubuntu@22.04", "-r", "region", "-d", "dir")
+	_, err := runValidateImageMetadata(c, s.store, "-p", "foo", "--base", "ubuntu@22.04", "-r", "region", "-d", "dir")
 	c.Check(err, gc.ErrorMatches, `no registered provider for "foo"`)
 }
 
 func (s *ValidateImageMetadataSuite) TestUnsupportedProviderError(c *gc.C) {
-	_, err := runValidateImageMetadata(c, s.store, "-p", "maas", "-b", "ubuntu@22.04", "-r", "region", "-d", "dir")
+	_, err := runValidateImageMetadata(c, s.store, "-p", "maas", "--base", "ubuntu@22.04", "-r", "region", "-d", "dir")
 	c.Check(err, gc.ErrorMatches, `maas provider does not support image metadata validation`)
 }
 
@@ -203,7 +203,7 @@ func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataUsingIncompleteEnvironm
 func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataWithManualParams(c *gc.C) {
 	s.setupEc2LocalMetadata(c, "us-west-1", "")
 	ctx, err := runValidateImageMetadata(c, s.store,
-		"-p", "ec2", "-b", "ubuntu@22.04", "-r", "us-west-1",
+		"-p", "ec2", "--base", "ubuntu@22.04", "-r", "us-west-1",
 		"-u", "https://ec2.us-west-1.amazonaws.com", "-d", s.metadataDir,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -217,12 +217,12 @@ func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataWithManualParams(c *gc.
 func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataNoMatch(c *gc.C) {
 	s.setupEc2LocalMetadata(c, "us-east-1", "")
 	_, err := runValidateImageMetadata(c, s.store,
-		"-p", "ec2", "-b", "ubuntu@13.04", "-r", "us-west-1",
+		"-p", "ec2", "--base", "ubuntu@13.04", "-r", "us-west-1",
 		"-u", "https://ec2.us-west-1.amazonaws.com", "-d", s.metadataDir,
 	)
 	c.Check(err, gc.ErrorMatches, "(.|\n)*Resolve Metadata:(.|\n)*")
 	_, err = runValidateImageMetadata(c, s.store,
-		"-p", "ec2", "-b", "ubuntu@22.04", "-r", "region",
+		"-p", "ec2", "--base", "ubuntu@22.04", "-r", "region",
 		"-u", "https://ec2.region.amazonaws.com", "-d", s.metadataDir,
 	)
 	c.Assert(err, gc.NotNil)
@@ -235,7 +235,7 @@ func (s *ValidateImageMetadataSuite) TestOpenstackLocalMetadataWithManualParams(
 	err := s.makeLocalMetadata("1234", "region-2", base, "some-auth-url", "")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx, err := runValidateImageMetadata(c, s.store,
-		"-p", "openstack", "-b", "ubuntu@13.04", "-r", "region-2",
+		"-p", "openstack", "--base", "ubuntu@13.04", "-r", "region-2",
 		"-u", "some-auth-url", "-d", s.metadataDir,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -251,12 +251,12 @@ func (s *ValidateImageMetadataSuite) TestOpenstackLocalMetadataNoMatch(c *gc.C) 
 	err := s.makeLocalMetadata("1234", "region-2", base, "some-auth-url", "")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = runValidateImageMetadata(c, s.store,
-		"-p", "openstack", "-b", "ubuntu@22.04", "-r", "region-2",
+		"-p", "openstack", "--base", "ubuntu@22.04", "-r", "region-2",
 		"-u", "some-auth-url", "-d", s.metadataDir,
 	)
 	c.Check(err, gc.ErrorMatches, "(.|\n)*Resolve Metadata:(.|\n)*")
 	_, err = runValidateImageMetadata(c, s.store,
-		"-p", "openstack", "-b", "ubuntu@13.04", "-r", "region-3",
+		"-p", "openstack", "--base", "ubuntu@13.04", "-r", "region-3",
 		"-u", "some-auth-url", "-d", s.metadataDir,
 	)
 	c.Check(err, gc.ErrorMatches, "(.|\n)*Resolve Metadata:(.|\n)*")

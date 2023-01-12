@@ -26,31 +26,14 @@ const listCommandDoc = `
 List information about image metadata stored in Juju model.
 This list can be filtered using various filters as described below.
 
-More than one filter can be specified. Result will contain metadata that matches all filters in combination.
+More than one filter can be specified. Result will contain metadata that matches 
+all filters in combination.
 
 If no filters are supplied, all stored image metadata will be listed.
 
-options:
--m, --model (= "")
-   juju model to operate in
--o, --output (= "")
-   specify an output file
---format (= tabular)
-   specify output format (json|tabular|yaml)
---stream
-   image stream
---region
-   cloud region
---series
-   comma separated list of series. DEPRECATED use --base
---bases
-   comma separated list of bases
---arch
-   comma separated list of architectures
---virt-type
-   virtualisation type [provider specific], e.g. hvm
---storage-type
-   root storage type [provider specific], e.g. ebs
+Filtering a list of images for a set of bases can be done via --bases. A base can 
+be  specified using the OS name and the version of the OS, separated by @. For 
+example, --bases ubuntu@22.04.
 `
 
 // listImagesCommand returns stored image metadata.

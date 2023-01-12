@@ -56,19 +56,23 @@ Examples:
 
  - validate using the current model settings but with base ubuntu@22.04
 
-  juju metadata validate-images -b ubuntu@22.04
+  juju metadata validate-images --base ubuntu@22.04
 
  - validate using the current model settings but with base ubuntu@22.04 and
  using metadata from local directory (the directory is expected to have an
  "images" subdirectory containing the metadata, and corresponds to the parameter
  passed to the image metadata generatation command).
 
-  juju metadata validate-images -b ubuntu@22.04 -d <some directory>
+  juju metadata validate-images --base ubuntu@22.04 -d <some directory>
 
 A key use case is to validate newly generated metadata prior to deployment to
 production. In this case, the metadata is placed in a local directory, a cloud
 provider type is specified (ec2, openstack etc), and the validation is performed
 for each supported region and base.
+
+Validating an image for a specific base can be done via --base. --base can be 
+specified using the OS name and the version of the OS, separated by @. For 
+example, --base ubuntu@22.04.
 
 Example bash snippet:
 
@@ -92,10 +96,10 @@ func (c *validateImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
 	f.StringVar(&c.providerType, "p", "", "the provider type eg ec2, openstack")
 	f.StringVar(&c.metadataDir, "d", "", "directory where metadata files are found")
-	f.StringVar(&c.series, "s", "", "the series for which to validate (overrides env config series). DEPRECATED use --base")
-	f.StringVar(&c.base, "b", "", "the base for which to validate (overrides env config base)")
-	f.StringVar(&c.region, "r", "", "the region for which to validate (overrides env config region)")
-	f.StringVar(&c.endpoint, "u", "", "the cloud endpoint URL for which to validate (overrides env config endpoint)")
+	f.StringVar(&c.series, "s", "", "the series for which to validate (overrides model config series). DEPRECATED use --base")
+	f.StringVar(&c.base, "base", "", "the base for which to validate (overrides model config base)")
+	f.StringVar(&c.region, "r", "", "the region for which to validate (overrides model config region)")
+	f.StringVar(&c.endpoint, "u", "", "the cloud endpoint URL for which to validate (overrides model config endpoint)")
 	f.StringVar(&c.stream, "stream", "", "the images stream (defaults to released)")
 }
 
