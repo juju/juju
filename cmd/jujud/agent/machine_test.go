@@ -291,6 +291,7 @@ func (s *MachineSuite) TestDyingMachine(c *gc.C) {
 }
 
 func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
+	testing.PatchExecutableAsEchoArgs(c, s, "ovs-vsctl", 0)
 	s.AgentSuite.PatchValue(&instancepoller.ShortPoll, 500*time.Millisecond)
 	s.AgentSuite.PatchValue(&instancepoller.ShortPollCap, 500*time.Millisecond)
 
