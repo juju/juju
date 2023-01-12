@@ -156,6 +156,12 @@ func (d *differ) diffApplication(name string) *ApplicationDiff {
 		Options:          d.diffOptions(bundle.Options, model.Options),
 	}
 
+	if bundle.Revision != nil {
+		result.Revision = d.diffInts(*bundle.Revision, model.Revision)
+	} else {
+		result.Revision = d.diffInts(-1, model.Revision)
+	}
+
 	if d.config.IncludeAnnotations {
 		result.Annotations = d.diffAnnotations(bundle.Annotations, model.Annotations)
 	}
@@ -412,6 +418,7 @@ type ApplicationDiff struct {
 	Charm            *StringDiff                    `yaml:"charm,omitempty"`
 	Series           *StringDiff                    `yaml:"series,omitempty"`
 	Channel          *StringDiff                    `yaml:"channel,omitempty"`
+	Revision         *IntDiff                       `yaml:"revision,omitempty"`
 	Placement        *StringDiff                    `yaml:"placement,omitempty"`
 	NumUnits         *IntDiff                       `yaml:"num_units,omitempty"`
 	Scale            *IntDiff                       `yaml:"scale,omitempty"`
@@ -432,6 +439,7 @@ func (d *ApplicationDiff) Empty() bool {
 		d.Charm == nil &&
 		d.Series == nil &&
 		d.Channel == nil &&
+		d.Revision == nil &&
 		d.Placement == nil &&
 		d.NumUnits == nil &&
 		d.Scale == nil &&
