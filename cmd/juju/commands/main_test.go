@@ -568,7 +568,8 @@ func (s *MainSuite) TestRegisterCommands(c *gc.C) {
 	stub := &jujutesting.Stub{}
 
 	registry := &stubRegistry{stub: stub}
-	registry.names = append(registry.names, "help") // implicit
+	registry.names = append(registry.names, "help")          // implicit
+	registry.names = append(registry.names, "documentation") //implicit
 	registerCommands(registry)
 	sort.Strings(registry.names)
 
