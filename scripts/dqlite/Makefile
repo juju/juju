@@ -5,13 +5,15 @@ PROJECT_DIR ?= $(GOPATH)/src/github.com/juju/juju
 
 DQLITE_BUILD_IMAGE=ubuntu:22.04
 DQLITE_BUILD_CONTAINER=lib-build-server
+DQLITE_BUILD_MACHINE ?= $(shell uname -m)
+DQLITE_BUILD_ARCH ?= $(shell go env GOARCH)
 
 DQLITE_ARCHIVE_DEPS_PATH=${PROJECT_DIR}/scripts/dqlite
 DQLITE_ARCHIVE_NAME=dqlite-deps
 DQLITE_ARCHIVE_PATH=${DQLITE_ARCHIVE_DEPS_PATH}/${DQLITE_ARCHIVE_NAME}.tar.bz2
 
 DQLITE_S3_BUCKET=s3://dqlite-static-libs
-DQLITE_S3_ARCHIVE_NAME=$(shell date -u +"%Y-%m-%d")-dqlite-deps-$(shell uname -m).tar.bz2
+DQLITE_S3_ARCHIVE_NAME=$(shell date -u +"%Y-%m-%d")-dqlite-deps-${DQLITE_BUILD_ARCH}.tar.bz2
 DQLITE_S3_ARCHIVE_PATH=${DQLITE_S3_BUCKET}/${DQLITE_S3_ARCHIVE_NAME}
 
 DQLITE_EXTRACTED_DEPS_PATH=${PROJECT_DIR}/_deps
@@ -69,7 +71,7 @@ ${DQLITE_ARCHIVE_PATH}:
 
 		# Setup symlinks so we can access additional headers that 
 		# don't ship with musl but are needed for our builds
-		ln -s /usr/include/x86_64-linux-gnu/asm /usr/local/musl/include/asm
+		ln -s /usr/include/${DQLITE_BUILD_MACHINE}-linux-gnu/asm /usr/local/musl/include/asm
 		ln -s /usr/include/asm-generic /usr/local/musl/include/asm-generic
 		ln -s /usr/include/linux /usr/local/musl/include/linux
 
@@ -192,21 +194,24 @@ ${DQLITE_ARCHIVE_PATH}:
 	@lxc file pull ${DQLITE_BUILD_CONTAINER}/root/build/juju-dqlite-static-lib-deps.tar.bz2 $@
 	@lxc delete -f $(DQLITE_BUILD_CONTAINER)
 
+# Just make it easy to build dqlite.
+dqlite-build: ${DQLITE_ARCHIVE_PATH}
+
 # s3 puts here are without an ACL.
 # The bucket uses policies that allow GetObject to anyone,
 # and PutObject to select Juju team accounts.
 dqlite-deps-push: ${DQLITE_ARCHIVE_PATH}
 	@echo "DQLITE: Pushing ${DQLITE_S3_ARCHIVE_PATH} to s3"
 	aws s3 cp $< ${DQLITE_S3_ARCHIVE_PATH}
-	@echo "DQLITE: Pushing latest-dqlite-deps-$(shell uname -m).tar.bz2 to s3"
-	aws s3 cp ${DQLITE_S3_ARCHIVE_PATH} ${DQLITE_S3_BUCKET}/latest-dqlite-deps-$(shell uname -m).tar.bz2
+	@echo "DQLITE: Pushing latest-dqlite-deps-${DQLITE_BUILD_ARCH}.tar.bz2 to s3"
+	aws s3 cp ${DQLITE_S3_ARCHIVE_PATH} ${DQLITE_S3_BUCKET}/latest-dqlite-deps-${DQLITE_BUILD_ARCH}.tar.bz2
 
 dqlite-deps-pull:
 	@echo "DQLITE: Cleaning up deps path"
 	@mkdir -p ${DQLITE_EXTRACTED_DEPS_PATH}
 	@rm -rf ${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}
-	@echo "DQLITE: Pulling latest-dqlite-deps-$(shell uname -m).tar.bz2 from s3"
-	wget -q -O- https://dqlite-static-libs.s3.amazonaws.com/latest-dqlite-deps-$(shell uname -m).tar.bz2 - | tar xjf - -C ${DQLITE_EXTRACTED_DEPS_PATH}
+	@echo "DQLITE: Pulling latest-dqlite-deps-${DQLITE_BUILD_ARCH}.tar.bz2 from s3"
+	wget -q -O- https://dqlite-static-libs.s3.amazonaws.com/latest-dqlite-deps-${DQLITE_BUILD_ARCH}.tar.bz2 - | tar xjf - -C ${DQLITE_EXTRACTED_DEPS_PATH}
 
 dqlite-deps-check:
 	@if [ ! -d ${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} ]; then \
@@ -223,7 +228,7 @@ musl-ensure-symlink:
 
 musl-check:
 	@PATH=${PATH}:/usr/local/musl/bin which musl-gcc >/dev/null || echo "Please run 'sudo make musl-install'"
-	# @$(MAKE) -s musl-ensure-symlink d=include/asm s=/usr/include/$(shell uname -m)-linux-gnu/asm
+	# @$(MAKE) -s musl-ensure-symlink d=include/asm s=/usr/include/${DQLITE_BUILD_MACHINE}-linux-gnu/asm
 	# @$(MAKE) -s musl-ensure-symlink d=include/asm-generic s=/usr/include/asm-generic
 	@$(MAKE) -s musl-ensure-symlink d=include/linux s=/usr/include/linux
 
@@ -237,7 +242,7 @@ musl-install:
 	cd -
 	# Setup symlinks so we can access additional headers that 
 	# don't ship with musl but are needed for our builds
-	ln -s /usr/include/$(shell uname -m)-linux-gnu/asm /usr/local/musl/include/asm
+	ln -s /usr/include/${DQLITE_BUILD_MACHINE}-linux-gnu/asm /usr/local/musl/include/asm
 	ln -s /usr/include/asm-generic /usr/local/musl/include/asm-generic
 	ln -s /usr/include/linux /usr/local/musl/include/linux
 
