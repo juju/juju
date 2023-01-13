@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/cmd/cmdtest"
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/cmd/juju/machine/mocks"
-	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
@@ -26,8 +26,9 @@ import (
 
 type RemoveMachineSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
-	mockApi       *mocks.MockRemoveMachineAPI
-	apiConnection *mockAPIConnection
+	mockApi            *mocks.MockRemoveMachineAPI
+	mockModelConfigApi *mocks.MockModelConfigAPI
+	apiConnection      *mockAPIConnection
 
 	facadeVersion int
 }
@@ -44,18 +45,22 @@ func (s *RemoveMachineSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.mockApi = mocks.NewMockRemoveMachineAPI(ctrl)
-	s.mockApi.EXPECT().Close().Return(nil).AnyTimes()
+	s.mockApi.EXPECT().Close().Return(nil).MaxTimes(1)
 	s.mockApi.EXPECT().BestAPIVersion().Return(s.facadeVersion).AnyTimes()
+
+	s.mockModelConfigApi = mocks.NewMockModelConfigAPI(ctrl)
+	s.mockModelConfigApi.EXPECT().Close().Return(nil).MaxTimes(1)
+
 	return ctrl
 }
 
 func (s *RemoveMachineSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	remove, _ := machine.NewRemoveCommandForTest(s.apiConnection, s.mockApi)
+	remove, _ := machine.NewRemoveCommandForTest(s.apiConnection, s.mockApi, s.mockModelConfigApi)
 	return cmdtesting.RunCommand(c, remove, args...)
 }
 
 func (s *RemoveMachineSuite) runWithContext(ctx *cmd.Context, args ...string) (chan dummy.Operation, chan error) {
-	remove, _ := machine.NewRemoveCommandForTest(s.apiConnection, s.mockApi)
+	remove, _ := machine.NewRemoveCommandForTest(s.apiConnection, s.mockApi, s.mockModelConfigApi)
 	return cmdtest.RunCommandWithDummyProvider(ctx, remove, args...)
 }
 
@@ -124,58 +129,12 @@ func (s *RemoveMachineSuite) TestInit(c *gc.C) {
 		},
 	} {
 		c.Logf("test %d", i)
-		wrappedCommand, removeCmd := machine.NewRemoveCommandForTest(s.apiConnection, s.mockApi)
+		wrappedCommand, removeCmd := machine.NewRemoveCommandForTest(s.apiConnection, s.mockApi, s.mockModelConfigApi)
 		err := cmdtesting.InitCommand(wrappedCommand, test.args)
 		if test.errorString == "" {
 			c.Check(err, jc.ErrorIsNil)
 			c.Check(removeCmd.Force, gc.Equals, test.force)
 			c.Check(removeCmd.KeepInstance, gc.Equals, test.keep)
-			c.Check(removeCmd.NoPrompt, gc.Equals, test.noPrompt)
-			c.Check(removeCmd.DryRun, gc.Equals, test.dryRun)
-			c.Check(removeCmd.MachineIds, jc.DeepEquals, test.machines)
-		} else {
-			c.Check(err, gc.ErrorMatches, test.errorString)
-		}
-	}
-}
-
-func (s *RemoveMachineSuite) TestInitTrueSkipConfirmationEnvVar(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	s.PatchEnvironment(osenv.JujuSkipConfirmationEnvKey, "1")
-	s.TestInit(c)
-}
-
-func (s *RemoveMachineSuite) TestInitFalseSkipConfirmationEnvVar(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	s.PatchEnvironment(osenv.JujuSkipConfirmationEnvKey, "0")
-	for i, test := range []struct {
-		args        []string
-		machines    []string
-		force       bool
-		keep        bool
-		noPrompt    bool
-		dryRun      bool
-		errorString string
-	}{
-		{
-			args:     []string{"1"},
-			machines: []string{"1"},
-		}, {
-			args:     []string{"1", "2", "--no-prompt"},
-			machines: []string{"1", "2"},
-			noPrompt: true,
-		},
-	} {
-		c.Logf("test %d", i)
-		wrappedCommand, removeCmd := machine.NewRemoveCommandForTest(s.apiConnection, s.mockApi)
-		err := cmdtesting.InitCommand(wrappedCommand, test.args)
-		if test.errorString == "" {
-			c.Check(err, jc.ErrorIsNil)
-			c.Check(removeCmd.Force, gc.Equals, test.force)
-			c.Check(removeCmd.KeepInstance, gc.Equals, test.keep)
-			c.Check(removeCmd.NoPrompt, gc.Equals, test.noPrompt)
 			c.Check(removeCmd.DryRun, gc.Equals, test.dryRun)
 			c.Check(removeCmd.MachineIds, jc.DeepEquals, test.machines)
 		} else {
@@ -189,21 +148,12 @@ func (s *RemoveMachineSuite) TestRemove(c *gc.C) {
 
 	s.mockApi.EXPECT().DestroyMachinesWithParams(false, false, false, gomock.Any(), "1", "2/lxd/1")
 
-	_, err := s.run(c, "1", "2/lxd/1")
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *RemoveMachineSuite) TestRemoveNoPrompt(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	s.mockApi.EXPECT().DestroyMachinesWithParams(false, false, false, gomock.Any(), "1", "2/lxd/1")
-
 	_, err := s.run(c, "--no-prompt", "1", "2/lxd/1")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *RemoveMachineSuite) TestRemoveNoWaitWithoutForce(c *gc.C) {
-	_, err := s.run(c, "1", "--no-wait")
+	_, err := s.run(c, "--no-prompt", "1", "--no-wait")
 	c.Assert(err, gc.ErrorMatches, `--no-wait without --force not valid`)
 }
 
@@ -224,7 +174,7 @@ func (s *RemoveMachineSuite) TestRemoveOutput(c *gc.C) {
 	}}
 	s.mockApi.EXPECT().DestroyMachinesWithParams(false, false, false, gomock.Any(), "1", "2/lxd/1").Return(results, nil)
 
-	ctx, err := s.run(c, "1", "2/lxd/1")
+	ctx, err := s.run(c, "--no-prompt", "1", "2/lxd/1")
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	stderr := cmdtesting.Stderr(ctx)
 	stdout := cmdtesting.Stdout(ctx)
@@ -244,7 +194,7 @@ func (s *RemoveMachineSuite) TestRemoveKeep(c *gc.C) {
 
 	s.mockApi.EXPECT().DestroyMachinesWithParams(false, true, false, gomock.Any(), "1", "2")
 
-	_, err := s.run(c, "--keep-instance", "1", "2")
+	_, err := s.run(c, "--no-prompt", "--keep-instance", "1", "2")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -253,7 +203,7 @@ func (s *RemoveMachineSuite) TestRemoveOutputKeep(c *gc.C) {
 
 	s.mockApi.EXPECT().DestroyMachinesWithParams(false, true, false, gomock.Any(), "1", "2").DoAndReturn(defaultDestroyMachineResult)
 
-	ctx, err := s.run(c, "--keep-instance", "1", "2")
+	ctx, err := s.run(c, "--no-prompt", "--keep-instance", "1", "2")
 	c.Assert(err, jc.ErrorIsNil)
 	stdout := cmdtesting.Stdout(ctx)
 	c.Assert(stdout, gc.Equals, `
@@ -267,7 +217,7 @@ func (s *RemoveMachineSuite) TestRemoveForce(c *gc.C) {
 
 	s.mockApi.EXPECT().DestroyMachinesWithParams(true, false, false, gomock.Any(), "1", "2/lxd/1")
 
-	_, err := s.run(c, "--force", "1", "2/lxd/1")
+	_, err := s.run(c, "--no-prompt", "--force", "1", "2/lxd/1")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -292,7 +242,7 @@ func (s *RemoveMachineSuite) TestRemoveWithContainers(c *gc.C) {
 	}}
 	s.mockApi.EXPECT().DestroyMachinesWithParams(true, false, false, gomock.Any(), "1").Return(results, nil)
 
-	ctx, err := s.run(c, "--force", "1")
+	ctx, err := s.run(c, "--no-prompt", "--force", "1")
 	c.Assert(err, jc.ErrorIsNil)
 	stdout := cmdtesting.Stdout(ctx)
 	c.Assert(stdout, gc.Equals, `
@@ -341,11 +291,13 @@ func (s *RemoveMachineSuite) TestRemoveDryRunOldFacade(c *gc.C) {
 func (s *RemoveMachineSuite) TestRemovePromptOldFacade(c *gc.C) {
 	s.facadeVersion = 9
 	defer s.setup(c).Finish()
-	s.PatchEnvironment(osenv.JujuSkipConfirmationEnvKey, "0")
 
 	var stdin bytes.Buffer
 	ctx := cmdtesting.Context(c)
 	ctx.Stdin = &stdin
+
+	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
+	s.mockModelConfigApi.EXPECT().ModelGet().Return(attrs, nil)
 
 	s.mockApi.EXPECT().DestroyMachinesWithParams(false, false, false, gomock.Any(), "1", "2")
 
@@ -362,12 +314,13 @@ func (s *RemoveMachineSuite) TestRemovePromptOldFacade(c *gc.C) {
 
 func (s *RemoveMachineSuite) TestRemovePrompt(c *gc.C) {
 	defer s.setup(c).Finish()
-	s.PatchEnvironment(osenv.JujuSkipConfirmationEnvKey, "0")
 
 	var stdin bytes.Buffer
 	ctx := cmdtesting.Context(c)
 	ctx.Stdin = &stdin
 
+	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
+	s.mockModelConfigApi.EXPECT().ModelGet().Return(attrs, nil)
 	s.mockApi.EXPECT().DestroyMachinesWithParams(false, false, true, gomock.Any(), "1", "2")
 	s.mockApi.EXPECT().DestroyMachinesWithParams(false, false, false, gomock.Any(), "1", "2")
 
@@ -385,11 +338,13 @@ func (s *RemoveMachineSuite) TestRemovePrompt(c *gc.C) {
 func (s *RemoveMachineSuite) TestRemovePromptOldFacadeAborted(c *gc.C) {
 	s.facadeVersion = 9
 	defer s.setup(c).Finish()
-	s.PatchEnvironment(osenv.JujuSkipConfirmationEnvKey, "0")
 
 	ctx := cmdtesting.Context(c)
 	var stdin bytes.Buffer
 	ctx.Stdin = &stdin
+
+	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
+	s.mockModelConfigApi.EXPECT().ModelGet().Return(attrs, nil)
 
 	stdin.WriteString("n")
 	_, errc := s.runWithContext(ctx, "1", "2")
@@ -404,12 +359,13 @@ func (s *RemoveMachineSuite) TestRemovePromptOldFacadeAborted(c *gc.C) {
 
 func (s *RemoveMachineSuite) TestRemovePromptAborted(c *gc.C) {
 	defer s.setup(c).Finish()
-	s.PatchEnvironment(osenv.JujuSkipConfirmationEnvKey, "0")
 
 	ctx := cmdtesting.Context(c)
 	var stdin bytes.Buffer
 	ctx.Stdin = &stdin
 
+	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
+	s.mockModelConfigApi.EXPECT().ModelGet().Return(attrs, nil)
 	s.mockApi.EXPECT().DestroyMachinesWithParams(false, false, true, gomock.Any(), "1", "2")
 
 	stdin.WriteString("n")
@@ -429,7 +385,7 @@ func (s *RemoveMachineSuite) TestBlockedError(c *gc.C) {
 	removeError := apiservererrors.OperationBlockedError("TestBlockedError")
 	s.mockApi.EXPECT().DestroyMachinesWithParams(false, false, false, gomock.Any(), "1").Return(nil, removeError)
 
-	_, err := s.run(c, "1")
+	_, err := s.run(c, "--no-prompt", "1")
 	testing.AssertOperationWasBlocked(c, err, ".*TestBlockedError.*")
 }
 
@@ -439,7 +395,7 @@ func (s *RemoveMachineSuite) TestForceBlockedError(c *gc.C) {
 	removeError := apiservererrors.OperationBlockedError("TestForceBlockedError")
 	s.mockApi.EXPECT().DestroyMachinesWithParams(true, false, false, gomock.Any(), "1").Return(nil, removeError)
 
-	_, err := s.run(c, "--force", "1")
+	_, err := s.run(c, "--no-prompt", "--force", "1")
 	testing.AssertOperationWasBlocked(c, err, ".*TestForceBlockedError.*")
 }
 

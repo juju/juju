@@ -224,11 +224,11 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "getting controller environ")
 	}
 
-	if err := c.ConfirmationCommandBase.Run(ctx); err != nil {
+	if err := c.DestroyConfirmationCommandBase.Run(ctx); err != nil {
 		return errors.Trace(err)
 	}
 
-	if c.ConfirmationCommandBase.NeedsConfirmation() {
+	if c.DestroyConfirmationCommandBase.NeedsConfirmation() {
 		updateStatus := newTimedStatusUpdater(ctx, api, controllerEnviron.Config().UUID(), clock.WallClock)
 		modelStatus := updateStatus(0)
 		if err := printDestroyWarning(ctx, modelStatus, controllerName, c.releaseStorage); err != nil {
@@ -482,7 +482,7 @@ to be cleaned up.
 // destroy and controller kill commands require.
 type destroyCommandBase struct {
 	modelcmd.ControllerCommandBase
-	modelcmd.ConfirmationCommandBase
+	modelcmd.DestroyConfirmationCommandBase
 
 	// The following fields are for mocking out
 	// api behavior for testing.
@@ -513,14 +513,11 @@ func (c *destroyCommandBase) getControllerAPI() (destroyControllerAPI, error) {
 // SetFlags implements Command.SetFlags.
 func (c *destroyCommandBase) SetFlags(f *gnuflag.FlagSet) {
 	c.ControllerCommandBase.SetFlags(f)
-	c.ConfirmationCommandBase.SetFlags(f)
+	c.DestroyConfirmationCommandBase.SetFlags(f)
 }
 
 // Init implements Command.Init.
 func (c *destroyCommandBase) Init(args []string) error {
-	if err := c.ConfirmationCommandBase.Init(args); err != nil {
-		return errors.Trace(err)
-	}
 	switch len(args) {
 	case 0:
 		return errors.New("no controller specified")

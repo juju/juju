@@ -18,7 +18,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cmd/cmdtest"
 	"github.com/juju/juju/cmd/juju/application/mocks"
-	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/provider/dummy"
@@ -28,12 +28,12 @@ import (
 
 type removeApplicationSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
-	mockApi *mocks.MockRemoveApplicationAPI
+	mockApi            *mocks.MockRemoveApplicationAPI
+	mockModelConfigAPI *mocks.MockModelConfigClient
 
 	facadeVersion int
 
-	apiFunc func() (RemoveApplicationAPI, error)
-	store   *jujuclient.MemStore
+	store *jujuclient.MemStore
 }
 
 var _ = gc.Suite(&removeApplicationSuite{})
@@ -41,9 +41,6 @@ var _ = gc.Suite(&removeApplicationSuite{})
 func (s *removeApplicationSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.store = jujuclienttesting.MinimalStore()
-	s.apiFunc = func() (RemoveApplicationAPI, error) {
-		return s.mockApi, nil
-	}
 	s.facadeVersion = 16
 }
 
@@ -53,20 +50,42 @@ func (s *removeApplicationSuite) setup(c *gc.C) *gomock.Controller {
 	s.mockApi.EXPECT().BestAPIVersion().Return(s.facadeVersion).AnyTimes()
 	s.mockApi.EXPECT().Close()
 
+	s.mockModelConfigAPI = mocks.NewMockModelConfigClient(ctrl)
+	s.mockModelConfigAPI.EXPECT().Close()
+
 	return ctrl
 }
 
 func (s *removeApplicationSuite) runRemoveApplication(c *gc.C, args ...string) (*cmd.Context, error) {
-	return cmdtesting.RunCommand(c, NewRemoveApplicationCommandForTest(s.apiFunc, s.store), args...)
+	return cmdtesting.RunCommand(c, NewRemoveApplicationCommandForTest(s.mockApi, s.mockModelConfigAPI, s.store), args...)
 }
 
 func (s *removeApplicationSuite) runWithContext(ctx *cmd.Context, args ...string) (chan dummy.Operation, chan error) {
-	remove := NewRemoveApplicationCommandForTest(s.apiFunc, s.store)
+	remove := NewRemoveApplicationCommandForTest(s.mockApi, s.mockModelConfigAPI, s.store)
 	return cmdtest.RunCommandWithDummyProvider(ctx, remove, args...)
 }
 
 func (s *removeApplicationSuite) TestRemoveApplication(c *gc.C) {
 	defer s.setup(c).Finish()
+
+	s.mockApi.EXPECT().DestroyApplications(apiapplication.DestroyApplicationsParams{
+		Applications: []string{"real-app"},
+	}).Return([]params.DestroyApplicationResult{{
+		Info: &params.DestroyApplicationInfo{},
+	}}, nil)
+
+	ctx, err := s.runRemoveApplication(c, "--no-prompt", "real-app")
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "will remove application real-app\n")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
+}
+
+func (s *removeApplicationSuite) TestRemoveApplicationWithRequiresPromptModeAbsent(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ModeKey: ""})
+	s.mockModelConfigAPI.EXPECT().ModelGet().Return(attrs, nil)
 
 	s.mockApi.EXPECT().DestroyApplications(apiapplication.DestroyApplicationsParams{
 		Applications: []string{"real-app"},
@@ -91,7 +110,7 @@ func (s *removeApplicationSuite) TestRemoveApplicationForce(c *gc.C) {
 		Info: &params.DestroyApplicationInfo{},
 	}}, nil)
 
-	ctx, err := s.runRemoveApplication(c, "real-app", "--force")
+	ctx, err := s.runRemoveApplication(c, "--no-prompt", "real-app", "--force")
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "will remove application real-app\n")
@@ -128,11 +147,12 @@ func (s *removeApplicationSuite) TestRemoveApplicationDryRunOldFacade(c *gc.C) {
 func (s *removeApplicationSuite) TestRemoveApplicationPrompt(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.PatchEnvironment(osenv.JujuSkipConfirmationEnvKey, "0")
-
 	var stdin bytes.Buffer
 	ctx := cmdtesting.Context(c)
 	ctx.Stdin = &stdin
+
+	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
+	s.mockModelConfigAPI.EXPECT().ModelGet().Return(attrs, nil)
 
 	s.mockApi.EXPECT().DestroyApplications(apiapplication.DestroyApplicationsParams{
 		Applications: []string{"real-app"},
@@ -164,11 +184,12 @@ func (s *removeApplicationSuite) TestRemoveApplicationPromptOldFacade(c *gc.C) {
 	s.facadeVersion = 15
 	defer s.setup(c).Finish()
 
-	s.PatchEnvironment(osenv.JujuSkipConfirmationEnvKey, "0")
-
 	var stdin bytes.Buffer
 	ctx := cmdtesting.Context(c)
 	ctx.Stdin = &stdin
+
+	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
+	s.mockModelConfigAPI.EXPECT().ModelGet().Return(attrs, nil)
 
 	s.mockApi.EXPECT().DestroyApplications(apiapplication.DestroyApplicationsParams{
 		Applications: []string{"real-app"},
@@ -212,7 +233,7 @@ func (s *removeApplicationSuite) TestHandlingNotSupportedDoesNotAffectBaseCase(c
 		Applications: []string{"real-app"},
 	}).DoAndReturn(setupRace([]string{"do-not-remove"}))
 
-	ctx, err := s.runRemoveApplication(c, "real-app")
+	ctx, err := s.runRemoveApplication(c, "--no-prompt", "real-app")
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "will remove application real-app\n")
@@ -226,7 +247,7 @@ func (s *removeApplicationSuite) TestHandlingNotSupported(c *gc.C) {
 		Applications: []string{"do-not-remove"},
 	}).DoAndReturn(setupRace([]string{"do-not-remove"}))
 
-	ctx, err := s.runRemoveApplication(c, "do-not-remove")
+	ctx, err := s.runRemoveApplication(c, "--no-prompt", "do-not-remove")
 
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
@@ -242,7 +263,7 @@ func (s *removeApplicationSuite) TestHandlingNotSupportedMultipleApps(c *gc.C) {
 		Applications: []string{"real-app", "do-not-remove", "another"},
 	}).DoAndReturn(setupRace([]string{"do-not-remove"}))
 
-	ctx, err := s.runRemoveApplication(c, "real-app", "do-not-remove", "another")
+	ctx, err := s.runRemoveApplication(c, "--no-prompt", "real-app", "do-not-remove", "another")
 
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
@@ -265,7 +286,7 @@ func (s *removeApplicationSuite) TestDetachStorage(c *gc.C) {
 		},
 	}}, nil)
 
-	ctx, err := s.runRemoveApplication(c, "storage-app")
+	ctx, err := s.runRemoveApplication(c, "--no-prompt", "storage-app")
 
 	c.Assert(err, jc.ErrorIsNil)
 	stdout := cmdtesting.Stdout(ctx)
@@ -290,7 +311,7 @@ func (s *removeApplicationSuite) TestDestroyStorage(c *gc.C) {
 		},
 	}}, nil)
 
-	ctx, err := s.runRemoveApplication(c, "storage-app", "--destroy-storage")
+	ctx, err := s.runRemoveApplication(c, "--no-prompt", "storage-app", "--destroy-storage")
 
 	c.Assert(err, jc.ErrorIsNil)
 	stdout := cmdtesting.Stdout(ctx)
@@ -314,7 +335,7 @@ func (s *removeApplicationSuite) TestFailure(c *gc.C) {
 		},
 	}}, nil)
 
-	ctx, err := s.runRemoveApplication(c, "gargleblaster")
+	ctx, err := s.runRemoveApplication(c, "--no-prompt", "gargleblaster")
 
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	stderr := cmdtesting.Stderr(ctx)

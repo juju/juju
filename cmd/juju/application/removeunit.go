@@ -5,8 +5,6 @@ package application
 
 import (
 	"fmt"
-	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -16,11 +14,11 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/client/application"
+	"github.com/juju/juju/api/client/modelconfig"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -30,14 +28,15 @@ func NewRemoveUnitCommand() modelcmd.ModelCommand {
 }
 
 // removeUnitCommand is responsible for destroying application units.
-// TODO(jack-w-shaw) This should inherit from modelcmd.ConfirmationCommandBase
-// in 3.1 once confirmation behaviours have converged
 type removeUnitCommand struct {
+	modelcmd.RemoveConfirmationCommandBase
 	modelcmd.ModelCommandBase
 	DestroyStorage bool
 	NumUnits       int
 	EntityNames    []string
+
 	api            RemoveApplicationAPI
+	modelConfigApi ModelConfigClient
 
 	unknownModel bool
 	Force        bool
@@ -119,7 +118,7 @@ func (c *removeUnitCommand) Info() *cmd.Info {
 
 func (c *removeUnitCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.BoolVar(&c.NoPrompt, "no-prompt", false, "Do not prompt for approval")
+	c.RemoveConfirmationCommandBase.SetFlags(f)
 	f.BoolVar(&c.DryRun, "dry-run", false, "Print what this command would remove without removing")
 	f.IntVar(&c.NumUnits, "num-units", 0, "Number of units to remove (k8s models only)")
 	f.BoolVar(&c.DestroyStorage, "destroy-storage", false, "Destroy storage attached to the unit")
@@ -139,22 +138,6 @@ func (c *removeUnitCommand) Init(args []string) error {
 	}
 	if !c.Force && c.NoWait {
 		return errors.NotValidf("--no-wait without --force")
-	}
-	// To maintain compatibility, in 3.0 NoPrompt should default to true.
-	// However, we still need to take into account the env var and the
-	// flag. So default initially to false, but if the env var and flag
-	// are not present, set to true.
-	// TODO(jack-w-shaw) use CheckSkipConfirmEnvVar in 3.1
-	if !c.NoPrompt {
-		if skipConf, ok := os.LookupEnv(osenv.JujuSkipConfirmationEnvKey); ok {
-			skipConfBool, err := strconv.ParseBool(skipConf)
-			if err != nil {
-				return errors.Annotatef(err, "value %q of env var %q is not a valid bool", skipConf, osenv.JujuSkipConfirmationEnvKey)
-			}
-			c.NoPrompt = skipConfBool
-		} else {
-			c.NoPrompt = true
-		}
 	}
 	return nil
 }
@@ -230,6 +213,18 @@ func (c *removeUnitCommand) getAPI() (RemoveApplicationAPI, error) {
 	return api, nil
 }
 
+func (c *removeUnitCommand) getModelConfigAPI() (ModelConfigClient, error) {
+	if c.modelConfigApi != nil {
+		return c.modelConfigApi, nil
+	}
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	c.modelConfigApi = modelconfig.NewClient(root)
+	return c.modelConfigApi, nil
+}
+
 // Run connects to the environment specified on the command line and destroys
 // units therein.
 func (c *removeUnitCommand) Run(ctx *cmd.Context) error {
@@ -263,7 +258,14 @@ func (c *removeUnitCommand) removeUnits(ctx *cmd.Context, client RemoveApplicati
 	if c.DryRun {
 		return c.performDryRun(ctx, client)
 	}
-	if !c.NoPrompt {
+	modelConfigClient, err := c.getModelConfigAPI()
+	if err != nil {
+		return err
+	}
+	defer modelConfigClient.Close()
+
+	needsConfirmation := c.NeedsConfirmation(modelConfigClient)
+	if needsConfirmation {
 		err := c.performDryRun(ctx, client)
 		if err == errDryRunNotSupportedByController {
 			ctx.Warningf(removeUnitMsgNoDryRun, strings.Join(c.EntityNames, ", "))
@@ -285,7 +287,7 @@ func (c *removeUnitCommand) removeUnits(ctx *cmd.Context, client RemoveApplicati
 	if err != nil {
 		return block.ProcessBlockedError(err, block.BlockRemove)
 	}
-	logAll := c.NoPrompt || client.BestAPIVersion() < 16
+	logAll := !needsConfirmation || client.BestAPIVersion() < 16
 	if logAll {
 		return c.logResults(ctx, results)
 	} else {

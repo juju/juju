@@ -49,7 +49,7 @@ func NewDestroyCommand() cmd.Command {
 // destroyCommand destroys the specified model.
 type destroyCommand struct {
 	modelcmd.ModelCommandBase
-	modelcmd.ConfirmationCommandBase
+	modelcmd.DestroyConfirmationCommandBase
 
 	clock jujuclock.Clock
 
@@ -141,7 +141,7 @@ const defaultTimeout = 30 * time.Minute
 // SetFlags implements Command.SetFlags.
 func (c *destroyCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	c.ConfirmationCommandBase.SetFlags(f)
+	c.DestroyConfirmationCommandBase.SetFlags(f)
 	f.DurationVar(&c.timeout, "t", defaultTimeout, "Timeout before model destruction is aborted")
 	f.DurationVar(&c.timeout, "timeout", defaultTimeout, "")
 	f.BoolVar(&c.destroyStorage, "destroy-storage", false, "Destroy all storage instances in the model")
@@ -158,9 +158,6 @@ func (c *destroyCommand) Init(args []string) error {
 	}
 	if c.timeout < 0 {
 		return errors.New("timeout must be zero or greater")
-	}
-	if err := c.ConfirmationCommandBase.Init(args); err != nil {
-		return errors.Trace(err)
 	}
 	switch len(args) {
 	case 0:
@@ -254,11 +251,11 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	}
 	defer func() { _ = api.Close() }()
 
-	if err := c.ConfirmationCommandBase.Run(ctx); err != nil {
+	if err := c.DestroyConfirmationCommandBase.Run(ctx); err != nil {
 		return errors.Trace(err)
 	}
 
-	if c.ConfirmationCommandBase.NeedsConfirmation() {
+	if c.DestroyConfirmationCommandBase.NeedsConfirmation() {
 		if err := printDestroyWarning(ctx, api, modelName, modelDetails); err != nil {
 			return errors.Trace(err)
 		}

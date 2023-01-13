@@ -26,7 +26,6 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/rpc/params"
@@ -286,19 +285,6 @@ func (s *DestroySuite) TestDestroy(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test1", "--no-prompt")
 	c.Assert(err, jc.ErrorIsNil)
 	checkControllerRemovedFromStore(c, "test1", s.store)
-}
-
-func (s *DestroySuite) TestDestroyWithSkipConfirmEnvVar(c *gc.C) {
-	s.PatchEnvironment(osenv.JujuSkipConfirmationEnvKey, "true")
-	_, err := s.runDestroyCommand(c, "test1")
-	c.Assert(err, jc.ErrorIsNil)
-	checkControllerRemovedFromStore(c, "test1", s.store)
-}
-
-func (s *DestroySuite) TestDestroyWithSkipConfirmIncorrectEnvVar(c *gc.C) {
-	s.PatchEnvironment(osenv.JujuSkipConfirmationEnvKey, "incorrect_value")
-	_, err := s.runDestroyCommand(c, "test1")
-	c.Assert(err, gc.ErrorMatches, "Unexpected value of JUJU_SKIP_CONFIRMATION env var, needs to be bool.")
 }
 
 func (s *DestroySuite) TestDestroyAlias(c *gc.C) {

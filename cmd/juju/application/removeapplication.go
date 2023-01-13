@@ -5,8 +5,6 @@ package application
 
 import (
 	"fmt"
-	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -16,29 +14,26 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/client/application"
+	"github.com/juju/juju/api/client/modelconfig"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/rpc/params"
 )
 
 // NewRemoveApplicationCommand returns a command which removes an application.
 func NewRemoveApplicationCommand() cmd.Command {
 	c := &removeApplicationCommand{}
-	c.newAPIFunc = func() (RemoveApplicationAPI, error) {
-		return c.getAPI()
-	}
 	return modelcmd.Wrap(c)
 }
 
 // removeApplicationCommand causes an existing application to be destroyed.
-// TODO(jack-w-shaw) This should inherit from ConfirmationCommandBase in
-// 3.1, once behaviours have converged
 type removeApplicationCommand struct {
+	modelcmd.RemoveConfirmationCommandBase
 	modelcmd.ModelCommandBase
 
-	newAPIFunc func() (RemoveApplicationAPI, error)
+	api            RemoveApplicationAPI
+	modelConfigApi ModelConfigClient
 
 	ApplicationNames []string
 	DestroyStorage   bool
@@ -99,7 +94,7 @@ func (c *removeApplicationCommand) Info() *cmd.Info {
 
 func (c *removeApplicationCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.BoolVar(&c.NoPrompt, "no-prompt", false, "Do not prompt for approval")
+	c.RemoveConfirmationCommandBase.SetFlags(f)
 	f.BoolVar(&c.DryRun, "dry-run", false, "Print what this command would remove without removing")
 	f.BoolVar(&c.DestroyStorage, "destroy-storage", false, "Destroy storage attached to application units")
 	f.BoolVar(&c.Force, "force", false, "Completely remove an application and all its dependencies")
@@ -119,24 +114,6 @@ func (c *removeApplicationCommand) Init(args []string) error {
 	if !c.Force && c.NoWait {
 		return errors.NotValidf("--no-wait without --force")
 	}
-
-	// To maintain compatibility, in 3.0 NoPrompt should default to true.
-	// However, we still need to take into account the env var and the
-	// flag. So default initially to false, but if the env var and flag
-	// are not present, set to true.
-	// TODO(jack-w-shaw) use CheckSkipConfirmEnvVar in 3.1
-	if !c.NoPrompt {
-		if skipConf, ok := os.LookupEnv(osenv.JujuSkipConfirmationEnvKey); ok {
-			skipConfBool, err := strconv.ParseBool(skipConf)
-			if err != nil {
-				return errors.Annotatef(err, "value %q of env var %q is not a valid bool", skipConf, osenv.JujuSkipConfirmationEnvKey)
-			}
-			c.NoPrompt = skipConfBool
-		} else {
-			c.NoPrompt = true
-		}
-	}
-
 	c.ApplicationNames = args
 	return nil
 }
@@ -151,6 +128,9 @@ type RemoveApplicationAPI interface {
 }
 
 func (c *removeApplicationCommand) getAPI() (RemoveApplicationAPI, error) {
+	if c.api != nil {
+		return c.api, nil
+	}
 	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -158,31 +138,42 @@ func (c *removeApplicationCommand) getAPI() (RemoveApplicationAPI, error) {
 	return application.NewClient(root), nil
 }
 
-func (c *removeApplicationCommand) Run(ctx *cmd.Context) error {
-	client, err := c.newAPIFunc()
-	if err != nil {
-		return err
+func (c *removeApplicationCommand) getModelConfigAPI() (ModelConfigClient, error) {
+	if c.modelConfigApi != nil {
+		return c.modelConfigApi, nil
 	}
-	defer client.Close()
-
-	return c.removeApplications(ctx, client)
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return modelconfig.NewClient(root), nil
 }
 
-func (c *removeApplicationCommand) removeApplications(
-	ctx *cmd.Context,
-	client RemoveApplicationAPI,
-) error {
+func (c *removeApplicationCommand) Run(ctx *cmd.Context) error {
 	var maxWait *time.Duration
 	if c.NoWait {
 		zeroSec := 0 * time.Second
 		maxWait = &zeroSec
 	}
 
+	client, err := c.getAPI()
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	modelConfigClient, err := c.getModelConfigAPI()
+	if err != nil {
+		return err
+	}
+	defer modelConfigClient.Close()
+
 	if c.DryRun {
 		return c.performDryRun(ctx, client)
 	}
 
-	if !c.NoPrompt {
+	needsConfirmation := c.NeedsConfirmation(modelConfigClient)
+	if needsConfirmation {
 		err := c.performDryRun(ctx, client)
 		if err == errDryRunNotSupportedByController {
 			ctx.Warningf(removeApplicationMsgNoDryRun, strings.Join(c.ApplicationNames, ", "))
@@ -204,7 +195,7 @@ func (c *removeApplicationCommand) removeApplications(
 	if err := block.ProcessBlockedError(err, block.BlockRemove); err != nil {
 		return errors.Trace(err)
 	}
-	logAll := c.NoPrompt || client.BestAPIVersion() < 16
+	logAll := !needsConfirmation || client.BestAPIVersion() < 16
 	if logAll {
 		return c.logResults(ctx, results)
 	} else {

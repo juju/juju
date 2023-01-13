@@ -113,18 +113,15 @@ func NewAddUnitCommandForTestWithRefresh(api applicationAddUnitAPI, store jujucl
 }
 
 // NewRemoveUnitCommandForTest returns a RemoveUnitCommand with the api provided as specified.
-func NewRemoveUnitCommandForTest(api RemoveApplicationAPI, store jujuclient.ClientStore) modelcmd.ModelCommand {
-	cmd := &removeUnitCommand{api: api}
+func NewRemoveUnitCommandForTest(api RemoveApplicationAPI, modelConfigApi ModelConfigClient, store jujuclient.ClientStore) modelcmd.ModelCommand {
+	cmd := &removeUnitCommand{api: api, modelConfigApi: modelConfigApi}
 	cmd.SetClientStore(store)
 	return modelcmd.Wrap(cmd)
 }
 
-type removeAPIFunc func() (RemoveApplicationAPI, error)
-
 // NewRemoveApplicationCommandForTest returns a RemoveApplicationCommand.
-func NewRemoveApplicationCommandForTest(f removeAPIFunc, store jujuclient.ClientStore) modelcmd.ModelCommand {
-	c := &removeApplicationCommand{}
-	c.newAPIFunc = f
+func NewRemoveApplicationCommandForTest(api RemoveApplicationAPI, modelConfigApi ModelConfigClient, store jujuclient.ClientStore) modelcmd.ModelCommand {
+	c := &removeApplicationCommand{api: api, modelConfigApi: modelConfigApi}
 	c.SetClientStore(store)
 	return modelcmd.Wrap(c)
 }
