@@ -135,13 +135,13 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleSuccess(c *gc.C) {
 	s.assertDeployArgsConfig(c, "mysql", map[string]interface{}{"foo": "bar"})
 
 	c.Check(s.output.String(), gc.Equals, ""+
-		"Located charm \"mysql\" in charm-hub\n"+
-		"Located charm \"wordpress\" in charm-hub\n"+
+		"Located charm \"mysql\" in charm-hub, channel stable\n"+
+		"Located charm \"wordpress\" in charm-hub, channel stable\n"+
 		"Executing changes:\n"+
-		"- upload charm mysql from charm-hub for series xenial with architecture=amd64\n"+
-		"- deploy application mysql from charm-hub on xenial\n"+
-		"- upload charm wordpress from charm-hub for series xenial with architecture=amd64\n"+
-		"- deploy application wordpress from charm-hub on xenial\n"+
+		"- upload charm mysql from charm-hub for series xenial with revision 42 with architecture=amd64\n"+
+		"- deploy application mysql from charm-hub on xenial with stable\n"+
+		"- upload charm wordpress from charm-hub for series xenial with revision 47 with architecture=amd64\n"+
+		"- deploy application wordpress from charm-hub on xenial with stable\n"+
 		"- add new machine 0\n"+
 		"- add new machine 1\n"+
 		"- add relation wordpress:db - mysql:db\n"+
@@ -155,6 +155,8 @@ series: bionic
 applications:
   mysql:
     charm: ch:mysql
+    revision: 42
+    channel: stable
     series: xenial
     num_units: 1
     options:
@@ -163,6 +165,8 @@ applications:
     - "0"
   wordpress:
     charm: ch:wordpress
+    revision: 47
+    channel: stable
     series: xenial
     num_units: 1
     to:
@@ -536,13 +540,13 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleStorage(c *gc.C) {
 	s.assertDeployArgsStorage(c, "mysql", map[string]storage.Constraints{"database": {Pool: "mysql-pv", Size: 0x14, Count: 0x1}})
 
 	c.Check(s.output.String(), gc.Equals, ""+
-		"Located charm \"mysql\" in charm-hub\n"+
-		"Located charm \"wordpress\" in charm-hub\n"+
+		"Located charm \"mysql\" in charm-hub, channel stable\n"+
+		"Located charm \"wordpress\" in charm-hub, channel stable\n"+
 		"Executing changes:\n"+
-		"- upload charm mysql from charm-hub for series bionic with architecture=amd64\n"+
-		"- deploy application mysql from charm-hub on bionic\n"+
-		"- upload charm wordpress from charm-hub for series bionic with architecture=amd64\n"+
-		"- deploy application wordpress from charm-hub on bionic\n"+
+		"- upload charm mysql from charm-hub for series bionic with revision 42 with architecture=amd64\n"+
+		"- deploy application mysql from charm-hub on bionic with stable\n"+
+		"- upload charm wordpress from charm-hub for series bionic with revision 47 with architecture=amd64\n"+
+		"- deploy application wordpress from charm-hub on bionic with stable\n"+
 		"- add new machine 0\n"+
 		"- add new machine 1\n"+
 		"- add relation wordpress:db - mysql:db\n"+
@@ -556,6 +560,8 @@ series: bionic
 applications:
   mysql:
     charm: ch:mysql
+    revision: 42
+    channel: stable
     num_units: 1
     storage:
       database: mysql-pv,20M
@@ -563,6 +569,8 @@ applications:
     - "0"
   wordpress:
     charm: ch:wordpress
+    revision: 47
+    channel: stable
     num_units: 1
     to:
     - "1"
@@ -782,13 +790,13 @@ func (s *BundleDeployRepositorySuite) testExistingModel(c *gc.C, dryRun bool) {
 	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "ubuntu", "18.04")
 
 	expectedOutput := "" +
-		"Located charm \"mysql\" in charm-hub\n" +
-		"Located charm \"wordpress\" in charm-hub\n" +
+		"Located charm \"mysql\" in charm-hub, channel stable\n" +
+		"Located charm \"wordpress\" in charm-hub, channel stable\n" +
 		"Executing changes:\n" +
-		"- upload charm mysql from charm-hub for series bionic with architecture=amd64\n" +
-		"- deploy application mysql from charm-hub on bionic\n" +
-		"- upload charm wordpress from charm-hub for series bionic with architecture=amd64\n" +
-		"- deploy application wordpress from charm-hub on bionic\n" +
+		"- upload charm mysql from charm-hub for series bionic with revision 42 with architecture=amd64\n" +
+		"- deploy application mysql from charm-hub on bionic with stable\n" +
+		"- upload charm wordpress from charm-hub for series bionic with revision 47 with architecture=amd64\n" +
+		"- deploy application wordpress from charm-hub on bionic with stable\n" +
 		"- add new machine 0\n" +
 		"- add new machine 1\n" +
 		"- add relation wordpress:db - mysql:db\n" +
@@ -797,23 +805,23 @@ func (s *BundleDeployRepositorySuite) testExistingModel(c *gc.C, dryRun bool) {
 		"Deploy of bundle completed.\n"
 
 	changeOutput := "" +
-		"Located charm \"mysql\" in charm-hub\n" +
-		"Located charm \"wordpress\" in charm-hub\n" +
+		"Located charm \"mysql\" in charm-hub, channel stable\n" +
+		"Located charm \"wordpress\" in charm-hub, channel stable\n" +
 		"Executing changes:\n" +
-		"- upload charm mysql from charm-hub for series bionic with architecture=amd64\n" +
-		"- upgrade mysql from charm-hub using charm mysql for series bionic\n" +
-		"- upload charm wordpress from charm-hub for series bionic with architecture=amd64\n" +
-		"- upgrade wordpress from charm-hub using charm wordpress for series bionic\n" +
+		"- upload charm mysql from charm-hub for series bionic with revision 42 with architecture=amd64\n" +
+		"- upgrade mysql from charm-hub using charm mysql for series bionic from channel stable\n" +
+		"- upload charm wordpress from charm-hub for series bionic with revision 47 with architecture=amd64\n" +
+		"- upgrade wordpress from charm-hub using charm wordpress for series bionic from channel stable\n" +
 		"Deploy of bundle completed.\n"
 
 	dryRunOutput := "" +
-		"Located charm \"mysql\" in charm-hub\n" +
-		"Located charm \"wordpress\" in charm-hub\n" +
+		"Located charm \"mysql\" in charm-hub, channel stable\n" +
+		"Located charm \"wordpress\" in charm-hub, channel stable\n" +
 		"Changes to deploy bundle:\n" +
-		"- upload charm mysql from charm-hub for series bionic with architecture=amd64\n" +
-		"- upgrade mysql from charm-hub using charm mysql for series bionic\n" +
-		"- upload charm wordpress from charm-hub for series bionic with architecture=amd64\n" +
-		"- upgrade wordpress from charm-hub using charm wordpress for series bionic\n"
+		"- upload charm mysql from charm-hub for series bionic with revision 42 with architecture=amd64\n" +
+		"- upgrade mysql from charm-hub using charm mysql for series bionic from channel stable\n" +
+		"- upload charm wordpress from charm-hub for series bionic with revision 47 with architecture=amd64\n" +
+		"- upgrade wordpress from charm-hub using charm wordpress for series bionic from channel stable\n"
 	c.Check(s.output.String(), gc.Equals, expectedOutput)
 
 	// Setup to run with --dry-run, no changes
@@ -942,6 +950,8 @@ series: bionic
 applications:
   wordpress:
     charm: ch:wordpress
+    revision: 52
+    channel: stable
     num_units: 1
     options:
       blog-title: new title
@@ -950,6 +960,8 @@ applications:
     - "1"
   mysql:
     charm: ch:mysql
+    revision: 42
+    channel: stable
     num_units: 1
     storage:
       database: mysql-pv,20M
@@ -1000,13 +1012,13 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleApplicationUpgrade(c *gc.C
 	s.runDeploy(c, wordpressBundleWithStorageUpgradeConstraints)
 
 	c.Assert(s.output.String(), gc.Equals, ""+
-		"Located charm \"mysql\" in charm-hub\n"+
-		"Located charm \"wordpress\" in charm-hub\n"+
+		"Located charm \"mysql\" in charm-hub, channel stable\n"+
+		"Located charm \"wordpress\" in charm-hub, channel stable\n"+
 		"Executing changes:\n"+
-		"- upload charm mysql from charm-hub for series bionic with architecture=amd64\n"+
-		"- upgrade mysql from charm-hub using charm mysql for series bionic\n"+
-		"- upload charm wordpress from charm-hub for series bionic with architecture=amd64\n"+
-		"- upgrade wordpress from charm-hub using charm wordpress for series bionic\n"+
+		"- upload charm mysql from charm-hub for series bionic with revision 42 with architecture=amd64\n"+
+		"- upgrade mysql from charm-hub using charm mysql for series bionic from channel stable\n"+
+		"- upload charm wordpress from charm-hub for series bionic with revision 52 with architecture=amd64\n"+
+		"- upgrade wordpress from charm-hub using charm wordpress for series bionic from channel stable\n"+
 		"- set application options for wordpress\n"+
 		"- set constraints for wordpress to \"spaces=new cores=8\"\n"+
 		"Deploy of bundle completed.\n",
@@ -1369,11 +1381,15 @@ const unitColocationWithUnitBundle = `
        applications:
            mem:
                charm: ch:mem
+               revision: 47
+               channel: stable
                series: xenial
                num_units: 3
                to: [1, new]
            django:
                charm: ch:django
+               revision: 42
+               channel: stable
                series: xenial
                num_units: 5
                to:
