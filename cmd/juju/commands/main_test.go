@@ -322,6 +322,7 @@ var commandNames = []string{
 	"disable-command",
 	"disable-user",
 	"disabled-commands",
+	"documentation",
 	"download",
 	"download-backup",
 	"enable-command",
