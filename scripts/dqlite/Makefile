@@ -42,7 +42,7 @@ ${DQLITE_ARCHIVE_PATH}:
 	@echo "DQLITE: Pushing provisioning script to ${DQLITE_BUILD_CONTAINER}"
 	@lxc file push ./scripts/dqlite/build-script.sh ${DQLITE_BUILD_CONTAINER}/root/build-script.sh
 
-	@echo "DQLITE: Executing provisioning script"
+	@echo "DQLITE: Executing build script"
 	@lxc exec -t ${DQLITE_BUILD_CONTAINER} \
 		--env TAG_LIBTIRPC=${TAG_LIBTIRPC} \
 		--env TAG_LIBNSL=${TAG_LIBNSL} \
@@ -62,6 +62,7 @@ dqlite-build: ${DQLITE_ARCHIVE_PATH}
 
 # Build dqlite and its dependencies locally.
 dqlite-local-build:
+	@echo "DQLITE: Executing build script"
 	TAG_LIBTIRPC=${TAG_LIBTIRPC} \
 	TAG_LIBNSL=${TAG_LIBNSL} \
 	TAG_LIBUV=${TAG_LIBUV} \
@@ -70,6 +71,9 @@ dqlite-local-build:
 	TAG_SQLITE=${TAG_SQLITE} \
 	TAG_DQLITE=${TAG_DQLITE} \
 		./scripts/dqlite/build-script.sh
+
+	@echo "DQLITE: Placing lib archive"
+	@mv ./scripts/dqlite/dqlite-deps.tar.bz2 ${DQLITE_ARCHIVE_PATH}
 
 # s3 puts here are without an ACL.
 # The bucket uses policies that allow GetObject to anyone,
