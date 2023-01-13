@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	stdtesting "testing"
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 

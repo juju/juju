@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/loggo"
 
-	corecharm "github.com/juju/charm/v9"
+	corecharm "github.com/juju/charm/v10"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
@@ -69,7 +69,7 @@ func (s *BundlesDirSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *BundlesDirSuite) AddCharm(c *gc.C) (charm.BundleInfo, *state.Charm) {
-	curl := corecharm.MustParseURL("cs:quantal/dummy-1")
+	curl := corecharm.MustParseURL("ch:quantal/dummy-1")
 	bun := testcharms.Repo.CharmDir("dummy")
 	sch, err := testing.AddCharm(s.State, curl, bun, false)
 	c.Assert(err, jc.ErrorIsNil)

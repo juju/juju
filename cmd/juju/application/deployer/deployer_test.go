@@ -11,8 +11,8 @@ import (
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v9"
-	charmresource "github.com/juju/charm/v9/resource"
+	"github.com/juju/charm/v10"
+	charmresource "github.com/juju/charm/v10/resource"
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/set"
@@ -309,16 +309,12 @@ func (s *deployerSuite) TestResolveCharmURL(c *gc.C) {
 		url:           &charm.URL{Schema: "ch", Name: "wordpress", Revision: -1},
 	}, {
 		defaultSchema: charm.CharmHub,
+		path:          "ch:wordpress",
+		url:           &charm.URL{Schema: "ch", Name: "wordpress", Revision: -1},
+	}, {
+		defaultSchema: charm.CharmHub,
 		path:          "local:wordpress",
 		url:           &charm.URL{Schema: "local", Name: "wordpress", Revision: -1},
-	}, {
-		defaultSchema: charm.CharmHub,
-		path:          "ch:series/name",
-		url:           &charm.URL{Schema: "ch", User: "", Name: "name", Series: "series", Revision: -1},
-	}, {
-		defaultSchema: charm.CharmHub,
-		path:          "wordpress",
-		url:           &charm.URL{Schema: "ch", Name: "wordpress", Revision: -1},
 	}}
 	for i, test := range tests {
 		c.Logf("%d %s", i, test.path)
