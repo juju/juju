@@ -85,12 +85,10 @@ func (c *modelsCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *modelsCommand) Run(ctx *cmd.Context) error {
 	controllerName, err := c.ControllerName()
 	if err != nil {
-		ctx.Infof(err.Error())
 		return errors.Trace(err)
 	}
 	accountDetails, err := c.CurrentAccountDetails()
 	if err != nil {
-		ctx.Infof(err.Error())
 		return err
 	}
 	c.loggedInUser = accountDetails.User
@@ -99,9 +97,7 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 		c.user = accountDetails.User
 	}
 	if !names.IsValidUser(c.user) {
-		err := errors.NotValidf("user %q", c.user)
-		ctx.Infof(err.Error())
-		return err
+		return errors.NotValidf("user %q", c.user)
 	}
 
 	c.runVars = modelsRunValues{
@@ -113,7 +109,6 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 
 	modelmanagerAPI, err := c.getModelManagerAPI()
 	if err != nil {
-		ctx.Infof(err.Error())
 		return errors.Trace(err)
 	}
 	defer modelmanagerAPI.Close()
@@ -130,7 +125,6 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 		haveModels, err = c.oldModelsCommandBehaviour(ctx, modelmanagerAPI, now)
 	}
 	if err != nil {
-		ctx.Infof(err.Error())
 		return err
 	}
 	if !haveModels && c.out.Name() == "tabular" {
@@ -293,7 +287,6 @@ func (c *modelsCommand) modelSummaryFromParams(apiSummary base.UserModelSummary,
 
 	if apiSummary.ProviderType != "" {
 		summary.ProviderType = apiSummary.ProviderType
-
 	}
 	if apiSummary.CloudCredential != "" {
 		if !names.IsValidCloudCredential(apiSummary.CloudCredential) {
