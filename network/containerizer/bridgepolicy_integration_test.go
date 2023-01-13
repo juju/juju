@@ -779,7 +779,9 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerContainerNetw
 	// machine. Triggers the fallback code to have us bridge all devices.
 	missing, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.containerMachine)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(missing, jc.DeepEquals, []network.DeviceToBridge{})
+	c.Check(missing, jc.DeepEquals, []network.DeviceToBridge{
+		{DeviceName: "ens3", BridgeName: "br-ens3", MACAddress: ""},
+	})
 	c.Check(reconfigureDelay, gc.Equals, 0)
 }
 
