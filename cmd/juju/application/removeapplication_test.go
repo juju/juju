@@ -81,10 +81,10 @@ func (s *removeApplicationSuite) TestRemoveApplication(c *gc.C) {
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
 }
 
-func (s *removeApplicationSuite) TestRemoveApplicationWithConfirmRemovalOption(c *gc.C) {
+func (s *removeApplicationSuite) TestRemoveApplicationWithRequiresPromptModeAbsent(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ConfirmRemoval: false})
+	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ModeKey: ""})
 	s.mockModelConfigAPI.EXPECT().ModelGet().Return(attrs, nil)
 
 	s.mockApi.EXPECT().DestroyApplications(apiapplication.DestroyApplicationsParams{
@@ -151,7 +151,7 @@ func (s *removeApplicationSuite) TestRemoveApplicationPrompt(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	ctx.Stdin = &stdin
 
-	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ConfirmRemoval: true})
+	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
 	s.mockModelConfigAPI.EXPECT().ModelGet().Return(attrs, nil)
 
 	s.mockApi.EXPECT().DestroyApplications(apiapplication.DestroyApplicationsParams{
@@ -188,7 +188,7 @@ func (s *removeApplicationSuite) TestRemoveApplicationPromptOldFacade(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	ctx.Stdin = &stdin
 
-	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ConfirmRemoval: true})
+	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
 	s.mockModelConfigAPI.EXPECT().ModelGet().Return(attrs, nil)
 
 	s.mockApi.EXPECT().DestroyApplications(apiapplication.DestroyApplicationsParams{

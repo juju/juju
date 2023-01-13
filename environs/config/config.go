@@ -272,14 +272,7 @@ const (
 	// using.
 	// It is expected that when in a different mode, Juju will perform in a
 	// different state.
-	// The lack of a mode means it will default into compatibility mode.
-	//
-	//  - strict mode ensures that we handle any fallbacks as errors.
 	ModeKey = "mode"
-
-	// ConfirmRemoval is used to configure whether clients should prompt users
-	// to confirm their actions when they run remove commands
-	ConfirmRemoval = "confirm-removal"
 
 	//
 	// Deprecated Settings Attributes
@@ -544,6 +537,7 @@ var defaultConfigValues = map[string]interface{}{
 	"enable-os-upgrade":             true,
 	"development":                   false,
 	TestModeKey:                     false,
+	ModeKey:                         "",
 	DisableTelemetryKey:             false,
 	TransmitVendorMetricsKey:        true,
 	UpdateStatusHookInterval:        DefaultUpdateStatusHookInterval,
@@ -598,9 +592,6 @@ var defaultConfigValues = map[string]interface{}{
 	// By default the Juju backend is used.
 	SecretBackendKey:       "",
 	SecretBackendConfigKey: "",
-
-	// TODO (jack-w-shaw): Set this to true in 3.2
-	ConfirmRemoval: false,
 }
 
 // defaultLoggingConfig is the default value for logging-config if it is otherwise not set.
@@ -1469,13 +1460,25 @@ func (c *Config) validateCharmHubURL() error {
 	return nil
 }
 
-// Mode returns the mode type for the configuration.
-// Only two modes exist at the moment (strict or ""). Empty string
-// implies compatible mode.
-func (c *Config) Mode() ([]string, bool) {
+const (
+	// RequiresPromptsMode is used to tell clients interacting with
+	// model that confirmation prompts are required when removing
+	// potentially important resources
+	RequiresPromptsMode = "requires-prompts"
+
+	// StrictMode is currently unused
+	// TODO(jack-w-shaw) remove this mode
+	StrictMode = "strict"
+)
+
+var allModes = set.NewStrings(RequiresPromptsMode, StrictMode)
+
+// Mode returns a set of mode types for the configuration.
+// Only one option exists at the moment ('requires-prompts')
+func (c *Config) Mode() (set.Strings, bool) {
 	modes, ok := c.defined[ModeKey]
 	if !ok {
-		return []string{}, false
+		return set.NewStrings(), false
 	}
 	if m, ok := modes.(string); ok {
 		s := set.NewStrings()
@@ -1486,30 +1489,20 @@ func (c *Config) Mode() ([]string, bool) {
 			s.Add(strings.TrimSpace(v))
 		}
 		if s.Size() > 0 {
-			return s.SortedValues(), true
+			return s, true
 		}
 	}
 
-	return []string{}, false
+	return set.NewStrings(), false
 }
 
 func (c *Config) validateMode() error {
 	modes, _ := c.Mode()
-	for _, mode := range modes {
-		switch strings.TrimSpace(mode) {
-		case "strict":
-		default:
-			return errors.NotValidf("mode %q", mode)
-		}
+	difference := modes.Difference(allModes)
+	if !difference.IsEmpty() {
+		return errors.NotValidf("mode(s) %q", strings.Join(difference.SortedValues(), ", "))
 	}
 	return nil
-}
-
-// ConfirmRemoval is used to configure whether clients should prompt users
-// to confirm their actions when they run remove commands
-func (c *Config) ConfirmRemoval() (bool, bool) {
-	v, ok := c.defined[ConfirmRemoval].(bool)
-	return v, ok
 }
 
 // LoggingOutput is a for determining the destination of output for
@@ -1824,7 +1817,6 @@ var alwaysOptional = schema.Defaults{
 	CharmHubURLKey:                  schema.Omit,
 	SecretBackendKey:                schema.Omit,
 	SecretBackendConfigKey:          schema.Omit,
-	ConfirmRemoval:                  schema.Omit,
 }
 
 func allowEmpty(attr string) bool {
@@ -2049,16 +2041,12 @@ var configSchema = environschema.Fields{
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
-	ConfirmRemoval: {
-		Description: "Whether the Juju client should ask for confirmation when running remove commands",
-		Type:        environschema.Tbool,
-		Group:       environschema.EnvironGroup,
-	},
 	DefaultSeriesKey: {
 		Description: "The default series of Ubuntu to use for deploying charms, will act like --series when deploying charms",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
+	// TODO (jack-w-shaw) integrate this into mode
 	"development": {
 		Description: "Whether the model is in development mode",
 		Type:        environschema.Tbool,
@@ -2284,10 +2272,11 @@ data of the store. (default false)`,
 		Group:       environschema.EnvironGroup,
 	},
 	ModeKey: {
-		Description: `Mode sets the type of mode the model should run in.
-If the mode is set to "strict" then errors will be used instead of
-using fallbacks. By default mode is set to be lenient and use fallbacks
-where possible. (default "")`,
+		Description: `Mode is a comma-separated list which sets the 
+mode the model should run in. So far only one is implemented
+- If 'requires-prompts' is present, clients will ask for confirmation before removing
+potentially valuable resources.
+(default "")`,
 		Type:  environschema.Tstring,
 		Group: environschema.EnvironGroup,
 	},

@@ -76,7 +76,7 @@ func (*RemoveConfirmationCommandBaseSuite) getCmdBase(args []string) modelcmd.Re
 func (s *RemoveConfirmationCommandBaseSuite) TestSimpleFalse(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ConfirmRemoval: false})
+	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ModeKey: ""})
 	s.modelConfigAPI.EXPECT().ModelGet().Return(attrs, nil)
 
 	commandBase := s.getCmdBase([]string{"--foo", "bar"})
@@ -86,7 +86,7 @@ func (s *RemoveConfirmationCommandBaseSuite) TestSimpleFalse(c *gc.C) {
 func (s *RemoveConfirmationCommandBaseSuite) TestSimpleTrue(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ConfirmRemoval: true})
+	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
 	s.modelConfigAPI.EXPECT().ModelGet().Return(attrs, nil)
 
 	commandBase := s.getCmdBase([]string{"--foo", "bar"})

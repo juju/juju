@@ -69,7 +69,6 @@ func (c *RemoveConfirmationCommandBase) NeedsConfirmation(client ModelConfigAPI)
 	if err != nil {
 		return true
 	}
-	// We know for sure this option is present because we use defaulting
-	confirmRemovalOption, _ := cfg.ConfirmRemoval()
-	return confirmRemovalOption
+	modes, _ := cfg.Mode()
+	return modes.Contains(config.RequiresPromptsMode)
 }

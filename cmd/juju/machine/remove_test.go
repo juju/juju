@@ -296,7 +296,7 @@ func (s *RemoveMachineSuite) TestRemovePromptOldFacade(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	ctx.Stdin = &stdin
 
-	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ConfirmRemoval: true})
+	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
 	s.mockModelConfigApi.EXPECT().ModelGet().Return(attrs, nil)
 
 	s.mockApi.EXPECT().DestroyMachinesWithParams(false, false, false, gomock.Any(), "1", "2")
@@ -319,7 +319,7 @@ func (s *RemoveMachineSuite) TestRemovePrompt(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	ctx.Stdin = &stdin
 
-	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ConfirmRemoval: true})
+	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
 	s.mockModelConfigApi.EXPECT().ModelGet().Return(attrs, nil)
 	s.mockApi.EXPECT().DestroyMachinesWithParams(false, false, true, gomock.Any(), "1", "2")
 	s.mockApi.EXPECT().DestroyMachinesWithParams(false, false, false, gomock.Any(), "1", "2")
@@ -343,7 +343,7 @@ func (s *RemoveMachineSuite) TestRemovePromptOldFacadeAborted(c *gc.C) {
 	var stdin bytes.Buffer
 	ctx.Stdin = &stdin
 
-	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ConfirmRemoval: true})
+	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
 	s.mockModelConfigApi.EXPECT().ModelGet().Return(attrs, nil)
 
 	stdin.WriteString("n")
@@ -364,7 +364,7 @@ func (s *RemoveMachineSuite) TestRemovePromptAborted(c *gc.C) {
 	var stdin bytes.Buffer
 	ctx.Stdin = &stdin
 
-	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ConfirmRemoval: true})
+	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
 	s.mockModelConfigApi.EXPECT().ModelGet().Return(attrs, nil)
 	s.mockApi.EXPECT().DestroyMachinesWithParams(false, false, true, gomock.Any(), "1", "2")
 

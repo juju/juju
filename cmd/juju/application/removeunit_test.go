@@ -183,7 +183,7 @@ func (s *RemoveUnitSuite) TestRemoveUnitWithPrompt(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	ctx.Stdin = &stdin
 
-	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ConfirmRemoval: true})
+	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
 	s.mockModelConfigAPI.EXPECT().ModelGet().Return(attrs, nil)
 
 	s.mockApi.EXPECT().DestroyUnits(apiapplication.DestroyUnitsParams{
@@ -221,7 +221,7 @@ func (s *RemoveUnitSuite) TestRemoveUnitWithPromptOldFacade(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	ctx.Stdin = &stdin
 
-	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ConfirmRemoval: true})
+	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
 	s.mockModelConfigAPI.EXPECT().ModelGet().Return(attrs, nil)
 
 	s.mockApi.EXPECT().DestroyUnits(apiapplication.DestroyUnitsParams{
