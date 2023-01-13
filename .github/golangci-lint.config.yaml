@@ -32,9 +32,9 @@ linters:
     - ineffassign
     - misspell
     - unconvert
-    - deadcode
-    - varcheck
+
 run:
   timeout: 30m
+  modules-download-mode: readonly
 skip-dirs:
   - acceptancetests

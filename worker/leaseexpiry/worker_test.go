@@ -70,6 +70,7 @@ INSERT INTO lease (uuid, lease_type_id, model_uuid, name, holder, start, expiry)
 VALUES (?, 1, 'some-model-uuid', ?, ?, datetime('now'), datetime('now', ?))`[1:]
 
 	stmt, err := s.DB.Prepare(q)
+	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = stmt.Exec(utils.MustNewUUID().String(), "postgresql", "postgresql/0", "+2 minutes")
 	c.Assert(err, jc.ErrorIsNil)

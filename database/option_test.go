@@ -80,6 +80,7 @@ func (s *optionSuite) TestWithClusterOptionSuccess(c *gc.C) {
 	// Hack to get a bind address to add to config.
 	h := NewOptionFactory(fakeAgentConfig{}, stubLogger{})
 	err := h.ensureBindAddress()
+	c.Assert(err, jc.ErrorIsNil)
 
 	cfg := fakeAgentConfig{
 		apiAddrs: []string{
@@ -104,6 +105,7 @@ func (s *optionSuite) TestWithClusterNotHASuccess(c *gc.C) {
 	// Hack to get a bind address to add to config.
 	h := NewOptionFactory(fakeAgentConfig{}, stubLogger{})
 	err := h.ensureBindAddress()
+	c.Assert(err, jc.ErrorIsNil)
 
 	cfg := fakeAgentConfig{apiAddrs: []string{h.bindAddress}}
 
