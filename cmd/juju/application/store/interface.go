@@ -5,7 +5,6 @@ package store
 
 import (
 	"github.com/juju/charm/v9"
-	csparams "github.com/juju/charmrepo/v7/csclient/params"
 
 	apicharm "github.com/juju/juju/api/client/charms"
 	commoncharm "github.com/juju/juju/api/common/charm"
@@ -17,14 +16,6 @@ type CharmAdder interface {
 	AddLocalCharm(*charm.URL, charm.Charm, bool) (*charm.URL, error) // not used in utils
 	AddCharm(*charm.URL, commoncharm.Origin, bool) (commoncharm.Origin, error)
 	CheckCharmPlacement(string, *charm.URL) error
-}
-
-// CharmrepoForDeploy is a stripped-down version of the
-// gopkg.in/juju/charmrepo.v4 Interface interface. It is
-// used by tests that embed a DeploySuiteBase.
-type CharmrepoForDeploy interface {
-	GetBundle(bundleURL *charm.URL, path string) (charm.Bundle, error)
-	ResolveWithPreferredChannel(*charm.URL, csparams.Channel) (*charm.URL, csparams.Channel, []string, error)
 }
 
 // CharmsAPI is functionality needed by the CharmAdapter from the Charms API.
