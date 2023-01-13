@@ -37,7 +37,7 @@ type DestroyControllerArgs struct {
 	ModelTimeout *time.Duration `json:"model-timeout,omitempty"`
 }
 
-// ModelBlockInfo holds information about an model and its
+// ModelBlockInfo holds information about a model and its
 // current blocks.
 type ModelBlockInfo struct {
 	Name     string   `json:"name"`
@@ -142,7 +142,7 @@ type DashboardConnectionSSHTunnel struct {
 	Port   string `json:"port"`
 }
 
-// DashboardConnectionInfo holds the information necassery
+// DashboardConnectionInfo holds the information necessary
 type DashboardConnectionInfo struct {
 	ProxyConnection *Proxy                        `json:"proxy-connection"`
 	SSHConnection   *DashboardConnectionSSHTunnel `json:"ssh-connection"`

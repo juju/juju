@@ -64,5 +64,4 @@ func UserConfirmName(verificationName string, objectType string, ctx *cmd.Contex
 		return errors.Trace(userAbortedError("aborted"))
 	}
 	return nil
-
 }

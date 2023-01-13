@@ -100,7 +100,7 @@ See also:
 `
 
 var destroyModelMsg = `
-This command will destroy the %q model and all it's resources`[1:]
+This command will destroy the %q model and all its resources`[1:]
 
 var destroyModelMsgDetails = `
 {{- if gt .MachineCount 0}}
