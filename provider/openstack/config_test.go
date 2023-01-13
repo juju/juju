@@ -76,19 +76,19 @@ func (t configTest) check(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	ecfg := e.ecfg()
-	c.Assert(ecfg.Name(), gc.Equals, "testmodel")
+	c.Check(ecfg.Name(), gc.Equals, "testmodel")
 	if t.firewallMode != "" {
-		c.Assert(ecfg.FirewallMode(), gc.Equals, t.firewallMode)
+		c.Check(ecfg.FirewallMode(), gc.Equals, t.firewallMode)
 	}
-	c.Assert(ecfg.useDefaultSecurityGroup(), gc.Equals, t.useDefaultSecurityGroup)
-	c.Assert(ecfg.network(), gc.Equals, t.network)
-	c.Assert(ecfg.externalNetwork(), gc.Equals, t.externalNetwork)
+	c.Check(ecfg.useDefaultSecurityGroup(), gc.Equals, t.useDefaultSecurityGroup)
+	c.Check(ecfg.networks(), gc.DeepEquals, []string{t.network})
+	c.Check(ecfg.externalNetwork(), gc.Equals, t.externalNetwork)
 	// Default should be true
 	expectedHostnameVerification := true
 	if t.sslHostnameSet {
 		expectedHostnameVerification = t.sslHostnameVerification
 	}
-	c.Assert(ecfg.SSLHostnameVerification(), gc.Equals, expectedHostnameVerification)
+	c.Check(ecfg.SSLHostnameVerification(), gc.Equals, expectedHostnameVerification)
 	for name, expect := range t.expect {
 		actual, found := ecfg.UnknownAttrs()[name]
 		c.Check(found, jc.IsTrue)
@@ -97,7 +97,7 @@ func (t configTest) check(c *gc.C) {
 	if t.blockStorageSource != "" {
 		storage, ok := ecfg.StorageDefaultBlockSource()
 		c.Assert(ok, jc.IsTrue)
-		c.Assert(storage, gc.Equals, t.blockStorageSource)
+		c.Check(storage, gc.Equals, t.blockStorageSource)
 	}
 }
 
