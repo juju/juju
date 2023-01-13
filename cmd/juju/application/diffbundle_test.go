@@ -122,9 +122,6 @@ applications:
   grafana:
     missing: bundle
   prometheus:
-    charm:
-      bundle: ch:prometheus2
-      model: prometheus2
     options:
       ontology:
         bundle: anselm
@@ -146,9 +143,6 @@ applications:
   grafana:
     missing: bundle
   prometheus:
-    charm:
-      bundle: ch:prometheus2
-      model: prometheus2
     options:
       ontology:
         bundle: anselm
@@ -175,9 +169,6 @@ applications:
   grafana:
     missing: bundle
   prometheus:
-    charm:
-      bundle: ch:prometheus2
-      model: prometheus2
     options:
       ontology:
         bundle: hume
@@ -204,9 +195,6 @@ applications:
   grafana:
     missing: bundle
   prometheus:
-    charm:
-      bundle: ch:prometheus2
-      model: prometheus2
     options:
       admin-user:
         bundle: lovecraft
@@ -243,11 +231,7 @@ func (s *diffSuite) TestCharmSeriesBundle(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
-applications:
-  prometheus:
-    charm:
-      bundle: ch:prometheus2
-      model: prometheus2
+{}
 `[1:])
 }
 
@@ -267,9 +251,6 @@ applications:
   grafana:
     missing: bundle
   prometheus:
-    charm:
-      bundle: ch:prometheus2
-      model: prometheus2
     options:
       ontology:
         bundle: anselm
@@ -305,9 +286,6 @@ applications:
   grafana:
     missing: bundle
   prometheus:
-    charm:
-      bundle: ch:prometheus2
-      model: prometheus2
     options:
       ontology:
         bundle: anselm
@@ -369,7 +347,9 @@ func (s *diffSuite) TestExposedEndpoints(c *gc.C) {
 			bundle: `
 applications:
   prometheus:
-    charm: 'ch:prometheus2'
+    charm: 'prometheus'
+    revision: 7
+    channel: stable
     num_units: 1
     series: xenial
     expose: true
@@ -382,9 +362,6 @@ machines:
 			expDiff: `
 applications:
   prometheus:
-    charm:
-      bundle: ch:prometheus2
-      model: prometheus2
     exposed_endpoints:
       "":
         bundle:
@@ -409,7 +386,9 @@ applications:
 			bundle: `
 applications:
   prometheus:
-    charm: 'ch:prometheus2'
+    charm: 'prometheus'
+    revision: 7
+    channel: stable
     num_units: 1
     series: xenial
     to:
@@ -431,9 +410,6 @@ applications:
 			expDiff: `
 applications:
   prometheus:
-    charm:
-      bundle: ch:prometheus2
-      model: prometheus2
     exposed_endpoints:
       "":
         bundle:
@@ -498,17 +474,19 @@ func makeAPIResponsesWithRelations(relations []params.RelationStatus) map[string
 		"Client.FullStatus": params.FullStatus{
 			Applications: map[string]params.ApplicationStatus{
 				"prometheus": {
-					Charm: "ch:prometheus2",
-					Base:  params.Base{Name: "ubuntu", Channel: "16.04"},
-					Life:  "alive",
+					Charm:        "ch:prometheus2-47",
+					CharmChannel: "stable",
+					Base:         params.Base{Name: "ubuntu", Channel: "16.04"},
+					Life:         "alive",
 					Units: map[string]params.UnitStatus{
 						"prometheus/0": {Machine: "0"},
 					},
 				},
 				"grafana": {
-					Charm: "ch:grafana-19",
-					Base:  params.Base{Name: "ubuntu", Channel: "18.04"},
-					Life:  "alive",
+					Charm:        "ch:grafana-19",
+					CharmChannel: "stable",
+					Base:         params.Base{Name: "ubuntu", Channel: "18.04"},
+					Life:         "alive",
 					Units: map[string]params.UnitStatus{
 						"grafana/0": {Machine: "1"},
 					},
@@ -568,9 +546,10 @@ func makeAPIResponsesWithExposedEndpoints(exposedEndpoints map[string]params.Exp
 		"Client.FullStatus": params.FullStatus{
 			Applications: map[string]params.ApplicationStatus{
 				"prometheus": {
-					Charm: "ch:prometheus2",
-					Base:  params.Base{Name: "ubuntu", Channel: "16.04"},
-					Life:  "alive",
+					Charm:        "ch:prometheus-7",
+					CharmChannel: "stable",
+					Base:         params.Base{Name: "ubuntu", Channel: "16.04"},
+					Life:         "alive",
 					Units: map[string]params.UnitStatus{
 						"prometheus/0": {Machine: "0"},
 					},
@@ -670,7 +649,9 @@ const (
 	testCharmHubBundle = `
 applications:
   prometheus:
-    charm: 'ch:prometheus2'
+    charm: 'prometheus2'
+    revision: 47
+    channel: stable
     num_units: 1
     series: xenial
     options:
@@ -687,7 +668,9 @@ machines:
 	withInclude = `
 applications:
   prometheus:
-    charm: 'ch:prometheus2'
+    charm: 'prometheus2'
+    revision: 7
+    channel: stable
     num_units: 1
     series: xenial
     options:
@@ -745,7 +728,9 @@ relations:
 series: bionic
 applications:
   prometheus:
-    charm: 'ch:prometheus2'
+    charm: 'prometheus2'
+    revision: 7
+    channel: stable
     num_units: 1
     series: xenial
     constraints: 'cores=3'
@@ -755,6 +740,8 @@ applications:
       - 0
   grafana:
     charm: 'grafana'
+    revision: 19
+    channel: stable
     num_units: 1
     constraints: 'cores=3'
     options:
