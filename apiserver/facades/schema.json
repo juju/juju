@@ -18727,6 +18727,18 @@
                         "owner-tag"
                     ]
                 },
+                "ModelApplicationInfo": {
+                    "type": "object",
+                    "properties": {
+                        "name": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "name"
+                    ]
+                },
                 "ModelBlockInfo": {
                     "type": "object",
                     "properties": {
@@ -18848,6 +18860,12 @@
                     "properties": {
                         "application-count": {
                             "type": "integer"
+                        },
+                        "applications": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ModelApplicationInfo"
+                            }
                         },
                         "error": {
                             "$ref": "#/definitions/Error"
@@ -31286,6 +31304,18 @@
                         "owner-tag"
                     ]
                 },
+                "ModelApplicationInfo": {
+                    "type": "object",
+                    "properties": {
+                        "name": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "name"
+                    ]
+                },
                 "ModelCreateArgs": {
                     "type": "object",
                     "properties": {
@@ -31633,6 +31663,12 @@
                     "properties": {
                         "application-count": {
                             "type": "integer"
+                        },
+                        "applications": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ModelApplicationInfo"
+                            }
                         },
                         "error": {
                             "$ref": "#/definitions/Error"

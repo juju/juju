@@ -135,7 +135,8 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 	if c.DestroyConfirmationCommandBase.NeedsConfirmation() {
 		updateStatus := newTimedStatusUpdater(ctx, api, controllerEnviron.Config().UUID(), clock.WallClock)
 		modelStatus := updateStatus(0)
-		if err := printDestroyWarning(ctx, modelStatus, controllerName, false); err != nil {
+		ctx.Warningf(destroySysMsg, controllerName)
+		if err := printDestroyWarningDetails(ctx, modelStatus, false); err != nil {
 			return errors.Trace(err)
 		}
 		if err := jujucmd.UserConfirmName(controllerName, "controller", ctx); err != nil {
@@ -319,15 +320,15 @@ func (c *killCommand) WaitForModels(ctx *cmd.Context, api destroyControllerAPI, 
 	updateStatus := newTimedStatusUpdater(ctx, api, uuid, c.clock)
 
 	envStatus := updateStatus(0)
-	lastStatus := envStatus.controller
+	lastStatus := envStatus.Controller
 	lastChange := c.clock.Now().Truncate(time.Second)
 	deadline := lastChange.Add(c.timeout)
 	// Check for both undead models and live machines, as machines may be
 	// in the controller model.
 	for ; hasUnreclaimedResources(envStatus) && (deadline.After(c.clock.Now())); envStatus = updateStatus(5 * time.Second) {
 		now := c.clock.Now().Truncate(time.Second)
-		if envStatus.controller != lastStatus {
-			lastStatus = envStatus.controller
+		if envStatus.Controller != lastStatus {
+			lastStatus = envStatus.Controller
 			lastChange = now
 			deadline = lastChange.Add(c.timeout)
 		}
@@ -339,8 +340,8 @@ func (c *killCommand) WaitForModels(ctx *cmd.Context, api destroyControllerAPI, 
 		if timeSinceLastChange > thirtySeconds || timeUntilDestruction < thirtySeconds {
 			warning = fmt.Sprintf(", will kill machines directly in %s", timeUntilDestruction)
 		}
-		ctx.Infof("%s%s", fmtCtrStatus(envStatus.controller), warning)
-		for _, modelStatus := range envStatus.models {
+		ctx.Infof("%s%s", fmtCtrStatus(envStatus.Controller), warning)
+		for _, modelStatus := range envStatus.Models {
 			ctx.Verbosef(fmtModelStatus(modelStatus))
 		}
 	}

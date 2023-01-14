@@ -326,6 +326,11 @@ type ModelMachineInfo struct {
 	HAPrimary *bool `json:"ha-primary,omitempty"`
 }
 
+// ModelApplicationInfo holds information about an application in a model.
+type ModelApplicationInfo struct {
+	Name string `json:"name"`
+}
+
 // MachineHardware holds information about a machine's hardware characteristics.
 type MachineHardware struct {
 	Arch             *string   `json:"arch,omitempty"`

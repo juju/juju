@@ -7,7 +7,7 @@ import (
 	"bytes"
 	stdcontext "context"
 	"fmt"
-	"strings"
+	"text/template"
 	"time"
 
 	"github.com/juju/clock"
@@ -115,15 +115,21 @@ var usageSummary = `
 Destroys a controller.`[1:]
 
 var destroySysMsg = `
-WARNING! This command with destroy the %q controller and all it's resources`[1:]
+This command with destroy the %q controller and all its resources
+`[1:]
 
 var destroySysMsgDetails = `
-:
- - %d model(s) will be destroyed;
-  - model list: %q;
- - %d machine(s) will be destroyed;
- - %d application(s) will be removed;
- - %d filesystem(s) and %d volume(s) will be %s`[1:]
+{{- if gt .ModelCount 0}}
+ - {{.ModelCount}} model{{if gt .ModelCount 1}}s{{end}} will be destroyed
+  - model list:{{range .ModelNames}} "{{.}}"{{end}}
+ - {{.MachineCount}} machine{{if gt .MachineCount 1}}s{{end}} will be destroyed
+ - {{.ApplicationCount}} application{{if gt .ApplicationCount 1}}s{{end}} will be removed
+ {{- if gt (len .ApplicationNames) 0}}
+  - application list:{{range .ApplicationNames}} "{{.}}"{{end}}
+ {{- end}}
+ - {{.FilesystemCount}} filesystem{{if gt .FilesystemCount 1}}s{{end}} and {{.VolumeCount}} volume{{if gt .VolumeCount 1}}s{{end}} will be {{if .ReleaseStorage}}released{{else}}destroyed{{end}}
+{{- end}}
+`[1:]
 
 // destroyControllerAPI defines the methods on the controller API endpoint
 // that the destroy command calls.
@@ -173,32 +179,34 @@ func (c *destroyCommand) Init(args []string) error {
 // getModelNames gets slice of model names from modelData.
 func getModelNames(data []modelData) []string {
 	return transform.Slice(data, func(f modelData) string {
-		return f.Name
+		return fmt.Sprintf("%s/%s (%s)", f.Owner, f.Name, f.Life)
 	})
 }
 
-// printDestroyWarning prints to stdout the warning with additional info about destroying controller.
-func printDestroyWarning(ctx *cmd.Context, modelStatus environmentStatus, controllerName string, releaseStorage bool) error {
-	modelNames := getModelNames(modelStatus.models)
-	var actionStorageStr string
-	if releaseStorage {
-		actionStorageStr = "released"
-	} else {
-		actionStorageStr = "destroyed"
+// getApplicationNames gets slice of application names from modelData.
+func getApplicationNames(data []base.Application) []string {
+	return transform.Slice(data, func(app base.Application) string {
+		return app.Name
+	})
+}
+
+// printDestroyWarningDetails prints to stderr the warning with additional info about destroying controller.
+func printDestroyWarningDetails(ctx *cmd.Context, modelStatus environmentStatus, releaseStorage bool) error {
+	destroyMsgDetailsTmpl := template.New("destroyMsdDetails")
+	destroyMsgDetailsTmpl, err := destroyMsgDetailsTmpl.Parse(destroySysMsgDetails)
+	if err != nil {
+		return errors.Annotate(err, "Destroy controller message template parsing error.")
 	}
-	_, _ = fmt.Fprintf(ctx.Stderr, destroySysMsg, controllerName)
-	if len(modelNames) > 0 {
-		_, _ = fmt.Fprintf(ctx.Stdout, destroySysMsgDetails,
-			modelStatus.controller.HostedModelCount,
-			strings.Join(modelNames, ", "),
-			modelStatus.controller.HostedMachineCount,
-			modelStatus.controller.ApplicationCount-1, // - 1 not to confuse user with controller-app itself
-			modelStatus.controller.TotalFilesystemCount,
-			modelStatus.controller.TotalVolumeCount,
-			actionStorageStr,
-		)
-	}
-	_, _ = fmt.Fprintf(ctx.Stderr, ".")
+	_ = destroyMsgDetailsTmpl.Execute(ctx.Stderr, map[string]any{
+		"ModelCount":       modelStatus.Controller.HostedModelCount,
+		"ModelNames":       getModelNames(modelStatus.Models),
+		"MachineCount":     modelStatus.Controller.HostedMachineCount,
+		"ApplicationCount": modelStatus.Controller.ApplicationCount - 1, //  -1 not to count controller app itself
+		"ApplicationNames": getApplicationNames(modelStatus.Applications),
+		"FilesystemCount":  modelStatus.Controller.TotalFilesystemCount,
+		"VolumeCount":      modelStatus.Controller.TotalVolumeCount,
+		"ReleaseStorage":   releaseStorage,
+	})
 	return nil
 }
 
@@ -224,14 +232,28 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "getting controller environ")
 	}
 
+	ctx.Warningf(destroySysMsg, controllerName)
+	updateStatus := newTimedStatusUpdater(ctx, api, controllerEnviron.Config().UUID(), clock.WallClock)
+	modelStatus := updateStatus(0)
 	if err := c.DestroyConfirmationCommandBase.Run(ctx); err != nil {
 		return errors.Trace(err)
 	}
-
+	// check Alive models and --destroy-all-models flag usage
+	if !c.destroyModels {
+		if err := c.checkNoAliveHostedModels(modelStatus.Models); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	// check user has not specified whether storage should be destroyed or released.
+	// Make sure there are no filesystems or volumes in the model.
+	if !c.destroyStorage && !c.releaseStorage {
+		if err := c.checkNoPersistentStorage(modelStatus); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	// ask for confirmation after all flag checks
 	if c.DestroyConfirmationCommandBase.NeedsConfirmation() {
-		updateStatus := newTimedStatusUpdater(ctx, api, controllerEnviron.Config().UUID(), clock.WallClock)
-		modelStatus := updateStatus(0)
-		if err := printDestroyWarning(ctx, modelStatus, controllerName, c.releaseStorage); err != nil {
+		if err := printDestroyWarningDetails(ctx, modelStatus, c.releaseStorage); err != nil {
 			return errors.Trace(err)
 		}
 		if err := jujucmd.UserConfirmName(controllerName, "controller", ctx); err != nil {
@@ -284,14 +306,13 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 			}
 		}
 
-		updateStatus := newTimedStatusUpdater(ctx, api, controllerEnviron.Config().UUID(), clock.WallClock)
-		// wait for 2 seconds to let empty hosted models changed from alive to dying.
-		modelStatus := updateStatus(0)
+		updateStatus = newTimedStatusUpdater(ctx, api, controllerEnviron.Config().UUID(), clock.WallClock)
+		modelStatus = updateStatus(0)
 		if !c.destroyModels {
-			if err := c.checkNoAliveHostedModels(ctx, modelStatus.models); err != nil {
+			if err := c.checkNoAliveHostedModels(modelStatus.Models); err != nil {
 				return errors.Trace(err)
 			}
-			if hasHostedModels && !hasUnDeadModels(modelStatus.models) {
+			if hasHostedModels && !hasUnDeadModels(modelStatus.Models) {
 				// When we called DestroyController before, we were
 				// informed that there were hosted models remaining.
 				// When we checked just now, there were none. We should
@@ -300,7 +321,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 			}
 		}
 		if !c.destroyStorage && !c.releaseStorage && hasPersistentStorage {
-			if err := c.checkNoPersistentStorage(ctx, modelStatus); err != nil {
+			if err := c.checkNoPersistentStorage(modelStatus); err != nil {
 				return errors.Trace(err)
 			}
 			// When we called DestroyController before, we were
@@ -315,9 +336,10 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 		// Check for both undead models and live machines, as machines may be
 		// in the controller model.
 		ctx.Infof("Waiting for model resources to be reclaimed")
+		// wait for 2 seconds to let empty hosted models changed from alive to dying.
 		for ; hasUnreclaimedResources(modelStatus); modelStatus = updateStatus(2 * time.Second) {
-			ctx.Infof(fmtCtrStatus(modelStatus.controller))
-			for _, model := range modelStatus.models {
+			ctx.Infof(fmtCtrStatus(modelStatus.Controller))
+			for _, model := range modelStatus.Models {
 				ctx.Verbosef(fmtModelStatus(model))
 			}
 		}
@@ -327,9 +349,9 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 }
 
 // checkNoAliveHostedModels ensures that the given set of hosted models
-// contains none that are Alive. If there are, an message is printed
+// contains none that are Alive. If there are, a message is printed
 // out to
-func (c *destroyCommand) checkNoAliveHostedModels(ctx *cmd.Context, models []modelData) error {
+func (c *destroyCommand) checkNoAliveHostedModels(models []modelData) error {
 	if !hasAliveModels(models) {
 		return nil
 	}
@@ -362,8 +384,8 @@ Models:
 // no persistent storage. If there is any, a message is printed
 // out informing the user that they must choose to destroy or
 // release the storage.
-func (c *destroyCommand) checkNoPersistentStorage(ctx *cmd.Context, envStatus environmentStatus) error {
-	models := append([]modelData{envStatus.controller.Model}, envStatus.models...)
+func (c *destroyCommand) checkNoPersistentStorage(envStatus environmentStatus) error {
+	models := append([]modelData{envStatus.Controller.Model}, envStatus.Models...)
 
 	var modelsWithPersistentStorage int
 	var persistentVolumesTotal int
@@ -394,7 +416,9 @@ func (c *destroyCommand) checkNoPersistentStorage(ctx *cmd.Context, envStatus en
 		}
 	}
 	buf.WriteRune(' ')
-	if n := modelsWithPersistentStorage; n == 1 {
+	if n := modelsWithPersistentStorage; n == 0 {
+		return nil
+	} else if n == 1 {
 		buf.WriteString("in 1 model")
 	} else {
 		fmt.Fprintf(&buf, "across %d models", n)

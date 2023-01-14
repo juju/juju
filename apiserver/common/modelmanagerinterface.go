@@ -281,6 +281,7 @@ func (st modelManagerStateShim) AllMachines() ([]Machine, error) {
 
 // Application defines methods provided by a state.Application instance.
 type Application interface {
+	Name() string
 	UnitCount() int
 }
 
