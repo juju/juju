@@ -308,14 +308,22 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 
 		updateStatus = newTimedStatusUpdater(ctx, api, controllerEnviron.Config().UUID(), clock.WallClock)
 		modelStatus = updateStatus(0)
-		if !c.destroyModels && hasHostedModels && !hasUnDeadModels(modelStatus.Models) {
-			// When we called DestroyController before, we were
-			// informed that there were hosted models remaining.
-			// When we checked just now, there were none. We should
-			// try destroying again.
-			continue
+		if !c.destroyModels {
+			if err := c.checkNoAliveHostedModels(modelStatus.Models); err != nil {
+				return errors.Trace(err)
+			}
+			if hasHostedModels && !hasUnDeadModels(modelStatus.Models) {
+				// When we called DestroyController before, we were
+				// informed that there were hosted models remaining.
+				// When we checked just now, there were none. We should
+				// try destroying again.
+				continue
+			}
 		}
 		if !c.destroyStorage && !c.releaseStorage && hasPersistentStorage {
+			if err := c.checkNoPersistentStorage(modelStatus); err != nil {
+				return errors.Trace(err)
+			}
 			// When we called DestroyController before, we were
 			// informed that there was persistent storage remaining.
 			// When we checked just now, there was none. We should
