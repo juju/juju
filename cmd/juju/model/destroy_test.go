@@ -311,7 +311,8 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 	case <-time.After(testing.LongWait):
 		c.Fatalf("command took too long")
 	}
-	c.Check(cmdtesting.Stderr(ctx), gc.Matches, "WARNING!.*test2(.|\n)*")
+	testLog := c.GetTestLog()
+	c.Check(testLog, gc.Matches, "(.|\n)*WARNING.*test2(.|\n)*")
 	checkModelExistsInStore(c, "test1:admin/test1", s.store)
 
 	// EOF on stdin: equivalent to answering no.
@@ -325,7 +326,8 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 	case <-time.After(testing.LongWait):
 		c.Fatalf("command took too long")
 	}
-	c.Check(cmdtesting.Stderr(ctx), gc.Matches, "WARNING!.*test2(.|\n)*")
+	testLog = c.GetTestLog()
+	c.Check(testLog, gc.Matches, "(.|\n)*WARNING.*test2(.|\n)*")
 	checkModelExistsInStore(c, "test1:admin/test2", s.store)
 
 	answer := "test2"

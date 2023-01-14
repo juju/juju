@@ -427,7 +427,8 @@ func (s *KillSuite) TestKillCommandConfirmation(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("command took too long")
 	}
-	c.Check(cmdtesting.Stderr(ctx), gc.Matches, "WARNING!.*test1(.|\n)*")
+	testLog := c.GetTestLog()
+	c.Check(testLog, gc.Matches, "(.|\n)*WARNING.*test1(.|\n)*")
 	checkControllerExistsInStore(c, "test1", s.store)
 }
 

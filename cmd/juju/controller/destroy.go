@@ -115,7 +115,7 @@ var usageSummary = `
 Destroys a controller.`[1:]
 
 var destroySysMsg = `
-This command with destroy the %q controller and all it's resources
+This command with destroy the %q controller and all its resources
 `[1:]
 
 var destroySysMsgDetails = `
@@ -257,7 +257,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 			return errors.Trace(err)
 		}
 		if err := jujucmd.UserConfirmName(controllerName, "controller", ctx); err != nil {
-			return errors.Trace(err)
+			return errors.Annotate(err, "controller destruction")
 		}
 	}
 
