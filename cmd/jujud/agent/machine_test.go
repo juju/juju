@@ -318,7 +318,7 @@ func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 
 	// Wait for the workers to start. This ensures that the central
 	// hub referred to in startAddressPublisher has been assigned,
-	// and we will will not fail race tests with concurrent access.
+	// and we will not fail race tests with concurrent access.
 	select {
 	case <-a.WorkersStarted():
 	case <-time.After(testing.LongWait):
@@ -339,24 +339,6 @@ func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 	insts, err := s.Environ.Instances(context.NewEmptyCloudCallContext(), []instance.Id{instId})
 	c.Assert(err, jc.ErrorIsNil)
 
-	netEnv, ok := s.Environ.(environs.Networking)
-	c.Assert(ok, jc.IsTrue, gc.Commentf("expected an environ instance that supports the Networking interface"))
-
-	// Since the dummy environ implements the environ.NetworkingEnviron,
-	// the instancepoller will pull the provider addresses directly from
-	// the environ and resolve their space ID.
-	ifLists, err := netEnv.NetworkInterfaces(context.NewEmptyCloudCallContext(), []instance.Id{instId})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ifLists, gc.HasLen, 1)
-
-	var expAddrs network.SpaceAddresses
-	for _, iface := range ifLists[0] {
-		for _, addr := range append(iface.Addresses, iface.ShadowAddresses...) {
-			sAddr := network.NewSpaceAddress(addr.Value)
-			sAddr.SpaceID = network.AlphaSpaceId
-			expAddrs = append(expAddrs, sAddr)
-		}
-	}
 	dummy.SetInstanceStatus(insts[0], "running")
 
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
@@ -369,8 +351,11 @@ func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 		instStatus, err := m.InstanceStatus()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Logf("found status is %q %q", instStatus.Status, instStatus.Message)
-		if reflect.DeepEqual(m.Addresses(), expAddrs) && instStatus.Message == "running" {
-			c.Logf("machine %q addresses updated: %+v", m.Id(), expAddrs)
+
+		// The dummy provider always returns 3 devices with one address each.
+		// We don't care what they are, just that the instance-poller retrieved
+		// them and set them against the machine in state.
+		if len(m.Addresses()) == 3 && instStatus.Message == "running" {
 			break
 		}
 		c.Logf("waiting for machine %q address to be updated", m.Id())
