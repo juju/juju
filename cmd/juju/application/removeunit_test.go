@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/cmd/juju/application/mocks"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/provider/dummy"
@@ -29,7 +30,8 @@ import (
 
 type RemoveUnitSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
-	mockApi *mocks.MockRemoveApplicationAPI
+	mockApi            *mocks.MockRemoveApplicationAPI
+	mockModelConfigAPI *mocks.MockModelConfigClient
 
 	facadeVersion int
 
@@ -50,15 +52,19 @@ func (s *RemoveUnitSuite) setup(c *gc.C) *gomock.Controller {
 	s.mockApi.EXPECT().BestAPIVersion().Return(s.facadeVersion).AnyTimes()
 	s.mockApi.EXPECT().Close()
 
+	s.mockModelConfigAPI = mocks.NewMockModelConfigClient(ctrl)
+	// We don't always instantiate this client
+	s.mockModelConfigAPI.EXPECT().Close().MaxTimes(1)
+
 	return ctrl
 }
 
 func (s *RemoveUnitSuite) runRemoveUnit(c *gc.C, args ...string) (*cmd.Context, error) {
-	return cmdtesting.RunCommand(c, application.NewRemoveUnitCommandForTest(s.mockApi, s.store), args...)
+	return cmdtesting.RunCommand(c, application.NewRemoveUnitCommandForTest(s.mockApi, s.mockModelConfigAPI, s.store), args...)
 }
 
 func (s *RemoveUnitSuite) runWithContext(ctx *cmd.Context, args ...string) (chan dummy.Operation, chan error) {
-	remove := application.NewRemoveUnitCommandForTest(s.mockApi, s.store)
+	remove := application.NewRemoveUnitCommandForTest(s.mockApi, s.mockModelConfigAPI, s.store)
 	return cmdtest.RunCommandWithDummyProvider(ctx, remove, args...)
 }
 
@@ -177,6 +183,9 @@ func (s *RemoveUnitSuite) TestRemoveUnitWithPrompt(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	ctx.Stdin = &stdin
 
+	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
+	s.mockModelConfigAPI.EXPECT().ModelGet().Return(attrs, nil)
+
 	s.mockApi.EXPECT().DestroyUnits(apiapplication.DestroyUnitsParams{
 		Units:  []string{"unit/0"},
 		DryRun: true,
@@ -211,6 +220,9 @@ func (s *RemoveUnitSuite) TestRemoveUnitWithPromptOldFacade(c *gc.C) {
 	var stdin bytes.Buffer
 	ctx := cmdtesting.Context(c)
 	ctx.Stdin = &stdin
+
+	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
+	s.mockModelConfigAPI.EXPECT().ModelGet().Return(attrs, nil)
 
 	s.mockApi.EXPECT().DestroyUnits(apiapplication.DestroyUnitsParams{
 		Units: []string{"unit/0"},

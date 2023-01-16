@@ -201,6 +201,9 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 				{Id: "0", Hardware: &params.MachineHardware{Cores: &eight}, InstanceId: "id-4", DisplayName: "snowflake", Status: "pending", WantsVote: true},
 				{Id: "1", Hardware: stdHw, InstanceId: "id-5", Status: "pending"},
 			},
+			Applications: []params.ModelApplicationInfo{
+				{Name: "mysql"},
+			},
 			Volumes: []params.ModelVolumeInfo{{
 				Id: "0", Status: "pending", Detachable: true,
 			}},
@@ -220,6 +223,9 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 			Machines: []params.ModelMachineInfo{
 				{Id: "0", Hardware: stdHw, InstanceId: "id-8", Status: "pending"},
 				{Id: "1", Hardware: stdHw, InstanceId: "id-9", Status: "pending"},
+			},
+			Applications: []params.ModelApplicationInfo{
+				{Name: "mysql"},
 			},
 		},
 	})
@@ -263,6 +269,7 @@ func (s *modelStatusSuite) TestModelStatusCAAS(c *gc.C) {
 			OwnerTag:           s.Owner.String(),
 			Life:               life.Alive,
 			Type:               string(state.ModelTypeIAAS),
+			Applications:       []params.ModelApplicationInfo{},
 		},
 		{
 			ModelTag:           hostedModelTag,
@@ -272,6 +279,9 @@ func (s *modelStatusSuite) TestModelStatusCAAS(c *gc.C) {
 			OwnerTag:           otherModelOwner.UserTag.String(),
 			Life:               life.Alive,
 			Type:               string(state.ModelTypeCAAS),
+			Applications: []params.ModelApplicationInfo{
+				{Name: "gitlab"},
+			},
 		},
 	})
 }

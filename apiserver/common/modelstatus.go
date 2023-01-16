@@ -4,6 +4,7 @@
 package common
 
 import (
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -19,6 +20,14 @@ type ModelStatusAPI struct {
 	authorizer facade.Authorizer
 	apiUser    names.UserTag
 	backend    ModelManagerBackend
+}
+
+// ModelApplicationInfo returns information about applications.
+func ModelApplicationInfo(applications []Application) ([]params.ModelApplicationInfo, error) {
+	applicationInfo := transform.Slice(applications, func(app Application) params.ModelApplicationInfo {
+		return params.ModelApplicationInfo{Name: app.Name()}
+	})
+	return applicationInfo, nil
 }
 
 // NewModelStatusAPI creates an implementation providing the ModelStatus() API.
@@ -99,28 +108,41 @@ func (c *ModelStatusAPI) modelStatus(tag string) (params.ModelStatus, error) {
 		return status, errors.Trace(err)
 	}
 
-	result := params.ModelStatus{
-		ModelTag:           tag,
-		OwnerTag:           model.Owner().String(),
-		Life:               life.Value(model.Life().String()),
-		Type:               string(model.Type()),
-		HostedMachineCount: len(hostedMachines),
-		ApplicationCount:   len(applications),
-		UnitCount:          unitCount,
-		Machines:           modelMachines,
+	// TODO (Anvial): we need to think about common parameter list (maybe "st") to all these functions:
+	// ModelMachineInfo, ModelApplicationInfo, ModelVolumeInfo, ModelFilesystemInfo. Looks like better to do in
+	// ModelMachineInfo style and optimize st.*() calls.
+
+	modelApplications, err := ModelApplicationInfo(applications)
+	if err != nil {
+		return status, errors.Trace(err)
 	}
 
 	volumes, err := st.AllVolumes()
 	if err != nil {
 		return status, errors.Trace(err)
 	}
-	result.Volumes = ModelVolumeInfo(volumes)
+	modelVolumes := ModelVolumeInfo(volumes)
 
 	filesystems, err := st.AllFilesystems()
 	if err != nil {
 		return status, errors.Trace(err)
 	}
-	result.Filesystems = ModelFilesystemInfo(filesystems)
+	modelFilesystems := ModelFilesystemInfo(filesystems)
+
+	result := params.ModelStatus{
+		ModelTag:           tag,
+		OwnerTag:           model.Owner().String(),
+		Life:               life.Value(model.Life().String()),
+		Type:               string(model.Type()),
+		HostedMachineCount: len(hostedMachines),
+		ApplicationCount:   len(modelApplications),
+		UnitCount:          unitCount,
+		Applications:       modelApplications,
+		Machines:           modelMachines,
+		Volumes:            modelVolumes,
+		Filesystems:        modelFilesystems,
+	}
+
 	return result, nil
 }
 

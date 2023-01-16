@@ -4,6 +4,7 @@
 package common
 
 import (
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -117,5 +118,8 @@ func constructModelStatus(m names.ModelTag, owner names.UserTag, r params.ModelS
 			HAPrimary:   mm.HAPrimary,
 		}
 	}
+	result.Applications = transform.Slice(r.Applications, func(app params.ModelApplicationInfo) base.Application {
+		return base.Application{Name: app.Name}
+	})
 	return result
 }

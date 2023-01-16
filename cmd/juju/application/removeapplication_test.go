@@ -18,7 +18,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cmd/cmdtest"
 	"github.com/juju/juju/cmd/juju/application/mocks"
-	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/provider/dummy"
@@ -28,12 +28,12 @@ import (
 
 type removeApplicationSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
-	mockApi *mocks.MockRemoveApplicationAPI
+	mockApi            *mocks.MockRemoveApplicationAPI
+	mockModelConfigAPI *mocks.MockModelConfigClient
 
 	facadeVersion int
 
-	apiFunc func() (RemoveApplicationAPI, error)
-	store   *jujuclient.MemStore
+	store *jujuclient.MemStore
 }
 
 var _ = gc.Suite(&removeApplicationSuite{})
@@ -41,9 +41,6 @@ var _ = gc.Suite(&removeApplicationSuite{})
 func (s *removeApplicationSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.store = jujuclienttesting.MinimalStore()
-	s.apiFunc = func() (RemoveApplicationAPI, error) {
-		return s.mockApi, nil
-	}
 	s.facadeVersion = 16
 }
 
@@ -53,15 +50,18 @@ func (s *removeApplicationSuite) setup(c *gc.C) *gomock.Controller {
 	s.mockApi.EXPECT().BestAPIVersion().Return(s.facadeVersion).AnyTimes()
 	s.mockApi.EXPECT().Close()
 
+	s.mockModelConfigAPI = mocks.NewMockModelConfigClient(ctrl)
+	s.mockModelConfigAPI.EXPECT().Close()
+
 	return ctrl
 }
 
 func (s *removeApplicationSuite) runRemoveApplication(c *gc.C, args ...string) (*cmd.Context, error) {
-	return cmdtesting.RunCommand(c, NewRemoveApplicationCommandForTest(s.apiFunc, s.store), args...)
+	return cmdtesting.RunCommand(c, NewRemoveApplicationCommandForTest(s.mockApi, s.mockModelConfigAPI, s.store), args...)
 }
 
 func (s *removeApplicationSuite) runWithContext(ctx *cmd.Context, args ...string) (chan dummy.Operation, chan error) {
-	remove := NewRemoveApplicationCommandForTest(s.apiFunc, s.store)
+	remove := NewRemoveApplicationCommandForTest(s.mockApi, s.mockModelConfigAPI, s.store)
 	return cmdtest.RunCommandWithDummyProvider(ctx, remove, args...)
 }
 
@@ -81,10 +81,12 @@ func (s *removeApplicationSuite) TestRemoveApplication(c *gc.C) {
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
 }
 
-func (s *removeApplicationSuite) TestRemoveApplicationWithSkipConfEnvvar(c *gc.C) {
+func (s *removeApplicationSuite) TestRemoveApplicationWithRequiresPromptModeAbsent(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.PatchEnvironment(osenv.JujuSkipConfirmationEnvKey, "1")
+	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ModeKey: ""})
+	s.mockModelConfigAPI.EXPECT().ModelGet().Return(attrs, nil)
+
 	s.mockApi.EXPECT().DestroyApplications(apiapplication.DestroyApplicationsParams{
 		Applications: []string{"real-app"},
 	}).Return([]params.DestroyApplicationResult{{
@@ -149,6 +151,9 @@ func (s *removeApplicationSuite) TestRemoveApplicationPrompt(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	ctx.Stdin = &stdin
 
+	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
+	s.mockModelConfigAPI.EXPECT().ModelGet().Return(attrs, nil)
+
 	s.mockApi.EXPECT().DestroyApplications(apiapplication.DestroyApplicationsParams{
 		Applications: []string{"real-app"},
 		DryRun:       true,
@@ -182,6 +187,9 @@ func (s *removeApplicationSuite) TestRemoveApplicationPromptOldFacade(c *gc.C) {
 	var stdin bytes.Buffer
 	ctx := cmdtesting.Context(c)
 	ctx.Stdin = &stdin
+
+	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
+	s.mockModelConfigAPI.EXPECT().ModelGet().Return(attrs, nil)
 
 	s.mockApi.EXPECT().DestroyApplications(apiapplication.DestroyApplicationsParams{
 		Applications: []string{"real-app"},

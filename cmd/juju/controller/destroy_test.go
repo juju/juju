@@ -26,7 +26,6 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/rpc/params"
@@ -288,19 +287,6 @@ func (s *DestroySuite) TestDestroy(c *gc.C) {
 	checkControllerRemovedFromStore(c, "test1", s.store)
 }
 
-func (s *DestroySuite) TestDestroyWithSkipConfirmEnvVar(c *gc.C) {
-	s.PatchEnvironment(osenv.JujuSkipConfirmationEnvKey, "true")
-	_, err := s.runDestroyCommand(c, "test1")
-	c.Assert(err, jc.ErrorIsNil)
-	checkControllerRemovedFromStore(c, "test1", s.store)
-}
-
-func (s *DestroySuite) TestDestroyWithSkipConfirmIncorrectEnvVar(c *gc.C) {
-	s.PatchEnvironment(osenv.JujuSkipConfirmationEnvKey, "incorrect_value")
-	_, err := s.runDestroyCommand(c, "test1")
-	c.Assert(err, gc.ErrorMatches, "Unexpected value of JUJU_SKIP_CONFIRMATION env var, needs to be bool.")
-}
-
 func (s *DestroySuite) TestDestroyAlias(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test1", "--no-prompt")
 	c.Assert(err, jc.ErrorIsNil)
@@ -310,9 +296,9 @@ func (s *DestroySuite) TestDestroyAlias(c *gc.C) {
 func (s *DestroySuite) TestDestroyWithDestroyAllModelsFlag(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test1", "--no-prompt", "--destroy-all-models")
 	c.Assert(err, jc.ErrorIsNil)
-	s.api.CheckCallNames(c, "DestroyController", "AllModels", "ModelStatus", "Close")
+	s.api.CheckCallNames(c, "AllModels", "ModelStatus", "DestroyController", "AllModels", "ModelStatus", "Close")
 	timeout := 30 * time.Minute
-	s.api.CheckCall(c, 0, "DestroyController", apicontroller.DestroyControllerParams{
+	s.api.CheckCall(c, 2, "DestroyController", apicontroller.DestroyControllerParams{
 		DestroyModels: true,
 		ModelTimeout:  &timeout,
 	})
@@ -324,7 +310,7 @@ func (s *DestroySuite) TestDestroyWithDestroyDestroyStorageFlag(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	destroyStorage := true
 	timeout := 30 * time.Minute
-	s.api.CheckCall(c, 0, "DestroyController", apicontroller.DestroyControllerParams{
+	s.api.CheckCall(c, 2, "DestroyController", apicontroller.DestroyControllerParams{
 		DestroyStorage: &destroyStorage,
 		ModelTimeout:   &timeout,
 	})
@@ -335,7 +321,7 @@ func (s *DestroySuite) TestDestroyWithDestroyReleaseStorageFlag(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	destroyStorage := false
 	timeout := 30 * time.Minute
-	s.api.CheckCall(c, 0, "DestroyController", apicontroller.DestroyControllerParams{
+	s.api.CheckCall(c, 2, "DestroyController", apicontroller.DestroyControllerParams{
 		DestroyStorage: &destroyStorage,
 		ModelTimeout:   &timeout,
 	})
@@ -351,7 +337,7 @@ func (s *DestroySuite) TestDestroyWithForceFlag(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	force := true
 	timeout := 10 * time.Minute
-	s.api.CheckCall(c, 0, "DestroyController", apicontroller.DestroyControllerParams{
+	s.api.CheckCall(c, 2, "DestroyController", apicontroller.DestroyControllerParams{
 		Force:        &force,
 		ModelTimeout: &timeout,
 	})
@@ -371,7 +357,10 @@ func (s *DestroySuite) TestDestroyWithDestroyDestroyStorageFlagUnspecified(c *gc
 		s.api.envStatus[uuid] = status
 	}
 
-	s.api.SetErrors(&params.Error{Code: params.CodeHasPersistentStorage})
+	s.api.SetErrors(
+		errors.New("cannot destroy controller \"test1\""),
+		&params.Error{Code: params.CodeHasPersistentStorage},
+	)
 	_, err := s.runDestroyCommand(c, "test1", "--no-prompt", "--destroy-all-models")
 	c.Assert(err.Error(), gc.Equals, `cannot destroy controller "test1"
 
@@ -399,7 +388,10 @@ func (s *DestroySuite) TestDestroyControllerGetFails(c *gc.C) {
 }
 
 func (s *DestroySuite) TestFailedDestroyController(c *gc.C) {
-	s.api.SetErrors(errors.New("permission denied"))
+	s.api.SetErrors(
+		errors.New("failed to destroy controller \"test1\""),
+		errors.New("permission denied"),
+	)
 	_, err := s.runDestroyCommand(c, "test1", "--no-prompt")
 	c.Assert(err, gc.ErrorMatches, "cannot destroy controller: permission denied")
 	checkControllerExistsInStore(c, "test1", s.store)
@@ -410,7 +402,10 @@ func (s *DestroySuite) TestDestroyControllerAliveModels(c *gc.C) {
 		status.Life = life.Alive
 		s.api.envStatus[uuid] = status
 	}
-	s.api.SetErrors(&params.Error{Code: params.CodeHasHostedModels})
+	s.api.SetErrors(
+		errors.New("cannot destroy controller \"test1\""),
+		&params.Error{Code: params.CodeHasHostedModels},
+	)
 	_, err := s.runDestroyCommand(c, "test1", "--no-prompt")
 	c.Assert(err.Error(), gc.Equals, `cannot destroy controller "test1"
 
@@ -423,7 +418,6 @@ Models:
 	owner/test2:test2 (alive)
 	owner/test3:admin (alive)
 `)
-
 }
 
 func (s *DestroySuite) TestDestroyControllerReattempt(c *gc.C) {
@@ -436,9 +430,7 @@ func (s *DestroySuite) TestDestroyControllerReattempt(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test1", "--no-prompt")
 	c.Assert(err, jc.ErrorIsNil)
 	s.api.CheckCallNames(c,
-		"DestroyController",
 		"AllModels",
-		"ModelStatus",
 		"DestroyController",
 		"AllModels",
 		"ModelStatus",
@@ -478,7 +470,8 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 	case <-time.After(testing.LongWait):
 		c.Fatalf("command took too long")
 	}
-	c.Check(cmdtesting.Stderr(ctx), gc.Matches, "WARNING!.*test1(.|\n)*")
+	testLog := c.GetTestLog()
+	c.Check(testLog, gc.Matches, "(.|\n)*WARNING.*test1(.|\n)*")
 	checkControllerExistsInStore(c, "test1", s.store)
 
 	// EOF on stdin: equivalent to answering no.
@@ -492,7 +485,8 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 	case <-time.After(testing.LongWait):
 		c.Fatalf("command took too long")
 	}
-	c.Check(cmdtesting.Stderr(ctx), gc.Matches, "WARNING!.*test1(.|\n)*")
+	testLog = c.GetTestLog()
+	c.Check(testLog, gc.Matches, "(.|\n)*WARNING.*test1(.|\n)*")
 	checkControllerExistsInStore(c, "test1", s.store)
 
 	answer := "test1"
@@ -514,7 +508,10 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 }
 
 func (s *DestroySuite) TestBlockedDestroy(c *gc.C) {
-	s.api.SetErrors(&params.Error{Code: params.CodeOperationBlocked})
+	s.api.SetErrors(
+		errors.New("cannot destroy controller \"test1\""),
+		&params.Error{Code: params.CodeOperationBlocked},
+	)
 	s.runDestroyCommand(c, "test1", "--no-prompt")
 	testLog := c.GetTestLog()
 	c.Check(testLog, jc.Contains, "To enable controller destruction, please run:")
@@ -523,6 +520,7 @@ func (s *DestroySuite) TestBlockedDestroy(c *gc.C) {
 
 func (s *DestroySuite) TestDestroyListBlocksError(c *gc.C) {
 	s.api.SetErrors(
+		errors.New("cannot destroy controller \"test1\""),
 		&params.Error{Code: params.CodeOperationBlocked},
 		errors.New("unexpected api error"),
 	)
@@ -534,7 +532,10 @@ func (s *DestroySuite) TestDestroyListBlocksError(c *gc.C) {
 }
 
 func (s *DestroySuite) TestDestroyReturnsBlocks(c *gc.C) {
-	s.api.SetErrors(&params.Error{Code: params.CodeOperationBlocked})
+	s.api.SetErrors(
+		errors.New("there are models with disabled commands preventing controller destruction"),
+		&params.Error{Code: params.CodeOperationBlocked},
+	)
 	s.api.blocks = []params.ModelBlockInfo{
 		{
 			Name:     "test1",
@@ -555,7 +556,8 @@ func (s *DestroySuite) TestDestroyReturnsBlocks(c *gc.C) {
 		},
 	}
 	ctx, _ := s.runDestroyCommand(c, "test1", "--no-prompt", "--destroy-all-models")
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Destroying controller\n"+
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Unable to get the controller summary from the API: there are models with disabled commands preventing controller destruction.\n"+
+		"Destroying controller\n"+
 		"Name   Model UUID                            Owner   Disabled commands\n"+
 		"test1  1871299e-1370-4f3e-83ab-1849ed7b1076  cheryl  destroy-model\n"+
 		"test2  c59d0e3b-2bd7-4867-b1b9-f1ef8a0bb004  bob     all, destroy-model\n")
