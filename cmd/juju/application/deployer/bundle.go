@@ -273,7 +273,7 @@ type repositoryBundle struct {
 // String returns a string description of the deployer.
 func (d *repositoryBundle) String() string {
 	str := fmt.Sprintf("deploy bundle: %s", d.bundleURL.String())
-	if isEmptyOrigin(d.origin, commoncharm.OriginCharmStore) {
+	if isEmptyOrigin(d.origin, commoncharm.OriginCharmHub) {
 		return str
 	}
 	var revision string

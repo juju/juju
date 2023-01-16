@@ -17,7 +17,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v9"
 	charmresource "github.com/juju/charm/v9/resource"
-	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/collections/set"
@@ -2261,7 +2260,6 @@ type fakeDeployAPI struct {
 	deployer.DeployerAPI
 	*jujutesting.CallMocker
 	deployerFactoryFunc func(dep deployer.DeployerDependencies) deployer.DeployerFactory
-	charmRepoFunc       func() (*store.CharmStoreAdaptor, error)
 	modelCons           constraints.Value
 }
 
@@ -2489,23 +2487,6 @@ func (f *fakeDeployAPI) GrantOffer(user, access string, offerURLs ...string) err
 	return jujutesting.TypeAssertError(res[0])
 }
 
-func (f *fakeDeployAPI) ResolveWithPreferredChannel(url *charm.URL, risk csparams.Channel) (*charm.URL, csparams.Channel, []string, error) {
-	results := f.MethodCall(f, "ResolveWithPreferredChannel", url)
-	return results[0].(*charm.URL), results[1].(csparams.Channel), results[2].([]string), results[3].(error)
-}
-
-type fakeCharmStoreAPI struct {
-	*fakeDeployAPI
-}
-
-func (f *fakeCharmStoreAPI) GetBundle(url *charm.URL, _ string) (charm.Bundle, error) {
-	results := f.MethodCall(f, "GetBundle", url)
-	if results == nil {
-		return nil, errors.NotFoundf("bundle %v", url)
-	}
-	return results[0].(charm.Bundle), jujutesting.TypeAssertError(results[1])
-}
-
 func stringToInterface(args []string) []interface{} {
 	interfaceArgs := make([]interface{}, len(args))
 	for i, a := range args {
@@ -2517,9 +2498,6 @@ func stringToInterface(args []string) []interface{} {
 func vanillaFakeModelAPI(cfgAttrs map[string]interface{}) *fakeDeployAPI {
 	var logger loggo.Logger
 	fakeAPI := &fakeDeployAPI{CallMocker: jujutesting.NewCallMocker(logger)}
-	fakeAPI.charmRepoFunc = func() (*store.CharmStoreAdaptor, error) {
-		return &store.CharmStoreAdaptor{}, nil
-	}
 
 	fakeAPI.Call("Close").Returns(error(nil))
 	fakeAPI.Call("ModelGet").Returns(cfgAttrs, error(nil))
