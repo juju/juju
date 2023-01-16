@@ -9,6 +9,7 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/loggo"
 	"github.com/juju/proxy"
 	"github.com/juju/schema"
@@ -1230,17 +1231,17 @@ func (s *ConfigSuite) TestCharmHubURL(c *gc.C) {
 }
 
 func (s *ConfigSuite) TestMode(c *gc.C) {
-	config := newTestConfig(c, testing.Attrs{})
-	mode, ok := config.Mode()
+	cfg := newTestConfig(c, testing.Attrs{})
+	mode, ok := cfg.Mode()
 	c.Assert(ok, jc.IsFalse)
-	c.Assert(mode, gc.DeepEquals, []string{})
+	c.Assert(mode, gc.DeepEquals, set.NewStrings())
 
-	config = newTestConfig(c, testing.Attrs{
-		"mode": "strict",
+	cfg = newTestConfig(c, testing.Attrs{
+		config.ModeKey: config.RequiresPromptsMode,
 	})
-	mode, ok = config.Mode()
+	mode, ok = cfg.Mode()
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(mode, gc.DeepEquals, []string{"strict"})
+	c.Assert(mode, gc.DeepEquals, set.NewStrings(config.RequiresPromptsMode))
 }
 
 func (s *ConfigSuite) TestLoggingOutput(c *gc.C) {
