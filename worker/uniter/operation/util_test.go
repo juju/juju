@@ -6,7 +6,7 @@ package operation_test
 import (
 	"sync"
 
-	"github.com/juju/charm/v9/hooks"
+	"github.com/juju/charm/v10/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
@@ -579,7 +579,7 @@ var overwriteState = operation.State{
 	Kind:     operation.Continue,
 	Step:     operation.Pending,
 	Started:  true,
-	CharmURL: "cs:quantal/wordpress-2",
+	CharmURL: "ch:quantal/wordpress-2",
 	ActionId: &randomActionId,
 	Hook:     &hook.Info{Kind: hooks.Install},
 }

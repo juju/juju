@@ -4,11 +4,12 @@
 package bundlechanges
 
 import (
-	"github.com/juju/charm/v9"
-	"github.com/juju/juju/core/series"
+	"github.com/juju/charm/v10"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/core/series"
 )
 
 type resolverSuite struct {

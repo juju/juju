@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -157,7 +157,7 @@ func (s *crossmodelMockSuite) TestList(c *gc.C) {
 				results.Results = []params.ApplicationOfferAdminDetails{{
 					ApplicationOfferDetails: offer,
 					ApplicationName:         "db2-app",
-					CharmURL:                "cs:db2-5",
+					CharmURL:                "ch:db2-5",
 					Connections: []params.OfferConnection{
 						{SourceModelTag: testing.ModelTag.String(), Username: "fred", RelationId: 3,
 							Endpoint: "db", Status: params.EntityStatus{Status: "joined", Info: "message", Since: &since},
@@ -178,7 +178,7 @@ func (s *crossmodelMockSuite) TestList(c *gc.C) {
 		OfferName:       offerName,
 		Endpoints:       []charm.Relation{{Name: "endPointA"}},
 		ApplicationName: "db2-app",
-		CharmURL:        "cs:db2-5",
+		CharmURL:        "ch:db2-5",
 		Connections: []jujucrossmodel.OfferConnection{
 			{SourceModelUUID: testing.ModelTag.Id(), Username: "fred", RelationId: 3,
 				Endpoint: "db", Status: "joined", Message: "message", Since: &since,
@@ -282,7 +282,7 @@ func (s *crossmodelMockSuite) TestShow(c *gc.C) {
 							},
 						},
 						ApplicationName: "db2-app",
-						CharmURL:        "cs:db2-5",
+						CharmURL:        "ch:db2-5",
 						Connections: []params.OfferConnection{
 							{SourceModelTag: testing.ModelTag.String(), Username: "fred", RelationId: 3,
 								Endpoint: "db", Status: params.EntityStatus{Status: "joined", Info: "message", Since: &since},
@@ -307,7 +307,7 @@ func (s *crossmodelMockSuite) TestShow(c *gc.C) {
 			{Name: "log", Role: "requirer", Interface: "http", Optional: false, Limit: 0, Scope: ""}},
 		ApplicationName:        "db2-app",
 		ApplicationDescription: "IBM DB2 Express Server Edition is an entry level database system",
-		CharmURL:               "cs:db2-5",
+		CharmURL:               "ch:db2-5",
 		Users: []jujucrossmodel.OfferUserDetails{
 			{UserName: "fred", DisplayName: "Fred", Access: "consume"},
 		},

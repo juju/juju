@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -144,7 +144,7 @@ func (s *downloaderSuite) TestDownloadAndHash(c *gc.C) {
 func (s downloaderSuite) TestCharmAlreadyStored(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	curl := charm.MustParseURL("cs:redis-0")
+	curl := charm.MustParseURL("ch:redis-0")
 	requestedOrigin := corecharm.Origin{Source: corecharm.CharmHub, Channel: mustParseChannel(c, "20.04/edge")}
 	knownOrigin := corecharm.Origin{Source: corecharm.CharmHub, ID: "knowncharmhubid", Hash: "knowncharmhash", Channel: mustParseChannel(c, "20.04/candidate")}
 
@@ -164,7 +164,7 @@ func (s downloaderSuite) TestCharmAlreadyStored(c *gc.C) {
 func (s downloaderSuite) TestPrepareToStoreCharmError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	curl := charm.MustParseURL("cs:redis-0")
+	curl := charm.MustParseURL("ch:redis-0")
 	requestedOrigin := corecharm.Origin{Source: corecharm.CharmHub, Channel: mustParseChannel(c, "20.04/edge")}
 
 	s.storage.EXPECT().PrepareToStoreCharm(curl).Return(

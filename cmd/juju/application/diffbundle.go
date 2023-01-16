@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -101,9 +101,6 @@ func NewDiffBundleCommand() cmd.Command {
 	command.newAPIRootFn = func() (base.APICallCloser, error) {
 		return command.NewAPIRoot()
 	}
-	command.newControllerAPIRootFn = func() (base.APICallCloser, error) {
-		return command.NewControllerAPIRoot()
-	}
 	command.modelConfigClientFunc = func(api base.APICallCloser) ModelConfigClient {
 		return modelconfig.NewClient(api)
 	}
@@ -136,7 +133,6 @@ type diffBundleCommand struct {
 
 	charmAdaptorFn             func(base.APICallCloser, *charm.URL) (BundleResolver, error)
 	newAPIRootFn               func() (base.APICallCloser, error)
-	newControllerAPIRootFn     func() (base.APICallCloser, error)
 	modelConfigClientFunc      func(base.APICallCloser) ModelConfigClient
 	modelConstraintsClientFunc func() (ModelConstraintsClient, error)
 	newCharmHubClient          func(string) (store.DownloadBundleClient, error)

@@ -27,7 +27,7 @@ func newClient(f basetesting.APICallerFunc, ver int) *bundle.Client {
 }
 
 func (s *bundleMockSuite) TestGetChanges(c *gc.C) {
-	bundleURL := "cs:bundle-url"
+	bundleURL := "ch:bundle-url"
 	bundleYAML := `applications:
 	ubuntu:
 		charm: ch:ubuntu
@@ -92,7 +92,7 @@ func (s *bundleMockSuite) TestGetChanges(c *gc.C) {
 }
 
 func (s *bundleMockSuite) TestGetChangesReturnsErrors(c *gc.C) {
-	bundleURL := "cs:bundle-url"
+	bundleURL := "ch:bundle-url"
 	bundleYAML := `applications:
 	ubuntu:
 		charm: ch:ubuntu
@@ -130,7 +130,7 @@ func (s *bundleMockSuite) TestGetChangesReturnsErrors(c *gc.C) {
 }
 
 func (s *bundleMockSuite) TestGetChangesMapArgs(c *gc.C) {
-	bundleURL := "cs:bundle-url"
+	bundleURL := "ch:bundle-url"
 	bundleYAML := `applications:
 	ubuntu:
 		charm: ch:ubuntu
@@ -191,7 +191,7 @@ func (s *bundleMockSuite) TestGetChangesMapArgs(c *gc.C) {
 }
 
 func (s *bundleMockSuite) TestGetChangesMapArgsReturnsErrors(c *gc.C) {
-	bundleURL := "cs:bundle-url"
+	bundleURL := "ch:bundle-url"
 	bundleYAML := `applications:
 	ubuntu:
 		charm: ch:ubuntu

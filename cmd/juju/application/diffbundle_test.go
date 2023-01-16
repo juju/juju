@@ -10,7 +10,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
@@ -669,7 +669,7 @@ machines:
 applications:
   prometheus:
     charm: 'prometheus2'
-    revision: 7
+    revision: 47
     channel: stable
     num_units: 1
     series: xenial
@@ -729,7 +729,7 @@ series: bionic
 applications:
   prometheus:
     charm: 'prometheus2'
-    revision: 7
+    revision: 47
     channel: stable
     num_units: 1
     series: xenial

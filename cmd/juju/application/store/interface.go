@@ -4,7 +4,7 @@
 package store
 
 import (
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 
 	apicharm "github.com/juju/juju/api/client/charms"
 	commoncharm "github.com/juju/juju/api/common/charm"

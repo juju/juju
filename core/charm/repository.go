@@ -6,8 +6,8 @@ package charm
 import (
 	"net/url"
 
-	"github.com/juju/charm/v9"
-	charmresource "github.com/juju/charm/v9/resource"
+	"github.com/juju/charm/v10"
+	charmresource "github.com/juju/charm/v10/resource"
 )
 
 // Repository describes an API for querying charm/bundle information and

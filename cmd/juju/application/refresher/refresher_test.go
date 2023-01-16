@@ -8,8 +8,7 @@ import (
 	"os"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v9"
-	"github.com/juju/charmrepo/v7"
+	"github.com/juju/charm/v10"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -289,7 +288,7 @@ func (s *localCharmRefresherSuite) TestRefreshDoesNotFindLocal(c *gc.C) {
 
 	charmAdder := NewMockCharmAdder(ctrl)
 	charmRepo := NewMockCharmRepository(ctrl)
-	charmRepo.EXPECT().NewCharmAtPathForceSeries(ref, "", false).Return(nil, nil, &charmrepo.NotFoundError{})
+	charmRepo.EXPECT().NewCharmAtPathForceSeries(ref, "", false).Return(nil, nil, errors.NotFoundf("fail"))
 
 	cfg := basicRefresherConfig(curl, ref)
 
