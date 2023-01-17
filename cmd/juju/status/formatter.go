@@ -21,12 +21,12 @@ import (
 )
 
 type statusFormatter struct {
-	status                 *params.FullStatus
-	controllerName         string
-	outputName             string
-	relations              map[int]params.RelationStatus
-	storage                *storage.CombinedStorage
-	isoTime, showRelations bool
+	status                    *params.FullStatus
+	controllerName            string
+	outputName                string
+	integrations              map[int]params.RelationStatus
+	storage                   *storage.CombinedStorage
+	isoTime, showIntegrations bool
 
 	// Ideally this map should not be here.  It is used to facilitate
 	// getting an active branch ref number for a subordinate unit.
@@ -40,35 +40,35 @@ type statusFormatter struct {
 func NewStatusFormatter(status *params.FullStatus, isoTime bool) *statusFormatter {
 	return newStatusFormatter(
 		newStatusFormatterParams{
-			status:        status,
-			isoTime:       isoTime,
-			showRelations: true,
+			status:           status,
+			isoTime:          isoTime,
+			showIntegrations: true,
 		})
 }
 
 type newStatusFormatterParams struct {
-	storage                *storage.CombinedStorage
-	status                 *params.FullStatus
-	controllerName         string
-	outputName             string
-	activeBranch           string
-	isoTime, showRelations bool
+	storage                   *storage.CombinedStorage
+	status                    *params.FullStatus
+	controllerName            string
+	outputName                string
+	activeBranch              string
+	isoTime, showIntegrations bool
 }
 
 func newStatusFormatter(p newStatusFormatterParams) *statusFormatter {
 	sf := statusFormatter{
-		storage:        p.storage,
-		status:         p.status,
-		controllerName: p.controllerName,
-		relations:      make(map[int]params.RelationStatus),
-		isoTime:        p.isoTime,
-		showRelations:  p.showRelations,
-		outputName:     p.outputName,
-		activeBranch:   p.activeBranch,
+		storage:          p.storage,
+		status:           p.status,
+		controllerName:   p.controllerName,
+		integrations:     make(map[int]params.RelationStatus),
+		isoTime:          p.isoTime,
+		showIntegrations: p.showIntegrations,
+		outputName:       p.outputName,
+		activeBranch:     p.activeBranch,
 	}
-	if p.showRelations {
-		for _, relation := range p.status.Relations {
-			sf.relations[relation.Id] = relation
+	if p.showIntegrations {
+		for _, integration := range p.status.Relations {
+			sf.integrations[integration.Id] = integration
 		}
 	}
 	return &sf
@@ -98,7 +98,7 @@ func (sf *statusFormatter) format() (formattedStatus, error) {
 		Applications:       make(map[string]applicationStatus),
 		RemoteApplications: make(map[string]remoteApplicationStatus),
 		Offers:             make(map[string]offerStatus),
-		Relations:          make([]relationStatus, len(sf.relations)),
+		Integrations:       make([]integrationStatus, len(sf.integrations)),
 		Branches:           make(map[string]branchStatus),
 	}
 	if sf.status.Model.MeterStatus.Color != "" {
@@ -137,8 +137,8 @@ func (sf *statusFormatter) format() (formattedStatus, error) {
 		out.Offers[name] = sf.formatOffer(name, offer)
 	}
 	i = 0
-	for _, rel := range sf.relations {
-		out.Relations[i] = sf.formatRelation(rel)
+	for _, rel := range sf.integrations {
+		out.Integrations[i] = sf.formatIntegration(rel)
 		i++
 	}
 	if sf.storage != nil {
@@ -285,7 +285,7 @@ func (sf *statusFormatter) formatApplication(name string, application params.App
 		Scale:            application.Scale,
 		ProviderId:       application.ProviderId,
 		Address:          application.PublicAddress,
-		Relations:        application.Relations,
+		Integrations:     application.Relations,
 		CanUpgradeTo:     application.CanUpgradeTo,
 		SubordinateTo:    application.SubordinateTo,
 		Units:            make(map[string]unitStatus),
@@ -309,11 +309,11 @@ func (sf *statusFormatter) formatApplication(name string, application params.App
 
 func (sf *statusFormatter) formatRemoteApplication(name string, application params.RemoteApplicationStatus) remoteApplicationStatus {
 	out := remoteApplicationStatus{
-		Err:        typedNilCheck(application.Err),
-		OfferURL:   application.OfferURL,
-		Life:       string(application.Life),
-		Relations:  application.Relations,
-		StatusInfo: sf.getRemoteApplicationStatusInfo(application),
+		Err:          typedNilCheck(application.Err),
+		OfferURL:     application.OfferURL,
+		Life:         string(application.Life),
+		Integrations: application.Relations,
+		StatusInfo:   sf.getRemoteApplicationStatusInfo(application),
 	}
 	out.Endpoints = make(map[string]remoteEndpoint)
 	for _, ep := range application.Endpoints {
@@ -325,7 +325,7 @@ func (sf *statusFormatter) formatRemoteApplication(name string, application para
 	return out
 }
 
-func (sf *statusFormatter) formatRelation(rel params.RelationStatus) relationStatus {
+func (sf *statusFormatter) formatIntegration(rel params.RelationStatus) integrationStatus {
 	var provider, requirer params.EndpointStatus
 	for _, ep := range rel.Endpoints {
 		switch charm.RelationRole(ep.Role) {
@@ -347,7 +347,7 @@ func (sf *statusFormatter) formatRelation(rel params.RelationStatus) relationSta
 	default:
 		relType = "regular"
 	}
-	out := relationStatus{
+	out := integrationStatus{
 		Provider:  fmt.Sprintf("%s:%s", provider.ApplicationName, provider.Name),
 		Requirer:  fmt.Sprintf("%s:%s", requirer.ApplicationName, requirer.Name),
 		Interface: rel.Interface,
@@ -510,9 +510,9 @@ func (sf *statusFormatter) getAgentStatusInfo(unit params.UnitStatus) statusInfo
 func (sf *statusFormatter) updateUnitStatusInfo(unit *params.UnitStatus, applicationName string) {
 	// TODO(perrito66) add status validation.
 	if status.Status(unit.WorkloadStatus.Status) == status.Error {
-		if relation, ok := sf.relations[getRelationIdFromData(unit)]; ok {
+		if integration, ok := sf.integrations[getIntegrationIdFromData(unit)]; ok {
 			// Append the details of the other endpoint on to the status info string.
-			if ep, ok := findOtherEndpoint(relation.Endpoints, applicationName); ok {
+			if ep, ok := findOtherEndpoint(integration.Endpoints, applicationName); ok {
 				unit.WorkloadStatus.Info = unit.WorkloadStatus.Info + " for " + ep.String()
 			}
 		}
@@ -565,13 +565,13 @@ func makeHAStatus(hasVote, wantsVote bool) string {
 	return s
 }
 
-func getRelationIdFromData(unit *params.UnitStatus) int {
-	if relationId_, ok := unit.WorkloadStatus.Data["relation-id"]; ok {
-		if relationId, ok := relationId_.(float64); ok {
-			return int(relationId)
+func getIntegrationIdFromData(unit *params.UnitStatus) int {
+	if integrationId_, ok := unit.WorkloadStatus.Data["relation-id"]; ok {
+		if integrationId, ok := integrationId_.(float64); ok {
+			return int(integrationId)
 		} else {
 			logger.Infof("relation-id found status data but was unexpected "+
-				"type: %q. Status output may be lacking some detail.", relationId_)
+				"type: %q. Status output may be lacking some detail.", integrationId_)
 		}
 	}
 	return -1

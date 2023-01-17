@@ -21,7 +21,7 @@ type formattedStatus struct {
 	Applications       map[string]applicationStatus       `json:"applications"`
 	RemoteApplications map[string]remoteApplicationStatus `json:"application-endpoints,omitempty" yaml:"application-endpoints,omitempty"`
 	Offers             map[string]offerStatus             `json:"offers,omitempty" yaml:"offers,omitempty"`
-	Relations          []relationStatus                   `json:"-" yaml:"-"`
+	Integrations       []integrationStatus                `json:"-" yaml:"-"`
 	Storage            *storage.CombinedStorage           `json:"storage,omitempty" yaml:"storage,omitempty"`
 	Controller         *controllerStatus                  `json:"controller,omitempty" yaml:"controller,omitempty"`
 	Branches           map[string]branchStatus            `json:"branches,omitempty" yaml:"branches,omitempty"`
@@ -133,7 +133,7 @@ type applicationStatus struct {
 	Exposed          bool                  `json:"exposed" yaml:"exposed"`
 	Life             string                `json:"life,omitempty" yaml:"life,omitempty"`
 	StatusInfo       statusInfoContents    `json:"application-status,omitempty" yaml:"application-status"`
-	Relations        map[string][]string   `json:"relations,omitempty" yaml:"relations,omitempty"`
+	Integrations     map[string][]string   `json:"integrations,omitempty" yaml:"integrations,omitempty"`
 	SubordinateTo    []string              `json:"subordinate-to,omitempty" yaml:"subordinate-to,omitempty"`
 	Units            map[string]unitStatus `json:"units,omitempty" yaml:"units,omitempty"`
 	Version          string                `json:"version,omitempty" yaml:"version,omitempty"`
@@ -168,12 +168,12 @@ type remoteEndpoint struct {
 }
 
 type remoteApplicationStatus struct {
-	Err        error                     `json:"-" yaml:",omitempty"`
-	OfferURL   string                    `json:"url" yaml:"url"`
-	Endpoints  map[string]remoteEndpoint `json:"endpoints,omitempty" yaml:"endpoints,omitempty"`
-	Life       string                    `json:"life,omitempty" yaml:"life,omitempty"`
-	StatusInfo statusInfoContents        `json:"application-status,omitempty" yaml:"application-status"`
-	Relations  map[string][]string       `json:"relations,omitempty" yaml:"relations,omitempty"`
+	Err          error                     `json:"-" yaml:",omitempty"`
+	OfferURL     string                    `json:"url" yaml:"url"`
+	Endpoints    map[string]remoteEndpoint `json:"endpoints,omitempty" yaml:"endpoints,omitempty"`
+	Life         string                    `json:"life,omitempty" yaml:"life,omitempty"`
+	StatusInfo   statusInfoContents        `json:"application-status,omitempty" yaml:"application-status"`
+	Integrations map[string][]string       `json:"integrations,omitempty" yaml:"integrations,omitempty"`
 }
 
 type remoteApplicationStatusNoMarshal remoteApplicationStatus
@@ -324,7 +324,7 @@ func (s unitStatus) MarshalYAML() (interface{}, error) {
 	return unitStatusNoMarshal(s), nil
 }
 
-type relationStatus struct {
+type integrationStatus struct {
 	Provider  string
 	Requirer  string
 	Interface string

@@ -110,8 +110,8 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		w.Println(err.Error())
 	}
 
-	if len(fs.Relations) > 0 {
-		printRelations(tw, fs.Relations)
+	if len(fs.Integrations) > 0 {
+		printIntegrations(tw, fs.Integrations)
 	}
 
 	if fs.Storage != nil {
@@ -498,18 +498,18 @@ func printRemoteApplications(tw *ansiterm.TabWriter, remoteApplications map[stri
 	endSection(tw)
 }
 
-func printRelations(tw *ansiterm.TabWriter, relations []relationStatus) {
-	sort.Slice(relations, func(i, j int) bool {
-		a, b := relations[i], relations[j]
+func printIntegrations(tw *ansiterm.TabWriter, integrations []integrationStatus) {
+	sort.Slice(integrations, func(i, j int) bool {
+		a, b := integrations[i], integrations[j]
 		if a.Provider == b.Provider {
 			return a.Requirer < b.Requirer
 		}
 		return a.Provider < b.Provider
 	})
 
-	w := startSection(tw, false, "Relation provider", "Requirer", "Interface", "Type", "Message")
+	w := startSection(tw, false, "Integration provider", "Requirer", "Interface", "Type", "Message")
 
-	for _, r := range relations {
+	for _, r := range integrations {
 		provider := strings.Split(r.Provider, ":")
 		w.PrintNoTab(provider[0]) //the service name (mysql)
 		if len(provider) > 1 {

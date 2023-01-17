@@ -494,7 +494,7 @@ var (
 			"message": "somehow lost in all those logs",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"relations": M{
+		"integrations": M{
 			"logging-directory": L{"wordpress"},
 			"info":              L{"mysql"},
 		},
@@ -1436,7 +1436,7 @@ var statusTests = []testCase{
 				},
 				"applications": M{
 					"wordpress": wordpressCharm(M{
-						"relations": M{
+						"integrations": M{
 							"db": L{"mysql"},
 						},
 						"application-status": M{
@@ -1472,7 +1472,7 @@ var statusTests = []testCase{
 						},
 					}),
 					"mysql": mysqlCharm(M{
-						"relations": M{
+						"integrations": M{
 							"server": L{"wordpress"},
 						},
 						"application-status": M{
@@ -1547,7 +1547,7 @@ var statusTests = []testCase{
 				},
 				"applications": M{
 					"wordpress": wordpressCharm(M{
-						"relations": M{
+						"integrations": M{
 							"db": L{"mysql"},
 						},
 						"application-status": M{
@@ -1583,7 +1583,7 @@ var statusTests = []testCase{
 						},
 					}),
 					"mysql": mysqlCharm(M{
-						"relations": M{
+						"integrations": M{
 							"server": L{"wordpress"},
 						},
 						"application-status": M{
@@ -1744,7 +1744,7 @@ var statusTests = []testCase{
 			},
 		},
 	),
-	// Relation tests
+	// Integration tests
 	test( // 9
 		"complex scenario with multiple related applications",
 		addMachine{machineId: "0", job: state.JobManageModel},
@@ -1801,7 +1801,7 @@ var statusTests = []testCase{
 		relateApplications{"private", "mysql", ""},
 
 		expect{
-			what: "multiples applications with relations between some of them",
+			what: "multiples applications with integrations between some of them",
 			output: M{
 				"model": model,
 				"machines": M{
@@ -1843,7 +1843,7 @@ var statusTests = []testCase{
 							"admin-api":       network.AlphaSpaceName,
 							"cache":           network.AlphaSpaceName,
 						},
-						"relations": M{
+						"integrations": M{
 							"db":    L{"mysql"},
 							"cache": L{"varnish"},
 						},
@@ -1874,7 +1874,7 @@ var statusTests = []testCase{
 							"server-admin":   network.AlphaSpaceName,
 							"metrics-client": network.AlphaSpaceName,
 						},
-						"relations": M{
+						"integrations": M{
 							"server": L{"private", "project"},
 						},
 					}),
@@ -1909,7 +1909,7 @@ var statusTests = []testCase{
 							"":         network.AlphaSpaceName,
 							"webcache": network.AlphaSpaceName,
 						},
-						"relations": M{
+						"integrations": M{
 							"webcache": L{"project"},
 						},
 					},
@@ -1946,7 +1946,7 @@ var statusTests = []testCase{
 							"db-client":       network.AlphaSpaceName,
 							"foo-bar":         network.AlphaSpaceName,
 						},
-						"relations": M{
+						"integrations": M{
 							"db": L{"mysql"},
 						},
 					}),
@@ -2063,7 +2063,7 @@ var statusTests = []testCase{
 							"endpoint": network.AlphaSpaceName,
 							"ring":     network.AlphaSpaceName,
 						},
-						"relations": M{
+						"integrations": M{
 							"ring": L{"riak"},
 						},
 					},
@@ -2187,7 +2187,7 @@ var statusTests = []testCase{
 							"foo-bar":         network.AlphaSpaceName,
 							"logging-dir":     network.AlphaSpaceName,
 						},
-						"relations": M{
+						"integrations": M{
 							"db":          L{"mysql"},
 							"logging-dir": L{"logging"},
 						},
@@ -2235,7 +2235,7 @@ var statusTests = []testCase{
 							"server-admin":   network.AlphaSpaceName,
 							"metrics-client": network.AlphaSpaceName,
 						},
-						"relations": M{
+						"integrations": M{
 							"server":    L{"wordpress"},
 							"juju-info": L{"logging"},
 						},
@@ -2316,7 +2316,7 @@ var statusTests = []testCase{
 							"foo-bar":         network.AlphaSpaceName,
 							"logging-dir":     network.AlphaSpaceName,
 						},
-						"relations": M{
+						"integrations": M{
 							"db":          L{"mysql"},
 							"logging-dir": L{"logging"},
 						},
@@ -2364,7 +2364,7 @@ var statusTests = []testCase{
 							"server-admin":   network.AlphaSpaceName,
 							"metrics-client": network.AlphaSpaceName,
 						},
-						"relations": M{
+						"integrations": M{
 							"server":    L{"wordpress"},
 							"juju-info": L{"logging"},
 						},
@@ -2444,7 +2444,7 @@ var statusTests = []testCase{
 							"monitoring-port": network.AlphaSpaceName,
 							"url":             network.AlphaSpaceName,
 						},
-						"relations": M{
+						"integrations": M{
 							"db":          L{"mysql"},
 							"logging-dir": L{"logging"},
 						},
@@ -3381,7 +3381,7 @@ var statusTests = []testCase{
 							"current": "unknown",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"relations": M{
+						"integrations": M{
 							"server": L{"wordpress"},
 						},
 					},
@@ -3393,7 +3393,7 @@ var statusTests = []testCase{
 							"message": "waiting for machine",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"relations": M{
+						"integrations": M{
 							"db": L{"hosted-mysql"},
 						},
 						"units": M{
@@ -5165,16 +5165,16 @@ Machine  State    Address   Inst id       Base          AZ          Message
 Offer         Application  Charm  Rev  Connected  Endpoint  Interface  Role
 hosted-mysql  mysql        mysql  1    1/1        server    mysql      provider
 
-Relation provider      Requirer                   Interface  Type         Message
-mysql:juju-info        logging:info               juju-info  subordinate  
-mysql:server           wordpress:db               mysql      regular      suspended  
-wordpress:logging-dir  logging:logging-directory  logging    subordinate  
+Integration provider      Requirer                   Interface  Type         Message
+mysql:juju-info           logging:info               juju-info  subordinate  
+mysql:server              wordpress:db               mysql      regular      suspended  
+wordpress:logging-dir     logging:logging-directory  logging    subordinate  
 `[1:]
 
 func (s *StatusSuite) TestStatusWithFormatTabular(c *gc.C) {
 	ctx := s.prepareTabularData(c)
 	defer s.resetContext(c, ctx)
-	code, stdout, stderr := runStatus(c, "--no-color", "--format", "tabular", "--relations")
+	code, stdout, stderr := runStatus(c, "--no-color", "--format", "tabular", "--integrations")
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
 
@@ -5187,7 +5187,7 @@ func (s *StatusSuite) TestStatusWithFormatTabularValidModelUUID(c *gc.C) {
 	ctx := s.prepareTabularData(c)
 	defer s.resetContext(c, ctx)
 
-	code, stdout, stderr := runStatus(c, "--no-color", "--format", "tabular", "--relations", "-m", s.Model.UUID())
+	code, stdout, stderr := runStatus(c, "--no-color", "--format", "tabular", "--integrations", "-m", s.Model.UUID())
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
 
@@ -5618,7 +5618,7 @@ func (s *StatusSuite) TestFormatTabularTruncateMessage(c *gc.C) {
 				},
 			},
 		},
-		Relations: []relationStatus{
+		Integrations: []integrationStatus{
 			{
 				Provider:  "foo:cluster",
 				Requirer:  "bar:cluster",
@@ -5653,8 +5653,8 @@ Machine  State   Address       Inst id  Base          AZ  Message
 0        active  10.53.62.100           ubuntu@22.04      Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna a...
 0/lxd/0  active  10.53.62.101           ubuntu@22.04      Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna a...
 
-Relation provider  Requirer     Interface  Type  Message
-foo:cluster        bar:cluster  baz                Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna a...
+Integration provider  Requirer     Interface  Type  Message
+foo:cluster           bar:cluster  baz                Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna a...
 `[1:])
 }
 
@@ -6385,32 +6385,32 @@ func (s *StatusSuite) TestControllerTimestampInFullStatus(c *gc.C) {
 	})
 }
 
-func (s *StatusSuite) TestTabularNoRelations(c *gc.C) {
+func (s *StatusSuite) TestTabularNoIntegrations(c *gc.C) {
 	ctx := s.FilteringTestSetup(c)
 	defer s.resetContext(c, ctx)
 
 	_, stdout, stderr := runStatus(c, "--no-color")
 	c.Assert(stderr, gc.IsNil)
-	c.Assert(strings.Contains(string(stdout), "Relation provider"), jc.IsFalse)
+	c.Assert(strings.Contains(string(stdout), "Integration provider"), jc.IsFalse)
 }
 
-func (s *StatusSuite) TestTabularDisplayRelations(c *gc.C) {
+func (s *StatusSuite) TestTabularDisplayIntegrations(c *gc.C) {
 	ctx := s.FilteringTestSetup(c)
 	defer s.resetContext(c, ctx)
 
-	_, stdout, stderr := runStatus(c, "--no-color", "--relations")
+	_, stdout, stderr := runStatus(c, "--no-color", "--integrations")
 	c.Assert(stderr, gc.IsNil)
-	c.Assert(strings.Contains(string(stdout), "Relation provider"), jc.IsTrue)
+	c.Assert(strings.Contains(string(stdout), "Integration provider"), jc.IsTrue)
 }
 
-func (s *StatusSuite) TestNonTabularDisplayRelations(c *gc.C) {
+func (s *StatusSuite) TestNonTabularDisplayIntegrations(c *gc.C) {
 	ctx := s.FilteringTestSetup(c)
 	defer s.resetContext(c, ctx)
 
-	_, stdout, stderr := runStatus(c, "--no-color", "--format=yaml", "--relations")
-	c.Assert(string(stderr), gc.Equals, "provided relations option is always enabled in non tabular formats\n")
+	_, stdout, stderr := runStatus(c, "--no-color", "--format=yaml", "--integrations")
+	c.Assert(string(stderr), gc.Equals, "provided integrations option is always enabled in non tabular formats\n")
 	logger.Debugf("stdout -> \n%q", stdout)
-	c.Assert(strings.Contains(string(stdout), "    relations:"), jc.IsTrue)
+	c.Assert(strings.Contains(string(stdout), "    integrations:"), jc.IsTrue)
 	c.Assert(strings.Contains(string(stdout), "storage:"), jc.IsTrue)
 }
 
@@ -6420,27 +6420,27 @@ func (s *StatusSuite) TestNonTabularDisplayStorage(c *gc.C) {
 
 	_, stdout, stderr := runStatus(c, "--no-color", "--format=yaml", "--storage")
 	c.Assert(string(stderr), gc.Equals, "provided storage option is always enabled in non tabular formats\n")
-	c.Assert(strings.Contains(string(stdout), "    relations:"), jc.IsTrue)
+	c.Assert(strings.Contains(string(stdout), "    integrations:"), jc.IsTrue)
 	c.Assert(strings.Contains(string(stdout), "storage:"), jc.IsTrue)
 }
 
-func (s *StatusSuite) TestNonTabularDisplayRelationsAndStorage(c *gc.C) {
+func (s *StatusSuite) TestNonTabularDisplayIntegrationsAndStorage(c *gc.C) {
 	ctx := s.FilteringTestSetup(c)
 	defer s.resetContext(c, ctx)
 
-	_, stdout, stderr := runStatus(c, "--no-color", "--format=yaml", "--relations", "--storage")
-	c.Assert(string(stderr), gc.Equals, "provided relations, storage options are always enabled in non tabular formats\n")
-	c.Assert(strings.Contains(string(stdout), "    relations:"), jc.IsTrue)
+	_, stdout, stderr := runStatus(c, "--no-color", "--format=yaml", "--integrations", "--storage")
+	c.Assert(string(stderr), gc.Equals, "provided integrations, storage options are always enabled in non tabular formats\n")
+	c.Assert(strings.Contains(string(stdout), "    integrations:"), jc.IsTrue)
 	c.Assert(strings.Contains(string(stdout), "storage:"), jc.IsTrue)
 }
 
-func (s *StatusSuite) TestNonTabularRelations(c *gc.C) {
+func (s *StatusSuite) TestNonTabularIntegrations(c *gc.C) {
 	ctx := s.FilteringTestSetup(c)
 	defer s.resetContext(c, ctx)
 
 	_, stdout, stderr := runStatus(c, "--no-color", "--format=yaml")
 	c.Assert(stderr, gc.IsNil)
-	c.Assert(strings.Contains(string(stdout), "    relations:"), jc.IsTrue)
+	c.Assert(strings.Contains(string(stdout), "    integrations:"), jc.IsTrue)
 	c.Assert(strings.Contains(string(stdout), "storage:"), jc.IsTrue)
 }
 

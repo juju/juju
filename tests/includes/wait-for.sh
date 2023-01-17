@@ -23,7 +23,7 @@ wait_for() {
 	# shellcheck disable=SC2046,SC2143
 	until [[ "$(juju status --format=json 2>/dev/null | jq -S "${query}" | grep "${name}")" ]]; do
 		echo "[+] (attempt ${attempt}) polling status for" "${query} => ${name}"
-		juju status --relations 2>&1 | sed 's/^/    | /g'
+		juju status --integrations 2>&1 | sed 's/^/    | /g'
 		sleep "${SHORT_TIMEOUT}"
 
 		elapsed=$(date -u +%s)-$start_time
@@ -37,7 +37,7 @@ wait_for() {
 
 	if [[ ${attempt} -gt 0 ]]; then
 		echo "[+] $(green 'Completed polling status for')" "$(green "${name}")"
-		juju status --relations 2>&1 | sed 's/^/    | /g'
+		juju status --integrations 2>&1 | sed 's/^/    | /g'
 		# Although juju reports as an idle condition, some charms require a
 		# breathe period to ensure things have actually settled.
 		sleep "${SHORT_TIMEOUT}"
