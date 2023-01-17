@@ -6,7 +6,7 @@ package resolver_test
 import (
 	"errors"
 
-	"github.com/juju/charm/v9/hooks"
+	"github.com/juju/charm/v10/hooks"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -168,7 +168,7 @@ func (s *ResolverOpFactorySuite) testUpgrade(
 ) {
 	f := resolver.NewResolverOpFactory(s.opFactory)
 	f.LocalState.Conflicted = true
-	curl := "cs:trusty/mysql"
+	curl := "ch:trusty/mysql"
 	op, err := meth(f, curl)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = op.Commit(operation.State{})
@@ -198,7 +198,7 @@ func (s *ResolverOpFactorySuite) TestSkipRemoteInit(c *gc.C) {
 }
 
 func (s *ResolverOpFactorySuite) TestNewUpgradeError(c *gc.C) {
-	curl := "cs:trusty/mysql"
+	curl := "ch:trusty/mysql"
 	s.opFactory.SetErrors(
 		errors.New("NewUpgrade fails"),
 		errors.New("NewRevertUpgrade fails"),
@@ -219,7 +219,7 @@ func (s *ResolverOpFactorySuite) TestCommitError(c *gc.C) {
 	s.opFactory.op.commit = func(operation.State) (*operation.State, error) {
 		return nil, errors.New("commit fails")
 	}
-	op, err := f.NewUpgrade("cs:trusty/mysql")
+	op, err := f.NewUpgrade("ch:trusty/mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = op.Commit(operation.State{})
 	c.Assert(err, gc.ErrorMatches, "commit fails")

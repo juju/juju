@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/canonical/pebble/plan"
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"

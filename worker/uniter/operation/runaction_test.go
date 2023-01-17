@@ -6,7 +6,7 @@ package operation_test
 import (
 	"time"
 
-	"github.com/juju/charm/v9/hooks"
+	"github.com/juju/charm/v10/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -321,7 +321,7 @@ func (s *RunActionSuite) TestCommit(c *gc.C) {
 			Kind:     operation.Continue,
 			Step:     operation.Pending,
 			Started:  true,
-			CharmURL: "cs:quantal/wordpress-2",
+			CharmURL: "ch:quantal/wordpress-2",
 			ActionId: &randomActionId,
 		},
 		after: operation.State{
@@ -335,7 +335,7 @@ func (s *RunActionSuite) TestCommit(c *gc.C) {
 			Kind:     operation.Continue,
 			Step:     operation.Pending,
 			Started:  true,
-			CharmURL: "cs:quantal/wordpress-2",
+			CharmURL: "ch:quantal/wordpress-2",
 			ActionId: &randomActionId,
 			Hook:     &hook.Info{Kind: hooks.Install},
 		},

@@ -41,6 +41,9 @@ type HardwareCharacteristics struct {
 
 	// AvailabilityZone defines the zone in which the machine resides.
 	AvailabilityZone *string `json:"availability-zone,omitempty" yaml:"availabilityzone,omitempty"`
+
+	// VirtType is the virtualisation type of the instance.
+	VirtType *string `json:"virt-type,omitempty" yaml:"virttype,omitempty"`
 }
 
 // quoteIfNeeded quotes s (according to Go string quoting rules) if it
@@ -86,6 +89,9 @@ func (hc HardwareCharacteristics) String() string {
 	}
 	if hc.AvailabilityZone != nil && *hc.AvailabilityZone != "" {
 		strs = append(strs, fmt.Sprintf("availability-zone=%s", quoteIfNeeded(*hc.AvailabilityZone)))
+	}
+	if hc.VirtType != nil && *hc.VirtType != "" {
+		strs = append(strs, fmt.Sprintf("virt-type=%s", quoteIfNeeded(*hc.VirtType)))
 	}
 	return strings.Join(strs, " ")
 }
@@ -173,6 +179,8 @@ func (hc *HardwareCharacteristics) parseField(s string) (rest string, err error)
 			err = hc.setRootDiskSource(value)
 		case "availability-zone":
 			err = hc.setAvailabilityZone(value)
+		case "virt-type":
+			err = hc.setVirtType(value)
 		default:
 			return rest, errors.Errorf("unknown characteristic %q", name)
 		}
@@ -331,6 +339,23 @@ func (hc *HardwareCharacteristics) setAvailabilityZone(str string) error {
 	if str != "" {
 		hc.AvailabilityZone = &str
 	}
+	return nil
+}
+
+func (hc *HardwareCharacteristics) setVirtType(str string) error {
+	if hc.VirtType != nil {
+		return errors.Errorf("already set")
+	}
+	// TODO (stickupkid): We potentially will want to allow "" to be a valid
+	// container virt-type, converting all empty strings to the default instance
+	// type. For now, allow LXD to fallback to the default instance type.
+	if str == "" {
+		return nil
+	}
+	if _, err := ParseVirtType(str); err != nil {
+		return errors.Trace(err)
+	}
+	hc.VirtType = &str
 	return nil
 }
 

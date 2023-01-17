@@ -40,7 +40,6 @@ func (s *ControllerSuite) TestControllerAndModelConfigInitialisation(c *gc.C) {
 		controller.AutocertDNSNameKey,
 		controller.CAASImageRepo,
 		controller.CAASOperatorImagePath,
-		controller.CharmStoreURL,
 		controller.ControllerAPIPort,
 		controller.ControllerName,
 		controller.Features,

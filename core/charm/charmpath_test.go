@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -40,7 +40,7 @@ func (s *charmPathSuite) TestInvalidPath(c *gc.C) {
 }
 
 func (s *charmPathSuite) TestRepoURL(c *gc.C) {
-	_, _, err := corecharm.NewCharmAtPath("cs:foo", "jammy")
+	_, _, err := corecharm.NewCharmAtPath("ch:foo", "jammy")
 	c.Assert(err, gc.Equals, os.ErrNotExist)
 }
 

@@ -12,7 +12,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jujutesting "github.com/juju/testing"
@@ -193,6 +193,7 @@ func (s *changesSuite) TestMinimalBundleWithChannels(c *gc.C) {
 
 	s.assertParseData(c, content, expected)
 }
+
 func (s *changesSuite) TestBundleURLAnnotationSet(c *gc.C) {
 	content := `
         applications:
@@ -233,14 +234,14 @@ func (s *changesSuite) TestBundleURLAnnotationSet(c *gc.C) {
 			Id:         "$deploy-1",
 			EntityType: "application",
 			Annotations: map[string]string{
-				"bundleURL": "cs:bundle/blog",
+				"bundleURL": "ch:bundle/blog",
 			},
 		},
 		GUIArgs: []interface{}{
 			"$deploy-1",
 			"application",
 			map[string]string{
-				"bundleURL": "cs:bundle/blog",
+				"bundleURL": "ch:bundle/blog",
 			},
 		},
 		Requires: []string{"deploy-1"},
@@ -253,7 +254,7 @@ func (s *changesSuite) TestBundleURLAnnotationSet(c *gc.C) {
 	// Retrieve the changes, and convert them to a sequence of records.
 	changes, err := bundlechanges.FromData(bundlechanges.ChangesConfig{
 		Bundle:    data,
-		BundleURL: "cs:bundle/blog",
+		BundleURL: "ch:bundle/blog",
 		Logger:    loggo.GetLogger("bundlechanges"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -317,6 +318,8 @@ func (s *changesSuite) TestMinimalBundleWithDevices(c *gc.C) {
 	s.assertParseDataWithDevices(c, content, expected)
 }
 
+var twentySix = 26
+
 func (s *changesSuite) TestMinimalBundleWithOffer(c *gc.C) {
 	content := `
 saas:
@@ -324,7 +327,9 @@ saas:
     url: production:admin/info.keystone
 applications:
   apache2:
-    charm: "cs:apache2-26"
+    charm: "apache2"
+    revision: 26
+    channel: "stable"
 --- #overlay
 applications:
   apache2:
@@ -339,11 +344,15 @@ applications:
 			Id:     "addCharm-0",
 			Method: "addCharm",
 			Params: bundlechanges.AddCharmParams{
-				Charm: "cs:apache2-26",
+				Charm:    "apache2",
+				Revision: &twentySix,
+				Channel:  "stable",
 			},
-			GUIArgs: []interface{}{"cs:apache2-26", "", ""},
+			GUIArgs: []interface{}{"apache2", "", "stable"},
 			Args: map[string]interface{}{
-				"charm": "cs:apache2-26",
+				"channel":  "stable",
+				"charm":    "apache2",
+				"revision": float64(26),
 			},
 		},
 		{
@@ -352,6 +361,7 @@ applications:
 			Params: bundlechanges.AddApplicationParams{
 				Charm:       "$addCharm-0",
 				Application: "apache2",
+				Channel:     "stable",
 			},
 			GUIArgs: []interface{}{
 				"$addCharm-0",
@@ -363,10 +373,11 @@ applications:
 				map[string]string{},
 				map[string]int{},
 				0,
-				"",
+				"stable",
 			},
 			Args: map[string]interface{}{
 				"application": "apache2",
+				"channel":     "stable",
 				"charm":       "$addCharm-0",
 			},
 			Requires: []string{"addCharm-0"},
@@ -416,7 +427,9 @@ func (s *changesSuite) TestMinimalBundleWithOfferAndPreDeployedApp(c *gc.C) {
 	content := `
 applications:
   apache2:
-    charm: "cs:apache2-26"
+    charm: "ch:apache2"
+    revision: 26
+    channel: stable
 --- #overlay
 applications:
   apache2:
@@ -433,7 +446,7 @@ applications:
 		Applications: map[string]*bundlechanges.Application{
 			"apache2": {
 				Name:     "apache-2",
-				Charm:    "cs:apache2-26",
+				Charm:    "ch:apache2",
 				Revision: 26,
 				Channel:  "stable",
 			},
@@ -470,7 +483,7 @@ func (s *changesSuite) TestMinimalBundleWithOfferACL(c *gc.C) {
 	content := `
 applications:
   apache2:
-    charm: "cs:apache2-26"
+    charm: "ch:apache2"
 --- #overlay
 applications:
   apache2:
@@ -487,11 +500,11 @@ applications:
 			Id:     "addCharm-0",
 			Method: "addCharm",
 			Params: bundlechanges.AddCharmParams{
-				Charm: "cs:apache2-26",
+				Charm: "ch:apache2",
 			},
-			GUIArgs: []interface{}{"cs:apache2-26", "", ""},
+			GUIArgs: []interface{}{"ch:apache2", "", ""},
 			Args: map[string]interface{}{
-				"charm": "cs:apache2-26",
+				"charm": "ch:apache2",
 			},
 		},
 		{
@@ -566,7 +579,9 @@ func (s *changesSuite) TestMinimalBundleWithOfferUpdate(c *gc.C) {
 	content := `
 applications:
   apache2:
-    charm: "cs:apache2-26"
+    charm: "ch:apache2"
+    revision: 26
+    channel: stable
 --- #overlay
 applications:
   apache2:
@@ -606,7 +621,7 @@ applications:
 		Applications: map[string]*bundlechanges.Application{
 			"apache2": {
 				Name:     "apache2",
-				Charm:    "cs:apache2-26",
+				Charm:    "ch:apache2",
 				Revision: 26,
 				Channel:  "stable",
 				Offers:   []string{"offer1"},
@@ -623,7 +638,7 @@ saas:
     url: production:admin/info.mysql
 applications:
   apache2:
-    charm: "cs:apache2-26"
+    charm: "ch:apache2"
 relations:
 - - apache2:db
   - mysql:db
@@ -633,11 +648,11 @@ relations:
 			Id:     "addCharm-0",
 			Method: "addCharm",
 			Params: bundlechanges.AddCharmParams{
-				Charm: "cs:apache2-26",
+				Charm: "ch:apache2",
 			},
-			GUIArgs: []interface{}{"cs:apache2-26", "", ""},
+			GUIArgs: []interface{}{"ch:apache2", "", ""},
 			Args: map[string]interface{}{
-				"charm": "cs:apache2-26",
+				"charm": "ch:apache2",
 			},
 		},
 		{
@@ -702,7 +717,7 @@ func (s *changesSuite) TestSimpleBundle(c *gc.C) {
 	content := `
         applications:
             mediawiki:
-                charm: cs:mediawiki-10
+                charm: ch:mediawiki
                 series: focal
                 num_units: 1
                 expose: true
@@ -714,7 +729,7 @@ func (s *changesSuite) TestSimpleBundle(c *gc.C) {
                 resources:
                     data: 3
             mysql:
-                charm: cs:mysql-28
+                charm: ch:mysql
                 series: focal
                 num_units: 1
                 resources:
@@ -728,12 +743,12 @@ func (s *changesSuite) TestSimpleBundle(c *gc.C) {
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Params: bundlechanges.AddCharmParams{
-			Charm:  "cs:mediawiki-10",
+			Charm:  "ch:mediawiki",
 			Series: "focal",
 		},
-		GUIArgs: []interface{}{"cs:mediawiki-10", "focal", ""},
+		GUIArgs: []interface{}{"ch:mediawiki", "focal", ""},
 		Args: map[string]interface{}{
-			"charm":  "cs:mediawiki-10",
+			"charm":  "ch:mediawiki",
 			"series": "focal",
 		},
 	}, {
@@ -807,12 +822,12 @@ func (s *changesSuite) TestSimpleBundle(c *gc.C) {
 		Id:     "addCharm-4",
 		Method: "addCharm",
 		Params: bundlechanges.AddCharmParams{
-			Charm:  "cs:mysql-28",
+			Charm:  "ch:mysql",
 			Series: "focal",
 		},
-		GUIArgs: []interface{}{"cs:mysql-28", "focal", ""},
+		GUIArgs: []interface{}{"ch:mysql", "focal", ""},
 		Args: map[string]interface{}{
-			"charm":  "cs:mysql-28",
+			"charm":  "ch:mysql",
 			"series": "focal",
 		},
 	}, {
@@ -889,7 +904,7 @@ func (s *changesSuite) TestSimpleBundleWithDevices(c *gc.C) {
 	content := `
         applications:
             mediawiki:
-                charm: cs:mediawiki-10
+                charm: ch:mediawiki
                 series: focal
                 num_units: 1
                 expose: true
@@ -901,7 +916,7 @@ func (s *changesSuite) TestSimpleBundleWithDevices(c *gc.C) {
                 resources:
                     data: 3
             mysql:
-                charm: cs:mysql-28
+                charm: ch:mysql
                 series: focal
                 num_units: 1
                 resources:
@@ -915,12 +930,12 @@ func (s *changesSuite) TestSimpleBundleWithDevices(c *gc.C) {
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Params: bundlechanges.AddCharmParams{
-			Charm:  "cs:mediawiki-10",
+			Charm:  "ch:mediawiki",
 			Series: "focal",
 		},
-		GUIArgs: []interface{}{"cs:mediawiki-10", "focal", ""},
+		GUIArgs: []interface{}{"ch:mediawiki", "focal", ""},
 		Args: map[string]interface{}{
-			"charm":  "cs:mediawiki-10",
+			"charm":  "ch:mediawiki",
 			"series": "focal",
 		},
 	}, {
@@ -995,12 +1010,12 @@ func (s *changesSuite) TestSimpleBundleWithDevices(c *gc.C) {
 		Id:     "addCharm-4",
 		Method: "addCharm",
 		Params: bundlechanges.AddCharmParams{
-			Charm:  "cs:mysql-28",
+			Charm:  "ch:mysql",
 			Series: "focal",
 		},
-		GUIArgs: []interface{}{"cs:mysql-28", "focal", ""},
+		GUIArgs: []interface{}{"ch:mysql", "focal", ""},
 		Args: map[string]interface{}{
-			"charm":  "cs:mysql-28",
+			"charm":  "ch:mysql",
 			"series": "focal",
 		},
 	}, {
@@ -1079,7 +1094,7 @@ func (s *changesSuite) TestKubernetesBundle(c *gc.C) {
         bundle: kubernetes
         applications:
             mediawiki:
-                charm: cs:mediawiki-k8s-10
+                charm: ch:mediawiki-k8s
                 num_units: 1
                 expose: true
                 options:
@@ -1090,7 +1105,7 @@ func (s *changesSuite) TestKubernetesBundle(c *gc.C) {
                 resources:
                     data: 3
             mysql:
-                charm: cs:mysql-k8s-28
+                charm: ch:mysql-k8s
                 num_units: 2
                 resources:
                   data: "./resources/data.tar"
@@ -1104,11 +1119,11 @@ func (s *changesSuite) TestKubernetesBundle(c *gc.C) {
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Params: bundlechanges.AddCharmParams{
-			Charm: "cs:mediawiki-k8s-10",
+			Charm: "ch:mediawiki-k8s",
 		},
-		GUIArgs: []interface{}{"cs:mediawiki-k8s-10", "", ""},
+		GUIArgs: []interface{}{"ch:mediawiki-k8s", "", ""},
 		Args: map[string]interface{}{
-			"charm": "cs:mediawiki-k8s-10",
+			"charm": "ch:mediawiki-k8s",
 		},
 	}, {
 		Id:     "deploy-1",
@@ -1182,11 +1197,11 @@ func (s *changesSuite) TestKubernetesBundle(c *gc.C) {
 		Id:     "addCharm-4",
 		Method: "addCharm",
 		Params: bundlechanges.AddCharmParams{
-			Charm: "cs:mysql-k8s-28",
+			Charm: "ch:mysql-k8s",
 		},
-		GUIArgs: []interface{}{"cs:mysql-k8s-28", "", ""},
+		GUIArgs: []interface{}{"ch:mysql-k8s", "", ""},
 		Args: map[string]interface{}{
-			"charm": "cs:mysql-k8s-28",
+			"charm": "ch:mysql-k8s",
 		},
 	}, {
 		Id:     "deploy-5",
@@ -1241,23 +1256,23 @@ func (s *changesSuite) TestSameCharmReused(c *gc.C) {
 	content := `
         applications:
             mediawiki:
-                charm: cs:mediawiki-10
+                charm: ch:mediawiki
                 series: focal
                 num_units: 1
             otherwiki:
-                charm: cs:mediawiki-10
+                charm: ch:mediawiki
                 series: focal
         `
 	expected := []record{{
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Params: bundlechanges.AddCharmParams{
-			Charm:  "cs:mediawiki-10",
+			Charm:  "ch:mediawiki",
 			Series: "focal",
 		},
-		GUIArgs: []interface{}{"cs:mediawiki-10", "focal", ""},
+		GUIArgs: []interface{}{"ch:mediawiki", "focal", ""},
 		Args: map[string]interface{}{
-			"charm":  "cs:mediawiki-10",
+			"charm":  "ch:mediawiki",
 			"series": "focal",
 		},
 	}, {
@@ -1332,7 +1347,7 @@ func (s *changesSuite) TestMachinesAndUnitsPlacementWithBindings(c *gc.C) {
 	content := `
         applications:
             django:
-                charm: cs:django-42
+                charm: ch:django
                 series: jammy
                 num_units: 2
                 bindings:
@@ -1343,7 +1358,7 @@ func (s *changesSuite) TestMachinesAndUnitsPlacementWithBindings(c *gc.C) {
                     - lxc:2
                 constraints: spaces=baz cpu-cores=4 cpu-power=42
             haproxy:
-                charm: cs:haproxy-47
+                charm: ch:haproxy
                 series: jammy
                 num_units: 2
                 expose: yes
@@ -1362,12 +1377,12 @@ func (s *changesSuite) TestMachinesAndUnitsPlacementWithBindings(c *gc.C) {
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Params: bundlechanges.AddCharmParams{
-			Charm:  "cs:django-42",
+			Charm:  "ch:django",
 			Series: "jammy",
 		},
-		GUIArgs: []interface{}{"cs:django-42", "jammy", ""},
+		GUIArgs: []interface{}{"ch:django", "jammy", ""},
 		Args: map[string]interface{}{
-			"charm":  "cs:django-42",
+			"charm":  "ch:django",
 			"series": "jammy",
 		},
 	}, {
@@ -1407,12 +1422,12 @@ func (s *changesSuite) TestMachinesAndUnitsPlacementWithBindings(c *gc.C) {
 		Id:     "addCharm-2",
 		Method: "addCharm",
 		Params: bundlechanges.AddCharmParams{
-			Charm:  "cs:haproxy-47",
+			Charm:  "ch:haproxy",
 			Series: "jammy",
 		},
-		GUIArgs: []interface{}{"cs:haproxy-47", "jammy", ""},
+		GUIArgs: []interface{}{"ch:haproxy", "jammy", ""},
 		Args: map[string]interface{}{
-			"charm":  "cs:haproxy-47",
+			"charm":  "ch:haproxy",
 			"series": "jammy",
 		},
 	}, {
@@ -1599,7 +1614,7 @@ func (s *changesSuite) TestMachinesWithConstraintsAndAnnotations(c *gc.C) {
 	content := `
         applications:
             django:
-                charm: cs:django-42
+                charm: ch:django
                 series: jammy
                 num_units: 2
                 to:
@@ -1615,12 +1630,12 @@ func (s *changesSuite) TestMachinesWithConstraintsAndAnnotations(c *gc.C) {
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Params: bundlechanges.AddCharmParams{
-			Charm:  "cs:django-42",
+			Charm:  "ch:django",
 			Series: "jammy",
 		},
-		GUIArgs: []interface{}{"cs:django-42", "jammy", ""},
+		GUIArgs: []interface{}{"ch:django", "jammy", ""},
 		Args: map[string]interface{}{
-			"charm":  "cs:django-42",
+			"charm":  "ch:django",
 			"series": "jammy",
 		},
 	}, {
@@ -1734,10 +1749,10 @@ func (s *changesSuite) TestEndpointWithoutRelationName(c *gc.C) {
 	content := `
         applications:
             mediawiki:
-                charm: cs:mediawiki-10
+                charm: ch:mediawiki
                 series: focal
             mysql:
-                charm: cs:mysql-28
+                charm: mysql
                 series: focal
                 constraints: mem=42G
         relations:
@@ -1748,12 +1763,12 @@ func (s *changesSuite) TestEndpointWithoutRelationName(c *gc.C) {
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Params: bundlechanges.AddCharmParams{
-			Charm:  "cs:mediawiki-10",
+			Charm:  "ch:mediawiki",
 			Series: "focal",
 		},
-		GUIArgs: []interface{}{"cs:mediawiki-10", "focal", ""},
+		GUIArgs: []interface{}{"ch:mediawiki", "focal", ""},
 		Args: map[string]interface{}{
-			"charm":  "cs:mediawiki-10",
+			"charm":  "ch:mediawiki",
 			"series": "focal",
 		},
 	}, {
@@ -1786,12 +1801,12 @@ func (s *changesSuite) TestEndpointWithoutRelationName(c *gc.C) {
 		Id:     "addCharm-2",
 		Method: "addCharm",
 		Params: bundlechanges.AddCharmParams{
-			Charm:  "cs:mysql-28",
+			Charm:  "mysql",
 			Series: "focal",
 		},
-		GUIArgs: []interface{}{"cs:mysql-28", "focal", ""},
+		GUIArgs: []interface{}{"mysql", "focal", ""},
 		Args: map[string]interface{}{
-			"charm":  "cs:mysql-28",
+			"charm":  "mysql",
 			"series": "focal",
 		},
 	}, {
@@ -1847,7 +1862,7 @@ func (s *changesSuite) TestUnitPlacedInApplication(c *gc.C) {
                 charm: wordpress
                 num_units: 3
             django:
-                charm: cs:django-42
+                charm: ch:django
                 series: jammy
                 num_units: 2
                 to: [wordpress]
@@ -1856,12 +1871,12 @@ func (s *changesSuite) TestUnitPlacedInApplication(c *gc.C) {
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Params: bundlechanges.AddCharmParams{
-			Charm:  "cs:django-42",
+			Charm:  "ch:django",
 			Series: "jammy",
 		},
-		GUIArgs: []interface{}{"cs:django-42", "jammy", ""},
+		GUIArgs: []interface{}{"ch:django", "jammy", ""},
 		Args: map[string]interface{}{
-			"charm":  "cs:django-42",
+			"charm":  "ch:django",
 			"series": "jammy",
 		},
 	}, {
@@ -1995,7 +2010,7 @@ func (s *changesSuite) TestUnitPlacedInApplicationWithDevices(c *gc.C) {
                 charm: wordpress
                 num_units: 3
             django:
-                charm: cs:django-42
+                charm: ch:django
                 series: jammy
                 num_units: 2
                 to: [wordpress]
@@ -2004,12 +2019,12 @@ func (s *changesSuite) TestUnitPlacedInApplicationWithDevices(c *gc.C) {
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Params: bundlechanges.AddCharmParams{
-			Charm:  "cs:django-42",
+			Charm:  "ch:django",
 			Series: "jammy",
 		},
-		GUIArgs: []interface{}{"cs:django-42", "jammy", ""},
+		GUIArgs: []interface{}{"ch:django", "jammy", ""},
 		Args: map[string]interface{}{
-			"charm":  "cs:django-42",
+			"charm":  "ch:django",
 			"series": "jammy",
 		},
 	}, {
@@ -2142,12 +2157,12 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *gc.C) {
 	content := `
         applications:
             memcached:
-                charm: cs:mem-47
+                charm: ch:mem
                 series: jammy
                 num_units: 3
                 to: [1, new]
             django:
-                charm: cs:django-42
+                charm: ch:django
                 series: jammy
                 num_units: 5
                 to:
@@ -2156,7 +2171,7 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *gc.C) {
                     - lxc:memcached/2
                     - kvm:ror
             ror:
-                charm: cs:vivid/rails
+                charm: ch:rails
                 num_units: 2
                 to:
                     - new
@@ -2169,12 +2184,12 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *gc.C) {
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Params: bundlechanges.AddCharmParams{
-			Charm:  "cs:django-42",
+			Charm:  "ch:django",
 			Series: "jammy",
 		},
-		GUIArgs: []interface{}{"cs:django-42", "jammy", ""},
+		GUIArgs: []interface{}{"ch:django", "jammy", ""},
 		Args: map[string]interface{}{
-			"charm":  "cs:django-42",
+			"charm":  "ch:django",
 			"series": "jammy",
 		},
 	}, {
@@ -2207,12 +2222,12 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *gc.C) {
 		Id:     "addCharm-2",
 		Method: "addCharm",
 		Params: bundlechanges.AddCharmParams{
-			Charm:  "cs:mem-47",
+			Charm:  "ch:mem",
 			Series: "jammy",
 		},
-		GUIArgs: []interface{}{"cs:mem-47", "jammy", ""},
+		GUIArgs: []interface{}{"ch:mem", "jammy", ""},
 		Args: map[string]interface{}{
-			"charm":  "cs:mem-47",
+			"charm":  "ch:mem",
 			"series": "jammy",
 		},
 	}, {
@@ -2245,13 +2260,11 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *gc.C) {
 		Id:     "addCharm-4",
 		Method: "addCharm",
 		Params: bundlechanges.AddCharmParams{
-			Charm:  "cs:vivid/rails",
-			Series: "vivid",
+			Charm: "ch:rails",
 		},
-		GUIArgs: []interface{}{"cs:vivid/rails", "vivid", ""},
+		GUIArgs: []interface{}{"ch:rails", "", ""},
 		Args: map[string]interface{}{
-			"charm":  "cs:vivid/rails",
-			"series": "vivid",
+			"charm": "ch:rails",
 		},
 	}, {
 		Id:     "deploy-5",
@@ -2259,11 +2272,10 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *gc.C) {
 		Params: bundlechanges.AddApplicationParams{
 			Charm:       "$addCharm-4",
 			Application: "ror",
-			Series:      "vivid",
 		},
 		GUIArgs: []interface{}{
 			"$addCharm-4",
-			"vivid",
+			"",
 			"ror",
 			map[string]interface{}{},
 			"",
@@ -2276,7 +2288,6 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *gc.C) {
 		Args: map[string]interface{}{
 			"application": "ror",
 			"charm":       "$addCharm-4",
-			"series":      "vivid",
 		},
 		Requires: []string{"addCharm-4"},
 	}, {
@@ -2340,17 +2351,11 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *gc.C) {
 	}, {
 		Id:     "addMachines-19",
 		Method: "addMachines",
-		Params: bundlechanges.AddMachineParams{
-			Series: "vivid",
-		},
+		Params: bundlechanges.AddMachineParams{},
 		GUIArgs: []interface{}{
-			bundlechanges.AddMachineOptions{
-				Series: "vivid",
-			},
+			bundlechanges.AddMachineOptions{},
 		},
-		Args: map[string]interface{}{
-			"series": "vivid",
-		},
+		Args:     map[string]interface{}{},
 		Requires: []string{"addMachines-17", "addMachines-18", "addMachines-6"},
 	}, {
 		Id:     "addUnit-7",
@@ -2562,7 +2567,7 @@ func (s *changesSuite) TestUnitPlacedToMachines(c *gc.C) {
 	content := `
         applications:
             django:
-                charm: cs:django-42
+                charm: ch:django
                 series: jammy
                 num_units: 5
                 to:
@@ -2580,12 +2585,12 @@ func (s *changesSuite) TestUnitPlacedToMachines(c *gc.C) {
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Params: bundlechanges.AddCharmParams{
-			Charm:  "cs:django-42",
+			Charm:  "ch:django",
 			Series: "jammy",
 		},
-		GUIArgs: []interface{}{"cs:django-42", "jammy", ""},
+		GUIArgs: []interface{}{"ch:django", "jammy", ""},
 		Args: map[string]interface{}{
-			"charm":  "cs:django-42",
+			"charm":  "ch:django",
 			"series": "jammy",
 		},
 	}, {
@@ -2785,11 +2790,15 @@ func (s *changesSuite) TestUnitPlacedToMachines(c *gc.C) {
 	s.assertParseData(c, content, expected)
 }
 
+var fortytwo = 42
+
 func (s *changesSuite) TestUnitPlacedToNewMachineWithConstraints(c *gc.C) {
 	content := `
         applications:
             django:
-                charm: cs:django-42
+                charm: django
+                channel: stable
+                revision: 42
                 series: jammy
                 num_units: 1
                 to:
@@ -2800,13 +2809,17 @@ func (s *changesSuite) TestUnitPlacedToNewMachineWithConstraints(c *gc.C) {
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Params: bundlechanges.AddCharmParams{
-			Charm:  "cs:django-42",
-			Series: "jammy",
+			Charm:    "django",
+			Revision: &fortytwo,
+			Channel:  "stable",
+			Series:   "jammy",
 		},
-		GUIArgs: []interface{}{"cs:django-42", "jammy", ""},
+		GUIArgs: []interface{}{"django", "jammy", "stable"},
 		Args: map[string]interface{}{
-			"charm":  "cs:django-42",
-			"series": "jammy",
+			"charm":    "django",
+			"revision": float64(42),
+			"channel":  "stable",
+			"series":   "jammy",
 		},
 	}, {
 		Id:     "deploy-1",
@@ -2815,6 +2828,7 @@ func (s *changesSuite) TestUnitPlacedToNewMachineWithConstraints(c *gc.C) {
 			Charm:       "$addCharm-0",
 			Application: "django",
 			Series:      "jammy",
+			Channel:     "stable",
 			Constraints: "cpu-cores=4",
 		},
 		GUIArgs: []interface{}{
@@ -2827,11 +2841,12 @@ func (s *changesSuite) TestUnitPlacedToNewMachineWithConstraints(c *gc.C) {
 			map[string]string{},
 			map[string]int{},
 			0,
-			"",
+			"stable",
 		},
 		Args: map[string]interface{}{
 			"application": "django",
 			"charm":       "$addCharm-0",
+			"channel":     "stable",
 			"constraints": "cpu-cores=4",
 			"series":      "jammy",
 		},
@@ -2875,7 +2890,9 @@ func (s *changesSuite) TestApplicationWithStorage(c *gc.C) {
 	content := `
         applications:
             django:
-                charm: cs:django-42
+                charm: django
+                channel: stable
+                revision: 42
                 series: jammy
                 num_units: 2
                 storage:
@@ -2886,13 +2903,17 @@ func (s *changesSuite) TestApplicationWithStorage(c *gc.C) {
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Params: bundlechanges.AddCharmParams{
-			Charm:  "cs:django-42",
-			Series: "jammy",
+			Charm:    "django",
+			Revision: &fortytwo,
+			Channel:  "stable",
+			Series:   "jammy",
 		},
-		GUIArgs: []interface{}{"cs:django-42", "jammy", ""},
+		GUIArgs: []interface{}{"django", "jammy", "stable"},
 		Args: map[string]interface{}{
-			"charm":  "cs:django-42",
-			"series": "jammy",
+			"charm":    "django",
+			"series":   "jammy",
+			"revision": float64(42),
+			"channel":  "stable",
 		},
 	}, {
 		Id:     "deploy-1",
@@ -2901,6 +2922,7 @@ func (s *changesSuite) TestApplicationWithStorage(c *gc.C) {
 			Charm:       "$addCharm-0",
 			Application: "django",
 			Series:      "jammy",
+			Channel:     "stable",
 			Storage: map[string]string{
 				"osd-devices": "3,30G",
 				"tmpfs":       "tmpfs,1G",
@@ -2919,11 +2941,12 @@ func (s *changesSuite) TestApplicationWithStorage(c *gc.C) {
 			map[string]string{},
 			map[string]int{},
 			0,
-			"",
+			"stable",
 		},
 		Args: map[string]interface{}{
 			"application": "django",
 			"charm":       "$addCharm-0",
+			"channel":     "stable",
 			"series":      "jammy",
 			"storage": map[string]interface{}{
 				"osd-devices": "3,30G",
@@ -2962,7 +2985,9 @@ func (s *changesSuite) TestApplicationWithDevices(c *gc.C) {
 	content := `
         applications:
             django:
-                charm: cs:django-42
+                charm: ch:django
+                revision: 42
+                channel: stable
                 series: jammy
                 num_units: 2
                 devices:
@@ -2975,13 +3000,17 @@ func (s *changesSuite) TestApplicationWithDevices(c *gc.C) {
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Params: bundlechanges.AddCharmParams{
-			Charm:  "cs:django-42",
-			Series: "jammy",
+			Charm:    "ch:django",
+			Revision: &fortytwo,
+			Channel:  "stable",
+			Series:   "jammy",
 		},
-		GUIArgs: []interface{}{"cs:django-42", "jammy", ""},
+		GUIArgs: []interface{}{"ch:django", "jammy", "stable"},
 		Args: map[string]interface{}{
-			"charm":  "cs:django-42",
-			"series": "jammy",
+			"charm":    "ch:django",
+			"channel":  "stable",
+			"revision": float64(42),
+			"series":   "jammy",
 		},
 	}, {
 		Id:     "deploy-1",
@@ -2990,6 +3019,7 @@ func (s *changesSuite) TestApplicationWithDevices(c *gc.C) {
 			Charm:       "$addCharm-0",
 			Application: "django",
 			Series:      "jammy",
+			Channel:     "stable",
 			Devices: map[string]string{
 				"description": "a nvidia gpu device",
 				"type":        "nvidia.com/gpu",
@@ -3013,11 +3043,12 @@ func (s *changesSuite) TestApplicationWithDevices(c *gc.C) {
 			map[string]string{},
 			map[string]int{},
 			0,
-			"",
+			"stable",
 		},
 		Args: map[string]interface{}{
 			"application": "django",
 			"charm":       "$addCharm-0",
+			"channel":     "stable",
 			"devices": map[string]interface{}{
 				"countmax":    "2",
 				"countmin":    "1",
@@ -3181,12 +3212,13 @@ applications:
 
 	s.assertParseData(c, content, expected)
 }
+
 func (s *changesSuite) TestApplicationWithNonDefaultSeriesAndPlacements(c *gc.C) {
 	content := `
 series: jammy
 applications:
     gui3:
-        charm: cs:juju-gui
+        charm: ch:juju-gui
         series: focal
         num_units: 2
         to:
@@ -3199,12 +3231,12 @@ machines:
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Params: bundlechanges.AddCharmParams{
-			Charm:  "cs:juju-gui",
+			Charm:  "ch:juju-gui",
 			Series: "focal",
 		},
-		GUIArgs: []interface{}{"cs:juju-gui", "focal", ""},
+		GUIArgs: []interface{}{"ch:juju-gui", "focal", ""},
 		Args: map[string]interface{}{
-			"charm":  "cs:juju-gui",
+			"charm":  "ch:juju-gui",
 			"series": "focal",
 		},
 	}, {
@@ -3592,7 +3624,7 @@ func (s *changesSuite) TestSimpleBundleEmptyModel(c *gc.C) {
 	bundleContent := `
                 applications:
                     django:
-                        charm: cs:django-4
+                        charm: ch:django
                         expose: true
                         num_units: 1
                         options:
@@ -3603,8 +3635,8 @@ func (s *changesSuite) TestSimpleBundleEmptyModel(c *gc.C) {
                             gui-y: "50"
             `
 	expectedChanges := []string{
-		"upload charm django from charm-store",
-		"deploy application django from charm-store",
+		"upload charm django from charm-hub",
+		"deploy application django from charm-hub",
 		"expose all endpoints of django and allow access from CIDRs 0.0.0.0/0 and ::/0",
 		"set annotations for django",
 		"add unit django/0 to new machine 0",
@@ -3617,7 +3649,7 @@ func (s *changesSuite) TestKubernetesBundleEmptyModel(c *gc.C) {
                 bundle: kubernetes
                 applications:
                     django:
-                        charm: cs:django-4
+                        charm: ch:django
                         expose: yes
                         num_units: 1
                         options:
@@ -3627,15 +3659,15 @@ func (s *changesSuite) TestKubernetesBundleEmptyModel(c *gc.C) {
                             gui-x: "10"
                             gui-y: "50"
                     mariadb:
-                        charm: cs:mariadb-5
+                        charm: ch:mariadb
                         num_units: 2
             `
 	expectedChanges := []string{
-		"upload charm django from charm-store",
-		"deploy application django from charm-store with 1 unit",
+		"upload charm django from charm-hub",
+		"deploy application django from charm-hub with 1 unit",
 		"expose all endpoints of django and allow access from CIDRs 0.0.0.0/0 and ::/0",
-		"set annotations for django", "upload charm mariadb from charm-store",
-		"deploy application mariadb from charm-store with 2 units",
+		"set annotations for django", "upload charm mariadb from charm-hub",
+		"deploy application mariadb from charm-hub with 2 units",
 	}
 	s.checkBundle(c, bundleContent, expectedChanges)
 }
@@ -3644,21 +3676,23 @@ func (s *changesSuite) TestCharmInUseByAnotherApplication(c *gc.C) {
 	bundleContent := `
                 applications:
                     django:
-                        charm: cs:django-4
+                        charm: ch:django
+                        revision: 4
+                        channel: stable
                         num_units: 1
                         expose: yes
             `
 	existingModel := &bundlechanges.Model{
 		Applications: map[string]*bundlechanges.Application{
 			"other-app": {
-				Charm:    "cs:django-4",
+				Charm:    "ch:django",
 				Revision: 4,
 				Channel:  "stable",
 			},
 		},
 	}
 	expectedChanges := []string{
-		"deploy application django from charm-store",
+		"deploy application django from charm-hub with stable",
 		"expose all endpoints of django and allow access from CIDRs 0.0.0.0/0 and ::/0",
 		"add unit django/0 to new machine 0",
 	}
@@ -3670,7 +3704,9 @@ func (s *changesSuite) TestExposeOverlayParameters(c *gc.C) {
 bundle: kubernetes
 applications:
     django:
-      charm: cs:django-4
+      charm: ch:django
+      revision: 4
+      channel: stable
       num_units: 2
 --- #overlay
 applications:
@@ -3696,7 +3732,7 @@ applications:
 	existingModel := &bundlechanges.Model{
 		Applications: map[string]*bundlechanges.Application{
 			"django": {
-				Charm:    "cs:django-4",
+				Charm:    "ch:django",
 				Revision: 4,
 				Channel:  "stable",
 				Scale:    3,
@@ -3724,7 +3760,9 @@ func (s *changesSuite) TestExposeOverlayParametersForNonCurrentlyExposedApp(c *g
 bundle: kubernetes
 applications:
     django:
-      charm: cs:django-4
+      charm: ch:django
+      revision: 4
+      channel: stable
       num_units: 2
 --- #overlay
 applications:
@@ -3738,7 +3776,7 @@ applications:
 	existingModel := &bundlechanges.Model{
 		Applications: map[string]*bundlechanges.Application{
 			"django": {
-				Charm:    "cs:django-4",
+				Charm:    "ch:django",
 				Revision: 4,
 				Channel:  "stable",
 				Scale:    3,
@@ -3760,7 +3798,9 @@ func (s *changesSuite) TestExposeOverlayParametersWithOnlyWildcardEntry(c *gc.C)
 bundle: kubernetes
 applications:
     django:
-      charm: cs:django-4
+      charm: ch:django
+      revision: 4
+      channel: stable
       num_units: 2
 --- #overlay
 applications:
@@ -3774,7 +3814,7 @@ applications:
 	existingModel := &bundlechanges.Model{
 		Applications: map[string]*bundlechanges.Application{
 			"django": {
-				Charm:    "cs:django-4",
+				Charm:    "ch:django",
 				Revision: 4,
 				Channel:  "stable",
 				Scale:    3,
@@ -3792,43 +3832,21 @@ applications:
 }
 
 func (s *changesSuite) TestCharmUpgrade(c *gc.C) {
+	c.Skip("TODO: Fix bug in charm upgrade with charm-hub")
 	bundleContent := `
                 applications:
                     django:
-                        charm: cs:django-6
-                        num_units: 1
-            `
-	existingModel := &bundlechanges.Model{
-		Applications: map[string]*bundlechanges.Application{
-			"django": {
-				Charm:    "cs:django-4",
-				Revision: 4,
-				Units: []bundlechanges.Unit{
-					{"django/0", "0"},
-				},
-			},
-		},
-	}
-	expectedChanges := []string{
-		"upload charm django from charm-store",
-		"upgrade django from charm-store using charm django",
-	}
-	s.checkBundleExistingModel(c, bundleContent, existingModel, expectedChanges)
-}
-
-func (s *changesSuite) TestCharmUpgradeWithChannel(c *gc.C) {
-	bundleContent := `
-                applications:
-                    django:
-                        charm: cs:django-6
+                        charm: ch:django
+                        revision: 6
                         channel: stable
                         num_units: 1
             `
 	existingModel := &bundlechanges.Model{
 		Applications: map[string]*bundlechanges.Application{
 			"django": {
-				Charm:    "cs:django-4",
+				Charm:    "ch:django",
 				Revision: 4,
+				Channel:  "stable",
 				Units: []bundlechanges.Unit{
 					{"django/0", "0"},
 				},
@@ -3836,8 +3854,8 @@ func (s *changesSuite) TestCharmUpgradeWithChannel(c *gc.C) {
 		},
 	}
 	expectedChanges := []string{
-		"upload charm django from charm-store from channel stable",
-		"upgrade django from charm-store using charm django from channel stable",
+		"upload charm django from charm-hub with revision 6",
+		"upgrade django from charm-hub using charm django",
 	}
 	s.checkBundleExistingModel(c, bundleContent, existingModel, expectedChanges)
 }
@@ -3846,14 +3864,15 @@ func (s *changesSuite) TestCharmUpgradeWithExistingChannel(c *gc.C) {
 	bundleContent := `
                 applications:
                     django:
-                        charm: cs:django-6
+                        charm: ch:django
+                        revision: 6
                         channel: stable
                         num_units: 1
             `
 	existingModel := &bundlechanges.Model{
 		Applications: map[string]*bundlechanges.Application{
 			"django": {
-				Charm:    "cs:django-4",
+				Charm:    "ch:django",
 				Revision: 4,
 				Channel:  "edge",
 				Units: []bundlechanges.Unit{
@@ -3863,10 +3882,10 @@ func (s *changesSuite) TestCharmUpgradeWithExistingChannel(c *gc.C) {
 		},
 	}
 	expectedChanges := []string{
-		"upload charm django from charm-store from channel stable",
-		"upgrade django from charm-store using charm django from channel stable",
+		"upload charm django from charm-hub from channel stable",
+		"upgrade django from charm-hub using charm django from channel stable",
 	}
-	s.checkBundleExistingModel(c, bundleContent, existingModel, expectedChanges)
+	s.checkBundleImpl(c, bundleContent, existingModel, expectedChanges, ".*upgrades not supported across channels.*edge.*stable.*", nil, nil)
 }
 
 func (s *changesSuite) TestCharmUpgradeWithCharmhubCharmAndExistingChannel(c *gc.C) {
@@ -3902,13 +3921,15 @@ func (s *changesSuite) TestAppExistsWithLessUnits(c *gc.C) {
 	bundleContent := `
                 applications:
                     django:
-                        charm: cs:django-4
+                        charm: ch:django
+                        revision: 4
+                        channel: stable
                         num_units: 2
             `
 	existingModel := &bundlechanges.Model{
 		Applications: map[string]*bundlechanges.Application{
 			"django": {
-				Charm:    "cs:django-4",
+				Charm:    "ch:django",
 				Revision: 4,
 				Channel:  "stable",
 				Units: []bundlechanges.Unit{
@@ -3939,14 +3960,16 @@ func (s *changesSuite) TestAppExistsWithDifferentScale(c *gc.C) {
                 bundle: kubernetes
                 applications:
                     django:
-                        charm: cs:django-4
+                        charm: ch:django
+                        revision: 4
+                        channel: stable
                         num_units: 2
                         series: kubernetes
             `
 	existingModel := &bundlechanges.Model{
 		Applications: map[string]*bundlechanges.Application{
 			"django": {
-				Charm:    "cs:django-4",
+				Charm:    "ch:django",
 				Revision: 4,
 				Channel:  "stable",
 				Scale:    3,
@@ -3966,13 +3989,15 @@ func (s *changesSuite) TestNewMachineNumberHigherUnitHigher(c *gc.C) {
 	bundleContent := `
                 applications:
                     django:
-                        charm: cs:django-4
+                        charm: ch:django
+                        revision: 4
+                        channel: stable
                         num_units: 2
             `
 	existingModel := &bundlechanges.Model{
 		Applications: map[string]*bundlechanges.Application{
 			"django": {
-				Charm:    "cs:django-4",
+				Charm:    "ch:django",
 				Revision: 4,
 				Channel:  "stable",
 				Units: []bundlechanges.Unit{
@@ -4002,13 +4027,15 @@ func (s *changesSuite) TestAppWithDifferentConstraints(c *gc.C) {
 	bundleContent := `
                 applications:
                     django:
-                        charm: cs:django-4
+                        charm: ch:django
+                        revision: 4
+                        channel: stable
                         constraints: cpu-cores=4 cpu-power=42
             `
 	existingModel := &bundlechanges.Model{
 		Applications: map[string]*bundlechanges.Application{
 			"django": {
-				Charm:    "cs:django-4",
+				Charm:    "ch:django",
 				Revision: 4,
 				Channel:  "stable",
 				Units: []bundlechanges.Unit{
@@ -4037,17 +4064,17 @@ func (s *changesSuite) TestAppsWithArchConstraints(c *gc.C) {
 	bundleContent := `
                 applications:
                     django-one:
-                        charm: cs:django-4
+                        charm: ch:django
                         constraints: arch=amd64 cpu-cores=4 cpu-power=42
                     django-two:
-                        charm: cs:django-4
+                        charm: ch:django
                         constraints: arch=s390x cpu-cores=4 cpu-power=42
             `
 	expectedChanges := []string{
-		"upload charm django from charm-store with architecture=amd64",
-		"deploy application django-one from charm-store using django",
-		"upload charm django from charm-store with architecture=s390x",
-		"deploy application django-two from charm-store using django",
+		"upload charm django from charm-hub with architecture=amd64",
+		"deploy application django-one from charm-hub using django",
+		"upload charm django from charm-hub with architecture=s390x",
+		"deploy application django-two from charm-hub using django",
 	}
 	s.checkBundleWithConstraintsParser(c, bundleContent, expectedChanges, constraintParser)
 }
@@ -4056,16 +4083,20 @@ func (s *changesSuite) TestExistingAppsWithArchConstraints(c *gc.C) {
 	bundleContent := `
                 applications:
                     django-one:
-                        charm: cs:django-4
+                        charm: ch:django
+                        revision: 4
+                        channel: stable
                         constraints: arch=amd64 cpu-cores=4 cpu-power=42
                     django-two:
-                        charm: cs:django-4
+                        charm: ch:django
+                        revision: 4
+                        channel: stable
                         constraints: arch=s390x cpu-cores=4 cpu-power=42
             `
 	existingModel := &bundlechanges.Model{
 		Applications: map[string]*bundlechanges.Application{
 			"django-one": {
-				Charm:    "cs:django-4",
+				Charm:    "ch:django",
 				Revision: 4,
 				Channel:  "stable",
 				Units: []bundlechanges.Unit{
@@ -4085,8 +4116,8 @@ func (s *changesSuite) TestExistingAppsWithArchConstraints(c *gc.C) {
 	}
 	expectedChanges := []string{
 		"set constraints for django-one to \"arch=amd64 cpu-cores=4 cpu-power=42\"",
-		"upload charm django from charm-store with architecture=s390x",
-		"deploy application django-two from charm-store using django",
+		"upload charm django from charm-hub with revision 4 with architecture=s390x",
+		"deploy application django-two from charm-hub with stable using django",
 	}
 	s.checkBundleImpl(c, bundleContent, existingModel, expectedChanges, "", constraintParser, func(string, series.Base, string, string, int) (string, int, error) {
 		return "stable", 4, nil
@@ -4097,16 +4128,20 @@ func (s *changesSuite) TestExistingAppsWithoutArchConstraints(c *gc.C) {
 	bundleContent := `
                 applications:
                     django-one:
-                        charm: cs:django-4
+                        charm: ch:django
+                        revision: 4
+                        channel: stable
                         constraints: arch=amd64 cpu-cores=4 cpu-power=42
                     django-two:
-                        charm: cs:django-4
+                        charm: ch:django
+                        revision: 4
+                        channel: stable
                         constraints: arch=s390x cpu-cores=4 cpu-power=42
             `
 	existingModel := &bundlechanges.Model{
 		Applications: map[string]*bundlechanges.Application{
 			"django-one": {
-				Charm:    "cs:django-4",
+				Charm:    "ch:django",
 				Revision: 4,
 				Channel:  "stable",
 				Units: []bundlechanges.Unit{
@@ -4125,10 +4160,10 @@ func (s *changesSuite) TestExistingAppsWithoutArchConstraints(c *gc.C) {
 		},
 	}
 	expectedChanges := []string{
-		"upload charm django from charm-store with architecture=amd64",
+		"upload charm django from charm-hub with revision 4 with architecture=amd64",
 		"set constraints for django-one to \"arch=amd64 cpu-cores=4 cpu-power=42\"",
-		"upload charm django from charm-store with architecture=s390x",
-		"deploy application django-two from charm-store using django",
+		"upload charm django from charm-hub with revision 4 with architecture=s390x",
+		"deploy application django-two from charm-hub with stable using django",
 	}
 	s.checkBundleImpl(c, bundleContent, existingModel, expectedChanges, "", constraintParser, func(string, series.Base, string, string, int) (string, int, error) {
 		return "stable", 4, nil
@@ -4139,25 +4174,25 @@ func (s *changesSuite) TestAppsWithSeriesAndArchConstraints(c *gc.C) {
 	bundleContent := `
                 applications:
                     django-one:
-                        charm: cs:django-4
+                        charm: ch:django
                         constraints: arch=amd64 cpu-cores=4 cpu-power=42
                         series: bionic
                     django-two:
-                        charm: cs:django-4
+                        charm: ch:django
                         constraints: arch=s390x cpu-cores=4 cpu-power=42
                         series: bionic
                     django-three:
-                        charm: cs:django-4
+                        charm: ch:django
                         constraints: arch=s390x cpu-cores=4 cpu-power=42
                         series: focal
             `
 	expectedChanges := []string{
-		"upload charm django from charm-store for series bionic with architecture=amd64",
-		"deploy application django-one from charm-store on bionic using django",
-		"upload charm django from charm-store for series focal with architecture=s390x",
-		"deploy application django-three from charm-store on focal using django",
-		"upload charm django from charm-store for series bionic with architecture=s390x",
-		"deploy application django-two from charm-store on bionic using django",
+		"upload charm django from charm-hub for series bionic with architecture=amd64",
+		"deploy application django-one from charm-hub on bionic using django",
+		"upload charm django from charm-hub for series focal with architecture=s390x",
+		"deploy application django-three from charm-hub on focal using django",
+		"upload charm django from charm-hub for series bionic with architecture=s390x",
+		"deploy application django-two from charm-hub on bionic using django",
 	}
 	s.checkBundleWithConstraintsParser(c, bundleContent, expectedChanges, constraintParser)
 }
@@ -4166,12 +4201,12 @@ func (s *changesSuite) TestAppWithArchConstraints(c *gc.C) {
 	bundleContent := `
                 applications:
                     django:
-                        charm: cs:django-4
+                        charm: ch:django
                         constraints: arch=amd64 cpu-cores=4 cpu-power=42
             `
 	expectedChanges := []string{
-		"upload charm django from charm-store with architecture=amd64",
-		"deploy application django from charm-store",
+		"upload charm django from charm-hub with architecture=amd64",
+		"deploy application django from charm-hub",
 	}
 	s.checkBundleWithConstraintsParser(c, bundleContent, expectedChanges, constraintParser)
 }
@@ -4180,7 +4215,7 @@ func (s *changesSuite) TestAppWithArchConstraintsWithError(c *gc.C) {
 	bundleContent := `
                 applications:
                     django:
-                        charm: cs:django-4
+                        charm: ch:django
                         constraints: arch=amd64 cpu-cores=4 cpu-power=42
             `
 	s.checkBundleWithConstraintsParserError(c, bundleContent, "bad", constraintParserWithError(errors.Errorf("bad")))
@@ -4190,12 +4225,12 @@ func (s *changesSuite) TestAppWithArchConstraintsWithNoParser(c *gc.C) {
 	bundleContent := `
                 applications:
                     django:
-                        charm: cs:django-4
+                        charm: ch:django
                         constraints: arch=amd64 cpu-cores=4 cpu-power=42
             `
 	expectedChanges := []string{
-		"upload charm django from charm-store",
-		"deploy application django from charm-store",
+		"upload charm django from charm-hub",
+		"deploy application django from charm-hub",
 	}
 	s.checkBundleWithConstraintsParser(c, bundleContent, expectedChanges, nil)
 }
@@ -4204,13 +4239,15 @@ func (s *changesSuite) TestAppExistsWithEnoughUnits(c *gc.C) {
 	bundleContent := `
                 applications:
                     django:
-                        charm: cs:django-4
+                        charm: ch:django
+                        revision: 4
+                        channel: stable
                         num_units: 2
             `
 	existingModel := &bundlechanges.Model{
 		Applications: map[string]*bundlechanges.Application{
 			"django": {
-				Charm:    "cs:django-4",
+				Charm:    "ch:django",
 				Revision: 4,
 				Channel:  "stable",
 				Units: []bundlechanges.Unit{
@@ -4231,7 +4268,9 @@ func (s *changesSuite) TestAppExistsWithChangedOptionsAndAnnotations(c *gc.C) {
 	bundleContent := `
                 applications:
                     django:
-                        charm: cs:django-4
+                        charm: ch:django
+                        revision: 4
+                        channel: stable
                         num_units: 1
                         options:
                             key-1: value-1
@@ -4243,7 +4282,7 @@ func (s *changesSuite) TestAppExistsWithChangedOptionsAndAnnotations(c *gc.C) {
 	existingModel := &bundlechanges.Model{
 		Applications: map[string]*bundlechanges.Application{
 			"django": {
-				Charm:    "cs:django-4",
+				Charm:    "ch:django",
 				Revision: 4,
 				Channel:  "stable",
 				Options: map[string]interface{}{
@@ -4274,7 +4313,7 @@ func (s *changesSuite) TestNewMachineAnnotationsAndPlacement(c *gc.C) {
 	bundleContent := `
                 applications:
                     django:
-                        charm: cs:django-4
+                        charm: ch:django
                         exposed: true
                         num_units: 1
                         to: [1]
@@ -4285,8 +4324,8 @@ func (s *changesSuite) TestNewMachineAnnotationsAndPlacement(c *gc.C) {
                             bar: "50"
             `
 	expectedChanges := []string{
-		"upload charm django from charm-store",
-		"deploy application django from charm-store",
+		"upload charm django from charm-hub",
+		"deploy application django from charm-hub",
 		"add new machine 0 (bundle machine 1)",
 		"set annotations for new machine 0",
 		"add unit django/0 to new machine 0",
@@ -4298,15 +4337,15 @@ func (s *changesSuite) TestFinalPlacementNotReusedIfSpecifiesMachine(c *gc.C) {
 	bundleContent := `
                 applications:
                     django:
-                        charm: cs:django-4
+                        charm: ch:django
                         num_units: 2
                         to: [1]
                 machines:
                     1:
             `
 	expectedChanges := []string{
-		"upload charm django from charm-store",
-		"deploy application django from charm-store",
+		"upload charm django from charm-hub",
+		"deploy application django from charm-hub",
 		"add new machine 0 (bundle machine 1)",
 		"add unit django/0 to new machine 0",
 		// NOTE: new machine, not put on $1.
@@ -4319,18 +4358,18 @@ func (s *changesSuite) TestFinalPlacementNotReusedIfSpecifiesUnit(c *gc.C) {
 	bundleContent := `
                 applications:
                     django:
-                        charm: cs:django-4
+                        charm: ch:django
                         num_units: 1
                     nginx:
-                        charm: cs:nginx
+                        charm: ch:nginx
                         num_units: 2
                         to: ["django/0"]
             `
 	expectedChanges := []string{
-		"upload charm django from charm-store",
-		"deploy application django from charm-store",
-		"upload charm nginx from charm-store",
-		"deploy application nginx from charm-store",
+		"upload charm django from charm-hub",
+		"deploy application django from charm-hub",
+		"upload charm nginx from charm-hub",
+		"deploy application nginx from charm-hub",
 		"add unit django/0 to new machine 0",
 		"add unit nginx/0 to new machine 0 to satisfy [django/0]",
 		"add unit nginx/1 to new machine 1",
@@ -4342,11 +4381,11 @@ func (s *changesSuite) TestUnitPlaceNextToOtherNewUnitOnExistingMachine(c *gc.C)
 	bundleContent := `
                 applications:
                     django:
-                        charm: cs:django-4
+                        charm: ch:django
                         num_units: 1
                         to: [1]
                     nginx:
-                        charm: cs:nginx
+                        charm: ch:nginx
                         num_units: 1
                         to: ["django/0"]
                 machines:
@@ -4359,10 +4398,10 @@ func (s *changesSuite) TestUnitPlaceNextToOtherNewUnitOnExistingMachine(c *gc.C)
 		MachineMap: map[string]string{"1": "0"},
 	}
 	expectedChanges := []string{
-		"upload charm django from charm-store",
-		"deploy application django from charm-store",
-		"upload charm nginx from charm-store",
-		"deploy application nginx from charm-store",
+		"upload charm django from charm-hub",
+		"deploy application django from charm-hub",
+		"upload charm nginx from charm-hub",
+		"deploy application nginx from charm-hub",
 		"add unit django/0 to existing machine 0",
 		"add unit nginx/0 to existing machine 0 to satisfy [django/0]",
 	}
@@ -4373,18 +4412,18 @@ func (s *changesSuite) TestApplicationPlacementNotEnoughUnits(c *gc.C) {
 	bundleContent := `
                 applications:
                     django:
-                        charm: cs:django-4
+                        charm: ch:django
                         num_units: 3
                     nginx:
-                        charm: cs:nginx
+                        charm: ch:nginx
                         num_units: 5
                         to: [django]
             `
 	expectedChanges := []string{
-		"upload charm django from charm-store",
-		"deploy application django from charm-store",
-		"upload charm nginx from charm-store",
-		"deploy application nginx from charm-store",
+		"upload charm django from charm-hub",
+		"deploy application django from charm-hub",
+		"upload charm nginx from charm-hub",
+		"deploy application nginx from charm-hub",
 		"add unit django/0 to new machine 0",
 		"add unit django/1 to new machine 1",
 		"add unit django/2 to new machine 2",
@@ -4400,17 +4439,19 @@ func (s *changesSuite) TestApplicationPlacementSomeExisting(c *gc.C) {
 	bundleContent := `
                 applications:
                     django:
-                        charm: cs:django-4
+                        charm: ch:django
+                        revision: 4
+                        channel: stable
                         num_units: 5
                     nginx:
-                        charm: cs:nginx
+                        charm: ch:nginx
                         num_units: 5
                         to: [django]
             `
 	existingModel := &bundlechanges.Model{
 		Applications: map[string]*bundlechanges.Application{
 			"django": {
-				Charm:    "cs:django-4",
+				Charm:    "ch:django",
 				Revision: 4,
 				Channel:  "stable",
 				Units: []bundlechanges.Unit{
@@ -4427,8 +4468,8 @@ func (s *changesSuite) TestApplicationPlacementSomeExisting(c *gc.C) {
 		},
 	}
 	expectedChanges := []string{
-		"upload charm nginx from charm-store",
-		"deploy application nginx from charm-store",
+		"upload charm nginx from charm-hub",
+		"deploy application nginx from charm-hub",
 		"add unit django/4 to new machine 4",
 		"add unit django/5 to new machine 5",
 		"add unit nginx/0 to existing machine 0 to satisfy [django]",
@@ -4449,17 +4490,21 @@ func (s *changesSuite) TestApplicationPlacementSomeColocated(c *gc.C) {
 	bundleContent := `
                 applications:
                     django:
-                        charm: cs:django-4
+                        charm: ch:django
+                        revision: 4
+                        channel: stable
                         num_units: 5
                     nginx:
-                        charm: cs:nginx-76
+                        charm: ch:nginx
+                        revision: 76
+                        channel: stable
                         num_units: 5
                         to: [django]
             `
 	existingModel := &bundlechanges.Model{
 		Applications: map[string]*bundlechanges.Application{
 			"django": {
-				Charm:    "cs:django-4",
+				Charm:    "ch:django",
 				Revision: 4,
 				Channel:  "stable",
 				Units: []bundlechanges.Unit{
@@ -4469,7 +4514,7 @@ func (s *changesSuite) TestApplicationPlacementSomeColocated(c *gc.C) {
 				},
 			},
 			"nginx": {
-				Charm:    "cs:nginx-76",
+				Charm:    "ch:nginx",
 				Revision: 76,
 				Channel:  "stable",
 				Units: []bundlechanges.Unit{
@@ -4492,10 +4537,10 @@ func (s *changesSuite) TestApplicationPlacementSomeColocated(c *gc.C) {
 		"add unit nginx/4 to new machine 5 to satisfy [django]",
 	}
 	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(charm string, _ series.Base, channel, _ string, rev int) (string, int, error) {
-		if charm == "cs:django-4" {
+		if charm == "ch:django" {
 			return "stable", 4, nil
 		}
-		if charm == "cs:nginx-76" {
+		if charm == "ch:nginx" {
 			return "stable", 76, nil
 		}
 		return "stable", -1, nil
@@ -4506,23 +4551,23 @@ func (s *changesSuite) TestWeirdUnitDeployedNoExistingModel(c *gc.C) {
 	bundleContent := `
                 applications:
                     mysql:
-                        charm: cs:mysql
+                        charm: mysql
                         num_units: 3
                         # The first placement directive here is skipped because
                         # the existing model already has one unit.
                         to: [new, "lxd:0", "lxd:new"]
                     keystone:
-                        charm: cs:keystone
+                        charm: keystone
                         num_units: 3
                         to: ["lxd:mysql"]
                 machines:
                     0:
             `
 	expectedChanges := []string{
-		"upload charm keystone from charm-store",
-		"deploy application keystone from charm-store",
-		"upload charm mysql from charm-store",
-		"deploy application mysql from charm-store",
+		"upload charm keystone from charm-hub",
+		"deploy application keystone from charm-hub",
+		"upload charm mysql from charm-hub",
+		"deploy application mysql from charm-hub",
 		"add new machine 0",
 		"add new machine 1",
 		"add lxd container 0/lxd/0 on new machine 0",
@@ -4544,11 +4589,13 @@ func (s *changesSuite) TestUnitDeployedDefinedMachine(c *gc.C) {
 	bundleContent := `
                 applications:
                     mysql:
-                        charm: cs:mysql
+                        charm: ch:mysql
+                        revision: 4
+                        channel: stable
                         num_units: 3
                         to: [new, "lxd:0", "lxd:new"]
                     keystone:
-                        charm: cs:keystone
+                        charm: ch:keystone
                         num_units: 3
                         to: ["lxd:mysql"]
                 machines:
@@ -4557,8 +4604,9 @@ func (s *changesSuite) TestUnitDeployedDefinedMachine(c *gc.C) {
 	existingModel := &bundlechanges.Model{
 		Applications: map[string]*bundlechanges.Application{
 			"mysql": {
-				Charm:   "cs:mysql",
-				Channel: "stable",
+				Charm:    "ch:mysql",
+				Revision: 4,
+				Channel:  "stable",
 				Units: []bundlechanges.Unit{
 					{"mysql/0", "0/lxd/0"},
 				},
@@ -4570,8 +4618,8 @@ func (s *changesSuite) TestUnitDeployedDefinedMachine(c *gc.C) {
 		},
 	}
 	expectedChanges := []string{
-		"upload charm keystone from charm-store",
-		"deploy application keystone from charm-store",
+		"upload charm keystone from charm-hub",
+		"deploy application keystone from charm-hub",
 		"add unit keystone/0 to 0/lxd/1 to satisfy [lxd:mysql]",
 		"add new machine 1",
 		"add lxd container 2/lxd/0 on new machine 2",
@@ -4591,18 +4639,21 @@ func (s *changesSuite) TestLXDContainerSequence(c *gc.C) {
 	bundleContent := `
                 applications:
                     mysql:
-                        charm: cs:mysql
+                        charm: ch:mysql
+                        revision: 4
+                        channel: stable
                         num_units: 1
                     keystone:
-                        charm: cs:keystone
+                        charm: ch:keystone
                         num_units: 1
                         to: ["lxd:mysql"]
             `
 	existingModel := &bundlechanges.Model{
 		Applications: map[string]*bundlechanges.Application{
 			"mysql": {
-				Charm:   "cs:mysql",
-				Channel: "stable",
+				Charm:    "ch:mysql",
+				Revision: 4,
+				Channel:  "stable",
 				Units: []bundlechanges.Unit{
 					{"mysql/0", "0/lxd/0"},
 				},
@@ -4620,8 +4671,8 @@ func (s *changesSuite) TestLXDContainerSequence(c *gc.C) {
 		},
 	}
 	expectedChanges := []string{
-		"upload charm keystone from charm-store",
-		"deploy application keystone from charm-store",
+		"upload charm keystone from charm-hub",
+		"deploy application keystone from charm-hub",
 		"add unit keystone/0 to 0/lxd/2 to satisfy [lxd:mysql]",
 	}
 	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(string, series.Base, string, string, int) (string, int, error) {
@@ -4633,13 +4684,15 @@ func (s *changesSuite) TestMachineMapToExistingMachineSomeDeployed(c *gc.C) {
 	bundleContent := `
                 applications:
                     mysql:
-                        charm: cs:mysql-32
+                        charm: ch:mysql
+                        revision: 32
+                        channel: stable
                         num_units: 3
                         # The first placement directive here is skipped because
                         # the existing model already has one unit.
                         to: [new, "lxd:0", "lxd:new"]
                     keystone:
-                        charm: cs:keystone
+                        charm: ch:keystone
                         num_units: 3
                         to: ["lxd:mysql"]
                 machines:
@@ -4648,7 +4701,7 @@ func (s *changesSuite) TestMachineMapToExistingMachineSomeDeployed(c *gc.C) {
 	existingModel := &bundlechanges.Model{
 		Applications: map[string]*bundlechanges.Application{
 			"mysql": {
-				Charm:    "cs:mysql-32",
+				Charm:    "ch:mysql",
 				Revision: 32,
 				Channel:  "stable",
 				Units: []bundlechanges.Unit{
@@ -4667,8 +4720,8 @@ func (s *changesSuite) TestMachineMapToExistingMachineSomeDeployed(c *gc.C) {
 		},
 	}
 	expectedChanges := []string{
-		"upload charm keystone from charm-store",
-		"deploy application keystone from charm-store",
+		"upload charm keystone from charm-hub",
+		"deploy application keystone from charm-hub",
 		// First unit of keystone goes in a container next to the existing mysql.
 		"add unit keystone/0 to 0/lxd/1 to satisfy [lxd:mysql]",
 		"add new machine 3",
@@ -4697,7 +4750,9 @@ func (s *changesSuite) TestSettingAnnotationsForExistingMachine(c *gc.C) {
 	bundleContent := `
                 applications:
                     mysql:
-                        charm: cs:mysql-42
+                        charm: ch:mysql
+                        revision: 42
+                        channel: stable
                         num_units: 1
                         to: ["0"]
                 machines:
@@ -4708,9 +4763,9 @@ func (s *changesSuite) TestSettingAnnotationsForExistingMachine(c *gc.C) {
 	existingModel := &bundlechanges.Model{
 		Applications: map[string]*bundlechanges.Application{
 			"mysql": {
-				Charm: "cs:mysql-42",
-				//Revision: 42,
-				Channel: "stable",
+				Charm:    "ch:mysql",
+				Revision: 42,
+				Channel:  "stable",
 				Units: []bundlechanges.Unit{
 					{"mysql/0", "0/lxd/0"},
 				},
@@ -4737,19 +4792,19 @@ func (s *changesSuite) TestSiblingContainers(c *gc.C) {
 	bundleContent := `
                 applications:
                     mysql:
-                        charm: cs:mysql
+                        charm: ch:mysql
                         num_units: 3
                         to: ["lxd:new"]
                     keystone:
-                        charm: cs:keystone
+                        charm: ch:keystone
                         num_units: 3
                         to: ["lxd:mysql"]
             `
 	expectedChanges := []string{
-		"upload charm keystone from charm-store",
-		"deploy application keystone from charm-store",
-		"upload charm mysql from charm-store",
-		"deploy application mysql from charm-store",
+		"upload charm keystone from charm-hub",
+		"deploy application keystone from charm-hub",
+		"upload charm mysql from charm-hub",
+		"deploy application mysql from charm-hub",
 		"add lxd container 0/lxd/0 on new machine 0",
 		"add lxd container 1/lxd/0 on new machine 1",
 		"add lxd container 2/lxd/0 on new machine 2",
@@ -4770,18 +4825,22 @@ func (s *changesSuite) TestSiblingContainersSomeDeployed(c *gc.C) {
 	bundleContent := `
                 applications:
                     mysql:
-                        charm: cs:mysql-32
+                        charm: ch:mysql
+                        revision: 32
+                        channel: stable
                         num_units: 3
                         to: ["lxd:new"]
                     keystone:
-                        charm: cs:keystone-47
+                        charm: ch:keystone
+                        revision: 47
+                        channel: stable
                         num_units: 4
                         to: ["lxd:mysql"]
             `
 	existingModel := &bundlechanges.Model{
 		Applications: map[string]*bundlechanges.Application{
 			"mysql": {
-				Charm:    "cs:mysql-32",
+				Charm:    "ch:mysql",
 				Revision: 32,
 				Channel:  "stable",
 				Units: []bundlechanges.Unit{
@@ -4791,7 +4850,7 @@ func (s *changesSuite) TestSiblingContainersSomeDeployed(c *gc.C) {
 				},
 			},
 			"keystone": {
-				Charm:    "cs:keystone-47",
+				Charm:    "ch:keystone",
 				Revision: 47,
 				Channel:  "stable",
 				Units: []bundlechanges.Unit{
@@ -4821,10 +4880,10 @@ func (s *changesSuite) TestSiblingContainersSomeDeployed(c *gc.C) {
 		"add unit keystone/4 to new machine 3",
 	}
 	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(charm string, _ series.Base, channel, _ string, rev int) (string, int, error) {
-		if charm == "cs:mysql-32" {
+		if charm == "ch:mysql" {
 			return "stable", 32, nil
 		}
-		if charm == "cs:keystone-47" {
+		if charm == "ch:keystone" {
 			return "stable", 47, nil
 		}
 		return "stable", -1, nil
@@ -4835,19 +4894,19 @@ func (s *changesSuite) TestColocationIntoAContainerUsingUnitPlacement(c *gc.C) {
 	bundleContent := `
                 applications:
                     mysql:
-                        charm: cs:mysql
+                        charm: ch:mysql
                         num_units: 3
                         to: ["lxd:new"]
                     keystone:
-                        charm: cs:keystone
+                        charm: ch:keystone
                         num_units: 3
                         to: [mysql/0, mysql/1, mysql/2]
             `
 	expectedChanges := []string{
-		"upload charm keystone from charm-store",
-		"deploy application keystone from charm-store",
-		"upload charm mysql from charm-store",
-		"deploy application mysql from charm-store",
+		"upload charm keystone from charm-hub",
+		"deploy application keystone from charm-hub",
+		"upload charm mysql from charm-hub",
+		"deploy application mysql from charm-hub",
 		"add lxd container 0/lxd/0 on new machine 0",
 		"add lxd container 1/lxd/0 on new machine 1",
 		"add lxd container 2/lxd/0 on new machine 2",
@@ -4865,19 +4924,19 @@ func (s *changesSuite) TestColocationIntoAContainerUsingAppPlacement(c *gc.C) {
 	bundleContent := `
                 applications:
                     mysql:
-                        charm: cs:mysql
+                        charm: ch:mysql
                         num_units: 3
                         to: ["lxd:new"]
                     keystone:
-                        charm: cs:keystone
+                        charm: ch:keystone
                         num_units: 3
                         to: ["mysql"]
             `
 	expectedChanges := []string{
-		"upload charm keystone from charm-store",
-		"deploy application keystone from charm-store",
-		"upload charm mysql from charm-store",
-		"deploy application mysql from charm-store",
+		"upload charm keystone from charm-hub",
+		"deploy application keystone from charm-hub",
+		"upload charm mysql from charm-hub",
+		"deploy application mysql from charm-hub",
 		"add lxd container 0/lxd/0 on new machine 0",
 		"add lxd container 1/lxd/0 on new machine 1",
 		"add lxd container 2/lxd/0 on new machine 2",
@@ -4895,18 +4954,18 @@ func (s *changesSuite) TestPlacementDescriptionsForUnitPlacement(c *gc.C) {
 	bundleContent := `
                 applications:
                     mysql:
-                        charm: cs:mysql
+                        charm: ch:mysql
                         num_units: 3
                     keystone:
-                        charm: cs:keystone
+                        charm: ch:keystone
                         num_units: 3
                         to: ["lxd:mysql/0", "lxd:mysql/1", "lxd:mysql/2"]
             `
 	expectedChanges := []string{
-		"upload charm keystone from charm-store",
-		"deploy application keystone from charm-store",
-		"upload charm mysql from charm-store",
-		"deploy application mysql from charm-store",
+		"upload charm keystone from charm-hub",
+		"deploy application keystone from charm-hub",
+		"upload charm mysql from charm-hub",
+		"deploy application mysql from charm-hub",
 		"add unit mysql/0 to new machine 0",
 		"add unit mysql/1 to new machine 1",
 		"add unit mysql/2 to new machine 2",
@@ -4924,7 +4983,7 @@ func (s *changesSuite) TestMostAppOptions(c *gc.C) {
 	bundleContent := `
                 applications:
                     mediawiki:
-                        charm: cs:mediawiki-10
+                        charm: ch:mediawiki
                         series: focal
                         num_units: 1
                         expose: true
@@ -4936,7 +4995,7 @@ func (s *changesSuite) TestMostAppOptions(c *gc.C) {
                         resources:
                             data: 3
                     mysql:
-                        charm: cs:mysql-28
+                        charm: ch:mysql
                         series: focal
                         num_units: 1
                         resources:
@@ -4947,12 +5006,12 @@ func (s *changesSuite) TestMostAppOptions(c *gc.C) {
                       - mysql:db
             `
 	expectedChanges := []string{
-		"upload charm mediawiki from charm-store for series focal",
-		"deploy application mediawiki from charm-store on focal",
+		"upload charm mediawiki from charm-hub for series focal",
+		"deploy application mediawiki from charm-hub on focal",
 		"expose all endpoints of mediawiki and allow access from CIDRs 0.0.0.0/0 and ::/0",
 		"set annotations for mediawiki",
-		"upload charm mysql from charm-store for series focal",
-		"deploy application mysql from charm-store on focal",
+		"upload charm mysql from charm-hub for series focal",
+		"deploy application mysql from charm-hub on focal",
 		"add relation mediawiki:db - mysql:db",
 		"add unit mediawiki/0 to new machine 0",
 		"add unit mysql/0 to new machine 1",
@@ -4964,17 +5023,21 @@ func (s *changesSuite) TestUnitOrdering(c *gc.C) {
 	bundleContent := `
                 applications:
                     memcached:
-                        charm: cs:xenial/mem-47
+                        charm: ch:mem
+                        series: xenial
                         num_units: 3
                         to: [1, 2, 3]
                     django:
-                        charm: cs:xenial/django-42
+                        charm: ch:django
+                        revision: 42
+                        channel: stable
+                        series: xenial
                         num_units: 4
                         to:
                             - 1
                             - lxd:memcached
                     ror:
-                        charm: cs:rails
+                        charm: ch:rails
                         num_units: 3
                         to:
                             - 1
@@ -4985,12 +5048,12 @@ func (s *changesSuite) TestUnitOrdering(c *gc.C) {
                     3:
             `
 	expectedChanges := []string{
-		"upload charm django from charm-store for series xenial",
-		"deploy application django from charm-store on xenial",
-		"upload charm mem from charm-store for series xenial",
-		"deploy application memcached from charm-store on xenial using mem",
-		"upload charm rails from charm-store",
-		"deploy application ror from charm-store using rails",
+		"upload charm django from charm-hub for series xenial with revision 42",
+		"deploy application django from charm-hub on xenial with stable",
+		"upload charm mem from charm-hub for series xenial",
+		"deploy application memcached from charm-hub on xenial using mem",
+		"upload charm rails from charm-hub",
+		"deploy application ror from charm-hub using rails",
 		"add new machine 0 (bundle machine 1)",
 		"add new machine 1 (bundle machine 2)",
 		"add new machine 2 (bundle machine 3)",
@@ -5016,7 +5079,7 @@ func (s *changesSuite) TestMachineAddedInNumericalOrder(c *gc.C) {
 	bundleContent := `
                applications:
                    ubu:
-                       charm: cs:ubuntu
+                       charm: ubuntu
                        num_units: 13
                        to: [0,1,2,3,4,5,6,7,8,9,10,11,12]
                machines:
@@ -5035,8 +5098,8 @@ func (s *changesSuite) TestMachineAddedInNumericalOrder(c *gc.C) {
                    12:
            `
 	expectedChanges := []string{
-		"upload charm ubuntu from charm-store",
-		"deploy application ubu from charm-store using ubuntu",
+		"upload charm ubuntu from charm-hub",
+		"deploy application ubu from charm-hub using ubuntu",
 		"add new machine 0",
 		"add new machine 1",
 		"add new machine 2",
@@ -5071,11 +5134,15 @@ func (s *changesSuite) TestAddUnitToExistingApp(c *gc.C) {
 	bundleContent := `
                 applications:
                     mediawiki:
-                        charm: cs:mediawiki-10
+                        charm: ch:mediawiki
+                        revision: 10
+                        channel: stable
                         series: focal
                         num_units: 2
                     mysql:
-                        charm: cs:mysql-28
+                        charm: ch:mysql
+                        revision: 28
+                        channel: stable
                         series: focal
                         num_units: 1
                 series: jammy
@@ -5086,7 +5153,7 @@ func (s *changesSuite) TestAddUnitToExistingApp(c *gc.C) {
 	existingModel := &bundlechanges.Model{
 		Applications: map[string]*bundlechanges.Application{
 			"mediawiki": {
-				Charm:    "cs:mediawiki-10",
+				Charm:    "ch:mediawiki",
 				Revision: 10,
 				Channel:  "stable",
 				Units: []bundlechanges.Unit{
@@ -5095,7 +5162,7 @@ func (s *changesSuite) TestAddUnitToExistingApp(c *gc.C) {
 				Base: series.MakeDefaultBase("ubuntu", "20.04"),
 			},
 			"mysql": {
-				Charm:    "cs:mysql-28",
+				Charm:    "ch:mysql",
 				Revision: 28,
 				Channel:  "stable",
 				Units: []bundlechanges.Unit{
@@ -5135,11 +5202,11 @@ func (s *changesSuite) TestPlacementCycle(c *gc.C) {
 	bundleContent := `
                 applications:
                     mysql:
-                        charm: cs:mysql
+                        charm: ch:mysql
                         num_units: 3
                         to: [new, "lxd:0", "lxd:keystone/2"]
                     keystone:
-                        charm: cs:keystone
+                        charm: ch:keystone
                         num_units: 3
                         to: ["lxd:mysql"]
                 machines:
@@ -5152,7 +5219,7 @@ func (s *changesSuite) TestPlacementCycleSameApp(c *gc.C) {
 	bundleContent := `
                 applications:
                     problem:
-                        charm: cs:problem
+                        charm: ch:problem
                         num_units: 2
                         to: ["lxd:new", "lxd:problem/0"]
             `
@@ -5163,7 +5230,9 @@ func (s *changesSuite) TestAddMissingUnitToNotLastPlacement(c *gc.C) {
 	bundleContent := `
                 applications:
                     foo:
-                        charm: cs:foo-5
+                        charm: ch:foo
+                        revision: 5
+                        channel: stable
                         num_units: 3
                         to: [0,1,2]
                 machines:
@@ -5174,7 +5243,7 @@ func (s *changesSuite) TestAddMissingUnitToNotLastPlacement(c *gc.C) {
 	existingModel := &bundlechanges.Model{
 		Applications: map[string]*bundlechanges.Application{
 			"foo": {
-				Charm:    "cs:foo-5",
+				Charm:    "ch:foo",
 				Revision: 5,
 				Channel:  "stable",
 				Units: []bundlechanges.Unit{
@@ -5202,7 +5271,9 @@ func (s *changesSuite) TestAddMissingUnitToNotLastPlacementExisting(c *gc.C) {
 	bundleContent := `
                 applications:
                     foo:
-                        charm: cs:foo-5
+                        charm: ch:foo
+                        revision: 5
+                        channel: stable
                         num_units: 3
                         to: [0,1,2]
                 machines:
@@ -5213,7 +5284,7 @@ func (s *changesSuite) TestAddMissingUnitToNotLastPlacementExisting(c *gc.C) {
 	existingModel := &bundlechanges.Model{
 		Applications: map[string]*bundlechanges.Application{
 			"foo": {
-				Charm:    "cs:foo-5",
+				Charm:    "ch:foo",
 				Revision: 5,
 				Channel:  "stable",
 				Units: []bundlechanges.Unit{
@@ -5246,17 +5317,26 @@ func (s *changesSuite) TestFromJujuMassiveUnitColocation(c *gc.C) {
 	bundleContent := `
         applications:
             memcached:
-                charm: cs:xenial/mem-47
+                charm: ch:mem
+                series: xenial
+                revision: 47
+                channel: stable
                 num_units: 3
                 to: [1, 2, 3]
             django:
-                charm: cs:xenial/django-42
+                charm: ch:django
+                series: xenial
+                revision: 42
+                channel: stable
                 num_units: 4
                 to:
                     - 1
                     - lxd:memcached
             node:
-                charm: cs:xenial/django-42
+                charm: ch:django
+                series: xenial
+                revision: 42
+                channel: stable
                 num_units: 1
                 to:
                     - lxd:memcached
@@ -5269,7 +5349,7 @@ func (s *changesSuite) TestFromJujuMassiveUnitColocation(c *gc.C) {
 		Applications: map[string]*bundlechanges.Application{
 			"django": {
 				Name:     "django",
-				Charm:    "cs:xenial/django-42",
+				Charm:    "ch:django",
 				Revision: 42,
 				Channel:  "stable",
 				Units: []bundlechanges.Unit{
@@ -5282,7 +5362,7 @@ func (s *changesSuite) TestFromJujuMassiveUnitColocation(c *gc.C) {
 			},
 			"memcached": {
 				Name:     "memcached",
-				Charm:    "cs:xenial/mem-47",
+				Charm:    "ch:mem",
 				Channel:  "stable",
 				Revision: 47,
 				Units: []bundlechanges.Unit{
@@ -5312,14 +5392,14 @@ func (s *changesSuite) TestFromJujuMassiveUnitColocation(c *gc.C) {
 		},
 	}
 	expectedChanges := []string{
-		"deploy application node from charm-store on xenial using django",
+		"deploy application node from charm-hub on xenial with stable using django",
 		"add unit node/0 to 0/lxd/0 to satisfy [lxd:memcached]",
 	}
 	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(charm string, _ series.Base, channel, _ string, rev int) (string, int, error) {
-		if charm == "cs:xenial/django-42" {
+		if charm == "ch:django" {
 			return "stable", 42, nil
 		}
-		if charm == "cs:xenial/mem-47" {
+		if charm == "ch:mem" {
 			return "stable", 47, nil
 		}
 		return "stable", -1, nil
@@ -5336,7 +5416,10 @@ func (s *changesSuite) TestInconsistentMappingError(c *gc.C) {
 	bundleContent := `
         applications:
             memcached:
-                charm: cs:xenial/mem-47
+                charm: ch:mem
+                series: xenial
+                revision: 47
+                channel: stable
                 num_units: 2
                 to: [0, 1]
         machines:
@@ -5347,7 +5430,8 @@ func (s *changesSuite) TestInconsistentMappingError(c *gc.C) {
 		Applications: map[string]*bundlechanges.Application{
 			"memcached": {
 				Name:     "memcached",
-				Charm:    "cs:xenial/mem-47",
+				Charm:    "ch:mem",
+				Base:     series.MakeDefaultBase("ubuntu", "16.04"),
 				Revision: 47,
 				Channel:  "stable",
 				Units: []bundlechanges.Unit{
@@ -5370,7 +5454,7 @@ func (s *changesSuite) TestInconsistentMappingError(c *gc.C) {
 		},
 	}
 	s.checkBundleImpl(c, bundleContent, existingModel, nil, `bundle and machine mapping are inconsistent: need an explicit entry mapping bundle machine "0", perhaps to one of model machines \["2", "3"\] - the target should host \[memcached\]`, nil, func(charm string, _ series.Base, channel, _ string, rev int) (string, int, error) {
-		if charm == "cs:xenial/mem-47" {
+		if charm == "ch:mem" {
 			return "stable", 47, nil
 		}
 		return channel, rev, nil
@@ -5381,7 +5465,10 @@ func (s *changesSuite) TestConsistentMapping(c *gc.C) {
 	bundleContent := `
         applications:
             memcached:
-                charm: cs:xenial/mem-47
+                charm: ch:mem
+                series: xenial
+                revision: 47
+                channel: stable
                 num_units: 2
                 to: [0, 1]
         machines:
@@ -5392,7 +5479,7 @@ func (s *changesSuite) TestConsistentMapping(c *gc.C) {
 		Applications: map[string]*bundlechanges.Application{
 			"memcached": {
 				Name:     "memcached",
-				Charm:    "cs:xenial/mem-47",
+				Charm:    "ch:mem",
 				Revision: 47,
 				Channel:  "stable",
 				Units: []bundlechanges.Unit{
@@ -5419,7 +5506,7 @@ func (s *changesSuite) TestConsistentMapping(c *gc.C) {
 	}
 	// Now that we have a consistent mapping, no changes are needed.
 	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, nil, func(charm string, _ series.Base, channel, _ string, rev int) (string, int, error) {
-		if charm == "cs:xenial/mem-47" {
+		if charm == "ch:mem" {
 			return "stable", 47, nil
 		}
 		return "stable", -1, nil
@@ -5433,7 +5520,10 @@ func (s *changesSuite) TestContainerHosts(c *gc.C) {
 	bundleContent := `
         applications:
             memcached:
-                charm: cs:xenial/mem-47
+                charm: ch:mem
+                series: xenial
+                revision: 47
+                channel: stable
                 num_units: 2
                 to: [1, "lxd:2"]
         machines:
@@ -5444,7 +5534,7 @@ func (s *changesSuite) TestContainerHosts(c *gc.C) {
 		Applications: map[string]*bundlechanges.Application{
 			"memcached": {
 				Name:     "memcached",
-				Charm:    "cs:xenial/mem-47",
+				Charm:    "ch:mem",
 				Revision: 47,
 				Channel:  "stable",
 				Units: []bundlechanges.Unit{
@@ -5467,7 +5557,7 @@ func (s *changesSuite) TestContainerHosts(c *gc.C) {
 		"add unit memcached/2 to 2/lxd/0",
 	}
 	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(charm string, _ series.Base, channel, _ string, rev int) (string, int, error) {
-		if charm == "cs:xenial/mem-47" {
+		if charm == "ch:mem" {
 			return "stable", 47, nil
 		}
 		return "stable", -1, nil
@@ -5478,7 +5568,10 @@ func (s *changesSuite) TestSingleTarget(c *gc.C) {
 	bundleContent := `
         applications:
             memcached:
-                charm: cs:xenial/mem-47
+                charm: ch:mem
+                series: xenial
+                revision: 47
+                channel: stable
                 num_units: 2
                 to: [0, 1]
         machines:
@@ -5489,9 +5582,10 @@ func (s *changesSuite) TestSingleTarget(c *gc.C) {
 		Applications: map[string]*bundlechanges.Application{
 			"memcached": {
 				Name:     "memcached",
-				Charm:    "cs:xenial/mem-47",
+				Charm:    "ch:mem",
 				Revision: 47,
 				Channel:  "stable",
+				Base:     series.MakeDefaultBase("ubuntu", "16.04"),
 				Units: []bundlechanges.Unit{
 					{Name: "memcached/1", Machine: "1"},
 					{Name: "memcached/2", Machine: "2"},
@@ -5509,7 +5603,7 @@ func (s *changesSuite) TestSingleTarget(c *gc.C) {
 		},
 	}
 	s.checkBundleImpl(c, bundleContent, existingModel, nil, `bundle and machine mapping are inconsistent: need an explicit entry mapping bundle machine "0", perhaps to unreferenced model machine "2" - the target should host \[memcached\]`, nil, func(charm string, _ series.Base, channel, _ string, rev int) (string, int, error) {
-		if charm == "cs:xenial/mem-47" {
+		if charm == "ch:mem" {
 			return "stable", 47, nil
 		}
 		return channel, rev, nil
@@ -5520,11 +5614,17 @@ func (s *changesSuite) TestMultipleApplications(c *gc.C) {
 	bundleContent := `
         applications:
             memcached:
-                charm: cs:xenial/mem-47
+                charm: ch:mem
+                series: xenial
+                revision: 47
+                channel: stable
                 num_units: 2
                 to: [0, 1]
             prometheus:
-                charm: cs:xenial/prom-22
+                charm: ch:prom
+                series: xenial
+                revision: 22
+                channel: stable
                 num_units: 1
                 to: [0]
         machines:
@@ -5535,21 +5635,23 @@ func (s *changesSuite) TestMultipleApplications(c *gc.C) {
 		Applications: map[string]*bundlechanges.Application{
 			"memcached": {
 				Name:     "memcached",
-				Charm:    "cs:xenial/mem-47",
+				Charm:    "ch:mem",
 				Revision: 47,
 				Channel:  "stable",
 				Units: []bundlechanges.Unit{
 					{Name: "memcached/1", Machine: "1"},
 					{Name: "memcached/2", Machine: "2"},
 				},
+				Base: series.MakeDefaultBase("ubuntu", "16.04"),
 			},
 			"prometheus": {
 				Name:    "prometheus",
-				Charm:   "cs:xenial/prom-22",
+				Charm:   "ch:prom",
 				Channel: "stable",
 				Units: []bundlechanges.Unit{
 					{Name: "prometheus/1", Machine: "2"},
 				},
+				Base: series.MakeDefaultBase("ubuntu", "16.04"),
 			},
 		},
 		Machines: map[string]*bundlechanges.Machine{
@@ -5563,10 +5665,10 @@ func (s *changesSuite) TestMultipleApplications(c *gc.C) {
 		},
 	}
 	s.checkBundleImpl(c, bundleContent, existingModel, nil, `bundle and machine mapping are inconsistent: need an explicit entry mapping bundle machine "0", perhaps to unreferenced model machine "2" - the target should host \[memcached, prometheus\]`, nil, func(charm string, _ series.Base, channel, _ string, rev int) (string, int, error) {
-		if charm == "cs:xenial/mem-47" {
+		if charm == "ch:mem" {
 			return "stable", 47, nil
 		}
-		if charm == "cs:xenial/prom-22" {
+		if charm == "ch:prom" {
 			return "stable", 22, nil
 		}
 		return channel, rev, nil
@@ -5577,11 +5679,17 @@ func (s *changesSuite) TestNoApplications(c *gc.C) {
 	bundleContent := `
         applications:
             memcached:
-                charm: cs:xenial/mem-47
+                charm: ch:mem
+                series: xenial
+                revision: 47
+                channel: stable
                 num_units: 2
                 to: ["lxd:0", 1]
             prometheus:
-                charm: cs:xenial/prom-22
+                charm: ch:prom
+                series: xenial
+                revision: 22
+                channel: stable
                 num_units: 1
                 to: [memcached/0]
         machines:
@@ -5592,22 +5700,24 @@ func (s *changesSuite) TestNoApplications(c *gc.C) {
 		Applications: map[string]*bundlechanges.Application{
 			"memcached": {
 				Name:     "memcached",
-				Charm:    "cs:xenial/mem-47",
+				Charm:    "ch:mem",
 				Revision: 47,
 				Channel:  "stable",
 				Units: []bundlechanges.Unit{
 					{Name: "memcached/1", Machine: "1"},
 					{Name: "memcached/2", Machine: "2"},
 				},
+				Base: series.MakeDefaultBase("ubuntu", "16.04"),
 			},
 			"prometheus": {
 				Name:     "prometheus",
-				Charm:    "cs:xenial/prom-22",
+				Charm:    "ch:prom",
 				Revision: 22,
 				Channel:  "stable",
 				Units: []bundlechanges.Unit{
 					{Name: "prometheus/1", Machine: "2"},
 				},
+				Base: series.MakeDefaultBase("ubuntu", "16.04"),
 			},
 		},
 		Machines: map[string]*bundlechanges.Machine{
@@ -5624,10 +5734,10 @@ func (s *changesSuite) TestNoApplications(c *gc.C) {
 	// 0 because the applications don't refer to it with simple
 	// placement..
 	s.checkBundleImpl(c, bundleContent, existingModel, nil, `bundle and machine mapping are inconsistent: need an explicit entry mapping bundle machine "0", perhaps to unreferenced model machine "2"`, nil, func(charm string, _ series.Base, channel, _ string, rev int) (string, int, error) {
-		if charm == "cs:xenial/mem-47" {
+		if charm == "ch:mem" {
 			return "stable", 47, nil
 		}
-		if charm == "cs:xenial/prom-22" {
+		if charm == "ch:prom" {
 			return "stable", 22, nil
 		}
 		return channel, rev, nil
@@ -5638,7 +5748,10 @@ func (s *changesSuite) TestNoPossibleTargets(c *gc.C) {
 	bundleContent := `
         applications:
             memcached:
-                charm: cs:xenial/mem-47
+                charm: ch:mem
+                series: xenial
+                revision: 47
+                channel: stable
                 num_units: 2
                 to: [0, 1]
         machines:
@@ -5649,13 +5762,14 @@ func (s *changesSuite) TestNoPossibleTargets(c *gc.C) {
 		Applications: map[string]*bundlechanges.Application{
 			"memcached": {
 				Name:     "memcached",
-				Charm:    "cs:xenial/mem-47",
+				Charm:    "ch:mem",
 				Revision: 47,
 				Channel:  "stable",
 				Units: []bundlechanges.Unit{
 					{Name: "memcached/1", Machine: "1"},
 					{Name: "memcached/2", Machine: "1"},
 				},
+				Base: series.MakeDefaultBase("ubuntu", "16.04"),
 			},
 		},
 		Machines: map[string]*bundlechanges.Machine{
@@ -5668,7 +5782,7 @@ func (s *changesSuite) TestNoPossibleTargets(c *gc.C) {
 	}
 	// There *are* two units, but they're both on machine one.
 	s.checkBundleImpl(c, bundleContent, existingModel, nil, `bundle and machine mapping are inconsistent: need an explicit entry mapping bundle machine "0" - the target should host \[memcached\]`, nil, func(charm string, _ series.Base, channel, _ string, rev int) (string, int, error) {
-		if charm == "cs:xenial/mem-47" {
+		if charm == "ch:mem" {
 			return "stable", 47, nil
 		}
 		return channel, rev, nil

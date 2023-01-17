@@ -14,9 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v9"
-	charmresource "github.com/juju/charm/v9/resource"
-	csclientparams "github.com/juju/charmrepo/v7/csclient/params"
+	"github.com/juju/charm/v10"
+	charmresource "github.com/juju/charm/v10/resource"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/collections/set"
@@ -64,7 +63,7 @@ type BaseRefreshSuite struct {
 	fakeAPI              *fakeDeployAPI
 	resolveCharm         mockCharmResolver
 	resolvedCharmURL     *charm.URL
-	resolvedChannel      csclientparams.Channel
+	resolvedChannel      charm.Risk
 	apiConnection        mockAPIConnection
 	charmAdder           mockCharmAdder
 	charmClient          mockCharmClient
@@ -109,7 +108,7 @@ func (s *BaseRefreshSuite) SetUpTest(c *gc.C) {
 		return ids, s.NextErr()
 	}
 
-	s.resolvedChannel = csclientparams.StableChannel
+	s.resolvedChannel = charm.Stable
 	s.resolveCharm = mockCharmResolver{
 		resolveFunc: func(url *charm.URL, preferredOrigin commoncharm.Origin, _ bool) (*charm.URL, commoncharm.Origin, []string, error) {
 			s.AddCall("ResolveCharm", url, preferredOrigin)
@@ -401,12 +400,6 @@ func (s *RefreshErrorsStateSuite) deployApplication(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *RefreshErrorsStateSuite) TestInvalidSwitchURL(c *gc.C) {
-	s.deployApplication(c)
-	_, err := s.runRefresh(c, s.cmd, "riak", "--switch=cs:missing")
-	c.Assert(err, gc.ErrorMatches, `unable to refresh "cs:missing"`)
-}
-
 func (s *RefreshErrorsStateSuite) TestNoPathFails(c *gc.C) {
 	s.deployApplication(c)
 	_, err := s.runRefresh(c, s.cmd, "riak")
@@ -533,7 +526,7 @@ func (s *RefreshSuccessStateSuite) TestLocalRevisionUnchanged(c *gc.C) {
 }
 
 func (s *RefreshSuite) TestUpgradeWithChannel(c *gc.C) {
-	s.resolvedChannel = csclientparams.BetaChannel
+	s.resolvedChannel = charm.Beta
 	_, err := s.runRefresh(c, "foo", "--channel=beta")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -559,7 +552,7 @@ func (s *RefreshSuite) TestUpgradeWithChannel(c *gc.C) {
 }
 
 func (s *RefreshSuite) TestRefreshShouldRespectDeployedChannelByDefault(c *gc.C) {
-	s.resolvedChannel = csclientparams.BetaChannel
+	s.resolvedChannel = charm.Beta
 	_, err := s.runRefresh(c, "foo")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -583,7 +576,7 @@ func (s *RefreshSuite) TestRefreshShouldRespectDeployedChannelByDefault(c *gc.C)
 }
 
 func (s *RefreshSuite) TestUpgradeFailWithoutCharmHubOriginID(c *gc.C) {
-	s.resolvedChannel = csclientparams.BetaChannel
+	s.resolvedChannel = charm.Beta
 	s.charmAPIClient.charmOrigin.Source = "charm-hub"
 	_, err := s.runRefresh(c, "foo", "--channel=beta")
 	c.Assert(err, gc.ErrorMatches, "\"foo\" deploy incomplete, please try refresh again in a little bit.")

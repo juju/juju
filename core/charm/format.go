@@ -3,7 +3,7 @@
 
 package charm
 
-import "github.com/juju/charm/v9"
+import "github.com/juju/charm/v10"
 
 // MetadataFormat of the parsed charm.
 type MetadataFormat int

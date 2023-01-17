@@ -12,8 +12,8 @@ import (
 	"strings"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v9"
-	charmresource "github.com/juju/charm/v9/resource"
+	"github.com/juju/charm/v10"
+	charmresource "github.com/juju/charm/v10/resource"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -63,15 +63,15 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 
-	curl := charm.MustParseURL("cs:a-charm")
-	curl2 := charm.MustParseURL("cs:jammy/dummy-1")
+	curl := charm.MustParseURL("ch:a-charm")
+	curl2 := charm.MustParseURL("ch:jammy/dummy-1")
 	no := ""
 	edge := "edge"
 	stable := "stable"
 
-	noChannelParamsOrigin := params.CharmOrigin{Source: "charm-store"}
-	edgeChannelParamsOrigin := params.CharmOrigin{Source: "charm-store", Risk: edge}
-	stableChannelParamsOrigin := params.CharmOrigin{Source: "charm-store", Risk: stable}
+	noChannelParamsOrigin := params.CharmOrigin{Source: "charm-hub"}
+	edgeChannelParamsOrigin := params.CharmOrigin{Source: "charm-hub", Risk: edge}
+	stableChannelParamsOrigin := params.CharmOrigin{Source: "charm-hub", Risk: stable}
 
 	facadeArgs := params.ResolveCharmsWithChannel{
 		Resolve: []params.ResolveCharmWithChannel{
@@ -103,9 +103,9 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 
 	client := charms.NewClientWithFacade(mockFacadeCaller)
 
-	noChannelOrigin := apicharm.Origin{Source: apicharm.OriginCharmStore, Risk: no}
-	edgeChannelOrigin := apicharm.Origin{Source: apicharm.OriginCharmStore, Risk: edge}
-	stableChannelOrigin := apicharm.Origin{Source: apicharm.OriginCharmStore, Risk: stable}
+	noChannelOrigin := apicharm.Origin{Source: apicharm.OriginCharmHub, Risk: no}
+	edgeChannelOrigin := apicharm.Origin{Source: apicharm.OriginCharmHub, Risk: edge}
+	stableChannelOrigin := apicharm.Origin{Source: apicharm.OriginCharmHub, Risk: stable}
 	args := []charms.CharmToResolve{
 		{URL: curl, Origin: noChannelOrigin},
 		{URL: curl2, Origin: edgeChannelOrigin},
@@ -136,8 +136,8 @@ func (s *charmsMockSuite) TestGetDownloadInfo(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	curl := charm.MustParseURL("cs:a-charm")
-	noChannelParamsOrigin := params.CharmOrigin{Source: "charm-store", Base: params.Base{Name: "ubuntu", Channel: "22.04/stable"}}
+	curl := charm.MustParseURL("ch:a-charm")
+	noChannelParamsOrigin := params.CharmOrigin{Source: "charm-hub", Base: params.Base{Name: "ubuntu", Channel: "22.04/stable"}}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 
@@ -176,9 +176,9 @@ func (s *charmsMockSuite) TestAddCharm(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	curl := charm.MustParseURL("cs:testme-2")
+	curl := charm.MustParseURL("ch:testme-2")
 	origin := apicharm.Origin{
-		Source:       "charm-store",
+		Source:       "charm-hub",
 		ID:           "",
 		Hash:         "",
 		Risk:         "stable",
@@ -392,8 +392,8 @@ func (s *charmsMockSuite) TestAddLocalCharm(c *gc.C) {
 	client := charms.NewClientWithFacade(mockFacadeCaller)
 	vers := version.MustParse("2.6.6")
 	// Test the sanity checks first.
-	_, err := client.AddLocalCharm(charm.MustParseURL("cs:quantal/wordpress-1"), nil, false, vers)
-	c.Assert(err, gc.ErrorMatches, `expected charm URL with local: schema, got "cs:quantal/wordpress-1"`)
+	_, err := client.AddLocalCharm(charm.MustParseURL("ch:wordpress-1"), nil, false, vers)
+	c.Assert(err, gc.ErrorMatches, `expected charm URL with local: schema, got "ch:wordpress-1"`)
 
 	// Upload an archive with its original revision.
 	savedURL, err := client.AddLocalCharm(curl, charmArchive, false, vers)

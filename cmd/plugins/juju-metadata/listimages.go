@@ -9,10 +9,12 @@ import (
 	"strings"
 
 	"github.com/juju/cmd/v3"
+	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -24,29 +26,14 @@ const listCommandDoc = `
 List information about image metadata stored in Juju model.
 This list can be filtered using various filters as described below.
 
-More than one filter can be specified. Result will contain metadata that matches all filters in combination.
+More than one filter can be specified. Result will contain metadata that matches 
+all filters in combination.
 
 If no filters are supplied, all stored image metadata will be listed.
 
-options:
--m, --model (= "")
-   juju model to operate in
--o, --output (= "")
-   specify an output file
---format (= tabular)
-   specify output format (json|tabular|yaml)
---stream
-   image stream
---region
-   cloud region
---series
-   comma separated list of series
---arch
-   comma separated list of architectures
---virt-type
-   virtualisation type [provider specific], e.g. hvm
---storage-type
-   root storage type [provider specific], e.g. ebs
+Filtering a list of images for a set of bases can be done via --bases. A base can 
+be  specified using the OS name and the version of the OS, separated by @. For 
+example, --bases ubuntu@22.04.
 `
 
 // listImagesCommand returns stored image metadata.
@@ -58,6 +45,7 @@ type listImagesCommand struct {
 	Stream          string
 	Region          string
 	Series          []string
+	Bases           []string
 	Arches          []string
 	VirtType        string
 	RootStorageType string
@@ -65,13 +53,10 @@ type listImagesCommand struct {
 
 // Init implements Command.Init.
 func (c *listImagesCommand) Init(args []string) (err error) {
-	if len(c.Series) > 0 {
-		result := []string{}
-		for _, one := range c.Series {
-			result = append(result, strings.Split(one, ",")...)
-		}
-		c.Series = result
+	if len(c.Bases) > 0 && len(c.Series) > 0 {
+		return errors.New("--series and --bases cannot be specified together")
 	}
+
 	if len(c.Arches) > 0 {
 		result := []string{}
 		for _, one := range c.Arches {
@@ -99,7 +84,8 @@ func (c *listImagesCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Stream, "stream", "", "image metadata stream")
 	f.StringVar(&c.Region, "region", "", "image metadata cloud region")
 
-	f.Var(cmd.NewAppendStringsValue(&c.Series), "series", "only show cloud image metadata for these series")
+	f.Var(cmd.NewAppendStringsValue(&c.Series), "series", "only show cloud image metadata for these series. DEPRECATED use --bases")
+	f.Var(cmd.NewAppendStringsValue(&c.Bases), "bases", "only show cloud image metadata for these bases")
 	f.Var(cmd.NewAppendStringsValue(&c.Arches), "arch", "only show cloud image metadata for these architectures")
 
 	f.StringVar(&c.VirtType, "virt-type", "", "image metadata virtualisation type")
@@ -114,13 +100,41 @@ func (c *listImagesCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Run implements Command.Run.
 func (c *listImagesCommand) Run(ctx *cmd.Context) (err error) {
+	var bases []series.Base
+	// Note: we validated that both series and bases cannot be specified in
+	// Init(), so it's safe to assume that only one of them is set here.
+	if len(c.Series) > 0 {
+		ctx.Warningf("series flag is deprecated, use --bases instead")
+		for _, s := range c.Series {
+			for _, one := range strings.Split(s, ",") {
+				b, err := series.GetBaseFromSeries(one)
+				if err != nil {
+					return errors.Annotatef(err, "attempting to convert %q to a base", c.Series)
+				}
+				bases = append(bases, b)
+			}
+		}
+		c.Series = nil
+	}
+	if len(c.Bases) > 0 {
+		for _, b := range c.Bases {
+			for _, one := range strings.Split(b, ",") {
+				b, err := series.ParseBaseFromString(one)
+				if err != nil {
+					return errors.Trace(err)
+				}
+				bases = append(bases, b)
+			}
+		}
+	}
+
 	api, err := getImageMetadataListAPI(c)
 	if err != nil {
 		return err
 	}
 	defer api.Close()
 
-	found, err := api.List(c.Stream, c.Region, c.Series, c.Arches, c.VirtType, c.RootStorageType)
+	found, err := c.List(api, bases)
 	if err != nil {
 		return err
 	}
@@ -147,12 +161,16 @@ func (c *listImagesCommand) Run(ctx *cmd.Context) (err error) {
 	return c.out.Write(ctx, output)
 }
 
+func (c *listImagesCommand) List(api MetadataListAPI, bases []series.Base) ([]params.CloudImageMetadata, error) {
+	return api.List(c.Stream, c.Region, bases, c.Arches, c.VirtType, c.RootStorageType)
+}
+
 var getImageMetadataListAPI = (*listImagesCommand).getImageMetadataListAPI
 
 // MetadataListAPI defines the API methods that list image metadata command uses.
 type MetadataListAPI interface {
 	Close() error
-	List(stream, region string, series, arches []string, virtType, rootStorageType string) ([]params.CloudImageMetadata, error)
+	List(stream, region string, series []series.Base, arches []string, virtType, rootStorageType string) ([]params.CloudImageMetadata, error)
 }
 
 func (c *listImagesCommand) getImageMetadataListAPI() (MetadataListAPI, error) {

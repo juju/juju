@@ -14,6 +14,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/client/application"
+	"github.com/juju/juju/api/client/modelconfig"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -28,12 +29,14 @@ func NewRemoveUnitCommand() modelcmd.ModelCommand {
 
 // removeUnitCommand is responsible for destroying application units.
 type removeUnitCommand struct {
-	modelcmd.ConfirmationCommandBase
+	modelcmd.RemoveConfirmationCommandBase
 	modelcmd.ModelCommandBase
 	DestroyStorage bool
 	NumUnits       int
 	EntityNames    []string
+
 	api            RemoveApplicationAPI
+	modelConfigApi ModelConfigClient
 
 	unknownModel bool
 	Force        bool
@@ -115,7 +118,7 @@ func (c *removeUnitCommand) Info() *cmd.Info {
 
 func (c *removeUnitCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	c.ConfirmationCommandBase.SetFlags(f)
+	c.RemoveConfirmationCommandBase.SetFlags(f)
 	f.BoolVar(&c.DryRun, "dry-run", false, "Print what this command would remove without removing")
 	f.IntVar(&c.NumUnits, "num-units", 0, "Number of units to remove (k8s models only)")
 	f.BoolVar(&c.DestroyStorage, "destroy-storage", false, "Destroy storage attached to the unit")
@@ -125,9 +128,6 @@ func (c *removeUnitCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *removeUnitCommand) Init(args []string) error {
-	if err := c.ConfirmationCommandBase.Init(args); err != nil {
-		return errors.Trace(err)
-	}
 	c.EntityNames = args
 	if err := c.validateArgsByModelType(); err != nil {
 		if !errors.IsNotFound(err) {
@@ -213,6 +213,18 @@ func (c *removeUnitCommand) getAPI() (RemoveApplicationAPI, error) {
 	return api, nil
 }
 
+func (c *removeUnitCommand) getModelConfigAPI() (ModelConfigClient, error) {
+	if c.modelConfigApi != nil {
+		return c.modelConfigApi, nil
+	}
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	c.modelConfigApi = modelconfig.NewClient(root)
+	return c.modelConfigApi, nil
+}
+
 // Run connects to the environment specified on the command line and destroys
 // units therein.
 func (c *removeUnitCommand) Run(ctx *cmd.Context) error {
@@ -246,7 +258,14 @@ func (c *removeUnitCommand) removeUnits(ctx *cmd.Context, client RemoveApplicati
 	if c.DryRun {
 		return c.performDryRun(ctx, client)
 	}
-	if c.NeedsConfirmation() {
+	modelConfigClient, err := c.getModelConfigAPI()
+	if err != nil {
+		return err
+	}
+	defer modelConfigClient.Close()
+
+	needsConfirmation := c.NeedsConfirmation(modelConfigClient)
+	if needsConfirmation {
 		err := c.performDryRun(ctx, client)
 		if err == errDryRunNotSupportedByController {
 			ctx.Warningf(removeUnitMsgNoDryRun, strings.Join(c.EntityNames, ", "))
@@ -268,7 +287,7 @@ func (c *removeUnitCommand) removeUnits(ctx *cmd.Context, client RemoveApplicati
 	if err != nil {
 		return block.ProcessBlockedError(err, block.BlockRemove)
 	}
-	logAll := !c.NeedsConfirmation() || client.BestAPIVersion() < 16
+	logAll := !needsConfirmation || client.BestAPIVersion() < 16
 	if logAll {
 		return c.logResults(ctx, results)
 	} else {

@@ -22,12 +22,6 @@ func newDeleteImageMetadataCommand() cmd.Command {
 
 const deleteImageCommandDoc = `
 Delete image metadata from Juju environment.
-
-This command takes only one positional argument - an image id.
-
-arguments:
-image-id
-   image identifier
 `
 
 // deleteImageMetadataCommand deletes image metadata from Juju environment.

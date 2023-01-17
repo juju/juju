@@ -4,7 +4,7 @@
 package assumes
 
 import (
-	chassumes "github.com/juju/charm/v9/assumes"
+	chassumes "github.com/juju/charm/v10/assumes"
 	"github.com/juju/errors"
 )
 

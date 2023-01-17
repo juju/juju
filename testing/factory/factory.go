@@ -10,8 +10,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/juju/charm/v9"
-	charmresource "github.com/juju/charm/v9/resource"
+	"github.com/juju/charm/v10"
+	charmresource "github.com/juju/charm/v10/resource"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
@@ -691,7 +691,7 @@ func (factory *Factory) MakeMetric(c *gc.C, params *MetricParams) *state.MetricB
 		params = &MetricParams{}
 	}
 	if params.Unit == nil {
-		meteredCharm := factory.MakeCharm(c, &CharmParams{Name: "metered", URL: "cs:quantal/metered"})
+		meteredCharm := factory.MakeCharm(c, &CharmParams{Name: "metered", URL: "ch:quantal/metered"})
 		meteredApplication := factory.MakeApplication(c, &ApplicationParams{Charm: meteredCharm})
 		params.Unit = factory.MakeUnit(c, &UnitParams{Application: meteredApplication, SetCharmURL: true})
 	}

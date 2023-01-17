@@ -21,7 +21,6 @@ func (env *environ) PrecheckInstance(ctx context.ProviderCallContext, args envir
 var unsupportedConstraints = []string{
 	constraints.CpuPower,
 	constraints.Tags,
-	constraints.VirtType,
 	constraints.Container,
 	constraints.AllocatePublicIP,
 }
@@ -33,6 +32,7 @@ func (env *environ) ConstraintsValidator(ctx context.ProviderCallContext) (const
 
 	validator.RegisterUnsupported(unsupportedConstraints)
 	validator.RegisterVocabulary(constraints.Arch, env.server().SupportedArches())
+	validator.RegisterVocabulary(constraints.VirtType, []string{"", "container", "virtual-machine"})
 
 	return validator, nil
 }

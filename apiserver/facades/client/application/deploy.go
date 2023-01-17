@@ -6,8 +6,8 @@ package application
 import (
 	"fmt"
 
-	"github.com/juju/charm/v9"
-	"github.com/juju/charm/v9/assumes"
+	"github.com/juju/charm/v10"
+	"github.com/juju/charm/v10/assumes"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 

@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -122,7 +122,8 @@ func (c *infoCommand) Init(args []string) error {
 func (c *infoCommand) validateCharmOrBundle(charmOrBundle string) error {
 	curl, err := charm.ParseURL(charmOrBundle)
 	if err != nil {
-		return errors.Trace(err)
+		logger.Debugf("%s", err)
+		return errors.NotValidf("charm or bundle name, %q, is", charmOrBundle)
 	}
 	if !charm.CharmHub.Matches(curl.Schema) {
 		return errors.Errorf("%q is not a Charm Hub charm", charmOrBundle)
