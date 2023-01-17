@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/cmd/modelcmd"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/rpc/params"
@@ -192,25 +191,6 @@ func (s *DestroySuite) TestDestroy(c *gc.C) {
 	})
 }
 
-func (s *DestroySuite) TestDestroyWithSkipConfirmEnvVar(c *gc.C) {
-	s.PatchEnvironment(osenv.JujuSkipConfirmationEnvKey, "true")
-	checkModelExistsInStore(c, "test1:admin/test2", s.store)
-	_, err := s.runDestroyCommand(c, "test2")
-	c.Assert(err, jc.ErrorIsNil)
-	checkModelRemovedFromStore(c, "test1:admin/test2", s.store)
-	s.stub.CheckCalls(c, []jutesting.StubCall{
-		{"DestroyModel",
-			[]interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil), (*bool)(nil), (*time.Duration)(nil), timeout}},
-	})
-}
-
-func (s *DestroySuite) TestDestroyWithSkipConfirmIncorrectEnvVar(c *gc.C) {
-	s.PatchEnvironment(osenv.JujuSkipConfirmationEnvKey, "incorrect_value")
-	checkModelExistsInStore(c, "test1:admin/test2", s.store)
-	_, err := s.runDestroyCommand(c, "test2")
-	c.Assert(err, gc.ErrorMatches, "Unexpected value of JUJU_SKIP_CONFIRMATION env var, needs to be bool.")
-}
-
 func (s *DestroySuite) TestDestroyWithPartModelUUID(c *gc.C) {
 	checkModelExistsInStore(c, "test1:admin/test2", s.store)
 	_, err := s.runDestroyCommand(c, "test2-uu", "--no-prompt")
@@ -314,11 +294,12 @@ func (s *DestroySuite) resetModel(c *gc.C) {
 }
 
 func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
-	var stdin, stdout bytes.Buffer
+	var stdin, stdout, stderr bytes.Buffer
 	ctx, err := cmd.DefaultContext()
 	c.Assert(err, jc.ErrorIsNil)
 	ctx.Stdout = &stdout
 	ctx.Stdin = &stdin
+	ctx.Stderr = &stderr
 	s.api.modelInfoErr = []*params.Error{nil, nil, nil}
 
 	// Ensure confirmation is requested if "--no-prompt" is not specified.
@@ -330,12 +311,14 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 	case <-time.After(testing.LongWait):
 		c.Fatalf("command took too long")
 	}
-	c.Check(cmdtesting.Stdout(ctx), gc.Matches, "WARNING!.*test2(.|\n)*")
+	testLog := c.GetTestLog()
+	c.Check(testLog, gc.Matches, "(.|\n)*WARNING.*test2(.|\n)*")
 	checkModelExistsInStore(c, "test1:admin/test1", s.store)
 
 	// EOF on stdin: equivalent to answering no.
 	stdin.Reset()
 	stdout.Reset()
+	stderr.Reset()
 	_, errc = cmdtest.RunCommandWithDummyProvider(ctx, s.NewDestroyCommand(), "test2")
 	select {
 	case err := <-errc:
@@ -343,12 +326,14 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 	case <-time.After(testing.LongWait):
 		c.Fatalf("command took too long")
 	}
-	c.Check(cmdtesting.Stdout(ctx), gc.Matches, "WARNING!.*test2(.|\n)*")
+	testLog = c.GetTestLog()
+	c.Check(testLog, gc.Matches, "(.|\n)*WARNING.*test2(.|\n)*")
 	checkModelExistsInStore(c, "test1:admin/test2", s.store)
 
 	answer := "test2"
 	stdin.Reset()
 	stdout.Reset()
+	stderr.Reset()
 	stdin.WriteString(answer)
 	_, errc = cmdtest.RunCommandWithDummyProvider(ctx, s.NewDestroyCommand(), "test2")
 	select {

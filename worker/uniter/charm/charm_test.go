@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	corecharm "github.com/juju/charm/v9"
+	corecharm "github.com/juju/charm/v10"
 	"github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -110,6 +110,6 @@ func (b mockBundle) ExpandTo(dir string) error {
 }
 
 func charmURL(revision int) *corecharm.URL {
-	baseURL := corecharm.MustParseURL("cs:s/c")
+	baseURL := corecharm.MustParseURL("ch:s/c")
 	return baseURL.WithRevision(revision)
 }

@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -649,6 +649,9 @@ func (i *importer) machineInstanceOp(mdoc *machineDoc, inst description.CloudIns
 	}
 	if az := inst.AvailabilityZone(); az != "" {
 		doc.AvailZone = &az
+	}
+	if vt := inst.VirtType(); vt != "" {
+		doc.VirtType = &vt
 	}
 	if profiles := inst.CharmProfiles(); len(profiles) > 0 {
 		doc.CharmProfiles = profiles

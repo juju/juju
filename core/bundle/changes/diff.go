@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
@@ -154,6 +154,12 @@ func (d *differ) diffApplication(name string) *ApplicationDiff {
 		Channel:          d.diffStrings(bundle.Channel, model.Channel),
 		Constraints:      d.diffStrings(bundle.Constraints, model.Constraints),
 		Options:          d.diffOptions(bundle.Options, model.Options),
+	}
+
+	if bundle.Revision != nil {
+		result.Revision = d.diffInts(*bundle.Revision, model.Revision)
+	} else {
+		result.Revision = d.diffInts(-1, model.Revision)
 	}
 
 	if d.config.IncludeAnnotations {
@@ -412,6 +418,7 @@ type ApplicationDiff struct {
 	Charm            *StringDiff                    `yaml:"charm,omitempty"`
 	Series           *StringDiff                    `yaml:"series,omitempty"`
 	Channel          *StringDiff                    `yaml:"channel,omitempty"`
+	Revision         *IntDiff                       `yaml:"revision,omitempty"`
 	Placement        *StringDiff                    `yaml:"placement,omitempty"`
 	NumUnits         *IntDiff                       `yaml:"num_units,omitempty"`
 	Scale            *IntDiff                       `yaml:"scale,omitempty"`
@@ -432,6 +439,7 @@ func (d *ApplicationDiff) Empty() bool {
 		d.Charm == nil &&
 		d.Series == nil &&
 		d.Channel == nil &&
+		d.Revision == nil &&
 		d.Placement == nil &&
 		d.NumUnits == nil &&
 		d.Scale == nil &&

@@ -6,7 +6,7 @@ package application
 import (
 	"time"
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/set"
 	gc "gopkg.in/check.v1"
@@ -34,7 +34,6 @@ func NewRefreshCommandForTest(
 	newSpacesClient func(base.APICallCloser) SpacesAPI,
 	newModelConfigClient func(base.APICallCloser) ModelConfigClient,
 	newCharmHubClient func(string) (store.DownloadBundleClient, error),
-
 ) cmd.Command {
 	cmd := &refreshCommand{
 		DeployResources:       deployResources,
@@ -107,18 +106,15 @@ func NewAddUnitCommandForTestWithRefresh(api applicationAddUnitAPI, store jujucl
 }
 
 // NewRemoveUnitCommandForTest returns a RemoveUnitCommand with the api provided as specified.
-func NewRemoveUnitCommandForTest(api RemoveApplicationAPI, store jujuclient.ClientStore) modelcmd.ModelCommand {
-	cmd := &removeUnitCommand{api: api}
+func NewRemoveUnitCommandForTest(api RemoveApplicationAPI, modelConfigApi ModelConfigClient, store jujuclient.ClientStore) modelcmd.ModelCommand {
+	cmd := &removeUnitCommand{api: api, modelConfigApi: modelConfigApi}
 	cmd.SetClientStore(store)
 	return modelcmd.Wrap(cmd)
 }
 
-type removeAPIFunc func() (RemoveApplicationAPI, error)
-
 // NewRemoveApplicationCommandForTest returns a RemoveApplicationCommand.
-func NewRemoveApplicationCommandForTest(f removeAPIFunc, store jujuclient.ClientStore) modelcmd.ModelCommand {
-	c := &removeApplicationCommand{}
-	c.newAPIFunc = f
+func NewRemoveApplicationCommandForTest(api RemoveApplicationAPI, modelConfigApi ModelConfigClient, store jujuclient.ClientStore) modelcmd.ModelCommand {
+	c := &removeApplicationCommand{api: api, modelConfigApi: modelConfigApi}
 	c.SetClientStore(store)
 	return modelcmd.Wrap(c)
 }
@@ -204,9 +200,6 @@ func NewDiffBundleCommandForTest(api base.APICallCloser,
 ) modelcmd.ModelCommand {
 	cmd := &diffBundleCommand{
 		newAPIRootFn: func() (base.APICallCloser, error) {
-			return api, nil
-		},
-		newControllerAPIRootFn: func() (base.APICallCloser, error) {
 			return api, nil
 		},
 		modelConstraintsClientFunc: modelConsFn,

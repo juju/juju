@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
@@ -648,6 +648,9 @@ func (e *exporter) newCloudInstanceArgs(data instanceData) description.CloudInst
 	}
 	if data.AvailZone != nil {
 		inst.AvailabilityZone = *data.AvailZone
+	}
+	if data.VirtType != nil {
+		inst.VirtType = *data.VirtType
 	}
 	if len(data.CharmProfiles) > 0 {
 		inst.CharmProfiles = data.CharmProfiles

@@ -4,7 +4,7 @@
 package state
 
 import (
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/collections/set"
 	gc "gopkg.in/check.v1"
 
@@ -373,6 +373,7 @@ func (s *MigrationSuite) TestInstanceDataFields(c *gc.C) {
 		"CpuPower",
 		"Tags",
 		"AvailZone",
+		"VirtType",
 		"CharmProfiles",
 	)
 	s.AssertExportedFields(c, instanceData{}, migrated.Union(ignored))

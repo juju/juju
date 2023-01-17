@@ -98,7 +98,7 @@ func (s *WatcherSuite) SetUpTest(c *gc.C) {
 			application: mockApplication{
 				tag:                   names.NewApplicationTag("mysql"),
 				life:                  life.Alive,
-				curl:                  "cs:trusty/mysql",
+				curl:                  "ch:trusty/mysql",
 				charmModifiedVersion:  5,
 				leaderSettingsWatcher: newMockNotifyWatcher(),
 			},

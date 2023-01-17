@@ -387,6 +387,10 @@ func formatHardware(hw *instance.HardwareCharacteristics) string {
 	if hw.CpuCores != nil && *hw.CpuCores > 0 {
 		out = append(out, fmt.Sprintf("cores=%d", *hw.CpuCores))
 	}
+	// If the virt-type is the default, don't print it out, as it's just noise.
+	if hw.VirtType != nil && *hw.VirtType != "" && *hw.VirtType != string(instance.DefaultInstanceType) {
+		out = append(out, fmt.Sprintf("virt-type=%s", *hw.VirtType))
+	}
 	return strings.Join(out, " ")
 }
 

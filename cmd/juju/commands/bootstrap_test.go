@@ -1220,7 +1220,8 @@ func createImageMetadata(c *gc.C) (string, []*imagemetadata.ImageMetadata) {
 	sourceStor, err := filestorage.NewFileStorageWriter(sourceDir)
 	c.Assert(err, jc.ErrorIsNil)
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	err = imagemetadata.MergeAndWriteMetadata(ss, "22.04", im, cloudSpec, sourceStor)
+	base := jujuseries.MustParseBaseFromString("ubuntu@22.04")
+	err = imagemetadata.MergeAndWriteMetadata(ss, base, im, cloudSpec, sourceStor)
 	c.Assert(err, jc.ErrorIsNil)
 	return sourceDir, im
 }

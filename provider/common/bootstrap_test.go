@@ -965,16 +965,29 @@ func (s *FormatHardwareSuite) TestMem(c *gc.C) {
 	s.check(c, &instance.HardwareCharacteristics{Mem: &mem}, "mem=2.6G")
 }
 
+func (s *FormatHardwareSuite) TestVirtType(c *gc.C) {
+	var virtType string
+	s.check(c, &instance.HardwareCharacteristics{VirtType: &virtType}, "")
+	virtType = string(instance.DefaultInstanceType)
+	s.check(c, &instance.HardwareCharacteristics{VirtType: &virtType}, "")
+	virtType = "virtual-machine"
+	s.check(c, &instance.HardwareCharacteristics{VirtType: &virtType}, "virt-type=virtual-machine")
+}
+
 func (s *FormatHardwareSuite) TestAll(c *gc.C) {
-	arch := "ppc64"
-	var cores uint64 = 2
-	var mem uint64 = 123
+	var (
+		arch            = "ppc64"
+		cores    uint64 = 2
+		mem      uint64 = 123
+		virtType        = "virtual-machine"
+	)
 	hw := &instance.HardwareCharacteristics{
 		Arch:     &arch,
 		CpuCores: &cores,
 		Mem:      &mem,
+		VirtType: &virtType,
 	}
-	s.check(c, hw, "arch=ppc64 mem=123M cores=2")
+	s.check(c, hw, "arch=ppc64 mem=123M cores=2 virt-type=virtual-machine")
 }
 
 func fakeAvailableTools() tools.List {

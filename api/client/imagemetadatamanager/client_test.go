@@ -30,9 +30,8 @@ func (s *imagemetadataSuite) TestList(c *gc.C) {
 	region := "region"
 
 	// This is used by filters to search function
-	testSeries := "jammy"
-	version, err := series.SeriesVersion(testSeries)
-	c.Assert(err, jc.ErrorIsNil)
+	base := series.MustParseBaseFromString("ubuntu@22.04")
+	version := base.Channel.Track
 
 	arch := "arch"
 	virtType := "virt-type"
@@ -77,7 +76,7 @@ func (s *imagemetadataSuite) TestList(c *gc.C) {
 	client := imagemetadatamanager.NewClient(apiCaller)
 	found, err := client.List(
 		stream, region,
-		[]string{testSeries}, []string{arch},
+		[]series.Base{base}, []string{arch},
 		virtType, rootStorageType,
 	)
 	c.Check(err, jc.ErrorIsNil)

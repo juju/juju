@@ -18695,6 +18695,9 @@
                             "items": {
                                 "type": "string"
                             }
+                        },
+                        "virt-type": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false
@@ -18773,6 +18776,18 @@
                         "uuid",
                         "type",
                         "owner-tag"
+                    ]
+                },
+                "ModelApplicationInfo": {
+                    "type": "object",
+                    "properties": {
+                        "name": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "name"
                     ]
                 },
                 "ModelBlockInfo": {
@@ -18896,6 +18911,12 @@
                     "properties": {
                         "application-count": {
                             "type": "integer"
+                        },
+                        "applications": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ModelApplicationInfo"
+                            }
                         },
                         "error": {
                             "$ref": "#/definitions/Error"
@@ -26813,6 +26834,9 @@
                             "items": {
                                 "type": "string"
                             }
+                        },
+                        "virt-type": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false
@@ -31270,6 +31294,9 @@
                             "items": {
                                 "type": "string"
                             }
+                        },
+                        "virt-type": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false
@@ -31332,6 +31359,18 @@
                         "uuid",
                         "type",
                         "owner-tag"
+                    ]
+                },
+                "ModelApplicationInfo": {
+                    "type": "object",
+                    "properties": {
+                        "name": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "name"
                     ]
                 },
                 "ModelCreateArgs": {
@@ -31691,6 +31730,12 @@
                     "properties": {
                         "application-count": {
                             "type": "integer"
+                        },
+                        "applications": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ModelApplicationInfo"
+                            }
                         },
                         "error": {
                             "$ref": "#/definitions/Error"
@@ -34309,6 +34354,9 @@
                             "items": {
                                 "type": "string"
                             }
+                        },
+                        "virt-type": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false

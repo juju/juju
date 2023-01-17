@@ -317,7 +317,7 @@ func (s *WorkerSuite) TestWorkerDownloadsCharm(c *gc.C) {
 	downloadRequest.Verify = nil
 	agentDir := filepath.Join(s.config.DataDir, "agents", "application-gitlab")
 	c.Assert(downloadRequest, jc.DeepEquals, downloader.Request{
-		URL:       &url.URL{Scheme: "cs", Opaque: "gitlab-1"},
+		URL:       &url.URL{Scheme: "ch", Opaque: "gitlab-1"},
 		TargetDir: filepath.Join(agentDir, "state", "bundles", "downloads"),
 	})
 
@@ -373,7 +373,7 @@ func (s *WorkerSuite) TestWorkerSetsStatus(c *gc.C) {
 		}
 	}
 	s.client.CheckCallNames(c, "Charm", "SetStatus", "SetVersion", "WatchUnits", "WatchContainerStart", "SetStatus", "Watch")
-	s.client.CheckCall(c, 1, "SetStatus", "gitlab", status.Maintenance, "downloading charm (cs:gitlab-1)", map[string]interface{}(nil))
+	s.client.CheckCall(c, 1, "SetStatus", "gitlab", status.Maintenance, "downloading charm (ch:gitlab-1)", map[string]interface{}(nil))
 }
 
 func (s *WorkerSuite) TestWatcherFailureStopsWorker(c *gc.C) {

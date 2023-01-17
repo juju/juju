@@ -65,7 +65,7 @@ func (s *verifySuite) TestNextOpMisMatchCharmRevisions(c *gc.C) {
 	remote := remotestate.Snapshot{
 		CharmProfileRequired: true,
 		LXDProfileName:       "juju-wordpress-74",
-		CharmURL:             "cs:wordpress-75",
+		CharmURL:             "ch:wordpress-75",
 	}
 	res := newVerifyCharmProfileResolver()
 
@@ -81,7 +81,7 @@ func (s *verifySuite) TestNextOpMatchingCharmRevisions(c *gc.C) {
 	remote := remotestate.Snapshot{
 		CharmProfileRequired: true,
 		LXDProfileName:       "juju-wordpress-75",
-		CharmURL:             "cs:wordpress-75",
+		CharmURL:             "ch:wordpress-75",
 	}
 	res := newVerifyCharmProfileResolver()
 

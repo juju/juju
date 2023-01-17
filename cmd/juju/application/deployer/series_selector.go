@@ -40,7 +40,7 @@ type seriesSelector struct {
 	// seriesFlag is the series passed to the --series flag on the command line.
 	seriesFlag string
 	// charmURLSeries is the series specified as part of the charm URL, i.e.
-	// cs:trusty/ubuntu.
+	// ch:jammy/ubuntu.
 	charmURLSeries string
 	// conf is the configuration for the model we're deploying to.
 	conf modelConfig

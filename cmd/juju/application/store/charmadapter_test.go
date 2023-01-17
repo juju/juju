@@ -7,7 +7,7 @@ import (
 	"net/url"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -84,13 +84,13 @@ func (s *resolveSuite) TestResolveCharmNotCSCharm(c *gc.C) {
 func (s *resolveSuite) TestResolveBundle(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	curl, err := charm.ParseURL("cs:testme-3")
+	curl, err := charm.ParseURL("ch:testme")
 	c.Assert(err, jc.ErrorIsNil)
 	s.expectCharmResolutionCall(curl, "edge", nil)
 
 	curl.Series = "bundle"
 	origin := commoncharm.Origin{
-		Source: commoncharm.OriginCharmStore,
+		Source: commoncharm.OriginCharmHub,
 		Risk:   "edge",
 	}
 	charmAdapter := store.NewCharmAdaptor(s.charmsAPI, func() (store.DownloadBundleClient, error) {
@@ -105,13 +105,13 @@ func (s *resolveSuite) TestResolveBundle(c *gc.C) {
 func (s *resolveSuite) TestResolveNotBundle(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	curl, err := charm.ParseURL("cs:testme-3")
+	curl, err := charm.ParseURL("ch:testme")
 	c.Assert(err, jc.ErrorIsNil)
 	s.expectCharmResolutionCall(curl, "edge", nil)
 
 	curl.Series = "bionic"
 	origin := commoncharm.Origin{
-		Source: commoncharm.OriginCharmStore,
+		Source: commoncharm.OriginCharmHub,
 		Risk:   "edge",
 	}
 	charmAdapter := store.NewCharmAdaptor(s.charmsAPI, func() (store.DownloadBundleClient, error) {

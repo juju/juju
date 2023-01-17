@@ -10,6 +10,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd/v3/cmdtesting"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -51,7 +52,7 @@ func (s *downloadSuite) TestInitErrorCSSchema(c *gc.C) {
 		charmHubCommand: s.newCharmHubCommand(),
 	}
 	err := command.Init([]string{"cs:test"})
-	c.Assert(err, gc.ErrorMatches, ".* is not a Charmhub charm")
+	c.Assert(errors.Is(err, errors.NotValid), jc.IsTrue)
 }
 
 func (s *downloadSuite) TestInitSuccess(c *gc.C) {

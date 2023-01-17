@@ -65,7 +65,7 @@ func (s *applicationSuite) apiCallerFunc(c *gc.C) basetesting.APICallerFunc {
 			c.Assert(result, gc.FitsTypeOf, &params.StringBoolResults{})
 			*(result.(*params.StringBoolResults)) = params.StringBoolResults{
 				Results: []params.StringBoolResult{{
-					Result: "cs:mysql",
+					Result: "ch:mysql",
 					Ok:     true,
 				}},
 			}
@@ -159,7 +159,7 @@ func (s *applicationSuite) TestCharmURL(c *gc.C) {
 
 	curl, force, err := app.CharmURL()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(curl, gc.Equals, "cs:mysql")
+	c.Assert(curl, gc.Equals, "ch:mysql")
 	c.Assert(force, jc.IsTrue)
 }
 

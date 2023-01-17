@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/errors"
 
 	coreseries "github.com/juju/juju/core/series"
@@ -28,9 +28,6 @@ func (c Source) String() string {
 const (
 	// Local represents a local charm.
 	Local Source = "local"
-	// TODO - remove CharmStore as a Source
-	// CharmStore represents a charm from the now old charmstore.
-	CharmStore Source = "charm-store"
 	// CharmHub represents a charm from the new charmHub.
 	CharmHub Source = "charm-hub"
 )

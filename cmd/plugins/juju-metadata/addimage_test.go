@@ -9,11 +9,11 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
-	"github.com/juju/os/v2/series"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/modelcmd"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/rpc/params"
 )
@@ -162,13 +162,11 @@ func getAddImageMetadataCmdFlags(c *gc.C, data params.CloudImageMetadata) []stri
 		}
 	}
 
-	var aseries string
+	var aBase string
 	if data.Version != "" {
-		var err error
-		aseries, err = series.VersionSeries(data.Version)
-		c.Assert(err, jc.ErrorIsNil)
+		aBase = coreseries.MakeDefaultBase("ubuntu", data.Version).String()
 	}
-	addFlag("--series", aseries, "")
+	addFlag("--base", aBase, "")
 	addFlag("--region", data.Region, "")
 	addFlag("--arch", data.Arch, "amd64")
 	addFlag("--virt-type", data.VirtType, "")

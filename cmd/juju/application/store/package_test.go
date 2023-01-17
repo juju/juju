@@ -10,7 +10,7 @@ import (
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination ./mocks/store_mock.go github.com/juju/juju/cmd/juju/application/store CharmAdder,CharmsAPI,DownloadBundleClient
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination ./mocks/charm_mock.go github.com/juju/charm/v9 Bundle
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination ./mocks/charm_mock.go github.com/juju/charm/v10 Bundle
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)

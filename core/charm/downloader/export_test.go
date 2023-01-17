@@ -4,7 +4,7 @@
 package downloader
 
 import (
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 
 	corecharm "github.com/juju/juju/core/charm"
 )

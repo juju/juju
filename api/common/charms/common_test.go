@@ -5,8 +5,8 @@ package charms_test
 
 import (
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v9"
-	"github.com/juju/charm/v9/resource"
+	"github.com/juju/charm/v10"
+	"github.com/juju/charm/v10/resource"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 

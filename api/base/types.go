@@ -36,6 +36,7 @@ type ModelStatus struct {
 	HostedMachineCount int
 	ApplicationCount   int
 	UnitCount          int
+	Applications       []Application
 	Machines           []Machine
 	Volumes            []Volume
 	Filesystems        []Filesystem
@@ -55,6 +56,11 @@ type Machine struct {
 	// HAPrimary indicates whether this machine has a primary mongo instance in replicaset and,
 	// thus, can be considered a primary controller machine in HA setup.
 	HAPrimary *bool
+}
+
+// Application holds information about an application in a juju model.
+type Application struct {
+	Name string
 }
 
 // ModelInfo holds information about a model.

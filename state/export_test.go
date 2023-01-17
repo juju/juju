@@ -10,9 +10,10 @@ import (
 	"strconv"
 	"time" // Only used for time types.
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
+	"github.com/juju/description/v4"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v3"
@@ -26,8 +27,6 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
-
-	"github.com/juju/description/v4"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"

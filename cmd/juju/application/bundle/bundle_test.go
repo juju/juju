@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -378,13 +378,17 @@ const wordpressBundle = `
 series: bionic
 applications:
   mysql:
-    charm: cs:mysql-42
+    charm: ch:mysql
+    revision: 42
+    channel: stable
     series: xenial
     num_units: 1
     to:
     - "0"
   wordpress:
-    charm: cs:wordpress-47
+    charm: ch:wordpress
+    channel: stable
+    revision: 47
     series: xenial
     num_units: 1
     to:
@@ -403,13 +407,17 @@ const typoBundle = `
 sries: bionic
 applications:
   mysql:
-    charm: cs:mysql-42
+    charm: ch:mysql
+    revision: 42
+    channel: stable
     series: xenial
     num_units: 1
     to:
     - "0"
   wordpress:
-    charm: cs:wordpress-47
+    charm: ch:wordpress
+    channel: stable
+    revision: 47
     series: xenial
     num_units: 1
     to:
