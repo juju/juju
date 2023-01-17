@@ -214,7 +214,7 @@ func (s *ConfigSuite) TestSettingFromBothNoOverlap(c *gc.C) {
 
 	c.Assert(api.values, gc.DeepEquals, map[string]interface{}{
 		"juju-ha-space":         "value",
-		"audit-log-max-backups": 123,
+		"audit-log-max-backups": "123",
 	})
 }
 
@@ -232,7 +232,7 @@ func (s *ConfigSuite) TestSettingFromBothArgFirst(c *gc.C) {
 	// probably not worth fixing - I don't think people will try to
 	// set an option from a file and then override it from an arg.
 	c.Assert(api.values, gc.DeepEquals, map[string]interface{}{
-		"audit-log-max-backups": 123,
+		"audit-log-max-backups": "123",
 	})
 }
 
@@ -246,7 +246,7 @@ func (s *ConfigSuite) TestSettingFromBothFileFirst(c *gc.C) {
 	c.Assert(output, gc.Equals, "")
 
 	c.Assert(api.values, gc.DeepEquals, map[string]interface{}{
-		"audit-log-max-backups": 123,
+		"audit-log-max-backups": "123",
 	})
 }
 

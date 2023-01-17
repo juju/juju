@@ -96,28 +96,14 @@ func (st *State) ControllerConfig() (jujucontroller.Config, error) {
 // so revert to their defaults). Only a subset of keys can be changed
 // after bootstrapping.
 func (st *State) UpdateControllerConfig(updateAttrs map[string]interface{}, removeAttrs []string) error {
-	settings, err := readSettings(st.db(), controllersC, ControllerSettingsGlobalKey)
-	if err != nil {
-		return errors.Annotatef(err, "controller %q", st.ControllerUUID())
-	}
-	oldValues := settings.Map()
-	coerced, err := jujucontroller.NewConfig(
-		oldValues[jujucontroller.ControllerUUIDKey].(string),
-		oldValues[jujucontroller.CACertKey].(string),
-		updateAttrs,
-	)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	for k := range updateAttrs {
-		updateAttrs[k] = coerced[k]
-	}
-
 	if err := st.checkValidControllerConfig(updateAttrs, removeAttrs); err != nil {
 		return errors.Trace(err)
 	}
 
+	settings, err := readSettings(st.db(), controllersC, ControllerSettingsGlobalKey)
+	if err != nil {
+		return errors.Annotatef(err, "controller %q", st.ControllerUUID())
+	}
 	for _, r := range removeAttrs {
 		settings.Delete(r)
 	}
