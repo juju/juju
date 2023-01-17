@@ -543,12 +543,12 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationDefaultArchCons
 	s.assertCharmsUploaded(c, "ch:bionic/dummy-0", "ch:xenial/wordpress-42")
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
 		"customized": {
-			charm:       "cs:bionic/dummy-0",
+			charm:       "ch:bionic/dummy-0",
 			constraints: constraints.MustParse("arch=amd64"),
 			config:      dch.Config().DefaultSettings(),
 		},
 		"wordpress": {
-			charm:       "cs:xenial/wordpress-42",
+			charm:       "ch:xenial/wordpress-42",
 			constraints: constraints.MustParse("mem=4G cores=2"),
 			config:      wpch.Config().DefaultSettings(),
 		},
@@ -559,29 +559,33 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationDefaultArchCons
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationConstraints(c *gc.C) {
-	wpch := s.setupCharm(c, "cs:xenial/wordpress-42", "wordpress", "bionic")
-	dch := s.setupCharmWithArch(c, "cs:bionic/dummy-0", "dummy", "bionic", "i386")
+	wpch := s.setupCharm(c, "ch:xenial/wordpress-42", "wordpress", "bionic")
+	dch := s.setupCharmWithArch(c, "ch:bionic/dummy-0", "dummy", "bionic", "i386")
 
 	err := s.DeployBundleYAML(c, `
        applications:
            wordpress:
-               charm: cs:wordpress
+               charm: ch:wordpress
+               series: bionic
                constraints: mem=4G cores=2
            customized:
-               charm: cs:bionic/dummy-0
+               charm: ch:dummy
+               revision: 0
+               channel: stable
+               series: xenial
                num_units: 1
                constraints: arch=i386
    `)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCharmsUploaded(c, "cs:bionic/dummy-0", "cs:xenial/wordpress-42")
+	s.assertCharmsUploaded(c, "ch:bionic/dummy-0", "ch:xenial/wordpress-42")
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
 		"customized": {
-			charm:       "cs:bionic/dummy-0",
+			charm:       "ch:bionic/dummy-0",
 			constraints: constraints.MustParse("arch=i386"),
 			config:      dch.Config().DefaultSettings(),
 		},
 		"wordpress": {
-			charm:       "cs:xenial/wordpress-42",
+			charm:       "ch:xenial/wordpress-42",
 			constraints: constraints.MustParse("mem=4G cores=2"),
 			config:      wpch.Config().DefaultSettings(),
 		},
@@ -592,40 +596,40 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationConstraints(c *
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleSetAnnotations(c *gc.C) {
-	s.setupCharm(c, "cs:xenial/wordpress", "wordpress", "bionic")
-	s.setupCharm(c, "cs:xenial/mysql", "mysql", "bionic")
-	s.setupBundle(c, "cs:bundle/wordpress-simple-1", "wordpress-simple", "bionic")
+	s.setupCharm(c, "ch:xenial/wordpress", "wordpress", "bionic")
+	s.setupCharm(c, "ch:xenial/mysql", "mysql", "bionic")
+	s.setupBundle(c, "ch:bundle/wordpress-simple-1", "wordpress-simple", "bionic")
 
 	deploy := s.deployCommandForState()
-	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:bundle/wordpress-simple")
+	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "ch:bundle/wordpress-simple")
 	c.Assert(err, jc.ErrorIsNil)
 	application, err := s.State.Application("wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	ann, err := s.Model.Annotations(application)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ann, jc.DeepEquals, map[string]string{"bundleURL": "cs:bundle/wordpress-simple-1"})
+	c.Assert(ann, jc.DeepEquals, map[string]string{"bundleURL": "ch:bundle/wordpress-simple-1"})
 	application2, err := s.State.Application("mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	ann2, err := s.Model.Annotations(application2)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ann2, jc.DeepEquals, map[string]string{"bundleURL": "cs:bundle/wordpress-simple-1"})
+	c.Assert(ann2, jc.DeepEquals, map[string]string{"bundleURL": "ch:bundle/wordpress-simple-1"})
 }
 
 func (s *BundleDeployCharmStoreSuite) TestLXCTreatedAsLXD(c *gc.C) {
-	s.setupCharm(c, "cs:xenial/wordpress-0", "wordpress", "bionic")
+	s.setupCharm(c, "ch:xenial/wordpress-0", "wordpress", "bionic")
 
 	// Note that we use lxc here, to represent a 1.x bundle that specifies lxc.
 	content := `
         applications:
             wp:
-                charm: cs:xenial/wordpress-0
+                charm: ch:wordpress
                 num_units: 1
                 to:
                     - lxc:0
                 options:
                     blog-title: these are the voyages
             wp2:
-                charm: cs:xenial/wordpress-0
+                charm: ch:wordpress
                 num_units: 1
                 to:
                     - lxc:0
@@ -651,24 +655,30 @@ func (s *BundleDeployCharmStoreSuite) TestLXCTreatedAsLXD(c *gc.C) {
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleMassiveUnitColocation(c *gc.C) {
-	s.setupCharm(c, "cs:bionic/django-42", "dummy", "bionic")
-	s.setupCharm(c, "cs:bionic/mem-47", "dummy", "bionic")
-	s.setupCharm(c, "cs:bionic/rails-0", "dummy", "bionic")
+	s.setupCharm(c, "ch:bionic/django-42", "dummy", "bionic")
+	s.setupCharm(c, "ch:bionic/mem-47", "dummy", "bionic")
+	s.setupCharm(c, "ch:bionic/rails-0", "dummy", "bionic")
 
 	err := s.DeployBundleYAML(c, `
        applications:
            memcached:
-               charm: cs:bionic/mem-47
+               charm: ch:mem
+               revision: 47
+               channel: stable
+               series: bionic
                num_units: 3
                to: [1, 2, 3]
            django:
-               charm: cs:bionic/django-42
+               charm: ch:django
+               revision: 42
+               channel: stable
+               series: bionic
                num_units: 4
                to:
                    - 1
                    - lxd:memcached
            ror:
-               charm: cs:rails
+               charm: ch:rails
                num_units: 3
                to:
                    - 1
@@ -701,17 +711,26 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMassiveUnitColocation(c *g
 	content := `
        applications:
            memcached:
-               charm: cs:bionic/mem-47
+               charm: ch:mem
+               revision: 47
+               channel: stable
+               series: bionic
                num_units: 3
                to: [1, 2, 3]
            django:
-               charm: cs:bionic/django-42
+               charm: ch:django
+               revision: 42
+               channel: stable
+               series: bionic
                num_units: 4
                to:
                    - 1
                    - lxd:memcached
            node:
-               charm: cs:bionic/django-42
+               charm: ch:django
+               revision: 42
+               channel: stable
+               series: bionic
                num_units: 1
                to:
                    - lxd:memcached
@@ -727,7 +746,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMassiveUnitColocation(c *g
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(stdOut, gc.Equals, ""+
 		"Executing changes:\n"+
-		"- deploy application node from charm-store on bionic using django\n"+
+		"- deploy application node from charm-hub on bionic using django\n"+
 		"- add unit node/0 to 0/lxd/0 to satisfy [lxd:memcached]",
 	)
 
@@ -751,19 +770,22 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMassiveUnitColocation(c *g
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleWithAnnotations_OutputIsCorrect(c *gc.C) {
-	s.setupCharm(c, "cs:bionic/django-42", "dummy", "bionic")
-	s.setupCharm(c, "cs:bionic/mem-47", "dummy", "bionic")
+	s.setupCharm(c, "ch:bionic/django-42", "dummy", "bionic")
+	s.setupCharm(c, "ch:bionic/mem-47", "dummy", "bionic")
 	stdOut, stdErr, err := s.DeployBundleYAMLWithOutput(c, `
        applications:
            django:
-               charm: cs:django
+               charm: ch:django
                num_units: 1
                annotations:
                    key1: value1
                    key2: value2
                to: [1]
            memcached:
-               charm: cs:bionic/mem-47
+               charm: ch:mem
+               revision: 47
+               channel: stable
+               series: bionic
                num_units: 1
        machines:
            1:
