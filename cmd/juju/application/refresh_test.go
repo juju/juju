@@ -403,7 +403,7 @@ func (s *RefreshErrorsStateSuite) deployApplication(c *gc.C) {
 func (s *RefreshErrorsStateSuite) TestNoPathFails(c *gc.C) {
 	s.deployApplication(c)
 	_, err := s.runRefresh(c, s.cmd, "riak")
-	c.Assert(err, gc.ErrorMatches, "upgrading a local charm requires either --path or --switch")
+	c.Assert(err, gc.ErrorMatches, "refreshing a local charm requires either --path or --switch")
 }
 
 func (s *RefreshErrorsStateSuite) TestSwitchAndRevisionFails(c *gc.C) {

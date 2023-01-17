@@ -217,9 +217,7 @@ The new charm may add new relations and configuration settings.
 --path and --revision are mutually exclusive. The revision of the updated charm
 is determined by the contents of the charm at the specified path.
 
---switch and --revision are mutually exclusive. To specify a given revision
-number with --switch, give it in the charm URL, for instance "cs:wordpress-5"
-would specify revision number 5 of the wordpress charm.
+--switch and --revision are mutually exclusive.
 
 Use of the --force-units option is not generally recommended; units upgraded 
 while in an error state will not have refreshed hooks executed, and may cause 
@@ -336,7 +334,7 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		// If the charm we are refreshing is local, then we must
 		// specify a path or switch url to upgrade with.
 		if oldURL.Schema == charm.Local.String() {
-			return errors.New("upgrading a local charm requires either --path or --switch")
+			return errors.New("refreshing a local charm requires either --path or --switch")
 		}
 		// No new URL specified, but revision might have been.
 		newRef = oldURL.WithRevision(c.Revision).String()
