@@ -306,6 +306,7 @@ type importer struct {
 	// applicationUnits is populated at the end of loading the applications, and is a
 	// map of application name to the units of that application.
 	applicationUnits map[string]map[string]*Unit
+	charmOrigins     map[string]*CharmOrigin
 }
 
 func (i *importer) modelExtras() error {
@@ -802,6 +803,8 @@ func (i *importer) applications() error {
 			principals = append(principals, app)
 		}
 	}
+
+	i.charmOrigins = make(map[string]*CharmOrigin, len(principals)+len(subordinates))
 
 	for _, s := range append(principals, subordinates...) {
 		if err := i.application(s, ctrlCfg); err != nil {
@@ -1369,7 +1372,16 @@ func (i *importer) loadInstanceHardwareFromUnits(units []description.Unit) ([]in
 }
 
 func (i *importer) makeCharmOrigin(a description.Application) (*CharmOrigin, error) {
-	curl, err := charm.ParseURL(a.CharmURL())
+	curlStr := a.CharmURL()
+
+	// Fix bad datasets from LP 1999060 during migration.
+	// ID and Hash missing from N-1 of N applications'
+	// charm origins when deployed using the same charm.
+	if foundOrigin, ok := i.charmOrigins[curlStr]; ok {
+		return foundOrigin, nil
+	}
+
+	curl, err := charm.ParseURL(curlStr)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1408,7 +1420,7 @@ func (i *importer) makeCharmOrigin(a description.Application) (*CharmOrigin, err
 	}
 
 	// We can hardcode type to charm as we never store bundles in state.
-	return &CharmOrigin{
+	origin := &CharmOrigin{
 		Source:   co.Source(),
 		Type:     "charm",
 		ID:       co.ID(),
@@ -1416,7 +1428,9 @@ func (i *importer) makeCharmOrigin(a description.Application) (*CharmOrigin, err
 		Revision: &rev,
 		Channel:  channel,
 		Platform: platform,
-	}, nil
+	}
+	i.charmOrigins[curlStr] = origin
+	return origin, nil
 }
 
 // Attempt to get as much information from the appChannel where possible.
