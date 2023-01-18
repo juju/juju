@@ -67,8 +67,8 @@ run_persistent_storage() {
 
 	# assert charm removal message for single block and filesystem storage
 	removal_msg=$(juju remove-application dummy-storage 2>&1)
-	echo "${removal_msg}" | sed -sn 2p | sed 's/^-//' | check "will remove storage single-fs/1"
-	echo "${removal_msg}" | sed -sn 3p | sed 's/^-//' | check "will detach storage single-blk/0"
+	echo "${removal_msg}" | sed -sn 3p | sed 's/^-//' | check "will remove storage single-fs/1"
+	echo "${removal_msg}" | sed -sn 4p | sed 's/^-//' | check "will detach storage single-blk/0"
 	#
 	# wait until an update of storage status occurred. Due to the asynchronous nature of Juju,
 	# the status of storage may change from time to time after a Juju CLI is issued, in this test only
