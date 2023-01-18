@@ -17,6 +17,7 @@ import (
 	"github.com/juju/utils/v3"
 	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
+	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/yaml.v2"
@@ -2833,6 +2834,8 @@ func (s *MigrationImportSuite) TestApplicationAddLatestCharmChannelTrack(c *gc.C
 		Channel: &state.Channel{
 			Risk: "edge",
 		},
+		ID:   "charm-hub-id",
+		Hash: "charmhub-hash",
 		Platform: &state.Platform{
 			Architecture: testCharm.URL().Architecture,
 			OS:           "ubuntu",
@@ -2852,7 +2855,68 @@ func (s *MigrationImportSuite) TestApplicationAddLatestCharmChannelTrack(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 	exportedOrigin := application.CharmOrigin()
 	exportedOrigin.Channel.Track = "latest"
-	c.Assert(importedApp.CharmOrigin(), gc.DeepEquals, exportedOrigin)
+	c.Assert(importedApp.CharmOrigin(), gc.DeepEquals, exportedOrigin, gc.Commentf("obtained %s", pretty.Sprint(importedApp.CharmOrigin())))
+}
+
+func (s *MigrationImportSuite) TestApplicationFillInCharmOriginID(c *gc.C) {
+	st := s.State
+	// Add a application with charm settings, app config, and leadership settings.
+	f := factory.NewFactory(st, s.StatePool)
+
+	// Add a application with charm settings, app config, and leadership settings.
+	testCharm := f.MakeCharmV2(c, &factory.CharmParams{
+		Name: "snappass-test", // it has resources
+	})
+	c.Assert(testCharm.Meta().Resources, gc.HasLen, 3)
+	origin := &state.CharmOrigin{
+		Source:   "charm-hub",
+		Type:     "charm",
+		Revision: &testCharm.URL().Revision,
+		Channel: &state.Channel{
+			Risk: "edge",
+		},
+		ID:   "charm-hub-id",
+		Hash: "charmhub-hash",
+		Platform: &state.Platform{
+			Architecture: testCharm.URL().Architecture,
+			OS:           "ubuntu",
+			Channel:      "12.10/stable",
+		},
+	}
+	appOne := f.MakeApplication(c, &factory.ApplicationParams{
+		Name:        "one",
+		Charm:       testCharm,
+		CharmOrigin: origin,
+	})
+	originNoID := origin
+	originNoID.ID = ""
+	originNoID.Hash = ""
+	appTwo := f.MakeApplication(c, &factory.ApplicationParams{
+		Name:        "two",
+		Charm:       testCharm,
+		CharmOrigin: origin,
+	})
+	appThree := f.MakeApplication(c, &factory.ApplicationParams{
+		Name:        "three",
+		Charm:       testCharm,
+		CharmOrigin: origin,
+	})
+	allApplications, err := s.State.AllApplications()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(allApplications, gc.HasLen, 3)
+
+	_, newSt := s.importModel(c, s.State)
+	importedAppOne, err := newSt.Application(appOne.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	importedAppTwo, err := newSt.Application(appTwo.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	importedAppThree, err := newSt.Application(appThree.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	obtainedChOrigOne := importedAppOne.CharmOrigin()
+	obtainedChOrigTwo := importedAppTwo.CharmOrigin()
+	obtainedChOrigThree := importedAppThree.CharmOrigin()
+	c.Assert(obtainedChOrigTwo.ID, gc.Equals, obtainedChOrigOne.ID)
+	c.Assert(obtainedChOrigThree.ID, gc.Equals, obtainedChOrigOne.ID)
 }
 
 func (s *MigrationImportSuite) TestSecrets(c *gc.C) {
