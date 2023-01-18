@@ -354,6 +354,73 @@ func (s *storageProvisionerSuite) TestCreateFilesystemRetry(c *gc.C) {
 	})
 }
 
+func (s *storageProvisionerSuite) TestFilesystemChannelReceivedOrder(c *gc.C) {
+	alreadyAttached := params.MachineStorageId{
+		MachineTag:    "machine-1",
+		AttachmentTag: "filesystem-1",
+	}
+	fileSystem := params.Filesystem{
+		FilesystemTag: "filesystem-1",
+		Info: params.FilesystemInfo{
+			FilesystemId: "1/1",
+		},
+	}
+
+	filesystemAttachInfoSet := make(chan interface{})
+	filesystemAccessor := newMockFilesystemAccessor()
+	filesystemAccessor.provisionedMachines["machine-1"] = "already-provisioned-1"
+	filesystemAccessor.provisionedFilesystems["filesystem-1"] = fileSystem
+	filesystemAccessor.provisionedMachinesFilesystems["filesystem-1"] = fileSystem
+	filesystemAccessor.provisionedAttachments[alreadyAttached] = params.FilesystemAttachment{
+		MachineTag:    "machine-1",
+		FilesystemTag: "filesystem-1",
+		Info:          params.FilesystemAttachmentInfo{MountPoint: "/dev/sda1"},
+	}
+	filesystemAccessor.setFilesystemAttachmentInfo = func(attachments []params.FilesystemAttachment) ([]params.ErrorResult, error) {
+		defer close(filesystemAttachInfoSet)
+		return make([]params.ErrorResult, len(attachments)), nil
+	}
+
+	// mockFunc's After will progress the current time by the specified
+	// duration and signal the channel immediately.
+	clock := &mockClock{}
+	s.provider.createFilesystemsFunc = func(args []storage.FilesystemParams) ([]storage.CreateFilesystemsResult, error) {
+		return []storage.CreateFilesystemsResult{{
+			Filesystem: &storage.Filesystem{Tag: args[0].Tag},
+		}}, nil
+	}
+
+	life := func(tags []names.Tag) ([]params.LifeResult, error) {
+		results := make([]params.LifeResult, len(tags))
+		for i := range results {
+			results[i].Life = life.Alive
+		}
+		return results, nil
+	}
+
+	args := &workerArgs{
+		filesystems: filesystemAccessor,
+		life: &mockLifecycleManager{
+			life: life,
+		},
+		clock:    clock,
+		registry: s.registry,
+	}
+	worker := newStorageProvisioner(c, args)
+	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
+	defer worker.Kill()
+
+	filesystemAccessor.attachmentsWatcher.changes <- []watcher.MachineStorageId{{
+		MachineTag: "machine-1", AttachmentTag: "filesystem-1",
+	}}
+	filesystemAccessor.filesystemsWatcher.changes <- []string{"1"}
+	waitChannel(c, filesystemAttachInfoSet, "waiting for filesystem attach info to be set")
+
+	c.Assert(args.statusSetter.args, jc.DeepEquals, []params.EntityStatusArgs{
+		{Tag: "filesystem-1", Status: "attached", Info: ""},
+	})
+}
+
 func (s *storageProvisionerSuite) TestAttachVolumeRetry(c *gc.C) {
 	volumeInfoSet := make(chan interface{})
 	volumeAccessor := newMockVolumeAccessor()

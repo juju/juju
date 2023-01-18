@@ -315,6 +315,14 @@ func (w *storageProvisioner) loop() error {
 			if !ok {
 				return errors.New("volume attachments watcher closed")
 			}
+			// Process volume changes before volume attachments changes.
+			// This is because volume attachments are dependent on
+			// volumes, and reveals itself during a reboot of a machine. All
+			// the watcher changes come at once, but the order of the select
+			// case statements is not guaranteed.
+			if err := w.processDependantChanges(&ctx, volumesChanges, volumesChanged); err != nil {
+				return errors.Trace(err)
+			}
 			if err := volumeAttachmentsChanged(&ctx, changes); err != nil {
 				return errors.Trace(err)
 			}
@@ -336,6 +344,14 @@ func (w *storageProvisioner) loop() error {
 			if !ok {
 				return errors.New("filesystem attachments watcher closed")
 			}
+			// Process filesystem changes before filesystem attachments changes.
+			// This is because filesystem attachments are dependent on
+			// filesystems, and reveals itself during a reboot of a machine. All
+			// the watcher changes come at once, but the order of the select
+			// case statements is not guaranteed.
+			if err := w.processDependantChanges(&ctx, filesystemsChanges, filesystemsChanged); err != nil {
+				return errors.Trace(err)
+			}
 			if err := filesystemAttachmentsChanged(&ctx, changes); err != nil {
 				return errors.Trace(err)
 			}
@@ -355,6 +371,28 @@ func (w *storageProvisioner) loop() error {
 			if err := processSchedule(&ctx); err != nil {
 				return errors.Trace(err)
 			}
+		}
+	}
+}
+
+// processDependantChanges processes changes from a watcher strings channel. If
+// there are any changes, it calls the given function, repeating until there are
+// no more changes.
+// If there are no changes, it returns with no error.
+func (w *storageProvisioner) processDependantChanges(ctx *context, source watcher.StringsChannel, fn func(*context, []string) error) error {
+	for {
+		select {
+		case <-w.catacomb.Dying():
+			return w.catacomb.ErrDying()
+		case changes, ok := <-source:
+			if !ok {
+				return errors.New("watcher closed")
+			}
+			if err := fn(ctx, changes); err != nil {
+				return errors.Trace(err)
+			}
+		default:
+			return nil
 		}
 	}
 }
