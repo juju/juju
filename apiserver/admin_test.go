@@ -365,7 +365,7 @@ func (s *loginSuite) setupRateLimiting(c *gc.C) {
 	err := s.State.UpdateControllerConfig(
 		map[string]interface{}{
 			corecontroller.AgentRateLimitMax:  1,
-			corecontroller.AgentRateLimitRate: time.Second,
+			corecontroller.AgentRateLimitRate: time.Second.String(),
 		}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
