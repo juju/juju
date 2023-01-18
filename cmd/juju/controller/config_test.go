@@ -178,6 +178,17 @@ func (s *ConfigSuite) TestSettingKey(c *gc.C) {
 	c.Assert(api.values, gc.DeepEquals, map[string]interface{}{"juju-ha-space": "value"})
 }
 
+func (s *ConfigSuite) TestSettingDuration(c *gc.C) {
+	var api fakeControllerAPI
+	context, err := s.runWithAPI(c, &api, "api-port-open-delay=100ms")
+	c.Assert(err, jc.ErrorIsNil)
+
+	output := strings.TrimSpace(cmdtesting.Stdout(context))
+	c.Assert(output, gc.Equals, "")
+
+	c.Assert(api.values, gc.DeepEquals, map[string]interface{}{"api-port-open-delay": "100ms"})
+}
+
 func (s *ConfigSuite) TestSettingComplexKey(c *gc.C) {
 	var api fakeControllerAPI
 	context, err := s.runWithAPI(c, &api, "features=[value1,value2]")
@@ -214,7 +225,7 @@ func (s *ConfigSuite) TestSettingFromBothNoOverlap(c *gc.C) {
 
 	c.Assert(api.values, gc.DeepEquals, map[string]interface{}{
 		"juju-ha-space":         "value",
-		"audit-log-max-backups": "123",
+		"audit-log-max-backups": 123,
 	})
 }
 
@@ -232,7 +243,7 @@ func (s *ConfigSuite) TestSettingFromBothArgFirst(c *gc.C) {
 	// probably not worth fixing - I don't think people will try to
 	// set an option from a file and then override it from an arg.
 	c.Assert(api.values, gc.DeepEquals, map[string]interface{}{
-		"audit-log-max-backups": "123",
+		"audit-log-max-backups": 123,
 	})
 }
 
@@ -246,7 +257,7 @@ func (s *ConfigSuite) TestSettingFromBothFileFirst(c *gc.C) {
 	c.Assert(output, gc.Equals, "")
 
 	c.Assert(api.values, gc.DeepEquals, map[string]interface{}{
-		"audit-log-max-backups": "123",
+		"audit-log-max-backups": 123,
 	})
 }
 

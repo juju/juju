@@ -100,6 +100,20 @@ func (st *State) UpdateControllerConfig(updateAttrs map[string]interface{}, remo
 		return errors.Trace(err)
 	}
 
+	fields, _, err := jujucontroller.ConfigSchema.ValidationSchema()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for k := range updateAttrs {
+		if field, ok := fields[k]; ok {
+			v, err := field.Coerce(updateAttrs[k], []string{k})
+			if err != nil {
+				return err
+			}
+			updateAttrs[k] = v
+		}
+	}
+
 	settings, err := readSettings(st.db(), controllersC, ControllerSettingsGlobalKey)
 	if err != nil {
 		return errors.Annotatef(err, "controller %q", st.ControllerUUID())

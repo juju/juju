@@ -239,11 +239,24 @@ func (c *configCommand) setConfig(client controllerAPI, ctx *cmd.Context) error 
 		return errors.Trace(err)
 	}
 
+	fields, _, err := controller.ConfigSchema.ValidationSchema()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	extraValues := set.NewStrings()
 	values := make(map[string]interface{})
 	for k := range attrs {
 		if controller.AllowedUpdateConfigAttributes.Contains(k) {
-			values[k] = attrs[k]
+			if field, ok := fields[k]; ok {
+				v, err := field.Coerce(attrs[k], []string{k})
+				if err != nil {
+					return err
+				}
+				values[k] = v
+			} else {
+				values[k] = attrs[k]
+			}
 		} else {
 			extraValues.Add(k)
 		}

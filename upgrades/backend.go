@@ -113,6 +113,7 @@ type StateBackend interface {
 	RemoveUseFloatingIPConfigFalse() error
 	CharmOriginChannelMustHaveTrack() error
 	RemoveDefaultSeriesFromModelConfig() error
+	CorrectControllerConfigDurations() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -518,4 +519,8 @@ func (s stateBackend) CharmOriginChannelMustHaveTrack() error {
 
 func (s stateBackend) RemoveDefaultSeriesFromModelConfig() error {
 	return state.RemoveDefaultSeriesFromModelConfig(s.pool)
+}
+
+func (s stateBackend) CorrectControllerConfigDurations() error {
+	return state.CorrectControllerConfigDurations(s.pool)
 }
