@@ -31,7 +31,7 @@ jobs:
       uses: actions/checkout@v3
 
     - name: Setup LXD
-      uses: canonical/setup-lxd@90d76101915da56a42a562ba766b1a77019242fd
+      uses: canonical/setup-lxd@ea57509243d3cf39f8ab926e021bb353947b01b5
 
     - name: Set up Go
       if: env.RUN_TEST == 'RUN'
