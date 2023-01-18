@@ -387,7 +387,7 @@ func (c *statusCommand) runStatus(ctx *cmd.Context) error {
 		// A change was made in cmd/v3.0.2 output.go that broke the consistency in output for the
 		// default formatter by removing the newline delimiter. Hence we prefix '\n' in the text below.
 		// https://github.com/juju/cmd/commit/be22fa661a798055c801f1511aee226db249ef95
-		ctx.Infof("\nModel %q is empty.", modelName)
+		_, _ = fmt.Fprintf(ctx.Stdout, "\nModel %q is empty.\n", modelName)
 	} else {
 		plural := func() string {
 			if len(c.patterns) == 1 {
@@ -395,7 +395,7 @@ func (c *statusCommand) runStatus(ctx *cmd.Context) error {
 			}
 			return "s"
 		}
-		ctx.Infof("Nothing matched specified filter%v.", plural())
+		_, _ = fmt.Fprintf(ctx.Stdout, "Nothing matched specified filter%v.", plural())
 	}
 
 	return nil
