@@ -20,6 +20,7 @@ import (
 var stateUpgradeOperations = func() []Operation {
 	steps := []Operation{
 		upgradeToVersion{version.MustParse("3.0.0"), stateStepsFor30()},
+		upgradeToVersion{version.MustParse("3.0.3"), stateStepsFor303()},
 	}
 	return steps
 }
