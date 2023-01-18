@@ -7059,6 +7059,52 @@ func (s *upgradesSuite) TestRemoveDefaultSeriesFromModelConfig(c *gc.C) {
 	)
 }
 
+func (s *upgradesSuite) TestCorrectControllerConfigDurations(c *gc.C) {
+	settingsColl, settingsCloser := s.state.db().GetRawCollection(controllersC)
+	defer settingsCloser()
+	_, err := settingsColl.RemoveAll(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = settingsColl.Insert(bson.M{
+		"_id": "controllerSettings",
+		// this document should be changed
+		"settings": bson.M{
+			"unrelated":              1000,
+			"unrelated2":             "1000",
+			"unrelated3":             int64(1000),
+			"unrelated4":             true,
+			"agent-ratelimit-rate":   int(time.Minute),
+			"max-debug-log-duration": int64(time.Hour),
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	config, err := s.state.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(config.AgentRateLimitRate(), gc.Equals, controller.DefaultAgentRateLimitRate)
+	c.Assert(config.MaxDebugLogDuration(), gc.Equals, controller.DefaultMaxDebugLogDuration)
+
+	expectedSettings := []bson.M{{
+		"_id": "controllerSettings",
+		"settings": bson.M{
+			"unrelated":              1000,
+			"unrelated2":             "1000",
+			"unrelated3":             int64(1000),
+			"unrelated4":             true,
+			"agent-ratelimit-rate":   "1m0s",
+			"max-debug-log-duration": "1h0m0s",
+		},
+	}}
+
+	s.assertUpgradedData(c, CorrectControllerConfigDurations,
+		upgradedData(settingsColl, expectedSettings),
+	)
+
+	config, err = s.state.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(config.AgentRateLimitRate(), gc.Equals, time.Minute)
+	c.Assert(config.MaxDebugLogDuration(), gc.Equals, time.Hour)
+}
+
 type docById []bson.M
 
 func (d docById) Len() int           { return len(d) }

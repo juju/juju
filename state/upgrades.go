@@ -4618,3 +4618,55 @@ func RemoveDefaultSeriesFromModelConfig(pool *StatePool) error {
 	}
 	return nil
 }
+
+// CorrectControllerConfigDurations corrects durations stored in controller config
+// state as int durations (time.Duration nanosecond value), which was incorrectly
+// introduced in 2.9.38. This converts them back to string duration values.
+func CorrectControllerConfigDurations(pool *StatePool) error {
+	st, err := pool.SystemState()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	coll, closer := st.db().GetRawCollection(controllersC)
+	defer closer()
+
+	var doc settingsDoc
+	err = coll.Find(bson.M{"_id": ControllerSettingsGlobalKey}).One(&doc)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	needsUpdate := false
+	for _, k := range []string{controller.AgentRateLimitRate, controller.MaxDebugLogDuration} {
+		old, ok := doc.Settings[k]
+		if !ok {
+			continue
+		}
+		switch e := old.(type) {
+		case string:
+			_, err := time.ParseDuration(e)
+			if err != nil {
+				logger.Warningf("resetting controller config %s: %s", err.Error())
+				delete(doc.Settings, k)
+				needsUpdate = true
+			}
+		case int:
+			doc.Settings[k] = time.Duration(e).String()
+			needsUpdate = true
+		case int64:
+			doc.Settings[k] = time.Duration(e).String()
+			needsUpdate = true
+		}
+	}
+	if needsUpdate {
+		ops := []txn.Op{{
+			C:      controllersC,
+			Id:     doc.DocID,
+			Assert: txn.DocExists,
+			Update: bson.M{"$set": bson.M{"settings": doc.Settings}},
+		}}
+		return errors.Trace(st.runRawTransaction(ops))
+	}
+	return nil
+}
