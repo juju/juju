@@ -19,10 +19,21 @@ func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Application", 16, func(ctx facade.Context) (facade.Facade, error) {
 		return newFacadeV16(ctx) // DestroyApplication & DestroyUnit gains dry-run
 	}, reflect.TypeOf((*APIv16)(nil)))
+	registry.MustRegister("Application", 17, func(ctx facade.Context) (facade.Facade, error) {
+		return newFacadeV17(ctx) // Drop deprecated DestroyUnits & Destroy facades
+	}, reflect.TypeOf((*APIv17)(nil)))
+}
+
+func newFacadeV17(ctx facade.Context) (*APIv17, error) {
+	api, err := newFacadeBase(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIv17{api}, nil
 }
 
 func newFacadeV16(ctx facade.Context) (*APIv16, error) {
-	api, err := newFacadeBase(ctx)
+	api, err := newFacadeV17(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

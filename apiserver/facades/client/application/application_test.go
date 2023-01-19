@@ -976,7 +976,16 @@ var applicationDestroyTests = []struct {
 	},
 }
 
+func (s *applicationSuite) apiv16() *application.APIv16 {
+	return &application.APIv16{
+		APIv17: &application.APIv17{
+			APIBase: s.applicationAPI,
+		},
+	}
+}
+
 func (s *applicationSuite) TestApplicationDestroy(c *gc.C) {
+	apiv16 := s.apiv16()
 	s.AddTestingApplication(c, "dummy-application", s.AddTestingCharm(c, "dummy"))
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "remote-application",
@@ -987,7 +996,7 @@ func (s *applicationSuite) TestApplicationDestroy(c *gc.C) {
 
 	for i, t := range applicationDestroyTests {
 		c.Logf("test %d. %s", i, t.about)
-		err := s.applicationAPI.Destroy(params.ApplicationDestroy{ApplicationName: t.application})
+		err := apiv16.Destroy(params.ApplicationDestroy{ApplicationName: t.application})
 		if t.err != "" {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {
@@ -1002,7 +1011,7 @@ func (s *applicationSuite) TestApplicationDestroy(c *gc.C) {
 	applicationName := "wordpress"
 	app, err := s.State.Application(applicationName)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.applicationAPI.Destroy(params.ApplicationDestroy{ApplicationName: applicationName})
+	err = apiv16.Destroy(params.ApplicationDestroy{ApplicationName: applicationName})
 	c.Assert(err, jc.ErrorIsNil)
 	err = app.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -1015,11 +1024,12 @@ func assertLife(c *gc.C, entity state.Living, life state.Life) {
 }
 
 func (s *applicationSuite) TestBlockApplicationDestroy(c *gc.C) {
+	apiv16 := s.apiv16()
 	s.AddTestingApplication(c, "dummy-application", s.AddTestingCharm(c, "dummy"))
 
 	// block remove-objects
 	s.BlockRemoveObject(c, "TestBlockApplicationDestroy")
-	err := s.applicationAPI.Destroy(params.ApplicationDestroy{ApplicationName: "dummy-application"})
+	err := apiv16.Destroy(params.ApplicationDestroy{ApplicationName: "dummy-application"})
 	s.AssertBlocked(c, err, "TestBlockApplicationDestroy")
 	// Tests may have invalid application names.
 	app, err := s.State.Application("dummy-application")
@@ -1030,9 +1040,10 @@ func (s *applicationSuite) TestBlockApplicationDestroy(c *gc.C) {
 }
 
 func (s *applicationSuite) TestDestroyControllerApplicationNotAllowed(c *gc.C) {
+	apiv16 := s.apiv16()
 	s.AddTestingApplication(c, "controller-application", s.AddTestingCharm(c, "juju-controller"))
 
-	err := s.applicationAPI.Destroy(params.ApplicationDestroy{"controller-application"})
+	err := apiv16.Destroy(params.ApplicationDestroy{"controller-application"})
 	c.Assert(err, gc.ErrorMatches, "removing the controller application not supported")
 }
 
@@ -1058,6 +1069,7 @@ func (s *applicationSuite) TestDestroyPrincipalUnits(c *gc.C) {
 }
 
 func (s *applicationSuite) TestDestroySubordinateUnits(c *gc.C) {
+	apiv16 := s.apiv16()
 	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpress0, err := wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1074,7 +1086,7 @@ func (s *applicationSuite) TestDestroySubordinateUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Try to destroy the subordinate alone; check it fails.
-	err = s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
+	err = apiv16.DestroyUnits(params.DestroyApplicationUnits{
 		UnitNames: []string{"logging/0"},
 	})
 	c.Assert(err, gc.ErrorMatches, `no units were destroyed: unit "logging/0" is a subordinate, .*`)
@@ -1084,8 +1096,9 @@ func (s *applicationSuite) TestDestroySubordinateUnits(c *gc.C) {
 }
 
 func (s *applicationSuite) assertDestroyPrincipalUnits(c *gc.C, units []*state.Unit) {
+	apiv16 := s.apiv16()
 	// Destroy 2 of them; check they become Dying.
-	err := s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
+	err := apiv16.DestroyUnits(params.DestroyApplicationUnits{
 		UnitNames: []string{"wordpress/0", "wordpress/1"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1094,7 +1107,7 @@ func (s *applicationSuite) assertDestroyPrincipalUnits(c *gc.C, units []*state.U
 
 	// Try to destroy an Alive one and a Dying one; check
 	// it destroys the Alive one and ignores the Dying one.
-	err = s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
+	err = apiv16.DestroyUnits(params.DestroyApplicationUnits{
 		UnitNames: []string{"wordpress/2", "wordpress/0"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1102,7 +1115,7 @@ func (s *applicationSuite) assertDestroyPrincipalUnits(c *gc.C, units []*state.U
 
 	// Try to destroy an Alive one along with a nonexistent one; check that
 	// the valid instruction is followed but the invalid one is warned about.
-	err = s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
+	err = apiv16.DestroyUnits(params.DestroyApplicationUnits{
 		UnitNames: []string{"boojum/123", "wordpress/3"},
 	})
 	c.Assert(err, gc.ErrorMatches, `some units were not destroyed: unit "boojum/123" does not exist`)
@@ -1113,7 +1126,7 @@ func (s *applicationSuite) assertDestroyPrincipalUnits(c *gc.C, units []*state.U
 	c.Assert(err, jc.ErrorIsNil)
 	err = wp0.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
+	err = apiv16.DestroyUnits(params.DestroyApplicationUnits{
 		UnitNames: []string{"wordpress/0", "wordpress/4"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1159,27 +1172,30 @@ func (s *applicationSuite) assertBlockedErrorAndLiveliness(
 }
 
 func (s *applicationSuite) TestBlockChangesDestroyPrincipalUnits(c *gc.C) {
+	apiv16 := s.apiv16()
 	units := s.setupDestroyPrincipalUnits(c)
 	s.BlockAllChanges(c, "TestBlockChangesDestroyPrincipalUnits")
-	err := s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
+	err := apiv16.DestroyUnits(params.DestroyApplicationUnits{
 		UnitNames: []string{"wordpress/0", "wordpress/1"},
 	})
 	s.assertBlockedErrorAndLiveliness(c, err, "TestBlockChangesDestroyPrincipalUnits", units[0], units[1], units[2], units[3])
 }
 
 func (s *applicationSuite) TestBlockRemoveDestroyPrincipalUnits(c *gc.C) {
+	apiv16 := s.apiv16()
 	units := s.setupDestroyPrincipalUnits(c)
 	s.BlockRemoveObject(c, "TestBlockRemoveDestroyPrincipalUnits")
-	err := s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
+	err := apiv16.DestroyUnits(params.DestroyApplicationUnits{
 		UnitNames: []string{"wordpress/0", "wordpress/1"},
 	})
 	s.assertBlockedErrorAndLiveliness(c, err, "TestBlockRemoveDestroyPrincipalUnits", units[0], units[1], units[2], units[3])
 }
 
 func (s *applicationSuite) TestBlockDestroyDestroyPrincipalUnits(c *gc.C) {
+	apiv16 := s.apiv16()
 	units := s.setupDestroyPrincipalUnits(c)
 	s.BlockDestroyModel(c, "TestBlockDestroyDestroyPrincipalUnits")
-	err := s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
+	err := apiv16.DestroyUnits(params.DestroyApplicationUnits{
 		UnitNames: []string{"wordpress/0", "wordpress/1"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1188,10 +1204,11 @@ func (s *applicationSuite) TestBlockDestroyDestroyPrincipalUnits(c *gc.C) {
 }
 
 func (s *applicationSuite) assertDestroySubordinateUnits(c *gc.C, wordpress0, logging0 *state.Unit) {
+	apiv16 := s.apiv16()
 	// Try to destroy the principal and the subordinate together; check it warns
 	// about the subordinate, but destroys the one it can. (The principal unit
 	// agent will be responsible for destroying the subordinate.)
-	err := s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
+	err := apiv16.DestroyUnits(params.DestroyApplicationUnits{
 		UnitNames: []string{"wordpress/0", "logging/0"},
 	})
 	c.Assert(err, gc.ErrorMatches, `some units were not destroyed: unit "logging/0" is a subordinate, .*`)
@@ -1200,6 +1217,7 @@ func (s *applicationSuite) assertDestroySubordinateUnits(c *gc.C, wordpress0, lo
 }
 
 func (s *applicationSuite) TestBlockRemoveDestroySubordinateUnits(c *gc.C) {
+	apiv16 := s.apiv16()
 	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpress0, err := wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1217,7 +1235,7 @@ func (s *applicationSuite) TestBlockRemoveDestroySubordinateUnits(c *gc.C) {
 
 	s.BlockRemoveObject(c, "TestBlockRemoveDestroySubordinateUnits")
 	// Try to destroy the subordinate alone; check it fails.
-	err = s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
+	err = apiv16.DestroyUnits(params.DestroyApplicationUnits{
 		UnitNames: []string{"logging/0"},
 	})
 	s.AssertBlocked(c, err, "TestBlockRemoveDestroySubordinateUnits")
@@ -1225,7 +1243,7 @@ func (s *applicationSuite) TestBlockRemoveDestroySubordinateUnits(c *gc.C) {
 	assertLife(c, wordpress0, state.Alive)
 	assertLife(c, logging0, state.Alive)
 
-	err = s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
+	err = apiv16.DestroyUnits(params.DestroyApplicationUnits{
 		UnitNames: []string{"wordpress/0", "logging/0"},
 	})
 	s.AssertBlocked(c, err, "TestBlockRemoveDestroySubordinateUnits")
@@ -1235,6 +1253,7 @@ func (s *applicationSuite) TestBlockRemoveDestroySubordinateUnits(c *gc.C) {
 }
 
 func (s *applicationSuite) TestBlockChangesDestroySubordinateUnits(c *gc.C) {
+	apiv16 := s.apiv16()
 	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpress0, err := wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1252,7 +1271,7 @@ func (s *applicationSuite) TestBlockChangesDestroySubordinateUnits(c *gc.C) {
 
 	s.BlockAllChanges(c, "TestBlockChangesDestroySubordinateUnits")
 	// Try to destroy the subordinate alone; check it fails.
-	err = s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
+	err = apiv16.DestroyUnits(params.DestroyApplicationUnits{
 		UnitNames: []string{"logging/0"},
 	})
 	s.AssertBlocked(c, err, "TestBlockChangesDestroySubordinateUnits")
@@ -1260,7 +1279,7 @@ func (s *applicationSuite) TestBlockChangesDestroySubordinateUnits(c *gc.C) {
 	assertLife(c, wordpress0, state.Alive)
 	assertLife(c, logging0, state.Alive)
 
-	err = s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
+	err = apiv16.DestroyUnits(params.DestroyApplicationUnits{
 		UnitNames: []string{"wordpress/0", "logging/0"},
 	})
 	s.AssertBlocked(c, err, "TestBlockChangesDestroySubordinateUnits")
@@ -1270,6 +1289,7 @@ func (s *applicationSuite) TestBlockChangesDestroySubordinateUnits(c *gc.C) {
 }
 
 func (s *applicationSuite) TestBlockDestroyDestroySubordinateUnits(c *gc.C) {
+	apiv16 := s.apiv16()
 	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpress0, err := wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1287,7 +1307,7 @@ func (s *applicationSuite) TestBlockDestroyDestroySubordinateUnits(c *gc.C) {
 
 	s.BlockDestroyModel(c, "TestBlockDestroyDestroySubordinateUnits")
 	// Try to destroy the subordinate alone; check it fails.
-	err = s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
+	err = apiv16.DestroyUnits(params.DestroyApplicationUnits{
 		UnitNames: []string{"logging/0"},
 	})
 	c.Assert(err, gc.ErrorMatches, `no units were destroyed: unit "logging/0" is a subordinate, .*`)

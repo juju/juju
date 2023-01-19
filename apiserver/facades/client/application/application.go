@@ -60,9 +60,14 @@ var ClassifyDetachedStorage = storagecommon.ClassifyDetachedStorage
 
 var logger = loggo.GetLogger("juju.apiserver.application")
 
+// APIv17 provides the Application API facade for version 17.
+type APIv17 struct {
+	*APIBase
+}
+
 // APIv16 provides the Application API facade for version 16.
 type APIv16 struct {
-	*APIBase
+	*APIv17
 }
 
 // APIv15 provides the Application API facade for version 15.
@@ -1426,32 +1431,10 @@ func addApplicationUnits(backend Backend, modelType state.ModelType, args params
 	)
 }
 
-func (api *APIv15) DestroyUnit(argsV15 params.DestroyUnitsParamsV15) (params.DestroyUnitResults, error) {
-	args := params.DestroyUnitsParams{
-		Units: transform.Slice(argsV15.Units, func(p params.DestroyUnitParamsV15) params.DestroyUnitParams {
-			return params.DestroyUnitParams{
-				UnitTag:        p.UnitTag,
-				DestroyStorage: p.DestroyStorage,
-				Force:          p.Force,
-				MaxWait:        p.MaxWait,
-				DryRun:         false,
-			}
-		}),
-	}
-	return api.APIBase.DestroyUnit(args)
-}
-
 // DestroyUnits removes a given set of application units.
 //
-// NOTE(axw) this exists only for backwards compatibility,
-// for API facade versions 1-3; clients should prefer its
-// successor, DestroyUnit, below. Until all consumers have
-// been updated, or we bump a major version, we can't drop
-// this.
-//
-// TODO(axw) 2017-03-16 #1673323
-// Drop this in Juju 3.0.
-func (api *APIBase) DestroyUnits(args params.DestroyApplicationUnits) error {
+// TODO(jack-w-shaw) Drop this once facade 16 is not longer supported
+func (api *APIv16) DestroyUnits(args params.DestroyApplicationUnits) error {
 	var errs []error
 	entities := params.DestroyUnitsParams{
 		Units: make([]params.DestroyUnitParams, 0, len(args.UnitNames)),
@@ -1475,6 +1458,23 @@ func (api *APIBase) DestroyUnits(args params.DestroyApplicationUnits) error {
 		}
 	}
 	return apiservererrors.DestroyErr("units", args.UnitNames, errs)
+}
+
+func (*APIBase) DestroyUnits(_ struct{}) {}
+
+func (api *APIv15) DestroyUnit(argsV15 params.DestroyUnitsParamsV15) (params.DestroyUnitResults, error) {
+	args := params.DestroyUnitsParams{
+		Units: transform.Slice(argsV15.Units, func(p params.DestroyUnitParamsV15) params.DestroyUnitParams {
+			return params.DestroyUnitParams{
+				UnitTag:        p.UnitTag,
+				DestroyStorage: p.DestroyStorage,
+				Force:          p.Force,
+				MaxWait:        p.MaxWait,
+				DryRun:         false,
+			}
+		}),
+	}
+	return api.APIv16.DestroyUnit(args)
 }
 
 // DestroyUnit removes a given set of application units.
@@ -1580,15 +1580,8 @@ func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyU
 
 // Destroy destroys a given application, local or remote.
 //
-// NOTE(axw) this exists only for backwards compatibility,
-// for API facade versions 1-3; clients should prefer its
-// successor, DestroyApplication, below. Until all consumers
-// have been updated, or we bump a major version, we can't
-// drop this.
-//
-// TODO(axw) 2017-03-16 #1673323
-// Drop this in Juju 3.0.
-func (api *APIBase) Destroy(in params.ApplicationDestroy) error {
+// TODO(jack-w-shaw) Drop this once facade 16 is not longer supported
+func (api *APIv16) Destroy(in params.ApplicationDestroy) error {
 	if !names.IsValidApplication(in.ApplicationName) {
 		return errors.NotValidf("application name %q", in.ApplicationName)
 	}
@@ -1606,6 +1599,8 @@ func (api *APIBase) Destroy(in params.ApplicationDestroy) error {
 	}
 	return nil
 }
+
+func (*APIBase) Destroy(_ struct{}) {}
 
 // DestroyApplication removes a given set of applications.
 func (api *APIv15) DestroyApplication(argsV15 params.DestroyApplicationsParamsV15) (params.DestroyApplicationResults, error) {
