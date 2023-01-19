@@ -37,6 +37,8 @@ Examples:
 See also:
     add-secret-backend
     list-secret-backends
+    show-secret-backend
+    update-secret-backend
 `
 
 // RemoveSecretBackendsAPI is the secrets client API.

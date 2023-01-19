@@ -307,7 +307,8 @@ type UpdateSecretBackendArg struct {
 
 // ListSecretBackendsArgs holds the args for listing secret backends.
 type ListSecretBackendsArgs struct {
-	Reveal bool `json:"reveal"`
+	Names  []string `json:"names"`
+	Reveal bool     `json:"reveal"`
 }
 
 // SecretBackend holds secret backend details.

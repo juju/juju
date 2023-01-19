@@ -49,18 +49,18 @@ func (mr *MockListSecretBackendsAPIMockRecorder) Close() *gomock.Call {
 }
 
 // ListSecretBackends mocks base method.
-func (m *MockListSecretBackendsAPI) ListSecretBackends(arg0 bool) ([]secretbackends.SecretBackend, error) {
+func (m *MockListSecretBackendsAPI) ListSecretBackends(arg0 []string, arg1 bool) ([]secretbackends.SecretBackend, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListSecretBackends", arg0)
+	ret := m.ctrl.Call(m, "ListSecretBackends", arg0, arg1)
 	ret0, _ := ret[0].([]secretbackends.SecretBackend)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ListSecretBackends indicates an expected call of ListSecretBackends.
-func (mr *MockListSecretBackendsAPIMockRecorder) ListSecretBackends(arg0 interface{}) *gomock.Call {
+func (mr *MockListSecretBackendsAPIMockRecorder) ListSecretBackends(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSecretBackends", reflect.TypeOf((*MockListSecretBackendsAPI)(nil).ListSecretBackends), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSecretBackends", reflect.TypeOf((*MockListSecretBackendsAPI)(nil).ListSecretBackends), arg0, arg1)
 }
 
 // MockAddSecretBackendsAPI is a mock of AddSecretBackendsAPI interface.

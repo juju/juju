@@ -40,12 +40,13 @@ Examples:
 See also:
     add-secret-backend
     remove-secret-backend
+    show-secret-backend
     update-secret-backend
 `
 
 // ListSecretBackendsAPI is the secrets client API.
 type ListSecretBackendsAPI interface {
-	ListSecretBackends(bool) ([]secretbackends.SecretBackend, error)
+	ListSecretBackends([]string, bool) ([]secretbackends.SecretBackend, error)
 	Close() error
 }
 
@@ -115,7 +116,7 @@ func (c *listSecretBackendsCommand) Run(ctxt *cmd.Context) error {
 	}
 	defer api.Close()
 
-	result, err := api.ListSecretBackends(c.revealSecrets)
+	result, err := api.ListSecretBackends(nil, c.revealSecrets)
 	if err != nil {
 		return errors.Trace(err)
 	}
