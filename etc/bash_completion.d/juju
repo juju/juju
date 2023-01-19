@@ -119,7 +119,7 @@ _JUJU_2_juju_status_cache_fname() {
     local model=$(_get_current_model)
     local juju_status_file=${cache_dir}/juju-status-"${model}"
     _JUJU_2_cache_cmd ${_JUJU_2_cache_TTL} \
-      echo ${_juju_cmd_JUJU_2?} status --model "${model}" --format json
+      echo ${_juju_cmd_JUJU_2?} status --model "${model}" --format json 2>/dev/null
     return $?
 }
 # Print (return) all machines
