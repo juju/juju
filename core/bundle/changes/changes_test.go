@@ -3395,7 +3395,7 @@ func (s *changesSuite) assertParseDataWithModel(c *gc.C, model *bundlechanges.Mo
 		Bundle: data,
 		Logger: loggo.GetLogger("bundlechanges"),
 		CharmResolver: func(charm string, _ series.Base, channel, _ string, rev int) (string, int, error) {
-			if charm == "cs:apache2-26" {
+			if charm == "ch:apache2" {
 				return "stable", 26, nil
 			}
 			return "stable", -1, nil
@@ -4479,7 +4479,7 @@ func (s *changesSuite) TestApplicationPlacementSomeExisting(c *gc.C) {
 		"add unit nginx/4 to new machine 5 to satisfy [django]",
 	}
 	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(charm string, _ series.Base, channel, _ string, rev int) (string, int, error) {
-		if charm == "cs:django-4" {
+		if charm == "ch:django" {
 			return "stable", 4, nil
 		}
 		return "stable", -1, nil
@@ -4739,7 +4739,7 @@ func (s *changesSuite) TestMachineMapToExistingMachineSomeDeployed(c *gc.C) {
 		"add unit keystone/2 to 2/lxd/2 to satisfy [lxd:mysql]",
 	}
 	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(charm string, _ series.Base, channel, _ string, rev int) (string, int, error) {
-		if charm == "cs:mysql-32" {
+		if charm == "ch:mysql" {
 			return "stable", 32, nil
 		}
 		return "stable", -1, nil
@@ -5188,10 +5188,10 @@ func (s *changesSuite) TestAddUnitToExistingApp(c *gc.C) {
 		"add unit mediawiki/1 to new machine 2",
 	}
 	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(charm string, _ series.Base, channel, _ string, rev int) (string, int, error) {
-		if charm == "cs:mediawiki-10" {
+		if charm == "ch:mediawiki" {
 			return "stable", 10, nil
 		}
-		if charm == "cs:mysql-28" {
+		if charm == "ch:mysql" {
 			return "stable", 28, nil
 		}
 		return "stable", -1, nil
@@ -5373,9 +5373,10 @@ func (s *changesSuite) TestFromJujuMassiveUnitColocation(c *gc.C) {
 				Base: series.MakeDefaultBase("ubuntu", "16.04"),
 			},
 			"ror": {
-				Name:    "ror",
-				Charm:   "cs:xenial/rails-0",
-				Channel: "stable",
+				Name:     "ror",
+				Charm:    "ch:rails",
+				Revision: 0,
+				Channel:  "stable",
 				Units: []bundlechanges.Unit{
 					{Name: "ror/0", Machine: "0"},
 					{Name: "ror/1", Machine: "2/kvm/0"},
