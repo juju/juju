@@ -90,10 +90,23 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 			},
 		}, nil
 	}
+	adminConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
+		return &provider.ModelBackendConfigInfo{
+			ControllerUUID: coretesting.ControllerTag.Id(),
+			ModelUUID:      coretesting.ModelTag.Id(),
+			ModelName:      "fred",
+			Configs: map[string]provider.BackendConfig{
+				"backend-id": {
+					BackendType: "some-backend",
+					Config:      map[string]interface{}{"foo": "admin"},
+				},
+			},
+		}, nil
+	}
 	var err error
 	s.facade, err = secretsmanager.NewTestAPI(
 		s.authorizer, s.resources, s.leadership, s.secretsState, s.secretsConsumer, s.secretTriggers,
-		backendConfigGetter, s.authTag, s.clock)
+		backendConfigGetter, adminConfigGetter, s.authTag, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return ctrl
@@ -394,7 +407,7 @@ func (s *SecretsManagerSuite) TestRemoveSecrets(c *gc.C) {
 		ModelName:      "fred",
 		BackendConfig: provider.BackendConfig{
 			BackendType: "some-backend",
-			Config:      map[string]interface{}{"foo": "bar"},
+			Config:      map[string]interface{}{"foo": "admin"},
 		},
 	}
 	s.provider.EXPECT().CleanupSecrets(

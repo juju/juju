@@ -37,6 +37,7 @@ func NewTestAPI(
 	consumer SecretsConsumer,
 	secretTriggers SecretTriggers,
 	backendConfigGetter commonsecrets.BackendConfigGetter,
+	adminConfigGetter commonsecrets.BackendConfigGetter,
 	authTag names.Tag,
 	clock clock.Clock,
 ) (*SecretsManagerAPI, error) {
@@ -52,6 +53,7 @@ func NewTestAPI(
 		secretsConsumer:     consumer,
 		secretsTriggers:     secretTriggers,
 		backendConfigGetter: backendConfigGetter,
+		adminConfigGetter:   adminConfigGetter,
 		clock:               clock,
 	}, nil
 }
