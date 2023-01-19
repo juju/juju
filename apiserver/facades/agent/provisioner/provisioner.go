@@ -334,6 +334,7 @@ func (api *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerCo
 		cfg[config.ContainerImageMetadataURLKey] = url
 	}
 	cfg[config.ContainerImageStreamKey] = mConfig.ContainerImageStream()
+	cfg[config.ContainerNetworkingMethod] = mConfig.ContainerNetworkingMethod()
 
 	result.ManagerConfig = cfg
 	return result, nil

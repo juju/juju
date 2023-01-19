@@ -1433,8 +1433,9 @@ func (s *provisionerSuite) getManagerConfig(c *gc.C, typ instance.ContainerType)
 func (s *withoutControllerSuite) TestContainerManagerConfigDefaults(c *gc.C) {
 	cfg := s.getManagerConfig(c, instance.KVM)
 	c.Assert(cfg, jc.DeepEquals, map[string]string{
-		container.ConfigModelUUID:      coretesting.ModelTag.Id(),
-		config.ContainerImageStreamKey: "released",
+		container.ConfigModelUUID:        coretesting.ModelTag.Id(),
+		config.ContainerImageStreamKey:   "released",
+		config.ContainerNetworkingMethod: config.ConfigDefaults()[config.ContainerNetworkingMethod].(string),
 	})
 }
 
@@ -1799,6 +1800,7 @@ func (s *withImageMetadataSuite) TestContainerManagerConfigImageMetadata(c *gc.C
 		config.ContainerImageStreamKey:      "daily",
 		config.ContainerImageMetadataURLKey: "https://images.linuxcontainers.org/",
 		config.LXDSnapChannel:               "5.0/stable",
+		config.ContainerNetworkingMethod:    config.ConfigDefaults()[config.ContainerNetworkingMethod].(string),
 	})
 }
 
