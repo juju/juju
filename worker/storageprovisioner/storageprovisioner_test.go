@@ -57,6 +57,7 @@ func (s *storageProvisionerSuite) SetUpTest(c *gc.C) {
 			return s.managedFilesystemSource
 		},
 	)
+	s.PatchValue(storageprovisioner.DefaultDependentChangesTimeout, 10*time.Millisecond)
 }
 
 func (s *storageProvisionerSuite) TestStartStop(c *gc.C) {
@@ -2121,6 +2122,7 @@ func (s *caasStorageProvisionerSuite) SetUpTest(c *gc.C) {
 			"dummy": s.provider,
 		},
 	}
+	s.PatchValue(storageprovisioner.DefaultDependentChangesTimeout, 10*time.Millisecond)
 }
 
 func (s *caasStorageProvisionerSuite) TestDetachVolumesUnattached(c *gc.C) {
