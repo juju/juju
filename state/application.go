@@ -929,8 +929,9 @@ func (a *Application) setExposed(exposed bool, exposedEndpoints map[string]Expos
 // Charm returns the application's charm and whether units should upgrade to that
 // charm even if they are in an error state.
 func (a *Application) Charm() (*Charm, bool, error) {
-	// We don't worry about the channel since we aren't interacting
-	// with the charm store here.
+	if a.doc.CharmURL == nil {
+		return nil, false, errors.NotFoundf("charm for application %q", a.doc.Name)
+	}
 	curl, err := charm.ParseURL(*a.doc.CharmURL)
 	if err != nil {
 		return nil, false, err

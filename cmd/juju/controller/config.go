@@ -249,17 +249,30 @@ func (c *configCommand) setConfig(client controllerAPI, attrs config.Attrs) erro
 	if err != nil {
 		return errors.Trace(err)
 	}
-	parsed, err := controller.NewConfig(ctrl.ControllerUUID, ctrl.CACert, attrs)
+	_, err = controller.NewConfig(ctrl.ControllerUUID, ctrl.CACert, attrs)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	// Check if any of the `attrs` are not allowed to be set
+	fields, _, err := controller.ConfigSchema.ValidationSchema()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	extraValues := set.NewStrings()
 	values := make(map[string]interface{})
 	for k := range attrs {
 		if controller.AllowedUpdateConfigAttributes.Contains(k) {
-			values[k] = parsed[k]
+			if field, ok := fields[k]; ok {
+				v, err := field.Coerce(attrs[k], []string{k})
+				if err != nil {
+					return err
+				}
+				values[k] = v
+			} else {
+				values[k] = attrs[k]
+			}
 		} else {
 			extraValues.Add(k)
 		}
