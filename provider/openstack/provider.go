@@ -1157,8 +1157,7 @@ func (e *Environ) startInstance(
 			if err != nil {
 				return nil, environs.ZoneIndependentError(err)
 			}
-			if net.PortSecurityEnabled != nil &&
-				*net.PortSecurityEnabled == false {
+			if net.PortSecurityEnabled != nil && !*net.PortSecurityEnabled {
 				createSecurityGroups = *net.PortSecurityEnabled
 				logger.Infof("network %q has port_security_enabled set to false. Not using security groups.", net.Id)
 				break
@@ -1185,12 +1184,24 @@ func (e *Environ) startInstance(
 		}
 	}
 
+	// Clean up any groups that we have created if we fail to start the
+	// instance.
+	cleanupGroups := func(
+		client *nova.Client,
+		groups []nova.SecurityGroupName,
+	) error {
+		names := make([]string, len(groups))
+		for i, group := range groups {
+			names[i] = group.Name
+		}
+		return e.firewaller.DeleteGroups(ctx, names...)
+	}
+
 	waitForActiveServerDetails := func(
 		client *nova.Client,
 		id string,
 		timeout time.Duration,
 	) (server *nova.ServerDetail, err error) {
-
 		var errStillBuilding = errors.Errorf("instance %q has status BUILD", id)
 		err = retry.Call(retry.CallArgs{
 			Clock:       e.clock,
@@ -1286,6 +1297,13 @@ func (e *Environ) startInstance(
 
 	server, err := tryStartNovaInstance(shortAttempt, e.nova(), opts)
 	if err != nil || server == nil {
+		// Attempt to clean up any security groups we created.
+		if err := cleanupGroups(e.nova(), novaGroupNames); err != nil {
+			// If we failed to clean up the security groups, we need the user
+			// to manually clean them up.
+			logger.Errorf("cannot cleanup security groups: %v", err)
+		}
+
 		logger.Debugf("cannot run instance full error: %q", err)
 		err = errors.Annotate(errors.Cause(err), "cannot run instance")
 		// Improve the error message if there is no valid network.
@@ -2125,6 +2143,14 @@ func (e *Environ) terminateInstances(ctx context.ProviderCallContext, ids []inst
 	var firstErr error
 	novaClient := e.nova()
 	for _, id := range ids {
+		// Attempt to destroy any groups that could have been created when
+		// creating the instance.
+		if err := e.terminateInstanceSecurityGroups(ctx, id); err != nil {
+			logger.Errorf("error attempting to remove groups associated with instance %q: %v", id, err)
+			// Unfortunately there is nothing we can do here, there could be
+			// orphan groups left.
+		}
+
 		// Attempt to destroy the ports that could have been created when using
 		// spaces.
 		if err := e.terminateInstanceNetworkPorts(id); err != nil {
@@ -2148,6 +2174,17 @@ func (e *Environ) terminateInstances(ctx context.ProviderCallContext, ids []inst
 		}
 	}
 	return firstErr
+}
+
+func (e *Environ) terminateInstanceSecurityGroups(ctx context.ProviderCallContext, id instance.Id) error {
+	// This will only give us the names of the groups that the instance owns,
+	// not any global groups that it is a member of.
+	names, err := e.firewaller.GetSecurityGroups(ctx, id)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return e.firewaller.DeleteGroups(ctx, names...)
 }
 
 func (e *Environ) terminateInstanceNetworkPorts(id instance.Id) error {
