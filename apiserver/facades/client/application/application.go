@@ -1542,6 +1542,35 @@ func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyU
 	}, nil
 }
 
+// Destroy destroys a given application, local or remote.
+//
+// NOTE(axw) this exists only for backwards compatibility,
+// for API facade versions 1-3; clients should prefer its
+// successor, DestroyApplication, below. Until all consumers
+// have been updated, or we bump a major version, we can't
+// drop this.
+//
+// TODO(axw) 2017-03-16 #1673323
+// Drop this in Juju 3.0.
+func (api *APIBase) Destroy(in params.ApplicationDestroy) error {
+	if !names.IsValidApplication(in.ApplicationName) {
+		return errors.NotValidf("application name %q", in.ApplicationName)
+	}
+	args := params.DestroyApplicationsParams{
+		Applications: []params.DestroyApplicationParams{{
+			ApplicationTag: names.NewApplicationTag(in.ApplicationName).String(),
+		}},
+	}
+	results, err := api.DestroyApplication(args)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := results.Results[0].Error; err != nil {
+		return apiservererrors.ServerError(err)
+	}
+	return nil
+}
+
 // DestroyApplication removes a given set of applications.
 func (api *APIv15) DestroyApplication(argsV15 params.DestroyApplicationsParamsV15) (params.DestroyApplicationResults, error) {
 	args := params.DestroyApplicationsParams{

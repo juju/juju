@@ -366,7 +366,8 @@ func (s *ApplicationSuite) TestSetCharmWithBlockRemove(c *gc.C) {
 
 func (s *ApplicationSuite) TestSetCharmWithBlockChange(c *gc.C) {
 	s.changeAllowed = errors.New("change blocked")
-	defer s.setup(c).Finish()
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
 
 	err := s.api.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
