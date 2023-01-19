@@ -60,9 +60,14 @@ var ClassifyDetachedStorage = storagecommon.ClassifyDetachedStorage
 
 var logger = loggo.GetLogger("juju.apiserver.application")
 
+// APIv17 provides the Application API facade for version 17.
+type APIv17 struct {
+	*APIBase
+}
+
 // APIv16 provides the Application API facade for version 16.
 type APIv16 struct {
-	*APIBase
+	*APIv17
 }
 
 // APIv15 provides the Application API facade for version 15.
@@ -1426,6 +1431,37 @@ func addApplicationUnits(backend Backend, modelType state.ModelType, args params
 	)
 }
 
+// DestroyUnits removes a given set of application units.
+//
+// TODO(jack-w-shaw) Drop this once facade 16 is not longer supported
+func (api *APIv16) DestroyUnits(args params.DestroyApplicationUnits) error {
+	var errs []error
+	entities := params.DestroyUnitsParams{
+		Units: make([]params.DestroyUnitParams, 0, len(args.UnitNames)),
+	}
+	for _, unitName := range args.UnitNames {
+		if !names.IsValidUnit(unitName) {
+			errs = append(errs, errors.NotValidf("unit name %q", unitName))
+			continue
+		}
+		entities.Units = append(entities.Units, params.DestroyUnitParams{
+			UnitTag: names.NewUnitTag(unitName).String(),
+		})
+	}
+	results, err := api.DestroyUnit(entities)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, result := range results.Results {
+		if result.Error != nil {
+			errs = append(errs, result.Error)
+		}
+	}
+	return apiservererrors.DestroyErr("units", args.UnitNames, errs)
+}
+
+func (*APIBase) DestroyUnits(_ struct{}) {}
+
 func (api *APIv15) DestroyUnit(argsV15 params.DestroyUnitsParamsV15) (params.DestroyUnitResults, error) {
 	args := params.DestroyUnitsParams{
 		Units: transform.Slice(argsV15.Units, func(p params.DestroyUnitParamsV15) params.DestroyUnitParams {
@@ -1438,7 +1474,7 @@ func (api *APIv15) DestroyUnit(argsV15 params.DestroyUnitsParamsV15) (params.Des
 			}
 		}),
 	}
-	return api.APIBase.DestroyUnit(args)
+	return api.APIv16.DestroyUnit(args)
 }
 
 // DestroyUnit removes a given set of application units.
@@ -1541,6 +1577,30 @@ func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyU
 		Results: results,
 	}, nil
 }
+
+// Destroy destroys a given application, local or remote.
+//
+// TODO(jack-w-shaw) Drop this once facade 16 is not longer supported
+func (api *APIv16) Destroy(in params.ApplicationDestroy) error {
+	if !names.IsValidApplication(in.ApplicationName) {
+		return errors.NotValidf("application name %q", in.ApplicationName)
+	}
+	args := params.DestroyApplicationsParams{
+		Applications: []params.DestroyApplicationParams{{
+			ApplicationTag: names.NewApplicationTag(in.ApplicationName).String(),
+		}},
+	}
+	results, err := api.DestroyApplication(args)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := results.Results[0].Error; err != nil {
+		return apiservererrors.ServerError(err)
+	}
+	return nil
+}
+
+func (*APIBase) Destroy(_ struct{}) {}
 
 // DestroyApplication removes a given set of applications.
 func (api *APIv15) DestroyApplication(argsV15 params.DestroyApplicationsParamsV15) (params.DestroyApplicationResults, error) {
