@@ -42,7 +42,7 @@ func (s *CmdRelationSuite) TestAddRelationSuccessOnAlreadyExists(c *gc.C) {
 	c.Check(cmdtesting.Stderr(context), jc.Contains, `ERROR cannot add relation "wordpress:db mysql:server"
 relation wordpress:db mysql:server (already exists): 
 
-Use 'juju status --integrations' to view the current integrations.
+Use 'juju status --relations' to view the current relations.
 `)
 }
 
