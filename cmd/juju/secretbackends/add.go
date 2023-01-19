@@ -57,6 +57,7 @@ Examples:
 See also:
     list-secret-backends
     remove-secret-backend
+    show-secret-backend
     update-secret-backend
 `
 

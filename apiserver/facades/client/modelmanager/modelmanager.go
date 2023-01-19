@@ -981,7 +981,7 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag, withSecrets bool) (pa
 	}
 	if withSecrets && canSeeMachinesAndSecrets {
 		if info.SecretBackends, err = commonsecrets.BackendSummaryInfo(
-			m.state, st, st, st.ControllerUUID(), false, false,
+			m.state, st, st, st.ControllerUUID(), false, commonsecrets.BackendFilter{},
 		); shouldErr(err) {
 			return params.ModelInfo{}, err
 		}

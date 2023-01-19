@@ -52,7 +52,7 @@ func ptr[T any](v T) *T {
 func (s *ListSuite) TestListTabular(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.secretBackendsAPI.EXPECT().ListSecretBackends(false).Return(
+	s.secretBackendsAPI.EXPECT().ListSecretBackends(nil, false).Return(
 		[]apisecretbackends.SecretBackend{{
 			Name:                "myvault",
 			BackendType:         "vault",
@@ -85,7 +85,7 @@ myvault   vault       666      error: vault is sealed
 func (s *ListSuite) TestListYAML(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.secretBackendsAPI.EXPECT().ListSecretBackends(true).Return(
+	s.secretBackendsAPI.EXPECT().ListSecretBackends(nil, true).Return(
 		[]apisecretbackends.SecretBackend{{
 			ID:                  "vault-id",
 			Name:                "myvault",
@@ -136,7 +136,7 @@ myvault:
 func (s *ListSuite) TestListJSON(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.secretBackendsAPI.EXPECT().ListSecretBackends(true).Return(
+	s.secretBackendsAPI.EXPECT().ListSecretBackends(nil, true).Return(
 		[]apisecretbackends.SecretBackend{{
 			Name:        "internal",
 			BackendType: "controller",

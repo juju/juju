@@ -38,10 +38,10 @@ type SecretBackend struct {
 	Error               error
 }
 
-// ListSecretBackends lists the available secret backends.
-func (api *Client) ListSecretBackends(reveal bool) ([]SecretBackend, error) {
+// ListSecretBackends lists the specified secret backends, or all available if no names are provided.
+func (api *Client) ListSecretBackends(names []string, reveal bool) ([]SecretBackend, error) {
 	var response params.ListSecretBackendsResults
-	err := api.facade.FacadeCall("ListSecretBackends", params.ListSecretBackendsArgs{Reveal: reveal}, &response)
+	err := api.facade.FacadeCall("ListSecretBackends", params.ListSecretBackendsArgs{Names: names, Reveal: reveal}, &response)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

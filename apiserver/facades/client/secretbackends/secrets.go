@@ -177,7 +177,8 @@ func (s *SecretBackendsAPI) ListSecretBackends(arg params.ListSecretBackendsArgs
 		}
 	}
 
-	results, err := commonsecrets.BackendSummaryInfo(s.statePool, s.backendState, s.secretState, s.controllerUUID, arg.Reveal, true)
+	results, err := commonsecrets.BackendSummaryInfo(
+		s.statePool, s.backendState, s.secretState, s.controllerUUID, arg.Reveal, commonsecrets.BackendFilter{Names: arg.Names, All: true})
 	if err != nil {
 		return params.ListSecretBackendsResults{}, errors.Trace(err)
 	}

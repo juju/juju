@@ -26,6 +26,15 @@ func NewListCommandForTest(store jujuclient.ClientStore, listSecretsAPI ListSecr
 	return c
 }
 
+// NewShowCommandForTest returns a show secret backend command for testing.
+func NewShowCommandForTest(store jujuclient.ClientStore, showSecretsAPI ListSecretBackendsAPI) *showSecretBackendCommand {
+	c := &showSecretBackendCommand{
+		ShowSecretBackendsAPIFunc: func() (ShowSecretBackendsAPI, error) { return showSecretsAPI, nil },
+	}
+	c.SetClientStore(store)
+	return c
+}
+
 // NewAddCommandForTest returns an add secret backends command for testing.
 func NewAddCommandForTest(store jujuclient.ClientStore, addSecretBackendsAPI AddSecretBackendsAPI) *addSecretBackendCommand {
 	c := &addSecretBackendCommand{

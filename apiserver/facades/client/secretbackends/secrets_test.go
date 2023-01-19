@@ -59,15 +59,19 @@ func (s *SecretsSuite) expectAuthClient() {
 }
 
 func (s *SecretsSuite) TestListSecretBackendsIAAS(c *gc.C) {
-	s.assertListSecretBackends(c, state.ModelTypeIAAS, false)
+	s.assertListSecretBackends(c, state.ModelTypeIAAS, nil, false)
+}
+
+func (s *SecretsSuite) TestListSecretBackendsFilterOnName(c *gc.C) {
+	s.assertListSecretBackends(c, state.ModelTypeIAAS, []string{"myvault"}, false)
 }
 
 func (s *SecretsSuite) TestListSecretBackendsCAAS(c *gc.C) {
-	s.assertListSecretBackends(c, state.ModelTypeCAAS, false)
+	s.assertListSecretBackends(c, state.ModelTypeCAAS, nil, false)
 }
 
 func (s *SecretsSuite) TestListSecretBackendsReveal(c *gc.C) {
-	s.assertListSecretBackends(c, state.ModelTypeIAAS, true)
+	s.assertListSecretBackends(c, state.ModelTypeIAAS, nil, true)
 }
 
 func ptr[T any](v T) *T {
@@ -110,7 +114,7 @@ func (m *mockModel) Type() state.ModelType {
 	return m.modelType
 }
 
-func (s *SecretsSuite) assertListSecretBackends(c *gc.C, modelType state.ModelType, reveal bool) {
+func (s *SecretsSuite) assertListSecretBackends(c *gc.C, modelType state.ModelType, names []string, reveal bool) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -165,7 +169,7 @@ func (s *SecretsSuite) assertListSecretBackends(c *gc.C, modelType state.ModelTy
 	}, nil)
 	s.backendState.EXPECT().GetSecretBackendByID("backend-id-notfound").Return(nil, errors.NotFoundf(""))
 
-	results, err := facade.ListSecretBackends(params.ListSecretBackendsArgs{Reveal: reveal})
+	results, err := facade.ListSecretBackends(params.ListSecretBackendsArgs{Names: names, Reveal: reveal})
 	c.Assert(err, jc.ErrorIsNil)
 	resultVaultCfg := map[string]interface{}{
 		"endpoint": "http://vault",
@@ -174,19 +178,23 @@ func (s *SecretsSuite) assertListSecretBackends(c *gc.C, modelType state.ModelTy
 	if !reveal {
 		delete(resultVaultCfg, "token")
 	}
-	backendResults := []params.SecretBackendResult{{
-		Result: params.SecretBackend{
-			Name:                "myvault",
-			BackendType:         "vault",
-			TokenRotateInterval: ptr(666 * time.Minute),
-			Config:              resultVaultCfg,
-		},
-		ID:         "backend-id",
-		NumSecrets: 3,
-		Status:     "error",
-		Message:    "ping error",
-	}}
-	if modelType == state.ModelTypeCAAS {
+	wanted := set.NewStrings(names...)
+	var backendResults []params.SecretBackendResult
+	if wanted.IsEmpty() || wanted.Contains("myvault") {
+		backendResults = []params.SecretBackendResult{{
+			Result: params.SecretBackend{
+				Name:                "myvault",
+				BackendType:         "vault",
+				TokenRotateInterval: ptr(666 * time.Minute),
+				Config:              resultVaultCfg,
+			},
+			ID:         "backend-id",
+			NumSecrets: 3,
+			Status:     "error",
+			Message:    "ping error",
+		}}
+	}
+	if modelType == state.ModelTypeCAAS && (wanted.IsEmpty() || wanted.Contains("fred-local")) {
 		backendResults = append(backendResults, params.SecretBackendResult{
 			Result: params.SecretBackend{
 				Name:        "fred-local",
@@ -198,16 +206,18 @@ func (s *SecretsSuite) assertListSecretBackends(c *gc.C, modelType state.ModelTy
 			NumSecrets: 2,
 		})
 	}
-	backendResults = append(backendResults, params.SecretBackendResult{
-		Result: params.SecretBackend{
-			Name:        "internal",
-			BackendType: "controller",
-			Config:      map[string]interface{}{},
-		},
-		ID:         coretesting.ControllerTag.Id(),
-		Status:     "active",
-		NumSecrets: 1,
-	})
+	if wanted.IsEmpty() || wanted.Contains("internal") {
+		backendResults = append(backendResults, params.SecretBackendResult{
+			Result: params.SecretBackend{
+				Name:        "internal",
+				BackendType: "controller",
+				Config:      map[string]interface{}{},
+			},
+			ID:         coretesting.ControllerTag.Id(),
+			Status:     "active",
+			NumSecrets: 1,
+		})
+	}
 	c.Assert(results, jc.DeepEquals, params.ListSecretBackendsResults{
 		Results: backendResults,
 	})

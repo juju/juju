@@ -58,6 +58,7 @@ See also:
     add-secret-backends
     list-secret-backends
     remove-secret-backend
+    show-secret-backend
 `
 
 // UpdateSecretBackendsAPI is the secrets client API.

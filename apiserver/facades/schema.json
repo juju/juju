@@ -38680,12 +38680,19 @@
                 "ListSecretBackendsArgs": {
                     "type": "object",
                     "properties": {
+                        "names": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
                         "reveal": {
                             "type": "boolean"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
+                        "names",
                         "reveal"
                     ]
                 },

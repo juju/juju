@@ -435,6 +435,7 @@ var commandNames = []string{
 	"show-offer",
 	"show-operation",
 	"show-secret",
+	"show-secret-backend",
 	"show-status-log",
 	"show-storage",
 	"show-space",

@@ -41,7 +41,7 @@ func (s *SecretBackendsSuite) TestListSecretBackends(c *gc.C) {
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
 		c.Check(request, gc.Equals, "ListSecretBackends")
-		c.Check(arg, jc.DeepEquals, params.ListSecretBackendsArgs{Reveal: true})
+		c.Check(arg, jc.DeepEquals, params.ListSecretBackendsArgs{Names: []string{"myvault"}, Reveal: true})
 		c.Assert(result, gc.FitsTypeOf, &params.ListSecretBackendsResults{})
 		*(result.(*params.ListSecretBackendsResults)) = params.ListSecretBackendsResults{
 			[]params.SecretBackendResult{{
@@ -60,7 +60,7 @@ func (s *SecretBackendsSuite) TestListSecretBackends(c *gc.C) {
 		return nil
 	})
 	client := secretbackends.NewClient(apiCaller)
-	result, err := client.ListSecretBackends(true)
+	result, err := client.ListSecretBackends([]string{"myvault"}, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, []secretbackends.SecretBackend{{
 		Name:                "foo",

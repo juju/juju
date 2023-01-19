@@ -572,6 +572,7 @@ func registerCommands(r commandRegistry) {
 	r.Register(secretbackends.NewAddSecretBackendCommand())
 	r.Register(secretbackends.NewUpdateSecretBackendCommand())
 	r.Register(secretbackends.NewRemoveSecretBackendCommand())
+	r.Register(secretbackends.NewShowSecretBackendCommand())
 
 	// Payload commands.
 	r.Register(payload.NewListCommand())

@@ -309,17 +309,23 @@ func cloudSpecForModel(m Model) (cloudspec.CloudSpec, error) {
 	return cloudspec.MakeCloudSpec(c, "", &cloudCredential)
 }
 
+// BackendFilter is used when listing secret backends.
+type BackendFilter struct {
+	Names []string
+	All   bool
+}
+
 // BackendSummaryInfo returns a summary of the status of the secret backends relevant to the specified models.
 // This method is used by the secretsbackend and modelmanager client facades; it is tested on the secretsbackend facade package.
 func BackendSummaryInfo(
-	statePool StatePool, backendState SecretsBackendState, secretState SecretsState, controllerUUID string, reveal bool, all bool,
+	statePool StatePool, backendState SecretsBackendState, secretState SecretsState, controllerUUID string, reveal bool, filter BackendFilter,
 ) ([]params.SecretBackendResult, error) {
-	backendIDSecrets, err := secretState.ListModelSecrets(all)
+	backendIDSecrets, err := secretState.ListModelSecrets(filter.All)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	// If we want all backends, include those which are not in use.
-	if all {
+	if filter.All {
 		// The internal (controller) backend.
 		if _, ok := backendIDSecrets[controllerUUID]; !ok {
 			backendIDSecrets[controllerUUID] = set.NewStrings()
@@ -344,10 +350,11 @@ func BackendSummaryInfo(
 	sort.Strings(backendIDs)
 
 	var results []params.SecretBackendResult
+	wanted := set.NewStrings(filter.Names...)
 	for _, id := range backendIDs {
-		backendResult, err := getSecretBackendInfo(statePool, backendState, controllerUUID, id, reveal)
+		backendResult, err := getSecretBackendInfo(statePool, backendState, controllerUUID, id, wanted, reveal)
 		if err != nil {
-			// We we get not found, the backend has been deleted,even though it contained secrets.
+			// When we get not found, the backend has been deleted,even though it contained secrets.
 			// We skip over such cases.
 			if !errors.IsNotFound(err) {
 				results = append(results, params.SecretBackendResult{
@@ -359,7 +366,7 @@ func BackendSummaryInfo(
 		// For local k8s secrets, corresponding to every hosted model,
 		// do not include the result if there are no secrets.
 		numSecrets := backendIDSecrets[id].Size()
-		if numSecrets == 0 && all && kubernetes.IsBuiltInName(backendResult.Result.Name) {
+		if numSecrets == 0 && filter.All && kubernetes.IsBuiltInName(backendResult.Result.Name) {
 			continue
 		}
 		backendResult.NumSecrets = numSecrets
@@ -368,7 +375,7 @@ func BackendSummaryInfo(
 	return results, nil
 }
 
-func getSecretBackendInfo(statePool StatePool, backendState SecretsBackendState, controllerUUID string, id string, reveal bool) (*params.SecretBackendResult, error) {
+func getSecretBackendInfo(statePool StatePool, backendState SecretsBackendState, controllerUUID string, id string, wanted set.Strings, reveal bool) (*params.SecretBackendResult, error) {
 	var (
 		b   *secrets.SecretBackend
 		err error
@@ -403,6 +410,10 @@ func getSecretBackendInfo(statePool StatePool, backendState SecretsBackendState,
 			}
 			releaser()
 		}
+	}
+	// Filter out unwanted backends - caller ignores not found errors.
+	if !wanted.IsEmpty() && !wanted.Contains(b.Name) {
+		return nil, errors.NotFoundf("backend %v", b.Name)
 	}
 	cfg := make(map[string]interface{})
 	for k, v := range b.Config {
