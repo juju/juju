@@ -40,7 +40,7 @@ jobs:
 
     - name: Setup LXD
       if: matrix.cloud == 'localhost'
-      uses: canonical/setup-lxd@90d76101915da56a42a562ba766b1a77019242fd
+      uses: canonical/setup-lxd@ea57509243d3cf39f8ab926e021bb353947b01b5
 
     - name: Setup MicroK8s
       if: matrix.cloud == 'microk8s'
