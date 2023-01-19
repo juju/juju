@@ -1158,6 +1158,144 @@ func (s *applicationSuite) assertBlockedErrorAndLiveliness(
 	assertLife(c, living4, state.Alive)
 }
 
+func (s *applicationSuite) TestBlockChangesDestroyPrincipalUnits(c *gc.C) {
+	units := s.setupDestroyPrincipalUnits(c)
+	s.BlockAllChanges(c, "TestBlockChangesDestroyPrincipalUnits")
+	err := s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
+		UnitNames: []string{"wordpress/0", "wordpress/1"},
+	})
+	s.assertBlockedErrorAndLiveliness(c, err, "TestBlockChangesDestroyPrincipalUnits", units[0], units[1], units[2], units[3])
+}
+
+func (s *applicationSuite) TestBlockRemoveDestroyPrincipalUnits(c *gc.C) {
+	units := s.setupDestroyPrincipalUnits(c)
+	s.BlockRemoveObject(c, "TestBlockRemoveDestroyPrincipalUnits")
+	err := s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
+		UnitNames: []string{"wordpress/0", "wordpress/1"},
+	})
+	s.assertBlockedErrorAndLiveliness(c, err, "TestBlockRemoveDestroyPrincipalUnits", units[0], units[1], units[2], units[3])
+}
+
+func (s *applicationSuite) TestBlockDestroyDestroyPrincipalUnits(c *gc.C) {
+	units := s.setupDestroyPrincipalUnits(c)
+	s.BlockDestroyModel(c, "TestBlockDestroyDestroyPrincipalUnits")
+	err := s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
+		UnitNames: []string{"wordpress/0", "wordpress/1"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	assertLife(c, units[0], state.Dying)
+	assertLife(c, units[1], state.Dying)
+}
+
+func (s *applicationSuite) assertDestroySubordinateUnits(c *gc.C, wordpress0, logging0 *state.Unit) {
+	// Try to destroy the principal and the subordinate together; check it warns
+	// about the subordinate, but destroys the one it can. (The principal unit
+	// agent will be responsible for destroying the subordinate.)
+	err := s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
+		UnitNames: []string{"wordpress/0", "logging/0"},
+	})
+	c.Assert(err, gc.ErrorMatches, `some units were not destroyed: unit "logging/0" is a subordinate, .*`)
+	assertLife(c, wordpress0, state.Dying)
+	assertLife(c, logging0, state.Alive)
+}
+
+func (s *applicationSuite) TestBlockRemoveDestroySubordinateUnits(c *gc.C) {
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpress0, err := wordpress.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
+	eps, err := s.State.InferEndpoints("logging", "wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+	ru, err := rel.Unit(wordpress0)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ru.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	logging0, err := s.State.Unit("logging/0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.BlockRemoveObject(c, "TestBlockRemoveDestroySubordinateUnits")
+	// Try to destroy the subordinate alone; check it fails.
+	err = s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
+		UnitNames: []string{"logging/0"},
+	})
+	s.AssertBlocked(c, err, "TestBlockRemoveDestroySubordinateUnits")
+	assertLife(c, rel, state.Alive)
+	assertLife(c, wordpress0, state.Alive)
+	assertLife(c, logging0, state.Alive)
+
+	err = s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
+		UnitNames: []string{"wordpress/0", "logging/0"},
+	})
+	s.AssertBlocked(c, err, "TestBlockRemoveDestroySubordinateUnits")
+	assertLife(c, wordpress0, state.Alive)
+	assertLife(c, logging0, state.Alive)
+	assertLife(c, rel, state.Alive)
+}
+
+func (s *applicationSuite) TestBlockChangesDestroySubordinateUnits(c *gc.C) {
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpress0, err := wordpress.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
+	eps, err := s.State.InferEndpoints("logging", "wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+	ru, err := rel.Unit(wordpress0)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ru.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	logging0, err := s.State.Unit("logging/0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.BlockAllChanges(c, "TestBlockChangesDestroySubordinateUnits")
+	// Try to destroy the subordinate alone; check it fails.
+	err = s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
+		UnitNames: []string{"logging/0"},
+	})
+	s.AssertBlocked(c, err, "TestBlockChangesDestroySubordinateUnits")
+	assertLife(c, rel, state.Alive)
+	assertLife(c, wordpress0, state.Alive)
+	assertLife(c, logging0, state.Alive)
+
+	err = s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
+		UnitNames: []string{"wordpress/0", "logging/0"},
+	})
+	s.AssertBlocked(c, err, "TestBlockChangesDestroySubordinateUnits")
+	assertLife(c, wordpress0, state.Alive)
+	assertLife(c, logging0, state.Alive)
+	assertLife(c, rel, state.Alive)
+}
+
+func (s *applicationSuite) TestBlockDestroyDestroySubordinateUnits(c *gc.C) {
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpress0, err := wordpress.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
+	eps, err := s.State.InferEndpoints("logging", "wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+	ru, err := rel.Unit(wordpress0)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ru.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	logging0, err := s.State.Unit("logging/0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.BlockDestroyModel(c, "TestBlockDestroyDestroySubordinateUnits")
+	// Try to destroy the subordinate alone; check it fails.
+	err = s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
+		UnitNames: []string{"logging/0"},
+	})
+	c.Assert(err, gc.ErrorMatches, `no units were destroyed: unit "logging/0" is a subordinate, .*`)
+	assertLife(c, logging0, state.Alive)
+
+	s.assertDestroySubordinateUnits(c, wordpress0, logging0)
+}
+
 func (s *applicationSuite) TestClientSetApplicationConstraints(c *gc.C) {
 	app := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
 

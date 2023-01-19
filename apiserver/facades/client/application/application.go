@@ -1441,6 +1441,42 @@ func (api *APIv15) DestroyUnit(argsV15 params.DestroyUnitsParamsV15) (params.Des
 	return api.APIBase.DestroyUnit(args)
 }
 
+// DestroyUnits removes a given set of application units.
+//
+// NOTE(axw) this exists only for backwards compatibility,
+// for API facade versions 1-3; clients should prefer its
+// successor, DestroyUnit, below. Until all consumers have
+// been updated, or we bump a major version, we can't drop
+// this.
+//
+// TODO(axw) 2017-03-16 #1673323
+// Drop this in Juju 3.0.
+func (api *APIBase) DestroyUnits(args params.DestroyApplicationUnits) error {
+	var errs []error
+	entities := params.DestroyUnitsParams{
+		Units: make([]params.DestroyUnitParams, 0, len(args.UnitNames)),
+	}
+	for _, unitName := range args.UnitNames {
+		if !names.IsValidUnit(unitName) {
+			errs = append(errs, errors.NotValidf("unit name %q", unitName))
+			continue
+		}
+		entities.Units = append(entities.Units, params.DestroyUnitParams{
+			UnitTag: names.NewUnitTag(unitName).String(),
+		})
+	}
+	results, err := api.DestroyUnit(entities)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, result := range results.Results {
+		if result.Error != nil {
+			errs = append(errs, result.Error)
+		}
+	}
+	return apiservererrors.DestroyErr("units", args.UnitNames, errs)
+}
+
 // DestroyUnit removes a given set of application units.
 func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyUnitResults, error) {
 	if api.modelType == state.ModelTypeCAAS {
