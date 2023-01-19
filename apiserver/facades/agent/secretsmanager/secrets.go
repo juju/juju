@@ -41,6 +41,7 @@ type SecretsManagerAPI struct {
 	clock             clock.Clock
 
 	backendConfigGetter commonsecrets.BackendConfigGetter
+	adminConfigGetter   commonsecrets.BackendConfigGetter
 }
 
 // GetSecretStoreConfig is for 3.0.x agents.
@@ -249,7 +250,7 @@ func (s *SecretsManagerAPI) RemoveSecrets(args params.DeleteSecretArgs) (params.
 		return result, nil
 	}
 
-	cfgInfo, err := s.backendConfigGetter()
+	cfgInfo, err := s.adminConfigGetter()
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
