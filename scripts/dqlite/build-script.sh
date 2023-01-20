@@ -20,7 +20,7 @@ wget https://musl.libc.org/releases/musl-1.2.3.tar.gz
 tar xf musl-1.2.3.tar.gz
 cd musl-1.2.3
 ./configure
-make install
+sudo make install
 
 export PATH=${PATH}:/usr/local/musl/bin
 export CC=musl-gcc
@@ -28,12 +28,12 @@ cd ..
 
 # Setup symlinks so we can access additional headers that 
 # don't ship with musl but are needed for our builds
-ln -s /usr/include/$(uname -m)-linux-gnu/asm /usr/local/musl/include/asm
-ln -s /usr/include/asm-generic /usr/local/musl/include/asm-generic
-ln -s /usr/include/linux /usr/local/musl/include/linux
+sudo ln -s /usr/include/$(uname -m)-linux-gnu/asm /usr/local/musl/include/asm
+sudo ln -s /usr/include/asm-generic /usr/local/musl/include/asm-generic
+sudo ln -s /usr/include/linux /usr/local/musl/include/linux
 
 # Grab the queue.h file that does not ship with musl
-wget https://dev.midipix.org/compat/musl-compat/raw/main/f/include/sys/queue.h -O /usr/local/musl/include/sys/queue.h
+sudo wget https://dev.midipix.org/compat/musl-compat/raw/main/f/include/sys/queue.h -O /usr/local/musl/include/sys/queue.h
 
 # Install compile dependencies for statically linking everything:
 # --------------------------------------------------------------
