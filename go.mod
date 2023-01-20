@@ -55,7 +55,7 @@ require (
 	github.com/juju/charmrepo/v6 v6.0.3
 	github.com/juju/clock v1.0.2
 	github.com/juju/cmd/v3 v3.0.0
-	github.com/juju/collections v1.0.1
+	github.com/juju/collections v1.0.2
 	github.com/juju/description/v3 v3.0.12
 	github.com/juju/errors v1.0.0
 	github.com/juju/featureflag v1.0.0
