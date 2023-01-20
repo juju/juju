@@ -73,7 +73,7 @@ dqlite-local-build:
 		./scripts/dqlite/build-script.sh
 
 	@echo "DQLITE: Placing lib archive"
-	@mv ./scripts/dqlite/dqlite-deps.tar.bz2 ${DQLITE_ARCHIVE_PATH}
+	@mv ./build/juju-dqlite-static-lib-deps.tar.bz2 ${DQLITE_ARCHIVE_PATH}
 
 # s3 puts here are without an ACL.
 # The bucket uses policies that allow GetObject to anyone,
