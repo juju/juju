@@ -1184,19 +1184,6 @@ func (e *Environ) startInstance(
 		}
 	}
 
-	// Clean up any groups that we have created if we fail to start the
-	// instance.
-	cleanupGroups := func(
-		client *nova.Client,
-		groups []nova.SecurityGroupName,
-	) error {
-		names := make([]string, len(groups))
-		for i, group := range groups {
-			names[i] = group.Name
-		}
-		return e.firewaller.DeleteGroups(ctx, names...)
-	}
-
 	waitForActiveServerDetails := func(
 		client *nova.Client,
 		id string,
@@ -1298,7 +1285,7 @@ func (e *Environ) startInstance(
 	server, err := tryStartNovaInstance(shortAttempt, e.nova(), opts)
 	if err != nil || server == nil {
 		// Attempt to clean up any security groups we created.
-		if err := cleanupGroups(e.nova(), novaGroupNames); err != nil {
+		if err := e.cleanupGroups(ctx, e.nova(), novaGroupNames); err != nil {
 			// If we failed to clean up the security groups, we need the user
 			// to manually clean them up.
 			logger.Errorf("cannot cleanup security groups: %v", err)
@@ -1374,6 +1361,19 @@ func (e *Environ) startInstance(
 		Instance: inst,
 		Hardware: inst.hardwareCharacteristics(),
 	}, nil
+}
+
+// Clean up any groups that we have created if we fail to start the instance.
+func (e *Environ) cleanupGroups(
+	ctx context.ProviderCallContext,
+	client *nova.Client,
+	groups []nova.SecurityGroupName,
+) error {
+	names := make([]string, len(groups))
+	for i, group := range groups {
+		names[i] = group.Name
+	}
+	return e.firewaller.DeleteGroups(ctx, names...)
 }
 
 func (e *Environ) userFriendlyInvalidNetworkError(err error) error {
@@ -1697,25 +1697,10 @@ func isInvalidNetworkError(err error) bool {
 }
 
 func (e *Environ) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
-	// If in instance firewall mode, gather the security group names.
-	securityGroupNames, err := e.firewaller.GetSecurityGroups(ctx, ids...)
-	if err == environs.ErrNoInstances {
-		return nil
-	}
-	if err != nil {
-		handleCredentialError(err, ctx)
-		return err
-	}
 	logger.Debugf("terminating instances %v", ids)
 	if err := e.terminateInstances(ctx, ids); err != nil {
 		handleCredentialError(err, ctx)
 		return err
-	}
-	if securityGroupNames != nil {
-		if err := e.firewaller.DeleteGroups(ctx, securityGroupNames...); err != nil {
-			handleCredentialError(err, ctx)
-			return err
-		}
 	}
 	return nil
 }
@@ -2140,17 +2125,26 @@ func (e *Environ) terminateInstances(ctx context.ProviderCallContext, ids []inst
 	if len(ids) == 0 {
 		return nil
 	}
-	var firstErr error
-	novaClient := e.nova()
-	for _, id := range ids {
-		// Attempt to destroy any groups that could have been created when
-		// creating the instance.
-		if err := e.terminateInstanceSecurityGroups(ctx, id); err != nil {
-			logger.Errorf("error attempting to remove groups associated with instance %q: %v", id, err)
-			// Unfortunately there is nothing we can do here, there could be
-			// orphan groups left.
-		}
 
+	novaClient := e.nova()
+
+	// If in instance firewall mode, gather the security group names.
+	securityGroupNames, err := e.firewaller.GetSecurityGroups(ctx, ids...)
+	if err == environs.ErrNoInstances {
+		return nil
+	}
+	if err != nil {
+		logger.Debugf("error retrieving security groups for %v: %v", ids, err)
+		if denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
+			// We'll likely fail all subsequent calls if we have an invalid credential.
+			return errors.Trace(err)
+		}
+	}
+
+	// Record the first error we encounter, as that's the one we're currently
+	// reporting to the user.
+	var firstErr error
+	for _, id := range ids {
 		// Attempt to destroy the ports that could have been created when using
 		// spaces.
 		if err := e.terminateInstanceNetworkPorts(id); err != nil {
@@ -2160,31 +2154,30 @@ func (e *Environ) terminateInstances(ctx context.ProviderCallContext, ids []inst
 		}
 
 		// Once ports have been deleted, attempt to delete the server.
-		err := novaClient.DeleteServer(string(id))
+		err = novaClient.DeleteServer(string(id))
 		if IsNotFoundError(err) {
-			err = nil
+			continue
 		}
-		if err != nil && firstErr == nil {
+		if err != nil {
 			logger.Debugf("error terminating instance %q: %v", id, err)
-			firstErr = err
+			if firstErr == nil {
+				firstErr = err
+			}
 			if denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
-				// We'll 100% fail all subsequent calls if we have an invalid credential.
-				break
+				// We'll likely fail all subsequent calls if we have an invalid credential.
+				return errors.Trace(err)
 			}
 		}
 	}
-	return firstErr
-}
 
-func (e *Environ) terminateInstanceSecurityGroups(ctx context.ProviderCallContext, id instance.Id) error {
-	// This will only give us the names of the groups that the instance owns,
-	// not any global groups that it is a member of.
-	names, err := e.firewaller.GetSecurityGroups(ctx, id)
-	if err != nil {
-		return errors.Trace(err)
+	if len(securityGroupNames) > 0 {
+		logger.Tracef("deleting security groups %v", securityGroupNames)
+		if err := e.firewaller.DeleteGroups(ctx, securityGroupNames...); err != nil {
+			return err
+		}
 	}
 
-	return e.firewaller.DeleteGroups(ctx, names...)
+	return firstErr
 }
 
 func (e *Environ) terminateInstanceNetworkPorts(id instance.Id) error {
