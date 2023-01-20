@@ -1368,24 +1368,23 @@ func (s *ProvisionerSuite) newProvisionerTaskWithRetryStrategy(
 	auth, err := authentication.NewAPIAuthenticator(s.provisioner)
 	c.Assert(err, jc.ErrorIsNil)
 
-	w, err := provisioner.NewProvisionerTask(
-		s.ControllerConfig.ControllerUUID(),
-		names.NewMachineTag("0"),
-		loggo.GetLogger("test"),
-		harvestingMethod,
-		machineGetter,
-		distributionGroupFinder,
-		toolsFinder,
-		machineWatcher,
-		retryWatcher,
-		broker,
-		auth,
-		imagemetadata.ReleasedStream,
-		retryStrategy,
-		func(_ stdcontext.Context) context.ProviderCallContext { return s.callCtx },
-		numProvisionWorkersForTesting,
-		nil,
-	)
+	w, err := provisioner.NewProvisionerTask(provisioner.TaskConfig{
+		ControllerUUID:             s.ControllerConfig.ControllerUUID(),
+		HostTag:                    names.NewMachineTag("0"),
+		Logger:                     loggo.GetLogger("test"),
+		HarvestMode:                harvestingMethod,
+		MachineGetter:              machineGetter,
+		DistributionGroupFinder:    distributionGroupFinder,
+		ToolsFinder:                toolsFinder,
+		MachineWatcher:             machineWatcher,
+		RetryWatcher:               retryWatcher,
+		Broker:                     broker,
+		Auth:                       auth,
+		ImageStream:                imagemetadata.ReleasedStream,
+		RetryStartInstanceStrategy: retryStrategy,
+		CloudCallContextFunc:       func(_ stdcontext.Context) context.ProviderCallContext { return s.callCtx },
+		NumProvisionWorkers:        numProvisionWorkersForTesting,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	return w
 }

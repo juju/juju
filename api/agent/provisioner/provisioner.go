@@ -82,7 +82,7 @@ func (st *State) machineLife(tag names.MachineTag) (life.Value, error) {
 	return common.OneLife(st.facade, tag)
 }
 
-// Machine provides access to methods of a state.Machine through the facade
+// Machines provides access to methods of a state.Machine through the facade
 // for the given tags.
 func (st *State) Machines(tags ...names.MachineTag) ([]MachineResult, error) {
 	lenTags := len(tags)

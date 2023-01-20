@@ -998,24 +998,23 @@ func (s *ProvisionerTaskSuite) newProvisionerTaskWithRetry(
 	retryStrategy provisioner.RetryStrategy,
 	numProvisionWorkers int,
 ) provisioner.ProvisionerTask {
-	w, err := provisioner.NewProvisionerTask(
-		coretesting.ControllerTag.Id(),
-		names.NewMachineTag("0"),
-		loggo.GetLogger("test"),
-		harvestingMethod,
-		s.machineGetter,
-		distributionGroupFinder,
-		toolsFinder,
-		s.modelMachinesWatcher,
-		s.machineErrorRetryWatcher,
-		s.instanceBroker,
-		s.auth,
-		imagemetadata.ReleasedStream,
-		retryStrategy,
-		func(_ stdcontext.Context) context.ProviderCallContext { return s.callCtx },
-		numProvisionWorkers,
-		nil,
-	)
+	w, err := provisioner.NewProvisionerTask(provisioner.TaskConfig{
+		ControllerUUID:             coretesting.ControllerTag.Id(),
+		HostTag:                    names.NewMachineTag("0"),
+		Logger:                     loggo.GetLogger("test"),
+		HarvestMode:                harvestingMethod,
+		MachineGetter:              s.machineGetter,
+		DistributionGroupFinder:    distributionGroupFinder,
+		ToolsFinder:                toolsFinder,
+		MachineWatcher:             s.modelMachinesWatcher,
+		RetryWatcher:               s.machineErrorRetryWatcher,
+		Broker:                     s.instanceBroker,
+		Auth:                       s.auth,
+		ImageStream:                imagemetadata.ReleasedStream,
+		RetryStartInstanceStrategy: retryStrategy,
+		CloudCallContextFunc:       func(_ stdcontext.Context) context.ProviderCallContext { return s.callCtx },
+		NumProvisionWorkers:        numProvisionWorkers,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	return w
 }
@@ -1031,24 +1030,24 @@ func (s *ProvisionerTaskSuite) newProvisionerTaskWithBrokerAndEventCb(
 	numProvisionWorkers int,
 	evtCb func(string),
 ) provisioner.ProvisionerTask {
-	task, err := provisioner.NewProvisionerTask(
-		coretesting.ControllerTag.Id(),
-		names.NewMachineTag("0"),
-		loggo.GetLogger("test"),
-		config.HarvestAll,
-		s.machineGetter,
-		&mockDistributionGroupFinder{groups: distributionGroups},
-		mockToolsFinder{},
-		s.modelMachinesWatcher,
-		s.machineErrorRetryWatcher,
-		broker,
-		s.auth,
-		imagemetadata.ReleasedStream,
-		provisioner.NewRetryStrategy(0*time.Second, 0),
-		func(_ stdcontext.Context) context.ProviderCallContext { return s.callCtx },
-		numProvisionWorkers,
-		evtCb,
-	)
+	task, err := provisioner.NewProvisionerTask(provisioner.TaskConfig{
+		ControllerUUID:             coretesting.ControllerTag.Id(),
+		HostTag:                    names.NewMachineTag("0"),
+		Logger:                     loggo.GetLogger("test"),
+		HarvestMode:                config.HarvestAll,
+		MachineGetter:              s.machineGetter,
+		DistributionGroupFinder:    &mockDistributionGroupFinder{groups: distributionGroups},
+		ToolsFinder:                mockToolsFinder{},
+		MachineWatcher:             s.modelMachinesWatcher,
+		RetryWatcher:               s.machineErrorRetryWatcher,
+		Broker:                     broker,
+		Auth:                       s.auth,
+		ImageStream:                imagemetadata.ReleasedStream,
+		RetryStartInstanceStrategy: provisioner.NewRetryStrategy(0*time.Second, 0),
+		CloudCallContextFunc:       func(_ stdcontext.Context) context.ProviderCallContext { return s.callCtx },
+		NumProvisionWorkers:        numProvisionWorkers,
+		EventProcessedCb:           evtCb,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	return task
 }

@@ -78,55 +78,58 @@ type ToolsFinder interface {
 	FindTools(version version.Number, series string, arch string) (coretools.List, error)
 }
 
-func NewProvisionerTask(
-	controllerUUID string,
-	hostTag names.Tag,
-	logger Logger,
-	harvestMode config.HarvestMode,
-	machineGetter MachineGetter,
-	distributionGroupFinder DistributionGroupFinder,
-	toolsFinder ToolsFinder,
-	machineWatcher watcher.StringsWatcher,
-	retryWatcher watcher.NotifyWatcher,
-	broker environs.InstanceBroker,
-	auth authentication.AuthenticationProvider,
-	imageStream string,
-	retryStartInstanceStrategy RetryStrategy,
-	cloudCallContextFunc common.CloudCallContextFunc,
-	numProvisionWorkers int,
-	eventProcessedCb func(string),
-) (ProvisionerTask, error) {
-	machineChanges := machineWatcher.Changes()
-	workers := []worker.Worker{machineWatcher}
+// TaskConfig holds the initialisation data for a ProvisionerTask instance.
+type TaskConfig struct {
+	ControllerUUID             string
+	HostTag                    names.Tag
+	Logger                     Logger
+	HarvestMode                config.HarvestMode
+	MachineGetter              MachineGetter
+	DistributionGroupFinder    DistributionGroupFinder
+	ToolsFinder                ToolsFinder
+	MachineWatcher             watcher.StringsWatcher
+	RetryWatcher               watcher.NotifyWatcher
+	Broker                     environs.InstanceBroker
+	Auth                       authentication.AuthenticationProvider
+	ImageStream                string
+	RetryStartInstanceStrategy RetryStrategy
+	CloudCallContextFunc       common.CloudCallContextFunc
+	NumProvisionWorkers        int
+	EventProcessedCb           func(string)
+}
+
+func NewProvisionerTask(cfg TaskConfig) (ProvisionerTask, error) {
+	machineChanges := cfg.MachineWatcher.Changes()
+	workers := []worker.Worker{cfg.MachineWatcher}
 	var retryChanges watcher.NotifyChannel
-	if retryWatcher != nil {
-		retryChanges = retryWatcher.Changes()
-		workers = append(workers, retryWatcher)
+	if cfg.RetryWatcher != nil {
+		retryChanges = cfg.RetryWatcher.Changes()
+		workers = append(workers, cfg.RetryWatcher)
 	}
 	task := &provisionerTask{
-		controllerUUID:             controllerUUID,
-		hostTag:                    hostTag,
-		logger:                     logger,
-		machineGetter:              machineGetter,
-		distributionGroupFinder:    distributionGroupFinder,
-		toolsFinder:                toolsFinder,
+		controllerUUID:             cfg.ControllerUUID,
+		hostTag:                    cfg.HostTag,
+		logger:                     cfg.Logger,
+		machineGetter:              cfg.MachineGetter,
+		distributionGroupFinder:    cfg.DistributionGroupFinder,
+		toolsFinder:                cfg.ToolsFinder,
 		machineChanges:             machineChanges,
 		retryChanges:               retryChanges,
-		broker:                     broker,
-		auth:                       auth,
-		harvestMode:                harvestMode,
+		broker:                     cfg.Broker,
+		auth:                       cfg.Auth,
+		harvestMode:                cfg.HarvestMode,
 		harvestModeChan:            make(chan config.HarvestMode, 1),
 		machines:                   make(map[string]apiprovisioner.MachineProvisioner),
 		machinesStarting:           make(map[string]bool),
 		machinesStopDeferred:       make(map[string]bool),
 		machinesStopping:           make(map[string]bool),
 		availabilityZoneMachines:   make([]*AvailabilityZoneMachine, 0),
-		imageStream:                imageStream,
-		retryStartInstanceStrategy: retryStartInstanceStrategy,
-		cloudCallCtxFunc:           cloudCallContextFunc,
-		wp:                         workerpool.NewWorkerPool(logger, numProvisionWorkers),
+		imageStream:                cfg.ImageStream,
+		retryStartInstanceStrategy: cfg.RetryStartInstanceStrategy,
+		cloudCallCtxFunc:           cfg.CloudCallContextFunc,
+		wp:                         workerpool.NewWorkerPool(cfg.Logger, cfg.NumProvisionWorkers),
 		wpSizeChan:                 make(chan int, 1),
-		eventProcessedCb:           eventProcessedCb,
+		eventProcessedCb:           cfg.EventProcessedCb,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &task.catacomb,
@@ -580,7 +583,10 @@ func (task *provisionerTask) filterAndQueueRemovalOfDeadMachines(ctx context.Pro
 	return task.queueRemovalOfDeadMachines(ctx, dead)
 }
 
-func (task *provisionerTask) queueRemovalOfDeadMachines(ctx context.ProviderCallContext, dead []apiprovisioner.MachineProvisioner) error {
+func (task *provisionerTask) queueRemovalOfDeadMachines(
+	ctx context.ProviderCallContext,
+	dead []apiprovisioner.MachineProvisioner,
+) error {
 	// Collect the instances for all provisioned machines that are dead.
 	stopping := task.instancesForDeadMachines(dead)
 
