@@ -5,8 +5,8 @@ set -ex
 # existence of repositories, requiring only a pull and not a full clone.
 
 # Setup build env
-apt-get update
-apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install \
+sudo apt-get update
+sudo apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install \
     gcc automake libtool make gettext autopoint pkg-config tclsh tcl libsqlite3-dev
 
 mkdir build
