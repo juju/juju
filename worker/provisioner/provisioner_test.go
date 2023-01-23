@@ -657,7 +657,9 @@ func (s *ProvisionerSuite) TestSetUpToStartMachine(c *gc.C) {
 	attrs := map[string]interface{}{
 		config.CloudInitUserDataKey: validCloudInitUserData,
 	}
-	s.Model.UpdateModelConfig(attrs, nil)
+
+	err := s.Model.UpdateModelConfig(attrs, nil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	task := s.newProvisionerTask(
 		c,
@@ -672,16 +674,20 @@ func (s *ProvisionerSuite) TestSetUpToStartMachine(c *gc.C) {
 	machine, err := s.addMachine()
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := s.provisioner.Machines(machine.MachineTag())
+	mRes, err := s.provisioner.Machines(machine.MachineTag())
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.HasLen, 1)
-	c.Assert(result[0].Err, gc.IsNil)
-	apiMachine := result[0].Machine
+	c.Assert(mRes, gc.HasLen, 1)
+	c.Assert(mRes[0].Err, gc.IsNil)
+	apiMachine := mRes[0].Machine
+
+	pRes, err := s.provisioner.ProvisioningInfo([]names.MachineTag{machine.MachineTag()})
+	c.Assert(err, gc.IsNil)
+	c.Assert(pRes.Results, gc.HasLen, 1)
 
 	v, err := apiMachine.ModelAgentVersion()
 	c.Assert(err, jc.ErrorIsNil)
 
-	startInstanceParams, err := provisioner.SetupToStartMachine(task, apiMachine, v)
+	startInstanceParams, err := provisioner.SetupToStartMachine(task, apiMachine, v, pRes.Results[0])
 	c.Assert(err, jc.ErrorIsNil)
 	cloudInitUserData := startInstanceParams.InstanceConfig.CloudInitUserData
 	c.Assert(cloudInitUserData, gc.DeepEquals, map[string]interface{}{
@@ -1257,13 +1263,15 @@ func (s *ProvisionerSuite) TestDyingMachines(c *gc.C) {
 	c.Assert(m0.Life(), gc.Equals, state.Dying)
 }
 
-type mockMachineGetter struct{}
+type mockTaskAPI struct {
+	provisioner.TaskAPI
+}
 
-func (mock *mockMachineGetter) Machines(tags ...names.MachineTag) ([]apiprovisioner.MachineResult, error) {
+func (mock *mockTaskAPI) Machines(tags ...names.MachineTag) ([]apiprovisioner.MachineResult, error) {
 	return nil, fmt.Errorf("error")
 }
 
-func (*mockMachineGetter) MachinesWithTransientErrors() ([]apiprovisioner.MachineStatusResult, error) {
+func (*mockTaskAPI) MachinesWithTransientErrors() ([]apiprovisioner.MachineStatusResult, error) {
 	return nil, fmt.Errorf("error")
 }
 
@@ -1271,18 +1279,21 @@ type mockDistributionGroupFinder struct {
 	groups map[names.MachineTag][]string
 }
 
-func (mock *mockDistributionGroupFinder) DistributionGroupByMachineId(tags ...names.MachineTag) ([]apiprovisioner.DistributionGroupResult, error) {
+func (mock *mockDistributionGroupFinder) DistributionGroupByMachineId(
+	tags ...names.MachineTag,
+) ([]apiprovisioner.DistributionGroupResult, error) {
 	result := make([]apiprovisioner.DistributionGroupResult, len(tags))
 	if len(mock.groups) == 0 {
 		for i := range tags {
-			result[i] = apiprovisioner.DistributionGroupResult{[]string{}, nil}
+			result[i] = apiprovisioner.DistributionGroupResult{MachineIds: []string{}}
 		}
 	} else {
 		for i, tag := range tags {
 			if dg, ok := mock.groups[tag]; ok {
-				result[i] = apiprovisioner.DistributionGroupResult{dg, nil}
+				result[i] = apiprovisioner.DistributionGroupResult{MachineIds: dg}
 			} else {
-				result[i] = apiprovisioner.DistributionGroupResult{[]string{}, &params.Error{Code: params.CodeNotFound, Message: "Fail"}}
+				result[i] = apiprovisioner.DistributionGroupResult{
+					MachineIds: []string{}, Err: &params.Error{Code: params.CodeNotFound, Message: "Fail"}}
 			}
 		}
 	}
@@ -1308,12 +1319,13 @@ func (s *ProvisionerSuite) TestMachineErrorsRetainInstances(c *gc.C) {
 	// create an instance out of band
 	s.startUnknownInstance(c, "999")
 
-	// start the provisioner and ensure it doesn't kill any instances if there are error getting machines
+	// start the provisioner and ensure it doesn't kill any
+	// instances if there are errors getting machines.
 	task = s.newProvisionerTask(
 		c,
 		config.HarvestAll,
 		s.Environ,
-		&mockMachineGetter{},
+		&mockTaskAPI{},
 		&mockDistributionGroupFinder{},
 		&mockToolsFinder{},
 	)
@@ -1340,7 +1352,7 @@ func (s *ProvisionerSuite) newProvisionerTask(
 	c *gc.C,
 	harvestingMethod config.HarvestMode,
 	broker environs.InstanceBroker,
-	machineGetter provisioner.MachineGetter,
+	taskAPI provisioner.TaskAPI,
 	distributionGroupFinder provisioner.DistributionGroupFinder,
 	toolsFinder provisioner.ToolsFinder,
 ) provisioner.ProvisionerTask {
@@ -1348,14 +1360,14 @@ func (s *ProvisionerSuite) newProvisionerTask(
 	retryStrategy := provisioner.NewRetryStrategy(0*time.Second, 0)
 
 	return s.newProvisionerTaskWithRetryStrategy(c, harvestingMethod, broker,
-		machineGetter, distributionGroupFinder, toolsFinder, retryStrategy)
+		taskAPI, distributionGroupFinder, toolsFinder, retryStrategy)
 }
 
 func (s *ProvisionerSuite) newProvisionerTaskWithRetryStrategy(
 	c *gc.C,
 	harvestingMethod config.HarvestMode,
 	broker environs.InstanceBroker,
-	machineGetter provisioner.MachineGetter,
+	taskAPI provisioner.TaskAPI,
 	distributionGroupFinder provisioner.DistributionGroupFinder,
 	toolsFinder provisioner.ToolsFinder,
 	retryStrategy provisioner.RetryStrategy,
@@ -1373,7 +1385,7 @@ func (s *ProvisionerSuite) newProvisionerTaskWithRetryStrategy(
 		HostTag:                    names.NewMachineTag("0"),
 		Logger:                     loggo.GetLogger("test"),
 		HarvestMode:                harvestingMethod,
-		MachineGetter:              machineGetter,
+		TaskAPI:                    taskAPI,
 		DistributionGroupFinder:    distributionGroupFinder,
 		ToolsFinder:                toolsFinder,
 		MachineWatcher:             machineWatcher,
@@ -1409,7 +1421,6 @@ func (s *ProvisionerSuite) TestHarvestNoneReapsNothing(c *gc.C) {
 }
 
 func (s *ProvisionerSuite) TestHarvestUnknownReapsOnlyUnknown(c *gc.C) {
-
 	task := s.newProvisionerTask(c,
 		config.HarvestDestroyed,
 		s.Environ,
