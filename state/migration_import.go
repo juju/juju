@@ -1419,7 +1419,7 @@ func (i *importer) makeCharmOrigin(a description.Application, units []descriptio
 			return nil, errors.Trace(err)
 		}
 		track := c.Track
-		if charm.CharmHub.Matches(co.Source()) && track == "" {
+		if corecharm.CharmHub.Matches(co.Source()) && track == "" {
 			track = "latest"
 		}
 		channel = &Channel{
