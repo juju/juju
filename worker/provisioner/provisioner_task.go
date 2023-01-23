@@ -60,9 +60,11 @@ type ProvisionerTask interface {
 	SetNumProvisionWorkers(numWorkers int)
 }
 
-type MachineGetter interface {
+// TaskAPI describes API methods required by a ProvisionerTask.
+type TaskAPI interface {
 	Machines(...names.MachineTag) ([]apiprovisioner.MachineResult, error)
 	MachinesWithTransientErrors() ([]apiprovisioner.MachineStatusResult, error)
+	ProvisioningInfo(machineTags []names.MachineTag) (params.ProvisioningInfoResultsV10, error)
 }
 
 type DistributionGroupFinder interface {
@@ -84,7 +86,7 @@ type TaskConfig struct {
 	HostTag                    names.Tag
 	Logger                     Logger
 	HarvestMode                config.HarvestMode
-	MachineGetter              MachineGetter
+	TaskAPI                    TaskAPI
 	DistributionGroupFinder    DistributionGroupFinder
 	ToolsFinder                ToolsFinder
 	MachineWatcher             watcher.StringsWatcher
@@ -110,7 +112,7 @@ func NewProvisionerTask(cfg TaskConfig) (ProvisionerTask, error) {
 		controllerUUID:             cfg.ControllerUUID,
 		hostTag:                    cfg.HostTag,
 		logger:                     cfg.Logger,
-		machineGetter:              cfg.MachineGetter,
+		taskAPI:                    cfg.TaskAPI,
 		distributionGroupFinder:    cfg.DistributionGroupFinder,
 		toolsFinder:                cfg.ToolsFinder,
 		machineChanges:             machineChanges,
@@ -155,7 +157,7 @@ type provisionerTask struct {
 	controllerUUID             string
 	hostTag                    names.Tag
 	logger                     Logger
-	machineGetter              MachineGetter
+	taskAPI                    TaskAPI
 	distributionGroupFinder    DistributionGroupFinder
 	toolsFinder                ToolsFinder
 	machineChanges             watcher.StringsChannel
@@ -300,7 +302,7 @@ func (task *provisionerTask) SetNumProvisionWorkers(numWorkers int) {
 }
 
 func (task *provisionerTask) processMachinesWithTransientErrors(ctx context.ProviderCallContext) error {
-	results, err := task.machineGetter.MachinesWithTransientErrors()
+	results, err := task.taskAPI.MachinesWithTransientErrors()
 	if err != nil || len(results) == 0 {
 		return nil
 	}
@@ -392,7 +394,7 @@ func (task *provisionerTask) populateMachineMaps(ctx context.ProviderCallContext
 	for i, id := range ids {
 		machineTags[i] = names.NewMachineTag(id)
 	}
-	machines, err := task.machineGetter.Machines(machineTags...)
+	machines, err := task.taskAPI.Machines(machineTags...)
 	if err != nil {
 		return errors.Annotatef(err, "getting machines %v", ids)
 	}
@@ -1226,6 +1228,20 @@ func (task *provisionerTask) queueStartMachines(ctx context.ProviderCallContext,
 		return errors.Trace(err)
 	}
 
+	// Get all the provisioning info at once, so that we don't make many
+	// singular requests in parallel to an API that supports batching.
+	// key the results by machine IDs for retrieval in the loop below.
+	// We rely here on the API guarantee - that the returned results are
+	// ordered to correspond to the call arguments.
+	pInfoResults, err := task.taskAPI.ProvisioningInfo(machineTags)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	pInfoMap := make(map[string]params.ProvisioningInfoResultV10, len(pInfoResults.Results))
+	for i, tag := range machineTags {
+		pInfoMap[tag.Id()] = pInfoResults.Results[i]
+	}
+
 	for i, m := range machines {
 		if machineDistributionGroups[i].Err != nil {
 			if err := task.setErrorStatus("fetching distribution groups for machine %q: %v", m, machineDistributionGroups[i].Err); err != nil {
@@ -1242,17 +1258,19 @@ func (task *provisionerTask) queueStartMachines(ctx context.ProviderCallContext,
 		task.machinesStarting[m.Id()] = true
 		task.machinesMutex.Unlock()
 
-		machProvisioner := m
+		// Reassign the loop variable to prevent
+		// overwriting the dispatched references.
+		machine := m
 		distGroup := machineDistributionGroups[i].MachineIds
 
 		provTask := workerpool.Task{
-			Type: fmt.Sprintf("start-instance %s", machProvisioner.Id()),
+			Type: fmt.Sprintf("start-instance %s", machine.Id()),
 			Process: func() error {
-				if provisionErr := task.doStartMachine(ctx, machProvisioner, distGroup); provisionErr != nil {
+				machID := machine.Id()
+
+				if provisionErr := task.doStartMachine(ctx, machine, distGroup, pInfoMap[machID]); provisionErr != nil {
 					return provisionErr
 				}
-
-				machID := machProvisioner.Id()
 
 				task.machinesMutex.Lock()
 				delete(task.machinesStarting, machID)
@@ -1268,7 +1286,7 @@ func (task *provisionerTask) queueStartMachines(ctx context.ProviderCallContext,
 				if stopDeferred {
 					task.logger.Debugf("triggering deferred stop of machine %q", machID)
 					return task.queueRemovalOfDeadMachines(ctx, []apiprovisioner.MachineProvisioner{
-						machProvisioner,
+						machine,
 					})
 				}
 
@@ -1300,7 +1318,12 @@ func (task *provisionerTask) setErrorStatus(msg string, machine apiprovisioner.M
 	return nil
 }
 
-func (task *provisionerTask) doStartMachine(ctx context.ProviderCallContext, machine apiprovisioner.MachineProvisioner, distributionGroupMachineIds []string) (startErr error) {
+func (task *provisionerTask) doStartMachine(
+	ctx context.ProviderCallContext,
+	machine apiprovisioner.MachineProvisioner,
+	distributionGroupMachineIds []string,
+	pInfoResult params.ProvisioningInfoResultV10,
+) (startErr error) {
 	defer func() {
 		if startErr == nil {
 			return
@@ -1327,7 +1350,7 @@ func (task *provisionerTask) doStartMachine(ctx context.ProviderCallContext, mac
 		return errors.Trace(err)
 	}
 
-	startInstanceParams, err := task.setupToStartMachine(machine, v)
+	startInstanceParams, err := task.setupToStartMachine(machine, v, pInfoResult)
 	if err != nil {
 		return errors.Trace(task.setErrorStatus("%v %v", machine, err))
 	}
@@ -1336,7 +1359,7 @@ func (task *provisionerTask) doStartMachine(ctx context.ProviderCallContext, mac
 	// restricted based on placement, and if so exclude those machines
 	// from being started in any other zone.
 	if err := task.populateExcludedMachines(ctx, machine.Id(), startInstanceParams); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	// TODO ProvisionerParallelization 2017-10-03
@@ -1374,8 +1397,7 @@ func (task *provisionerTask) doStartMachine(ctx context.ProviderCallContext, mac
 				task.logger.Warningf("machine %s failed to start in availability zone %s: %v",
 					machine, startInstanceParams.AvailabilityZone, err)
 			} else {
-				task.logger.Warningf("machine %s failed to start: %v",
-					machine, err)
+				task.logger.Warningf("machine %s failed to start: %v", machine, err)
 			}
 		}
 
@@ -1479,13 +1501,18 @@ func (task *provisionerTask) doStartMachine(ctx context.ProviderCallContext, mac
 // setupToStartMachine gathers the necessary information,
 // based on the specified machine, to create ProvisioningInfo
 // and StartInstanceParams to be used by startMachine.
-func (task *provisionerTask) setupToStartMachine(machine apiprovisioner.MachineProvisioner, version *version.Number) (
-	environs.StartInstanceParams,
-	error,
-) {
-	pInfo, err := machine.ProvisioningInfo()
-	if err != nil {
-		return environs.StartInstanceParams{}, errors.Annotatef(err, "fetching provisioning info for machine %q", machine)
+func (task *provisionerTask) setupToStartMachine(
+	machine apiprovisioner.MachineProvisioner, version *version.Number, pInfoResult params.ProvisioningInfoResultV10,
+) (environs.StartInstanceParams, error) {
+	// Check that we have a result.
+	// We should never have an empty result without an error,
+	// but we guard for that conservatively.
+	if pInfoResult.Error != nil {
+		return environs.StartInstanceParams{}, *pInfoResult.Error
+	}
+	pInfo := pInfoResult.Result
+	if pInfo == nil {
+		return environs.StartInstanceParams{}, errors.Errorf("no provisioning info for machine %q", machine.Id())
 	}
 
 	instanceCfg, err := task.constructInstanceConfig(machine, task.auth, pInfo)

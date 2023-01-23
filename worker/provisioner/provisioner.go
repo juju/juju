@@ -167,7 +167,7 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode, workerCount i
 		HostTag:                    hostTag,
 		Logger:                     p.logger,
 		HarvestMode:                harvestMode,
-		MachineGetter:              p.st,
+		TaskAPI:                    p.st,
 		DistributionGroupFinder:    p.distributionGroupFinder,
 		ToolsFinder:                p.toolsFinder,
 		MachineWatcher:             machineWatcher,
