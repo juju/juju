@@ -23,6 +23,7 @@ test_model() {
 	test_model_multi
 	test_model_metrics
 	test_model_destroy
+	test_model_status
 
 	destroy_controller "test-models"
 }
