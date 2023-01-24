@@ -109,8 +109,7 @@ type upgradeMachineCommand struct {
 	subCommand    string
 	force         bool
 	machineNumber string
-	series        string
-	base          string
+	releaseArg    string
 	yes           bool
 
 	catacomb catacomb.Catacomb
@@ -126,7 +125,8 @@ prepare and complete.
 
 The "prepare" step notifies Juju that a base upgrade is taking place for a given
 machine and as such Juju guards that machine against operations that would
-interfere with the upgrade process.
+interfere with the upgrade process. A base can be specified using the OS name
+and the version of the OS, separated by @.
 
 The "complete" step notifies juju that the managed upgrade has been successfully 
 completed.
@@ -209,19 +209,10 @@ func (c *upgradeMachineCommand) Init(args []string) error {
 	} else {
 		return errors.Errorf("%q is an invalid machine name", args[0])
 	}
-
 	if c.subCommand == PrepareCommand {
-		seriesArg := args[2]
-		workloadSeries, err := SupportedJujuSeries(time.Now(), seriesArg, "")
-		if err != nil {
-			return errors.Trace(err)
-		}
-		s, err := checkSeries(workloadSeries.Values(), seriesArg)
-		if err != nil {
-			return err
-		}
-		c.series = s
+		c.releaseArg = args[2]
 	}
+
 	return nil
 }
 
@@ -240,6 +231,24 @@ func (c *upgradeMachineCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 	return nil
+}
+
+func (c *upgradeMachineCommand) parseBase(ctx *cmd.Context, arg string) (series.Base, error) {
+	// If this doesn't contain an @ then it's a series and not a base.
+	if strings.Contains(arg, "@") {
+		return series.ParseBaseFromString(arg)
+	}
+
+	ctx.Warningf("series argument is deprecated, use base instead")
+	workloadSeries, err := SupportedJujuSeries(time.Now(), arg, "")
+	if err != nil {
+		return series.Base{}, errors.Trace(err)
+	}
+	s, err := checkSeries(workloadSeries.Values(), arg)
+	if err != nil {
+		return series.Base{}, err
+	}
+	return series.GetBaseFromSeries(s)
 }
 
 func (c *upgradeMachineCommand) trapInterrupt(ctx *cmd.Context) func() {
@@ -276,6 +285,11 @@ func (c *upgradeMachineCommand) trapInterrupt(ctx *cmd.Context) func() {
 // dependency this function should contain minimal logic other than gathering an
 // API handle and making the API call.
 func (c *upgradeMachineCommand) UpgradePrepare(ctx *cmd.Context) (err error) {
+	base, err := c.parseBase(ctx, c.releaseArg)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	apiRoot, err := c.ensureAPIClient()
 	if err != nil {
 		return errors.Trace(err)
@@ -291,14 +305,19 @@ func (c *upgradeMachineCommand) UpgradePrepare(ctx *cmd.Context) (err error) {
 		return errors.NotFoundf("units for machine %q", c.machineNumber)
 	}
 
-	if err := c.promptConfirmation(ctx, units); err != nil {
+	s, err := series.GetSeriesFromBase(base)
+	if err != nil {
+		return errors.Annotatef(err, "invalid series base")
+	}
+
+	if err := c.promptConfirmation(ctx, base, units); err != nil {
 		return errors.Trace(err)
 	}
 
 	close := c.trapInterrupt(ctx)
 	defer close()
 
-	if err = c.upgradeMachineClient.UpgradeSeriesPrepare(c.machineNumber, c.series, c.force); err != nil {
+	if err = c.upgradeMachineClient.UpgradeSeriesPrepare(c.machineNumber, s, c.force); err != nil {
 		return c.displayProgressFromError(ctx, err)
 	}
 
@@ -387,7 +406,7 @@ func (c *upgradeMachineCommand) displayProgressFromError(ctx *cmd.Context, err e
 	return errors.Trace(err)
 }
 
-func (c *upgradeMachineCommand) promptConfirmation(ctx *cmd.Context, affectedUnits []string) error {
+func (c *upgradeMachineCommand) promptConfirmation(ctx *cmd.Context, base series.Base, affectedUnits []string) error {
 	if c.yes {
 		return nil
 	}
@@ -409,7 +428,7 @@ func (c *upgradeMachineCommand) promptConfirmation(ctx *cmd.Context, affectedUni
 			upgradeMachineAffectedMsg, strings.Join(units.SortedValues(), "\n  "), strings.Join(apps.SortedValues(), "\n  "))
 	}
 
-	fmt.Fprintf(ctx.Stdout, upgradeMachineConfirmationMsg, c.machineNumber, c.series, affectedMsg)
+	fmt.Fprintf(ctx.Stdout, upgradeMachineConfirmationMsg, c.machineNumber, base.DisplayString(), affectedMsg)
 	if err := jujucmd.UserConfirmYes(ctx); err != nil {
 		return errors.Annotate(err, "upgrade machine")
 	}

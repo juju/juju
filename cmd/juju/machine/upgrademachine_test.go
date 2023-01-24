@@ -83,11 +83,12 @@ const (
 	machineArg   = "1"
 	containerArg = "2/lxd/0"
 
-	seriesArg = "xenial"
+	seriesArg = "focal"
+	baseArg   = "ubuntu@20.04"
 )
 
-func (s *UpgradeMachineSuite) runUpgradeSeriesCommand(c *gc.C, args ...string) error {
-	_, err := s.runUpgradeSeriesCommandWithConfirmation(c, "y", args...)
+func (s *UpgradeMachineSuite) runUpgradeMachineCommand(c *gc.C, args ...string) error {
+	_, err := s.runUpgradeMachineCommandWithConfirmation(c, "y", args...)
 	return err
 }
 
@@ -103,7 +104,7 @@ func (s *UpgradeMachineSuite) ctxWithConfirmation(c *gc.C, confirmation string) 
 	return ctx
 }
 
-func (s *UpgradeMachineSuite) runUpgradeSeriesCommandWithConfirmation(
+func (s *UpgradeMachineSuite) runUpgradeMachineCommandWithConfirmation(
 	c *gc.C, confirmation string, args ...string,
 ) (*cmd.Context, error) {
 	ctx := s.ctxWithConfirmation(c, confirmation)
@@ -116,7 +117,7 @@ func (s *UpgradeMachineSuite) runUpgradeSeriesCommandWithConfirmation(
 
 	uExp := mockUpgradeSeriesAPI.EXPECT()
 	prep := s.prepareExpectation
-	uExp.UpgradeSeriesPrepare(prep.machineArg, prep.seriesArg, prep.force).AnyTimes()
+	uExp.UpgradeSeriesPrepare(prep.machineArg, prep.baseArg, prep.force).AnyTimes()
 	uExp.UpgradeSeriesComplete(s.completeExpectation.machineNumber).AnyTimes()
 
 	mockStatusAPI.EXPECT().Status(gomock.Nil()).AnyTimes().Return(s.statusExpectation.status, nil)
@@ -136,86 +137,86 @@ func (s *UpgradeMachineSuite) runUpgradeSeriesCommandWithConfirmation(
 
 func (s *UpgradeMachineSuite) TestPrepareCommandMachines(c *gc.C) {
 	s.prepareExpectation = &upgradeMachinePrepareExpectation{machineArg, seriesArg, gomock.Eq(false)}
-	err := s.runUpgradeSeriesCommand(c, machineArg, machine.PrepareCommand, seriesArg)
+	err := s.runUpgradeMachineCommand(c, machineArg, machine.PrepareCommand, baseArg)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *UpgradeMachineSuite) TestPrepareCommandContainers(c *gc.C) {
 	s.prepareExpectation = &upgradeMachinePrepareExpectation{containerArg, seriesArg, gomock.Eq(false)}
-	err := s.runUpgradeSeriesCommand(c, containerArg, machine.PrepareCommand, seriesArg)
+	err := s.runUpgradeMachineCommand(c, containerArg, machine.PrepareCommand, baseArg)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *UpgradeMachineSuite) TestTooFewArgs(c *gc.C) {
-	err := s.runUpgradeSeriesCommand(c, machineArg)
+	err := s.runUpgradeMachineCommand(c, machineArg)
 	c.Assert(err, gc.ErrorMatches, "wrong number of arguments")
 }
 
 func (s *UpgradeMachineSuite) TestPrepareCommandShouldAcceptForceOption(c *gc.C) {
 	s.prepareExpectation = &upgradeMachinePrepareExpectation{machineArg, seriesArg, gomock.Eq(true)}
-	err := s.runUpgradeSeriesCommand(c, machineArg, machine.PrepareCommand, seriesArg, "--force")
+	err := s.runUpgradeMachineCommand(c, machineArg, machine.PrepareCommand, baseArg, "--force")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *UpgradeMachineSuite) TestPrepareCommandShouldAbortOnFailedConfirmation(c *gc.C) {
-	_, err := s.runUpgradeSeriesCommandWithConfirmation(c, "n", machineArg, machine.PrepareCommand, seriesArg)
-	c.Assert(err, gc.ErrorMatches, "upgrade series: aborted")
+	_, err := s.runUpgradeMachineCommandWithConfirmation(c, "n", machineArg, machine.PrepareCommand, baseArg)
+	c.Assert(err, gc.ErrorMatches, "upgrade machine: aborted")
 }
 
 func (s *UpgradeMachineSuite) TestUpgradeCommandShouldNotAcceptInvalidPrepCommands(c *gc.C) {
 	invalidPrepCommand := "actuate"
-	err := s.runUpgradeSeriesCommand(c, machineArg, invalidPrepCommand, seriesArg)
+	err := s.runUpgradeMachineCommand(c, machineArg, invalidPrepCommand, baseArg)
 	c.Assert(err, gc.ErrorMatches,
 		".* \"actuate\" is an invalid upgrade-machine command; valid commands are: prepare, complete.")
 }
 
 func (s *UpgradeMachineSuite) TestUpgradeCommandShouldNotAcceptInvalidMachineArgs(c *gc.C) {
 	invalidMachineArg := "machine5"
-	err := s.runUpgradeSeriesCommand(c, invalidMachineArg, machine.PrepareCommand, seriesArg)
+	err := s.runUpgradeMachineCommand(c, invalidMachineArg, machine.PrepareCommand, baseArg)
 	c.Assert(err, gc.ErrorMatches, "\"machine5\" is an invalid machine name")
 }
 
 func (s *UpgradeMachineSuite) TestPrepareCommandShouldOnlyAcceptSupportedSeries(c *gc.C) {
 	BadSeries := "Combative Caribou"
-	err := s.runUpgradeSeriesCommand(c, machineArg, machine.PrepareCommand, BadSeries)
+	err := s.runUpgradeMachineCommand(c, machineArg, machine.PrepareCommand, BadSeries)
 	c.Assert(err, gc.ErrorMatches, ".* is an unsupported series")
 }
 
 func (s *UpgradeMachineSuite) TestPrepareCommandShouldSupportSeriesRegardlessOfCase(c *gc.C) {
 	capitalizedCaseXenial := "Xenial"
-	err := s.runUpgradeSeriesCommand(c, machineArg, machine.PrepareCommand, capitalizedCaseXenial)
+	err := s.runUpgradeMachineCommand(c, machineArg, machine.PrepareCommand, capitalizedCaseXenial)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *UpgradeMachineSuite) TestCompleteCommand(c *gc.C) {
 	s.completeExpectation.machineNumber = machineArg
-	err := s.runUpgradeSeriesCommand(c, machineArg, machine.CompleteCommand)
+	err := s.runUpgradeMachineCommand(c, machineArg, machine.CompleteCommand)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *UpgradeMachineSuite) TestCompleteCommandDoesNotAcceptSeries(c *gc.C) {
-	err := s.runUpgradeSeriesCommand(c, machineArg, machine.CompleteCommand, seriesArg)
+	err := s.runUpgradeMachineCommand(c, machineArg, machine.CompleteCommand, baseArg)
 	c.Assert(err, gc.ErrorMatches, "wrong number of arguments")
 }
 
 func (s *UpgradeMachineSuite) TestPrepareCommandShouldAcceptYes(c *gc.C) {
-	err := s.runUpgradeSeriesCommand(c, machineArg, machine.PrepareCommand, seriesArg, "--yes")
+	err := s.runUpgradeMachineCommand(c, machineArg, machine.PrepareCommand, baseArg, "--yes")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *UpgradeMachineSuite) TestPrepareCommandShouldAcceptYesAbbreviation(c *gc.C) {
-	err := s.runUpgradeSeriesCommand(c, machineArg, machine.PrepareCommand, seriesArg, "-y")
+	err := s.runUpgradeMachineCommand(c, machineArg, machine.PrepareCommand, baseArg, "-y")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *UpgradeMachineSuite) TestPrepareCommandShouldPromptUserForConfirmation(c *gc.C) {
-	ctx, err := s.runUpgradeSeriesCommandWithConfirmation(c, "y", machineArg, machine.PrepareCommand, seriesArg)
+	ctx, err := s.runUpgradeMachineCommandWithConfirmation(c, "y", machineArg, machine.PrepareCommand, baseArg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Matches, `(?s).*Continue \[y\/N\]\? .*`)
 }
 
 func (s *UpgradeMachineSuite) TestPrepareCommandShouldIndicateOnlySubordinatesOnMachine(c *gc.C) {
-	ctx, err := s.runUpgradeSeriesCommandWithConfirmation(c, "y", machineArg, machine.PrepareCommand, seriesArg)
+	ctx, err := s.runUpgradeMachineCommandWithConfirmation(c, "y", machineArg, machine.PrepareCommand, baseArg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	out := ctx.Stdout.(*bytes.Buffer).String()
@@ -224,7 +225,7 @@ func (s *UpgradeMachineSuite) TestPrepareCommandShouldIndicateOnlySubordinatesOn
 }
 
 func (s *UpgradeMachineSuite) TestPrepareCommandShouldAcceptYesFlagAndNotPrompt(c *gc.C) {
-	ctx, err := s.runUpgradeSeriesCommandWithConfirmation(c, "n", machineArg, machine.PrepareCommand, seriesArg, "-y")
+	ctx, err := s.runUpgradeMachineCommandWithConfirmation(c, "n", machineArg, machine.PrepareCommand, baseArg, "-y")
 	c.Assert(err, jc.ErrorIsNil)
 
 	//There is no confirmation message since the `-y/--yes` flag is being used to avoid the prompt.
@@ -242,7 +243,7 @@ type statusExpectation struct {
 }
 
 type upgradeMachinePrepareExpectation struct {
-	machineArg, seriesArg, force interface{}
+	machineArg, baseArg, force interface{}
 }
 
 type upgradeMachineCompleteExpectation struct {
