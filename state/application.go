@@ -3849,8 +3849,9 @@ func appUnitNames(st *State, appName string) ([]string, error) {
 }
 
 // WatchApplicationsWithPendingCharms returns a watcher that emits the IDs of
-// applications that have a charm origin popoulated and reference a charm that
-// is pending to be downloaded.
+// applications that have a charm origin populated and reference a charm that
+// is pending to be downloaded or the charm origin ID has not been filled in yet
+// for charm-hub charms.
 func (st *State) WatchApplicationsWithPendingCharms() StringsWatcher {
 	return newCollectionWatcher(st, colWCfg{
 		col: applicationsC,
@@ -3861,13 +3862,16 @@ func (st *State) WatchApplicationsWithPendingCharms() StringsWatcher {
 			}
 
 			// We need an application with both a charm URL and
-			// an origin set.trusty
+			// an origin set.
 			app, _ := st.Application(st.localID(sKey))
-			if app == nil || app.CharmOrigin() == nil {
+			if app == nil {
 				return false
 			}
-
-			return app.CharmPendingToBeDownloaded()
+			origin := app.CharmOrigin()
+			if origin == nil {
+				return false
+			}
+			return app.CharmPendingToBeDownloaded() || origin.Source == "charm-hub" && origin.ID == ""
 		},
 		// We want to be notified for application documents as soon as
 		// they appear in the collection. As the revno for inserted
