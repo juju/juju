@@ -388,7 +388,7 @@ func registerCommands(r commandRegistry) {
 	r.Register(newUpgradeJujuCommand())
 	r.Register(newUpgradeControllerCommand())
 	r.Register(application.NewRefreshCommand())
-	r.Register(application.NewSetSeriesCommand())
+	r.Register(application.NewSetApplicationBaseCommand())
 	r.Register(application.NewBindCommand())
 
 	// Charm tool commands.

@@ -145,13 +145,13 @@ func NewConsumeCommandForTest(
 	return modelcmd.Wrap(c)
 }
 
-// NewSetSeriesCommandForTest returns a SetSeriesCommand with the specified api.
-func NewSetSeriesCommandForTest(
-	seriesAPI setSeriesAPI,
+// NewSetApplicationBaseCommandForTest returns a SetSeriesCommand with the specified api.
+func NewSetApplicationBaseCommandForTest(
+	setApplicationBaseAPI setApplicationBaseAPI,
 	store jujuclient.ClientStore,
 ) modelcmd.ModelCommand {
-	cmd := &setSeriesCommand{
-		setSeriesClient: seriesAPI,
+	cmd := &setApplicationBase{
+		apiClient: setApplicationBaseAPI,
 	}
 	cmd.SetClientStore(store)
 	return modelcmd.Wrap(cmd)
