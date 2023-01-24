@@ -534,7 +534,7 @@ var defaultConfigValues = map[string]interface{}{
 	"enable-os-upgrade":             true,
 	"development":                   false,
 	TestModeKey:                     false,
-	ModeKey:                         "",
+	ModeKey:                         RequiresPromptsMode,
 	DisableTelemetryKey:             false,
 	TransmitVendorMetricsKey:        true,
 	UpdateStatusHookInterval:        DefaultUpdateStatusHookInterval,

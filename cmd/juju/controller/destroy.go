@@ -235,9 +235,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	ctx.Warningf(destroySysMsg, controllerName)
 	updateStatus := newTimedStatusUpdater(ctx, api, controllerEnviron.Config().UUID(), clock.WallClock)
 	modelStatus := updateStatus(0)
-	if err := c.DestroyConfirmationCommandBase.Run(ctx); err != nil {
-		return errors.Trace(err)
-	}
+
 	// check Alive models and --destroy-all-models flag usage
 	if !c.destroyModels {
 		if err := c.checkNoAliveHostedModels(modelStatus.Models); err != nil {

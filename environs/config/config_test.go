@@ -1233,15 +1233,15 @@ func (s *ConfigSuite) TestCharmHubURL(c *gc.C) {
 func (s *ConfigSuite) TestMode(c *gc.C) {
 	cfg := newTestConfig(c, testing.Attrs{})
 	mode, ok := cfg.Mode()
-	c.Assert(ok, jc.IsFalse)
-	c.Assert(mode, gc.DeepEquals, set.NewStrings())
-
-	cfg = newTestConfig(c, testing.Attrs{
-		config.ModeKey: config.RequiresPromptsMode,
-	})
-	mode, ok = cfg.Mode()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(mode, gc.DeepEquals, set.NewStrings(config.RequiresPromptsMode))
+
+	cfg = newTestConfig(c, testing.Attrs{
+		config.ModeKey: "",
+	})
+	mode, ok = cfg.Mode()
+	c.Assert(ok, jc.IsFalse)
+	c.Assert(mode, gc.DeepEquals, set.NewStrings())
 }
 
 func (s *ConfigSuite) TestLoggingOutput(c *gc.C) {

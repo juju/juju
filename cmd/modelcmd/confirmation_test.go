@@ -40,18 +40,6 @@ func (s *DestroyConfirmationCommandBaseSuite) TestNoPromptFlag(c *gc.C) {
 	c.Assert(commandBase.NeedsConfirmation(), jc.IsFalse)
 }
 
-func (s *DestroyConfirmationCommandBaseSuite) TestYesFlag(c *gc.C) {
-	commandBase := s.getCmdBase([]string{"--yes", "--foo", "bar"})
-
-	c.Assert(commandBase.NeedsConfirmation(), jc.IsFalse)
-}
-
-func (s *DestroyConfirmationCommandBaseSuite) TestYFlag(c *gc.C) {
-	commandBase := s.getCmdBase([]string{"-y", "--foo", "bar"})
-
-	c.Assert(commandBase.NeedsConfirmation(), jc.IsFalse)
-}
-
 type RemoveConfirmationCommandBaseSuite struct {
 	modelConfigAPI *mocks.MockModelConfigAPI
 }

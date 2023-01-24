@@ -250,10 +250,6 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	}
 	defer func() { _ = api.Close() }()
 
-	if err := c.DestroyConfirmationCommandBase.Run(ctx); err != nil {
-		return errors.Trace(err)
-	}
-
 	if c.DestroyConfirmationCommandBase.NeedsConfirmation() {
 		modelStatuses, err := api.ModelStatus(names.NewModelTag(modelDetails.ModelUUID))
 		if err != nil {
