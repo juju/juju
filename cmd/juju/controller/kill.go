@@ -129,9 +129,6 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 		return c.environsDestroy(controllerName, controllerEnviron, cloudCallCtx, store)
 	}
 
-	if err := c.DestroyConfirmationCommandBase.Run(ctx); err != nil {
-		return errors.Trace(err)
-	}
 	if c.DestroyConfirmationCommandBase.NeedsConfirmation() {
 		updateStatus := newTimedStatusUpdater(ctx, api, controllerEnviron.Config().UUID(), clock.WallClock)
 		modelStatus := updateStatus(0)
