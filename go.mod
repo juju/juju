@@ -50,7 +50,7 @@ require (
 	github.com/juju/ansiterm v1.0.0
 	github.com/juju/blobstore/v3 v3.0.2
 	github.com/juju/charm/v10 v10.0.0
-	github.com/juju/clock v1.0.2
+	github.com/juju/clock v1.0.3
 	github.com/juju/cmd/v3 v3.0.4
 	github.com/juju/collections v1.0.1
 	github.com/juju/description/v4 v4.0.4
@@ -84,7 +84,7 @@ require (
 	github.com/juju/terms-client/v2 v2.0.0
 	github.com/juju/testing v1.0.3
 	github.com/juju/txn/v3 v3.0.2
-	github.com/juju/utils/v3 v3.0.0
+	github.com/juju/utils/v3 v3.0.1
 	github.com/juju/version/v2 v2.0.1
 	github.com/juju/viddy v0.0.0-beta5
 	github.com/juju/webbrowser v1.0.0
@@ -104,11 +104,11 @@ require (
 	github.com/rs/xid v1.4.0
 	github.com/vishvananda/netlink v1.2.1-beta.2
 	github.com/vmware/govmomi v0.21.1-0.20191008161538-40aebf13ba45
-	golang.org/x/crypto v0.3.0
-	golang.org/x/net v0.2.0
+	golang.org/x/crypto v0.5.0
+	golang.org/x/net v0.5.0
 	golang.org/x/oauth2 v0.0.0-20221006150949-b44042a4b9c1
 	golang.org/x/sync v0.0.0-20220929204114-8fcdb60fdcc0
-	golang.org/x/sys v0.2.0
+	golang.org/x/sys v0.4.0
 	golang.org/x/tools v0.1.12
 	google.golang.org/api v0.84.0
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
@@ -259,8 +259,8 @@ require (
 	go.opencensus.io v0.23.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
-	golang.org/x/term v0.2.0 // indirect
-	golang.org/x/text v0.4.0 // indirect
+	golang.org/x/term v0.4.0 // indirect
+	golang.org/x/text v0.6.0 // indirect
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20220720214146-176da50484ac // indirect

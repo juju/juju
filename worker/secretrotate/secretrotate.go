@@ -83,10 +83,11 @@ func New(config Config) (worker.Worker, error) {
 type secretRotateInfo struct {
 	URI        *secrets.URI
 	rotateTime time.Time
+	whenFunc   func(rotateTime time.Time) time.Duration
 }
 
 func (s secretRotateInfo) GoString() string {
-	return fmt.Sprintf("%s rotation: in %v at %s", s.URI.ID, s.rotateTime.Sub(time.Now()), s.rotateTime.Format(time.RFC3339))
+	return fmt.Sprintf("%s rotation: in %v at %s", s.URI.ID, s.whenFunc(s.rotateTime), s.rotateTime.Format(time.RFC3339))
 }
 
 // Worker fires events when secrets should be rotated.
@@ -142,9 +143,10 @@ func (w *Worker) rotate(now time.Time) {
 
 	var toRotate []string
 	for id, info := range w.secrets {
-		w.config.Logger.Debugf("rotate %s at %s... time diff %s", id, info.rotateTime, info.rotateTime.Sub(now))
+		w.config.Logger.Debugf("checking %s: rotate at %s... time diff %s", id, info.rotateTime, info.rotateTime.Sub(now))
 		// A one minute granularity is acceptable for secret rotation.
 		if info.rotateTime.Truncate(time.Minute).Before(now) {
+			w.config.Logger.Debugf("rotating %s", info.URI.String())
 			toRotate = append(toRotate, info.URI.String())
 			// Once secret has been queued for rotation, delete it here since
 			// it will re-appear via the watcher after the rotation is actually
@@ -179,6 +181,7 @@ func (w *Worker) handleSecretRotateChanges(changes []watcher.SecretTriggerChange
 		w.secrets[ch.URI.ID] = secretRotateInfo{
 			URI:        ch.URI,
 			rotateTime: ch.NextTriggerTime,
+			whenFunc:   func(rotateTime time.Time) time.Duration { return rotateTime.Sub(w.config.Clock.Now()) },
 		}
 	}
 	w.computeNextRotateTime()
