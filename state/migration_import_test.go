@@ -548,7 +548,7 @@ func (s *MigrationImportSuite) setupSourceApplications(
 	application, pwd := f.MakeApplicationReturningPassword(c, &factory.ApplicationParams{
 		Charm: testCharm,
 		CharmOrigin: &state.CharmOrigin{
-			Source:   testCharm.URL().Schema,
+			Source:   "charm-store",
 			Type:     "charm",
 			Revision: &testCharm.URL().Revision,
 			Channel: &state.Channel{
@@ -2865,7 +2865,7 @@ func (s *MigrationImportSuite) TestApplicationAddLatestCharmChannelTrack(c *gc.C
 	})
 	c.Assert(testCharm.Meta().Resources, gc.HasLen, 3)
 	origin := &state.CharmOrigin{
-		Source:   testCharm.URL().Schema,
+		Source:   "charm-hub",
 		Type:     "charm",
 		Revision: &testCharm.URL().Revision,
 		Channel: &state.Channel{
