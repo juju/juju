@@ -109,13 +109,13 @@ type Snapshot struct {
 	// owned by this unit.
 	DeletedSecrets []string
 
-	// UpgradeSeriesStatus is the preparation status of
-	// any currently running series upgrade.
-	UpgradeSeriesStatus model.UpgradeSeriesStatus
+	// UpgradeMachineStatus is the preparation status of
+	// any currently running machine upgrade.
+	UpgradeMachineStatus model.UpgradeSeriesStatus
 
-	// UpgradeSeriesTarget is the OS series that an in-flight
-	// series upgrade is transitioning to.
-	UpgradeSeriesTarget string
+	// UpgradeMachineTarget is the OS base that an in-flight
+	// machine upgrade is transitioning to.
+	UpgradeMachineTarget string
 
 	// ContainerRunningStatus is set on CAAS models
 	// for remote init/upgrade of charm.
