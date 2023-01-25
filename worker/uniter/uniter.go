@@ -539,7 +539,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		localState := resolver.LocalState{
 			CharmURL:             charmURL,
 			CharmModifiedVersion: charmModifiedVersion,
-			UpgradeSeriesStatus:  model.UpgradeSeriesNotStarted,
+			UpgradeMachineStatus: model.UpgradeSeriesNotStarted,
 			// CAAS remote units should trigger remote update of the charm every start.
 			OutdatedRemoteCharm: u.isRemoteUnit,
 		}
