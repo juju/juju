@@ -10,10 +10,6 @@ import (
 	"github.com/juju/juju/environs/config"
 )
 
-// ConfirmationCommandBase provides common attributes and methods that
-// commands require to confirm the execution.
-// TODO (jack-w-shaw): When confirm-removal config item defaults to true, we can combine these
-
 // DestroyConfirmationCommandBase provides common attributes and methods that
 // commands require to confirm the execution of destroy-* commands
 type DestroyConfirmationCommandBase struct {
@@ -30,7 +26,7 @@ func (c *DestroyConfirmationCommandBase) SetFlags(f *gnuflag.FlagSet) {
 // Run implements Command.Run
 func (c *DestroyConfirmationCommandBase) Run(ctx *cmd.Context) error {
 	if c.assumeYes {
-		ctx.Warningf("'-y'/'--yes' flags are deprecated and will be removed in Juju 3.1\n")
+		ctx.Warningf("'-y'/'--yes' flags are deprecated and will be removed in Juju 3.2\n")
 	}
 	return nil
 }
