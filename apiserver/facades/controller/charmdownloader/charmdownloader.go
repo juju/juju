@@ -107,18 +107,13 @@ func (a *CharmDownloaderAPI) downloadApplicationCharm(appTag names.ApplicationTa
 		return errors.Trace(err)
 	}
 
-	resolvedOrigin := app.CharmOrigin()
-	if resolvedOrigin == nil {
-		return errors.NotFoundf("download charm for application %q; resolved origin", appTag.Name)
-	}
-
 	// In the case of deploying multiple applications utilizing the
 	// same charm, keep going to allow DownloadAndStore to return
 	// the correct origin to be saved below. The charm will not
 	// actually be downloaded more than once. The method will just
 	// provide the correct origin. Necessary for deploying resources
 	// and refreshing charms.
-	if !app.CharmPendingToBeDownloaded() && resolvedOrigin.ID != "" {
+	if !app.CharmPendingToBeDownloaded() {
 		return nil // nothing to do
 	}
 
@@ -131,6 +126,11 @@ func (a *CharmDownloaderAPI) downloadApplicationCharm(appTag names.ApplicationTa
 	macaroons, err := pendingCharm.Macaroon()
 	if err != nil {
 		return errors.Trace(err)
+	}
+
+	resolvedOrigin := app.CharmOrigin()
+	if resolvedOrigin == nil {
+		return errors.NotFoundf("download charm for application %q; resolved origin", appTag.Name)
 	}
 
 	downloader, err := a.getDownloader()
