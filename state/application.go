@@ -3829,8 +3829,15 @@ func (a *Application) CharmPendingToBeDownloaded() bool {
 	if err != nil {
 		return false
 	}
-
-	return !ch.IsPlaceholder() && !ch.IsUploaded()
+	origin := a.CharmOrigin()
+	if origin == nil {
+		return false
+	}
+	// The charm may be downloaded, but the application's
+	// data may not updated yet. This can happen when multiple
+	// applications share a charm.
+	notReady := origin.Source == "charm-hub" && origin.ID == ""
+	return !ch.IsPlaceholder() && !ch.IsUploaded() || notReady
 }
 
 func appUnitNames(st *State, appName string) ([]string, error) {
@@ -3871,11 +3878,7 @@ func (st *State) WatchApplicationsWithPendingCharms() StringsWatcher {
 			if app == nil {
 				return false
 			}
-			origin := app.CharmOrigin()
-			if origin == nil {
-				return false
-			}
-			return app.CharmPendingToBeDownloaded() || origin.Source == "charm-hub" && origin.ID == ""
+			return app.CharmPendingToBeDownloaded()
 		},
 		// We want to be notified for application documents as soon as
 		// they appear in the collection. As the revno for inserted
