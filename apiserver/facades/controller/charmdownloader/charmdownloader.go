@@ -107,6 +107,12 @@ func (a *CharmDownloaderAPI) downloadApplicationCharm(appTag names.ApplicationTa
 		return errors.Trace(err)
 	}
 
+	// In the case of deploying multiple applications utilizing the
+	// same charm, keep going to allow DownloadAndStore to return
+	// the correct origin to be saved below. The charm will not
+	// actually be downloaded more than once. The method will just
+	// provide the correct origin. Necessary for deploying resources
+	// and refreshing charms.
 	if !app.CharmPendingToBeDownloaded() {
 		return nil // nothing to do
 	}

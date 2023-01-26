@@ -1111,6 +1111,9 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	if args.CharmOrigin == nil {
 		return nil, errors.Errorf("charm origin is nil")
 	}
+	if args.CharmOrigin.Platform == nil {
+		return nil, errors.Errorf("charm origin platform is nil")
+	}
 
 	// If either the charm origin ID or Hash is set before a charm is
 	// downloaded, charm download will fail for charms with a forced series.
