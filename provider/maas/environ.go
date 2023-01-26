@@ -320,7 +320,7 @@ func (env *maasEnviron) SetCloudSpec(_ stdcontext.Context, spec environscloudspe
 			return errors.NewNotSupported(nil, "MAAS 1.9 or more recent is required")
 		}
 	case err != nil:
-		return errors.Trace(err)
+		return errors.Annotate(err, "getting MAAS controller")
 	default:
 		env.maasController = controller
 	}

@@ -14,6 +14,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -40,11 +41,12 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/provider/common/mocks"
+	providermocks "github.com/juju/juju/provider/common/mocks"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/provisioner"
+	"github.com/juju/juju/worker/provisioner/mocks"
 )
 
 const numProvisionWorkersForTesting = 4
@@ -59,9 +61,7 @@ type ProvisionerTaskSuite struct {
 	machineErrorRetryChanges chan struct{}
 	machineErrorRetryWatcher watcher.NotifyWatcher
 
-	machinesResults      []apiprovisioner.MachineResult
-	machineStatusResults []apiprovisioner.MachineStatusResult
-	machineGetter        *testMachineGetter
+	taskAPI *mocks.MockTaskAPI
 
 	instances      []instances.Instance
 	instanceBroker *testInstanceBroker
@@ -84,18 +84,6 @@ func (s *ProvisionerTaskSuite) SetUpTest(c *gc.C) {
 	s.machineErrorRetryChanges = make(chan struct{})
 	s.machineErrorRetryWatcher = watchertest.NewMockNotifyWatcher(s.machineErrorRetryChanges)
 
-	s.machinesResults = []apiprovisioner.MachineResult{}
-	s.machineStatusResults = []apiprovisioner.MachineStatusResult{}
-	s.machineGetter = &testMachineGetter{
-		Stub: &testing.Stub{},
-		machinesFunc: func(machines ...names.MachineTag) ([]apiprovisioner.MachineResult, error) {
-			return s.machinesResults, nil
-		},
-		machinesWithTransientErrorsFunc: func() ([]apiprovisioner.MachineStatusResult, error) {
-			return s.machineStatusResults, nil
-		},
-	}
-
 	s.instances = []instances.Instance{}
 	s.instanceBroker = &testInstanceBroker{
 		Stub:      &testing.Stub{},
@@ -116,6 +104,9 @@ func (s *ProvisionerTaskSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ProvisionerTaskSuite) TestStartStop(c *gc.C) {
+	// We expect no calls to the task API.
+	defer s.setUpMocks(c).Finish()
+
 	task := s.newProvisionerTask(c,
 		config.HarvestAll,
 		&mockDistributionGroupFinder{},
@@ -131,18 +122,11 @@ func (s *ProvisionerTaskSuite) TestStartStop(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = workertest.CheckKilled(c, s.machineErrorRetryWatcher)
 	c.Assert(err, jc.ErrorIsNil)
-	s.machineGetter.CheckNoCalls(c)
 	s.instanceBroker.CheckNoCalls(c)
 }
 
 func (s *ProvisionerTaskSuite) TestStopInstancesIgnoresMachinesWithKeep(c *gc.C) {
-	task := s.newProvisionerTask(c,
-		config.HarvestAll,
-		&mockDistributionGroupFinder{},
-		mockToolsFinder{},
-		numProvisionWorkersForTesting,
-	)
-	defer workertest.CleanKill(c, task)
+	defer s.setUpMocks(c).Finish()
 
 	i0 := &testInstance{id: "zero"}
 	i1 := &testInstance{id: "one"}
@@ -162,13 +146,19 @@ func (s *ProvisionerTaskSuite) TestStopInstancesIgnoresMachinesWithKeep(c *gc.C)
 		instance:     i1,
 		keepInstance: true,
 	}
+
+	s.expectMachines(m0, m1)
+
+	task := s.newProvisionerTask(c,
+		config.HarvestAll,
+		&mockDistributionGroupFinder{},
+		mockToolsFinder{},
+		numProvisionWorkersForTesting,
+	)
+	defer workertest.CleanKill(c, task)
+
 	c.Assert(m0.markForRemoval, jc.IsFalse)
 	c.Assert(m1.markForRemoval, jc.IsFalse)
-
-	s.machinesResults = []apiprovisioner.MachineResult{
-		{Machine: m0},
-		{Machine: m1},
-	}
 
 	s.sendModelMachinesChange(c, "0", "1")
 
@@ -176,7 +166,6 @@ func (s *ProvisionerTaskSuite) TestStopInstancesIgnoresMachinesWithKeep(c *gc.C)
 
 	workertest.CleanKill(c, task)
 	close(s.instanceBroker.callsChan)
-	s.machineGetter.CheckCallNames(c, "Machines")
 	s.instanceBroker.CheckCalls(c, []testing.StubCall{
 		{"AllRunningInstances", []interface{}{s.callCtx}},
 		{"StopInstances", []interface{}{s.callCtx, []instance.Id{"zero"}}},
@@ -186,6 +175,13 @@ func (s *ProvisionerTaskSuite) TestStopInstancesIgnoresMachinesWithKeep(c *gc.C)
 }
 
 func (s *ProvisionerTaskSuite) TestProvisionerRetries(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	m0 := &testMachine{id: "0"}
+	s.taskAPI.EXPECT().MachinesWithTransientErrors().Return(
+		[]apiprovisioner.MachineStatusResult{{Machine: m0, Status: params.StatusResult{}}}, nil)
+	s.expectProvisioningInfo(m0)
+
 	s.instanceBroker.SetErrors(
 		errors.New("errors 1"),
 		errors.New("errors 2"),
@@ -199,25 +195,18 @@ func (s *ProvisionerTaskSuite) TestProvisionerRetries(c *gc.C) {
 		numProvisionWorkersForTesting,
 	)
 
-	m0 := &testMachine{
-		id: "0",
-	}
-	s.machineStatusResults = []apiprovisioner.MachineStatusResult{
-		{Machine: m0, Status: params.StatusResult{}},
-	}
 	s.sendMachineErrorRetryChange(c)
 
 	s.waitForTask(c, []string{"StartInstance", "StartInstance"})
 
 	workertest.CleanKill(c, task)
 	close(s.instanceBroker.callsChan)
-	s.machineGetter.CheckCallNames(c, "MachinesWithTransientErrors")
 	s.auth.CheckCallNames(c, "SetupAuthentication")
 	s.instanceBroker.CheckCallNames(c, "StartInstance", "StartInstance")
 }
 
 func (s *ProvisionerTaskSuite) TestEvenZonePlacement(c *gc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 
 	// There are 3 available usedZones, so test with 4 machines
@@ -240,9 +229,7 @@ func (s *ProvisionerTaskSuite) TestEvenZonePlacement(c *gc.C) {
 	zoneLock := sync.Mutex{}
 	var usedZones []string
 
-	expectedIds := set.NewStrings()
 	for _, m := range machines {
-		expectedIds.Add(m.id)
 		broker.EXPECT().StartInstance(s.callCtx, azConstraints).Return(&environs.StartInstanceResult{
 			Instance: &testInstance{id: "instance-" + m.id},
 		}, nil).Do(func(ctx, params interface{}) {
@@ -253,7 +240,7 @@ func (s *ProvisionerTaskSuite) TestEvenZonePlacement(c *gc.C) {
 	}
 
 	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting)
-	s.sendModelMachinesChange(c, expectedIds.Values()...)
+	s.sendModelMachinesChange(c, "0", "1", "2", "3")
 
 	retryCallArgs := retry.CallArgs{
 		Clock:       clock.WallClock,
@@ -287,7 +274,7 @@ func (s *ProvisionerTaskSuite) TestEvenZonePlacement(c *gc.C) {
 }
 
 func (s *ProvisionerTaskSuite) TestMultipleSpaceConstraints(c *gc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 
 	m0 := &testMachine{
@@ -358,7 +345,7 @@ func (s *ProvisionerTaskSuite) TestMultipleSpaceConstraints(c *gc.C) {
 }
 
 func (s *ProvisionerTaskSuite) TestZoneConstraintsNoZoneAvailable(c *gc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 
 	m0 := &testMachine{
@@ -374,7 +361,7 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsNoZoneAvailable(c *gc.C) {
 
 	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting)
 	s.sendModelMachinesChange(c, "0")
-	s.waitForWorkerSetup(c, "worker not set up")
+	s.waitForWorkerSetup(c)
 
 	// Wait for instance status to be set.
 	timeout := time.After(coretesting.LongWait)
@@ -395,7 +382,7 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsNoZoneAvailable(c *gc.C) {
 }
 
 func (s *ProvisionerTaskSuite) TestZoneConstraintsNoDistributionGroup(c *gc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 
 	m0 := &testMachine{
@@ -436,8 +423,16 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsNoDistributionGroup(c *gc.C) {
 }
 
 func (s *ProvisionerTaskSuite) TestZoneConstraintsNoDistributionGroupRetry(c *gc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
+
+	m0 := &testMachine{
+		id:          "0",
+		constraints: "zones=az1",
+	}
+	s.expectProvisioningInfo(m0)
+	s.taskAPI.EXPECT().MachinesWithTransientErrors().Return(
+		[]apiprovisioner.MachineStatusResult{{Machine: m0, Status: params.StatusResult{}}}, nil).MinTimes(1)
 
 	broker := s.setUpZonedEnviron(ctrl)
 	azConstraints := newAZConstraintStartInstanceParamsMatcher("az1")
@@ -458,11 +453,6 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsNoDistributionGroupRetry(c *gc
 
 	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting)
 
-	m0 := &testMachine{
-		id:          "0",
-		constraints: "zones=az1",
-	}
-	s.machineStatusResults = []apiprovisioner.MachineStatusResult{{Machine: m0, Status: params.StatusResult{}}}
 	s.sendMachineErrorRetryChange(c)
 	s.sendMachineErrorRetryChange(c)
 
@@ -476,15 +466,15 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsNoDistributionGroupRetry(c *gc
 }
 
 func (s *ProvisionerTaskSuite) TestZoneConstraintsWithDistributionGroup(c *gc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 
 	m0 := &testMachine{
 		id:          "0",
 		constraints: "zones=az1,az2",
 	}
-	broker := s.setUpZonedEnviron(ctrl, m0)
 
+	broker := s.setUpZonedEnviron(ctrl, m0)
 	azConstraints := newAZConstraintStartInstanceParamsMatcher("az1", "az2")
 	broker.EXPECT().DeriveAvailabilityZones(s.callCtx, azConstraints).Return([]string{}, nil)
 
@@ -522,8 +512,16 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsWithDistributionGroup(c *gc.C)
 }
 
 func (s *ProvisionerTaskSuite) TestZoneConstraintsWithDistributionGroupRetry(c *gc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
+
+	m0 := &testMachine{
+		id:          "0",
+		constraints: "zones=az1,az2",
+	}
+	s.expectProvisioningInfo(m0)
+	s.taskAPI.EXPECT().MachinesWithTransientErrors().Return(
+		[]apiprovisioner.MachineStatusResult{{Machine: m0, Status: params.StatusResult{}}}, nil).MinTimes(1)
 
 	broker := s.setUpZonedEnviron(ctrl)
 	azConstraints := newAZConstraintStartInstanceParamsMatcher("az1", "az2")
@@ -548,11 +546,6 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsWithDistributionGroupRetry(c *
 		names.NewMachineTag("0"): {"az1"},
 	}, numProvisionWorkersForTesting)
 
-	m0 := &testMachine{
-		id:          "0",
-		constraints: "zones=az1,az2",
-	}
-	s.machineStatusResults = []apiprovisioner.MachineStatusResult{{Machine: m0, Status: params.StatusResult{}}}
 	s.sendMachineErrorRetryChange(c)
 	s.sendMachineErrorRetryChange(c)
 
@@ -566,8 +559,16 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsWithDistributionGroupRetry(c *
 }
 
 func (s *ProvisionerTaskSuite) TestZoneRestrictiveConstraintsWithDistributionGroupRetry(c *gc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
+
+	m0 := &testMachine{
+		id:          "0",
+		constraints: "zones=az2",
+	}
+	s.expectProvisioningInfo(m0)
+	s.taskAPI.EXPECT().MachinesWithTransientErrors().Return(
+		[]apiprovisioner.MachineStatusResult{{Machine: m0, Status: params.StatusResult{}}}, nil).MinTimes(1)
 
 	broker := s.setUpZonedEnviron(ctrl)
 	azConstraints := newAZConstraintStartInstanceParamsMatcher("az2")
@@ -593,13 +594,6 @@ func (s *ProvisionerTaskSuite) TestZoneRestrictiveConstraintsWithDistributionGro
 		names.NewMachineTag("1"): {"az3"},
 	}, numProvisionWorkersForTesting)
 
-	m0 := &testMachine{
-		id:          "0",
-		constraints: "zones=az2",
-	}
-	s.machineStatusResults = []apiprovisioner.MachineStatusResult{
-		{Machine: m0, Status: params.StatusResult{}},
-	}
 	s.sendMachineErrorRetryChange(c)
 	s.sendMachineErrorRetryChange(c)
 
@@ -616,7 +610,7 @@ func (s *ProvisionerTaskSuite) TestPopulateAZMachinesErrorWorkerStopped(c *gc.C)
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	broker := mocks.NewMockZonedEnviron(ctrl)
+	broker := providermocks.NewMockZonedEnviron(ctrl)
 	broker.EXPECT().AllRunningInstances(s.callCtx).Return(nil, errors.New("boom")).Do(func(context.ProviderCallContext) {
 		go func() { close(s.setupDone) }()
 	})
@@ -625,24 +619,24 @@ func (s *ProvisionerTaskSuite) TestPopulateAZMachinesErrorWorkerStopped(c *gc.C)
 		names.NewMachineTag("0"): {"az1"},
 	}, numProvisionWorkersForTesting)
 	s.sendModelMachinesChange(c, "0")
-	s.waitForWorkerSetup(c, "worker not set up")
+	s.waitForWorkerSetup(c)
 
 	err := workertest.CheckKill(c, task)
 	c.Assert(err, gc.ErrorMatches, "processing updated machines: getting all instances from broker: boom")
 }
 
 func (s *ProvisionerTaskSuite) TestDedupStopRequests(c *gc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 
 	// m0 is a machine that should be terminated.
-	i0 := &testInstance{id: "zero"}
+	i0 := &testInstance{id: "0"}
+	s.instances = []instances.Instance{i0}
 	m0 := &testMachine{
 		id:       "0",
 		life:     life.Dead,
 		instance: i0,
 	}
-
 	broker := s.setUpZonedEnviron(ctrl, m0)
 
 	// This is a complex scenario. Here is how everything is set up:
@@ -678,13 +672,21 @@ func (s *ProvisionerTaskSuite) TestDedupStopRequests(c *gc.C) {
 		// While one of the pool workers is executing this code, we
 		// will wait until the machine change event gets processed
 		// and the main loop is ready to process the next event.
-		<-barrier
+		select {
+		case <-barrier:
+		case <-time.After(coretesting.LongWait):
+			c.Errorf("timed out waiting for first processed-machines event")
+		}
 
 		// Trigger another change while machine 0 is still being stopped
 		// and wait until the event has been processed by the provisioner
 		// main loop before returning
 		s.sendModelMachinesChange(c, "0")
-		<-barrier
+		select {
+		case <-barrier:
+		case <-time.After(coretesting.LongWait):
+			c.Errorf("timed out waiting for second processed-machines event")
+		}
 		close(doneCh)
 	})
 
@@ -694,13 +696,19 @@ func (s *ProvisionerTaskSuite) TestDedupStopRequests(c *gc.C) {
 
 	// This ensures that the worker pool within the provisioner gets cleanly
 	// shutdown and that any pending requests are processed.
-	<-doneCh
+	select {
+	case <-doneCh:
+	case <-time.After(3 * coretesting.LongWait):
+		c.Errorf("timed out waiting for work to complete")
+	}
 	workertest.CleanKill(c, task)
 }
 
 func (s *ProvisionerTaskSuite) TestDeferStopRequestsForMachinesStillProvisioning(c *gc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
+
+	s.instances = []instances.Instance{&testInstance{id: "0"}}
 
 	// m0 is a machine that should be started.
 	m0 := &testMachine{
@@ -751,7 +759,11 @@ func (s *ProvisionerTaskSuite) TestDeferStopRequestsForMachinesStillProvisioning
 			// While one of the pool workers is executing this code, we
 			// will wait until the machine change event gets processed
 			// and the main loop is ready to process the next event.
-			<-barrier
+			select {
+			case <-barrier:
+			case <-time.After(coretesting.LongWait):
+				c.Errorf("timed out waiting for first processed-machines event")
+			}
 
 			// While the machine is still starting, flag it as dead,
 			// trigger another change and wait for it to be processed.
@@ -760,7 +772,11 @@ func (s *ProvisionerTaskSuite) TestDeferStopRequestsForMachinesStillProvisioning
 			// return.
 			m0.life = life.Dead
 			s.sendModelMachinesChange(c, "0")
-			<-barrier
+			select {
+			case <-barrier:
+			case <-time.After(coretesting.LongWait):
+				c.Errorf("timed out waiting for second processed-machines event")
+			}
 		}),
 		broker.EXPECT().StopInstances(s.callCtx, gomock.Any()).Do(func(ctx interface{}, ids ...interface{}) {
 			c.Assert(len(ids), gc.Equals, 1)
@@ -778,7 +794,11 @@ func (s *ProvisionerTaskSuite) TestDeferStopRequestsForMachinesStillProvisioning
 
 	// This ensures that the worker pool within the provisioner gets cleanly
 	// shutdown and that any pending requests are processed.
-	<-doneCh
+	select {
+	case <-doneCh:
+	case <-time.After(3 * coretesting.LongWait):
+		c.Errorf("timed out waiting for work to complete")
+	}
 	workertest.CleanKill(c, task)
 }
 
@@ -804,28 +824,30 @@ func (s *ProvisionerTaskSuite) TestResizeWorkerPool(c *gc.C) {
 }
 
 func (s *ProvisionerTaskSuite) TestUpdatedZonesReflectedInAZMachineSlice(c *gc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 
+	s.instances = []instances.Instance{&testInstance{id: "0"}}
 	m0 := &testMachine{id: "0", life: life.Alive}
-	s.setUpMachines(m0)
+	s.expectMachines(m0)
+	s.expectProvisioningInfo(m0)
 
-	broker := mocks.NewMockZonedEnviron(ctrl)
+	broker := providermocks.NewMockZonedEnviron(ctrl)
 	exp := broker.EXPECT()
 
 	exp.AllRunningInstances(s.callCtx).Return(s.instances, nil).MinTimes(1)
 	exp.InstanceAvailabilityZoneNames(s.callCtx, []instance.Id{s.instances[0].Id()}).Return(
 		map[instance.Id]string{}, nil).Do(func(context.ProviderCallContext, []instance.Id) { close(s.setupDone) })
 
-	az1 := mocks.NewMockAvailabilityZone(ctrl)
+	az1 := providermocks.NewMockAvailabilityZone(ctrl)
 	az1.EXPECT().Name().Return("az1").MinTimes(1)
 	az1.EXPECT().Available().Return(true).MinTimes(1)
 
-	az2 := mocks.NewMockAvailabilityZone(ctrl)
+	az2 := providermocks.NewMockAvailabilityZone(ctrl)
 	az2.EXPECT().Name().Return("az2").MinTimes(1)
 	az2.EXPECT().Available().Return(true).MinTimes(1)
 
-	az3 := mocks.NewMockAvailabilityZone(ctrl)
+	az3 := providermocks.NewMockAvailabilityZone(ctrl)
 	az3.EXPECT().Name().Return("az3").MinTimes(1)
 	az3.EXPECT().Available().Return(true).MinTimes(1)
 
@@ -892,13 +914,14 @@ func (s *ProvisionerTaskSuite) TestUpdatedZonesReflectedInAZMachineSlice(c *gc.C
 
 // setUpZonedEnviron creates a mock environ with instances based on those set
 // on the test suite, and 3 availability zones.
-func (s *ProvisionerTaskSuite) setUpZonedEnviron(ctrl *gomock.Controller, machines ...*testMachine) *mocks.MockZonedEnviron {
-	broker := mocks.NewMockZonedEnviron(ctrl)
+func (s *ProvisionerTaskSuite) setUpZonedEnviron(ctrl *gomock.Controller, machines ...*testMachine) *providermocks.MockZonedEnviron {
+	broker := providermocks.NewMockZonedEnviron(ctrl)
 	if len(machines) == 0 {
 		return broker
 	}
 
-	s.setUpMachines(machines...)
+	s.expectMachines(machines...)
+	s.expectProvisioningInfo(machines...)
 
 	instanceIds := make([]instance.Id, len(s.instances))
 	for i, inst := range s.instances {
@@ -908,7 +931,7 @@ func (s *ProvisionerTaskSuite) setUpZonedEnviron(ctrl *gomock.Controller, machin
 	// Environ has 3 availability zones: az1, az2, az3.
 	zones := make(network.AvailabilityZones, 3)
 	for i := 0; i < 3; i++ {
-		az := mocks.NewMockAvailabilityZone(ctrl)
+		az := providermocks.NewMockAvailabilityZone(ctrl)
 		az.EXPECT().Name().Return(fmt.Sprintf("az%d", i+1)).MinTimes(1)
 		az.EXPECT().Available().Return(true).MinTimes(1)
 		zones[i] = az
@@ -923,22 +946,11 @@ func (s *ProvisionerTaskSuite) setUpZonedEnviron(ctrl *gomock.Controller, machin
 	return broker
 }
 
-func (s *ProvisionerTaskSuite) setUpMachines(machines ...*testMachine) {
-	for _, m := range machines {
-		inst := &testInstance{id: m.id}
-		s.instances = append(s.instances, inst)
-		s.machinesResults = append(s.machinesResults, apiprovisioner.MachineResult{Machine: m})
-		s.machineStatusResults = append(s.machineStatusResults, apiprovisioner.MachineStatusResult{
-			Machine: m, Status: params.StatusResult{Status: "pending"},
-		})
-	}
-}
-
-func (s *ProvisionerTaskSuite) waitForWorkerSetup(c *gc.C, msg string) {
+func (s *ProvisionerTaskSuite) waitForWorkerSetup(c *gc.C) {
 	select {
 	case <-s.setupDone:
 	case <-time.After(coretesting.LongWait):
-		c.Fatalf(msg)
+		c.Fatalf("worker not set up")
 	}
 }
 
@@ -998,24 +1010,23 @@ func (s *ProvisionerTaskSuite) newProvisionerTaskWithRetry(
 	retryStrategy provisioner.RetryStrategy,
 	numProvisionWorkers int,
 ) provisioner.ProvisionerTask {
-	w, err := provisioner.NewProvisionerTask(
-		coretesting.ControllerTag.Id(),
-		names.NewMachineTag("0"),
-		loggo.GetLogger("test"),
-		harvestingMethod,
-		s.machineGetter,
-		distributionGroupFinder,
-		toolsFinder,
-		s.modelMachinesWatcher,
-		s.machineErrorRetryWatcher,
-		s.instanceBroker,
-		s.auth,
-		imagemetadata.ReleasedStream,
-		retryStrategy,
-		func(_ stdcontext.Context) context.ProviderCallContext { return s.callCtx },
-		numProvisionWorkers,
-		nil,
-	)
+	w, err := provisioner.NewProvisionerTask(provisioner.TaskConfig{
+		ControllerUUID:             coretesting.ControllerTag.Id(),
+		HostTag:                    names.NewMachineTag("0"),
+		Logger:                     loggo.GetLogger("test"),
+		HarvestMode:                harvestingMethod,
+		TaskAPI:                    s.taskAPI,
+		DistributionGroupFinder:    distributionGroupFinder,
+		ToolsFinder:                toolsFinder,
+		MachineWatcher:             s.modelMachinesWatcher,
+		RetryWatcher:               s.machineErrorRetryWatcher,
+		Broker:                     s.instanceBroker,
+		Auth:                       s.auth,
+		ImageStream:                imagemetadata.ReleasedStream,
+		RetryStartInstanceStrategy: retryStrategy,
+		CloudCallContextFunc:       func(_ stdcontext.Context) context.ProviderCallContext { return s.callCtx },
+		NumProvisionWorkers:        numProvisionWorkers,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	return w
 }
@@ -1031,50 +1042,76 @@ func (s *ProvisionerTaskSuite) newProvisionerTaskWithBrokerAndEventCb(
 	numProvisionWorkers int,
 	evtCb func(string),
 ) provisioner.ProvisionerTask {
-	task, err := provisioner.NewProvisionerTask(
-		coretesting.ControllerTag.Id(),
-		names.NewMachineTag("0"),
-		loggo.GetLogger("test"),
-		config.HarvestAll,
-		s.machineGetter,
-		&mockDistributionGroupFinder{groups: distributionGroups},
-		mockToolsFinder{},
-		s.modelMachinesWatcher,
-		s.machineErrorRetryWatcher,
-		broker,
-		s.auth,
-		imagemetadata.ReleasedStream,
-		provisioner.NewRetryStrategy(0*time.Second, 0),
-		func(_ stdcontext.Context) context.ProviderCallContext { return s.callCtx },
-		numProvisionWorkers,
-		evtCb,
-	)
+	task, err := provisioner.NewProvisionerTask(provisioner.TaskConfig{
+		ControllerUUID:             coretesting.ControllerTag.Id(),
+		HostTag:                    names.NewMachineTag("0"),
+		Logger:                     loggo.GetLogger("test"),
+		HarvestMode:                config.HarvestAll,
+		TaskAPI:                    s.taskAPI,
+		DistributionGroupFinder:    &mockDistributionGroupFinder{groups: distributionGroups},
+		ToolsFinder:                mockToolsFinder{},
+		MachineWatcher:             s.modelMachinesWatcher,
+		RetryWatcher:               s.machineErrorRetryWatcher,
+		Broker:                     broker,
+		Auth:                       s.auth,
+		ImageStream:                imagemetadata.ReleasedStream,
+		RetryStartInstanceStrategy: provisioner.NewRetryStrategy(0*time.Second, 0),
+		CloudCallContextFunc:       func(_ stdcontext.Context) context.ProviderCallContext { return s.callCtx },
+		NumProvisionWorkers:        numProvisionWorkers,
+		EventProcessedCb:           evtCb,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	return task
 }
 
-type testMachineGetter struct {
-	*testing.Stub
-
-	machinesFunc                    func(machines ...names.MachineTag) ([]apiprovisioner.MachineResult, error)
-	machinesWithTransientErrorsFunc func() ([]apiprovisioner.MachineStatusResult, error)
+func (s *ProvisionerTaskSuite) setUpMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.taskAPI = mocks.NewMockTaskAPI(ctrl)
+	return ctrl
 }
 
-func (m *testMachineGetter) Machines(machines ...names.MachineTag) ([]apiprovisioner.MachineResult, error) {
-	m.AddCall("Machines", machines)
-	return m.machinesFunc(machines...)
+func (s *ProvisionerTaskSuite) expectMachines(machines ...*testMachine) {
+	tags := transform.Slice(machines, func(m *testMachine) names.MachineTag {
+		return names.NewMachineTag(m.id)
+	})
+
+	mResults := transform.Slice(machines, func(m *testMachine) apiprovisioner.MachineResult {
+		return apiprovisioner.MachineResult{Machine: m}
+	})
+
+	s.taskAPI.EXPECT().Machines(tags).Return(mResults, nil).MinTimes(1)
 }
 
-func (m *testMachineGetter) MachinesWithTransientErrors() ([]apiprovisioner.MachineStatusResult, error) {
-	m.AddCall("MachinesWithTransientErrors")
-	return m.machinesWithTransientErrorsFunc()
+func (s *ProvisionerTaskSuite) expectProvisioningInfo(machines ...*testMachine) {
+	tags := transform.Slice(machines, func(m *testMachine) names.MachineTag {
+		return names.NewMachineTag(m.id)
+	})
+
+	base, _ := series.GetBaseFromSeries(jujuversion.DefaultSupportedLTS())
+
+	piResults := transform.Slice(machines, func(m *testMachine) params.ProvisioningInfoResultV10 {
+		return params.ProvisioningInfoResultV10{
+			Result: &params.ProvisioningInfoV10{
+				ProvisioningInfoBase: params.ProvisioningInfoBase{
+					ControllerConfig: coretesting.FakeControllerConfig(),
+					Series:           jujuversion.DefaultSupportedLTS(),
+					Base:             params.Base{Name: base.Name, Channel: base.Channel.String()},
+					Constraints:      constraints.MustParse(m.constraints),
+				},
+				ProvisioningNetworkTopology: m.topology,
+			},
+			Error: nil,
+		}
+	})
+
+	s.taskAPI.EXPECT().ProvisioningInfo(tags).Return(
+		params.ProvisioningInfoResultsV10{Results: piResults}, nil).AnyTimes()
 }
 
 type testInstanceBroker struct {
 	*testing.Stub
 
-	callsChan chan string
-
+	callsChan        chan string
 	allInstancesFunc func(ctx context.ProviderCallContext) ([]instances.Instance, error)
 }
 
@@ -1211,22 +1248,6 @@ func (m *testMachine) SetInstanceInfo(
 	_ map[string]params.VolumeAttachmentInfo, _ []string,
 ) error {
 	return nil
-}
-
-func (m *testMachine) ProvisioningInfo() (*params.ProvisioningInfoV10, error) {
-	base, err := series.GetBaseFromSeries(jujuversion.DefaultSupportedLTS())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &params.ProvisioningInfoV10{
-		ProvisioningInfoBase: params.ProvisioningInfoBase{
-			ControllerConfig: coretesting.FakeControllerConfig(),
-			Series:           jujuversion.DefaultSupportedLTS(),
-			Base:             params.Base{Name: base.Name, Channel: base.Channel.String()},
-			Constraints:      constraints.MustParse(m.constraints),
-		},
-		ProvisioningNetworkTopology: m.topology,
-	}, nil
 }
 
 type testAuthenticationProvider struct {
