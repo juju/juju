@@ -290,7 +290,7 @@ func (f *contextFactory) HookContext(hookInfo hook.Info) (*HookContext, error) {
 		hookName = fmt.Sprintf("%s-%s", hookInfo.WorkloadName, hookName)
 	}
 	if hookInfo.Kind == hooks.PreSeriesUpgrade {
-		ctx.seriesUpgradeTarget = hookInfo.SeriesUpgradeTarget
+		ctx.baseUpgradeTarget = hookInfo.MachineUpgradeTarget
 	}
 	if hookInfo.Kind.IsSecret() {
 		ctx.secretURI = hookInfo.SecretURI
