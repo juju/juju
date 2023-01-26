@@ -1338,7 +1338,8 @@ func (context *statusContext) processApplication(application *state.Application)
 		processedStatus.WorkloadVersion = versions[0].Message
 	}
 
-	if processedStatus.WorkloadVersion == "" && context.model.Type() == state.ModelTypeCAAS {
+	modelType := context.model.Type()
+	if processedStatus.WorkloadVersion == "" && modelType == state.ModelTypeCAAS {
 		// We'll punt on using the docker image name.
 		caasModel, err := context.model.CAASModel()
 		if err != nil {
@@ -1362,16 +1363,18 @@ func (context *statusContext) processApplication(application *state.Application)
 			}
 		}
 	}
-	serviceInfo, err := application.ServiceInfo()
-	if err == nil {
-		processedStatus.ProviderId = serviceInfo.ProviderId()
-		if len(serviceInfo.Addresses()) > 0 {
-			processedStatus.PublicAddress = serviceInfo.Addresses()[0].Value
+	if modelType == state.ModelTypeCAAS {
+		serviceInfo, err := application.ServiceInfo()
+		if err == nil {
+			processedStatus.ProviderId = serviceInfo.ProviderId()
+			if len(serviceInfo.Addresses()) > 0 {
+				processedStatus.PublicAddress = serviceInfo.Addresses()[0].Value
+			}
+		} else {
+			logger.Debugf("no service details for %v: %v", application.Name(), err)
 		}
-	} else {
-		logger.Debugf("no service details for %v: %v", application.Name(), err)
+		processedStatus.Scale = application.GetScale()
 	}
-	processedStatus.Scale = application.GetScale()
 	processedStatus.EndpointBindings = context.allAppsUnitsCharmBindings.endpointBindings[application.Name()]
 	return processedStatus
 }
