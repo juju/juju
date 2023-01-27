@@ -17,7 +17,13 @@ DQLITE_S3_ARCHIVE_NAME=$(shell date -u +"%Y-%m-%d")-dqlite-deps-${DQLITE_BUILD_A
 DQLITE_S3_ARCHIVE_PATH=${DQLITE_S3_BUCKET}/${DQLITE_S3_ARCHIVE_NAME}
 
 DQLITE_EXTRACTED_DEPS_PATH=${PROJECT_DIR}/_deps
-DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH=${DQLITE_EXTRACTED_DEPS_PATH}/juju-dqlite-static-lib-deps
+DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH=${DQLITE_EXTRACTED_DEPS_PATH}/dqlite-deps-${DQLITE_BUILD_ARCH}
+
+MUSL_PATH=/usr/local/musl
+MUSL_BIN_PATH=${MUSL_PATH}/bin
+
+MUSL_CROSS_PATH=$(GOPATH)/build/musl-${DQLITE_BUILD_ARCH}
+MUSL_CROSS_BIN_PATH=${MUSL_CROSS_PATH}/output/bin
 
 # Versions for Dqlite and upstream dependencies.
 TAG_LIBTIRPC=upstream/1.3.3
@@ -90,6 +96,7 @@ dqlite-deps-pull:
 	@rm -rf ${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}
 	@echo "DQLITE: Pulling latest-dqlite-deps-${DQLITE_BUILD_ARCH}.tar.bz2 from s3"
 	wget -q -O- https://dqlite-static-libs.s3.amazonaws.com/latest-dqlite-deps-${DQLITE_BUILD_ARCH}.tar.bz2 - | tar xjf - -C ${DQLITE_EXTRACTED_DEPS_PATH}
+	@mv ${DQLITE_EXTRACTED_DEPS_PATH}/juju-dqlite-static-lib-deps ${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}
 
 dqlite-deps-check:
 	@if [ ! -d ${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} ]; then \
@@ -106,8 +113,8 @@ musl-ensure-symlink:
 
 musl-check:
 	@PATH=${PATH}:/usr/local/musl/bin which musl-gcc >/dev/null || echo "Please run 'sudo make musl-install'"
-	# @$(MAKE) -s musl-ensure-symlink d=include/asm s=/usr/include/${DQLITE_BUILD_MACHINE}-linux-gnu/asm
-	# @$(MAKE) -s musl-ensure-symlink d=include/asm-generic s=/usr/include/asm-generic
+	@$(MAKE) -s musl-ensure-symlink d=include/asm s=/usr/include/${DQLITE_BUILD_MACHINE}-linux-gnu/asm
+	@$(MAKE) -s musl-ensure-symlink d=include/asm-generic s=/usr/include/asm-generic
 	@$(MAKE) -s musl-ensure-symlink d=include/linux s=/usr/include/linux
 
 musl-install:
@@ -124,8 +131,57 @@ musl-install:
 	ln -s /usr/include/asm-generic /usr/local/musl/include/asm-generic
 	ln -s /usr/include/linux /usr/local/musl/include/linux
 
+musl-cross-arch-install:
+	@PATH=${PATH}:${MUSL_CROSS_BIN_PATH} which musl-gcc >/dev/null && { echo "musl already installed ${MUSL_CROSS_PATH}"; exit 0; }
+
+	@mkdir -p ${MUSL_CROSS_PATH}
+	git clone git@github.com:richfelker/musl-cross-make.git ${MUSL_CROSS_PATH}
+	@cd ${MUSL_CROSS_PATH}
+
+	@mkdir -p ${MUSL_CROSS_PATH}/build
+
+	@if [ "${DQLITE_BUILD_ARCH}" = "amd64" ]; then
+		@echo "TARGET=x86_64-linux-musl" >> config.mak
+	fi
+	@if [ "${DQLITE_BUILD_ARCH}" = "arm64" ]; then
+		@echo "TARGET=aarch64-linux-musl" >> config.mak
+	fi
+	@if [ "${DQLITE_BUILD_ARCH}" = "s390x" ]; then
+		@echo "TARGET=s390x-linux-musl" >> config.mak
+	fi
+	@if [ "${DQLITE_BUILD_ARCH}" = "ppc64le" ]; then
+		@echo "TARGET=powerpc64le-linux-musl" >> config.mak
+	fi
+	@if [ "${DQLITE_BUILD_ARCH}" = "riscv64" ]; then
+		@echo "TARGET=riscv64-linux-musl" >> config.mak
+	fi
+
+	@echo "OUTPUT=${MUSL_CROSS_PATH}/output" >> config.mak
+	@echo "COMMON_CONFIG += CFLAGS=\"-g0 -Os\" CXXFLAGS=\"-g0 -Os\" LDFLAGS=\"-s\"" >> config.mak
+
+	@echo "Building musl-${DQLITE_BUILD_ARCH}"
+	make -j$(nproc) install || { exit 1; }
+
+	@echo "Linking musl-${DQLITE_BUILD_ARCH} to musl-gcc"
+	@cd ${MUSL_CROSS_PATH}/output/bin
+	@if [ "${DQLITE_BUILD_ARCH}" = "amd64" ]; then
+		@ln -s x86_64-linux-musl-gcc musl-gcc
+	fi
+	@if [ "${DQLITE_BUILD_ARCH}" = "arm64" ]; then
+		@ln -s aarch64-linux-musl-gcc musl-gcc
+	fi
+	@if [ "${DQLITE_BUILD_ARCH}" = "s390x" ]; then
+		@ln -s s390x-linux-musl-gcc musl-gcc
+	fi
+	@if [ "${DQLITE_BUILD_ARCH}" = "ppc64le" ]; then
+		@ln -s powerpc64le-linux-musl-gcc musl-gcc
+	fi
+	@if [ "${DQLITE_BUILD_ARCH}" = "riscv64" ]; then
+		@ln -s riscv64-linux-musl-gcc musl-gcc
+	fi
+
 musl-install-if-missing:
-	@PATH=${PATH}:/usr/local/musl/bin which musl-gcc >/dev/null || { echo "Installing required musl dependencies"; sudo ${MAKE} musl-install; }
+	@PATH=${PATH}:${MUSL_BIN_PATH} which musl-gcc >/dev/null || { echo "Installing required musl dependencies"; sudo ${MAKE} musl-install; }
 
 ################################################################################
 # REPL
