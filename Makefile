@@ -214,7 +214,7 @@ define run_cgo_build
 	$(eval BUILD_ARCH = $(subst ppc64el,ppc64le,${ARCH}))
 	@@mkdir -p ${BBIN_DIR}
 	@echo "Building ${PACKAGE} for ${OS}/${ARCH}"
-	@env PATH=${PATH}:/usr/local/musl/bin \
+	@env PATH=${PATH}:${MUSL_CROSS_BIN_PATH} \
 		CC="musl-gcc" \
 		CGO_CFLAGS="-I${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}/include" \
 		CGO_LDFLAGS="-L${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} -luv -lraft -ldqlite -llz4 -lsqlite3" \
@@ -244,7 +244,7 @@ endef
 
 define run_cgo_install
 	@echo "Installing ${PACKAGE}"
-	@env PATH=${PATH}:/usr/local/musl/bin \
+	env PATH=${PATH}:${MUSL_BIN_PATH} \
 		CC="musl-gcc" \
 		CGO_CFLAGS="-I${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}/include" \
 		CGO_LDFLAGS="-L${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} -luv -lraft -ldqlite -llz4 -lsqlite3" \
@@ -318,7 +318,7 @@ ${BUILD_DIR}/%/bin/jujuc: phony_explicit
 	$(run_go_build)
 
 ${BUILD_DIR}/%/bin/jujud: PACKAGE = github.com/juju/juju/cmd/jujud
-${BUILD_DIR}/%/bin/jujud: phony_explicit musl-install-if-missing dqlite-deps-check
+${BUILD_DIR}/%/bin/jujud: phony_explicit musl-cross-arch-install dqlite-deps-check
 # build for jujud
 	$(run_cgo_build)
 

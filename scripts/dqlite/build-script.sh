@@ -1,6 +1,13 @@
 #!/bin/bash
 set -ex
 
+MACHINE_TYPE=$(uname -m)
+CUSTOM_CFLAGS=""
+if [ "$(uname -m)" = "ppc64le" ]; then
+    MACHINE_TYPE="powerpc64le"
+    CUSTOM_CFLAGS="-mlong-double-64"
+fi
+
 # TODO: Make this script idempotent, so that it checks for the
 # existence of repositories, requiring only a pull and not a full clone.
 
@@ -19,7 +26,7 @@ cd build
 wget https://musl.libc.org/releases/musl-1.2.3.tar.gz
 tar xf musl-1.2.3.tar.gz
 cd musl-1.2.3
-./configure
+./configure CFLAGS="${CUSTOM_CFLAGS}"
 sudo make install
 
 export PATH=${PATH}:/usr/local/musl/bin
@@ -28,7 +35,7 @@ cd ..
 
 # Setup symlinks so we can access additional headers that 
 # don't ship with musl but are needed for our builds
-sudo ln -s /usr/include/$(uname -m)-linux-gnu/asm /usr/local/musl/include/asm
+sudo ln -s /usr/include/${MACHINE_TYPE}-linux-gnu/asm /usr/local/musl/include/asm
 sudo ln -s /usr/include/asm-generic /usr/local/musl/include/asm-generic
 sudo ln -s /usr/include/linux /usr/local/musl/include/linux
 
@@ -50,7 +57,7 @@ git clone https://salsa.debian.org/debian/libtirpc.git --depth 1 --branch ${TAG_
 cd libtirpc
 chmod +x autogen.sh
 ./autogen.sh
-./configure --disable-shared --disable-gssapi
+./configure --disable-shared --disable-gssapi CFLAGS="${CUSTOM_CFLAGS}"
 make
 cd ../
 
@@ -60,7 +67,7 @@ cd libnsl
 ./autogen.sh
 autoreconf -i
 autoconf
-CFLAGS="-I${PWD}/../libtirpc/tirpc" \
+CFLAGS="-I${PWD}/../libtirpc/tirpc ${CUSTOM_CFLAGS}" \
         LDFLAGS="-L${PWD}/../libtirpc/src" \
         TIRPC_CFLAGS="-I${PWD}/../libtirpc/tirpc" \
         TIRPC_LIBS="-L${PWD}/../libtirpc/src" \
@@ -86,7 +93,7 @@ cd ../
 git clone https://github.com/canonical/raft.git --depth 1 --branch ${TAG_RAFT}
 cd raft
 autoreconf -i
-CFLAGS="-I${PWD}/../libuv/include -I${PWD}/../lz4/lib" \
+CFLAGS="-I${PWD}/../libuv/include -I${PWD}/../lz4/lib ${CUSTOM_CFLAGS}" \
         LDFLAGS="-L${PWD}/../libuv/.libs -L${PWD}/../lz4/lib" \
         UV_CFLAGS="-I${PWD}/../libuv/include" \
         UV_LIBS="-L${PWD}/../libuv/.libs" \
@@ -107,7 +114,7 @@ cd ../
 git clone https://github.com/canonical/dqlite.git --depth 1 --branch ${TAG_DQLITE}
 cd dqlite
 autoreconf -i
-CFLAGS="-I${PWD}/../raft/include -I${PWD}/../sqlite -I${PWD}/../libuv/include -I${PWD}/../lz4/lib -I/usr/local/musl/include -Werror=implicit-function-declaration" \
+CFLAGS="-I${PWD}/../raft/include -I${PWD}/../sqlite -I${PWD}/../libuv/include -I${PWD}/../lz4/lib -I/usr/local/musl/include -Werror=implicit-function-declaration ${CUSTOM_CFLAGS}" \
         LDFLAGS="-L${PWD}/../raft/.libs -L${PWD}/../libuv/.libs -L${PWD}/../lz4/lib -L${PWD}/../libnsl/src" \
         RAFT_CFLAGS="-I${PWD}/../raft/include" \
         RAFT_LIBS="-L${PWD}/../raft/.libs" \
