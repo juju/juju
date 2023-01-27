@@ -1215,60 +1215,106 @@ func (e *exporter) relations() error {
 		}
 
 		for _, ep := range relation.Endpoints() {
-			exEndPoint := exRelation.AddEndpoint(description.EndpointArgs{
-				ApplicationName: ep.ApplicationName,
-				Name:            ep.Name,
-				Role:            string(ep.Role),
-				Interface:       ep.Interface,
-				Optional:        ep.Optional,
-				Limit:           ep.Limit,
-				Scope:           string(ep.Scope),
-			})
-
-			key := relationApplicationSettingsKey(relation.Id(), ep.ApplicationName)
-			appSettingsDoc, found := e.modelSettings[key]
-			if !found && !e.cfg.SkipSettings && !e.cfg.SkipRelationData {
-				return errors.Errorf("missing application settings for %q application %q", relation, ep.ApplicationName)
-			}
-			delete(e.modelSettings, key)
-			exEndPoint.SetApplicationSettings(appSettingsDoc.Settings)
-
-			// We expect a relationScope and settings for each of the units of
-			// the specified application unless it is a remote application.
-			// Remote applications will have no units in the local model and
-			// are implicitly ignored.
-			units := e.units[ep.ApplicationName]
-			for _, unit := range units {
-				ru, err := relation.Unit(unit)
-				if err != nil {
-					return errors.Trace(err)
-				}
-				valid, err := ru.Valid()
-				if err != nil {
-					return errors.Trace(err)
-				}
-				if !valid {
-					// It doesn't make sense for this application to have a
-					// relations scope for this endpoint. For example the
-					// situation where we have a subordinate charm related to
-					// two different principals.
-					continue
-				}
-				key := ru.key()
-				if !e.cfg.SkipRelationData && !relationScopes.Contains(key) && !e.cfg.IgnoreIncompleteModel {
-					return errors.Errorf("missing relation scope for %s and %s", relation, unit.Name())
-				}
-				settingsDoc, found := e.modelSettings[key]
-				if !found && !e.cfg.SkipSettings && !e.cfg.SkipRelationData && !e.cfg.IgnoreIncompleteModel {
-					return errors.Errorf("missing relation settings for %s and %s", relation, unit.Name())
-				}
-				delete(e.modelSettings, key)
-				exEndPoint.SetUnitSettings(unit.Name(), settingsDoc.Settings)
+			if err := e.relationEndpoint(relation, exRelation, ep, relationScopes); err != nil {
+				return errors.Trace(err)
 			}
 		}
 	}
 	return nil
 }
+
+func (e *exporter) relationEndpoint(
+	relation *Relation,
+	exRelation description.Relation,
+	ep Endpoint,
+	relationScopes set.Strings,
+) error {
+	exEndPoint := exRelation.AddEndpoint(description.EndpointArgs{
+		ApplicationName: ep.ApplicationName,
+		Name:            ep.Name,
+		Role:            string(ep.Role),
+		Interface:       ep.Interface,
+		Optional:        ep.Optional,
+		Limit:           ep.Limit,
+		Scope:           string(ep.Scope),
+	})
+
+	key := relationApplicationSettingsKey(relation.Id(), ep.ApplicationName)
+	appSettingsDoc, found := e.modelSettings[key]
+	if !found && !e.cfg.SkipSettings && !e.cfg.SkipRelationData {
+		return errors.Errorf("missing application settings for %q application %q", relation, ep.ApplicationName)
+	}
+	delete(e.modelSettings, key)
+	exEndPoint.SetApplicationSettings(appSettingsDoc.Settings)
+
+	// We expect a relationScope and settings for each of
+	// the units of the specified application.
+	// We need to check both local and remote applications
+	// in case we are dealing with a CMR.
+	if units, ok := e.units[ep.ApplicationName]; ok {
+		for _, unit := range units {
+			ru, err := relation.Unit(unit)
+			if err != nil {
+				return errors.Trace(err)
+			}
+
+			if err := e.relationUnit(exEndPoint, ru, unit.Name(), relationScopes); err != nil {
+				return errors.Annotatef(err, "processing relation unit in %s", relation)
+			}
+		}
+	} else {
+		remotes, err := relation.AllRemoteUnits(ep.ApplicationName)
+		if err != nil {
+			if errors.Is(err, errors.NotFound) {
+				// If there are no local or remote units for this application,
+				// then there are none in scope. We are done.
+				return nil
+			}
+			return errors.Annotatef(err, "retrieving remote units for %s", relation)
+		}
+
+		for _, ru := range remotes {
+			if err := e.relationUnit(exEndPoint, ru, ru.unitName, relationScopes); err != nil {
+				return errors.Annotatef(err, "processing relation unit in %s", relation)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (e *exporter) relationUnit(
+	exEndPoint description.Endpoint,
+	ru *RelationUnit,
+	unitName string,
+	relationScopes set.Strings,
+) error {
+	valid, err := ru.Valid()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !valid {
+		// It doesn't make sense for this application to have a
+		// relations scope for this endpoint. For example the
+		// situation where we have a subordinate charm related to
+		// two different principals.
+		return nil
+	}
+
+	key := ru.key()
+	if !e.cfg.SkipRelationData && !relationScopes.Contains(key) && !e.cfg.IgnoreIncompleteModel {
+		return errors.Errorf("missing relation scope for %s", unitName)
+	}
+	settingsDoc, found := e.modelSettings[key]
+	if !found && !e.cfg.SkipSettings && !e.cfg.SkipRelationData && !e.cfg.IgnoreIncompleteModel {
+		return errors.Errorf("missing relation settings for %s", unitName)
+	}
+	delete(e.modelSettings, key)
+	exEndPoint.SetUnitSettings(unitName, settingsDoc.Settings)
+
+	return nil
+}
+
 func (e *exporter) firewallRules() error {
 	e.logger.Debugf("reading firewall rules")
 	migration := &ExportStateMigration{
@@ -1724,7 +1770,7 @@ func (e *exporter) readAllRelationScopes() (set.Strings, error) {
 	relationScopes, closer := e.st.db().GetCollection(relationScopesC)
 	defer closer()
 
-	docs := []relationScopeDoc{}
+	var docs []relationScopeDoc
 	err := relationScopes.Find(nil).All(&docs)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get all relation scopes")
@@ -1742,7 +1788,7 @@ func (e *exporter) readAllUnits() (map[string][]*Unit, error) {
 	unitsCollection, closer := e.st.db().GetCollection(unitsC)
 	defer closer()
 
-	docs := []unitDoc{}
+	var docs []unitDoc
 	err := unitsCollection.Find(nil).Sort("name").All(&docs)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get all units")
@@ -1760,7 +1806,7 @@ func (e *exporter) readAllEndpointBindings() (map[string]bindingsMap, error) {
 	bindings, closer := e.st.db().GetCollection(endpointBindingsC)
 	defer closer()
 
-	docs := []endpointBindingsDoc{}
+	var docs []endpointBindingsDoc
 	err := bindings.Find(nil).All(&docs)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get all application endpoint bindings")
@@ -1777,7 +1823,7 @@ func (e *exporter) readAllMeterStatus() (map[string]*meterStatusDoc, error) {
 	meterStatuses, closer := e.st.db().GetCollection(meterStatusC)
 	defer closer()
 
-	docs := []meterStatusDoc{}
+	var docs []meterStatusDoc
 	err := meterStatuses.Find(nil).All(&docs)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get all meter status docs")
@@ -1794,7 +1840,7 @@ func (e *exporter) readAllPodSpecs() (map[string]string, error) {
 	specs, closer := e.st.db().GetCollection(podSpecsC)
 	defer closer()
 
-	docs := []containerSpecDoc{}
+	var docs []containerSpecDoc
 	err := specs.Find(nil).All(&docs)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get all pod spec docs")
@@ -1811,7 +1857,7 @@ func (e *exporter) readAllCloudServices() (map[string]*cloudServiceDoc, error) {
 	cloudServices, closer := e.st.db().GetCollection(cloudServicesC)
 	defer closer()
 
-	docs := []cloudServiceDoc{}
+	var docs []cloudServiceDoc
 	err := cloudServices.Find(nil).All(&docs)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get all cloud service docs")
@@ -1835,7 +1881,7 @@ func (e *exporter) readAllCloudContainers() (map[string]*cloudContainerDoc, erro
 	cloudContainers, closer := e.st.db().GetCollection(cloudContainersC)
 	defer closer()
 
-	docs := []cloudContainerDoc{}
+	var docs []cloudContainerDoc
 	err := cloudContainers.Find(nil).All(&docs)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get all cloud container docs")
