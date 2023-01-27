@@ -40,4 +40,4 @@ jobs:
 
     - name: Build
       run: |
-        GOOS=${{ matrix.platform.os }} GOARCH=${{ matrix.platform.arch }} make go-install
+        GOOS=${{ matrix.platform.os }} GOARCH=${{ matrix.platform.arch }} make go-build
