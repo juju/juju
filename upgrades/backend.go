@@ -11,7 +11,6 @@ import (
 
 // StateBackend provides an interface for upgrading the global state database.
 type StateBackend interface {
-	CorrectCharmOriginsMultiAppSingleCharm() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -28,8 +27,4 @@ func NewStateBackend(pool *state.StatePool) StateBackend {
 
 type stateBackend struct {
 	pool *state.StatePool
-}
-
-func (s stateBackend) CorrectCharmOriginsMultiAppSingleCharm() error {
-	return state.CorrectCharmOriginsMultiAppSingleCharm(s.pool)
 }

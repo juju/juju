@@ -5,6 +5,7 @@ package state
 
 import (
 	"github.com/juju/errors"
+
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
 )
@@ -93,63 +94,4 @@ func applyToAllModelSettings(st *State, change func(*settingsDoc) (bool, error))
 		return errors.Trace(st.runRawTransaction(ops))
 	}
 	return nil
-}
-
-// CorrectCharmOriginsMultiAppSingleCharm corrects application charm origins
-// where the charm has been downloaded, however the origin was not updated
-// with ID and Hash data. Per LP 1999060, usually seen with multi application
-// using same charm bundles.
-func CorrectCharmOriginsMultiAppSingleCharm(pool *StatePool) error {
-	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
-		col, closer := st.db().GetCollection(applicationsC)
-		defer closer()
-
-		var docsWithID, docsWithoutID []applicationDoc
-		if err := col.Find(bson.D{
-			{"charm-origin.id", bson.M{"$eq": ""}},
-			{"charm-origin.source", bson.M{"$eq": "charm-hub"}},
-		}).All(&docsWithoutID); err != nil {
-			return errors.Trace(err)
-		}
-		if len(docsWithoutID) == 0 {
-			return nil // nothing to do
-		}
-		if err := col.Find(bson.D{
-			{"charm-origin.id", bson.M{"$ne": ""}},
-			{"charm-origin.source", bson.M{"$eq": "charm-hub"}},
-		}).All(&docsWithID); err != nil {
-			return errors.Trace(err)
-		}
-
-		charmOrigins := make(map[string]CharmOrigin, len(docsWithID))
-		for _, doc := range docsWithID {
-			if doc.CharmURL == nil {
-				return errors.Errorf("application %q missing charm url", doc.Name)
-			}
-			charmOrigins[*doc.CharmURL] = doc.CharmOrigin
-		}
-
-		var ops []txn.Op
-		for _, doc := range docsWithoutID {
-			if doc.CharmURL == nil {
-				return errors.Errorf("application %q missing charm url", doc.Name)
-			}
-			if origin, ok := charmOrigins[*doc.CharmURL]; ok {
-				ops = append(ops, txn.Op{
-					C:      applicationsC,
-					Id:     doc.DocID,
-					Assert: txn.DocExists,
-					Update: bson.D{{"$set", bson.D{{"charm-origin.id", origin.ID},
-						{"charm-origin.hash", origin.Hash}}}},
-				})
-			} else {
-				return errors.Errorf("application %q missing charm origin for %q", doc.Name, *doc.CharmURL)
-			}
-		}
-
-		if len(ops) > 0 {
-			return errors.Trace(st.runRawTransaction(ops))
-		}
-		return nil
-	}))
 }
