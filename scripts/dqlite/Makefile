@@ -1,7 +1,7 @@
 SHELL = bash
 .ONESHELL:
 
-PROJECT_DIR ?= $(GOPATH)/src/github.com/juju/juju
+PROJECT_DIR := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 
 DQLITE_BUILD_IMAGE=ubuntu:22.04
 DQLITE_BUILD_CONTAINER=lib-build-server
@@ -22,7 +22,7 @@ DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH=${DQLITE_EXTRACTED_DEPS_PATH}/dqlite-deps-${D
 MUSL_PATH=/usr/local/musl
 MUSL_BIN_PATH=${MUSL_PATH}/bin
 
-MUSL_CROSS_PATH=$(GOPATH)/build/musl-${DQLITE_BUILD_ARCH}
+MUSL_CROSS_PATH=${PROJECT_DIR}/_deps/musl-${DQLITE_BUILD_ARCH}
 MUSL_CROSS_BIN_PATH=${MUSL_CROSS_PATH}/output/bin
 
 # Versions for Dqlite and upstream dependencies.
@@ -134,8 +134,11 @@ musl-install:
 musl-cross-arch-install:
 	@PATH=${PATH}:${MUSL_CROSS_BIN_PATH} which musl-gcc >/dev/null && { echo "musl already installed ${MUSL_CROSS_PATH}"; exit 0; }
 
-	@mkdir -p ${MUSL_CROSS_PATH}
-	git clone git@github.com:richfelker/musl-cross-make.git ${MUSL_CROSS_PATH}
+	echo "MUSL_CROSS_PATH=${MUSL_CROSS_PATH}"
+	echo "PATH $(shell pwd)"
+
+	@mkdir -p ${MUSL_CROSS_PATH} || { exit 1; }
+	git clone https://github.com/richfelker/musl-cross-make.git ${MUSL_CROSS_PATH}
 	@cd ${MUSL_CROSS_PATH}
 
 	@mkdir -p ${MUSL_CROSS_PATH}/build
@@ -160,7 +163,7 @@ musl-cross-arch-install:
 	@echo "COMMON_CONFIG += CFLAGS=\"-g0 -Os\" CXXFLAGS=\"-g0 -Os\" LDFLAGS=\"-s\"" >> config.mak
 
 	@echo "Building musl-${DQLITE_BUILD_ARCH}"
-	make -j$(nproc) install || { exit 1; }
+	make install || { exit 1; }
 
 	@echo "Linking musl-${DQLITE_BUILD_ARCH} to musl-gcc"
 	@cd ${MUSL_CROSS_PATH}/output/bin

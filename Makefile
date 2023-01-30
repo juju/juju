@@ -88,7 +88,7 @@ GIT_TREE_STATE = $(if $(shell git -C $(PROJECT_DIR) rev-parse --is-inside-work-t
 #   compile for at the moment.
 define BUILD_AGENT_TARGETS
 	$(call tool_platform_paths,jujuc,$(filter-out windows%,${AGENT_PACKAGE_PLATFORMS})) \
-	$(call tool_platform_paths,jujud,$(filter-out windows%,${AGENT_PACKAGE_PLATFORMS})) \
+	$(call tool_platform_paths,jujud,$(filter linux%,${AGENT_PACKAGE_PLATFORMS})) \
 	$(call tool_platform_paths,containeragent,$(filter-out windows%,${AGENT_PACKAGE_PLATFORMS})) \
 	$(call tool_platform_paths,pebble,$(filter linux%,${AGENT_PACKAGE_PLATFORMS}))
 endef
