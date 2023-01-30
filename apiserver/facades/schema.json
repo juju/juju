@@ -39021,6 +39021,9 @@
                 "SecretRevision": {
                     "type": "object",
                     "properties": {
+                        "backend-name": {
+                            "type": "string"
+                        },
                         "create-time": {
                             "type": "string",
                             "format": "date-time"
@@ -39796,6 +39799,9 @@
                 "SecretRevision": {
                     "type": "object",
                     "properties": {
+                        "backend-name": {
+                            "type": "string"
+                        },
                         "create-time": {
                             "type": "string",
                             "format": "date-time"
@@ -48014,6 +48020,9 @@
                 "SecretRevision": {
                     "type": "object",
                     "properties": {
+                        "backend-name": {
+                            "type": "string"
+                        },
                         "create-time": {
                             "type": "string",
                             "format": "date-time"

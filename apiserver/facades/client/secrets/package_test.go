@@ -22,7 +22,8 @@ func TestPackage(t *testing.T) {
 
 func NewTestAPI(
 	state SecretsState,
-	backendGetter func(string) (provider.SecretsBackend, error),
+	backendConfigGetter func() (*provider.ModelBackendConfigInfo, error),
+	backendGetter func(*provider.ModelBackendConfig) (provider.SecretsBackend, error),
 	authorizer facade.Authorizer,
 ) (*SecretsAPI, error) {
 	if !authorizer.AuthClient() {
@@ -30,11 +31,12 @@ func NewTestAPI(
 	}
 
 	return &SecretsAPI{
-		authorizer:     authorizer,
-		controllerUUID: coretesting.ControllerTag.Id(),
-		modelUUID:      coretesting.ModelTag.Id(),
-		state:          state,
-		backends:       make(map[string]provider.SecretsBackend),
-		backendGetter:  backendGetter,
+		authorizer:          authorizer,
+		controllerUUID:      coretesting.ControllerTag.Id(),
+		modelUUID:           coretesting.ModelTag.Id(),
+		state:               state,
+		backends:            make(map[string]provider.SecretsBackend),
+		backendConfigGetter: backendConfigGetter,
+		backendGetter:       backendGetter,
 	}, nil
 }

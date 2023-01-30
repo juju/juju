@@ -54,6 +54,10 @@ func (s *ShowSuite) TestInit(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "revision must be a positive integer")
 }
 
+func ptr[T any](v T) *T {
+	return &v
+}
+
 func (s *ShowSuite) TestShow(c *gc.C) {
 	defer s.setup(c).Finish()
 
@@ -144,7 +148,8 @@ func (s *ShowSuite) TestShowRevisions(c *gc.C) {
 			},
 			Value: coresecrets.NewSecretValue(map[string]string{"foo": "YmFy"}),
 			Revisions: []coresecrets.SecretRevisionMetadata{{
-				Revision: 666,
+				Revision:    666,
+				BackendName: ptr("some backend"),
 			}},
 		}}, nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
@@ -163,6 +168,7 @@ func (s *ShowSuite) TestShowRevisions(c *gc.C) {
   updated: 0001-01-01T00:00:00Z
   revisions:
   - revision: 666
+    backend: some backend
     created: 0001-01-01T00:00:00Z
     updated: 0001-01-01T00:00:00Z
 `[1:], uri.ID))
