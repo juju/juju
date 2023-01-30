@@ -597,7 +597,7 @@ func (s *upgradeSuite) TestUpgradeOperationsOrdered(c *gc.C) {
 func (s *upgradeSuite) TestStateUpgradeOperationsVersions(c *gc.C) {
 	versions := extractUpgradeVersions(c, (*upgrades.StateUpgradeOperations)())
 	c.Assert(versions, gc.DeepEquals, []string{
-		"3.0.0", "3.0.3",
+		"3.0.0",
 	})
 }
 
