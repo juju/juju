@@ -61,7 +61,7 @@ func NewRemoveCommandForTest(apiRoot api.Connection, machineAPI RemoveMachineAPI
 	return modelcmd.Wrap(command), &RemoveCommand{command}
 }
 
-// NewUpgradeMachineCommand returns an upgrade series command for test
+// NewUpgradeMachineCommand returns an upgrade machine command for test
 func NewUpgradeMachineCommandForTest(statusAPI StatusAPI, upgradeAPI UpgradeMachineAPI) cmd.Command {
 	command := &upgradeMachineCommand{
 		statusClient:         statusAPI,

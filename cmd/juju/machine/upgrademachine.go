@@ -38,7 +38,7 @@ const (
 var SupportedJujuSeries = series.WorkloadSeries
 
 var upgradeMachineConfirmationMsg = `
-WARNING: This command will mark machine %q as being upgraded to base %q.
+WARNING: This command will mark machine %q as being upgraded to %q.
 This operation cannot be reverted or canceled once started.
 %s`[1:]
 
@@ -52,26 +52,26 @@ subject to change until the "complete" command is run:
 `[1:]
 
 const UpgradeMachinePrepareFinishedMessage = `
-Juju is now ready for the base to be updated.
+Juju is now ready for the machine base to be updated.
 Perform any manual steps required along with "do-release-upgrade".
 When ready, run the following to complete the upgrade base process:
 
 juju upgrade-machine %s complete`
 
 const UpgradeMachineCompleteFinishedMessage = `
-Upgrade base for machine %q has successfully completed`
+Upgrade machine base %q has successfully completed`
 
 const UpgradeMachinePrepareOngoingMessage = `
-Upgrade base is currently being prepared for machine %q.
+Upgrade machine base is currently being prepared for machine %q.
 `
 
 const UpgradeMachinePrepareCompletedMessage = `
-Upgrade base is already prepared for machine %[1]q and the current
-state is %q.
+Upgrade machine base is already prepared for machine %[1]q and the 
+current state is %q.
 
-Juju is now ready for the base to be updated.
+Juju is now ready for the machine base to be updated.
 Perform any manual steps required along with "do-release-upgrade".
-When ready, run the following to complete the upgrade base process:
+When ready, run the following to complete the upgrade process:
 
 juju upgrade-machine %[1]s complete`
 
@@ -307,7 +307,7 @@ func (c *upgradeMachineCommand) UpgradePrepare(ctx *cmd.Context) (err error) {
 
 	s, err := series.GetSeriesFromBase(base)
 	if err != nil {
-		return errors.Annotatef(err, "invalid series base")
+		return errors.Annotatef(err, "invalid series to base conversion")
 	}
 
 	if err := c.promptConfirmation(ctx, base, units); err != nil {
