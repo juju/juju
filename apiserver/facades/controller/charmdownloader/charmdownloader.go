@@ -128,11 +128,6 @@ func (a *CharmDownloaderAPI) downloadApplicationCharm(appTag names.ApplicationTa
 		return errors.NotFoundf("download charm for application %q; resolved origin", appTag.Name)
 	}
 
-	resolvedOrigin := app.CharmOrigin()
-	if resolvedOrigin == nil {
-		return errors.NotFoundf("download charm for application %q; resolved origin", appTag.Name)
-	}
-
 	downloader, err := a.getDownloader()
 	if err != nil {
 		return errors.Trace(err)
