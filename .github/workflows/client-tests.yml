@@ -12,6 +12,10 @@ on:
 permissions:
   contents: read
 
+env:
+  CGO_ENABLED: 1
+  CGO_LDFLAGS_ALLOW: "(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"
+
 jobs:
 
   test-client-ubuntu:
