@@ -113,16 +113,16 @@ func (s *UpgradeMachineSuite) runUpgradeMachineCommandWithConfirmation(
 	defer ctrl.Finish()
 
 	mockStatusAPI := mocks.NewMockStatusAPI(ctrl)
-	mockUpgradeSeriesAPI := mocks.NewMockUpgradeMachineSeriesAPI(ctrl)
+	mockUpgradeMachineAPI := mocks.NewMockUpgradeMachineAPI(ctrl)
 
-	uExp := mockUpgradeSeriesAPI.EXPECT()
+	uExp := mockUpgradeMachineAPI.EXPECT()
 	prep := s.prepareExpectation
 	uExp.UpgradeSeriesPrepare(prep.machineArg, prep.baseArg, prep.force).AnyTimes()
 	uExp.UpgradeSeriesComplete(s.completeExpectation.machineNumber).AnyTimes()
 
 	mockStatusAPI.EXPECT().Status(gomock.Nil()).AnyTimes().Return(s.statusExpectation.status, nil)
 
-	com := machine.NewUpgradeMachineCommandForTest(mockStatusAPI, mockUpgradeSeriesAPI)
+	com := machine.NewUpgradeMachineCommandForTest(mockStatusAPI, mockUpgradeMachineAPI)
 
 	err := cmdtesting.InitCommand(com, args)
 	if err != nil {
