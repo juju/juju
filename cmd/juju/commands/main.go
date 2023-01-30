@@ -388,7 +388,7 @@ func registerCommands(r commandRegistry) {
 	r.Register(newUpgradeJujuCommand())
 	r.Register(newUpgradeControllerCommand())
 	r.Register(application.NewRefreshCommand())
-	r.Register(application.NewSetSeriesCommand())
+	r.Register(application.NewSetApplicationBaseCommand())
 	r.Register(application.NewBindCommand())
 
 	// Charm tool commands.
@@ -421,7 +421,7 @@ func registerCommands(r commandRegistry) {
 	r.Register(machine.NewRemoveCommand())
 	r.Register(machine.NewListMachinesCommand())
 	r.Register(machine.NewShowMachineCommand())
-	r.Register(machine.NewUpgradeSeriesCommand())
+	r.Register(machine.NewUpgradeMachineCommand())
 
 	// Manage model
 	r.Register(model.NewConfigCommand())
