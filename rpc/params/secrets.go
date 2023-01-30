@@ -179,11 +179,12 @@ type SecretValueRef struct {
 
 // SecretRevision holds secret revision metadata.
 type SecretRevision struct {
-	Revision   int             `json:"revision"`
-	ValueRef   *SecretValueRef `json:"value-ref,omitempty"`
-	CreateTime time.Time       `json:"create-time,omitempty"`
-	UpdateTime time.Time       `json:"update-time,omitempty"`
-	ExpireTime *time.Time      `json:"expire-time,omitempty"`
+	Revision    int             `json:"revision"`
+	ValueRef    *SecretValueRef `json:"value-ref,omitempty"`
+	BackendName *string         `json:"backend-name,omitempty"`
+	CreateTime  time.Time       `json:"create-time,omitempty"`
+	UpdateTime  time.Time       `json:"update-time,omitempty"`
+	ExpireTime  *time.Time      `json:"expire-time,omitempty"`
 }
 
 // ListSecretResult is the result of getting secret metadata.

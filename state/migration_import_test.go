@@ -2938,8 +2938,9 @@ func (s *MigrationImportSuite) TestSecrets(c *gc.C) {
 			BackendID:  backendID,
 			RevisionID: "rev-id",
 		},
-		CreateTime: createTime,
-		UpdateTime: createTime,
+		BackendName: ptr("myvault"),
+		CreateTime:  createTime,
+		UpdateTime:  createTime,
 	}})
 
 	access, err := newSt.SecretAccess(uri, owner.Tag())

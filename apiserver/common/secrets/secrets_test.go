@@ -110,13 +110,13 @@ func (s *secretsSuite) assertAdminBackendConfigInfoDefault(c *gc.C, modelType st
 			},
 		}
 	}
-	info, gotID, err := secrets.AdminBackendConfigInfo(model)
+	info, err := secrets.AdminBackendConfigInfo(model)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotID, gc.Equals, activeID)
 	c.Assert(info, jc.DeepEquals, &provider.ModelBackendConfigInfo{
 		ControllerUUID: coretesting.ControllerTag.Id(),
 		ModelUUID:      coretesting.ModelTag.Id(),
 		ModelName:      "fred",
+		ActiveID:       activeID,
 		Configs:        expectedConfigs,
 	})
 }
@@ -444,45 +444,4 @@ func (s *secretsSuite) TestBackendConfigInfoFailedInvalidAuthTag(c *gc.C) {
 
 	_, err := secrets.BackendConfigInfo(model, badTag, leadershipChecker)
 	c.Assert(err, gc.ErrorMatches, `login as "user-foo" not supported`)
-}
-
-func (s *secretsSuite) TestBackendForInspect(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	model := mocks.NewMockModel(ctrl)
-	p := mocks.NewMockSecretBackendProvider(ctrl)
-	backendState := mocks.NewMockSecretBackendsStorage(ctrl)
-	secretsState := mocks.NewMockSecretsStore(ctrl)
-
-	s.PatchValue(&secrets.GetProvider, func(string) (provider.SecretBackendProvider, error) { return p, nil })
-	s.PatchValue(&secrets.GetSecretsState, func(secrets.Model) state.SecretsStore { return secretsState })
-	s.PatchValue(&secrets.GetSecretBackendsState, func(secrets.Model) state.SecretBackendsStorage { return backendState })
-
-	vaultCfg := map[string]interface{}{"endpoint": "http://vault"}
-	adminCfg := provider.ModelBackendConfig{
-		ControllerUUID: coretesting.ControllerTag.Id(),
-		ModelUUID:      coretesting.ModelTag.Id(),
-		ModelName:      "fred",
-		BackendConfig: provider.BackendConfig{
-			BackendType: "vault",
-			Config:      vaultCfg,
-		},
-	}
-	restrictedCfg := adminCfg
-	restrictedCfg.Config["restricted"] = "true"
-	model.EXPECT().ControllerUUID().Return(coretesting.ControllerTag.Id()).AnyTimes()
-	model.EXPECT().UUID().Return(coretesting.ModelTag.Id()).AnyTimes()
-	model.EXPECT().Name().Return("fred").AnyTimes()
-	gomock.InOrder(
-		backendState.EXPECT().GetSecretBackendByID("backend-id").Return(&coresecrets.SecretBackend{
-			BackendType: "vault",
-			Config:      vaultCfg,
-		}, nil),
-		p.EXPECT().RestrictedConfig(&adminCfg, nil, nil, nil).Return(&restrictedCfg.BackendConfig, nil),
-		p.EXPECT().NewBackend(&restrictedCfg).Return(nil, nil),
-	)
-
-	_, err := secrets.BackendForInspect(model, "backend-id")
-	c.Assert(err, jc.ErrorIsNil)
 }
