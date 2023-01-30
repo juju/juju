@@ -310,10 +310,22 @@ func AddTestingApplicationWithStorage(c *gc.C, st *State, name string, ch *Charm
 	}
 	base, err := coreseries.GetBaseFromSeries(series)
 	c.Assert(err, jc.ErrorIsNil)
-	origin := &CharmOrigin{Platform: &Platform{
-		OS:      base.OS,
-		Channel: base.Channel.String(),
-	}}
+	var source string
+	switch ch.URL().Schema {
+	case "local":
+		source = "local"
+	case "ch":
+		source = "charm-hub"
+	case "cs":
+		source = "charm-store"
+	}
+	origin := &CharmOrigin{
+		Source: source,
+		Platform: &Platform{
+			OS:      base.OS,
+			Channel: base.Channel.String(),
+		},
+	}
 	return addTestingApplication(c, addTestingApplicationParams{
 		st:      st,
 		name:    name,
@@ -363,12 +375,23 @@ func addTestingApplication(c *gc.C, params addTestingApplicationParams) *Applica
 		if charm.CharmHub.Matches(params.ch.URL().Schema) {
 			channel = &Channel{Risk: "stable"}
 		}
+		var source string
+		switch params.ch.URL().Schema {
+		case "local":
+			source = "local"
+		case "ch":
+			source = "charm-hub"
+		case "cs":
+			source = "charm-store"
+		}
 		origin = &CharmOrigin{
 			Channel: channel,
+			Source:  source,
 			Platform: &Platform{
 				OS:      base.OS,
 				Channel: base.Channel.String(),
-			}}
+			},
+		}
 	}
 	app, err := params.st.AddApplication(AddApplicationArgs{
 		Name:             params.name,
