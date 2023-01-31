@@ -52,13 +52,13 @@ require (
 	github.com/juju/charm/v10 v10.0.0
 	github.com/juju/clock v1.0.3
 	github.com/juju/cmd/v3 v3.0.4
-	github.com/juju/collections v1.0.1
+	github.com/juju/collections v1.0.2
 	github.com/juju/description/v4 v4.0.4
 	github.com/juju/errors v1.0.0
 	github.com/juju/featureflag v1.0.0
 	github.com/juju/gnuflag v1.0.0
 	github.com/juju/gojsonschema v1.0.0
-	github.com/juju/gomaasapi/v2 v2.0.0
+	github.com/juju/gomaasapi/v2 v2.0.1
 	github.com/juju/http/v2 v2.0.0
 	github.com/juju/idmclient/v2 v2.0.0
 	github.com/juju/jsonschema v1.0.0
