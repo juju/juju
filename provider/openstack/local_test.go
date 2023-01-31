@@ -843,6 +843,41 @@ func (s *localServerSuite) TestStartInstanceWaitForActiveDetails(c *gc.C) {
 	c.Assert(insts, gc.HasLen, 0, gc.Commentf("expected launched instance to be terminated if stuck in BUILD state"))
 }
 
+func (s *localServerSuite) TestStartInstanceDeletesSecurityGroupsOnInstanceCreateFailure(c *gc.C) {
+	env := s.openEnviron(c, coretesting.Attrs{"firewall-mode": config.FwInstance})
+
+	// Force an error in waitForActiveServerDetails
+	cleanup := s.srv.Nova.RegisterControlPoint(
+		"server",
+		func(sc hook.ServiceControl, args ...interface{}) error {
+			return fmt.Errorf("GetServer failed on purpose")
+		},
+	)
+	defer cleanup()
+	inst, _, _, err := testing.StartInstance(env, s.callCtx, s.ControllerUUID, "100")
+	c.Check(inst, gc.IsNil)
+	c.Assert(err, gc.NotNil)
+
+	assertSecurityGroups(c, env, []string{"default"})
+}
+
+func (s *localServerSuite) TestStartInstanceDeletesSecurityGroupsOnFailure(c *gc.C) {
+	env := s.openEnviron(c, coretesting.Attrs{"firewall-mode": config.FwInstance})
+
+	s.srv.Nova.SetServerStatus(nova.StatusBuild)
+	defer s.srv.Nova.SetServerStatus("")
+
+	// Make time advance in zero time
+	clk := testclock.NewClock(time.Time{})
+	clock := testclock.AutoAdvancingClock{Clock: clk, Advance: clk.Advance}
+	env.(*openstack.Environ).SetClock(&clock)
+
+	_, _, _, err := testing.StartInstance(env, s.callCtx, s.ControllerUUID, "100")
+	c.Assert(err, gc.NotNil)
+
+	assertSecurityGroups(c, env, []string{"default"})
+}
+
 func assertSecurityGroups(c *gc.C, env environs.Environ, expected []string) {
 	neutronClient := openstack.GetNeutronClient(env)
 	groups, err := neutronClient.ListSecurityGroupsV2()

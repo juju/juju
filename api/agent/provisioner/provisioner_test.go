@@ -554,9 +554,14 @@ func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
 	}
 	machine, err := s.State.AddOneMachine(template)
 	c.Assert(err, jc.ErrorIsNil)
-	apiMachine := s.assertGetOneMachine(c, machine.MachineTag())
-	provisioningInfo, err := apiMachine.ProvisioningInfo()
+
+	res, err := s.provisioner.ProvisioningInfo([]names.MachineTag{machine.MachineTag()})
 	c.Assert(err, jc.ErrorIsNil)
+
+	results := res.Results
+	c.Assert(results, gc.HasLen, 1)
+
+	provisioningInfo := results[0].Result
 	c.Assert(provisioningInfo.Base, jc.DeepEquals, params.Base{Name: "ubuntu", Channel: "12.10/stable"})
 	c.Assert(provisioningInfo.Placement, gc.Equals, template.Placement)
 	c.Assert(provisioningInfo.Constraints, jc.DeepEquals, template.Constraints)
@@ -571,17 +576,13 @@ func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestProvisioningInfoMachineNotFound(c *gc.C) {
-	stateMachine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	res, err := s.provisioner.ProvisioningInfo([]names.MachineTag{names.NewMachineTag("1")})
 	c.Assert(err, jc.ErrorIsNil)
-	apiMachine := s.assertGetOneMachine(c, stateMachine.MachineTag())
-	err = apiMachine.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-	err = apiMachine.Remove()
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = apiMachine.ProvisioningInfo()
-	c.Assert(err, gc.ErrorMatches, "machine 1 not found")
-	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
-	// auth tests in apiserver
+
+	results := res.Results
+	c.Assert(results, gc.HasLen, 1)
+	c.Assert(results[0].Error, gc.ErrorMatches, "machine 1 not found")
+	c.Assert(results[0].Error, jc.Satisfies, params.IsCodeNotFound)
 }
 
 func (s *provisionerSuite) TestWatchContainers(c *gc.C) {

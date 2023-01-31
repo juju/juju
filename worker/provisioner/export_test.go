@@ -6,6 +6,8 @@ package provisioner
 import (
 	"sort"
 
+	"github.com/juju/juju/rpc/params"
+
 	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
 
@@ -66,13 +68,17 @@ func GetCopyAvailabilityZoneMachines(p ProvisionerTask) []AvailabilityZoneMachin
 	return retvalues
 }
 
-func SetupToStartMachine(p ProvisionerTask, machine apiprovisioner.MachineProvisioner, version *version.Number) (
-	environs.StartInstanceParams,
-	error,
-) {
-	return p.(*provisionerTask).setupToStartMachine(machine, version)
+func SetupToStartMachine(
+	p ProvisionerTask,
+	machine apiprovisioner.MachineProvisioner,
+	version *version.Number,
+	pInfoResult params.ProvisioningInfoResult,
+) (environs.StartInstanceParams, error) {
+	return p.(*provisionerTask).setupToStartMachine(machine, version, pInfoResult)
 }
 
-func MachineSupportsContainers(cfg ContainerManifoldConfig, pr ContainerMachineGetter, mTag names.MachineTag) (ContainerMachine, error) {
+func MachineSupportsContainers(
+	cfg ContainerManifoldConfig, pr ContainerMachineGetter, mTag names.MachineTag,
+) (ContainerMachine, error) {
 	return cfg.machineSupportsContainers(pr, mTag)
 }
