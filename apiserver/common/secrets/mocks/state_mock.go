@@ -6,6 +6,7 @@ package mocks
 
 import (
 	reflect "reflect"
+	time "time"
 
 	gomock "github.com/golang/mock/gomock"
 	set "github.com/juju/collections/set"
@@ -288,6 +289,20 @@ func (m *MockSecretBackendsStorage) ListSecretBackends() ([]*secrets.SecretBacke
 func (mr *MockSecretBackendsStorageMockRecorder) ListSecretBackends() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSecretBackends", reflect.TypeOf((*MockSecretBackendsStorage)(nil).ListSecretBackends))
+}
+
+// SecretBackendRotated mocks base method.
+func (m *MockSecretBackendsStorage) SecretBackendRotated(arg0 string, arg1 time.Time) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SecretBackendRotated", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SecretBackendRotated indicates an expected call of SecretBackendRotated.
+func (mr *MockSecretBackendsStorageMockRecorder) SecretBackendRotated(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SecretBackendRotated", reflect.TypeOf((*MockSecretBackendsStorage)(nil).SecretBackendRotated), arg0, arg1)
 }
 
 // UpdateSecretBackend mocks base method.

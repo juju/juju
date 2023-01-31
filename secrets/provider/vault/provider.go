@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/hashicorp/vault/api"
 	"github.com/juju/errors"
@@ -276,4 +277,33 @@ func (p vaultProvider) newBackend(modelUUID string, cfg *provider.BackendConfig)
 		c.SetNamespace(ns)
 	}
 	return &vaultBackend{modelUUID: modelUUID, client: c}, nil
+}
+
+// RefreshAuth implements SupportAuthRefresh.
+func (p vaultProvider) RefreshAuth(adminCfg *provider.ModelBackendConfig, validFor time.Duration) (_ *provider.BackendConfig, err error) {
+	defer func() {
+		err = maybePermissionDenied(err)
+	}()
+
+	backend, err := p.newBackend(adminCfg.ModelUUID, &adminCfg.BackendConfig)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	validForSeconds := validFor.Truncate(time.Second).Seconds()
+	s, err := backend.client.Auth().Token().Create(&api.TokenCreateRequest{
+		TTL:      fmt.Sprintf("%ds", int(validForSeconds)),
+		NoParent: true,
+	})
+	if err != nil {
+		return nil, errors.Annotate(err, "creating new auth token")
+	}
+
+	tok, err := s.TokenID()
+	if err != nil {
+		return nil, errors.Annotate(err, "extracting new auth token")
+	}
+	backend.client.SetToken(tok)
+	cfgCopy := adminCfg.BackendConfig
+	cfgCopy.Config[TokenKey] = tok
+	return &cfgCopy, nil
 }
