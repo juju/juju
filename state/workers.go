@@ -46,7 +46,7 @@ func newWorkers(st *State, hub *pubsub.SimpleHub) (*workers, error) {
 		return watcher.NewHubWatcher(watcher.HubWatcherConfig{
 			Hub:       hub,
 			Clock:     st.clock(),
-			ModelUUID: st.modelUUID(),
+			ModelUUID: st.ModelUUID(),
 			Logger:    loggo.GetLogger("juju.state.watcher"),
 		})
 	})

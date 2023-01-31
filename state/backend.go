@@ -17,6 +17,9 @@ import (
 // modelBackend collects together some useful internal state methods for
 // accessing mongo and mapping local and global ids to one another.
 type modelBackend interface {
+	ModelUUID() string
+	IsController() bool
+
 	// docID generates a globally unique ID value
 	// where the model UUID is prefixed to the
 	// localID.
@@ -39,9 +42,7 @@ type modelBackend interface {
 
 	clock() clock.Clock
 	db() Database
-	modelUUID() string
 	modelName() (string, error)
-	isController() bool
 	txnLogWatcher() watcher.BaseWatcher
 }
 
@@ -69,20 +70,12 @@ func (st *State) clock() clock.Clock {
 	return st.stateClock
 }
 
-func (st *State) modelUUID() string {
-	return st.ModelUUID()
-}
-
 func (st *State) modelName() (string, error) {
 	m, err := st.Model()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 	return m.Name(), nil
-}
-
-func (st *State) isController() bool {
-	return st.IsController()
 }
 
 func (st *State) nowToTheSecond() time.Time {

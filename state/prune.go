@@ -146,7 +146,7 @@ func (p *collectionPruner) pruneByAge() error {
 	}
 
 	query := bson.D{
-		{"model-uuid", p.st.modelUUID()},
+		{"model-uuid", p.st.ModelUUID()},
 		{p.ageField, bson.M{"$gt": notSet, "$lt": age}},
 	}
 	query = append(query, p.filter...)
@@ -198,7 +198,7 @@ func (*collectionPruner) toDeleteCalculator(coll *mgo.Collection, maxSizeMB int,
 }
 
 func (p *collectionPruner) pruneBySize() error {
-	if !p.st.isController() {
+	if !p.st.IsController() {
 		// Only prune by size in the controller. Otherwise we might
 		// find that multiple pruners are trying to delete the latest
 		// 1000 rows and end up with more deleted than we expect.

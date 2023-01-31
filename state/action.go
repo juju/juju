@@ -601,7 +601,7 @@ func newActionDoc(mb modelBackend, operationID string, receiverTag names.Tag, ac
 		actionId = actionUUID.String()
 	}
 	actionLogger.Debugf("newActionDoc name: '%s', receiver: '%s', actionId: '%s'", actionName, receiverTag, actionId)
-	modelUUID := mb.modelUUID()
+	modelUUID := mb.ModelUUID()
 	return actionDoc{
 			DocId:      mb.docID(actionId),
 			ModelUUID:  modelUUID,
