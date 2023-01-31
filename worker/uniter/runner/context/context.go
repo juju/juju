@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/quota"
 	coresecrets "github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/rpc/params"
@@ -310,9 +311,9 @@ type HookContext struct {
 	// workloadName is the name of the container which the hook is in relation to.
 	workloadName string
 
-	// seriesUpgradeTarget is the series that the unit's machine is to be
+	// baseUpgradeTarget is the base that the unit's machine is to be
 	// updated to when Juju is issued the `upgrade-machine` command.
-	seriesUpgradeTarget string
+	baseUpgradeTarget string
 
 	// secretURI is the reference to the secret relevant to the hook.
 	secretURI string
@@ -1291,9 +1292,21 @@ func (ctx *HookContext) HookVars(
 		vars = append(vars, "JUJU_WORKLOAD_NAME="+ctx.workloadName)
 	}
 
-	if ctx.seriesUpgradeTarget != "" {
+	if ctx.baseUpgradeTarget != "" {
+		// We need to set both the base and the series for the hook. This until
+		// we migrate everything to use base.
+		b, err := series.ParseBaseFromString(ctx.baseUpgradeTarget)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		s, err := series.GetSeriesFromBase(b)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
 		vars = append(vars,
-			"JUJU_TARGET_SERIES="+ctx.seriesUpgradeTarget,
+			"JUJU_TARGET_BASE="+ctx.baseUpgradeTarget,
+			"JUJU_TARGET_SERIES="+s,
 		)
 	}
 

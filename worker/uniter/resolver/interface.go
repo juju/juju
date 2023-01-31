@@ -91,9 +91,9 @@ type LocalState struct {
 	// controller.
 	CompletedActions map[string]struct{}
 
-	// UpgradeSeriesStatus is the current state of any currently running
+	// UpgradeMachineStatus is the current state of any currently running
 	// upgrade series.
-	UpgradeSeriesStatus model.UpgradeSeriesStatus
+	UpgradeMachineStatus model.UpgradeSeriesStatus
 
 	// ContainerRunningStatus is the current state of remote containers for CAAS.
 	ContainerRunningStatus *remotestate.ContainerRunningStatus

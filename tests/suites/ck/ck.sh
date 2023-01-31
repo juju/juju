@@ -3,7 +3,7 @@
 run_deploy_ck() {
 	echo
 
-	local name model_name file overlay_path kube_home storage_path
+	local name model_name file overlay_path kube_home
 	name="deploy-ck"
 	model_name="${name}"
 	file="${TEST_DIR}/${model_name}.log"
@@ -11,9 +11,7 @@ run_deploy_ck() {
 	ensure "${model_name}" "${file}"
 
 	overlay_path="./tests/suites/ck/overlay/${BOOTSTRAP_PROVIDER}.yaml"
-	# TODO: pin CK test to 1.24/stable for now, remove once 1.25/stable fixed.
-	# Issue: `0/5 nodes are available: 5 pod has unbound immediate PersistentVolumeClaims. preemption: 0/5 nodes are available: 5 Preemption is not helpful for scheduling.` But the cluster does have 5 READY worker nodes.
-	juju deploy charmed-kubernetes --overlay "${overlay_path}" --trust --channel 1.24/stable
+	juju deploy charmed-kubernetes --overlay "${overlay_path}" --trust
 
 	if ! which "kubectl" >/dev/null 2>&1; then
 		sudo snap install kubectl --classic --channel latest/stable
@@ -28,9 +26,6 @@ run_deploy_ck() {
 
 	kubectl cluster-info
 	kubectl get ns
-	storage_path="./tests/suites/ck/storage/${BOOTSTRAP_PROVIDER}.yaml"
-	kubectl create -f "${storage_path}"
-	kubectl get sc -o yaml
 
 	# The model teardown could take too long time, so we decided to kill controller to speed up test run time.
 	# But this will not give the chance for integrator charm to do proper cleanup:
@@ -53,10 +48,9 @@ run_deploy_caas_workload() {
 
 	name="deploy-caas-workload"
 	k8s_cloud_name="k8s-cloud"
+	storage="csi-aws-ebs-default"
 	model_name="test-${name}"
 	file="${TEST_DIR}/${model_name}.log"
-
-	storage=$(kubectl get sc -o json | jq -r '.items[] | select(.metadata.annotations."storageclass.kubernetes.io/is-default-class"=="true") | .metadata.name')
 
 	controller_name=$(juju controllers --format json | jq -r '.controllers | keys[0]')
 	juju add-k8s "${k8s_cloud_name}" --storage "${storage}" --controller "${controller_name}" 2>&1 | OUTPUT "${file}"
@@ -69,6 +63,8 @@ run_deploy_caas_workload() {
 
 	wait_for "active" '.applications["hello-kubecon"] | ."application-status".current' 300
 	wait_for "active" '.applications["nginx-ingress-integrator"] | ."application-status".current'
+
+	destroy_model "${model_name}"
 }
 
 test_deploy_ck() {

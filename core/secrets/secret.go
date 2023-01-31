@@ -145,11 +145,12 @@ type SecretMetadata struct {
 
 // SecretRevisionMetadata holds metadata about a secret revision.
 type SecretRevisionMetadata struct {
-	Revision   int
-	ValueRef   *ValueRef
-	CreateTime time.Time
-	UpdateTime time.Time
-	ExpireTime *time.Time
+	Revision    int
+	ValueRef    *ValueRef
+	BackendName *string
+	CreateTime  time.Time
+	UpdateTime  time.Time
+	ExpireTime  *time.Time
 }
 
 // SecretOwnerMetadata holds a secret metadata and any backend references of revisions.

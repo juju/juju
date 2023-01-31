@@ -32,8 +32,7 @@ func newUndertakerFacade(ctx facade.Context) (*UndertakerAPI, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		cfgInfo, _, err := secrets.AdminBackendConfigInfo(secrets.SecretsModel(model))
-		return cfgInfo, err
+		return secrets.AdminBackendConfigInfo(secrets.SecretsModel(model))
 	}
 	return newUndertakerAPI(&stateShim{st, m}, ctx.Resources(), ctx.Auth(), secretsBackendsGetter)
 }

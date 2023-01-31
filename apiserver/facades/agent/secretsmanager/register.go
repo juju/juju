@@ -44,8 +44,7 @@ func NewSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		cfg, _, err := secrets.AdminBackendConfigInfo(secrets.SecretsModel(model))
-		return cfg, errors.Trace(err)
+		return secrets.AdminBackendConfigInfo(secrets.SecretsModel(model))
 	}
 	return &SecretsManagerAPI{
 		authTag:             context.Auth().GetAuthTag(),

@@ -17,4 +17,5 @@ test_ck() {
 
 	# CK takes too long to tear down (1h+), so forcibly destroy it
 	export KILL_CONTROLLER=true
+	destroy_controller "test-ck"
 }

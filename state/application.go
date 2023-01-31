@@ -3829,8 +3829,15 @@ func (a *Application) CharmPendingToBeDownloaded() bool {
 	if err != nil {
 		return false
 	}
-
-	return !ch.IsPlaceholder() && !ch.IsUploaded()
+	origin := a.CharmOrigin()
+	if origin == nil {
+		return false
+	}
+	// The charm may be downloaded, but the application's
+	// data may not updated yet. This can happen when multiple
+	// applications share a charm.
+	notReady := origin.Source == "charm-hub" && origin.ID == ""
+	return !ch.IsPlaceholder() && !ch.IsUploaded() || notReady
 }
 
 func appUnitNames(st *State, appName string) ([]string, error) {
@@ -3853,8 +3860,9 @@ func appUnitNames(st *State, appName string) ([]string, error) {
 }
 
 // WatchApplicationsWithPendingCharms returns a watcher that emits the IDs of
-// applications that have a charm origin popoulated and reference a charm that
-// is pending to be downloaded.
+// applications that have a charm origin populated and reference a charm that
+// is pending to be downloaded or the charm origin ID has not been filled in yet
+// for charm-hub charms.
 func (st *State) WatchApplicationsWithPendingCharms() StringsWatcher {
 	return newCollectionWatcher(st, colWCfg{
 		col: applicationsC,
@@ -3865,12 +3873,11 @@ func (st *State) WatchApplicationsWithPendingCharms() StringsWatcher {
 			}
 
 			// We need an application with both a charm URL and
-			// an origin set.trusty
+			// an origin set.
 			app, _ := st.Application(st.localID(sKey))
-			if app == nil || app.CharmOrigin() == nil {
+			if app == nil {
 				return false
 			}
-
 			return app.CharmPendingToBeDownloaded()
 		},
 		// We want to be notified for application documents as soon as

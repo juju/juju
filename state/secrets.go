@@ -974,6 +974,9 @@ func (s *secretsStore) listSecretRevisions(uri *secrets.URI, revision *int) ([]*
 	secretRevisionCollection, closer := s.st.db().GetCollection(secretRevisionsC)
 	defer closer()
 
+	secretBackendsColl, closer := s.st.db().GetCollection(secretBackendsC)
+	defer closer()
+
 	var (
 		docs []secretRevisionDoc
 		q    interface{}
@@ -988,21 +991,41 @@ func (s *secretsStore) listSecretRevisions(uri *secrets.URI, revision *int) ([]*
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	backendNames := make(map[string]string)
 	result := make([]*secrets.SecretRevisionMetadata, len(docs))
 	for i, doc := range docs {
-		var valueRef *secrets.ValueRef
+		var (
+			valueRef    *secrets.ValueRef
+			backendName *string
+		)
 		if doc.ValueRef != nil {
 			valueRef = &secrets.ValueRef{
 				BackendID:  doc.ValueRef.BackendID,
 				RevisionID: doc.ValueRef.RevisionID,
 			}
+			if doc.ValueRef.BackendID != s.st.modelUUID() {
+				name, ok := backendNames[doc.ValueRef.BackendID]
+				if !ok {
+					var backendDoc secretBackendDoc
+					err := secretBackendsColl.FindId(doc.ValueRef.BackendID).One(&backendDoc)
+					if err == nil {
+						name = backendDoc.Name
+					} else {
+						name = "unknown"
+					}
+					backendNames[doc.ValueRef.BackendID] = name
+				}
+				backendName = &name
+			}
 		}
 		result[i] = &secrets.SecretRevisionMetadata{
-			Revision:   doc.Revision,
-			ValueRef:   valueRef,
-			CreateTime: doc.CreateTime,
-			UpdateTime: doc.UpdateTime,
-			ExpireTime: doc.ExpireTime,
+			Revision:    doc.Revision,
+			ValueRef:    valueRef,
+			BackendName: backendName,
+			CreateTime:  doc.CreateTime,
+			UpdateTime:  doc.UpdateTime,
+			ExpireTime:  doc.ExpireTime,
 		}
 	}
 	return result, nil
