@@ -264,7 +264,7 @@ func (st *State) cleanupResourceBlob(storagePath string) error {
 		return nil
 	}
 
-	storage := statestorage.NewStorage(st.modelUUID(), st.MongoSession())
+	storage := statestorage.NewStorage(st.ModelUUID(), st.MongoSession())
 	err := storage.Remove(storagePath)
 	if errors.IsNotFound(err) {
 		return nil

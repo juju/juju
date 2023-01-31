@@ -3616,7 +3616,7 @@ func (s *upgradesSuite) TestConvertAddressSpaceIDs(c *gc.C) {
 	mod := s.makeModel(c, "the-model", coretesting.Attrs{})
 	defer func() { _ = mod.Close() }()
 
-	uuid := mod.modelUUID()
+	uuid := mod.ModelUUID()
 	s.makeMachine(c, uuid, "0", Alive)
 	s.makeMachine(c, uuid, "1", Alive)
 
@@ -4928,12 +4928,12 @@ func (s *upgradesSuite) TestRemoveUnusedLinkLayerDeviceProviderIDs(c *gc.C) {
 	pidCol, pidCloser := s.state.db().GetRawCollection(providerIDsC)
 	defer pidCloser()
 
-	keepLLD := bson.M{"_id": model1.modelUUID() + ":linklayerdevice:keep"}
-	keepSubnet := bson.M{"_id": model1.modelUUID() + ":subnet:keep"}
+	keepLLD := bson.M{"_id": model1.ModelUUID() + ":linklayerdevice:keep"}
+	keepSubnet := bson.M{"_id": model1.ModelUUID() + ":subnet:keep"}
 	docs := []interface{}{
 		keepLLD,
 		keepSubnet,
-		bson.M{"_id": model1.modelUUID() + ":linklayerdevice:delete"},
+		bson.M{"_id": model1.ModelUUID() + ":linklayerdevice:delete"},
 	}
 	err := pidCol.Insert(docs...)
 	c.Assert(err, jc.ErrorIsNil)
@@ -5227,16 +5227,16 @@ func (s *upgradesSuite) TestUpdateDHCPAddressConfigs(c *gc.C) {
 	defer closer()
 
 	docs := []interface{}{
-		bson.M{"_id": model1.modelUUID() + ":m#0#d#eth0#ip#10.10.10.10", "config-method": "dynamic"},
-		bson.M{"_id": model1.modelUUID() + ":m#1#d#eth1#ip#20.20.20.20", "config-method": network.ConfigStatic},
+		bson.M{"_id": model1.ModelUUID() + ":m#0#d#eth0#ip#10.10.10.10", "config-method": "dynamic"},
+		bson.M{"_id": model1.ModelUUID() + ":m#1#d#eth1#ip#20.20.20.20", "config-method": network.ConfigStatic},
 	}
 	err := col.Insert(docs...)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The first of the docs has an upgraded config method.
 	s.assertUpgradedData(c, UpdateDHCPAddressConfigs, upgradedData(col, []bson.M{
-		{"_id": model1.modelUUID() + ":m#0#d#eth0#ip#10.10.10.10", "config-method": string(network.ConfigDHCP)},
-		{"_id": model1.modelUUID() + ":m#1#d#eth1#ip#20.20.20.20", "config-method": string(network.ConfigStatic)},
+		{"_id": model1.ModelUUID() + ":m#0#d#eth0#ip#10.10.10.10", "config-method": string(network.ConfigDHCP)},
+		{"_id": model1.ModelUUID() + ":m#1#d#eth1#ip#20.20.20.20", "config-method": string(network.ConfigStatic)},
 	}))
 }
 
@@ -5930,8 +5930,8 @@ func (s *upgradesSuite) TestRemoveOrphanedLinkLayerDevices(c *gc.C) {
 
 	// Only the link-layer data for the second machine should be retained.
 	devExp := bsonMById{{
-		"_id":               ensureModelUUID(s.state.modelUUID(), fmt.Sprintf("m#%s#d#eth0", m1.Id())),
-		"model-uuid":        s.state.modelUUID(),
+		"_id":               ensureModelUUID(s.state.ModelUUID(), fmt.Sprintf("m#%s#d#eth0", m1.Id())),
+		"model-uuid":        s.state.ModelUUID(),
 		"is-auto-start":     false,
 		"is-up":             false,
 		"mac-address":       "",
@@ -5944,8 +5944,8 @@ func (s *upgradesSuite) TestRemoveOrphanedLinkLayerDevices(c *gc.C) {
 	}}
 
 	addrExp := bsonMById{{
-		"_id":           ensureModelUUID(s.state.modelUUID(), fmt.Sprintf("m#%s#d#eth0#ip#192.168.0.99", m1.Id())),
-		"model-uuid":    s.state.modelUUID(),
+		"_id":           ensureModelUUID(s.state.ModelUUID(), fmt.Sprintf("m#%s#d#eth0#ip#192.168.0.99", m1.Id())),
+		"model-uuid":    s.state.ModelUUID(),
 		"config-method": "",
 		"device-name":   "eth0",
 		"machine-id":    m1.Id(),
@@ -6018,7 +6018,7 @@ func (s *upgradesSuite) TestUpdateExternalControllerInfo(c *gc.C) {
 			"endpoints":              []interface{}{},
 			"is-consumer-proxy":      false,
 			"life":                   0,
-			"model-uuid":             model0.modelUUID(),
+			"model-uuid":             model0.ModelUUID(),
 			"name":                   "remote-application",
 			"offer-uuid":             "",
 			"relationcount":          0,
@@ -6032,7 +6032,7 @@ func (s *upgradesSuite) TestUpdateExternalControllerInfo(c *gc.C) {
 			"endpoints":              []interface{}{},
 			"is-consumer-proxy":      false,
 			"life":                   0,
-			"model-uuid":             model0.modelUUID(),
+			"model-uuid":             model0.ModelUUID(),
 			"name":                   "remote-application2",
 			"offer-uuid":             "",
 			"relationcount":          0,
@@ -6046,7 +6046,7 @@ func (s *upgradesSuite) TestUpdateExternalControllerInfo(c *gc.C) {
 			"endpoints":              []interface{}{},
 			"is-consumer-proxy":      false,
 			"life":                   0,
-			"model-uuid":             model0.modelUUID(),
+			"model-uuid":             model0.ModelUUID(),
 			"name":                   "remote-application3",
 			"offer-uuid":             "",
 			"relationcount":          0,
@@ -6060,7 +6060,7 @@ func (s *upgradesSuite) TestUpdateExternalControllerInfo(c *gc.C) {
 			"endpoints":              []interface{}{},
 			"is-consumer-proxy":      true,
 			"life":                   0,
-			"model-uuid":             model0.modelUUID(),
+			"model-uuid":             model0.ModelUUID(),
 			"name":                   "remote-application4",
 			"offer-uuid":             "",
 			"relationcount":          0,
@@ -6074,7 +6074,7 @@ func (s *upgradesSuite) TestUpdateExternalControllerInfo(c *gc.C) {
 			"endpoints":              []interface{}{},
 			"is-consumer-proxy":      false,
 			"life":                   0,
-			"model-uuid":             model1.modelUUID(),
+			"model-uuid":             model1.ModelUUID(),
 			"name":                   "remote-application5",
 			"offer-uuid":             "",
 			"relationcount":          0,
@@ -6156,7 +6156,7 @@ func (s *upgradesSuite) TestUpdateExternalControllerInfoFixRefCount(c *gc.C) {
 			"endpoints":              []interface{}{},
 			"is-consumer-proxy":      false,
 			"life":                   0,
-			"model-uuid":             model0.modelUUID(),
+			"model-uuid":             model0.ModelUUID(),
 			"name":                   "remote-application",
 			"offer-uuid":             "",
 			"relationcount":          0,
@@ -6170,7 +6170,7 @@ func (s *upgradesSuite) TestUpdateExternalControllerInfoFixRefCount(c *gc.C) {
 			"endpoints":              []interface{}{},
 			"is-consumer-proxy":      false,
 			"life":                   0,
-			"model-uuid":             model0.modelUUID(),
+			"model-uuid":             model0.ModelUUID(),
 			"name":                   "remote-application2",
 			"offer-uuid":             "",
 			"relationcount":          0,

@@ -293,8 +293,8 @@ func createModelBlockOps(mb modelBackend, t BlockType, msg string) ([]txn.Op, er
 	// need to change format.
 	newDoc := blockDoc{
 		DocID:     mb.docID(id),
-		ModelUUID: mb.modelUUID(),
-		Tag:       names.NewModelTag(mb.modelUUID()).String(),
+		ModelUUID: mb.ModelUUID(),
+		Tag:       names.NewModelTag(mb.ModelUUID()).String(),
 		Type:      t,
 		Message:   msg,
 	}

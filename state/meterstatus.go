@@ -132,7 +132,7 @@ func (u *Unit) SetMeterStatus(codeStr, info string) error {
 // createMeterStatusOp returns the operation needed to create the meter status
 // document associated with the given globalKey.
 func createMeterStatusOp(mb modelBackend, globalKey string, doc *meterStatusDoc) txn.Op {
-	doc.ModelUUID = mb.modelUUID()
+	doc.ModelUUID = mb.ModelUUID()
 	return txn.Op{
 		C:      meterStatusC,
 		Id:     mb.docID(globalKey),
