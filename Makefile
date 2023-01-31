@@ -132,17 +132,17 @@ endif
 
 # Allow the tests to take longer on restricted platforms.
 ifeq ($(shell echo "${GOARCH}" | sed -E 's/.*(arm|arm64|ppc64le|ppc64|s390x).*/golang/'), golang)
-	TEST_TIMEOUT := 5400s
+	TEST_TIMEOUT ?= 5400s
 else
-	TEST_TIMEOUT := 2700s
+	TEST_TIMEOUT ?= 2700s
 endif
-TEST_TIMEOUT:=$(TEST_TIMEOUT)
+TEST_TIMEOUT := $(TEST_TIMEOUT)
 
 # Limit concurrency on s390x.
 ifeq ($(shell echo "${GOARCH}" | sed -E 's/.*(s390x).*/golang/'), golang)
-	TEST_ARGS := -p 4
+	TEST_ARGS ?= -p 4
 else
-	TEST_ARGS :=
+	TEST_ARGS ?=
 endif
 
 # Enable coverage testing.
@@ -388,13 +388,13 @@ endef
 
 .PHONY: run-tests
 # Can't make the length of the TMP dir too long or it hits socket name length issues.
-run-tests:
+run-tests: dqlite-deps-check
 ## run-tests: Run the unit tests
 	$(eval TMP := $(shell mktemp -d $${TMPDIR:-/tmp}/jj-XXX))
 	$(eval TEST_PACKAGES := $(shell go list $(PROJECT)/... | sort | ([ -f "$(TEST_PACKAGE_LIST)" ] && comm -12 "$(TEST_PACKAGE_LIST)" - || cat) | grep -v $(PROJECT)$$ | grep -v $(PROJECT)/vendor/ | grep -v $(PROJECT)/acceptancetests/ | grep -v $(PROJECT)/generate/ | grep -v mocks))
 	@echo 'go test -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $$TEST_PACKAGES -check.v'
 	@TMPDIR=$(TMP) \
-		PATH=${PATH}:/usr/local/musl/bin \
+		PATH=${PATH}:${MUSL_BIN_PATH} \
 		CC="musl-gcc" \
 		CGO_CFLAGS="-I${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}/include" \
 		CGO_LDFLAGS="-L${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} -luv -lraft -ldqlite -llz4 -lsqlite3" \
@@ -404,12 +404,12 @@ run-tests:
 		go test -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(TEST_PACKAGES) -check.v
 	@rm -r $(TMP)
 
-run-go-tests:
+run-go-tests: dqlite-deps-check
 ## run-go-tests: Run the unit tests
 	$(eval TEST_PACKAGES ?= "./...")
 	$(eval TEST_FILTER ?= "")
 	@echo 'go test -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $$TEST_PACKAGES -check.v -check.f $(TEST_FILTER)'
-	@PATH=${PATH}:/usr/local/musl/bin \
+	@PATH=${PATH}:${MUSL_BIN_PATH} \
 		CC="musl-gcc" \
 		CGO_CFLAGS="-I${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}/include" \
 		CGO_LDFLAGS="-L${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} -luv -lraft -ldqlite -llz4 -lsqlite3" \
