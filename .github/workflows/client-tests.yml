@@ -56,7 +56,9 @@ jobs:
 
     - name: "Test client"
       run: |
+        sudo make musl-install
+
         # Jenkins can perform the full jujud testing.
-        CGO_ENABLED=1 CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" go test -v ./cmd/juju/... -check.v -coverprofile=coverage.txt -covermode=atomic -timeout=15m
-        CGO_ENABLED=1 CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" go test -v ./cmd/plugins/... -check.v
+        TEST_PACKAGES=./cmd/juju/... COVERAGE_CHECK=1 TEST_TIMEOUT="15m" make run-go-tests
+        TEST_PACKAGES=./cmd/plugins/... COVERAGE_CHECK=1 TEST_TIMEOUT="15m" make run-go-tests
       shell: bash
