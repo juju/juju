@@ -61,8 +61,8 @@ run_deploy_caas_workload() {
 	juju deploy mattermost-k8s
 	juju relate mattermost-k8s postgresql-k8s:db
 
-	wait_for "active" '.applications["mariadb-k8s"] | ."application-status".current' 300
-	wait_for "active" '.applications["mediawiki-k8s"] | ."application-status".current'
+	wait_for "postgresql-k8s" "$(idle_condition "postgresql-k8s" 1)"
+	wait_for "mattermost-k8s" "$(idle_condition "mattermost-k8s" 0)"
 
 	destroy_model "${model_name}"
 }
