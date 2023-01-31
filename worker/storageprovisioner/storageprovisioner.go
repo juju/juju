@@ -4,6 +4,8 @@
 package storageprovisioner
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/worker/v3"
@@ -14,6 +16,13 @@ import (
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/worker/storageprovisioner/internal/schedule"
+)
+
+var (
+	// defaultDependentChangesTimeout is the default timeout for waiting for any
+	// dependent changes to occur before proceeding with a storage provisioner.
+	// This is a variable so it can be overridden in tests (sigh).
+	defaultDependentChangesTimeout = time.Second
 )
 
 // logger is here to stop the desire of creating a package level logger.
@@ -315,6 +324,14 @@ func (w *storageProvisioner) loop() error {
 			if !ok {
 				return errors.New("volume attachments watcher closed")
 			}
+			// Process volume changes before volume attachments changes.
+			// This is because volume attachments are dependent on
+			// volumes, and reveals itself during a reboot of a machine. All
+			// the watcher changes come at once, but the order of the select
+			// case statements is not guaranteed.
+			if err := w.processDependentChanges(&ctx, volumesChanges, volumesChanged); err != nil {
+				return errors.Trace(err)
+			}
 			if err := volumeAttachmentsChanged(&ctx, changes); err != nil {
 				return errors.Trace(err)
 			}
@@ -336,6 +353,14 @@ func (w *storageProvisioner) loop() error {
 			if !ok {
 				return errors.New("filesystem attachments watcher closed")
 			}
+			// Process filesystem changes before filesystem attachments changes.
+			// This is because filesystem attachments are dependent on
+			// filesystems, and reveals itself during a reboot of a machine. All
+			// the watcher changes come at once, but the order of the select
+			// case statements is not guaranteed.
+			if err := w.processDependentChanges(&ctx, filesystemsChanges, filesystemsChanged); err != nil {
+				return errors.Trace(err)
+			}
 			if err := filesystemAttachmentsChanged(&ctx, changes); err != nil {
 				return errors.Trace(err)
 			}
@@ -355,6 +380,29 @@ func (w *storageProvisioner) loop() error {
 			if err := processSchedule(&ctx); err != nil {
 				return errors.Trace(err)
 			}
+		}
+	}
+}
+
+// processDependentChanges processes changes from a watcher strings channel. If
+// there are any changes, it calls the given function, repeating until there are
+// no more changes.
+// If there are no changes, it returns with no error.
+func (w *storageProvisioner) processDependentChanges(ctx *context, source watcher.StringsChannel, fn func(*context, []string) error) error {
+	for {
+		select {
+		case <-w.catacomb.Dying():
+			return w.catacomb.ErrDying()
+		case changes, ok := <-source:
+			if !ok {
+				return errors.New("watcher closed")
+			}
+			if err := fn(ctx, changes); err != nil {
+				return errors.Trace(err)
+			}
+		case <-time.After(defaultDependentChangesTimeout):
+			// Nothing to do, we've waited long enough.
+			return nil
 		}
 	}
 }

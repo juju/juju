@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/rpc/params"
 )
 
 func SetObserver(p Provisioner, observer chan<- *config.Config) {
@@ -66,13 +67,17 @@ func GetCopyAvailabilityZoneMachines(p ProvisionerTask) []AvailabilityZoneMachin
 	return retvalues
 }
 
-func SetupToStartMachine(p ProvisionerTask, machine apiprovisioner.MachineProvisioner, version *version.Number) (
-	environs.StartInstanceParams,
-	error,
-) {
-	return p.(*provisionerTask).setupToStartMachine(machine, version)
+func SetupToStartMachine(
+	p ProvisionerTask,
+	machine apiprovisioner.MachineProvisioner,
+	version *version.Number,
+	pInfoResult params.ProvisioningInfoResult,
+) (environs.StartInstanceParams, error) {
+	return p.(*provisionerTask).setupToStartMachine(machine, version, pInfoResult)
 }
 
-func MachineSupportsContainers(cfg ContainerManifoldConfig, pr ContainerMachineGetter, mTag names.MachineTag) (ContainerMachine, error) {
+func MachineSupportsContainers(
+	cfg ContainerManifoldConfig, pr ContainerMachineGetter, mTag names.MachineTag,
+) (ContainerMachine, error) {
 	return cfg.machineSupportsContainers(pr, mTag)
 }
