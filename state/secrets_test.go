@@ -972,11 +972,18 @@ func (s *SecretsSuite) TestListSecretRevisions(c *gc.C) {
 		LeaderToken: &fakeToken{},
 		Data:        newData,
 	})
+
+	backendStore := state.NewSecretBackends(s.State)
+	backendID, err := backendStore.CreateSecretBackend(state.CreateSecretBackendParams{
+		Name:        "myvault",
+		BackendType: "vault",
+	})
+	c.Assert(err, jc.ErrorIsNil)
 	updateTime := s.Clock.Now().Round(time.Second).UTC()
 	s.assertUpdatedSecret(c, md, 3, state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
 		ValueRef: &secrets.ValueRef{
-			BackendID:  "backend-id",
+			BackendID:  backendID,
 			RevisionID: "rev-id",
 		},
 	})
@@ -998,11 +1005,12 @@ func (s *SecretsSuite) TestListSecretRevisions(c *gc.C) {
 	}, {
 		Revision: 3,
 		ValueRef: &secrets.ValueRef{
-			BackendID:  "backend-id",
+			BackendID:  backendID,
 			RevisionID: "rev-id",
 		},
-		CreateTime: updateTime2,
-		UpdateTime: updateTime2,
+		BackendName: ptr("myvault"),
+		CreateTime:  updateTime2,
+		UpdateTime:  updateTime2,
 	}})
 }
 

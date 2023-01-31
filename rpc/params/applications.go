@@ -286,6 +286,12 @@ type UpdateApplicationServiceArg struct {
 	Generation *int64 `json:"generation,omitempty"`
 }
 
+// ApplicationDestroy holds the parameters for making the deprecated
+// Application.Destroy call.
+type ApplicationDestroy struct {
+	ApplicationName string `json:"application"`
+}
+
 // DestroyApplicationsParams holds bulk parameters for the
 // Application.DestroyApplication call.
 type DestroyApplicationsParamsV15 struct {

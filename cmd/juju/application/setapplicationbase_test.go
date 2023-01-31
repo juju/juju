@@ -12,62 +12,63 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/application"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 )
 
-type setSeriesSuite struct {
+type setApplicationBaseSuite struct {
 	testing.IsolationSuite
-	mockApplicationAPI *mockSetApplicationSeriesAPI
+	mockApplicationAPI *mockSetApplicationBaseAPI
 }
 
-var _ = gc.Suite(&setSeriesSuite{})
+var _ = gc.Suite(&setApplicationBaseSuite{})
 
-func (s *setSeriesSuite) SetUpTest(c *gc.C) {
+func (s *setApplicationBaseSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.mockApplicationAPI = &mockSetApplicationSeriesAPI{Stub: &testing.Stub{}}
+	s.mockApplicationAPI = &mockSetApplicationBaseAPI{Stub: &testing.Stub{}}
 }
 
-func (s *setSeriesSuite) runUpdateSeries(c *gc.C, args ...string) (*cmd.Context, error) {
+func (s *setApplicationBaseSuite) runSetApplicationBase(c *gc.C, args ...string) (*cmd.Context, error) {
 	store := jujuclienttesting.MinimalStore()
-	return cmdtesting.RunCommand(c, application.NewSetSeriesCommandForTest(s.mockApplicationAPI, store), args...)
+	return cmdtesting.RunCommand(c, application.NewSetApplicationBaseCommandForTest(s.mockApplicationAPI, store), args...)
 }
 
-func (s *setSeriesSuite) TestSetSeriesApplicationGoodPath(c *gc.C) {
-	_, err := s.runUpdateSeries(c, "ghost", "xenial")
+func (s *setApplicationBaseSuite) TestSetSeriesApplicationGoodPath(c *gc.C) {
+	_, err := s.runSetApplicationBase(c, "ghost", "ubuntu@20.04")
 	c.Assert(err, jc.ErrorIsNil)
-	s.mockApplicationAPI.CheckCall(c, 0, "UpdateApplicationBase", "ghost", "xenial", false)
+	s.mockApplicationAPI.CheckCall(c, 0, "UpdateApplicationBase", "ghost", series.MustParseBaseFromString("ubuntu@20.04"), false)
 }
 
-func (s *setSeriesSuite) TestNoArguments(c *gc.C) {
-	_, err := s.runUpdateSeries(c)
-	c.Assert(err, gc.ErrorMatches, "application name and series required")
+func (s *setApplicationBaseSuite) TestNoArguments(c *gc.C) {
+	_, err := s.runSetApplicationBase(c)
+	c.Assert(err, gc.ErrorMatches, "application name and base required")
 }
 
-func (s *setSeriesSuite) TestArgumentsSeriesOnly(c *gc.C) {
-	_, err := s.runUpdateSeries(c, "ghost")
-	c.Assert(err, gc.ErrorMatches, "no series specified")
+func (s *setApplicationBaseSuite) TestArgumentsSeriesOnly(c *gc.C) {
+	_, err := s.runSetApplicationBase(c, "ghost")
+	c.Assert(err, gc.ErrorMatches, "no base specified")
 }
 
-func (s *setSeriesSuite) TestArgumentsApplicationOnly(c *gc.C) {
-	_, err := s.runUpdateSeries(c, "xenial")
+func (s *setApplicationBaseSuite) TestArgumentsApplicationOnly(c *gc.C) {
+	_, err := s.runSetApplicationBase(c, "ubuntu@20.04")
 	c.Assert(err, gc.ErrorMatches, "no application name")
 }
 
-func (s *setSeriesSuite) TestTooManyArguments(c *gc.C) {
-	_, err := s.runUpdateSeries(c, "ghost", "xenial", "something else")
+func (s *setApplicationBaseSuite) TestTooManyArguments(c *gc.C) {
+	_, err := s.runSetApplicationBase(c, "ghost", "ubuntu@20.04", "something else")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["something else"\]`, gc.Commentf("details: %s", errors.Details(err)))
 }
 
-type mockSetApplicationSeriesAPI struct {
+type mockSetApplicationBaseAPI struct {
 	*testing.Stub
 }
 
-func (a *mockSetApplicationSeriesAPI) Close() error {
+func (a *mockSetApplicationBaseAPI) Close() error {
 	a.MethodCall(a, "Close")
 	return a.NextErr()
 }
 
-func (a *mockSetApplicationSeriesAPI) UpdateApplicationBase(appName, series string, force bool) error {
+func (a *mockSetApplicationBaseAPI) UpdateApplicationBase(appName string, series series.Base, force bool) error {
 	a.MethodCall(a, "UpdateApplicationBase", appName, series, force)
 	return a.NextErr()
 }

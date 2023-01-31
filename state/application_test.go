@@ -5442,6 +5442,32 @@ func (s *ApplicationSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {
 		Charm: ch3,
 		CharmOrigin: &state.CharmOrigin{
 			Source: "charm-hub",
+			ID:     "charm-hub-id",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// Simulate a bundle deploying multiple applications from a single
+	// charm. The watcher needs to notify on the secondary applications.
+	appSameCharm, err := s.State.AddApplication(state.AddApplicationArgs{
+		Name:  "mysql-testing",
+		Charm: ch3,
+		CharmOrigin: &state.CharmOrigin{
+			Source: "charm-hub",
+			Platform: &state.Platform{
+				OS:      "ubuntu",
+				Channel: "22.04/stable",
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(appSameCharm.Name())
+	_ = appSameCharm.SetCharm(state.SetCharmConfig{
+		Charm: ch3,
+		CharmOrigin: &state.CharmOrigin{
+			Source: "charm-hub",
+			ID:     "charm-hub-id",
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)

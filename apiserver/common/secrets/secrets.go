@@ -107,17 +107,18 @@ func backendsForModel(model Model) (configs map[string]provider.BackendConfig, a
 }
 
 // AdminBackendConfigInfo returns admin config for secret backends used by the model.
-func AdminBackendConfigInfo(model Model) (*provider.ModelBackendConfigInfo, string, error) {
+func AdminBackendConfigInfo(model Model) (*provider.ModelBackendConfigInfo, error) {
 	configs, activeID, err := backendsForModel(model)
 	if err != nil {
-		return nil, "", errors.Annotate(err, "getting configured secrets providers")
+		return nil, errors.Annotate(err, "getting configured secrets providers")
 	}
 	return &provider.ModelBackendConfigInfo{
 		ControllerUUID: model.ControllerUUID(),
 		ModelUUID:      model.UUID(),
 		ModelName:      model.Name(),
 		Configs:        configs,
-	}, activeID, nil
+		ActiveID:       activeID,
+	}, nil
 }
 
 // BackendConfigInfo returns the config to create a secret backend.
@@ -128,11 +129,11 @@ func AdminBackendConfigInfo(model Model) (*provider.ModelBackendConfigInfo, stri
 // The result includes config for all relevant backends, including the id
 // of the current active backend.
 func BackendConfigInfo(model Model, authTag names.Tag, leadershipChecker leadership.Checker) (*provider.ModelBackendConfigInfo, error) {
-	configs, activeID, err := AdminBackendConfigInfo(model)
+	configs, err := AdminBackendConfigInfo(model)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting configured secrets providers")
 	}
-	activeCfg := configs.Configs[activeID]
+	activeCfg := configs.Configs[configs.ActiveID]
 	adminModelCfg := &provider.ModelBackendConfig{
 		ControllerUUID: model.ControllerUUID(),
 		ModelUUID:      model.UUID(),
@@ -224,7 +225,7 @@ func BackendConfigInfo(model Model, authTag names.Tag, leadershipChecker leaders
 		ControllerUUID: model.ControllerUUID(),
 		ModelUUID:      model.UUID(),
 		ModelName:      model.Name(),
-		ActiveID:       activeID,
+		ActiveID:       configs.ActiveID,
 		Configs:        clientConfigs,
 	}
 	return info, nil
@@ -253,41 +254,6 @@ func getExternalRevisions(backend state.SecretsStore, filter state.SecretsFilter
 		}
 	}
 	return nil
-}
-
-// BackendForInspect returns the config to create a secret backend client able
-// to read any secrets for that model.
-// This is called by the show-secret facade for admin users.
-func BackendForInspect(model Model, backendID string) (provider.SecretsBackend, error) {
-	backendStorage := GetSecretBackendsState(model)
-	backend, err := backendStorage.GetSecretBackendByID(backendID)
-	if err != nil {
-		return nil, errors.Annotatef(err, "getting secrets backend %q", backendID)
-	}
-	p, err := GetProvider(backend.BackendType)
-	if err != nil {
-		return nil, errors.Annotatef(err, "getting %q secrets provider for backend %q", backend.BackendType, backendID)
-	}
-	adminCfg := provider.ModelBackendConfig{
-		ControllerUUID: model.ControllerUUID(),
-		ModelUUID:      model.UUID(),
-		ModelName:      model.Name(),
-		BackendConfig: provider.BackendConfig{
-			BackendType: backend.BackendType,
-			Config:      backend.Config,
-		},
-	}
-
-	cfg, err := p.RestrictedConfig(&adminCfg, nil, nil, nil)
-	if err != nil {
-		return nil, errors.Annotate(err, "creating secrets backend config")
-	}
-	return p.NewBackend(&provider.ModelBackendConfig{
-		ControllerUUID: model.ControllerUUID(),
-		ModelUUID:      model.UUID(),
-		ModelName:      model.Name(),
-		BackendConfig:  *cfg,
-	})
 }
 
 func cloudSpecForModel(m Model) (cloudspec.CloudSpec, error) {
