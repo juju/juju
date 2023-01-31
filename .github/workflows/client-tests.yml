@@ -12,10 +12,6 @@ on:
 permissions:
   contents: read
 
-env:
-  CGO_ENABLED: 1
-  CGO_LDFLAGS_ALLOW: "(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"
-
 jobs:
 
   test-client-ubuntu:
@@ -61,6 +57,6 @@ jobs:
     - name: "Test client"
       run: |
         # Jenkins can perform the full jujud testing.
-        go test -v ./cmd/juju/... -check.v -coverprofile=coverage.txt -covermode=atomic -timeout=15m
-        go test -v ./cmd/plugins/... -check.v
+        CGO_ENABLED=1 CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" go test -v ./cmd/juju/... -check.v -coverprofile=coverage.txt -covermode=atomic -timeout=15m
+        CGO_ENABLED=1 CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" go test -v ./cmd/plugins/... -check.v
       shell: bash
