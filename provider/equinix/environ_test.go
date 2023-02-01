@@ -648,7 +648,8 @@ func (*EquinixUtils) TestWaitDeviceActive_ReturnFailed(c *gc.C) {
 		State: "failed",
 	}, nil, nil).Times(1)
 	cl.Devices = device
-	waitDeviceActive(environContext.NewEmptyCloudCallContext(), cl, "100")
+	_, err := waitDeviceActive(environContext.NewEmptyCloudCallContext(), cl, "100")
+	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }
 
 func (*EquinixUtils) TestIsDistroSupported(c *gc.C) {
