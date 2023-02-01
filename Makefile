@@ -227,8 +227,8 @@ define run_cgo_build
 			-mod=$(JUJU_GOMOD_MODE) \
 			-o ${BBIN_DIR} \
 			-tags "$(BUILD_TAGS)" \
-			$(COMPILE_FLAGS) \
-			-ldflags $(LINK_FLAGS) \
+			${COMPILE_FLAGS} \
+			-ldflags ${CGO_LINK_FLAGS} \
 			-v ${PACKAGE}
 endef
 

@@ -69,7 +69,60 @@ parts:
   wrappers:
     plugin: dump
     source: snap/local
+
+  dqlite:
+    source: https://dqlite-static-libs.s3.amazonaws.com/latest-dqlite-deps-amd64.tar.bz2
+    plugin: dump
+    source-type: tar
+
+  jujud:
+    after:
+      - dqlite
+    plugin: nil
+    source: .
+    build-packages:
+      - musl-dev
+      - musl-tools
+    build-snaps:
+      - go
+    override-pull: |
+      snapcraftctl pull
+      set -ex
+
+      # Setup build environment
+      export GOPATH=$(realpath ./.go)
+
+      # Setup the GOPATH
+      rm -Rf "${GOPATH}"
+      mkdir -p "${GOPATH}/src/github.com/juju"
+      ln -s "$(pwd)" "${GOPATH}/src/github.com/juju/juju"
+
+      go mod download
+    override-build: |
+      # Setup build environment
+      export GOPATH=$(realpath ./.go)
+
+      mkdir -p /usr/local/musl/include
+
+      ln -s /usr/include/$(uname -m)-linux-gnu/asm /usr/local/musl/include/asm || true
+      ln -s /usr/include/asm-generic /usr/local/musl/include/asm-generic || true
+      ln -s /usr/include/linux /usr/local/musl/include/linux || true
+
+      CC="musl-gcc" \
+        CGO_CFLAGS="-I${SNAPCRAFT_STAGE}/include -I/usr/local/musl/include" \
+        CGO_LDFLAGS="-L${SNAPCRAFT_STAGE} -luv -lraft -ldqlite -llz4 -lsqlite3" \
+        CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
+        LD_LIBRARY_PATH="${SNAPCRAFT_STAGE}" \
+        CGO_ENABLED=1 \
+        go build \
+          -mod=readonly \
+          -o ${SNAPCRAFT_PART_INSTALL}/bin/jujud \
+          -ldflags "-s -w -linkmode 'external' -extldflags '-static' -X github.com/juju/juju/version.GitCommit= -X github.com/juju/juju/version.GitTreeState= -X github.com/juju/juju/version.build= " \
+          github.com/juju/juju/cmd/jujud
+
   juju:
+    after:
+      - jujud
     # TODO(hpidcock): move to upstream go plugin when it has the features we need.
     plugin: juju-go
     go-channel: 1.18/stable
@@ -89,10 +142,7 @@ parts:
     # apply patches before building
     go-packages:
       - github.com/juju/juju/cmd/juju
-      # If you are releasing a build with public streams, you don't need to build the agent
-      # Instead, you should use the released agent
       - github.com/juju/juju/cmd/jujuc
-      - github.com/juju/juju/cmd/jujud
       - github.com/juju/juju/cmd/plugins/juju-metadata
     # go-external-strings is not supported by the standard go plugin.
     # these strings are filled in by CI.
@@ -107,12 +157,12 @@ parts:
     override-build: |
       snapcraftctl build
 
-      mkdir -p $SNAPCRAFT_PART_INSTALL/bash_completions
-      cp -a etc/bash_completion.d/juju* $SNAPCRAFT_PART_INSTALL/bash_completions/.
+      mkdir -p ${SNAPCRAFT_PART_INSTALL}/bash_completions
+      cp -a etc/bash_completion.d/juju* ${SNAPCRAFT_PART_INSTALL}/bash_completions/.
       # If you are releasing a build with public streams, copy in the agent directly
       # If needed, grab the agent from streams
-      # curl http://streams.canonical.com/juju/tools/agent/$SNAPCRAFT_PROJECT_VERSION/juju-$SNAPCRAFT_PROJECT_VERSION-ubuntu-amd64.tgz | tar xz -C $SNAPCRAFT_PART_INSTALL/bin/
-      jujud=$SNAPCRAFT_PART_INSTALL/bin/jujud
+      # curl http://streams.canonical.com/juju/tools/agent/$SNAPCRAFT_PROJECT_VERSION/juju-$SNAPCRAFT_PROJECT_VERSION-ubuntu-amd64.tgz | tar xz -C ${SNAPCRAFT_PART_INSTALL}/bin/
+      jujud=${SNAPCRAFT_STAGE}/bin/jujud
       version=$($jujud version)
       hash=$(sha256sum $jujud | cut -d " " -f 1)
       cat > jujud-versions.yaml <<EOF
@@ -120,7 +170,7 @@ parts:
         - version: $version
           sha256: $hash
       EOF
-      cp -a jujud-versions.yaml $SNAPCRAFT_PART_INSTALL/bin
+      cp -a jujud-versions.yaml ${SNAPCRAFT_PART_INSTALL}/bin
     stage-packages:
       - openssh-client
 
