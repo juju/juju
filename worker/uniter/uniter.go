@@ -162,6 +162,10 @@ type Uniter struct {
 	// shutdownChannel is passed to the remote state watcher. When true is
 	// sent on the channel, it causes the uniter to start the shutdown process.
 	shutdownChannel chan bool
+
+	// containerTerminator is the entity responsible for terminating the
+	// containers under management by this uniter.
+	containerTerminator container.Terminator
 }
 
 // UniterParams hold all the necessary parameters for a new Uniter.
@@ -200,6 +204,10 @@ type UniterParams struct {
 	EnforcedCharmModifiedVersion int
 	ContainerNames               []string
 	NewPebbleClient              NewPebbleClientFunc
+
+	// ContainerTerminator defines the terminator interface to use when
+	// ContainerNames is not empty.
+	ContainerTerminator container.Terminator
 }
 
 // NewOperationExecutorFunc is a func which returns an operations.Executor.
@@ -269,6 +277,7 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 			containerNames:                uniterParams.ContainerNames,
 			newPebbleClient:               uniterParams.NewPebbleClient,
 			shutdownChannel:               make(chan bool, 1),
+			containerTerminator:           uniterParams.ContainerTerminator,
 		}
 		plan := catacomb.Plan{
 			Site: &u.catacomb,
@@ -293,6 +302,15 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	defer func() {
 		// If this is a CAAS unit, then dead errors are fairly normal ways to exit
 		// the uniter main loop, but the parent operator agent needs to keep running.
+		if len(u.containerNames) > 0 && errors.Is(err, jworker.ErrTerminateAgent) {
+			u.logger.Infof("shutting down containers %v for unit %q", u.containerNames, unitTag.Id())
+			notShutdown, err := u.containerTerminator.ShutdownContainers(u.containerNames)
+			if err != nil {
+				u.logger.Errorf("failed shutting down containers %v for unit %q: %v",
+					notShutdown, unitTag.Id(), err)
+			}
+		}
+
 		errorString := "<unknown>"
 		if err != nil {
 			errorString = err.Error()

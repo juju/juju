@@ -55,6 +55,10 @@ const (
 	unitContainerName = "charm"
 	charmVolumeName   = "charm-data"
 
+	// gracePeriod is the default time allocated to pods to gracefully terminate
+	// on sigterm. Currently set to 30 minutes or 1800 seconds.
+	gracePeriod int64 = 1800
+
 	containerAgentPebblePort = "38812"
 	containerPebblePortStart = 38813 // Arbitrary, but PEBBLE -> P38813 -> Port 38813
 	// containerProbeInitialDelay is the initial delay in seconds before the probe starts.
@@ -70,7 +74,14 @@ const (
 )
 
 var (
+	// containerAgentPebbleVersion represents the Juju version that we started
+	// using pebble to run the container agent.
 	containerAgentPebbleVersion = version.MustParse("2.9.37")
+
+	// pebbleSigTermIgnoreVersion represents the Juju version where we
+	// introduced a new Pebble version to ignore sigterm from Kubernetes.
+	// See lp1951415
+	pebbleSigTermIgnoreVersion = version.MustParse("2.9.40")
 )
 
 type app struct {
@@ -1360,18 +1371,23 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 	}
 
 	for i, v := range containers {
+		pebbleArgs := []string{
+			"run",
+			"--create-dirs",
+			"--hold",
+			"--http", fmt.Sprintf(":%d", containerPebblePortStart+i),
+			"--verbose",
+		}
+		if config.AgentVersion.Compare(pebbleSigTermIgnoreVersion) >= 0 {
+			pebbleArgs = append(pebbleArgs, "--shutdown-signals", "USR1")
+		}
+
 		container := corev1.Container{
 			Name:            v.Name,
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			Image:           v.Image.RegistryPath,
 			Command:         []string{"/charm/bin/pebble"},
-			Args: []string{
-				"run",
-				"--create-dirs",
-				"--hold",
-				"--http", fmt.Sprintf(":%d", containerPebblePortStart+i),
-				"--verbose",
-			},
+			Args:            pebbleArgs,
 			Env: []corev1.EnvVar{{
 				Name:  "JUJU_CONTAINER_NAME",
 				Value: v.Name,
@@ -1455,12 +1471,16 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		}
 	}
 
+	podGracePeriod := gracePeriod
+	if config.AgentVersion.Compare(pebbleSigTermIgnoreVersion) < 0 {
+		podGracePeriod = 300
+	}
 	automountToken := true
 	spec := &corev1.PodSpec{
 		AutomountServiceAccountToken:  &automountToken,
 		ServiceAccountName:            a.serviceAccountName(),
 		ImagePullSecrets:              imagePullSecrets,
-		TerminationGracePeriodSeconds: pointer.Int64Ptr(300),
+		TerminationGracePeriodSeconds: pointer.Int64Ptr(podGracePeriod),
 		InitContainers: []corev1.Container{{
 			Name:            "charm-init",
 			ImagePullPolicy: corev1.PullIfNotPresent,

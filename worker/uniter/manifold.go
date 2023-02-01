@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/worker/common/reboot"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/uniter/charm"
+	"github.com/juju/juju/worker/uniter/container"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/resolver"
 	"github.com/juju/juju/worker/uniter/runner"
@@ -159,6 +160,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				Sidecar:                      config.Sidecar,
 				EnforcedCharmModifiedVersion: config.EnforcedCharmModifiedVersion,
 				ContainerNames:               config.ContainerNames,
+				ContainerTerminator:          container.NewTerminator(config.Sidecar),
 			})
 			if err != nil {
 				return nil, errors.Trace(err)

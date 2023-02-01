@@ -16,9 +16,20 @@ import (
 // might need to respond to that, perhaps by returning an error specific to
 // *its* host; depending on these values punching right through N layers (but
 // only when we want them to!) is kinda terrible.
-var (
-	ErrRestartAgent    = errors.New("agent should be restarted")
-	ErrTerminateAgent  = errors.New("agent should be terminated")
-	ErrRebootMachine   = errors.New("machine needs to reboot")
-	ErrShutdownMachine = errors.New("machine needs to shutdown")
+
+const (
+	// ErrRebootMachine indicates that the machine the agent is running on
+	// should be rebooted.
+	ErrRebootMachine = errors.ConstError("machine needs to reboot")
+
+	// ErrRestartAgent indicates that the agent should be
+	// restarted.
+	ErrRestartAgent = errors.ConstError("agent should be restarted")
+
+	// ErrShutdownMachine indicates the machine the agent is running on should
+	// be shutdown.
+	ErrShutdownMachine = errors.ConstError("machine needs to shutdown")
+
+	// ErrTerminateAgent indicates the agent should be terminated.
+	ErrTerminateAgent = errors.ConstError("agent should be terminated")
 )

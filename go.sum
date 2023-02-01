@@ -164,8 +164,8 @@ github.com/bketelsen/crypt v0.0.3-0.20200106085610-5cbc8cc4026c/go.mod h1:MKsuJm
 github.com/blang/semver v3.5.1+incompatible/go.mod h1:kRBLl5iJ+tD4TcOOxsy/0fnwebNt5EWlYSAyrTnjyyk=
 github.com/bmizerany/pat v0.0.0-20160217103242-c068ca2f0aac h1:X5YRFJiteUM3rajABEYJSzw1KWgmp1ulPFKxpfLm0M4=
 github.com/bmizerany/pat v0.0.0-20160217103242-c068ca2f0aac/go.mod h1:8rLXio+WjiTceGBHIoTvn60HIbs7Hm7bcHjyrSqYB9c=
-github.com/canonical/pebble v0.0.0-20221004042842-d7797bb9b104 h1:TQh8Yl5LkcWUr1A/09yWGLW1hYRO5OmE6zmb7aFI0Yg=
-github.com/canonical/pebble v0.0.0-20221004042842-d7797bb9b104/go.mod h1:qAIw8HY2rZZZ7QOhG9wD/4rtXvPJfvaOg+uWbhSABpc=
+github.com/canonical/x-go v0.0.0-20230113154138-0ccdb0b57a43 h1:bey1JgA3D2EBabr2a7kWKj+JlEPxX1akv8rcRromotA=
+github.com/canonical/x-go v0.0.0-20230113154138-0ccdb0b57a43/go.mod h1:A0/Jvt7qKuCDss37TYRNXSscVyS+tLWM5kBYipQOpWQ=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
 github.com/cespare/xxhash v1.1.0/go.mod h1:XrSqR1VqqWfGrhpAt58auRo0WTKS1nRRg3ghfAqPWnc=
 github.com/cespare/xxhash/v2 v2.1.1 h1:6MnRN8NT7+YBpUIWxHtefFZOKTAPgGjpQSxqLNn0+qY=
@@ -876,6 +876,8 @@ github.com/stretchr/testify v1.6.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/
 github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/stretchr/testify v1.8.0 h1:pSgiaMZlXftHpm5L7V1+rVB+AZJydKsMxsQBIJw4PKk=
 github.com/subosito/gotenv v1.2.0/go.mod h1:N0PQaV/YGNqwC0u51sEeR/aUtSLEXKX9iv69rRypqCw=
+github.com/tlm/pebble v0.0.0-20230131233641-2f4dace4504e h1:s5Qauj1bVv2ct/o1TH15Z66S8oSNWW1w/0JOjVUOyFM=
+github.com/tlm/pebble v0.0.0-20230131233641-2f4dace4504e/go.mod h1:j3uyWpPkuWf8u0kB2v7n/XGVpYIg4luGetpSngCvzac=
 github.com/tmc/grpc-websocket-proxy v0.0.0-20170815181823-89b8d40f7ca8/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
 github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
 github.com/tv42/httpunix v0.0.0-20150427012821-b75d8614f926/go.mod h1:9ESjWnEqriFuLhtthL60Sar/7RFoluCcXsuvEwTV5KM=

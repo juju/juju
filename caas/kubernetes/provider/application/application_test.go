@@ -1195,7 +1195,7 @@ func (s *applicationSuite) TestUpgradeStateful(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(c, app, false, constraints.Value{}, true, "2.9.34", func() {})
 
-	s.assertEnsure(c, app, false, constraints.Value{}, true, "2.9.37", func() {})
+	s.assertEnsure(c, app, false, constraints.Value{}, true, "2.9.40", func() {})
 
 	ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1208,6 +1208,27 @@ func (s *applicationSuite) TestUpgradeStateful(c *gc.C) {
 		"--data-dir", "/var/lib/juju",
 		"--bin-dir", "/charm/bin",
 	})
+
+	// Test upgrade changes for lp1951415
+	c.Assert(*ss.Spec.Template.Spec.TerminationGracePeriodSeconds, gc.Equals, int64(1800))
+
+	startPort := 38813
+	for _, container := range ss.Spec.Template.Spec.Containers {
+		if container.Name == "charm" {
+			// We don't need to check the charm container as it has different
+			// pebble args
+			continue
+		}
+		c.Assert(container.Args, jc.DeepEquals, []string{
+			"run",
+			"--create-dirs",
+			"--hold",
+			"--http", fmt.Sprintf(":%d", startPort),
+			"--verbose",
+			"--shutdown-signals", "USR1",
+		})
+		startPort++
+	}
 }
 
 func (s *applicationSuite) TestDeleteStateful(c *gc.C) {

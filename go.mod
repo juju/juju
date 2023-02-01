@@ -148,6 +148,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sso v1.2.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.4.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
+	github.com/canonical/x-go v0.0.0-20230113154138-0ccdb0b57a43 // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/evanphx/json-patch v4.12.0+incompatible // indirect
@@ -257,3 +258,5 @@ replace gopkg.in/yaml.v2 => github.com/juju/yaml/v2 v2.0.0
 replace github.com/dustin/go-humanize v1.0.0 => github.com/dustin/go-humanize v0.0.0-20141228071148-145fabdb1ab7
 
 replace github.com/hashicorp/raft-boltdb => github.com/juju/raft-boltdb v0.0.0-20200518034108-40b112c917c5
+
+replace github.com/canonical/pebble => github.com/tlm/pebble v0.0.0-20230131233641-2f4dace4504e
