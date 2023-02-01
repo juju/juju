@@ -4,11 +4,13 @@
 package agenttest
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
+	"github.com/juju/loggo"
 	"github.com/juju/mgo/v3"
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v4"
@@ -22,6 +24,7 @@ import (
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/database"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
@@ -36,6 +39,10 @@ import (
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/worker/peergrouper"
 )
+
+// TODO (stickupkid): Remove this once we have a better way of using a logger
+// in tests.
+var logger = loggo.GetLogger("juju.agenttest.agent")
 
 type patchingSuite interface {
 	PatchValue(interface{}, interface{})
@@ -107,6 +114,11 @@ func (f *FakeEnsureMongo) InitiateMongo(p peergrouper.InitiateMongoParams) error
 // AgentSuite is a fixture to be used by agent test suites.
 type AgentSuite struct {
 	testing.JujuConnSuite
+}
+
+func (s *AgentSuite) SetUpSuite(c *gc.C) {
+	s.JujuConnSuite.SetUpSuite(c)
+	s.PatchValue(&database.DefaultBindAddress, "127.0.0.1")
 }
 
 // PrimeAgent writes the configuration file and tools for an agent
@@ -191,6 +203,10 @@ func (s *AgentSuite) PrimeStateAgentVersion(c *gc.C, tag names.Tag, password str
 
 	conf := s.WriteStateAgentConfig(c, tag, password, vers, model.ModelTag())
 	s.primeAPIHostPorts(c)
+
+	err = database.BootstrapDqlite(context.TODO(), database.NewOptionFactory(conf, logger), logger)
+	c.Assert(err, jc.ErrorIsNil)
+
 	return conf, agentTools
 }
 
