@@ -213,6 +213,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 
 		// Secret backends are per controller.
 		secretBackendsC,
+		secretBackendsRotateC,
 	)
 
 	// THIS SET WILL BE REMOVED WHEN MIGRATIONS ARE COMPLETE

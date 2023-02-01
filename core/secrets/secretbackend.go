@@ -6,6 +6,8 @@ package secrets
 import (
 	"fmt"
 	"time"
+
+	"github.com/juju/errors"
 )
 
 // SecretBackend defines a secrets backend.
@@ -26,4 +28,15 @@ type ValueRef struct {
 
 func (r *ValueRef) String() string {
 	return fmt.Sprintf("%s:%s", r.BackendID, r.RevisionID)
+}
+
+// NextBackendRotateTime returns the next time a token rotate is due,
+// given the supplied rotate interval.
+func NextBackendRotateTime(now time.Time, rotateInterval time.Duration) (*time.Time, error) {
+	if rotateInterval > 0 && rotateInterval < time.Hour {
+		return nil, errors.NotValidf("token rotate interval %q less than 1h", rotateInterval)
+	}
+	// Rotate a reasonable time before the token is due to expire.
+	when := now.Add(time.Duration(0.75*rotateInterval.Seconds()) * time.Second)
+	return &when, nil
 }

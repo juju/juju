@@ -400,6 +400,68 @@ func (c SecretsTriggerWatcherC) AssertClosed() {
 	}
 }
 
+// SecretBackendRotateWatcherC embeds a gocheck.C and adds methods to help
+// verify the behaviour of any watcher that uses a
+// <-chan []SecretBackendRotateChange
+type SecretBackendRotateWatcherC struct {
+	*gc.C
+	Watcher SecretBackendRotateWatcher
+}
+
+// NewSecretBackendRotateWatcherC returns a SecretBackendRotateWatcherC that
+// checks for aggressive event coalescence.
+func NewSecretBackendRotateWatcherC(c *gc.C, w SecretBackendRotateWatcher) SecretBackendRotateWatcherC {
+	return SecretBackendRotateWatcherC{
+		C:       c,
+		Watcher: w,
+	}
+}
+
+type SecretBackendRotateWatcher interface {
+	Stop() error
+	Changes() watcher.SecretBackendRotateChannel
+}
+
+func (c SecretBackendRotateWatcherC) AssertNoChange() {
+	select {
+	case actual, ok := <-c.Watcher.Changes():
+		c.Fatalf("watcher sent unexpected change: (%v, %v)", actual, ok)
+	case <-time.After(testing.ShortWait):
+	}
+}
+
+// AssertChange asserts the given changes was reported by the watcher,
+// but does not assume there are no following changes.
+func (c SecretBackendRotateWatcherC) AssertChange(expect ...watcher.SecretBackendRotateChange) {
+	var received []watcher.SecretBackendRotateChange
+	timeout := time.After(testing.LongWait)
+	for a := testing.LongAttempt.Start(); a.Next(); {
+		select {
+		case actual, ok := <-c.Watcher.Changes():
+			c.Logf("Secrets Trigger Watcher.Changes() => %# v", actual)
+			c.Assert(ok, jc.IsTrue)
+			received = append(received, actual...)
+			if len(received) >= len(expect) {
+				mc := jc.NewMultiChecker()
+				mc.AddExpr(`_[_].NextTriggerTime`, jc.Almost, jc.ExpectedValue)
+				c.Assert(received, mc, expect)
+				return
+			}
+		case <-timeout:
+			c.Fatalf("watcher did not send change")
+		}
+	}
+}
+
+func (c SecretBackendRotateWatcherC) AssertClosed() {
+	select {
+	case _, ok := <-c.Watcher.Changes():
+		c.Assert(ok, jc.IsFalse)
+	default:
+		c.Fatalf("watcher not closed")
+	}
+}
+
 // MockNotifyWatcher implements state.NotifyWatcher.
 type MockNotifyWatcher struct {
 	tomb tomb.Tomb

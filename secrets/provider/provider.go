@@ -5,6 +5,7 @@ package provider
 
 import (
 	"sort"
+	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v4"
@@ -89,4 +90,15 @@ type SecretBackendProvider interface {
 	// NewBackend creates a secrets backend client using the
 	// specified model config.
 	NewBackend(cfg *ModelBackendConfig) (SecretsBackend, error)
+}
+
+// SupportAuthRefresh defines the methods to refresh auth tokens.
+type SupportAuthRefresh interface {
+	RefreshAuth(adminCfg *ModelBackendConfig, validFor time.Duration) (*BackendConfig, error)
+}
+
+// HasAuthRefresh returns true if the provider supports token refresh.
+func HasAuthRefresh(p SecretBackendProvider) bool {
+	_, ok := p.(SupportAuthRefresh)
+	return ok
 }
