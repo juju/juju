@@ -36,29 +36,31 @@ func ptr[T any](v T) *T {
 
 func (s *SecretBackendsSuite) TestListSecretBackends(c *gc.C) {
 	config := map[string]interface{}{"foo": "bar"}
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "SecretBackends")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "ListSecretBackends")
-		c.Check(arg, jc.DeepEquals, params.ListSecretBackendsArgs{Names: []string{"myvault"}, Reveal: true})
-		c.Assert(result, gc.FitsTypeOf, &params.ListSecretBackendsResults{})
-		*(result.(*params.ListSecretBackendsResults)) = params.ListSecretBackendsResults{
-			[]params.SecretBackendResult{{
-				Result: params.SecretBackend{
-					Name:                "foo",
-					BackendType:         "vault",
-					TokenRotateInterval: ptr(666 * time.Minute),
-					Config:              config,
-				},
-				ID:         "backend-id",
-				NumSecrets: 666,
-				Status:     "error",
-				Message:    "vault is sealed",
-			}},
-		}
-		return nil
-	})
+	apiCaller := testing.BestVersionCaller{
+		APICallerFunc: testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+			c.Check(objType, gc.Equals, "SecretBackends")
+			c.Check(version, gc.Equals, 1)
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "ListSecretBackends")
+			c.Check(arg, jc.DeepEquals, params.ListSecretBackendsArgs{Names: []string{"myvault"}, Reveal: true})
+			c.Assert(result, gc.FitsTypeOf, &params.ListSecretBackendsResults{})
+			*(result.(*params.ListSecretBackendsResults)) = params.ListSecretBackendsResults{
+				[]params.SecretBackendResult{{
+					Result: params.SecretBackend{
+						Name:                "foo",
+						BackendType:         "vault",
+						TokenRotateInterval: ptr(666 * time.Minute),
+						Config:              config,
+					},
+					ID:         "backend-id",
+					NumSecrets: 666,
+					Status:     "error",
+					Message:    "vault is sealed",
+				}},
+			}
+			return nil
+		}), BestVersion: 1,
+	}
 	client := secretbackends.NewClient(apiCaller)
 	result, err := client.ListSecretBackends([]string{"myvault"}, true)
 	c.Assert(err, jc.ErrorIsNil)
@@ -82,55 +84,59 @@ func (s *SecretBackendsSuite) TestAddSecretsBackend(c *gc.C) {
 		TokenRotateInterval: ptr(666 * time.Minute),
 		Config:              map[string]interface{}{"foo": "bar"},
 	}
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "SecretBackends")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "AddSecretBackends")
-		c.Check(arg, jc.DeepEquals, params.AddSecretBackendArgs{
-			Args: []params.AddSecretBackendArg{{
-				ID: "backend-id",
-				SecretBackend: params.SecretBackend{
-					Name:                backend.Name,
-					BackendType:         backend.BackendType,
-					TokenRotateInterval: backend.TokenRotateInterval,
-					Config:              backend.Config,
-				},
-			}},
-		})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
-		*(result.(*params.ErrorResults)) = params.ErrorResults{
-			Results: []params.ErrorResult{{
-				Error: &params.Error{Message: "FAIL"},
-			}},
-		}
-		return nil
-	})
+	apiCaller := testing.BestVersionCaller{
+		APICallerFunc: testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+			c.Check(objType, gc.Equals, "SecretBackends")
+			c.Check(version, gc.Equals, 1)
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "AddSecretBackends")
+			c.Check(arg, jc.DeepEquals, params.AddSecretBackendArgs{
+				Args: []params.AddSecretBackendArg{{
+					ID: "backend-id",
+					SecretBackend: params.SecretBackend{
+						Name:                backend.Name,
+						BackendType:         backend.BackendType,
+						TokenRotateInterval: backend.TokenRotateInterval,
+						Config:              backend.Config,
+					},
+				}},
+			})
+			c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+			*(result.(*params.ErrorResults)) = params.ErrorResults{
+				Results: []params.ErrorResult{{
+					Error: &params.Error{Message: "FAIL"},
+				}},
+			}
+			return nil
+		}), BestVersion: 1,
+	}
 	client := secretbackends.NewClient(apiCaller)
 	err := client.AddSecretBackend(backend)
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }
 
 func (s *SecretBackendsSuite) TestRemoveSecretsBackend(c *gc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "SecretBackends")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "RemoveSecretBackends")
-		c.Check(arg, jc.DeepEquals, params.RemoveSecretBackendArgs{
-			Args: []params.RemoveSecretBackendArg{{
-				Name:  "foo",
-				Force: true,
-			}},
-		})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
-		*(result.(*params.ErrorResults)) = params.ErrorResults{
-			Results: []params.ErrorResult{{
-				Error: &params.Error{Message: "FAIL"},
-			}},
-		}
-		return nil
-	})
+	apiCaller := testing.BestVersionCaller{
+		APICallerFunc: testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+			c.Check(objType, gc.Equals, "SecretBackends")
+			c.Check(version, gc.Equals, 1)
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "RemoveSecretBackends")
+			c.Check(arg, jc.DeepEquals, params.RemoveSecretBackendArgs{
+				Args: []params.RemoveSecretBackendArg{{
+					Name:  "foo",
+					Force: true,
+				}},
+			})
+			c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+			*(result.(*params.ErrorResults)) = params.ErrorResults{
+				Results: []params.ErrorResult{{
+					Error: &params.Error{Message: "FAIL"},
+				}},
+			}
+			return nil
+		}), BestVersion: 1,
+	}
 	client := secretbackends.NewClient(apiCaller)
 	err := client.RemoveSecretBackend("foo", true)
 	c.Assert(err, gc.ErrorMatches, "FAIL")
@@ -143,28 +149,30 @@ func (s *SecretBackendsSuite) TestUpdateSecretsBackend(c *gc.C) {
 		TokenRotateInterval: ptr(666 * time.Minute),
 		Config:              map[string]interface{}{"foo": "bar"},
 	}
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "SecretBackends")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "UpdateSecretBackends")
-		c.Check(arg, jc.DeepEquals, params.UpdateSecretBackendArgs{
-			Args: []params.UpdateSecretBackendArg{{
-				Name:                backend.Name,
-				TokenRotateInterval: backend.TokenRotateInterval,
-				Config:              backend.Config,
-				NameChange:          backend.NameChange,
-				Force:               true,
-			}},
-		})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
-		*(result.(*params.ErrorResults)) = params.ErrorResults{
-			Results: []params.ErrorResult{{
-				Error: &params.Error{Message: "FAIL"},
-			}},
-		}
-		return nil
-	})
+	apiCaller := testing.BestVersionCaller{
+		APICallerFunc: testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+			c.Check(objType, gc.Equals, "SecretBackends")
+			c.Check(version, gc.Equals, 1)
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "UpdateSecretBackends")
+			c.Check(arg, jc.DeepEquals, params.UpdateSecretBackendArgs{
+				Args: []params.UpdateSecretBackendArg{{
+					Name:                backend.Name,
+					TokenRotateInterval: backend.TokenRotateInterval,
+					Config:              backend.Config,
+					NameChange:          backend.NameChange,
+					Force:               true,
+				}},
+			})
+			c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+			*(result.(*params.ErrorResults)) = params.ErrorResults{
+				Results: []params.ErrorResult{{
+					Error: &params.Error{Message: "FAIL"},
+				}},
+			}
+			return nil
+		}), BestVersion: 1,
+	}
 	client := secretbackends.NewClient(apiCaller)
 	err := client.UpdateSecretBackend(backend, true)
 	c.Assert(err, gc.ErrorMatches, "FAIL")
