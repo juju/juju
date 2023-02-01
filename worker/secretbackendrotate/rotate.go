@@ -1,7 +1,7 @@
-// Copyright 2021 Canonical Ltd.
+// Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package secretrotate
+package secretbackendrotate
 
 import (
 	"fmt"
@@ -9,11 +9,9 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 
-	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
 )
 
@@ -28,24 +26,22 @@ type Logger interface {
 	Debugf(string, ...interface{})
 }
 
-// SecretManagerFacade instances provide a watcher for secret rotation changes.
-type SecretManagerFacade interface {
-	WatchSecretsRotationChanges(ownerTags ...names.Tag) (watcher.SecretTriggerWatcher, error)
+// SecretBackendManagerFacade instances provide a watcher for secret rotation changes.
+type SecretBackendManagerFacade interface {
+	WatchTokenRotationChanges() (watcher.SecretBackendRotateWatcher, error)
+	RotateBackendTokens(info ...string) error
 }
 
 // Config defines the operation of the Worker.
 type Config struct {
-	SecretManagerFacade SecretManagerFacade
-	Logger              Logger
-	Clock               clock.Clock
-
-	SecretOwners  []names.Tag
-	RotateSecrets chan<- []string
+	SecretBackendManagerFacade SecretBackendManagerFacade
+	Logger                     Logger
+	Clock                      clock.Clock
 }
 
 // Validate returns an error if config cannot drive the Worker.
 func (config Config) Validate() error {
-	if config.SecretManagerFacade == nil {
+	if config.SecretBackendManagerFacade == nil {
 		return errors.NotValidf("nil Facade")
 	}
 	if config.Clock == nil {
@@ -54,24 +50,18 @@ func (config Config) Validate() error {
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
-	if len(config.SecretOwners) == 0 {
-		return errors.NotValidf("empty SecretOwners")
-	}
-	if config.RotateSecrets == nil {
-		return errors.NotValidf("nil RotateSecretsChannel")
-	}
 	return nil
 }
 
-// New returns a Secret Rotation Worker backed by config, or an error.
-func New(config Config) (worker.Worker, error) {
+// NewWorker returns a Secret Backend token rotation Worker backed by config, or an error.
+func NewWorker(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	w := &Worker{
-		config:  config,
-		secrets: make(map[string]secretRotateInfo),
+		config:      config,
+		backendInfo: make(map[string]tokenRotateInfo),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -80,14 +70,15 @@ func New(config Config) (worker.Worker, error) {
 	return w, errors.Trace(err)
 }
 
-type secretRotateInfo struct {
-	URI        *secrets.URI
-	rotateTime time.Time
-	whenFunc   func(rotateTime time.Time) time.Duration
+type tokenRotateInfo struct {
+	ID          string
+	backendName string
+	rotateTime  time.Time
+	whenFunc    func(rotateTime time.Time) time.Duration
 }
 
-func (s secretRotateInfo) GoString() string {
-	return fmt.Sprintf("%s rotation: in %v at %s", s.URI.ID, s.whenFunc(s.rotateTime), s.rotateTime.Format(time.RFC3339))
+func (s tokenRotateInfo) GoString() string {
+	return fmt.Sprintf("%s token rotation: in %v at %s", s.backendName, s.whenFunc(s.rotateTime), s.rotateTime.Format(time.RFC3339))
 }
 
 // Worker fires events when secrets should be rotated.
@@ -95,7 +86,7 @@ type Worker struct {
 	catacomb catacomb.Catacomb
 	config   Config
 
-	secrets map[string]secretRotateInfo
+	backendInfo map[string]tokenRotateInfo
 
 	timer       clock.Timer
 	nextTrigger time.Time
@@ -112,7 +103,7 @@ func (w *Worker) Wait() error {
 }
 
 func (w *Worker) loop() (err error) {
-	changes, err := w.config.SecretManagerFacade.WatchSecretsRotationChanges(w.config.SecretOwners...)
+	changes, err := w.config.SecretBackendManagerFacade.WatchTokenRotationChanges()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -120,9 +111,9 @@ func (w *Worker) loop() (err error) {
 		return errors.Trace(err)
 	}
 	for {
-		var timeToRotate <-chan time.Time
+		var timeout <-chan time.Time
 		if w.timer != nil {
-			timeToRotate = w.timer.Chan()
+			timeout = w.timer.Chan()
 		}
 		select {
 		case <-w.catacomb.Dying():
@@ -131,41 +122,40 @@ func (w *Worker) loop() (err error) {
 			if !ok {
 				return errors.New("secret rotation change channel closed")
 			}
-			w.handleSecretRotateChanges(ch)
-		case now := <-timeToRotate:
-			w.rotate(now)
+			w.handleTokenRotateChanges(ch)
+		case now := <-timeout:
+			if err := w.rotate(now); err != nil {
+				return errors.Annotatef(err, "rotating secret backends")
+			}
 		}
 	}
 }
 
-func (w *Worker) rotate(now time.Time) {
-	w.config.Logger.Debugf("processing secret rotation for %q at %s", w.config.SecretOwners, now)
+func (w *Worker) rotate(now time.Time) error {
+	w.config.Logger.Debugf("processing secret backend token rotation at %s", now)
 
 	var toRotate []string
-	for id, info := range w.secrets {
+	for id, info := range w.backendInfo {
 		w.config.Logger.Debugf("checking %s: rotate at %s... time diff %s", id, info.rotateTime, info.rotateTime.Sub(now))
 		// A one minute granularity is acceptable for secret rotation.
 		if info.rotateTime.Truncate(time.Minute).Before(now) {
-			w.config.Logger.Debugf("rotating %s", info.URI.String())
-			toRotate = append(toRotate, info.URI.String())
-			// Once secret has been queued for rotation, delete it here since
+			w.config.Logger.Debugf("rotating token for %s", info.backendName)
+			toRotate = append(toRotate, id)
+			// Once backend has been queued for rotation, delete it here since
 			// it will re-appear via the watcher after the rotation is actually
 			// performed and the last rotated time is updated.
-			delete(w.secrets, id)
+			delete(w.backendInfo, id)
 		}
 	}
 
-	if len(toRotate) > 0 {
-		select {
-		case <-w.catacomb.Dying():
-			return
-		case w.config.RotateSecrets <- toRotate:
-		}
+	if err := w.config.SecretBackendManagerFacade.RotateBackendTokens(toRotate...); err != nil {
+		return errors.Annotatef(err, "cannot rotate secret backend tokens for backend ids %q", toRotate)
 	}
 	w.computeNextRotateTime()
+	return nil
 }
 
-func (w *Worker) handleSecretRotateChanges(changes []watcher.SecretTriggerChange) {
+func (w *Worker) handleTokenRotateChanges(changes []watcher.SecretBackendRotateChange) {
 	w.config.Logger.Debugf("got rotate secret changes: %#v", changes)
 	if len(changes) == 0 {
 		return
@@ -174,30 +164,31 @@ func (w *Worker) handleSecretRotateChanges(changes []watcher.SecretTriggerChange
 	for _, ch := range changes {
 		// Next rotate time of 0 means the rotation has been deleted.
 		if ch.NextTriggerTime.IsZero() {
-			w.config.Logger.Debugf("secret no longer rotated: %v", ch.URI.String())
-			delete(w.secrets, ch.URI.ID)
+			w.config.Logger.Debugf("token for %q no longer rotated", ch.Name)
+			delete(w.backendInfo, ch.ID)
 			continue
 		}
-		w.secrets[ch.URI.ID] = secretRotateInfo{
-			URI:        ch.URI,
-			rotateTime: ch.NextTriggerTime,
-			whenFunc:   func(rotateTime time.Time) time.Duration { return rotateTime.Sub(w.config.Clock.Now()) },
+		w.backendInfo[ch.ID] = tokenRotateInfo{
+			ID:          ch.ID,
+			backendName: ch.Name,
+			rotateTime:  ch.NextTriggerTime,
+			whenFunc:    func(rotateTime time.Time) time.Duration { return rotateTime.Sub(w.config.Clock.Now()) },
 		}
 	}
 	w.computeNextRotateTime()
 }
 
 func (w *Worker) computeNextRotateTime() {
-	w.config.Logger.Debugf("computing next rotated time for secrets %#v", w.secrets)
+	w.config.Logger.Debugf("computing next rotated time for secret backends %#v", w.backendInfo)
 
-	if len(w.secrets) == 0 {
+	if len(w.backendInfo) == 0 {
 		w.timer = nil
 		return
 	}
 
-	// Find the minimum (next) rotateTime from all the secrets.
+	// Find the minimum (next) rotateTime from all the tokens.
 	var soonestRotateTime time.Time
-	for _, info := range w.secrets {
+	for _, info := range w.backendInfo {
 		if !soonestRotateTime.IsZero() && info.rotateTime.After(soonestRotateTime) {
 			continue
 		}
@@ -216,7 +207,7 @@ func (w *Worker) computeNextRotateTime() {
 	}
 
 	nextDuration := soonestRotateTime.Sub(now)
-	w.config.Logger.Debugf("next secret for %q will rotate in %v at %s", w.config.SecretOwners, nextDuration, soonestRotateTime)
+	w.config.Logger.Debugf("next token will rotate in %v at %s", nextDuration, soonestRotateTime)
 
 	w.nextTrigger = soonestRotateTime
 	if w.timer == nil {

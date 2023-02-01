@@ -338,3 +338,22 @@ type RemoveSecretBackendArg struct {
 	Name  string `json:"name"`
 	Force bool   `json:"force,omitempty"`
 }
+
+// RotateSecretBackendArgs holds the args for updating rotated secret backend info.
+type RotateSecretBackendArgs struct {
+	BackendIDs []string `json:"backend-ids"`
+}
+
+// SecretBackendRotateChange describes a change to a secret backend rotation.
+type SecretBackendRotateChange struct {
+	ID              string    `json:"id"`
+	Name            string    `json:"backend-name"`
+	NextTriggerTime time.Time `json:"next-trigger-time"`
+}
+
+// SecretBackendRotateWatchResult holds secret backend rotate change events.
+type SecretBackendRotateWatchResult struct {
+	WatcherId string                      `json:"watcher-id"`
+	Changes   []SecretBackendRotateChange `json:"changes"`
+	Error     *Error                      `json:"error,omitempty"`
+}

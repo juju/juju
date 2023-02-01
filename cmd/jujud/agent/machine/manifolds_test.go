@@ -111,6 +111,7 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"raft-leader-flag",
 			"raft-transport",
 			"reboot-executor",
+			"secret-backend-rotate",
 			"ssh-authkeys-updater",
 			"ssh-identity-writer",
 			"state",
@@ -180,6 +181,7 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"raft-forwarder",
 			"raft-leader-flag",
 			"raft-transport",
+			"secret-backend-rotate",
 			"ssh-identity-writer",
 			"state",
 			"state-config-watcher",
@@ -312,6 +314,7 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 	// Explicitly guarded by ifPrimaryController.
 	primaryControllerWorkers := set.NewStrings(
 		"external-controller-updater",
+		"secret-backend-rotate",
 	)
 
 	// Guarded by ifDatabaseUpgradeComplete,
@@ -986,6 +989,21 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-steps-gate",
 	},
 
+	"secret-backend-rotate": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"is-controller-flag",
+		"is-primary-controller-flag",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"state-config-watcher",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+	},
+
 	"ssh-authkeys-updater": {
 		"agent",
 		"api-caller",
@@ -1502,6 +1520,21 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"is-controller-flag",
 		"state",
 		"state-config-watcher",
+	},
+
+	"secret-backend-rotate": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"is-controller-flag",
+		"is-primary-controller-flag",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"state-config-watcher",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
 	},
 
 	"ssh-identity-writer": {

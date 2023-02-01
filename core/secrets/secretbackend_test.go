@@ -27,3 +27,10 @@ func (s *SecretBackendSuite) TestNextBackendRotateTime(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(next.Sub(now), gc.Equals, 150*time.Minute)
 }
+
+func (s *SecretBackendSuite) TestNextBackendRotateTimeMax(c *gc.C) {
+	now := time.Now()
+	next, err := secrets.NextBackendRotateTime(now, 60*24*time.Hour)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(next.Sub(now), gc.Equals, 24*time.Hour)
+}
