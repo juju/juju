@@ -78,47 +78,30 @@ parts:
   jujud:
     after:
       - dqlite
-    plugin: nil
+    plugin: juju-go
+    go-channel: 1.18/stable
     source: .
-    build-packages:
-      - musl-dev
-      - musl-tools
-    build-snaps:
-      - go
+    go-packages:
+      - github.com/juju/juju/cmd/jujud
+    go-external-strings:
+      github.com/juju/juju/version.GitCommit: ""
+      github.com/juju/juju/version.GitTreeState: ""
+      github.com/juju/juju/version.build: ""
+    go-static: true
+    go-strip: true
+    go-cgo-enabled: "1"
+    go-cgo-cc: "musl-gcc"
+    go-cgo-cflags: "-I/usr/local/musl/include"
+    go-cgo-ldflags: "-luv -lraft -ldqlite -llz4 -lsqlite3"
+    go-cgo-ldflags-allow: "(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"
     override-pull: |
       snapcraftctl pull
-      set -ex
-
-      # Setup build environment
-      export GOPATH=$(realpath ./.go)
-
-      # Setup the GOPATH
-      rm -Rf "${GOPATH}"
-      mkdir -p "${GOPATH}/src/github.com/juju"
-      ln -s "$(pwd)" "${GOPATH}/src/github.com/juju/juju"
-
-      go mod download
-    override-build: |
-      # Setup build environment
-      export GOPATH=$(realpath ./.go)
 
       mkdir -p /usr/local/musl/include
 
       ln -s /usr/include/$(uname -m)-linux-gnu/asm /usr/local/musl/include/asm || true
       ln -s /usr/include/asm-generic /usr/local/musl/include/asm-generic || true
       ln -s /usr/include/linux /usr/local/musl/include/linux || true
-
-      CC="musl-gcc" \
-        CGO_CFLAGS="-I${SNAPCRAFT_STAGE}/include -I/usr/local/musl/include" \
-        CGO_LDFLAGS="-L${SNAPCRAFT_STAGE} -luv -lraft -ldqlite -llz4 -lsqlite3" \
-        CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
-        LD_LIBRARY_PATH="${SNAPCRAFT_STAGE}" \
-        CGO_ENABLED=1 \
-        go build \
-          -mod=readonly \
-          -o ${SNAPCRAFT_PART_INSTALL}/bin/jujud \
-          -ldflags "-s -w -linkmode 'external' -extldflags '-static' -X github.com/juju/juju/version.GitCommit= -X github.com/juju/juju/version.GitTreeState= -X github.com/juju/juju/version.build= " \
-          github.com/juju/juju/cmd/jujud
 
   juju:
     after:
