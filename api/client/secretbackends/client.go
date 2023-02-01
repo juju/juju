@@ -38,8 +38,14 @@ type SecretBackend struct {
 	Error               error
 }
 
+var notSupported = errors.NotSupportedf("secret backends on this juju version")
+
 // ListSecretBackends lists the specified secret backends, or all available if no names are provided.
 func (api *Client) ListSecretBackends(names []string, reveal bool) ([]SecretBackend, error) {
+	if api.BestAPIVersion() < 1 {
+		return nil, notSupported
+	}
+
 	var response params.ListSecretBackendsResults
 	err := api.facade.FacadeCall("ListSecretBackends", params.ListSecretBackendsArgs{Names: names, Reveal: reveal}, &response)
 	if err != nil {
@@ -78,6 +84,10 @@ type CreateSecretBackend struct {
 
 // AddSecretBackend adds the specified secret backend.
 func (api *Client) AddSecretBackend(backend CreateSecretBackend) error {
+	if api.BestAPIVersion() < 1 {
+		return notSupported
+	}
+
 	var results params.ErrorResults
 	args := params.AddSecretBackendArgs{
 		Args: []params.AddSecretBackendArg{{
@@ -108,6 +118,10 @@ type UpdateSecretBackend struct {
 
 // UpdateSecretBackend updates the specified secret backend.
 func (api *Client) UpdateSecretBackend(arg UpdateSecretBackend, force bool) error {
+	if api.BestAPIVersion() < 1 {
+		return notSupported
+	}
+
 	var results params.ErrorResults
 	args := params.UpdateSecretBackendArgs{
 		Args: []params.UpdateSecretBackendArg{{
@@ -128,6 +142,10 @@ func (api *Client) UpdateSecretBackend(arg UpdateSecretBackend, force bool) erro
 
 // RemoveSecretBackend removes the specified secret backend.
 func (api *Client) RemoveSecretBackend(name string, force bool) error {
+	if api.BestAPIVersion() < 1 {
+		return notSupported
+	}
+
 	var results params.ErrorResults
 	args := params.RemoveSecretBackendArgs{
 		Args: []params.RemoveSecretBackendArg{{
