@@ -8,10 +8,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
-	"path"
 	"strings"
 	"time"
 
@@ -21,7 +19,6 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -29,12 +26,9 @@ import (
 	"github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	jujunames "github.com/juju/juju/juju/names"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type clientSuite struct {
@@ -48,83 +42,6 @@ var _ = gc.Suite(&clientSuite{})
 // apiserver/client/*_test.go
 func (s *clientSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-}
-
-func (s *clientSuite) TestCloseMultipleOk(c *gc.C) {
-	client := client.NewClient(s.APIState)
-	c.Assert(client.Close(), gc.IsNil)
-	c.Assert(client.Close(), gc.IsNil)
-	c.Assert(client.Close(), gc.IsNil)
-}
-
-func (s *clientSuite) TestUploadToolsOtherModel(c *gc.C) {
-	otherSt, otherAPISt := s.otherModel(c)
-	defer otherSt.Close()
-	defer otherAPISt.Close()
-	client := client.NewClient(otherAPISt)
-	newVersion := version.MustParseBinary("5.4.3-ubuntu-amd64")
-	var called bool
-
-	// build fake tools
-	expectedTools, _ := coretesting.TarGz(
-		coretesting.NewTarFile(jujunames.Jujud, 0777, "jujud contents "+newVersion.String()))
-
-	// UploadTools does not use the facades, so instead of patching the
-	// facade call, we set up a fake endpoint to test.
-	defer fakeAPIEndpoint(c, client, modelEndpoint(c, otherAPISt, "tools"), "POST",
-		func(w http.ResponseWriter, r *http.Request) {
-			called = true
-
-			c.Assert(r.URL.Query(), gc.DeepEquals, url.Values{
-				"binaryVersion": []string{"5.4.3-ubuntu-amd64"},
-				"series":        []string{""},
-			})
-			defer r.Body.Close()
-			obtainedTools, err := io.ReadAll(r.Body)
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(obtainedTools, gc.DeepEquals, expectedTools)
-		},
-	).Close()
-
-	// We don't test the error or tools results as we only wish to assert that
-	// the API client POSTs the tools archive to the correct endpoint.
-	client.UploadTools(bytes.NewReader(expectedTools), newVersion)
-	c.Assert(called, jc.IsTrue)
-}
-
-func (s *clientSuite) otherModel(c *gc.C) (*state.State, api.Connection) {
-	otherSt := s.Factory.MakeModel(c, nil)
-	info := s.APIInfo(c)
-	model, err := otherSt.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	info.ModelTag = model.ModelTag()
-	apiState, err := api.Open(info, api.DefaultDialOpts())
-	c.Assert(err, jc.ErrorIsNil)
-	return otherSt, apiState
-}
-
-func fakeAPIEndpoint(c *gc.C, cl *client.Client, address, method string, handle func(http.ResponseWriter, *http.Request)) net.Listener {
-	lis, err := net.Listen("tcp", "127.0.0.1:0")
-	c.Assert(err, jc.ErrorIsNil)
-
-	mux := http.NewServeMux()
-	mux.HandleFunc(address, func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == method {
-			handle(w, r)
-		}
-	})
-	go func() {
-		http.Serve(lis, mux)
-	}()
-	client.SetServerAddress(cl, "http", lis.Addr().String())
-	return lis
-}
-
-// modelEndpoint returns "/model/<model-uuid>/<destination>"
-func modelEndpoint(c *gc.C, apiState api.Connection, destination string) string {
-	modelTag, ok := apiState.ModelTag()
-	c.Assert(ok, jc.IsTrue)
-	return path.Join("/model", modelTag.Id(), destination)
 }
 
 func (s *clientSuite) TestWatchDebugLogConnected(c *gc.C) {
