@@ -248,13 +248,13 @@ is determined by the contents of the charm at the specified path.
 number with --switch, give it in the charm URL, for instance "cs:wordpress-5"
 would specify revision number 5 of the wordpress charm.
 
-Use of the --force-units option is not generally recommended; units upgraded 
-while in an error state will not have refreshed hooks executed, and may cause 
+Use of the --force-units option is not generally recommended; units upgraded
+while in an error state will not have refreshed hooks executed, and may cause
 unexpected behavior.
 
---force option for LXD Profiles is not generally recommended when upgrading an 
-application; overriding profiles on the container may cause unexpected 
-behavior. 
+--force option for LXD Profiles is not generally recommended when upgrading an
+application; overriding profiles on the container may cause unexpected
+behavior.
 `
 
 func (c *refreshCommand) Info() *cmd.Info {
