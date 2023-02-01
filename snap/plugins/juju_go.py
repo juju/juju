@@ -106,7 +106,7 @@ class PluginImpl(PluginV2):
 
     def get_build_packages(self) -> Set[str]:
         if self.options.go_cgo_cc == "musl-gcc":
-            return {"musl-tools", "musl-dev", "curl"}
+            return {"musl-tools", "musl-dev"}
         return {"gcc"}
 
     def get_build_environment(self) -> Dict[str, str]:
