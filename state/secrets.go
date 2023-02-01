@@ -1092,9 +1092,9 @@ func (st *State) GetSecretConsumer(uri *secrets.URI, consumer names.Tag) (*secre
 	}
 
 	if md.Label == "" {
-		// Note: the leader unit always has the label cached on the uniter side, but non leaders does not.
+		// Note: the leader unit always has the label cached on the uniter side, but non leaders do not.
 		// Therefore, below logic (fixes https://bugs.launchpad.net/juju/+bug/2004220) makes application
-		// owned secrets' label visible for non leader units' secret-changed hook.
+		// owned secrets' labels visible for non leader units' secret-changed hook.
 		equalOrOwned := func(consumerTag, ownerTag names.Tag) bool {
 			if consumerTag.Id() == ownerTag.Id() {
 				return true
