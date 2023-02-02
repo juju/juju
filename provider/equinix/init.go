@@ -8,7 +8,10 @@ import (
 )
 
 const (
-	providerType        = "equinix"
+	providerType = "equinix"
+)
+
+const (
 	Provisioning string = "provisioning"
 	Active       string = "active"
 	ShuttingDown string = "shutting-down"
