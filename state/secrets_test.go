@@ -944,6 +944,7 @@ func (s *SecretsSuite) TestGetSecretConsumerAndGetSecretConsumerURI(c *gc.C) {
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			Data:        map[string]string{"foo": "bar"},
+			Label:       strPtr("owner-label"),
 		},
 	}
 	uri := secrets.NewURI()
@@ -953,7 +954,7 @@ func (s *SecretsSuite) TestGetSecretConsumerAndGetSecretConsumerURI(c *gc.C) {
 	_, err = s.State.GetSecretConsumer(uri, names.NewUnitTag("mariadb/0"))
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	md := &secrets.SecretConsumerMetadata{
-		Label:           "foobar",
+		Label:           "consumer-label",
 		CurrentRevision: 666,
 	}
 	err = s.State.SaveSecretConsumer(uri, names.NewUnitTag("mariadb/0"), md)
@@ -966,12 +967,23 @@ func (s *SecretsSuite) TestGetSecretConsumerAndGetSecretConsumerURI(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(md2, jc.DeepEquals, md)
 
-	uri3, err := s.State.GetURIByConsumerLabel("foobar", names.NewUnitTag("mariadb/0"))
+	uri3, err := s.State.GetURIByConsumerLabel("consumer-label", names.NewUnitTag("mariadb/0"))
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(uri3, jc.DeepEquals, uri)
 
-	_, err = s.State.GetSecretConsumer(uri, names.NewUnitTag("mysql/0"))
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	ownerNonLeaderUnit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.owner})
+	err = s.State.SaveSecretConsumer(
+		// No consumer label for app owned secrets.
+		uri, ownerNonLeaderUnit.UnitTag(),
+		&secrets.SecretConsumerMetadata{CurrentRevision: 666},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	mdOwnerNonLeaderUnit, err := s.State.GetSecretConsumer(uri, ownerNonLeaderUnit.Tag())
+	c.Check(err, jc.ErrorIsNil)
+	// owner label visible for its own units.
+	c.Check(mdOwnerNonLeaderUnit.Label, gc.Equals, "owner-label")
+	c.Check(mdOwnerNonLeaderUnit.CurrentRevision, gc.Equals, 666)
 }
 
 func (s *SecretsSuite) TestSaveSecretConsumer(c *gc.C) {

@@ -303,8 +303,11 @@ func (f *contextFactory) HookContext(hookInfo hook.Info) (*HookContext, error) {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			uri, _ := secrets.ParseURI(ctx.secretURI)
-			md, _ := info[uri.ID]
+			uri, err := secrets.ParseURI(ctx.secretURI)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			md := info[uri.ID]
 			ctx.secretLabel = md.Label
 		}
 	}
