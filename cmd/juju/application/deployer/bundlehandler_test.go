@@ -164,13 +164,13 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleSuccessWithModelConstraint
 			curl:                 mysqlCurl,
 			charmMetaSeries:      []string{"bionic", "xenial"},
 			machine:              "0",
-			machineUbuntuVersion: "xenial",
+			machineUbuntuVersion: "16.04",
 		},
 		{
 			charmMetaSeries:      []string{"bionic", "xenial"},
 			curl:                 wordpressCurl,
 			machine:              "1",
-			machineUbuntuVersion: "xenial",
+			machineUbuntuVersion: "16.04",
 		},
 	}
 	s.setupCharmUnits(chUnits)
