@@ -28,7 +28,7 @@ func sequence(mb modelBackend, name string) (int, error) {
 		Update: bson.M{
 			"$set": bson.M{
 				"name":       name,
-				"model-uuid": mb.modelUUID(),
+				"model-uuid": mb.ModelUUID(),
 			},
 			"$inc": bson.M{"counter": 1},
 		},
@@ -67,7 +67,7 @@ func resetSequence(mb modelBackend, name string) error {
 func sequenceWithMin(mb modelBackend, name string, minVal int) (int, error) {
 	sequences, closer := mb.db().GetRawCollection(sequenceC)
 	defer closer()
-	updater := newDbSeqUpdater(sequences, mb.modelUUID(), name)
+	updater := newDbSeqUpdater(sequences, mb.ModelUUID(), name)
 	return updateSeqWithMin(updater, minVal)
 }
 

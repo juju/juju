@@ -386,7 +386,7 @@ func (st *State) isControllerOrModelAdmin(user names.UserTag) (bool, error) {
 	if isAdmin {
 		return true, nil
 	}
-	ua, err := st.UserAccess(user, names.NewModelTag(st.modelUUID()))
+	ua, err := st.UserAccess(user, names.NewModelTag(st.ModelUUID()))
 	if errors.IsNotFound(err) {
 		return false, nil
 	}

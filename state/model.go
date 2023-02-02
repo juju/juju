@@ -1645,7 +1645,7 @@ func removeModelFilesystemRefOp(mb modelBackend, filesystemId string) txn.Op {
 func addModelEntityRefOp(mb modelBackend, entityField, entityId string) txn.Op {
 	return txn.Op{
 		C:      modelEntityRefsC,
-		Id:     mb.modelUUID(),
+		Id:     mb.ModelUUID(),
 		Assert: txn.DocExists,
 		Update: bson.D{{"$addToSet", bson.D{{entityField, entityId}}}},
 	}
@@ -1654,7 +1654,7 @@ func addModelEntityRefOp(mb modelBackend, entityField, entityId string) txn.Op {
 func removeModelEntityRefOp(mb modelBackend, entityField, entityId string) txn.Op {
 	return txn.Op{
 		C:      modelEntityRefsC,
-		Id:     mb.modelUUID(),
+		Id:     mb.ModelUUID(),
 		Update: bson.D{{"$pull", bson.D{{entityField, entityId}}}},
 	}
 }
