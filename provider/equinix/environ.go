@@ -808,7 +808,7 @@ func waitDeviceActive(ctx context.ProviderCallContext, c *packngo.Client, id str
 		Clock:    clock.WallClock,
 	})
 
-	return d, err
+	return d, errors.Trace(err)
 }
 
 // Helper function to get supported OS version
