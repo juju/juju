@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// RemoteRelationState provides the subset of global state required by the
+// RemoteRelationsState provides the subset of global state required by the
 // remote relations facade.
 type RemoteRelationsState interface {
 	common.Backend

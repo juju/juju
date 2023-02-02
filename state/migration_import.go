@@ -1857,14 +1857,27 @@ func (i *importer) relation(rel description.Relation) error {
 
 		units := i.applicationUnits[endpoint.ApplicationName()]
 		for unitName, settings := range endpoint.AllSettings() {
-			unit, ok := units[unitName]
-			if !ok {
-				return errors.NotFoundf("unit %q", unitName)
+			var ru *RelationUnit
+			var err error
+
+			if unit, ok := units[unitName]; ok {
+				ru, err = dbRelation.Unit(unit)
+				if err != nil {
+					return errors.Trace(err)
+				}
+			} else {
+				ru, err = dbRelation.RemoteUnit(unitName)
+				if err != nil {
+					if errors.Is(err, errors.NotFound) {
+						// This mirrors the logic from export.
+						// If there are no local or remote units in scope,
+						// then we are done for this endpoint.
+						continue
+					}
+					return errors.Trace(err)
+				}
 			}
-			ru, err := dbRelation.Unit(unit)
-			if err != nil {
-				return errors.Trace(err)
-			}
+
 			ruKey := ru.key()
 			ops = append(ops, txn.Op{
 				C:      relationScopesC,
