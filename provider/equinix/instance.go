@@ -52,12 +52,12 @@ func (device *equinixDevice) Status(ctx context.ProviderCallContext) instance.St
 	var jujuStatus status.Status
 
 	switch device.State {
-	case "provisioning", "queued":
-		jujuStatus = status.Pending
-	case "active":
+	case Active:
 		jujuStatus = status.Running
-	case "deleted", "deprovisioning", "failed", "inactive":
-		jujuStatus = status.ProvisioningError
+	case Provisioning:
+		jujuStatus = status.Pending
+	case ShuttingDown, Stopped, Stopping, Terminated:
+		jujuStatus = status.Empty
 	default:
 		jujuStatus = status.Empty
 	}

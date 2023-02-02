@@ -8,7 +8,13 @@ import (
 )
 
 const (
-	providerType = "equinix"
+	providerType        = "equinix"
+	Provisioning string = "provisioning"
+	Active       string = "active"
+	ShuttingDown string = "shutting-down"
+	Stopped      string = "stopped"
+	Stopping     string = "stopping"
+	Terminated   string = "terminated"
 )
 
 func init() {
