@@ -13,9 +13,10 @@ import (
 
 	"github.com/juju/testing"
 
-	"github.com/canonical/go-dqlite/app"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/database/app"
 )
 
 // DBSuite is used to provide a Dqlite-backed sql.DB reference to tests.

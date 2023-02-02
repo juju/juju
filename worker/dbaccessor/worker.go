@@ -10,11 +10,12 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/canonical/go-dqlite/app"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
+
+	"github.com/juju/juju/database/app"
 )
 
 const replSocketFileName = "juju.sock"

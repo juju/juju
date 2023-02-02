@@ -4,7 +4,6 @@
 package dbaccessor
 
 import (
-	"github.com/canonical/go-dqlite/app"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -13,6 +12,7 @@ import (
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/database"
+	"github.com/juju/juju/database/app"
 	"github.com/juju/juju/worker/common"
 )
 

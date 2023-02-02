@@ -10,11 +10,12 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/canonical/go-dqlite/app"
-	"github.com/canonical/go-dqlite/client"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/database/app"
+	"github.com/juju/juju/database/client"
 )
 
 type bootstrapSuite struct {

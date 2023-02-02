@@ -10,13 +10,13 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/canonical/go-dqlite/app"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/database/app"
 	jujutesting "github.com/juju/juju/testing"
 )
 
