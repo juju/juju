@@ -1643,6 +1643,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 				Assert: txn.DocExists,
 				Update: bson.D{{"$set", bson.D{
 					{"cs-channel", channel},
+					{"charm-origin.channel", cfg.CharmOrigin.Channel},
 					{"forcecharm", cfg.ForceUnits},
 				}}},
 			})
