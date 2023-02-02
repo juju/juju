@@ -161,16 +161,16 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleSuccessWithModelConstraint
 	c.Assert(err, jc.ErrorIsNil)
 	chUnits := []charmUnit{
 		{
-			curl:            mysqlCurl,
-			charmMetaSeries: []string{"bionic", "xenial"},
-			machine:         "0",
-			machineSeries:   "xenial",
+			curl:                 mysqlCurl,
+			charmMetaSeries:      []string{"bionic", "xenial"},
+			machine:              "0",
+			machineUbuntuVersion: "xenial",
 		},
 		{
-			charmMetaSeries: []string{"bionic", "xenial"},
-			curl:            wordpressCurl,
-			machine:         "1",
-			machineSeries:   "xenial",
+			charmMetaSeries:      []string{"bionic", "xenial"},
+			curl:                 wordpressCurl,
+			machine:              "1",
+			machineUbuntuVersion: "xenial",
 		},
 	}
 	s.setupCharmUnits(chUnits)
@@ -182,8 +182,8 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleSuccessWithModelConstraint
 	_, err = bundleDeploy(charm.CharmHub, bundleData, s.bundleDeploySpecWithConstraints(constraints.MustParse("arch=arm64")))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.deployArgs, gc.HasLen, 2)
-	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "xenial")
-	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "xenial")
+	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "ubuntu", "16.04")
+	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "ubuntu", "16.04")
 
 	c.Check(s.output.String(), gc.Equals, ""+
 		"Located charm \"mysql\" in charm-store, revision 42\n"+
