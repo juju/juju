@@ -1150,6 +1150,16 @@ func GetSecretNextRotateTime(c *gc.C, st *State, id string) time.Time {
 	return doc.NextRotateTime.UTC()
 }
 
+func GetSecretBackendNextRotateInfo(c *gc.C, st *State, id string) (string, time.Time) {
+	secretBackendRotateCollection, closer := st.db().GetCollection(secretBackendsRotateC)
+	defer closer()
+
+	var doc secretBackendRotationDoc
+	err := secretBackendRotateCollection.FindId(id).One(&doc)
+	c.Assert(err, jc.ErrorIsNil)
+	return doc.Name, doc.NextRotateTime.UTC()
+}
+
 // ModelBackendShim is required to live here in the export_test.go file because
 // there is issues placing this in the test files themselves. The strangeness
 // exhibits itself from the fact that `clock() clock.Clock` doesn't type

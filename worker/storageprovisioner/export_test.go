@@ -11,7 +11,8 @@ import (
 )
 
 var (
-	NewManagedFilesystemSource = &newManagedFilesystemSource
+	NewManagedFilesystemSource     = &newManagedFilesystemSource
+	DefaultDependentChangesTimeout = &defaultDependentChangesTimeout
 )
 
 func StorageWorker(parent worker.Worker, appName string) (worker.Worker, bool) {

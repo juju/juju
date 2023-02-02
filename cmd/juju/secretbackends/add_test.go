@@ -62,7 +62,7 @@ func (s *AddSuite) TestAddInitError(c *gc.C) {
 		err:  `invalid token rotate interval: time: invalid duration "blah"`,
 	}, {
 		args: []string{"myvault", "somevault", "foo=bar", "token-rotate=1s"},
-		err:  `token rotate interval "1s" too small, must be >= 60s`,
+		err:  `token rotate interval "1s" less than 1h not valid`,
 	}, {
 		args: []string{"myvault", "somevault", "foo=bar", "token-rotate=0"},
 		err:  `token rotate interval cannot be 0`,

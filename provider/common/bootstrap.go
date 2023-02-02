@@ -155,7 +155,7 @@ func BootstrapInstance(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	envCfg := env.Config()
+
 	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(
 		args.ControllerConfig, args.BootstrapConstraints, args.ModelConstraints, requestedBootstrapBase, publicKey,
 		args.ExtraAgentValuesForTesting,
@@ -163,10 +163,11 @@ func BootstrapInstance(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	instanceConfig.EnableOSRefreshUpdate = env.Config().EnableOSRefreshUpdate()
-	instanceConfig.EnableOSUpgrade = env.Config().EnableOSUpgrade()
-	instanceConfig.NetBondReconfigureDelay = env.Config().NetBondReconfigureDelay()
 
+	envCfg := env.Config()
+	instanceConfig.EnableOSRefreshUpdate = envCfg.EnableOSRefreshUpdate()
+	instanceConfig.EnableOSUpgrade = envCfg.EnableOSUpgrade()
+	instanceConfig.NetBondReconfigureDelay = envCfg.NetBondReconfigureDelay()
 	instanceConfig.Tags = instancecfg.InstanceTags(envCfg.UUID(), args.ControllerConfig.ControllerUUID(), envCfg, true)
 
 	// We're creating a new instance; inject host keys so that we can then
@@ -519,9 +520,9 @@ func ConfigureMachine(
 // an ssh.Options and a cleanup function, or an error.
 type HostSSHOptionsFunc func(host string) (*ssh.Options, func(), error)
 
-// DefaultHostSSHOptions returns a a nil *ssh.Options, which means
+// DefaultHostSSHOptions returns a nil *ssh.Options, which means
 // to use the defaults; and a no-op cleanup function.
-func DefaultHostSSHOptions(host string) (*ssh.Options, func(), error) {
+func DefaultHostSSHOptions(string) (*ssh.Options, func(), error) {
 	return nil, func() {}, nil
 }
 

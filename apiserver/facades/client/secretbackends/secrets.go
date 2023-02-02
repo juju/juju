@@ -4,6 +4,9 @@
 package secretbackends
 
 import (
+	"time"
+
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -11,6 +14,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets/provider"
 	_ "github.com/juju/juju/secrets/provider/all"
@@ -23,6 +27,7 @@ type SecretBackendsAPI struct {
 	authorizer     facade.Authorizer
 	controllerUUID string
 
+	clock        clock.Clock
 	backendState SecretsBackendState
 	secretState  SecretsState
 	statePool    StatePool
@@ -84,11 +89,23 @@ func (s *SecretBackendsAPI) createBackend(id string, arg params.SecretBackend) e
 	if err := commonsecrets.PingBackend(p, arg.Config); err != nil {
 		return errors.Trace(err)
 	}
+
+	var nextRotateTime *time.Time
+	if arg.TokenRotateInterval != nil && *arg.TokenRotateInterval > 0 {
+		if !provider.HasAuthRefresh(p) {
+			return errors.NotSupportedf("token refresh on secret backend of type %q", p.Type())
+		}
+		nextRotateTime, err = secrets.NextBackendRotateTime(s.clock.Now(), *arg.TokenRotateInterval)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
 	_, err = s.backendState.CreateSecretBackend(state.CreateSecretBackendParams{
 		ID:                  id,
 		Name:                arg.Name,
 		BackendType:         arg.BackendType,
 		TokenRotateInterval: arg.TokenRotateInterval,
+		NextRotateTime:      nextRotateTime,
 		Config:              arg.Config,
 	})
 	if errors.IsAlreadyExists(err) {
@@ -156,10 +173,21 @@ func (s *SecretBackendsAPI) updateBackend(arg params.UpdateSecretBackendArg) err
 			return errors.Trace(err)
 		}
 	}
+	var nextRotateTime *time.Time
+	if arg.TokenRotateInterval != nil && *arg.TokenRotateInterval > 0 {
+		if !provider.HasAuthRefresh(p) {
+			return errors.NotSupportedf("token refresh on secret backend of type %q", p.Type())
+		}
+		nextRotateTime, err = secrets.NextBackendRotateTime(s.clock.Now(), *arg.TokenRotateInterval)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
 	err = s.backendState.UpdateSecretBackend(state.UpdateSecretBackendParams{
 		ID:                  existing.ID,
 		NameChange:          arg.NameChange,
 		TokenRotateInterval: arg.TokenRotateInterval,
+		NextRotateTime:      nextRotateTime,
 		Config:              cfg,
 	})
 	if errors.IsNotFound(err) {

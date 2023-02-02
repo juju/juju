@@ -397,6 +397,18 @@ var configTests = []configTest{
 		}),
 		err: `unknown severity level "bar"`,
 	}, {
+		about:       "compatible with older empty, now mandatory",
+		useDefaults: config.NoDefaults,
+		attrs: sampleConfig.Merge(testing.Attrs{
+			"secret-backend": "",
+		}),
+	}, {
+		about:       "compatible with older missing, now mandatory",
+		useDefaults: config.NoDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"resource-tags": []string{},
+		}),
+	}, {
 		about:       "Sample configuration",
 		useDefaults: config.UseDefaults,
 		attrs:       sampleConfig,

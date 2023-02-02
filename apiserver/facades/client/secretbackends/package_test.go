@@ -6,6 +6,7 @@ package secretbackends
 import (
 	"testing"
 
+	"github.com/juju/clock"
 	gc "gopkg.in/check.v1"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -26,12 +27,14 @@ func NewTestAPI(
 	secretState SecretsState,
 	statePool StatePool,
 	authorizer facade.Authorizer,
+	clock clock.Clock,
 ) (*SecretBackendsAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
 
 	return &SecretBackendsAPI{
+		clock:          clock,
 		authorizer:     authorizer,
 		controllerUUID: coretesting.ControllerTag.Id(),
 		statePool:      statePool,

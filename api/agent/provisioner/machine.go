@@ -44,9 +44,6 @@ type MachineProvisioner interface {
 	// Refresh updates the cached local copy of the machine's data.
 	Refresh() error
 
-	// ProvisioningInfo returns the information required to provision a machine.
-	ProvisioningInfo() (*params.ProvisioningInfo, error)
-
 	// SetInstanceStatus sets the status for the provider instance.
 	SetInstanceStatus(status status.Status, message string, data map[string]interface{}) error
 
@@ -175,24 +172,6 @@ func (m *Machine) Refresh() error {
 	}
 	m.life = life
 	return nil
-}
-
-// ProvisioningInfo implements MachineProvisioner.ProvisioningInfo.
-func (m *Machine) ProvisioningInfo() (*params.ProvisioningInfo, error) {
-	var results params.ProvisioningInfoResults
-	args := params.Entities{Entities: []params.Entity{{m.tag.String()}}}
-	err := m.st.facade.FacadeCall("ProvisioningInfo", args, &results)
-	if err != nil {
-		return nil, err
-	}
-	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	return result.Result, nil
 }
 
 // SetInstanceStatus implements MachineProvisioner.SetInstanceStatus.

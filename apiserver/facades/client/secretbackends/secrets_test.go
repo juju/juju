@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/schema"
@@ -31,6 +33,7 @@ import (
 type SecretsSuite struct {
 	testing.IsolationSuite
 
+	clock        clock.Clock
 	authorizer   *facademocks.MockAuthorizer
 	backendState *mocks.MockSecretsBackendState
 	secretsState *mocks.MockSecretsState
@@ -50,6 +53,8 @@ func (s *SecretsSuite) setup(c *gc.C) *gomock.Controller {
 	s.backendState = mocks.NewMockSecretsBackendState(ctrl)
 	s.secretsState = mocks.NewMockSecretsState(ctrl)
 	s.statePool = mocks.NewMockStatePool(ctrl)
+
+	s.clock = testclock.NewClock(time.Now())
 
 	return ctrl
 }
@@ -80,6 +85,7 @@ func ptr[T any](v T) *T {
 
 type providerWithConfig struct {
 	provider.ProviderConfig
+	provider.SupportAuthRefresh
 	provider.SecretBackendProvider
 }
 
@@ -134,7 +140,7 @@ func (s *SecretsSuite) assertListSecretBackends(c *gc.C, modelType state.ModelTy
 		}, nil
 	})
 
-	facade, err := secretbackends.NewTestAPI(s.backendState, s.secretsState, s.statePool, s.authorizer)
+	facade, err := secretbackends.NewTestAPI(s.backendState, s.secretsState, s.statePool, s.authorizer, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 
 	uuid := coretesting.ModelTag.Id()
@@ -230,7 +236,7 @@ func (s *SecretsSuite) TestListSecretBackendsPermissionDeniedReveal(c *gc.C) {
 	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
 		false, nil)
 
-	facade, err := secretbackends.NewTestAPI(s.backendState, s.secretsState, s.statePool, s.authorizer)
+	facade, err := secretbackends.NewTestAPI(s.backendState, s.secretsState, s.statePool, s.authorizer, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = facade.ListSecretBackends(params.ListSecretBackendsArgs{Reveal: true})
@@ -245,7 +251,7 @@ func (s *SecretsSuite) TestAddSecretBackends(c *gc.C) {
 	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
 		true, nil)
 
-	facade, err := secretbackends.NewTestAPI(s.backendState, s.secretsState, s.statePool, s.authorizer)
+	facade, err := secretbackends.NewTestAPI(s.backendState, s.secretsState, s.statePool, s.authorizer, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 
 	p := mocks.NewMockSecretBackendProvider(ctrl)
@@ -272,7 +278,8 @@ func (s *SecretsSuite) TestAddSecretBackends(c *gc.C) {
 	s.backendState.EXPECT().CreateSecretBackend(state.CreateSecretBackendParams{
 		Name:                "myvault",
 		BackendType:         "vault",
-		TokenRotateInterval: ptr(666 * time.Minute),
+		TokenRotateInterval: ptr(200 * time.Minute),
+		NextRotateTime:      ptr(s.clock.Now().Add(150 * time.Minute)),
 		Config:              addedConfig,
 	}).Return("backend-id", nil)
 	s.backendState.EXPECT().CreateSecretBackend(state.CreateSecretBackendParams{
@@ -287,7 +294,7 @@ func (s *SecretsSuite) TestAddSecretBackends(c *gc.C) {
 			SecretBackend: params.SecretBackend{
 				Name:                "myvault",
 				BackendType:         "vault",
-				TokenRotateInterval: ptr(666 * time.Minute),
+				TokenRotateInterval: ptr(200 * time.Minute),
 				Config:              map[string]interface{}{"endpoint": "http://vault"},
 			},
 		}, {
@@ -323,7 +330,7 @@ func (s *SecretsSuite) TestAddSecretBackendsPermissionDenied(c *gc.C) {
 	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
 		false, nil)
 
-	facade, err := secretbackends.NewTestAPI(s.backendState, s.secretsState, s.statePool, s.authorizer)
+	facade, err := secretbackends.NewTestAPI(s.backendState, s.secretsState, s.statePool, s.authorizer, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = facade.AddSecretBackends(params.AddSecretBackendArgs{})
@@ -337,7 +344,7 @@ func (s *SecretsSuite) TestRemoveSecretBackends(c *gc.C) {
 	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
 		true, nil)
 
-	facade, err := secretbackends.NewTestAPI(s.backendState, s.secretsState, s.statePool, s.authorizer)
+	facade, err := secretbackends.NewTestAPI(s.backendState, s.secretsState, s.statePool, s.authorizer, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.backendState.EXPECT().DeleteSecretBackend("myvault", true).Return(nil)
@@ -367,7 +374,7 @@ func (s *SecretsSuite) TestRemoveSecretBackendsPermissionDenied(c *gc.C) {
 	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
 		false, nil)
 
-	facade, err := secretbackends.NewTestAPI(s.backendState, s.secretsState, s.statePool, s.authorizer)
+	facade, err := secretbackends.NewTestAPI(s.backendState, s.secretsState, s.statePool, s.authorizer, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = facade.RemoveSecretBackends(params.RemoveSecretBackendArgs{})
@@ -382,7 +389,7 @@ func (s *SecretsSuite) TestUpdateSecretBackends(c *gc.C) {
 	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
 		true, nil)
 
-	facade, err := secretbackends.NewTestAPI(s.backendState, s.secretsState, s.statePool, s.authorizer)
+	facade, err := secretbackends.NewTestAPI(s.backendState, s.secretsState, s.statePool, s.authorizer, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 
 	p := mocks.NewMockSecretBackendProvider(ctrl)
@@ -414,7 +421,8 @@ func (s *SecretsSuite) TestUpdateSecretBackends(c *gc.C) {
 	s.backendState.EXPECT().UpdateSecretBackend(state.UpdateSecretBackendParams{
 		ID:                  "backend-id",
 		NameChange:          ptr("new-name"),
-		TokenRotateInterval: ptr(666 * time.Minute),
+		TokenRotateInterval: ptr(200 * time.Minute),
+		NextRotateTime:      ptr(s.clock.Now().Add(150 * time.Minute)),
 		Config:              updatedConfig,
 	}).Return(nil)
 
@@ -422,7 +430,7 @@ func (s *SecretsSuite) TestUpdateSecretBackends(c *gc.C) {
 		Args: []params.UpdateSecretBackendArg{{
 			Name:                "myvault",
 			NameChange:          ptr("new-name"),
-			TokenRotateInterval: ptr(666 * time.Minute),
+			TokenRotateInterval: ptr(200 * time.Minute),
 			Config:              map[string]interface{}{"tls-server-name": "server-name"},
 			Reset:               []string{"namespace"},
 		}, {
@@ -445,7 +453,7 @@ func (s *SecretsSuite) TestUpdateSecretBackendsPermissionDenied(c *gc.C) {
 	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
 		false, nil)
 
-	facade, err := secretbackends.NewTestAPI(s.backendState, s.secretsState, s.statePool, s.authorizer)
+	facade, err := secretbackends.NewTestAPI(s.backendState, s.secretsState, s.statePool, s.authorizer, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = facade.UpdateSecretBackends(params.UpdateSecretBackendArgs{})

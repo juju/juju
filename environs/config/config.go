@@ -441,7 +441,25 @@ func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error)
 	checker := noDefaultsChecker
 	if withDefaults {
 		checker = withDefaultsChecker
+	} else {
+		// Config may be from an older Juju.
+		// Handle the case where we are parsing a fully formed
+		// set of config attributes (NoDefaults) and a value is strictly
+		// not optional, but may have previously been either set to empty
+		// or is missing.
+		// In this case, we use the default.
+		for k := range defaultsWhenParsing {
+			v, ok := attrs[k]
+			if ok && v != "" {
+				continue
+			}
+			_, explicitlyOptional := alwaysOptional[k]
+			if !explicitlyOptional {
+				attrs[k] = defaultsWhenParsing[k]
+			}
+		}
 	}
+
 	defined, err := checker.Coerce(attrs, nil)
 	if err != nil {
 		return nil, errors.Trace(err)

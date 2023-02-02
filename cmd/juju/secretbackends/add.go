@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/api/client/secretbackends"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/secrets/provider"
 	_ "github.com/juju/juju/secrets/provider/all"
 )
@@ -178,8 +179,10 @@ func parseTokenRotate(attrs map[string]interface{}, zeroAllowed bool) (*time.Dur
 				return nil, errors.NewNotValid(err, "token rotate interval cannot be 0")
 			}
 			return &rotateInterval, nil
-		} else if intervalSecs < 60 {
-			return nil, errors.NewNotValid(err, fmt.Sprintf("token rotate interval %q too small, must be >= 60s", tokenRotateStr))
+		} else {
+			if _, err := secrets.NextBackendRotateTime(time.Now(), rotateInterval); err != nil {
+				return nil, errors.Trace(err)
+			}
 		}
 		return &rotateInterval, nil
 	}
