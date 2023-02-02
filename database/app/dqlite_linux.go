@@ -19,6 +19,8 @@ import (
 // Option can be used to tweak app parameters.
 type Option = app.Option
 
+type SnapshotParams = dqlite.SnapshotParams
+
 // WithAddress sets the network address of the application node.
 //
 // Other application nodes must be able to connect to this application node

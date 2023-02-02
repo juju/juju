@@ -7,11 +7,24 @@
 package app
 
 import (
+	"context"
+	"crypto/tls"
+	"database/sql"
+	"net"
+	"time"
+
 	"github.com/juju/errors"
+
+	"github.com/juju/juju/database/client"
 )
 
 // Option can be used to tweak app parameters.
 type Option func()
+
+type SnapshotParams struct {
+	Threshold uint64
+	Trailing  uint64
+}
 
 // WithAddress sets the network address of the application node.
 //
@@ -134,7 +147,7 @@ func WithNetworkLatency(latency time.Duration) Option {
 }
 
 // WithSnapshotParams sets the raft snapshot parameters.
-func WithSnapshotParams(params dqlite.SnapshotParams) Option {
+func WithSnapshotParams(params SnapshotParams) Option {
 	return func() {}
 }
 
@@ -148,4 +161,39 @@ type App struct{}
 // New creates a new application node.
 func New(dir string, options ...Option) (*App, error) {
 	return nil, errors.NotSupportedf("dqlite app.New")
+}
+
+// Ready can be used to wait for a node to complete tasks that
+// are initiated at startup. For example a new node will attempt
+// to join the cluster, a restarted node will check if it should
+// assume some particular role, etc.
+//
+// If this method returns without error it means that those initial
+// tasks have succeeded and follow-up operations like Open() are more
+// likely to succeed quickly.
+func (*App) Ready(ctx context.Context) error {
+	return errors.NotSupportedf("dqlite app.Ready")
+}
+
+// Open the dqlite database with the given name
+func (*App) Open(ctx context.Context, name string) (*sql.DB, error) {
+	return nil, errors.NotSupportedf("dqlite app.Open")
+}
+
+// Handover transfers all responsibilities for this node (such has
+// leadership and voting rights) to another node, if one is available.
+//
+// This method should always be called before invoking Close(),
+// in order to gracefully shut down a node.
+func (*App) Handover(context.Context) error {
+	return errors.NotSupportedf("dqlite app.Handover")
+}
+
+// ID returns the dqlite ID of this application node.
+func (*App) ID() uint64 {
+	panic("dqlite app.ID")
+}
+
+func (*App) Close() error {
+	return errors.NotSupportedf("dqlite app.Close")
 }
