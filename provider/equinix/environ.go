@@ -273,6 +273,7 @@ func getCloudConfig(args environs.StartInstanceParams) (cloudinit.CloudConfig, e
 		return nil, errors.Trace(err)
 	}
 	cloudCfg.AddPackage("iptables-persistent")
+	cloudCfg.AddPackage("jq")
 
 	// Set a default INPUT policy of drop, permitting ssh
 	acceptInputPort := "iptables -A INPUT -p tcp --dport %d -j ACCEPT"
@@ -382,9 +383,16 @@ done
 
 while true; do
     fan_net=$(ip route | grep fan | awk '{print $1}')
+	fan_net_name=$(ip route | grep fan | awk '{print $3}')
     if [ -z "$fan_net" ]; then
         sleep 15
         continue
+    fi
+
+    fan_dhcp_rule=$(iptables -t filter -L INPUT -v | grep "${fan_net_name}")
+    if [ -z "$fan_dhcp_rule" ]; then
+        echo "[juju fixup] installing iptables rule to allow DHCP traffic from FAN network"
+        iptables -t filter -I INPUT -i $fan_net_name -p udp -m udp --dport 67 -j ACCEPT
     fi
 
     masq_rule=$(iptables -t nat -S POSTROUTING | egrep "${fan_net}.*MASQUERADE")
