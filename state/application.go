@@ -3448,7 +3448,7 @@ func (a *Application) UnitStatuses() (map[string]status.StatusInfo, error) {
 	defer closer()
 	// Agent status is u#unit-name
 	// Workload status is u#unit-name#charm
-	selector := fmt.Sprintf("^%s:u#%s/\\d+(#charm)?$", a.st.modelUUID(), a.doc.Name)
+	selector := fmt.Sprintf("^%s:u#%s/\\d+(#charm)?$", a.st.ModelUUID(), a.doc.Name)
 	var docs []statusDocWithID
 	err := col.Find(bson.M{"_id": bson.M{"$regex": selector}}).All(&docs)
 	if err != nil {
