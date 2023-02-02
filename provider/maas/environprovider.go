@@ -66,7 +66,7 @@ func (EnvironProvider) Open(_ stdcontext.Context, args environs.OpenParams) (env
 	}
 	env, err := NewEnviron(args.Cloud, args.Config, nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotate(err, "creating MAAS environ")
 	}
 	return env, nil
 }

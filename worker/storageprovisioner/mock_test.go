@@ -332,11 +332,12 @@ func newMockVolumeAccessor() *mockVolumeAccessor {
 
 type mockFilesystemAccessor struct {
 	testing.Stub
-	filesystemsWatcher     *mockStringsWatcher
-	attachmentsWatcher     *mockAttachmentsWatcher
-	provisionedMachines    map[string]instance.Id
-	provisionedFilesystems map[string]params.Filesystem
-	provisionedAttachments map[params.MachineStorageId]params.FilesystemAttachment
+	filesystemsWatcher             *mockStringsWatcher
+	attachmentsWatcher             *mockAttachmentsWatcher
+	provisionedMachines            map[string]instance.Id
+	provisionedMachinesFilesystems map[string]params.Filesystem
+	provisionedFilesystems         map[string]params.Filesystem
+	provisionedAttachments         map[params.MachineStorageId]params.FilesystemAttachment
 
 	setFilesystemInfo           func([]params.Filesystem) ([]params.ErrorResult, error)
 	setFilesystemAttachmentInfo func([]params.FilesystemAttachment) ([]params.ErrorResult, error)
@@ -437,8 +438,10 @@ func (f *mockFilesystemAccessor) FilesystemAttachmentParams(ids []params.Machine
 		// Parameters are returned regardless of whether the attachment
 		// exists; this is to support reattachment.
 		instanceId := f.provisionedMachines[id.MachineTag]
+		filesystemId := f.provisionedMachinesFilesystems[id.AttachmentTag].Info.FilesystemId
 		result = append(result, params.FilesystemAttachmentParamsResult{Result: params.FilesystemAttachmentParams{
 			MachineTag:    id.MachineTag,
+			FilesystemId:  filesystemId,
 			FilesystemTag: id.AttachmentTag,
 			InstanceId:    string(instanceId),
 			Provider:      "dummy",
@@ -464,11 +467,12 @@ func (f *mockFilesystemAccessor) SetFilesystemAttachmentInfo(filesystemAttachmen
 
 func newMockFilesystemAccessor() *mockFilesystemAccessor {
 	return &mockFilesystemAccessor{
-		filesystemsWatcher:     newMockStringsWatcher(),
-		attachmentsWatcher:     newMockAttachmentsWatcher(),
-		provisionedMachines:    make(map[string]instance.Id),
-		provisionedFilesystems: make(map[string]params.Filesystem),
-		provisionedAttachments: make(map[params.MachineStorageId]params.FilesystemAttachment),
+		filesystemsWatcher:             newMockStringsWatcher(),
+		attachmentsWatcher:             newMockAttachmentsWatcher(),
+		provisionedMachines:            make(map[string]instance.Id),
+		provisionedFilesystems:         make(map[string]params.Filesystem),
+		provisionedMachinesFilesystems: make(map[string]params.Filesystem),
+		provisionedAttachments:         make(map[params.MachineStorageId]params.FilesystemAttachment),
 	}
 }
 

@@ -56,7 +56,7 @@ func (s *UpdateSuite) TestUpdateInitError(c *gc.C) {
 		err:  "must specify a config file or key/reset values",
 	}, {
 		args: []string{"myvault", "foo=bar", "token-rotate=1s"},
-		err:  `token rotate interval "1s" too small, must be >= 60s`,
+		err:  `token rotate interval "1s" less than 1h not valid`,
 	}, {
 		args: []string{"myvault", "foo=bar", "--config", "/path/to/nowhere"},
 		err:  `open /path/to/nowhere: no such file or directory`,
