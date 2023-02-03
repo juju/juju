@@ -189,15 +189,7 @@ jobs:
         run: |
           set -euxo pipefail
           
-          # For prometheus-k8s, we need to use revision 1 - this is the only
-          # revision with metadata v1, hence can be deployed on 2.8.
-          # 2.8 which doesn't have the --revision flag, so append the rev no.
-          DEPLOY_NAME=${CHARM_${{ matrix.model_type }}}
-          if [[ $DEPLOY_NAME == 'prometheus-k8s' ]]; then
-            DEPLOY_NAME='prometheus-k8s-1'
-          fi
-          
-          juju deploy $DEPLOY_NAME
+          juju deploy ${CHARM_${{ matrix.model_type }}}
           
           juju wait-for application ${CHARM_${{ matrix.model_type }}}
           
