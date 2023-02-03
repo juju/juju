@@ -1004,7 +1004,7 @@ func (s *secretsStore) listSecretRevisions(uri *secrets.URI, revision *int) ([]*
 				BackendID:  doc.ValueRef.BackendID,
 				RevisionID: doc.ValueRef.RevisionID,
 			}
-			if doc.ValueRef.BackendID != s.st.modelUUID() {
+			if doc.ValueRef.BackendID != s.st.ModelUUID() {
 				name, ok := backendNames[doc.ValueRef.BackendID]
 				if !ok {
 					var backendDoc secretBackendDoc
