@@ -150,6 +150,12 @@ type SecretsContextAccessor struct {
 	jujusecrets.Backend
 }
 
+func (s SecretsContextAccessor) CreateSecretURIs(int) ([]*secrets.URI, error) {
+	return []*secrets.URI{{
+		ID: "8m4e2mr0ui3e8a215n4g",
+	}}, nil
+}
+
 func (s SecretsContextAccessor) SecretMetadata(filter secrets.Filter) ([]secrets.SecretOwnerMetadata, error) {
 	uri, _ := secrets.ParseURI("secret:9m4e2mr0ui3e8a215n4g")
 	return []secrets.SecretOwnerMetadata{{

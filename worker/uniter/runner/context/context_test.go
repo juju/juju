@@ -589,6 +589,13 @@ func (s *InterfaceSuite) TestSecretMetadata(c *gc.C) {
 			Description: "will be removed",
 		},
 	})
+	uri3, err := ctx.CreateSecret(&jujuc.SecretCreateArgs{
+		OwnerTag: names.NewApplicationTag("foo"),
+		SecretUpdateArgs: jujuc.SecretUpdateArgs{
+			Description: ptr("a new one"),
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
 	err = ctx.UpdateSecret(uri, &jujuc.SecretUpdateArgs{
 		Description: ptr("another"),
 	})
@@ -604,6 +611,11 @@ func (s *InterfaceSuite) TestSecretMetadata(c *gc.C) {
 			Owner:        names.NewApplicationTag("mariadb"),
 			Description:  "another",
 			RotatePolicy: coresecrets.RotateHourly,
+		},
+		uri3.ID: {
+			Owner:          names.NewApplicationTag("foo"),
+			Description:    "a new one",
+			LatestRevision: 1,
 		},
 	})
 }

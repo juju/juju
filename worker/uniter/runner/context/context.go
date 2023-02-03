@@ -934,6 +934,25 @@ func (ctx *HookContext) SecretMetadata() (map[string]jujuc.SecretMetadata, error
 	}
 
 	result := make(map[string]jujuc.SecretMetadata)
+	for _, c := range ctx.secretChanges.pendingCreates {
+		md := jujuc.SecretMetadata{
+			Owner:          c.OwnerTag,
+			LatestRevision: 1,
+		}
+		if c.Label != nil {
+			md.Label = *c.Label
+		}
+		if c.Description != nil {
+			md.Description = *c.Description
+		}
+		if c.RotatePolicy != nil {
+			md.RotatePolicy = *c.RotatePolicy
+		}
+		if c.ExpireTime != nil {
+			md.LatestExpireTime = c.ExpireTime
+		}
+		result[c.URI.ID] = md
+	}
 	for id, v := range ctx.secretMetadata {
 		if pendingDeletes.Contains(id) {
 			continue
