@@ -382,10 +382,6 @@ check: pre-check run-tests
 test: run-tests
 ## test: Verify Juju code using unit tests
 
-define test_runner
-	
-endef
-
 .PHONY: run-tests
 # Can't make the length of the TMP dir too long or it hits socket name length issues.
 run-tests: musl-install-if-missing dqlite-install-if-missing
