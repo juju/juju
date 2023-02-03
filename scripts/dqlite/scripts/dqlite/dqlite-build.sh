@@ -148,5 +148,14 @@ build() {
     cp -r sqlite/*.h juju-dqlite-static-lib-deps/include
     cp -r dqlite/include/* juju-dqlite-static-lib-deps/include
 
+    # Bill of materials
+    echo "libtirpc ${TAG_LIBTIRPC}" > juju-dqlite-static-lib-deps/BOM
+    echo "libnsl ${TAG_LIBNSL}" >> juju-dqlite-static-lib-deps/BOM
+    echo "libuv ${TAG_LIBUV}" >> juju-dqlite-static-lib-deps/BOM
+    echo "liblz4 ${TAG_LIBLZ4}" >> juju-dqlite-static-lib-deps/BOM
+    echo "raft ${TAG_RAFT}" >> juju-dqlite-static-lib-deps/BOM
+    echo "sqlite ${TAG_SQLITE}" >> juju-dqlite-static-lib-deps/BOM
+    echo "dqlite ${TAG_DQLITE}" >> juju-dqlite-static-lib-deps/BOM
+
     tar cjvf juju-dqlite-static-lib-deps.tar.bz2 juju-dqlite-static-lib-deps
 }
