@@ -272,6 +272,8 @@ func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.Ch
 		return params.CharmOriginResult{}, err
 	}
 
+	// TODO(nvinuesa): we must remove this check because we no longer
+	// support charmstore.
 	// Only the Charmhub API gives us the metadata we need to support async
 	// charm downloads, so don't do it for legacy Charmstore ones.
 	if commoncharm.OriginSource(args.Origin.Source) == commoncharm.OriginCharmHub {

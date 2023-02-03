@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/secrets"
 	"github.com/juju/juju/worker/common/reboot"
 	"github.com/juju/juju/worker/fortress"
+	"github.com/juju/juju/worker/s3caller"
 	"github.com/juju/juju/worker/secretexpire"
 	"github.com/juju/juju/worker/secretrotate"
 	"github.com/juju/juju/worker/uniter/charm"
@@ -51,6 +52,7 @@ type ManifoldConfig struct {
 	AgentName                    string
 	ModelType                    model.ModelType
 	APICallerName                string
+	S3CallerName                 string
 	MachineLock                  machinelock.Lock
 	Clock                        clock.Clock
 	LeadershipTrackerName        string
@@ -87,6 +89,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		Inputs: []string{
 			config.AgentName,
 			config.APICallerName,
+			config.S3CallerName,
 			config.LeadershipTrackerName,
 			config.CharmDirName,
 			config.HookRetryStrategyName,
@@ -124,7 +127,12 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, err
 			}
 
-			downloader := charms.NewCharmDownloader(apiConn)
+			var s3Caller s3caller.Session
+			if err := ctx.Get(config.S3CallerName, &s3Caller); err != nil {
+				return nil, err
+			}
+
+			s3Downloader := charms.NewS3CharmDownloader(s3Caller, apiConn)
 
 			jujuSecretsAPI := secretsmanager.NewClient(apiConn)
 			secretRotateWatcherFunc := func(unitTag names.UnitTag, isLeader bool, rotateSecrets chan []string) (worker.Worker, error) {
@@ -186,7 +194,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				SecretRotateWatcherFunc:      secretRotateWatcherFunc,
 				SecretExpiryWatcherFunc:      secretExpiryWatcherFunc,
 				DataDir:                      agentConfig.DataDir(),
-				Downloader:                   downloader,
+				Downloader:                   s3Downloader,
 				MachineLock:                  manifoldConfig.MachineLock,
 				CharmDirGuard:                charmDirGuard,
 				UpdateStatusSignal:           NewUpdateStatusTimer(),

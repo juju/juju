@@ -13,6 +13,9 @@ import (
 
 // Request holds a single download request.
 type Request struct {
+	// ArchiveSha256 is the string containing the charm archive sha256 hash.
+	ArchiveSha256 string
+
 	// URL is the location from which the file will be downloaded.
 	URL *url.URL
 
@@ -41,7 +44,7 @@ type Status struct {
 
 // StartDownload starts a new download as specified by `req` using
 // `openBlob` to actually pull the remote data.
-func StartDownload(req Request, openBlob func(*url.URL) (io.ReadCloser, error)) *Download {
+func StartDownload(req Request, openBlob func(Request) (io.ReadCloser, error)) *Download {
 	if openBlob == nil {
 		openBlob = NewHTTPBlobOpener(false)
 	}
@@ -56,7 +59,7 @@ func StartDownload(req Request, openBlob func(*url.URL) (io.ReadCloser, error)) 
 // Download can download a file from the network.
 type Download struct {
 	done     chan Status
-	openBlob func(*url.URL) (io.ReadCloser, error)
+	openBlob func(Request) (io.ReadCloser, error)
 }
 
 // Done returns a channel that receives a status when the download has
@@ -123,7 +126,7 @@ func (dl *Download) download(req Request) (filename string, err error) {
 		}
 	}()
 
-	blobReader, err := dl.openBlob(req.URL)
+	blobReader, err := dl.openBlob(req)
 	if err != nil {
 		return "", errors.Trace(err)
 	}

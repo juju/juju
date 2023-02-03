@@ -20,8 +20,8 @@ import (
 // provided API caller.
 func NewCharmDownloader(apiCaller base.APICaller) *downloader.Downloader {
 	dlr := &downloader.Downloader{
-		OpenBlob: func(url *url.URL) (io.ReadCloser, error) {
-			curl, err := charm.ParseURL(url.String())
+		OpenBlob: func(req downloader.Request) (io.ReadCloser, error) {
+			curl, err := charm.ParseURL(req.URL.String())
 			if err != nil {
 				return nil, errors.Annotate(err, "did not receive a valid charm URL")
 			}

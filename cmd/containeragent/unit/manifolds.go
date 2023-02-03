@@ -303,6 +303,7 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			AgentName:                    agentName,
 			ModelType:                    model.CAAS,
 			APICallerName:                apiCallerName,
+			S3CallerName:                 s3CallerName,
 			MachineLock:                  config.MachineLock,
 			Clock:                        config.Clock,
 			LeadershipTrackerName:        leadershipTrackerName,
@@ -362,6 +363,7 @@ const (
 	agentName            = "agent"
 	apiConfigWatcherName = "api-config-watcher"
 	apiCallerName        = "api-caller"
+	s3CallerName         = "s3-caller"
 	uniterName           = "uniter"
 	logSenderName        = "log-sender"
 

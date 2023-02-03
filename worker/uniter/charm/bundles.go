@@ -62,18 +62,22 @@ func (d *BundlesDir) Read(info BundleInfo, abort <-chan struct{}) (Bundle, error
 // download fetches the supplied charm and checks that it has the correct sha256
 // hash, then copies it into the directory. If a value is received on abort, the
 // download will be stopped.
-func (d *BundlesDir) download(info BundleInfo, target string, abort <-chan struct{}) (err error) {
+func (d *BundlesDir) download(info BundleInfo, target string, abort <-chan struct{}) error {
 	// First download...
 	curl, err := url.Parse(info.String())
 	if err != nil {
 		return errors.Annotate(err, "could not parse charm URL")
 	}
 	expectedSha256, err := info.ArchiveSha256()
+	if err != nil {
+		return errors.Annotate(err, "could nnot retrieve charm archive sha256")
+	}
 	req := downloader.Request{
-		URL:       curl,
-		TargetDir: downloadsPath(d.path),
-		Verify:    downloader.NewSha256Verifier(expectedSha256),
-		Abort:     abort,
+		ArchiveSha256: expectedSha256,
+		URL:           curl,
+		TargetDir:     downloadsPath(d.path),
+		Verify:        downloader.NewSha256Verifier(expectedSha256),
+		Abort:         abort,
 	}
 	d.logger.Infof("downloading %s from API server", info.String())
 	filename, err := d.downloader.Download(req)

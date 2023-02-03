@@ -316,10 +316,15 @@ func (s *WorkerSuite) TestWorkerDownloadsCharm(c *gc.C) {
 	downloadRequest.Abort = nil
 	downloadRequest.Verify = nil
 	agentDir := filepath.Join(s.config.DataDir, "agents", "application-gitlab")
-	c.Assert(downloadRequest, jc.DeepEquals, downloader.Request{
-		URL:       &url.URL{Scheme: "ch", Opaque: "gitlab-1"},
-		TargetDir: filepath.Join(agentDir, "state", "bundles", "downloads"),
-	})
+	c.Assert(
+		downloadRequest,
+		jc.DeepEquals,
+		downloader.Request{
+			ArchiveSha256: fakeCharmSHA256,
+			URL:           &url.URL{Scheme: "ch", Opaque: "gitlab-1"},
+			TargetDir:     filepath.Join(agentDir, "state", "bundles", "downloads"),
+		},
+	)
 
 	// The download directory should have been removed.
 	_, err = os.Stat(downloadRequest.TargetDir)

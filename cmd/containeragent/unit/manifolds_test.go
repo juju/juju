@@ -172,6 +172,7 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 	"uniter": {
 		"agent",
 		"api-caller",
+		"s3-caller",
 		"api-config-watcher",
 		"charm-dir",
 		"hook-retry-strategy",
@@ -251,6 +252,7 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 		"migration-fortress",
 		"migration-inactive-flag",
 		"probe-http-server",
+		"s3-caller",
 		"uniter",
 	},
 	"upgrade-steps-flag": {
@@ -279,6 +281,7 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 		"leadership-tracker",
 		"migration-fortress",
 		"migration-inactive-flag",
+		"s3-caller",
 		"uniter",
 	},
 	"caas-units-manager": {

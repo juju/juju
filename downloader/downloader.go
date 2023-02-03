@@ -5,7 +5,6 @@ package downloader
 
 import (
 	"io"
-	"net/url"
 	"os"
 
 	"github.com/juju/errors"
@@ -18,7 +17,7 @@ var logger = loggo.GetLogger("juju.downloader")
 type Downloader struct {
 	// OpenBlob is the func used to gain access to the blob, whether
 	// through an HTTP request or some other means.
-	OpenBlob func(*url.URL) (io.ReadCloser, error)
+	OpenBlob func(Request) (io.ReadCloser, error)
 }
 
 // NewArgs holds the arguments to New().
