@@ -26,7 +26,7 @@ jobs:
         model_type: ["localhost", "microk8s"]
     env:
       CHARM_localhost: apache2
-      CHARM_microk8s: elasticsearch-k8s
+      CHARM_microk8s: prometheus-k8s
       DOCKER_REGISTRY: 10.152.183.69
       RUN_TEST: RUN
 
@@ -45,6 +45,7 @@ jobs:
         if: env.RUN_TEST == 'RUN'
         uses: actions/checkout@v3
 
+        # We use LXD in the microk8s test too, to build the snap.
       - name: Setup LXD
         uses: canonical/setup-lxd@90d76101915da56a42a562ba766b1a77019242fd
         with:
@@ -200,10 +201,15 @@ jobs:
         run: |
           set -euxo pipefail
           
-          # Required for elasticsearch
-          sudo sysctl -w vm.max_map_count=262144
+          # For prometheus-k8s, we need to use revision 1 - this is the only
+          # revision with metadata v1, hence can be deployed on 2.8.
+          # 2.8 which doesn't have the --revision flag, so append the rev no.
+          DEPLOY_NAME=${CHARM_${{ matrix.model_type }}}
+          if [[ $DEPLOY_NAME == 'prometheus-k8s' ]]; then
+            DEPLOY_NAME='prometheus-k8s-1'
+          fi
           
-          juju deploy ${CHARM_${{ matrix.model_type }}}
+          juju deploy $DEPLOY_NAME
           
           juju wait-for application ${CHARM_${{ matrix.model_type }}}
           
