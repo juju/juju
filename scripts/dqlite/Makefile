@@ -125,7 +125,7 @@ musl-install:
 	make install
 
 	cd -
-	# Setup symlinks so we can access additional headers that 
+	# Setup symlinks so we can access additional headers that
 	# don't ship with musl but are needed for our builds
 	ln -s /usr/include/${DQLITE_BUILD_MACHINE}-linux-gnu/asm /usr/local/musl/include/asm
 	ln -s /usr/include/asm-generic /usr/local/musl/include/asm-generic
