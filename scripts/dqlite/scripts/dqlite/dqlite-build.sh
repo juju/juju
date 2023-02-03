@@ -11,15 +11,18 @@ build() {
         CUSTOM_CFLAGS="-mlong-double-64"
     fi
 
+    # Ensure that when apt installs tzdata skips it's prompt in all contexts
+    ln -fs /usr/share/zoneinfo/UTC /etc/localtime
+
     # TODO: Make this script idempotent, so that it checks for the
     # existence of repositories, requiring only a pull and not a full clone.
 
     # Setup build env
     sudo apt-get update
     sudo apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install \
-        gcc automake libtool make gettext autopoint pkg-config tclsh tcl libsqlite3-dev
+        gcc automake libtool make gettext autopoint pkg-config tclsh tcl libsqlite3-dev wget git
 
-    mkdir build
+    mkdir -p build
     cd build
 
     # Checkout and build musl. We will use this to avoid depending
@@ -36,7 +39,7 @@ build() {
     export CC=musl-gcc
     cd ..
 
-    # Setup symlinks so we can access additional headers that 
+    # Setup symlinks so we can access additional headers that
     # don't ship with musl but are needed for our builds
     sudo ln -s /usr/include/${MACHINE_TYPE}-linux-gnu/asm /usr/local/musl/include/asm || true
     sudo ln -s /usr/include/asm-generic /usr/local/musl/include/asm-generic || true

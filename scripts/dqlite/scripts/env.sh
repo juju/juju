@@ -9,9 +9,9 @@ current_arch() {
 		x86_64) echo amd64 ;;
 		aarch64) echo arm64 ;;
 		s390x) echo s390x ;;
-		powerpc64le) echo ppc64le ;;
+		ppc64le) echo ppc64le ;;
 		riscv64) echo riscv64 ;;
-		*) exit 1 ;;
+		*) echo "Unsupported architecture $(uname -m)" && exit 1 ;;
 	esac
 }
 
