@@ -477,7 +477,7 @@ func (h *bundleHandler) getChanges() error {
 		Bundle:           h.data,
 		BundleURL:        bundleURL,
 		Model:            h.model,
-		ConstraintGetter: addCharmConstraintsParser,
+		ConstraintGetter: addCharmConstraintsParser(h.modelConstraints),
 		CharmResolver:    h.resolveCharmChannelAndRevision,
 		Logger:           logger,
 		Force:            h.force,
@@ -1686,8 +1686,18 @@ func isUserAlreadyHasAccessErr(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "user already has")
 }
 
+func addCharmConstraintsParser(defaultConstraints constraints.Value) func(string) bundlechanges.ArchConstraint {
+	return func(s string) bundlechanges.ArchConstraint {
+		return bundleArchConstraint{
+			constraints:        s,
+			defaultConstraints: defaultConstraints,
+		}
+	}
+}
+
 type bundleArchConstraint struct {
-	constraints string
+	constraints        string
+	defaultConstraints constraints.Value
 }
 
 func (b bundleArchConstraint) Arch() (string, error) {
@@ -1695,13 +1705,7 @@ func (b bundleArchConstraint) Arch() (string, error) {
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	return arch.ConstraintArch(cons, nil), nil
-}
-
-func addCharmConstraintsParser(s string) bundlechanges.ArchConstraint {
-	return bundleArchConstraint{
-		constraints: s,
-	}
+	return arch.ConstraintArch(cons, &b.defaultConstraints), nil
 }
 
 func verifyEndpointBindings(endpointBindings map[string]string, knownSpaceNames set.Strings) error {

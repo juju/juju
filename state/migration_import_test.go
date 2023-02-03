@@ -1288,14 +1288,16 @@ func (s *MigrationImportSuite) TestRelations(c *gc.C) {
 	state.AddTestingApplication(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
 	eps, err := s.State.InferEndpoints("mysql", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
+
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 	err = rel.SetStatus(status.StatusInfo{Status: status.Joined})
 	c.Assert(err, jc.ErrorIsNil)
-	wordpress_0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: wordpress})
 
-	ru, err := rel.Unit(wordpress_0)
+	wordpress0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: wordpress})
+	ru, err := rel.Unit(wordpress0)
 	c.Assert(err, jc.ErrorIsNil)
+
 	relSettings := map[string]interface{}{
 		"name": "wordpress/0",
 	}
@@ -1324,6 +1326,60 @@ func (s *MigrationImportSuite) TestRelations(c *gc.C) {
 	settings, err := ru.Settings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings.Map(), gc.DeepEquals, relSettings)
+}
+
+func (s *MigrationImportSuite) TestCMRRemoteRelationScope(c *gc.C) {
+	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "gravy-rainbow",
+		URL:         "me/model.rainbow",
+		SourceModel: s.Model.ModelTag(),
+		Token:       "charisma",
+		OfferUUID:   "offer-uuid",
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Name:      "db",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	wordpress := state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
+	eps, err := s.State.InferEndpoints("gravy-rainbow", "wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	wordpress0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: wordpress})
+	localRU, err := rel.Unit(wordpress0)
+	c.Assert(err, jc.ErrorIsNil)
+
+	wordpressSettings := map[string]interface{}{"name": "wordpress/0"}
+	err = localRU.EnterScope(wordpressSettings)
+	c.Assert(err, jc.ErrorIsNil)
+
+	remoteRU, err := rel.RemoteUnit("gravy-rainbow/0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	gravySettings := map[string]interface{}{"name": "gravy-rainbow/0"}
+	err = remoteRU.EnterScope(gravySettings)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, newSt := s.importModel(c, s.State)
+
+	newWordpress, err := newSt.Application("wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+
+	rels, err := newWordpress.Relations()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rels, gc.HasLen, 1)
+
+	ru, err := rels[0].RemoteUnit("gravy-rainbow/0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	inScope, err := ru.InScope()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(inScope, jc.IsTrue)
 }
 
 func (s *MigrationImportSuite) assertRelationsMissingStatus(c *gc.C, hasUnits bool) {
