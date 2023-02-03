@@ -2522,10 +2522,11 @@ func (s *MigrationImportSuite) TestPayloads(c *gc.C) {
 
 func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
 	remoteApp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name:        "gravy-rainbow",
-		URL:         "me/model.rainbow",
-		SourceModel: s.Model.ModelTag(),
-		Token:       "charisma",
+		Name:           "gravy-rainbow",
+		URL:            "me/model.rainbow",
+		SourceModel:    s.Model.ModelTag(),
+		Token:          "charisma",
+		ConsumeVersion: 1,
 		Endpoints: []charm.Relation{{
 			Interface: "mysql",
 			Name:      "db",
@@ -2585,6 +2586,7 @@ func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
 
 	remoteApplication := remoteApplications[0]
 	c.Assert(remoteApplication.Name(), gc.Equals, "gravy-rainbow")
+	c.Assert(remoteApplication.ConsumeVersion(), gc.Equals, 1)
 
 	url, _ := remoteApplication.URL()
 	c.Assert(url, gc.Equals, "me/model.rainbow")
