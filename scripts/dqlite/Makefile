@@ -31,8 +31,6 @@ TAG_RAFT=v0.16.0
 TAG_SQLITE=version-3.40.0
 TAG_DQLITE=v1.12.0
 
-.PHONY: install-deps-on-controller build-and-install-jujud
-
 ${DQLITE_ARCHIVE_PATH}:
 	@lxc delete -f ${DQLITE_BUILD_CONTAINER} &>/dev/null || true
 
@@ -87,22 +85,12 @@ dqlite-deps-push: ${DQLITE_ARCHIVE_PATH}
 	@echo "DQLITE: Pushing latest-dqlite-deps-${DQLITE_BUILD_ARCH}.tar.bz2 to s3"
 	aws s3 cp ${DQLITE_S3_ARCHIVE_PATH} ${DQLITE_S3_BUCKET}/latest-dqlite-deps-${DQLITE_BUILD_ARCH}.tar.bz2
 
-dqlite-deps-pull:
-	@echo "DQLITE: Cleaning up deps path"
-	@mkdir -p ${DQLITE_EXTRACTED_DEPS_PATH}
-	@rm -rf ${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}
-	@echo "DQLITE: Pulling latest-dqlite-deps-${DQLITE_BUILD_ARCH}.tar.bz2 from s3"
-	wget -q -O- https://dqlite-static-libs.s3.amazonaws.com/latest-dqlite-deps-${DQLITE_BUILD_ARCH}.tar.bz2 - | tar xjf - -C ${DQLITE_EXTRACTED_DEPS_PATH}
-	@mv ${DQLITE_EXTRACTED_DEPS_PATH}/juju-dqlite-static-lib-deps ${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}
+.PHONY: dqlite-install dqlite-install-if-missing
+dqlite-install:
+	@./scripts/dqlite/scripts/dqlite/install.sh
 
-dqlite-deps-check:
-	@if [ ! -d ${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} ]; then \
-		$(MAKE) -s dqlite-deps-pull; \
-	fi
-
-################################################################################
-# musl
-################################################################################
+dqlite-install-if-missing:
+	@./scripts/dqlite/scripts/dqlite/install-if-missing.sh
 
 .PHONY: musl-install musl-install-if-missing
 musl-install:
