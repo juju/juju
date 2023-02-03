@@ -189,7 +189,12 @@ jobs:
         run: |
           set -euxo pipefail
           
-          juju deploy ${CHARM_${{ matrix.model_type }}}
+          # On k8s, we have to grant the app access to the cluster.
+          if [[ ${{ matrix.model_type }} == 'microk8s' ]]; then
+            DEPLOY_FLAGS="--trust"
+          fi
+          
+          juju deploy ${CHARM_${{ matrix.model_type }}} $DEPLOY_FLAGS
           
           juju wait-for application ${CHARM_${{ matrix.model_type }}}
           
