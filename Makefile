@@ -214,7 +214,7 @@ define run_cgo_build
 	$(eval BUILD_ARCH = $(subst ppc64el,ppc64le,${ARCH}))
 	@@mkdir -p ${BBIN_DIR}
 	@echo "Building ${PACKAGE} for ${OS}/${ARCH}"
-	@env PATH=${PATH}:${MUSL_CROSS_BIN_PATH} \
+	@env PATH=${PATH}:${MUSL_BIN_PATH} \
 		CC="musl-gcc" \
 		CGO_CFLAGS="-I${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}/include" \
 		CGO_LDFLAGS="-L${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} -luv -lraft -ldqlite -llz4 -lsqlite3" \
@@ -318,7 +318,7 @@ ${BUILD_DIR}/%/bin/jujuc: phony_explicit
 	$(run_go_build)
 
 ${BUILD_DIR}/%/bin/jujud: PACKAGE = github.com/juju/juju/cmd/jujud
-${BUILD_DIR}/%/bin/jujud: phony_explicit musl-cross-arch-install dqlite-deps-check
+${BUILD_DIR}/%/bin/jujud: phony_explicit musl-install-if-missing dqlite-deps-check
 # build for jujud
 	$(run_cgo_build)
 
@@ -388,7 +388,7 @@ endef
 
 .PHONY: run-tests
 # Can't make the length of the TMP dir too long or it hits socket name length issues.
-run-tests: dqlite-deps-check
+run-tests: musl-install-if-missing dqlite-deps-check
 ## run-tests: Run the unit tests
 	$(eval TMP := $(shell mktemp -d $${TMPDIR:-/tmp}/jj-XXX))
 	$(eval TEST_PACKAGES := $(shell go list $(PROJECT)/... | sort | ([ -f "$(TEST_PACKAGE_LIST)" ] && comm -12 "$(TEST_PACKAGE_LIST)" - || cat) | grep -v $(PROJECT)$$ | grep -v $(PROJECT)/vendor/ | grep -v $(PROJECT)/acceptancetests/ | grep -v $(PROJECT)/generate/ | grep -v mocks))
@@ -404,7 +404,7 @@ run-tests: dqlite-deps-check
 		go test -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(TEST_PACKAGES) -check.v
 	@rm -r $(TMP)
 
-run-go-tests: dqlite-deps-check
+run-go-tests: musl-install-if-missing dqlite-deps-check
 ## run-go-tests: Run the unit tests
 	$(eval TEST_PACKAGES ?= "./...")
 	$(eval TEST_FILTER ?= "")
