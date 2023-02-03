@@ -38,3 +38,4 @@ run:
   modules-download-mode: readonly
 skip-dirs:
   - acceptancetests
+  - _deps

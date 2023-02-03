@@ -55,8 +55,6 @@ jobs:
           libdqlite-dev \
           libsqlite3-dev \
           sqlite3
-        
-        make dqlite-deps-check
 
         curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.50.1
 

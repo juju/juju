@@ -10,3 +10,4 @@ run:
   tests: false
 skip-dirs:
   - acceptancetests
+  - _deps
