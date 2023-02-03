@@ -183,7 +183,7 @@ endef
 # juju package. It's expected that the make target using this sequence has a
 # local variable defined for PACKAGE. An example of PACKAGE would be
 # PACKAGE=github.com/juju/juju
-# 
+#
 # This canned command also allows building for architectures defined as
 # ppc64el. Because of legacy Juju we use the arch ppc64el over the go defined
 # arch of ppc64le. This canned command will do a last minute transformation of

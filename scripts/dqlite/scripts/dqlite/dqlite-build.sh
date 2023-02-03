@@ -12,7 +12,7 @@ build() {
     fi
 
     # Ensure that when apt installs tzdata skips it's prompt in all contexts
-    ln -fs /usr/share/zoneinfo/UTC /etc/localtime
+    sudo ln -fs /usr/share/zoneinfo/UTC /etc/localtime
 
     # TODO: Make this script idempotent, so that it checks for the
     # existence of repositories, requiring only a pull and not a full clone.
