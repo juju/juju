@@ -49,6 +49,20 @@ func (mr *MockMigrationRemoteApplicationMockRecorder) Bindings() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Bindings", reflect.TypeOf((*MockMigrationRemoteApplication)(nil).Bindings))
 }
 
+// ConsumeVersion mocks base method.
+func (m *MockMigrationRemoteApplication) ConsumeVersion() int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ConsumeVersion")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// ConsumeVersion indicates an expected call of ConsumeVersion.
+func (mr *MockMigrationRemoteApplicationMockRecorder) ConsumeVersion() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConsumeVersion", reflect.TypeOf((*MockMigrationRemoteApplication)(nil).ConsumeVersion))
+}
+
 // Endpoints mocks base method.
 func (m *MockMigrationRemoteApplication) Endpoints() ([]MigrationRemoteEndpoint, error) {
 	m.ctrl.T.Helper()
