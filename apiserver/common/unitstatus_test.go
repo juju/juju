@@ -95,6 +95,44 @@ func (s *UnitStatusSuite) TestCAASLost(c *gc.C) {
 	s.checkLost(c)
 }
 
+func (s *UnitStatusSuite) TestLostTerminated(c *gc.C) {
+	s.unit.status.Status = status.Terminated
+	s.unit.status.Message = ""
+
+	s.ctx.Presence = agentDown(s.unit.Tag().String())
+
+	agent, workload := s.ctx.UnitStatus(s.unit)
+	c.Check(agent.Status, jc.DeepEquals, status.StatusInfo{
+		Status:  status.Lost,
+		Message: "agent is not communicating with the server",
+	})
+	c.Check(agent.Err, jc.ErrorIsNil)
+	c.Check(workload.Status, jc.DeepEquals, status.StatusInfo{
+		Status:  status.Terminated,
+		Message: "",
+	})
+	c.Check(workload.Err, jc.ErrorIsNil)
+}
+
+func (s *UnitStatusSuite) TestCAASLostTerminated(c *gc.C) {
+	s.unit.shouldBeAssigned = false
+	s.unit.status.Status = status.Terminated
+	s.unit.status.Message = ""
+
+	s.ctx.Presence = agentDown(names.NewApplicationTag(s.unit.app).String())
+
+	agent, workload := s.ctx.UnitStatus(s.unit)
+	c.Check(agent.Status, jc.DeepEquals, status.StatusInfo{
+		Status:  status.Lost,
+		Message: "agent is not communicating with the server",
+	})
+	c.Check(agent.Err, jc.ErrorIsNil)
+	c.Check(workload.Status, jc.DeepEquals, status.StatusInfo{
+		Status:  status.Terminated,
+		Message: "",
+	})
+	c.Check(workload.Err, jc.ErrorIsNil)
+}
 func (s *UnitStatusSuite) TestLostAndDead(c *gc.C) {
 	s.ctx.Presence = agentDown(s.unit.Tag().String())
 	s.unit.life = state.Dead

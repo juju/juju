@@ -801,7 +801,6 @@ func (w *srvRelationStatusWatcher) Next() (params.RelationLifeSuspendedStatusWat
 type srvOfferStatusWatcher struct {
 	watcherCommon
 	st      *state.State
-	model   *cache.Model
 	watcher crossmodelrelations.OfferWatcher
 }
 
@@ -811,10 +810,6 @@ func newOfferStatusWatcher(context facade.Context) (facade.Facade, error) {
 	resources := context.Resources()
 
 	st := context.State()
-	model, err := context.CachedModel(st.ModelUUID())
-	if err != nil {
-		return watcherCommon{}, err
-	}
 
 	// TODO(wallyworld) - enhance this watcher to support
 	// anonymous api calls with macaroons.
@@ -828,7 +823,6 @@ func newOfferStatusWatcher(context facade.Context) (facade.Facade, error) {
 	return &srvOfferStatusWatcher{
 		watcherCommon: newWatcherCommon(context),
 		st:            st,
-		model:         model,
 		watcher:       watcher,
 	}, nil
 }
