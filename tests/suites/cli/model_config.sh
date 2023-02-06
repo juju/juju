@@ -51,7 +51,9 @@ test_model_config() {
 
 		cd .. || exit
 
-		run "run_model_config_isomorphic"
+    # TODO(anvial):This subtest is comment out because we support both 'default-series' and 'default-base'.
+    # We need to return this subtest back when we fully drop series support.
+    #	run "run_model_config_isomorphic"
 		run "run_model_config_cloudinit_userdata"
 	)
 }
