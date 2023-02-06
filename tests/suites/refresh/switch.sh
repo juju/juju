@@ -19,7 +19,7 @@ run_refresh_switch_cs_to_ch() {
 	# shellcheck disable=SC2059
 	printf "${OUT}\n"
 
-	# format: Added local charm "ubuntu", revision 2, to the model
+	# format: Added charm-store charm "ubuntu", revision 21 in channel stable, to the model
 	revision=$(echo "${OUT}" | awk 'BEGIN{FS=","} {print $2}' | awk 'BEGIN{FS=" "} {print $2}')
 
 	wait_for "ubuntu" "$(charm_rev "ubuntu" "${revision}")"
@@ -33,15 +33,15 @@ run_refresh_switch_cs_to_ch_no_new_revision() {
 	# charm revision.
 	echo
 
-	model_name="test-refresh-switch-ch"
+	model_name="test-refresh-switch-ch-no-new-revision"
 	file="${TEST_DIR}/${model_name}.log"
 
 	ensure "${model_name}" "${file}"
 
-	OUT=$(juju deploy cs:ubuntu2 >&1 || true)
+	OUT=$(juju deploy cs:ubuntu >&1 || true)
 	# shellcheck disable=SC2059
 	printf "${OUT}\n"
-	# format: Added local charm "ubuntu", revision 2, to the model
+	# format: Added charm-store charm "ubuntu", revision 21 in channel stable, to the model
 	cs_revision=$(echo "${OUT}" | awk 'BEGIN{FS=","} {print $2}' | awk 'BEGIN{FS=" "} {print $2}')
 
 	wait_for "ubuntu" "$(idle_condition "ubuntu")"
@@ -82,7 +82,7 @@ run_refresh_switch_cs_to_ch_channel() {
 	# shellcheck disable=SC2059
 	printf "${OUT}\n"
 
-	# format: Added local charm "ubuntu", revision 2, to the model
+	# format: Added charm-store charm "ubuntu", revision 21 in channel stable, to the model
 	revision=$(echo "${OUT}" | awk 'BEGIN{FS=","} {print $2}' | awk 'BEGIN{FS=" "} {print $2}')
 
 	wait_for "ubuntu" "$(charm_rev "ubuntu" "${revision}")"
@@ -115,7 +115,7 @@ run_refresh_switch_local_to_ch_channel() {
 	# shellcheck disable=SC2059
 	printf "${OUT}\n"
 
-	# format: Added local charm "ubuntu", revision 2, to the model
+	# format: Added charm-store charm "ubuntu", revision 21 in channel stable, to the model
 	revision=$(echo "${OUT}" | awk 'BEGIN{FS=","} {print $2}' | awk 'BEGIN{FS=" "} {print $2}')
 
 	wait_for "ubuntu" "$(charm_rev "ubuntu" "${revision}")"
