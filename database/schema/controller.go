@@ -3,11 +3,23 @@
 
 package schema
 
-import "strings"
-
 // ControllerDDL is used to create the controller database schema at bootstrap.
 func ControllerDDL() []string {
-	delta := `
+	schemas := []func() string{
+		leaseSchema,
+		changeLogSchema,
+	}
+
+	var deltas []string
+	for _, fn := range schemas {
+		deltas = append(deltas, fn())
+	}
+
+	return deltas
+}
+
+func leaseSchema() string {
+	return `
 CREATE TABLE lease_type (
     id   INT PRIMARY KEY,
     type TEXT
@@ -56,6 +68,42 @@ ON lease_pin (lease_uuid, entity_id);
 CREATE INDEX idx_lease_pin_lease
 ON lease_pin (lease_uuid);
 `[1:]
+}
 
-	return strings.Split(delta, ";\n\n")
+func changeLogSchema() string {
+	return `
+CREATE TABLE change_log_type (
+    id   INT PRIMARY KEY,
+    type TEXT
+);
+
+CREATE UNIQUE INDEX idx_change_log_type_type
+ON change_log_type (type);
+
+INSERT INTO change_log_type VALUES
+    (1, 'create'),
+    (2, 'update'),
+    (4, 'delete');
+
+CREATE TABLE change_log_namespace (
+    id   INT PRIMARY KEY,
+    name TEXT
+);
+
+CREATE UNIQUE INDEX idx_change_log_namespace_name
+ON change_log_namespace (name);
+
+CREATE TABLE change_log (
+    uuid                    TEXT PRIMARY KEY,
+    change_log_type_id      INT NOT NULL,
+    change_log_namespace_id INT NOT NULL,
+    namespace_id            TEXT NOT NULL,
+    created_at              DATETIME NOT NULL,
+    CONSTRAINT              fk_change_log_type
+        FOREIGN KEY (change_log_type_id)
+        REFERENCES  change_log_type(id),
+    CONSTRAINT              fk_change_log_namespace
+        FOREIGN KEY (change_log_namespace_id)
+        REFERENCES  change_log_namespace(id)
+);`[1:]
 }
