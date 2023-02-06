@@ -446,6 +446,8 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		// Charm already up-to-date and no resources to refresh.
 		ctx.Infof(err.Error())
 		return nil
+	case errors.Is(err, refresher.ErrAlreadyUpToDate) && len(c.Resources) > 0:
+		ctx.Infof("%s. Attempt to update resources requested.", err.Error())
 	default:
 		if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {
 			return errors.Trace(termErr.UserErr())
