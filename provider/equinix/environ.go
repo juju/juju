@@ -274,7 +274,8 @@ func getCloudConfig(args environs.StartInstanceParams) (cloudinit.CloudConfig, e
 	}
 	cloudCfg.AddPackage("iptables-persistent")
 
-	// Set a default INPUT policy of drop, permitting ssh
+	// Set a default INPUT policy of drop, permitting ssh and 10.0.0.0/8 private
+	// network traffic.
 	acceptInputPort := "iptables -A INPUT -p tcp --dport %d -j ACCEPT"
 	iptablesDefault := []string{
 		"iptables -A INPUT -m conntrack --ctstate INVALID -j DROP",
@@ -298,6 +299,7 @@ func getCloudConfig(args environs.StartInstanceParams) (cloudinit.CloudConfig, e
 			}
 		}
 	}
+	iptablesDefault = append(iptablesDefault, "iptables -A INPUT -s 10.0.0.0/8 -j ACCEPT")
 	iptablesDefault = append(iptablesDefault, "iptables -A INPUT -j DROP")
 
 	cloudCfg.AddScripts(
