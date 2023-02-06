@@ -14,13 +14,35 @@ sha() {
 	esac
 }
 
-FILE="${EXTRACTED_DEPS_PATH}/latest-dqlite-deps-${BUILD_ARCH}.tar.bz2"
+FILE="${EXTRACTED_DEPS_PATH}/dqlite-deps-${BUILD_ARCH}.tar.bz2"
+
+retrieve() {
+	local filenames sha
+
+	sha=${1}
+
+	filenames=( "${sha}.tar.bz2" "latest-dqlite-deps-${BUILD_ARCH}.tar.bz2" )
+	for name in "${filenames[@]}"; do
+		echo "Retrieving ${name}"
+		curl --fail -o ${FILE} -s https://dqlite-static-libs.s3.amazonaws.com/${name} && return || {
+			echo " + Failed to retrieve ${name}";
+			rm -f ${FILE} || true;
+			true;
+		}
+	done
+}
 
 install() {
 	mkdir -p ${EXTRACTED_DEPS_PATH}
-	curl -o ${FILE} -s https://dqlite-static-libs.s3.amazonaws.com/latest-dqlite-deps-${BUILD_ARCH}.tar.bz2
+	SHA=$(sha)
+	retrieve ${SHA}
+	if [ ! -f ${FILE} ]; then
+		echo "Failed to retrieve dqlite static libs"
+		exit 1
+	fi
+
     SUM=$(sha256sum ${FILE} | awk '{print $1}')
-    if [ "${SUM}" != $(sha) ]; then
+    if [ "${SUM}" != ${SHA} ]; then
         echo "sha256sum mismatch (${SUM}, expected $(sha))"
         exit 1
     fi
