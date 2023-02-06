@@ -67,7 +67,7 @@ OCI_IMAGE_PLATFORMS ?= linux/$(GOARCH)
 
 # Build tags passed to go install/build.
 # Example: BUILD_TAGS="minimal provider_kubernetes"
-BUILD_TAGS ?=
+BUILD_TAGS ?= "libsqlite3 dqlite"
 
 # GIT_COMMIT the current git commit of this repository
 GIT_COMMIT ?= $(shell git -C $(PROJECT_DIR) rev-parse HEAD 2>/dev/null)
@@ -200,8 +200,8 @@ define run_go_build
 		GOARCH=${BUILD_ARCH} \
 		go build \
 			-mod=$(JUJU_GOMOD_MODE) \
+			-tags=$(BUILD_TAGS) \
 			-o ${BBIN_DIR} \
-			-tags "$(BUILD_TAGS)" \
 			$(COMPILE_FLAGS) \
 			-ldflags $(LINK_FLAGS) \
 			-v ${PACKAGE}
@@ -225,8 +225,8 @@ define run_cgo_build
 		GOARCH=${BUILD_ARCH} \
 		go build \
 			-mod=$(JUJU_GOMOD_MODE) \
+			-tags=$(BUILD_TAGS) \
 			-o ${BBIN_DIR} \
-			-tags "$(BUILD_TAGS)" \
 			${COMPILE_FLAGS} \
 			-ldflags ${CGO_LINK_FLAGS} \
 			-v ${PACKAGE}
@@ -236,7 +236,7 @@ define run_go_install
 	@echo "Installing ${PACKAGE}"
 	@go install \
 		-mod=$(JUJU_GOMOD_MODE) \
-		-tags "$(BUILD_TAGS)" \
+		-tags=$(BUILD_TAGS) \
 		$(COMPILE_FLAGS) \
 		-ldflags $(LINK_FLAGS) \
 		-v ${PACKAGE}
@@ -252,8 +252,8 @@ define run_cgo_install
 		LD_LIBRARY_PATH="${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}" \
 		CGO_ENABLED=1 \
 		go install \
-			-mod=${JUJU_GOMOD_MODE} \
-			-tags "libsqlite3 ${BUILD_TAGS}" \
+			-mod=$(JUJU_GOMOD_MODE) \
+			-tags=$(BUILD_TAGS) \
 			${COMPILE_FLAGS} \
 			-ldflags ${CGO_LINK_FLAGS} \
 			-v ${PACKAGE}
@@ -391,7 +391,7 @@ run-tests: musl-install-if-missing dqlite-install-if-missing
 	$(eval BUILD_ARCH = $(subst ppc64el,ppc64le,${ARCH}))
 	$(eval TMP := $(shell mktemp -d $${TMPDIR:-/tmp}/jj-XXX))
 	$(eval TEST_PACKAGES := $(shell go list $(PROJECT)/... | sort | ([ -f "$(TEST_PACKAGE_LIST)" ] && comm -12 "$(TEST_PACKAGE_LIST)" - || cat) | grep -v $(PROJECT)$$ | grep -v $(PROJECT)/vendor/ | grep -v $(PROJECT)/acceptancetests/ | grep -v $(PROJECT)/generate/ | grep -v mocks))
-	@echo 'GOOS=${OS} GOARCH=${BUILD_ARCH} go test -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $$TEST_PACKAGES -check.v'
+	@echo 'GOOS=${OS} GOARCH=${BUILD_ARCH} go test -mod=$(JUJU_GOMOD_MODE) -tags=$(BUILD_TAGS) $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $$TEST_PACKAGES -check.v'
 	@TMPDIR=$(TMP) \
 		PATH=${PATH}:${MUSL_BIN_PATH} \
 		CC="musl-gcc" \
@@ -402,7 +402,7 @@ run-tests: musl-install-if-missing dqlite-install-if-missing
 		CGO_ENABLED=1 \
 		GOOS=${OS} \
 		GOARCH=${BUILD_ARCH} \
-		go test -v -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(TEST_PACKAGES) -check.v
+		go test -v -mod=$(JUJU_GOMOD_MODE) -tags=$(BUILD_TAGS) $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(TEST_PACKAGES) -check.v
 	@rm -r $(TMP)
 
 run-go-tests: musl-install-if-missing dqlite-install-if-missing
@@ -412,7 +412,7 @@ run-go-tests: musl-install-if-missing dqlite-install-if-missing
 	$(eval BUILD_ARCH = $(subst ppc64el,ppc64le,${ARCH}))
 	$(eval TEST_PACKAGES ?= "./...")
 	$(eval TEST_FILTER ?= "")
-	@echo 'GOOS=${OS} GOARCH=${BUILD_ARCH} go test -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $$TEST_PACKAGES -check.v -check.f $(TEST_FILTER)'
+	@echo 'GOOS=${OS} GOARCH=${BUILD_ARCH} go test -mod=$(JUJU_GOMOD_MODE) -tags=$(BUILD_TAGS) $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $$TEST_PACKAGES -check.v -check.f $(TEST_FILTER)'
 	@PATH=${PATH}:${MUSL_BIN_PATH} \
 		CC="musl-gcc" \
 		CGO_CFLAGS="-I${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}/include" \
@@ -422,7 +422,7 @@ run-go-tests: musl-install-if-missing dqlite-install-if-missing
 		CGO_ENABLED=1 \
 		GOOS=${OS} \
 		GOARCH=${BUILD_ARCH} \
-		go test -v -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) ${TEST_PACKAGES} -check.v -check.f $(TEST_FILTER)
+		go test -v -mod=$(JUJU_GOMOD_MODE) -tags=$(BUILD_TAGS) $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) ${TEST_PACKAGES} -check.v -check.f $(TEST_FILTER)
 
 .PHONY: install
 install: rebuild-schema go-install

@@ -1,5 +1,5 @@
-//go:build !linux
-// +build !linux
+//go:build !dqlite
+// +build !dqlite
 
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.

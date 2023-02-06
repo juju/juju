@@ -1,5 +1,5 @@
-//go:build !linux
-// +build !linux
+//go:build !dqlite
+// +build !dqlite
 
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
@@ -11,9 +11,11 @@ import (
 	"crypto/tls"
 	"database/sql"
 	"net"
+	"path/filepath"
 	"time"
 
 	"github.com/juju/errors"
+	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/juju/juju/database/client"
 )
@@ -156,11 +158,13 @@ func WithSnapshotParams(params SnapshotParams) Option {
 //
 // It takes care of starting a dqlite node and registering a dqlite Go SQL
 // driver.
-type App struct{}
+type App struct {
+	dir string
+}
 
 // New creates a new application node.
 func New(dir string, options ...Option) (*App, error) {
-	return nil, errors.NotSupportedf("dqlite app.New")
+	return &App{dir: dir}, nil
 }
 
 // Ready can be used to wait for a node to complete tasks that
@@ -172,12 +176,20 @@ func New(dir string, options ...Option) (*App, error) {
 // tasks have succeeded and follow-up operations like Open() are more
 // likely to succeed quickly.
 func (*App) Ready(ctx context.Context) error {
-	return errors.NotSupportedf("dqlite app.Ready")
+	return nil
 }
 
 // Open the dqlite database with the given name
-func (*App) Open(ctx context.Context, name string) (*sql.DB, error) {
-	return nil, errors.NotSupportedf("dqlite app.Open")
+func (a *App) Open(ctx context.Context, name string) (*sql.DB, error) {
+	path := name
+	if name != ":memory:" {
+		path = filepath.Join(a.dir, name)
+	}
+	db, err := sql.Open("sqlite3", path)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return db, nil
 }
 
 // Handover transfers all responsibilities for this node (such has
@@ -186,14 +198,14 @@ func (*App) Open(ctx context.Context, name string) (*sql.DB, error) {
 // This method should always be called before invoking Close(),
 // in order to gracefully shut down a node.
 func (*App) Handover(context.Context) error {
-	return errors.NotSupportedf("dqlite app.Handover")
+	return nil
 }
 
 // ID returns the dqlite ID of this application node.
 func (*App) ID() uint64 {
-	panic("dqlite app.ID")
+	return 1
 }
 
 func (*App) Close() error {
-	return errors.NotSupportedf("dqlite app.Close")
+	return nil
 }
