@@ -22,8 +22,8 @@ build() {
     sudo apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install \
         gcc automake libtool make gettext autopoint pkg-config tclsh tcl libsqlite3-dev wget git
 
-    mkdir -p build
-    cd build
+    mkdir -p "${ARCHIVE_DEPS_PATH}"
+    cd "${ARCHIVE_DEPS_PATH}"
 
     # Checkout and build musl. We will use this to avoid depending
     # on the hosts libc.
@@ -160,5 +160,5 @@ build() {
     echo "sqlite ${TAG_SQLITE}" >> juju-dqlite-static-lib-deps/BOM
     echo "dqlite ${TAG_DQLITE}" >> juju-dqlite-static-lib-deps/BOM
 
-    tar cjvf juju-dqlite-static-lib-deps.tar.bz2 juju-dqlite-static-lib-deps
+    tar cjvf ${ARCHIVE_PATH} juju-dqlite-static-lib-deps
 }

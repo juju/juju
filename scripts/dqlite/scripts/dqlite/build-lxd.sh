@@ -19,5 +19,6 @@ lxc file push $(dirname $0)/dqlite-build.sh ${BUILD_CONTAINER}/root/dqlite/dqlit
 
 lxc exec -t ${BUILD_CONTAINER} bash /root/dqlite/build.sh
 
-lxc file pull ${BUILD_CONTAINER}/root/build/juju-dqlite-static-lib-deps.tar.bz2 ${EXTRACTED_DEPS_PATH}/dqlite-deps-${BUILD_ARCH}.tar.bz2
+mkdir -p ${ARCHIVE_DEPS_PATH}
+lxc file pull ${BUILD_CONTAINER}/root/_build/dqlite-deps.tar.bz2 ${ARCHIVE_PATH}
 lxc delete -f ${BUILD_CONTAINER}
