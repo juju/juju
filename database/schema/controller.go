@@ -100,7 +100,7 @@ ON change_log_namespace (namespace);
 --    (1, 'foo');
 
 CREATE TABLE change_log (
-    uuid                TEXT PRIMARY KEY,
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
     edit_type_id        INT NOT NULL,
     namespace_id        INT NOT NULL,
     changed_uuid        TEXT NOT NULL,
