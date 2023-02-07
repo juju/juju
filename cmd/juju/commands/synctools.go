@@ -57,8 +57,8 @@ The online store will, of course, need to be contacted at some point to get
 the software.
 
 Examples:
-    juju sync-agent-binary --debug --version 2.0
-    juju sync-agent-binary --debug --version 2.0 --local-dir=/home/ubuntu/sync-agent-binary
+    juju sync-agent-binary --debug --agent-version 2.0
+    juju sync-agent-binary --debug --agent-version 2.0 --local-dir=/home/ubuntu/sync-agent-binary
 
 See also:
     upgrade-controller
@@ -76,7 +76,7 @@ func (c *syncAgentBinaryCommand) Info() *cmd.Info {
 
 func (c *syncAgentBinaryCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.StringVar(&c.versionStr, "version", "", "Copy a specific major[.minor] version")
+	f.StringVar(&c.versionStr, "agent-version", "", "Copy a specific major[.minor] version")
 	f.BoolVar(&c.dryRun, "dry-run", false, "Don't copy, just print what would be copied")
 	f.BoolVar(&c.public, "public", false, "Tools are for a public cloud, so generate mirrors information")
 	f.StringVar(&c.source, "source", "", "Local source directory")
@@ -86,7 +86,7 @@ func (c *syncAgentBinaryCommand) SetFlags(f *gnuflag.FlagSet) {
 
 func (c *syncAgentBinaryCommand) Init(args []string) error {
 	if c.versionStr == "" {
-		return errors.NewNotValid(nil, "--version is required")
+		return errors.NewNotValid(nil, "--agent-version is required")
 	}
 	var err error
 	if c.targetVersion, err = version.Parse(c.versionStr); err != nil {
