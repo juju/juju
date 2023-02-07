@@ -72,38 +72,44 @@ ON lease_pin (lease_uuid);
 
 func changeLogSchema() string {
 	return `
-CREATE TABLE change_log_type (
-    id   INT PRIMARY KEY,
-    type TEXT
+CREATE TABLE change_log_edit_type (
+    id        INT PRIMARY KEY,
+    edit_type TEXT
 );
 
-CREATE UNIQUE INDEX idx_change_log_type_type
-ON change_log_type (type);
+CREATE UNIQUE INDEX idx_change_log_edit_type_edit_type
+ON change_log_edit_type (edit_type);
 
-INSERT INTO change_log_type VALUES
+-- The change log type values are bitmasks, so that multiple types can be
+-- expressed when looking for changes.
+INSERT INTO change_log_edit_type VALUES
     (1, 'create'),
     (2, 'update'),
     (4, 'delete');
 
 CREATE TABLE change_log_namespace (
-    id   INT PRIMARY KEY,
-    name TEXT
+    id        INT PRIMARY KEY,
+    namespace TEXT
 );
 
-CREATE UNIQUE INDEX idx_change_log_namespace_name
-ON change_log_namespace (name);
+CREATE UNIQUE INDEX idx_change_log_namespace_namespace
+ON change_log_namespace (namespace);
+
+-- TODO (stickupkid): Add the namespaces we want to track.
+-- INSERT INTO change_log_namespace VALUES
+--    (1, 'foo');
 
 CREATE TABLE change_log (
-    uuid                    TEXT PRIMARY KEY,
-    change_log_type_id      INT NOT NULL,
-    change_log_namespace_id INT NOT NULL,
-    namespace_id            TEXT NOT NULL,
-    created_at              DATETIME NOT NULL,
-    CONSTRAINT              fk_change_log_type
-        FOREIGN KEY (change_log_type_id)
-        REFERENCES  change_log_type(id),
-    CONSTRAINT              fk_change_log_namespace
-        FOREIGN KEY (change_log_namespace_id)
-        REFERENCES  change_log_namespace(id)
+    uuid                TEXT PRIMARY KEY,
+    edit_type_id        INT NOT NULL,
+    namespace_id        INT NOT NULL,
+    changed_uuid        TEXT NOT NULL,
+    created_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT          fk_change_log_edit_type
+            FOREIGN KEY (edit_type_id)
+            REFERENCES  change_log_edit_type(id),
+    CONSTRAINT          fk_change_log_namespace
+            FOREIGN KEY (namespace_id)
+            REFERENCES  change_log_namespace(id)
 );`[1:]
 }
