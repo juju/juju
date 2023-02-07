@@ -37,6 +37,6 @@ S3_BUCKET=s3://dqlite-static-libs
 S3_ARCHIVE_NAME=$(date -u +"%Y-%m-%d")-dqlite-deps-${BUILD_ARCH}.tar.bz2
 S3_ARCHIVE_PATH=${S3_BUCKET}/${S3_ARCHIVE_NAME}
 
-ARCHIVE_DEPS_PATH=${PROJECT_DIR}/scripts/dqlite
+ARCHIVE_DEPS_PATH=${PROJECT_DIR}/_build
 ARCHIVE_NAME=dqlite-deps
 ARCHIVE_PATH=${ARCHIVE_DEPS_PATH}/${ARCHIVE_NAME}.tar.bz2
