@@ -12,10 +12,6 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
-
 jobs:
   Generate:
     name: Generate
@@ -55,6 +51,8 @@ jobs:
           #  3. Unique every file, so we only go generate the file once.
           #  4. Using xargs perform go generate in parallel.
           #
+          export CGO_ENABLED=1
+          export CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" 
           grep -ir "//go:generate" . | awk -F : '{ print $1 }' | uniq | xargs -n 1 -P 2 -I% go generate -x $(realpath %)
 
       - name: Check diff

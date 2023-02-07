@@ -14,7 +14,7 @@ sha() {
 	esac
 }
 
-FILE="${EXTRACTED_DEPS_PATH}/dqlite-deps-${BUILD_ARCH}.tar.bz2"
+FILE="$(mktemp -d)/latest-dqlite-deps-${BUILD_ARCH}.tar.bz2"
 
 retrieve() {
 	local filenames sha
@@ -49,7 +49,6 @@ install() {
 
     echo "${EXTRACTED_DEPS_PATH} ${FILE}"
 
-    tar xjf ${FILE} -C ${EXTRACTED_DEPS_PATH}
-    rm ${FILE}
-	mv ${EXTRACTED_DEPS_PATH}/juju-dqlite-static-lib-deps ${EXTRACTED_DEPS_ARCH_PATH}
+    tar xjf ${FILE} -C ${EXTRACTED_DEPS_PATH} || { echo "Failed to extract ${FILE}"; exit 1; }
+	mv ${EXTRACTED_DEPS_PATH}/juju-dqlite-static-lib-deps ${EXTRACTED_DEPS_ARCH_PATH} || { echo "Failed to move ${EXTRACTED_DEPS_PATH}/juju-dqlite-static-lib-deps to ${EXTRACTED_DEPS_ARCH_PATH}"; exit 1; }
 }
