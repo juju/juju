@@ -79,5 +79,12 @@ func (k vaultBackend) Ping() error {
 	if h.Sealed {
 		return errors.New("vault is sealed")
 	}
-	return nil
+	_, err = k.client.Sys().KeyStatus()
+	if err == nil {
+		return nil
+	}
+	if isPermissionDenied(err) {
+		return errors.New("auth token invalid: permission denied")
+	}
+	return errors.Annotatef(err, "cannot access backend")
 }

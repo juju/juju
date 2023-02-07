@@ -101,6 +101,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/migrationtarget"
 	"github.com/juju/juju/apiserver/facades/controller/raftlease"
 	"github.com/juju/juju/apiserver/facades/controller/remoterelations"
+	"github.com/juju/juju/apiserver/facades/controller/secretbackendmanager"
 	"github.com/juju/juju/apiserver/facades/controller/singular"
 	"github.com/juju/juju/apiserver/facades/controller/statushistory"
 	"github.com/juju/juju/apiserver/facades/controller/undertaker"
@@ -197,6 +198,7 @@ func AllFacades() *facade.Registry {
 	singular.Register(registry)
 	secrets.Register(registry)
 	secretbackends.Register(registry)
+	secretbackendmanager.Register(registry)
 	secretsmanager.Register(registry)
 	sshclient.Register(registry)
 	spaces.Register(registry)
@@ -236,6 +238,7 @@ func AllFacades() *facade.Registry {
 	registry.MustRegister("MigrationStatusWatcher", 1, newMigrationStatusWatcher, reflect.TypeOf((*srvMigrationStatusWatcher)(nil)))
 	registry.MustRegister("ModelSummaryWatcher", 1, newModelSummaryWatcher, reflect.TypeOf((*SrvModelSummaryWatcher)(nil)))
 	registry.MustRegister("SecretsTriggerWatcher", 1, newSecretsTriggerWatcher, reflect.TypeOf((*srvSecretTriggerWatcher)(nil)))
+	registry.MustRegister("SecretBackendsRotateWatcher", 1, newSecretBackendsRotateWatcher, reflect.TypeOf((*srvSecretBackendsRotateWatcher)(nil)))
 
 	return registry
 }
