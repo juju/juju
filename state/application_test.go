@@ -141,6 +141,26 @@ func (s *ApplicationSuite) TestSetCharmSeries(c *gc.C) {
 	c.Assert(s.mysql.Series(), gc.DeepEquals, "new-series")
 }
 
+func (s *ApplicationSuite) TestSetCharmUpdateChannelURLNoChange(c *gc.C) {
+	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)
+
+	origin := s.mysql.CharmOrigin()
+	origin.Channel = &state.Channel{Risk: "stable"}
+
+	cfg := state.SetCharmConfig{
+		Charm:       sch,
+		CharmOrigin: origin,
+	}
+	err := s.mysql.SetCharm(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.mysql.CharmOrigin().Channel.Risk, gc.DeepEquals, "stable")
+
+	cfg.CharmOrigin.Channel.Risk = "candidate"
+	err = s.mysql.SetCharm(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.mysql.CharmOrigin().Channel.Risk, gc.DeepEquals, "candidate")
+}
+
 func (s *ApplicationSuite) TestSetCharmCharmOriginNoChange(c *gc.C) {
 	// Add a compatible charm.
 	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)
