@@ -6,23 +6,55 @@ source "$(dirname $0)/../env.sh"
 
 MUSL_VERSION="1.2.3"
 
-MUSL_PATH=${PROJECT_DIR}/_deps/musl-${BUILD_ARCH}
-MUSL_BIN_PATH=${MUSL_PATH}/output/bin
+MUSL_PLACEMENT=${MUSL_PLACEMENT:-"system"}
 
-musl_install() {
-    mkdir -p /tmp/musl
-    wget -q https://musl.libc.org/releases/musl-${MUSL_VERSION}.tar.gz -O - | tar -xzf - -C /tmp/musl
-    cd /tmp/musl/musl-${MUSL_VERSION}
+if [ "${MUSL_PLACEMENT}" = "local" ]; then
+    MUSL_PATH=${PROJECT_DIR}/_deps/musl-${BUILD_ARCH}
+    MUSL_BIN_PATH=${MUSL_PATH}/output/bin
+else
+    MUSL_PATH=/usr/local/musl
+    MUSL_BIN_PATH=${MUSL_PATH}/bin
+fi
+
+musl_install_system() {
+    sudo ./configure || { echo "Failed to configure musl"; exit 1; }
+    sudo make install || { echo "Failed to install musl"; exit 1; }
+
+    LOCAL_PATH=${PROJECT_DIR}/_deps/musl-${BUILD_ARCH}/output/bin
+
+    mkdir -p ${LOCAL_PATH} || { echo "Failed to create ${MUSL_BIN_PATH}"; exit 1; }
+    sudo ln -s ${MUSL_BIN_PATH}/musl-gcc ${LOCAL_PATH}/musl-gcc || { echo "Failed to link musl-gcc"; exit 1; }
+
+    sudo ln -s /usr/include/${BUILD_MACHINE}-linux-gnu/asm ${MUSL_PATH}/include/asm || { echo "Failed to link ${BUILD_MACHINE}-linux-gnu/asm headers"; exit 1; }
+    sudo ln -s /usr/include/asm-generic ${MUSL_PATH}/include/asm-generic || { echo "Failed to link asm-generic headers"; exit 1; }
+    sudo ln -s /usr/include/linux ${MUSL_PATH}/include/linux || { echo "Failed to link linux header"; exit 1; } 
+}
+
+musl_install_local() {
     ./configure --prefix=${MUSL_PATH} || { echo "Failed to configure musl"; exit 1; }
     make install || { echo "Failed to install musl"; exit 1; }
 
     mkdir -p ${MUSL_BIN_PATH} || { echo "Failed to create ${MUSL_BIN_PATH}"; exit 1; }
     ln -s ${MUSL_PATH}/bin/musl-gcc ${MUSL_BIN_PATH}/musl-gcc || { echo "Failed to link musl-gcc"; exit 1; }
 
-    cd -
+    cd ${PROJECT_DIR}
     ln -s /usr/include/${BUILD_MACHINE}-linux-gnu/asm ${MUSL_PATH}/include/asm || { echo "Failed to link ${BUILD_MACHINE}-linux-gnu/asm headers"; exit 1; }
     ln -s /usr/include/asm-generic ${MUSL_PATH}/include/asm-generic || { echo "Failed to link asm-generic headers"; exit 1; }
     ln -s /usr/include/linux ${MUSL_PATH}/include/linux || { echo "Failed to link linux header"; exit 1; }
+}
+
+musl_install() {
+    TMP_DIR=$(mktemp -d)
+    wget -q https://musl.libc.org/releases/musl-${MUSL_VERSION}.tar.gz -O - | tar -xzf - -C ${TMP_DIR}
+    cd ${TMP_DIR}/musl-${MUSL_VERSION}
+
+    if [ "${MUSL_PLACEMENT}" = "local" ]; then
+        echo "Installing local musl"
+        musl_install_local
+    else
+        echo "Installing system musl"
+        musl_install_system
+    fi
 }
 
 musl_install_cross_arch() {
@@ -68,7 +100,6 @@ musl_install_cross_arch() {
 
 install() {
     if [ "${BUILD_ARCH}" = "${CURRENT_ARCH}" ]; then
-        echo "Installing local musl"
         musl_install
         exit 0
     fi
