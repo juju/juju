@@ -12,7 +12,7 @@ run_refresh_cs() {
 
 	OUT=$(juju refresh ubuntu 2>&1 || true)
 	if echo "${OUT}" | grep -E -q "Added"; then
-	  echo "refresh passed successfully"
+		echo "refresh passed successfully"
 	else
 		# shellcheck disable=SC2046
 		echo $(red "failed refreshing charm: ${OUT}")
