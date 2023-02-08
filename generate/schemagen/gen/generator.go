@@ -138,7 +138,27 @@ func Generate(pkgRegistry PackageRegistry, linker Linker, client APIServer, opti
 			}
 		}
 
-		result[i].Schema = jsonschema.ReflectFromObjType(objType)
+		resultSchema := jsonschema.ReflectFromObjType(objType)
+
+		// Prune out any definitions that have empty Param definitions. By
+		// definition they're empty and do not conform to the Juju API.
+		// The jsonschema package correctly handles the case when a struct{}{}
+		// is used in an API definition, but we then take that information
+		// verbatim. The following just removes any empty definitions.
+		for name, params := range resultSchema.Properties {
+			if params == nil {
+				continue
+			}
+			if params.Properties["Params"] == nil {
+				continue
+			}
+			ref := params.Properties["Params"].Ref
+			if ref == "#/definitions/" || ref == "" {
+				delete(resultSchema.Properties, name)
+			}
+		}
+
+		result[i].Schema = resultSchema
 
 		if pkg == nil {
 			continue

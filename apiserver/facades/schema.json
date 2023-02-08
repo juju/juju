@@ -1928,14 +1928,6 @@
                     },
                     "description": "Deploy fetches the charms from the charm store and deploys them\nusing the specified placement directives."
                 },
-                "Destroy": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/"
-                        }
-                    }
-                },
                 "DestroyApplication": {
                     "type": "object",
                     "properties": {
@@ -1980,14 +1972,6 @@
                         }
                     },
                     "description": "DestroyUnit removes a given set of application units."
-                },
-                "DestroyUnits": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/"
-                        }
-                    }
                 },
                 "Expose": {
                     "type": "object",
