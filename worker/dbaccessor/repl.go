@@ -14,12 +14,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/canonical/go-dqlite/driver"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3"
 	"github.com/mattn/go-sqlite3"
+
+	"github.com/juju/juju/database/driver"
 )
 
 const readTimeout = 5 * time.Second

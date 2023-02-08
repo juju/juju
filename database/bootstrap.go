@@ -7,9 +7,9 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/canonical/go-dqlite/app"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/database/app"
 	"github.com/juju/juju/database/schema"
 )
 

@@ -6,9 +6,10 @@ package database
 import (
 	"strings"
 
-	"github.com/canonical/go-dqlite/driver"
 	"github.com/juju/errors"
 	"github.com/mattn/go-sqlite3"
+
+	"github.com/juju/juju/database/driver"
 )
 
 // IsErrConstraintUnique returns true if the input error was

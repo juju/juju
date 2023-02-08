@@ -4,10 +4,11 @@
 package dbaccessor
 
 import (
-	"github.com/canonical/go-dqlite/app"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/database/app"
 )
 
 type manifoldSuite struct {

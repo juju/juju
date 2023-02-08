@@ -6,12 +6,13 @@ package dbaccessor
 import (
 	"database/sql"
 
-	"github.com/canonical/go-dqlite/app"
 	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/database/app"
 )
 
 type workerSuite struct {

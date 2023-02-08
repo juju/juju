@@ -33,19 +33,28 @@ jobs:
         go-version-file: 'go.mod'
         cache: true
 
-    - name: "Install Mongo Dependencies: ubuntu-latest"
+    - name: "Install Mongo Dependencies (Ubuntu)"
       if: (matrix.os == 'ubuntu-latest')
       run: |
         make install-mongo-dependencies
 
-    - name: "Install musl"
+    - name: "Install musl (Ubuntu)"
+      if: (matrix.os == 'ubuntu-latest')
       shell: bash
       run: |
         sudo make musl-install
 
-    - name: "Test client"
+    - name: "Test client (Ubuntu)"
+      if: (matrix.os == 'ubuntu-latest')
       shell: bash
       run: |
         # Jenkins can perform the full jujud testing.
         TEST_PACKAGES=./cmd/juju/... COVERAGE_CHECK=1 TEST_TIMEOUT="15m" make run-go-tests
         TEST_PACKAGES=./cmd/plugins/... COVERAGE_CHECK=1 TEST_TIMEOUT="15m" make run-go-tests
+
+    - name: "Test client (macOS)"
+      if: (matrix.os == 'macOS-latest')
+      shell: bash
+      run: |
+        go test -v ./cmd/juju/... -check.v -coverprofile=coverage.txt -covermode=atomic -timeout=15m
+        go test -v ./cmd/plugins/... -check.v -coverprofile=coverage.txt -covermode=atomic -timeout=15m
