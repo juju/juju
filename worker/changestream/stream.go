@@ -1,3 +1,6 @@
+// Copyright 2023 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package changestream
 
 import (
@@ -67,7 +70,6 @@ func (s *Stream) Wait() error {
 func (s *Stream) loop() error {
 	// TODO (stickupkid): We need to read the last id from the database and
 	// set it here.
-
 	stmt, err := s.db.Prepare(query)
 	if err != nil {
 		return errors.Annotate(err, "preparing query")
@@ -85,8 +87,8 @@ func (s *Stream) loop() error {
 			changes, err := s.readChanges(stmt)
 			if err != nil {
 				if errors.Is(err, errRetryable) {
-					// We're retrying, so reset the timer to half the poll time, to
-					// try and get the changes sooner.
+					// We're retrying, so reset the timer to half the poll time,
+					// to try and get the changes sooner.
 					timer.Reset(PollInterval / 2)
 					continue
 				}
@@ -107,31 +109,38 @@ func (s *Stream) loop() error {
 
 const (
 	query = `
-SELECT MAX(id), entity_type_id, namespace_id, change_uuid, MAX(created_at)
-	FROM change_log WHERE id > ?
-	GROUP BY entity_type_id, namespace_id, change_uuid 
-	ORDER BY id ASC
+SELECT MAX(c.id), c.edit_type_id, n.namespace, changed_uuid, MAX(created_at)
+	FROM change_log c
+		JOIN change_log_edit_type t ON c.edit_type_id = t.id
+		JOIN change_log_namespace n ON c.namespace_id = n.id
+	WHERE c.id > ?
+	GROUP BY c.edit_type_id, c.namespace_id, c.changed_uuid 
+	ORDER BY c.id ASC;
 `
 )
 
 type changeEvent struct {
-	id int64
+	id          int64
+	changeType  int
+	namespace   string
+	changedUUID string
+	createdAt   string
 }
 
 // Type returns the type of change (create, update, delete).
-func (changeEvent) Type() changestream.ChangeType {
-	return changestream.ChangeType(0)
+func (e changeEvent) Type() changestream.ChangeType {
+	return changestream.ChangeType(e.changeType)
 }
 
 // Namespace returns the namespace of the change. This is normally the
 // table name.
-func (changeEvent) Namespace() string {
-	return ""
+func (e changeEvent) Namespace() string {
+	return e.namespace
 }
 
-// EntityUUID returns the entity UUID of the change.
-func (changeEvent) EntityUUID() string {
-	return ""
+// ChangedUUID returns the entity UUID of the change.
+func (e changeEvent) ChangedUUID() string {
+	return e.changedUUID
 }
 
 var errRetryable = errors.New("retryable error")
@@ -152,6 +161,10 @@ func (w *Stream) readChanges(stmt *sql.Stmt) ([]changeEvent, error) {
 		changes = append(changes, changeEvent{})
 		return []interface{}{
 			&changes[i].id,
+			&changes[i].changeType,
+			&changes[i].namespace,
+			&changes[i].changedUUID,
+			&changes[i].createdAt,
 		}
 	}
 	for i := 0; rows.Next(); i++ {
@@ -160,5 +173,5 @@ func (w *Stream) readChanges(stmt *sql.Stmt) ([]changeEvent, error) {
 		}
 	}
 
-	return nil, nil
+	return changes, nil
 }

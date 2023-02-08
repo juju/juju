@@ -23,6 +23,6 @@ type ChangeEvent interface {
 	// Namespace returns the namespace of the change. This is normally the
 	// table name.
 	Namespace() string
-	// EntityUUID returns the entity UUID of the change.
-	EntityUUID() string
+	// ChangedUUID returns the entity UUID of the change.
+	ChangedUUID() string
 }
