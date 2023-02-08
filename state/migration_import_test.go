@@ -2522,10 +2522,11 @@ func (s *MigrationImportSuite) TestPayloads(c *gc.C) {
 
 func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
 	remoteApp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name:        "gravy-rainbow",
-		URL:         "me/model.rainbow",
-		SourceModel: s.Model.ModelTag(),
-		Token:       "charisma",
+		Name:           "gravy-rainbow",
+		URL:            "me/model.rainbow",
+		SourceModel:    s.Model.ModelTag(),
+		Token:          "charisma",
+		ConsumeVersion: 1,
 		Endpoints: []charm.Relation{{
 			Interface: "mysql",
 			Name:      "db",
@@ -2585,6 +2586,7 @@ func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
 
 	remoteApplication := remoteApplications[0]
 	c.Assert(remoteApplication.Name(), gc.Equals, "gravy-rainbow")
+	c.Assert(remoteApplication.ConsumeVersion(), gc.Equals, 1)
 
 	url, _ := remoteApplication.URL()
 	c.Assert(url, gc.Equals, "me/model.rainbow")
@@ -2995,7 +2997,7 @@ func (s *MigrationImportSuite) TestSecrets(c *gc.C) {
 	updateTime := time.Now().UTC().Round(time.Second)
 	md, err = store.UpdateSecret(md.URI, state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
-		BackendId:   ptr("backend-id"),
+		Data:        map[string]string{"foo": "bar2"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.GrantSecretAccess(uri, state.SecretAccessParams{
@@ -3032,13 +3034,11 @@ func (s *MigrationImportSuite) TestSecrets(c *gc.C) {
 	mc.AddExpr(`_.UpdateTime`, jc.Almost, jc.ExpectedValue)
 	c.Assert(revs, mc, []*secrets.SecretRevisionMetadata{{
 		Revision:   1,
-		BackendId:  nil,
 		CreateTime: createTime,
 		UpdateTime: updateTime,
 		ExpireTime: &expire,
 	}, {
 		Revision:   2,
-		BackendId:  ptr("backend-id"),
 		CreateTime: createTime,
 		UpdateTime: createTime,
 	}})

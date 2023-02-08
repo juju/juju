@@ -2683,7 +2683,7 @@ func (s *MigrationExportSuite) TestSecrets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	md, err = store.UpdateSecret(md.URI, state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
-		BackendId:   ptr("backend-id"),
+		Data:        map[string]string{"foo": "bar2"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.GrantSecretAccess(uri, state.SecretAccessParams{
@@ -2724,7 +2724,7 @@ func (s *MigrationExportSuite) TestSecrets(c *gc.C) {
 	c.Assert(revisions, gc.HasLen, 2)
 	c.Assert(revisions[0].Content(), jc.DeepEquals, map[string]string{"foo": "bar"})
 	c.Assert(revisions[0].ExpireTime(), jc.DeepEquals, ptr(expire))
-	c.Assert(revisions[1].BackendId(), jc.DeepEquals, ptr("backend-id"))
+	c.Assert(revisions[1].Content(), jc.DeepEquals, map[string]string{"foo": "bar2"})
 	consumers := secret.Consumers()
 	c.Assert(consumers, gc.HasLen, 1)
 	info := consumers[0]
