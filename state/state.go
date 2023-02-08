@@ -239,41 +239,14 @@ func (st *State) RemoveExportingModelDocs() error {
 }
 
 func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
-	modelUUID := st.ModelUUID()
-
-	// Gather all user permissions for the model.
-	// Do this first because we remove some parent docs below.
-	var permOps []txn.Op
-	permPattern := bson.M{
-		"_id": bson.M{"$regex": "^" + permissionID(modelKey(modelUUID), "")},
-	}
-	ops, err := st.removeInCollectionOps(permissionsC, permPattern)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	permOps = append(permOps, ops...)
-	// Gather all offer permissions for the model.
-	ao := NewApplicationOffers(st)
-	allOffers, err := ao.AllApplicationOffers()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	for _, offer := range allOffers {
-		permPattern = bson.M{
-			"_id": bson.M{"$regex": "^" + permissionID(applicationOfferKey(offer.OfferUUID), "")},
-		}
-		ops, err = st.removeInCollectionOps(permissionsC, permPattern)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		permOps = append(permOps, ops...)
-	}
-	err = st.db().RunTransaction(permOps)
-	if err != nil {
-		return errors.Trace(err)
+	// Remove permissions first, because we potentially
+	// remove parent documents in the following stage.
+	if err := st.removeAllModelPermissions(); err != nil {
+		return errors.Annotate(err, "removing permissions")
 	}
 
 	// Remove each collection in its own transaction.
+	modelUUID := st.ModelUUID()
 	for name, info := range st.database.Schema() {
 		if info.global || info.rawAccess {
 			continue
@@ -316,7 +289,7 @@ func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	ops = []txn.Op{{
+	ops := []txn.Op{{
 		// Cleanup the owner:envName unique key.
 		C:      usermodelnameC,
 		Id:     model.uniqueIndexID(),
@@ -342,7 +315,42 @@ func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 	if !st.IsController() {
 		ops = append(ops, decHostedModelCountOp())
 	}
-	return st.db().RunTransaction(ops)
+	return errors.Trace(st.db().RunTransaction(ops))
+}
+
+// removeAllModelPermissions removes all direct permissions documents for
+// this model, and all permissions for offers hosted by this model.
+func (st *State) removeAllModelPermissions() error {
+	var permOps []txn.Op
+	permPattern := bson.M{
+		"_id": bson.M{"$regex": "^" + permissionID(modelKey(st.ModelUUID()), "")},
+	}
+	ops, err := st.removeInCollectionOps(permissionsC, permPattern)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	permOps = append(permOps, ops...)
+
+	applicationOffersCollection, closer := st.db().GetCollection(applicationOffersC)
+	defer closer()
+
+	var offerDocs []applicationOfferDoc
+	if err := applicationOffersCollection.Find(bson.D{}).All(&offerDocs); err != nil {
+		return errors.Annotate(err, "getting application offer documents")
+	}
+
+	for _, offer := range offerDocs {
+		permPattern = bson.M{
+			"_id": bson.M{"$regex": "^" + permissionID(applicationOfferKey(offer.OfferUUID), "")},
+		}
+		ops, err = st.removeInCollectionOps(permissionsC, permPattern)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		permOps = append(permOps, ops...)
+	}
+	err = st.db().RunTransaction(permOps)
+	return errors.Trace(err)
 }
 
 // removeAllInCollectionRaw removes all the documents from the given

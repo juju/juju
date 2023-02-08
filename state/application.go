@@ -1670,15 +1670,24 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 		}}
 
 		if *a.doc.CharmURL == cfg.Charm.URL().String() {
+			updates := bson.D{
+				{"cs-channel", channel},
+				{"forcecharm", cfg.ForceUnits},
+			}
+			// Local charms will not have a channel in their charm origin
+			// TODO: (hml) 2023-02-03
+			// With juju 3.0, SetCharm should always have a CharmOrigin.
+			// Compatibility with the Update application facade method
+			// is no longer necessary.
+			if cfg.CharmOrigin != nil && cfg.CharmOrigin.Channel != nil {
+				updates = append(updates, bson.DocElem{"charm-origin.channel", cfg.CharmOrigin.Channel})
+			}
 			// Charm URL already set; just update the force flag and channel.
 			ops = append(ops, txn.Op{
 				C:      applicationsC,
 				Id:     a.doc.DocID,
 				Assert: txn.DocExists,
-				Update: bson.D{{"$set", bson.D{
-					{"cs-channel", channel},
-					{"forcecharm", cfg.ForceUnits},
-				}}},
+				Update: bson.D{{"$set", updates}},
 			})
 		} else {
 			// Check if the new charm specifies a relation max limit
@@ -1709,6 +1718,10 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 			newCharmModifiedVersion++
 		}
 
+		// TODO: (hml) 2023-02-03
+		// With juju 3.0, SetCharm should always have a CharmOrigin.
+		// Compatibility with the Update application facade method
+		// is no longer necessary. Modify checks appropriately.
 		if cfg.CharmOrigin != nil {
 			origin := a.doc.CharmOrigin
 			// If either the charm origin ID or Hash is set before a charm is
@@ -1778,7 +1791,6 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 			// ErrNoOperations on the other hand means there's nothing to update.
 			return nil, errors.Trace(err)
 		}
-
 		return ops, nil
 	}
 
