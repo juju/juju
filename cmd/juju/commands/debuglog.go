@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/ansiterm"
 	"github.com/juju/cmd/v3"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/juju/jujuclient"
@@ -46,7 +47,8 @@ machines and units can be seen in the output of `[1:] + "`juju status`" + `.
 
 The '--include' and '--exclude' options filter by entity. The entity can be
 a machine, unit, or application for vm models, but can be application only
-for k8s models.
+for k8s models. These filters support wildcards ` + "`*`" + ` if filtering on the
+entity full name (prefixed by ` + "`<entity type>-`" + `)
 
 The '--include-module' and '--exclude-module' options filter by (dotted)
 logging module name. The module name can be truncated such that all loggers
@@ -204,45 +206,50 @@ func (c *debugLogCommand) Init(args []string) error {
 		return errors.Trace(err)
 	}
 	isCaas := modelType == model.CAAS
-	c.params.IncludeEntity = c.processEntities(isCaas, c.params.IncludeEntity)
-	c.params.ExcludeEntity = c.processEntities(isCaas, c.params.ExcludeEntity)
+	if isCaas {
+		c.params.IncludeEntity = transform.Slice(c.params.IncludeEntity, c.parseCAASEntity)
+		c.params.ExcludeEntity = transform.Slice(c.params.ExcludeEntity, c.parseCAASEntity)
+	} else {
+		c.params.IncludeEntity = transform.Slice(c.params.IncludeEntity, c.parseEntity)
+		c.params.ExcludeEntity = transform.Slice(c.params.ExcludeEntity, c.parseEntity)
+	}
 	return cmd.CheckEmpty(args)
 }
 
-func (c *debugLogCommand) processEntities(isCAAS bool, entities []string) []string {
-	if entities == nil {
-		return nil
+func (c *debugLogCommand) parseEntity(entity string) string {
+	tag, err := names.ParseTag(entity)
+	switch {
+	case strings.Contains(entity, "*"):
+		return entity
+	case err == nil && (tag.Kind() == names.ApplicationTagKind || tag.Kind() == names.MachineTagKind || tag.Kind() == names.UnitTagKind):
+		return tag.String()
+	case names.IsValidMachine(entity):
+		return names.NewMachineTag(entity).String()
+	case names.IsValidUnit(entity):
+		return names.NewUnitTag(entity).String()
+	case names.IsValidApplication(entity):
+		// If the user asks for --include nova-compute, we should give all
+		// nova-compute units for IAAS models.
+		return names.UnitTagKind + "-" + entity + "-*"
+	default:
+		logger.Warningf("%q was not recognised as a valid application, machine or unit name", entity)
+		return entity
 	}
-	result := make([]string, len(entities))
-	for i, entity := range entities {
-		// A stringified unit or machine tag never match their "IsValid"
-		// function from names, so if the string value passed in is a valid
-		// machine or unit, then convert here.
-		if names.IsValidMachine(entity) {
-			entity = names.NewMachineTag(entity).String()
-		} else if names.IsValidUnit(entity) {
-			entity = names.NewUnitTag(entity).String()
-		} else {
-			// Now we want to deal with a special case. Both stringified
-			// machine tags and stringified units are valid application names.
-			// So here we use special knowledge about how tags are serialized to
-			// be able to give a better user experience.  If the user asks for
-			// --include nova-compute, we should give all nova-compute units.
-			if strings.HasPrefix(entity, names.UnitTagKind+"-") ||
-				strings.HasPrefix(entity, names.MachineTagKind+"-") {
-				// no-op pass through
-			} else if names.IsValidApplication(entity) {
-				// Assume that the entity refers to an application.
-				if isCAAS {
-					entity = names.NewApplicationTag(entity).String()
-				} else {
-					entity = names.UnitTagKind + "-" + entity + "-*"
-				}
-			}
-		}
-		result[i] = entity
+}
+
+func (c *debugLogCommand) parseCAASEntity(entity string) string {
+	tag, err := names.ParseTag(entity)
+	switch {
+	case strings.Contains(entity, "*"):
+		return entity
+	case err == nil && tag.Kind() == names.ApplicationTagKind:
+		return tag.String()
+	case names.IsValidApplication(entity):
+		return names.NewApplicationTag(entity).String()
+	default:
+		logger.Warningf("%q was not recognised as a valid application name. Only applications produce logs for CAAS models application", entity)
+		return entity
 	}
-	return result
 }
 
 type DebugLogAPI interface {
