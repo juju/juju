@@ -627,5 +627,6 @@ STATIC_ANALYSIS_JOB ?=
 .PHONY: static-analysis
 static-analysis: dqlite-install-if-missing
 ## static-analysis: Check the go code using static-analysis
-	@export CGO_ENABLED=1
-	@cd tests && ./main.sh static_analysis ${STATIC_ANALYSIS_JOB}
+	@cd tests && CGO_ENABLED=1 \
+		CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
+		./main.sh static_analysis ${STATIC_ANALYSIS_JOB}
