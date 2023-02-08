@@ -47,6 +47,7 @@ type Instance struct {
 	tags                []types.Tag
 	rootDeviceType      types.DeviceType
 	rootDeviceName      string
+	metadataOptions     *types.InstanceMetadataOptionsResponse
 
 	iamInstanceProfile *types.IamInstanceProfileSpecification
 }
@@ -162,6 +163,16 @@ func (srv *Server) RunInstances(ctx context.Context, in *ec2.RunInstancesInput, 
 	resp.ReservationId = aws.String(r.id)
 	resp.OwnerId = aws.String(ownerId)
 
+	var metadataResponse *types.InstanceMetadataOptionsResponse
+	if in.MetadataOptions != nil {
+		metadataResponse = &types.InstanceMetadataOptionsResponse{
+			HttpEndpoint:            in.MetadataOptions.HttpEndpoint,
+			HttpPutResponseHopLimit: in.MetadataOptions.HttpPutResponseHopLimit,
+			HttpTokens:              in.MetadataOptions.HttpTokens,
+			State:                   types.InstanceMetadataOptionsStateApplied,
+		}
+	}
+
 	for i := 0; i < int(max); i++ {
 		inst := srv.newInstance(r, instType, imageId, availZone, srv.initialInstanceState)
 		// Create any NICs on the instance subnet (if any), and then
@@ -175,6 +186,7 @@ func (srv *Server) RunInstances(ctx context.Context, in *ec2.RunInstancesInput, 
 		inst.blockDeviceMappings = append(inst.blockDeviceMappings,
 			srv.createBlockDeviceMappingsOnRun(in.BlockDeviceMappings)...,
 		)
+		inst.metadataOptions = metadataResponse
 		resp.Instances = append(resp.Instances, inst.ec2instance())
 	}
 	return resp, nil
@@ -399,6 +411,7 @@ func (inst *Instance) ec2instance() types.Instance {
 		Tags:                inst.tags,
 		RootDeviceType:      inst.rootDeviceType,
 		RootDeviceName:      aws.String(inst.rootDeviceName),
+		MetadataOptions:     inst.metadataOptions,
 	}
 }
 
