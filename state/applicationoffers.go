@@ -143,7 +143,7 @@ func (s *applicationOffers) AllApplicationOffers() (offers []*crossmodel.Applica
 	var docs []applicationOfferDoc
 	err := applicationOffersCollection.Find(bson.D{}).All(&docs)
 	if err != nil {
-		return nil, errors.Errorf("cannot get all application offers")
+		return nil, errors.Annotate(err, "getting application offer documents")
 	}
 	for _, doc := range docs {
 		offer, err := s.makeApplicationOffer(doc)
