@@ -47,6 +47,7 @@ import (
 	"github.com/juju/juju/worker/caasupgrader"
 	"github.com/juju/juju/worker/centralhub"
 	"github.com/juju/juju/worker/certupdater"
+	"github.com/juju/juju/worker/changestream"
 	"github.com/juju/juju/worker/common"
 	lxdbroker "github.com/juju/juju/worker/containerbroker"
 	"github.com/juju/juju/worker/controllerport"
@@ -697,6 +698,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewApp:    dbaccessor.NewApp,
 		})),
 
+		changeStreamName: ifController(changestream.Manifold(changestream.ManifoldConfig{
+			DBAccessor: dbAccessorName,
+			Clock:      config.Clock,
+			Logger:     loggo.GetLogger("juju.worker.changestream"),
+			NewStream:  changestream.NewStream,
+		})),
+
 		auditConfigUpdaterName: ifController(auditconfigupdater.Manifold(auditconfigupdater.ManifoldConfig{
 			AgentName: agentName,
 			StateName: stateName,
@@ -1100,6 +1108,7 @@ const (
 	multiwatcherName              = "multiwatcher"
 	peergrouperName               = "peer-grouper"
 	dbAccessorName                = "db-accessor"
+	changeStreamName              = "change-stream"
 	certificateUpdaterName        = "certificate-updater"
 	auditConfigUpdaterName        = "audit-config-updater"
 	leaseExpiryName               = "lease-expiry"
