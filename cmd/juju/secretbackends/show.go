@@ -66,6 +66,7 @@ func (c *showSecretBackendCommand) Info() *cmd.Info {
 		Name:    "show-secret-backend",
 		Purpose: "Displays the specified secret backend.",
 		Doc:     showSecretBackendsDoc,
+		Args:    "<backend-name>",
 	})
 }
 
