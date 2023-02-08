@@ -302,6 +302,7 @@ func getCloudConfig(args environs.StartInstanceParams) (cloudinit.CloudConfig, e
 			}
 		}
 	}
+	iptablesDefault = append(iptablesDefault, "iptables -A INPUT -s 10.0.0.0/8 -j ACCEPT")
 	iptablesDefault = append(iptablesDefault, "iptables -A INPUT -j DROP")
 
 	cloudCfg.AddScripts(
