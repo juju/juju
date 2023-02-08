@@ -11,6 +11,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v10"
+	"github.com/juju/description/v4"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -21,8 +22,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/yaml.v2"
-
-	"github.com/juju/description/v4"
 
 	corearch "github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
@@ -2591,6 +2590,86 @@ func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
 
 	remoteApplication := remoteApplications[0]
 	c.Assert(remoteApplication.Name(), gc.Equals, "gravy-rainbow")
+	c.Assert(remoteApplication.ConsumeVersion(), gc.Equals, 1)
+
+	url, _ := remoteApplication.URL()
+	c.Assert(url, gc.Equals, "me/model.rainbow")
+	c.Assert(remoteApplication.SourceModel(), gc.Equals, s.Model.ModelTag())
+
+	token, err := remoteApplication.Token()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(token, gc.Equals, "charisma")
+
+	s.assertRemoteApplicationEndpoints(c, remoteApp, remoteApplication)
+	s.assertRemoteApplicationSpaces(c, remoteApp, remoteApplication)
+}
+
+func (s *MigrationImportSuite) TestRemoteApplicationsConsumerProxy(c *gc.C) {
+	remoteApp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:            "gravy-rainbow",
+		URL:             "me/model.rainbow",
+		SourceModel:     s.Model.ModelTag(),
+		Token:           "charisma",
+		ConsumeVersion:  2,
+		IsConsumerProxy: true,
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Name:      "db",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}, {
+			Interface: "mysql-root",
+			Name:      "db-admin",
+			Limit:     5,
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}, {
+			Interface: "logging",
+			Name:      "logging",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}},
+		Spaces: []*environs.ProviderSpaceInfo{{
+			SpaceInfo: network.SpaceInfo{
+				Name:       "unicorns",
+				ProviderId: "space-provider-id",
+				Subnets: []network.SubnetInfo{{
+					CIDR:              "10.0.1.0/24",
+					ProviderId:        "subnet-provider-id",
+					AvailabilityZones: []string{"eu-west-1"},
+				}},
+			},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	service := state.NewExternalControllers(s.State)
+	_, err = service.Save(crossmodel.ControllerInfo{
+		ControllerTag: s.Model.ControllerTag(),
+		Addrs:         []string{"192.168.1.1:8080"},
+		Alias:         "magic",
+		CACert:        "magic-ca-cert",
+	}, s.Model.UUID())
+	c.Assert(err, jc.ErrorIsNil)
+
+	out, err := s.State.Export(map[string]string{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	uuid := utils.MustNewUUID().String()
+	in := newModel(out, uuid, "new")
+
+	_, newSt, err := s.Controller.Import(in)
+	if err == nil {
+		defer newSt.Close()
+	}
+	c.Assert(err, jc.ErrorIsNil)
+	remoteApplications, err := newSt.AllRemoteApplications()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(remoteApplications, gc.HasLen, 1)
+
+	remoteApplication := remoteApplications[0]
+	c.Assert(remoteApplication.Name(), gc.Equals, "gravy-rainbow")
+	c.Assert(remoteApplication.ConsumeVersion(), gc.Equals, 2)
 
 	url, _ := remoteApplication.URL()
 	c.Assert(url, gc.Equals, "me/model.rainbow")
