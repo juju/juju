@@ -762,8 +762,10 @@ func makeEntityPattern(entities []string) string {
 	var patterns []string
 	for _, entity := range entities {
 		// Convert * wildcard to the regex equivalent. This is safe
-		// because * never appears in entity names.
-		patterns = append(patterns, strings.Replace(entity, "*", ".*", -1))
+		// because * never appears in entity names. Escape any other regex.
+		escaped := regexp.QuoteMeta(entity)
+		unescapedWildcards := strings.Replace(escaped, regexp.QuoteMeta("*"), ".*", -1)
+		patterns = append(patterns, unescapedWildcards)
 	}
 	return `^(` + strings.Join(patterns, "|") + `)$`
 }

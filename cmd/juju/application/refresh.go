@@ -378,7 +378,8 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	charmID, err := factory.Run(cfg)
-	if err == nil {
+	switch {
+	case err == nil:
 		curl := charmID.URL
 		charmOrigin := charmID.Origin
 		// The current charm URL that's been found and selected.
@@ -387,13 +388,15 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 			channel = fmt.Sprintf(" in channel %s", charmID.Origin.Channel.String())
 		}
 		ctx.Infof("Added %s charm %q, revision %d%s, to the model", charmOrigin.Source, curl.Name, curl.Revision, channel)
-	} else if errors.Is(err, refresher.ErrAlreadyUpToDate) {
-		if len(c.Resources) == 0 {
-			// Charm already up-to-date and no resources to refresh.
-			ctx.Infof(err.Error())
-			return nil
-		}
-	} else {
+	case errors.Is(err, refresher.ErrAlreadyUpToDate) && c.Channel.String() != oldOrigin.CoreCharmOrigin().Channel.String():
+		ctx.Infof("%s. Note: all future refreshes will now use channel %q", err.Error(), charmID.Origin.Channel.String())
+	case errors.Is(err, refresher.ErrAlreadyUpToDate) && len(c.Resources) == 0:
+		// Charm already up-to-date and no resources to refresh.
+		ctx.Infof(err.Error())
+		return nil
+	case errors.Is(err, refresher.ErrAlreadyUpToDate) && len(c.Resources) > 0:
+		ctx.Infof("%s. Attempt to update resources requested.", err.Error())
+	default:
 		if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {
 			return errors.Trace(termErr.UserErr())
 		}
@@ -401,7 +404,6 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// Next, upgrade resources.
-
 	resourceLister, err := c.NewResourceLister(apiRoot)
 	if err != nil {
 		return errors.Trace(err)
