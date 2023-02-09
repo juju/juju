@@ -89,7 +89,11 @@ func (cs *ContainerSetup) initContainerDependencies(abort <-chan struct{}, manag
 	snapChannels := map[string]string{
 		"lxd": managerCfg.PopValue(config.LXDSnapChannel),
 	}
-	initialiser := getContainerInitialiser(cs.containerType, snapChannels)
+	initialiser := getContainerInitialiser(
+		cs.containerType,
+		snapChannels,
+		managerCfg.PopValue(config.ContainerNetworkingMethod),
+	)
 
 	releaser, err := cs.acquireLock(abort, fmt.Sprintf("%s container initialisation", cs.containerType))
 	if err != nil {
@@ -132,9 +136,14 @@ func (cs *ContainerSetup) acquireLock(abort <-chan struct{}, comment string) (fu
 }
 
 // getContainerInitialiser exists to patch out in tests.
-var getContainerInitialiser = func(ct instance.ContainerType, snapChannels map[string]string) container.Initialiser {
+var getContainerInitialiser = func(
+	ct instance.ContainerType,
+	snapChannels map[string]string,
+	containerNetworkingMethod string,
+) container.Initialiser {
+
 	if ct == instance.LXD {
-		return lxd.NewContainerInitialiser(snapChannels["lxd"])
+		return lxd.NewContainerInitialiser(snapChannels["lxd"], containerNetworkingMethod)
 	}
 	return kvm.NewContainerInitialiser()
 }

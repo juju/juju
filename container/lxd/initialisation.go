@@ -21,7 +21,7 @@ type containerInitialiser struct {
 var _ container.Initialiser = (*containerInitialiser)(nil)
 
 // NewContainerInitialiser  - on anything but Linux this is a NOP
-func NewContainerInitialiser(string) container.Initialiser {
+func NewContainerInitialiser(string, string) container.Initialiser {
 	return &containerInitialiser{}
 }
 

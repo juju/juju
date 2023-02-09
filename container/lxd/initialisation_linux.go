@@ -28,12 +28,12 @@ import (
 var hostSeries = series.HostSeries
 
 type containerInitialiser struct {
-	getExecCommand      func(string, ...string) *exec.Cmd
-	configureLxdProxies func(_ proxy.Settings, isRunningLocally func() (bool, error), newLocalServer func() (*Server, error)) error
-	configureLxdBridge  func() error
-	isRunningLocally    func() (bool, error)
-	newLocalServer      func() (*Server, error)
-	lxdSnapChannel      string
+	containerNetworkingMethod string
+	getExecCommand            func(string, ...string) *exec.Cmd
+	configureLxdProxies       func(_ proxy.Settings, isRunningLocally func() (bool, error), newLocalServer func() (*Server, error)) error
+	isRunningLocally          func() (bool, error)
+	newLocalServer            func() (*Server, error)
+	lxdSnapChannel            string
 }
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/snap_manager_mock.go github.com/juju/juju/container/lxd SnapManager
@@ -57,14 +57,14 @@ var _ container.Initialiser = (*containerInitialiser)(nil)
 
 // NewContainerInitialiser returns an instance used to perform the steps
 // required to allow a host machine to run a LXC container.
-func NewContainerInitialiser(lxdSnapChannel string) container.Initialiser {
+func NewContainerInitialiser(lxdSnapChannel, containerNetworkingMethod string) container.Initialiser {
 	ci := &containerInitialiser{
-		getExecCommand:   exec.Command,
-		lxdSnapChannel:   lxdSnapChannel,
-		isRunningLocally: isRunningLocally,
-		newLocalServer:   NewLocalServer,
+		containerNetworkingMethod: containerNetworkingMethod,
+		getExecCommand:            exec.Command,
+		lxdSnapChannel:            lxdSnapChannel,
+		isRunningLocally:          isRunningLocally,
+		newLocalServer:            NewLocalServer,
 	}
-	ci.configureLxdBridge = ci.internalConfigureLXDBridge
 	ci.configureLxdProxies = internalConfigureLXDProxies
 	return ci
 }
@@ -79,24 +79,53 @@ func (ci *containerInitialiser) Initialise() error {
 	if err := ensureDependencies(ci.lxdSnapChannel, localSeries); err != nil {
 		return errors.Trace(err)
 	}
-	err = ci.configureLxdBridge()
-	if err != nil {
-		return errors.Trace(err)
-	}
 	proxies := proxy.DetectProxies()
 	err = ci.configureLxdProxies(proxies, ci.isRunningLocally, ci.newLocalServer)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	output, err := ci.getExecCommand(
-		"lxd",
-		"init",
-		"--auto",
-	).CombinedOutput()
+	var output []byte
+	if ci.containerNetworkingMethod == "local" {
+		output, err = ci.getExecCommand(
+			"lxd",
+			"init",
+			"--auto",
+		).CombinedOutput()
 
-	if err == nil {
-		return nil
+		if err == nil {
+			return nil
+		}
+
+	} else {
+
+		lxdInitCfg := `config: {}
+networks: []
+storage_pools:
+- config: {}
+  description: ""
+  name: default
+  driver: dir
+profiles:
+- config: {}
+  description: ""
+  devices:
+    root:
+      path: /
+      pool: default
+      type: disk
+  name: default
+projects: []
+cluster: null`
+
+		cmd := ci.getExecCommand("lxd", "init", "--preseed")
+		cmd.Stdin = strings.NewReader(lxdInitCfg)
+
+		output, err = cmd.CombinedOutput()
+
+		if err == nil {
+			return nil
+		}
 	}
 
 	out := string(output)
@@ -105,7 +134,7 @@ func (ci *containerInitialiser) Initialise() error {
 		return nil
 	}
 
-	return errors.Annotate(err, "running lxd init --auto: "+out)
+	return errors.Annotate(err, "running lxd init: "+out)
 }
 
 // ConfigureLXDProxies will try to set the lxc config core.proxy_http and
@@ -153,29 +182,6 @@ var df = func(path string) (uint64, error) {
 		return 0, err
 	}
 	return uint64(statfs.Bsize) * statfs.Bfree, nil
-}
-
-func (ci *containerInitialiser) internalConfigureLXDBridge() error {
-	server, err := ci.newLocalServer()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	// We do not support LXD versions without the network API,
-	// which was added in 2.3.
-	if !server.networkAPISupport {
-		return errors.NotSupportedf("versions of LXD without network API")
-	}
-
-	profile, eTag, err := server.GetProfile(lxdDefaultProfileName)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	// If there are no suitable bridged NICs in the profile,
-	// ensure the bridge is set up and create one.
-	if server.verifyNICsWithAPI(getProfileNICs(profile)) == nil {
-		return nil
-	}
-	return server.ensureDefaultNetworking(profile, eTag)
 }
 
 var interfaceAddrs = func() ([]net.Addr, error) {

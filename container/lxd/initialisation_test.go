@@ -77,9 +77,8 @@ func getMockRunCommandWithRetry(calledCmds *[]string) func(string, manager.Retry
 	}
 }
 
-func (s *initialiserTestSuite) containerInitialiser(svr lxd.InstanceServer, lxdIsRunning bool) *containerInitialiser {
-	result := NewContainerInitialiser(lxdSnapChannel).(*containerInitialiser)
-	result.configureLxdBridge = func() error { return nil }
+func (s *initialiserTestSuite) containerInitialiser(svr lxd.InstanceServer, lxdIsRunning bool, containerNetworkingMethod string) *containerInitialiser {
+	result := NewContainerInitialiser(lxdSnapChannel, containerNetworkingMethod).(*containerInitialiser)
 	result.configureLxdProxies = func(proxy.Settings, func() (bool, error), func() (*Server, error)) error { return nil }
 	result.newLocalServer = func() (*Server, error) { return NewServer(svr) }
 	result.isRunningLocally = func() (bool, error) {
@@ -99,7 +98,7 @@ func (s *InitialiserSuite) TestSnapInstalledNoAptInstall(c *gc.C) {
 	mgr.EXPECT().InstalledChannel("lxd").Return("latest/stable")
 	PatchGetSnapManager(s, mgr)
 
-	err := s.containerInitialiser(nil, true).Initialise()
+	err := s.containerInitialiser(nil, true, "local").Initialise()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.calledCmds, gc.DeepEquals, []string{})
@@ -119,7 +118,7 @@ func (s *InitialiserSuite) TestSnapChannelMismatch(c *gc.C) {
 	)
 	PatchGetSnapManager(s, mgr)
 
-	err := s.containerInitialiser(nil, true).Initialise()
+	err := s.containerInitialiser(nil, true, "local").Initialise()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -140,7 +139,7 @@ func (s *InitialiserSuite) TestSnapChannelPrefixMatch(c *gc.C) {
 	)
 	PatchGetSnapManager(s, mgr)
 
-	err := s.containerInitialiser(nil, true).Initialise()
+	err := s.containerInitialiser(nil, true, "local").Initialise()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -155,7 +154,7 @@ func (s *InitialiserSuite) TestNoSeriesPackages(c *gc.C) {
 	paccmder, err := commands.NewPackageCommander("xenial")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.containerInitialiser(nil, true).Initialise()
+	err = s.containerInitialiser(nil, true, "local").Initialise()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.calledCmds, gc.DeepEquals, []string{
@@ -170,7 +169,7 @@ func (s *InitialiserSuite) TestInstallViaSnap(c *gc.C) {
 
 	paccmder := commands.NewSnapPackageCommander()
 
-	err := s.containerInitialiser(nil, true).Initialise()
+	err := s.containerInitialiser(nil, true, "local").Initialise()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.calledCmds, gc.DeepEquals, []string{
@@ -178,21 +177,31 @@ func (s *InitialiserSuite) TestInstallViaSnap(c *gc.C) {
 	})
 }
 
-func (s *InitialiserSuite) TestLXDInitBionic(c *gc.C) {
+func (s *InitialiserSuite) TestLXDInitBionicLocalNetworkingMethod(c *gc.C) {
 	s.patchDF100GB()
 	PatchHostSeries(s, "bionic")
 
-	err := s.containerInitialiser(nil, true).Initialise()
+	err := s.containerInitialiser(nil, true, "local").Initialise()
 	c.Assert(err, jc.ErrorIsNil)
 
 	testing.AssertEchoArgs(c, "lxd", "init", "--auto")
+}
+
+func (s *InitialiserSuite) TestLXDInitBionicFanNetworkingMethod(c *gc.C) {
+	s.patchDF100GB()
+	PatchHostSeries(s, "bionic")
+
+	err := s.containerInitialiser(nil, true, "fan").Initialise()
+	c.Assert(err, jc.ErrorIsNil)
+
+	testing.AssertEchoArgs(c, "lxd", "init", "--preseed")
 }
 
 func (s *InitialiserSuite) TestLXDAlreadyInitialized(c *gc.C) {
 	s.patchDF100GB()
 	PatchHostSeries(s, "bionic")
 
-	ci := s.containerInitialiser(nil, true)
+	ci := s.containerInitialiser(nil, true, "local")
 	ci.getExecCommand = s.PatchExecHelper.GetExecCommand(testing.PatchExecConfig{
 		Stderr:   `error: You have existing containers or images. lxd init requires an empty LXD.`,
 		ExitCode: 1,
@@ -224,7 +233,7 @@ func (s *InitialiserSuite) TestInitializeSetsProxies(c *gc.C) {
 		cSvr.EXPECT().UpdateServer(updateReq, lxdtesting.ETag).Return(nil),
 	)
 
-	ci := s.containerInitialiser(cSvr, true)
+	ci := s.containerInitialiser(cSvr, true, "local")
 	ci.configureLxdProxies = internalConfigureLXDProxies
 	err := ci.Initialise()
 	c.Assert(err, jc.ErrorIsNil)
@@ -240,7 +249,7 @@ func (s *InitialiserSuite) TestConfigureProxiesLXDNotRunning(c *gc.C) {
 	s.PatchEnvironment("no_proxy", "test.local,localhost")
 
 	// No expected calls.
-	ci := s.containerInitialiser(cSvr, false)
+	ci := s.containerInitialiser(cSvr, false, "local")
 	err := ci.Initialise()
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -382,109 +391,4 @@ func (s *ConfigureInitialiserSuite) SetUpTest(c *gc.C) {
 	// Fake the lxc executable for all the tests.
 	testing.PatchExecutableAsEchoArgs(c, s, "lxc")
 	testing.PatchExecutableAsEchoArgs(c, s, "lxd")
-}
-
-func (s *ConfigureInitialiserSuite) TestConfigureLXDBridge(c *gc.C) {
-	s.patchDF100GB()
-	PatchLXDViaSnap(s, true)
-	PatchHostSeries(s, "bionic")
-
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	cSvr := lxdtesting.NewMockInstanceServer(ctrl)
-
-	mgr := mocks.NewMockSnapManager(ctrl)
-	mgr.EXPECT().InstalledChannel("lxd").Return("latest/stable")
-	PatchGetSnapManager(s, mgr)
-
-	// The following nic is found, so we don't create a default nic and so
-	// don't update the profile with the nic.
-	profile := &api.Profile{
-		ProfilePut: api.ProfilePut{
-			Devices: map[string]map[string]string{
-				"eth0": {
-					"type":    "nic",
-					"nictype": "bridged",
-					"parent":  "lxdbr1",
-				},
-			},
-		},
-	}
-	network := &api.Network{
-		Managed: false,
-	}
-	gomock.InOrder(
-		cSvr.EXPECT().GetServer().Return(&api.Server{
-			ServerUntrusted: api.ServerUntrusted{
-				APIExtensions: []string{
-					"network",
-				},
-			},
-		}, lxdtesting.ETag, nil),
-		cSvr.EXPECT().GetProfile(lxdDefaultProfileName).Return(profile, "", nil),
-		cSvr.EXPECT().GetNetwork("lxdbr1").Return(network, "", nil),
-	)
-
-	ci := s.containerInitialiser(cSvr, true)
-	ci.configureLxdBridge = ci.internalConfigureLXDBridge
-	err := ci.Initialise()
-	c.Assert(err, jc.ErrorIsNil)
-
-	testing.AssertEchoArgs(c, "lxd", "init", "--auto")
-}
-
-func (s *ConfigureInitialiserSuite) TestConfigureLXDBridgeWithoutNicsCreatesANewOne(c *gc.C) {
-	s.patchDF100GB()
-	PatchLXDViaSnap(s, true)
-	PatchHostSeries(s, "bionic")
-
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	cSvr := lxdtesting.NewMockInstanceServer(ctrl)
-
-	mgr := mocks.NewMockSnapManager(ctrl)
-	mgr.EXPECT().InstalledChannel("lxd").Return("latest/stable")
-	PatchGetSnapManager(s, mgr)
-
-	// If no nics are found in the profile, then the configureLXDBridge will
-	// create a default nic for you.
-	profile := &api.Profile{
-		Name: lxdDefaultProfileName,
-		ProfilePut: api.ProfilePut{
-			Devices: map[string]map[string]string{},
-		},
-	}
-	network := &api.Network{
-		Managed: false,
-	}
-	updatedProfile := api.ProfilePut{
-		Devices: map[string]map[string]string{
-			"eth0": {
-				"type":    "nic",
-				"nictype": "macvlan",
-				"parent":  "lxdbr0",
-			},
-		},
-	}
-	gomock.InOrder(
-		cSvr.EXPECT().GetServer().Return(&api.Server{
-			ServerUntrusted: api.ServerUntrusted{
-				APIExtensions: []string{
-					"network",
-				},
-			},
-		}, lxdtesting.ETag, nil),
-		cSvr.EXPECT().GetProfile(lxdDefaultProfileName).Return(profile, "", nil),
-		cSvr.EXPECT().GetNetwork("lxdbr0").Return(network, "", nil),
-		// Because no nic was found, we create the nic info and then update the
-		// update profile with that nic information.
-		cSvr.EXPECT().UpdateProfile(lxdDefaultProfileName, updatedProfile, gomock.Any()).Return(nil),
-	)
-
-	ci := s.containerInitialiser(cSvr, true)
-	ci.configureLxdBridge = ci.internalConfigureLXDBridge
-	err := ci.Initialise()
-	c.Assert(err, jc.ErrorIsNil)
-
-	testing.AssertEchoArgs(c, "lxd", "init", "--auto")
 }

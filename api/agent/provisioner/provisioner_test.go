@@ -682,8 +682,9 @@ func (s *provisionerSuite) getManagerConfig(c *gc.C, typ instance.ContainerType)
 func (s *provisionerSuite) TestContainerManagerConfigKVM(c *gc.C) {
 	cfg := s.getManagerConfig(c, instance.KVM)
 	c.Assert(cfg, jc.DeepEquals, map[string]string{
-		container.ConfigModelUUID:      coretesting.ModelTag.Id(),
-		config.ContainerImageStreamKey: "released",
+		container.ConfigModelUUID:        coretesting.ModelTag.Id(),
+		config.ContainerImageStreamKey:   "released",
+		config.ContainerNetworkingMethod: config.ConfigDefaults()[config.ContainerNetworkingMethod].(string),
 	})
 }
 
@@ -692,8 +693,9 @@ func (s *provisionerSuite) TestContainerManagerConfigPermissive(c *gc.C) {
 	// will just return the basic type-independent configuration.
 	cfg := s.getManagerConfig(c, "invalid")
 	c.Assert(cfg, jc.DeepEquals, map[string]string{
-		container.ConfigModelUUID:      coretesting.ModelTag.Id(),
-		config.ContainerImageStreamKey: "released",
+		container.ConfigModelUUID:        coretesting.ModelTag.Id(),
+		config.ContainerImageStreamKey:   "released",
+		config.ContainerNetworkingMethod: config.ConfigDefaults()[config.ContainerNetworkingMethod].(string),
 	})
 }
 
