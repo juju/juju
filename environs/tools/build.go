@@ -275,14 +275,17 @@ func buildJujus(dir string) error {
 
 	// Build binaries.
 	cmds := [][]string{
-		{"make", "go-agent-build"},
+		{"make", "jujud"},
 	}
 	for _, args := range cmds {
 		cmd := exec.Command(args[0], args[1:]...)
-		cmd.Env = append(os.Environ(), "BIN_DIR="+dir, "CC=/usr/local/musl/bin/musl-gcc")
+		cmd.Env = append(os.Environ(), "GOBIN="+dir)
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			return fmt.Errorf("build command %q failed: %v; %s", args[0], err, out)
+		}
+		if logger.IsTraceEnabled() {
+			logger.Tracef("Built jujud:\n%s", out)
 		}
 	}
 	return nil

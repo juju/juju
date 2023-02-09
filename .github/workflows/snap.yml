@@ -9,6 +9,7 @@ on:
       - 'snap/**'
       - '.github/workflows/snap.yml'
   workflow_dispatch:
+
 permissions:
   contents: read
 

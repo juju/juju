@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e
+set -ex
 
 source "$(dirname $0)/../env.sh"
 
@@ -10,11 +10,11 @@ sha() {
 		arm64) echo "7a491488dd8a0f4ce3c5f4b44c3a10b5c11eaffdda937033fc9a9ed8d9d0ec49" ;;
 		s390x) echo "448be80e5281aa4f011c1bd3c50253dbf70e3e72da20440c477bc17b16560152" ;;
 		ppc64le) echo "e648377f0eb07eb9edac66e48d55ca7a0ea9e7e437ca5c1cd6bf1cb7d6bbc143" ;;
-		*) exit 1 ;;
+		*) { echo "Unsupported arch ${BUILD_ARCH}."; exit 1; } ;;
 	esac
 }
 
-FILE="${EXTRACTED_DEPS_PATH}/dqlite-deps-${BUILD_ARCH}.tar.bz2"
+FILE="$(mktemp -d)/latest-dqlite-deps-${BUILD_ARCH}.tar.bz2"
 
 retrieve() {
 	local filenames sha
@@ -49,7 +49,6 @@ install() {
 
     echo "${EXTRACTED_DEPS_PATH} ${FILE}"
 
-    tar xjf ${FILE} -C ${EXTRACTED_DEPS_PATH}
-    rm ${FILE}
-	mv ${EXTRACTED_DEPS_PATH}/juju-dqlite-static-lib-deps ${EXTRACTED_DEPS_ARCH_PATH}
+    tar xjf ${FILE} -C ${EXTRACTED_DEPS_PATH} || { echo "Failed to extract ${FILE}"; exit 1; }
+    mv ${EXTRACTED_DEPS_PATH}/juju-dqlite-static-lib-deps ${EXTRACTED_DEPS_ARCH_PATH} || { echo "Failed to move ${EXTRACTED_DEPS_PATH}/juju-dqlite-static-lib-deps to ${EXTRACTED_DEPS_ARCH_PATH}"; exit 1; }
 }

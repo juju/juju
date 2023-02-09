@@ -24,10 +24,10 @@ jobs:
         os: [ubuntu-latest, macOS-latest]
 
     steps:
-    - name: Checkout
+    - name: "Checkout"
       uses: actions/checkout@v3
 
-    - name: Set up Go
+    - name: "Set up Go"
       uses: actions/setup-go@v3
       with:
         go-version-file: 'go.mod'
@@ -38,11 +38,11 @@ jobs:
       run: |
         make install-mongo-dependencies
 
-    - name: "Install musl (Ubuntu)"
+    - name: "Install musl & dqlite  (Ubuntu)"
       if: (matrix.os == 'ubuntu-latest')
       shell: bash
       run: |
-        sudo make musl-install
+        sudo make musl-install dqlite-install
 
     - name: "Test client (Ubuntu)"
       if: (matrix.os == 'ubuntu-latest')
