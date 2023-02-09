@@ -70,6 +70,7 @@ func (c *removeSecretBackendCommand) Info() *cmd.Info {
 		Name:    "remove-secret-backend",
 		Purpose: "Removes a secret backend from the controller.",
 		Doc:     removeSecretBackendsDoc,
+		Args:    "<backend-name>",
 	})
 }
 

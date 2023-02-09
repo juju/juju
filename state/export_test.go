@@ -1195,7 +1195,7 @@ func (s ModelBackendShim) db() Database {
 	return s.Database
 }
 
-func (s ModelBackendShim) modelUUID() string {
+func (s ModelBackendShim) ModelUUID() string {
 	return ""
 }
 
@@ -1203,7 +1203,7 @@ func (s ModelBackendShim) modelName() (string, error) {
 	return "", nil
 }
 
-func (s ModelBackendShim) isController() bool {
+func (s ModelBackendShim) IsController() bool {
 	return false
 }
 

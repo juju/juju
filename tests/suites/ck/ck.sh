@@ -57,12 +57,12 @@ run_deploy_caas_workload() {
 
 	add_model "${model_name}" "${k8s_cloud_name}" "${controller_name}" "${file}"
 
-	juju deploy hello-kubecon
-	juju deploy nginx-ingress-integrator
-	juju relate hello-kubecon:ingress nginx-ingress-integrator:ingress
+	juju deploy postgresql-k8s
+	juju deploy mattermost-k8s
+	juju relate mattermost-k8s postgresql-k8s:db
 
-	wait_for "active" '.applications["hello-kubecon"] | ."application-status".current' 300
-	wait_for "active" '.applications["nginx-ingress-integrator"] | ."application-status".current'
+	wait_for "postgresql-k8s" "$(idle_condition "postgresql-k8s" 1)"
+	wait_for "mattermost-k8s" "$(idle_condition "mattermost-k8s" 0)"
 
 	destroy_model "${model_name}"
 }

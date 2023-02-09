@@ -150,6 +150,57 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleSuccess(c *gc.C) {
 		"Deploy of bundle completed.\n")
 }
 
+func (s *BundleDeployRepositorySuite) TestDeployBundleSuccessWithModelConstraints(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectEmptyModelToStart(c)
+	s.expectWatchAll()
+
+	mysqlCurl, err := charm.ParseURL("mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	wordpressCurl, err := charm.ParseURL("wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	chUnits := []charmUnit{
+		{
+			curl:                 mysqlCurl,
+			charmMetaSeries:      []string{"bionic", "xenial"},
+			machine:              "0",
+			machineUbuntuVersion: "16.04",
+		},
+		{
+			charmMetaSeries:      []string{"bionic", "xenial"},
+			curl:                 wordpressCurl,
+			machine:              "1",
+			machineUbuntuVersion: "16.04",
+		},
+	}
+	s.setupCharmUnits(chUnits)
+	s.expectAddRelation([]string{"wordpress:db", "mysql:db"})
+
+	bundleData, err := charm.ReadBundleData(strings.NewReader(wordpressBundle))
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = bundleDeploy(charm.CharmHub, bundleData, s.bundleDeploySpecWithConstraints(constraints.MustParse("arch=arm64")))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.deployArgs, gc.HasLen, 2)
+	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "ubuntu", "16.04")
+	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "ubuntu", "16.04")
+
+	c.Check(s.output.String(), gc.Equals, ""+
+		"Located charm \"mysql\" in charm-hub, channel stable\n"+
+		"Located charm \"wordpress\" in charm-hub, channel stable\n"+
+		"Executing changes:\n"+
+		"- upload charm mysql from charm-hub for series xenial with revision 42 with architecture=arm64\n"+
+		"- deploy application mysql from charm-hub on xenial with stable\n"+
+		"- upload charm wordpress from charm-hub for series xenial with revision 47 with architecture=arm64\n"+
+		"- deploy application wordpress from charm-hub on xenial with stable\n"+
+		"- add new machine 0\n"+
+		"- add new machine 1\n"+
+		"- add relation wordpress:db - mysql:db\n"+
+		"- add unit mysql/0 to new machine 0\n"+
+		"- add unit wordpress/0 to new machine 1\n"+
+		"Deploy of bundle completed.\n")
+}
+
 const wordpressBundle = `
 series: bionic
 applications:
@@ -2052,6 +2103,10 @@ machines:
 `
 
 func (s *BundleDeployRepositorySuite) bundleDeploySpec() bundleDeploySpec {
+	return s.bundleDeploySpecWithConstraints(constraints.Value{})
+}
+
+func (s *BundleDeployRepositorySuite) bundleDeploySpecWithConstraints(cons constraints.Value) bundleDeploySpec {
 	deployResourcesFunc := func(_ string,
 		_ resources.CharmID,
 		_ map[string]string,
@@ -2068,8 +2123,9 @@ func (s *BundleDeployRepositorySuite) bundleDeploySpec() bundleDeploySpec {
 			Stderr: s.stdErr,
 			Stdout: s.stdOut,
 		},
-		bundleResolver:  s.bundleResolver,
-		deployResources: deployResourcesFunc,
+		bundleResolver:   s.bundleResolver,
+		deployResources:  deployResourcesFunc,
+		modelConstraints: cons,
 	}
 }
 

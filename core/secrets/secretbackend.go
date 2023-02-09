@@ -37,6 +37,11 @@ func NextBackendRotateTime(now time.Time, rotateInterval time.Duration) (*time.T
 		return nil, errors.NotValidf("token rotate interval %q less than 1h", rotateInterval)
 	}
 	// Rotate a reasonable time before the token is due to expire.
-	when := now.Add(time.Duration(0.75*rotateInterval.Seconds()) * time.Second)
+	const maxInterval = 24 * time.Hour
+	nextInterval := time.Duration(0.75*rotateInterval.Seconds()) * time.Second
+	if nextInterval > maxInterval {
+		nextInterval = maxInterval
+	}
+	when := now.Add(nextInterval)
 	return &when, nil
 }

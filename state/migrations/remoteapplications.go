@@ -23,6 +23,7 @@ type MigrationRemoteApplication interface {
 	Spaces() []MigrationRemoteSpace
 	GlobalKey() string
 	Macaroon() string
+	ConsumeVersion() int
 }
 
 // MigrationRemoteEndpoint is an in-place representation of the state.Endpoint
@@ -111,6 +112,7 @@ func (m ExportRemoteApplications) addRemoteApplication(src RemoteApplicationSour
 		IsConsumerProxy: app.IsConsumerProxy(),
 		Bindings:        app.Bindings(),
 		Macaroon:        app.Macaroon(),
+		ConsumeVersion:  app.ConsumeVersion(),
 	}
 	descApp := dst.AddRemoteApplication(args)
 

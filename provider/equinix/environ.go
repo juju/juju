@@ -302,6 +302,7 @@ func getCloudConfig(args environs.StartInstanceParams) (cloudinit.CloudConfig, e
 			}
 		}
 	}
+	iptablesDefault = append(iptablesDefault, "iptables -A INPUT -s 10.0.0.0/8 -j ACCEPT")
 	iptablesDefault = append(iptablesDefault, "iptables -A INPUT -j DROP")
 
 	cloudCfg.AddScripts(
@@ -683,7 +684,7 @@ nextPlan:
 		// Some plans have CPU cores in the type field, e.g. "24-core".
 		// When available, multiply count by cores.
 		cores := uint64(plan.Specs.Cpus[0].Count)
-		re := regexp.MustCompile(`(\d+)[ -]core`)
+		re := regexp.MustCompile(`(\d+)[ -][Cc]ore`)
 		coresMatch := re.FindStringSubmatch(plan.Specs.Cpus[0].Type)
 		if len(coresMatch) > 1 {
 			n, err := strconv.Atoi(coresMatch[1])

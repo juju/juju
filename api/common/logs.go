@@ -22,7 +22,7 @@ import (
 // closes the connection.
 type DebugLogParams struct {
 	// IncludeEntity lists entity tags to include in the response. Tags may
-	// finish with a '*' to match a prefix e.g.: unit-mysql-*, machine-2. If
+	// include '*' wildcards e.g.: unit-mysql-*, machine-2. If
 	// none are set, then all lines are considered included.
 	IncludeEntity []string
 	// IncludeModule lists logging modules to include in the response. If none
@@ -33,7 +33,7 @@ type DebugLogParams struct {
 	// are set all labels are considered included.
 	IncludeLabel []string
 	// ExcludeEntity lists entity tags to exclude from the response. As with
-	// IncludeEntity the values may finish with a '*'.
+	// IncludeEntity the values may include '*' wildcards.
 	ExcludeEntity []string
 	// ExcludeModule lists logging modules to exclude from the response. If a
 	// module is specified, all the submodules are also excluded.

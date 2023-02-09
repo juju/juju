@@ -28,6 +28,7 @@ func (s *RemoteApplicationsExportSuite) TestExportRemoteApplication(c *gc.C) {
 			expect.SourceModel().Return(names.NewModelTag("uuid-2"))
 			expect.IsConsumerProxy().Return(false)
 			expect.Macaroon().Return("mac")
+			expect.ConsumeVersion().Return(1)
 			expect.Bindings().Return(map[string]string{
 				"binding-key": "binding-value",
 			})
@@ -107,6 +108,7 @@ func (s *RemoteApplicationsExportSuite) TestExportRemoteApplication(c *gc.C) {
 		SourceModel:     names.NewModelTag("uuid-2"),
 		IsConsumerProxy: false,
 		Macaroon:        "mac",
+		ConsumeVersion:  1,
 		Bindings: map[string]string{
 			"binding-key": "binding-value",
 		},
@@ -143,6 +145,7 @@ func (s *RemoteApplicationsExportSuite) TestExportRemoteApplicationWithEndpoints
 			expect.SourceModel().Return(names.NewModelTag("uuid-2"))
 			expect.IsConsumerProxy().Return(false)
 			expect.Macaroon().Return("mac")
+			expect.ConsumeVersion().Return(1)
 			expect.Bindings().Return(map[string]string{
 				"binding-key": "binding-value",
 			})
@@ -171,6 +174,7 @@ func (s *RemoteApplicationsExportSuite) TestExportRemoteApplicationWithEndpoints
 		SourceModel:     names.NewModelTag("uuid-2"),
 		IsConsumerProxy: false,
 		Macaroon:        "mac",
+		ConsumeVersion:  1,
 		Bindings: map[string]string{
 			"binding-key": "binding-value",
 		},
@@ -193,6 +197,7 @@ func (s *RemoteApplicationsExportSuite) TestExportRemoteApplicationWithStatusArg
 			expect.SourceModel().Return(names.NewModelTag("uuid-2"))
 			expect.IsConsumerProxy().Return(false)
 			expect.Macaroon().Return("mac")
+			expect.ConsumeVersion().Return(1)
 			expect.Bindings().Return(map[string]string{
 				"binding-key": "binding-value",
 			})
@@ -217,6 +222,7 @@ func (s *RemoteApplicationsExportSuite) TestExportRemoteApplicationWithStatusArg
 		SourceModel:     names.NewModelTag("uuid-2"),
 		IsConsumerProxy: false,
 		Macaroon:        "mac",
+		ConsumeVersion:  1,
 		Bindings: map[string]string{
 			"binding-key": "binding-value",
 		},
@@ -227,7 +233,9 @@ func (s *RemoteApplicationsExportSuite) TestExportRemoteApplicationWithStatusArg
 	c.Assert(err, gc.ErrorMatches, "fail")
 }
 
-func (s *RemoteApplicationsExportSuite) migrationRemoteApplication(ctrl *gomock.Controller, fn func(expect *MockMigrationRemoteApplicationMockRecorder)) *MockMigrationRemoteApplication {
+func (s *RemoteApplicationsExportSuite) migrationRemoteApplication(
+	ctrl *gomock.Controller, fn func(expect *MockMigrationRemoteApplicationMockRecorder),
+) *MockMigrationRemoteApplication {
 	entity := NewMockMigrationRemoteApplication(ctrl)
 	fn(entity.EXPECT())
 	return entity

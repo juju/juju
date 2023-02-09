@@ -43,3 +43,11 @@ func maybePermissionDenied(err error) error {
 	}
 	return err
 }
+
+func isPermissionDenied(err error) bool {
+	var apiErr *api.ResponseError
+	if errors.As(err, &apiErr) {
+		return apiErr.StatusCode == http.StatusForbidden
+	}
+	return false
+}

@@ -709,6 +709,24 @@ func (t *localServerSuite) TestInstanceStatus(c *gc.C) {
 	c.Assert(inst.Status(t.callCtx).Message, gc.Equals, "terminated")
 }
 
+func (t *localServerSuite) TestInstancesCreatedWithIMDSv2(c *gc.C) {
+	t.srv.ec2srv.SetInitialInstanceState(ec2test.Running)
+	t.prepareAndBootstrap(c)
+
+	output, err := t.srv.ec2srv.DescribeInstances(
+		stdcontext.Background(), &awsec2.DescribeInstancesInput{
+			Filters: []types.Filter{makeFilter("tag:"+tags.JujuController, t.ControllerUUID)},
+		})
+	c.Assert(err, jc.ErrorIsNil)
+
+	for _, res := range output.Reservations {
+		for _, inst := range res.Instances {
+			c.Assert(inst.MetadataOptions, gc.NotNil)
+			c.Assert(inst.MetadataOptions.HttpEndpoint, gc.Equals, types.InstanceMetadataEndpointStateEnabled)
+		}
+	}
+}
+
 func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	env := t.prepareAndBootstrap(c)
 	_, hc := testing.AssertStartInstance(c, env, t.callCtx, t.ControllerUUID, "1")

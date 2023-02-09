@@ -2397,7 +2397,7 @@ potentially valuable resources.
 		Group:       environschema.EnvironGroup,
 	},
 	SecretBackendKey: {
-		Description: `The name of the secret store backend. (default "" which implies Juju)`,
+		Description: `The name of the secret store backend. (default "auto")`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
