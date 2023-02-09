@@ -11,6 +11,15 @@ const (
 	providerType = "equinix"
 )
 
+const (
+	Provisioning string = "provisioning"
+	Active       string = "active"
+	ShuttingDown string = "shutting-down"
+	Stopped      string = "stopped"
+	Stopping     string = "stopping"
+	Terminated   string = "terminated"
+)
+
 func init() {
 	environs.RegisterProvider(providerType, environProvider{})
 }
