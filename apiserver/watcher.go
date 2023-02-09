@@ -801,7 +801,6 @@ func (w *srvRelationStatusWatcher) Next() (params.RelationLifeSuspendedStatusWat
 type srvOfferStatusWatcher struct {
 	watcherCommon
 	st      *state.State
-	model   *cache.Model
 	watcher crossmodelrelations.OfferWatcher
 }
 
@@ -811,10 +810,6 @@ func newOfferStatusWatcher(context facade.Context) (facade.Facade, error) {
 	resources := context.Resources()
 
 	st := context.State()
-	model, err := context.CachedModel(st.ModelUUID())
-	if err != nil {
-		return watcherCommon{}, err
-	}
 
 	// TODO(wallyworld) - enhance this watcher to support
 	// anonymous api calls with macaroons.
@@ -828,7 +823,6 @@ func newOfferStatusWatcher(context facade.Context) (facade.Facade, error) {
 	return &srvOfferStatusWatcher{
 		watcherCommon: newWatcherCommon(context),
 		st:            st,
-		model:         model,
 		watcher:       watcher,
 	}, nil
 }
@@ -1293,6 +1287,65 @@ func (w *srvSecretTriggerWatcher) translateChanges(changes []corewatcher.SecretT
 		result[i] = params.SecretTriggerChange{
 			URI:             c.URI.String(),
 			Revision:        c.Revision,
+			NextTriggerTime: c.NextTriggerTime,
+		}
+	}
+	return result
+}
+
+// srvSecretBackendsRotateWatcher defines the API wrapping a SecretBackendsRotateWatcher.
+type srvSecretBackendsRotateWatcher struct {
+	watcherCommon
+	st      *state.State
+	watcher state.SecretBackendRotateWatcher
+}
+
+func newSecretBackendsRotateWatcher(context facade.Context) (facade.Facade, error) {
+	id := context.ID()
+	auth := context.Auth()
+	resources := context.Resources()
+
+	st := context.State()
+
+	if !isAgent(auth) {
+		return nil, apiservererrors.ErrPerm
+	}
+	watcher, ok := resources.Get(id).(state.SecretBackendRotateWatcher)
+	if !ok {
+		return nil, apiservererrors.ErrUnknownWatcher
+	}
+	return &srvSecretBackendsRotateWatcher{
+		watcherCommon: newWatcherCommon(context),
+		st:            st,
+		watcher:       watcher,
+	}, nil
+}
+
+// Next returns when a change has occurred to an entity of the
+// collection being watched since the most recent call to Next
+// or the Watch call that created the srvSecretRotationWatcher.
+func (w *srvSecretBackendsRotateWatcher) Next() (params.SecretBackendRotateWatchResult, error) {
+	if changes, ok := <-w.watcher.Changes(); ok {
+		return params.SecretBackendRotateWatchResult{
+			Changes: w.translateChanges(changes),
+		}, nil
+	}
+	err := w.watcher.Err()
+	if err == nil {
+		err = apiservererrors.ErrStoppedWatcher
+	}
+	return params.SecretBackendRotateWatchResult{}, err
+}
+
+func (w *srvSecretBackendsRotateWatcher) translateChanges(changes []corewatcher.SecretBackendRotateChange) []params.SecretBackendRotateChange {
+	if changes == nil {
+		return nil
+	}
+	result := make([]params.SecretBackendRotateChange, len(changes))
+	for i, c := range changes {
+		result[i] = params.SecretBackendRotateChange{
+			ID:              c.ID,
+			Name:            c.Name,
 			NextTriggerTime: c.NextTriggerTime,
 		}
 	}

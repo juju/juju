@@ -88,6 +88,7 @@ import (
 	"github.com/juju/juju/worker/raft/raftforwarder"
 	"github.com/juju/juju/worker/raft/rafttransport"
 	"github.com/juju/juju/worker/reboot"
+	"github.com/juju/juju/worker/secretbackendrotate"
 	"github.com/juju/juju/worker/singular"
 	workerstate "github.com/juju/juju/worker/state"
 	"github.com/juju/juju/worker/stateconfigwatcher"
@@ -834,6 +835,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:     credentialvalidator.NewWorker,
 			Logger:        loggo.GetLogger("juju.worker.credentialvalidator"),
 		}),
+
+		secretBackendRotateName: ifNotMigrating(ifPrimaryController(secretbackendrotate.Manifold(
+			secretbackendrotate.ManifoldConfig{
+				APICallerName: apiCallerName,
+				Logger:        loggo.GetLogger("juju.worker.secretbackendsrotate"),
+			},
+		))),
 	}
 
 	return manifolds
@@ -1191,6 +1199,8 @@ const (
 	stateConverterName            = "state-converter"
 	lxdContainerProvisioner       = "lxd-container-provisioner"
 	kvmContainerProvisioner       = "kvm-container-provisioner"
+
+	secretBackendRotateName = "secret-backend-rotate"
 
 	upgradeSeriesWorkerName = "upgrade-series"
 

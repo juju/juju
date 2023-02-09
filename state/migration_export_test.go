@@ -2581,7 +2581,7 @@ func (s *MigrationExportSuite) TestRelationWithNoStatus(c *gc.C) {
 	c.Assert(rels[0].Status(), gc.IsNil)
 }
 
-func (s *MigrationExportSuite) TestRemoteRelationSettingsForLocalUnitInCMR(c *gc.C) {
+func (s *MigrationExportSuite) TestRemoteRelationSettingsForUnitsInCMR(c *gc.C) {
 	mac, err := newMacaroon("apimac")
 	c.Assert(err, gc.IsNil)
 
@@ -2627,10 +2627,18 @@ func (s *MigrationExportSuite) TestRemoteRelationSettingsForLocalUnitInCMR(c *gc
 	c.Assert(err, jc.ErrorIsNil)
 
 	wordpress0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: wordpress})
-	ru, err := rel.Unit(wordpress0)
+	localRU, err := rel.Unit(wordpress0)
 	c.Assert(err, jc.ErrorIsNil)
+
 	wordpressSettings := map[string]interface{}{"name": "wordpress/0"}
-	err = ru.EnterScope(wordpressSettings)
+	err = localRU.EnterScope(wordpressSettings)
+	c.Assert(err, jc.ErrorIsNil)
+
+	remoteRU, err := rel.RemoteUnit("gravy-rainbow/0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	gravySettings := map[string]interface{}{"name": "gravy-rainbow/0"}
+	err = remoteRU.EnterScope(gravySettings)
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Export(map[string]string{})
@@ -2642,14 +2650,11 @@ func (s *MigrationExportSuite) TestRemoteRelationSettingsForLocalUnitInCMR(c *gc
 	c.Assert(exRel.Endpoints(), gc.HasLen, 2)
 
 	for _, exEp := range exRel.Endpoints() {
-		// We expect that the relation settings for the local application unit
-		// are recorded against its relation endpoint,
-		// but the remote application has no unit settings.
 		if exEp.ApplicationName() == "wordpress" {
 			c.Check(exEp.Settings(wordpress0.Name()), jc.DeepEquals, wordpressSettings)
 		} else {
 			c.Check(exEp.ApplicationName(), gc.Equals, "gravy-rainbow")
-			c.Check(exEp.AllSettings(), gc.HasLen, 0)
+			c.Check(exEp.Settings("gravy-rainbow/0"), jc.DeepEquals, gravySettings)
 		}
 	}
 }

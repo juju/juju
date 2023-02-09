@@ -668,6 +668,13 @@ func (e *environ) StartInstance(
 		SecurityGroupIds:    groupIDs,
 		BlockDeviceMappings: blockDeviceMappings,
 		ImageId:             aws.String(spec.Image.Id),
+		MetadataOptions: &types.InstanceMetadataOptionsRequest{
+			HttpEndpoint: types.InstanceMetadataEndpointStateEnabled,
+			// By forcing HTTP tokens here we move all created instances over to
+			// IMDSv2.
+			// Fixes lp1960568
+			HttpTokens: types.HttpTokensStateRequired,
+		},
 	}
 
 	runArgs := commonRunArgs

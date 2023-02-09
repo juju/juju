@@ -90,6 +90,7 @@ func (c *updateSecretBackendCommand) Info() *cmd.Info {
 		Name:    "update-secret-backend",
 		Purpose: "Update an existing secret backend on the controller.",
 		Doc:     updateSecretBackendsDoc,
+		Args:    "<backend-name>",
 	})
 }
 

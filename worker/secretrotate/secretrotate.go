@@ -120,9 +120,9 @@ func (w *Worker) loop() (err error) {
 		return errors.Trace(err)
 	}
 	for {
-		var timeout <-chan time.Time
+		var timeToRotate <-chan time.Time
 		if w.timer != nil {
-			timeout = w.timer.Chan()
+			timeToRotate = w.timer.Chan()
 		}
 		select {
 		case <-w.catacomb.Dying():
@@ -132,7 +132,7 @@ func (w *Worker) loop() (err error) {
 				return errors.New("secret rotation change channel closed")
 			}
 			w.handleSecretRotateChanges(ch)
-		case now := <-timeout:
+		case now := <-timeToRotate:
 			w.rotate(now)
 		}
 	}

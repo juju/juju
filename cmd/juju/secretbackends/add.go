@@ -91,6 +91,7 @@ func (c *addSecretBackendCommand) Info() *cmd.Info {
 		Name:    "add-secret-backend",
 		Purpose: "Add a new secret backend to the controller.",
 		Doc:     addSecretBackendsDoc,
+		Args:    "<backend-name> <backend-type>",
 	})
 }
 

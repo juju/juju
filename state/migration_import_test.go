@@ -11,6 +11,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v10"
+	"github.com/juju/description/v4"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -21,8 +22,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/yaml.v2"
-
-	"github.com/juju/description/v4"
 
 	corearch "github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
@@ -1288,14 +1287,16 @@ func (s *MigrationImportSuite) TestRelations(c *gc.C) {
 	state.AddTestingApplication(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
 	eps, err := s.State.InferEndpoints("mysql", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
+
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 	err = rel.SetStatus(status.StatusInfo{Status: status.Joined})
 	c.Assert(err, jc.ErrorIsNil)
-	wordpress_0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: wordpress})
 
-	ru, err := rel.Unit(wordpress_0)
+	wordpress0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: wordpress})
+	ru, err := rel.Unit(wordpress0)
 	c.Assert(err, jc.ErrorIsNil)
+
 	relSettings := map[string]interface{}{
 		"name": "wordpress/0",
 	}
@@ -1324,6 +1325,60 @@ func (s *MigrationImportSuite) TestRelations(c *gc.C) {
 	settings, err := ru.Settings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings.Map(), gc.DeepEquals, relSettings)
+}
+
+func (s *MigrationImportSuite) TestCMRRemoteRelationScope(c *gc.C) {
+	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "gravy-rainbow",
+		URL:         "me/model.rainbow",
+		SourceModel: s.Model.ModelTag(),
+		Token:       "charisma",
+		OfferUUID:   "offer-uuid",
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Name:      "db",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	wordpress := state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
+	eps, err := s.State.InferEndpoints("gravy-rainbow", "wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	wordpress0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: wordpress})
+	localRU, err := rel.Unit(wordpress0)
+	c.Assert(err, jc.ErrorIsNil)
+
+	wordpressSettings := map[string]interface{}{"name": "wordpress/0"}
+	err = localRU.EnterScope(wordpressSettings)
+	c.Assert(err, jc.ErrorIsNil)
+
+	remoteRU, err := rel.RemoteUnit("gravy-rainbow/0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	gravySettings := map[string]interface{}{"name": "gravy-rainbow/0"}
+	err = remoteRU.EnterScope(gravySettings)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, newSt := s.importModel(c, s.State)
+
+	newWordpress, err := newSt.Application("wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+
+	rels, err := newWordpress.Relations()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rels, gc.HasLen, 1)
+
+	ru, err := rels[0].RemoteUnit("gravy-rainbow/0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	inScope, err := ru.InScope()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(inScope, jc.IsTrue)
 }
 
 func (s *MigrationImportSuite) assertRelationsMissingStatus(c *gc.C, hasUnits bool) {
@@ -2535,6 +2590,86 @@ func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
 
 	remoteApplication := remoteApplications[0]
 	c.Assert(remoteApplication.Name(), gc.Equals, "gravy-rainbow")
+	c.Assert(remoteApplication.ConsumeVersion(), gc.Equals, 1)
+
+	url, _ := remoteApplication.URL()
+	c.Assert(url, gc.Equals, "me/model.rainbow")
+	c.Assert(remoteApplication.SourceModel(), gc.Equals, s.Model.ModelTag())
+
+	token, err := remoteApplication.Token()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(token, gc.Equals, "charisma")
+
+	s.assertRemoteApplicationEndpoints(c, remoteApp, remoteApplication)
+	s.assertRemoteApplicationSpaces(c, remoteApp, remoteApplication)
+}
+
+func (s *MigrationImportSuite) TestRemoteApplicationsConsumerProxy(c *gc.C) {
+	remoteApp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:            "gravy-rainbow",
+		URL:             "me/model.rainbow",
+		SourceModel:     s.Model.ModelTag(),
+		Token:           "charisma",
+		ConsumeVersion:  2,
+		IsConsumerProxy: true,
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Name:      "db",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}, {
+			Interface: "mysql-root",
+			Name:      "db-admin",
+			Limit:     5,
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}, {
+			Interface: "logging",
+			Name:      "logging",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}},
+		Spaces: []*environs.ProviderSpaceInfo{{
+			SpaceInfo: network.SpaceInfo{
+				Name:       "unicorns",
+				ProviderId: "space-provider-id",
+				Subnets: []network.SubnetInfo{{
+					CIDR:              "10.0.1.0/24",
+					ProviderId:        "subnet-provider-id",
+					AvailabilityZones: []string{"eu-west-1"},
+				}},
+			},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	service := state.NewExternalControllers(s.State)
+	_, err = service.Save(crossmodel.ControllerInfo{
+		ControllerTag: s.Model.ControllerTag(),
+		Addrs:         []string{"192.168.1.1:8080"},
+		Alias:         "magic",
+		CACert:        "magic-ca-cert",
+	}, s.Model.UUID())
+	c.Assert(err, jc.ErrorIsNil)
+
+	out, err := s.State.Export(map[string]string{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	uuid := utils.MustNewUUID().String()
+	in := newModel(out, uuid, "new")
+
+	_, newSt, err := s.Controller.Import(in)
+	if err == nil {
+		defer newSt.Close()
+	}
+	c.Assert(err, jc.ErrorIsNil)
+	remoteApplications, err := newSt.AllRemoteApplications()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(remoteApplications, gc.HasLen, 1)
+
+	remoteApplication := remoteApplications[0]
+	c.Assert(remoteApplication.Name(), gc.Equals, "gravy-rainbow")
+	c.Assert(remoteApplication.ConsumeVersion(), gc.Equals, 2)
 
 	url, _ := remoteApplication.URL()
 	c.Assert(url, gc.Equals, "me/model.rainbow")

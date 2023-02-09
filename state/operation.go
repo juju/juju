@@ -211,7 +211,7 @@ func newOperationDoc(mb modelBackend, summary string, count int) (operationDoc, 
 		return operationDoc{}, "", errors.Trace(err)
 	}
 	operationID := strconv.Itoa(id)
-	modelUUID := mb.modelUUID()
+	modelUUID := mb.ModelUUID()
 	return operationDoc{
 		DocId:            mb.docID(operationID),
 		ModelUUID:        modelUUID,
