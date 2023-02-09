@@ -2179,10 +2179,6 @@
                 }
             },
             "definitions": {
-                "": {
-                    "type": "object",
-                    "additionalProperties": false
-                },
                 "AddApplicationUnits": {
                     "type": "object",
                     "properties": {

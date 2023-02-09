@@ -70,6 +70,10 @@ func WithFacadeGroups(facadeGroups []FacadeGroup) Option {
 	}
 }
 
+var (
+	structType = reflect.TypeOf(struct{}{})
+)
+
 // Generate a FacadeSchema from the APIServer
 func Generate(pkgRegistry PackageRegistry, linker Linker, client APIServer, options ...Option) ([]FacadeSchema, error) {
 	opts := newOptions()
@@ -138,27 +142,21 @@ func Generate(pkgRegistry PackageRegistry, linker Linker, client APIServer, opti
 			}
 		}
 
-		resultSchema := jsonschema.ReflectFromObjType(objType)
-
-		// Prune out any definitions that have empty Param definitions. By
-		// definition they're empty and do not conform to the Juju API.
-		// The jsonschema package correctly handles the case when a struct{}{}
-		// is used in an API definition, but we then take that information
-		// verbatim. The following just removes any empty definitions.
-		for name, params := range resultSchema.Properties {
-			if params == nil {
-				continue
-			}
-			if params.Properties["Params"] == nil {
-				continue
-			}
-			ref := params.Properties["Params"].Ref
-			if ref == "#/definitions/" || ref == "" {
-				delete(resultSchema.Properties, name)
+		if objType != nil {
+			for _, method := range objType.MethodNames() {
+				m, err := objType.Method(method)
+				if err != nil {
+					continue
+				}
+				// Remove functions that only have a single struct parameter
+				// and no return value. These are facade methods intended to
+				// hide and discontinue use of the method.
+				if m.Params == structType && m.Result == nil {
+					objType.RemoveMethod(method)
+				}
 			}
 		}
-
-		result[i].Schema = resultSchema
+		result[i].Schema = jsonschema.ReflectFromObjType(objType)
 
 		if pkg == nil {
 			continue
