@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -ex
+set -e
 
 source "$(dirname $0)/dqlite-install.sh"
 

@@ -391,7 +391,7 @@ run-tests: musl-install-if-missing dqlite-install-if-missing
 	$(eval BUILD_ARCH = $(subst ppc64el,ppc64le,${ARCH}))
 	$(eval TMP := $(shell mktemp -d $${TMPDIR:-/tmp}/jj-XXX))
 	$(eval TEST_PACKAGES := $(shell go list $(PROJECT)/... | sort | ([ -f "$(TEST_PACKAGE_LIST)" ] && comm -12 "$(TEST_PACKAGE_LIST)" - || cat) | grep -v $(PROJECT)$$ | grep -v $(PROJECT)/vendor/ | grep -v $(PROJECT)/acceptancetests/ | grep -v $(PROJECT)/generate/ | grep -v mocks))
-	@echo 'GOOS=${OS} GOARCH=${BUILD_ARCH} go test -mod=$(JUJU_GOMOD_MODE) -tags=$(BUILD_TAGS) $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $$TEST_PACKAGES -check.v'
+	@echo 'go test -mod=$(JUJU_GOMOD_MODE) -tags=$(BUILD_TAGS) $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $$TEST_PACKAGES -check.v'
 	@TMPDIR=$(TMP) \
 		PATH=${PATH}:${MUSL_BIN_PATH} \
 		CC="musl-gcc" \
@@ -400,8 +400,6 @@ run-tests: musl-install-if-missing dqlite-install-if-missing
 		CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
 		LD_LIBRARY_PATH="${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}" \
 		CGO_ENABLED=1 \
-		GOOS=${OS} \
-		GOARCH=${BUILD_ARCH} \
 		go test -v -mod=$(JUJU_GOMOD_MODE) -tags=$(BUILD_TAGS) $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(TEST_PACKAGES) -check.v
 	@rm -r $(TMP)
 
@@ -412,7 +410,7 @@ run-go-tests: musl-install-if-missing dqlite-install-if-missing
 	$(eval BUILD_ARCH = $(subst ppc64el,ppc64le,${ARCH}))
 	$(eval TEST_PACKAGES ?= "./...")
 	$(eval TEST_FILTER ?= "")
-	@echo 'GOOS=${OS} GOARCH=${BUILD_ARCH} go test -mod=$(JUJU_GOMOD_MODE) -tags=$(BUILD_TAGS) $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $$TEST_PACKAGES -check.v -check.f $(TEST_FILTER)'
+	@echo 'go test -mod=$(JUJU_GOMOD_MODE) -tags=$(BUILD_TAGS) $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $$TEST_PACKAGES -check.v -check.f $(TEST_FILTER)'
 	@PATH=${PATH}:${MUSL_BIN_PATH} \
 		CC="musl-gcc" \
 		CGO_CFLAGS="-I${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}/include" \
@@ -420,8 +418,6 @@ run-go-tests: musl-install-if-missing dqlite-install-if-missing
 		CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
 		LD_LIBRARY_PATH="${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}" \
 		CGO_ENABLED=1 \
-		GOOS=${OS} \
-		GOARCH=${BUILD_ARCH} \
 		go test -v -mod=$(JUJU_GOMOD_MODE) -tags=$(BUILD_TAGS) $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) ${TEST_PACKAGES} -check.v -check.f $(TEST_FILTER)
 
 run-go-generate: musl-install-if-missing dqlite-install-if-missing
