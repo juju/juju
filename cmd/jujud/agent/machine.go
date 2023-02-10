@@ -63,8 +63,6 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/presence"
-	"github.com/juju/juju/core/raft/queue"
-	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	jujunames "github.com/juju/juju/juju/names"
@@ -639,8 +637,6 @@ func (a *MachineAgent) makeEngineCreator(
 				return engineConfigFunc(controllerMetricsSink)
 			},
 			SetupLogging:            agentconf.SetupAgentLogging,
-			LeaseFSM:                raftlease.NewFSM(),
-			RaftOpQueue:             queue.NewOpQueue(clock.WallClock),
 			DependencyEngineMetrics: metrics,
 			CharmhubHTTPClient:      charmhubHTTPClient,
 		}
@@ -667,7 +663,6 @@ func (a *MachineAgent) makeEngineCreator(
 			Clock:              clock.WallClock,
 			LocalHub:           localHub,
 			CentralHub:         a.centralHub,
-			LeaseFSM:           manifoldsCfg.LeaseFSM,
 		}); err != nil {
 			// If the introspection worker failed to start, we just log error
 			// but continue. It is very unlikely to happen in the real world

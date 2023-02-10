@@ -34,14 +34,14 @@ type Store interface {
 	// Leases returns a recent snapshot of lease state. Expiry times are
 	// expressed according to the Clock the store was configured with.
 	// Supplying any lease keys will filter the return for those requested.
-	Leases(keys ...Key) map[Key]Info
+	Leases(keys ...Key) (map[Key]Info, error)
 
 	// LeaseGroup returns a snapshot of all of the leases for a
 	// particular namespace/model combination. This is useful for
 	// reporting holder information for a model, and can often be
 	// implemented more efficiently than getting all leases when there
 	// are many models.
-	LeaseGroup(namespace, modelUUID string) map[Key]Info
+	LeaseGroup(namespace, modelUUID string) (map[Key]Info, error)
 
 	// PinLease ensures that the current holder of the lease for the input key
 	// will not lose the lease to expiry.
@@ -59,7 +59,7 @@ type Store interface {
 	// Pinned returns a snapshot of pinned leases.
 	// The return consists of each pinned lease and the collection of entities
 	// requiring its pinned behaviour.
-	Pinned() map[Key][]string
+	Pinned() (map[Key][]string, error)
 }
 
 // Key fully identifies a lease, including the namespace and

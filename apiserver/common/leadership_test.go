@@ -52,7 +52,7 @@ func (s *LeadershipSuite) TestPinnedLeadershipSuccess(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	pinned := map[string][]string{"redis": {"machine-0", "machine-1"}}
-	s.pinner.EXPECT().PinnedLeadership().Return(pinned)
+	s.pinner.EXPECT().PinnedLeadership().Return(pinned, nil)
 
 	res, err := s.api.PinnedLeadership()
 	c.Assert(err, jc.ErrorIsNil)

@@ -38,6 +38,21 @@ jobs:
         go-version-file: 'go.mod'
         cache: true
 
+    - name: Restore musl cache
+      id: restore-musl-cache
+      uses: actions/cache/restore@v3
+      with:
+        key: ${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('./scripts/dqlite/Makefile') }}
+        path: |
+          ./_deps/musl-${{ runner.arch }}
+
     - name: Build
       run: |
-        GOOS=${{ matrix.platform.os }} GOARCH=${{ matrix.platform.arch }} make go-install
+        GOOS=${{ matrix.platform.os }} GOARCH=${{ matrix.platform.arch }} make go-build
+
+    - name: Save musl cache
+      uses: actions/cache/save@v3
+      with:
+        key: ${{ steps.restore-musl-cache.outputs.cache-primary-key }}
+        path: |
+          ./_deps/musl-${{ runner.arch }}

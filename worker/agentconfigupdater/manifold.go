@@ -103,10 +103,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			configNonSyncedWritesToRaftLog := controllerConfig.NonSyncedWritesToRaftLog()
 			nonSyncedWritesToRaftLogChanged := agentsNonSyncedWritesToRaftLog != configNonSyncedWritesToRaftLog
 
-			agentsBatchRaftFSM := agent.CurrentConfig().BatchRaftFSM()
-			configBatchRaftFSM := controllerConfig.BatchRaftFSM()
-			batchRaftFSMChanged := agentsBatchRaftFSM != configBatchRaftFSM
-
 			info, err := apiState.StateServingInfo()
 			if err != nil {
 				return nil, errors.Annotate(err, "getting state serving info")
@@ -137,10 +133,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 					logger.Debugf("setting non synced writes to raft log: %t => %t", agentsNonSyncedWritesToRaftLog, configNonSyncedWritesToRaftLog)
 					config.SetNonSyncedWritesToRaftLog(configNonSyncedWritesToRaftLog)
 				}
-				if batchRaftFSMChanged {
-					logger.Debugf("setting batch raft fsm: %t => %t", agentsBatchRaftFSM, configBatchRaftFSM)
-					config.SetBatchRaftFSM(configBatchRaftFSM)
-				}
 				return nil
 			})
 			if err != nil {
@@ -169,7 +161,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				MongoProfile:             configMongoMemoryProfile,
 				JujuDBSnapChannel:        configJujuDBSnapChannel,
 				NonSyncedWritesToRaftLog: configNonSyncedWritesToRaftLog,
-				BatchRaftFSM:             configBatchRaftFSM,
 				Logger:                   config.Logger,
 			})
 		},

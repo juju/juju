@@ -48,11 +48,12 @@ func (mr *MockPinnerMockRecorder) PinLeadership(arg0, arg1 interface{}) *gomock.
 }
 
 // PinnedLeadership mocks base method.
-func (m *MockPinner) PinnedLeadership() map[string][]string {
+func (m *MockPinner) PinnedLeadership() (map[string][]string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PinnedLeadership")
 	ret0, _ := ret[0].(map[string][]string)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // PinnedLeadership indicates an expected call of PinnedLeadership.

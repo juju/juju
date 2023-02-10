@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package lease_test
+package lease
 
 import (
 	"testing"
@@ -12,3 +12,7 @@ import (
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }
+
+type StubLogger struct{}
+
+func (StubLogger) Errorf(string, ...interface{}) {}

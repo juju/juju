@@ -4,7 +4,6 @@
 package facade
 
 import (
-	"context"
 	"net/http"
 	"net/url"
 	"time"
@@ -17,7 +16,6 @@ import (
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/presence"
-	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/state"
 )
 
@@ -56,18 +54,6 @@ type LeadershipContext interface {
 	// SingularClaimer returns a lease.Claimer for singular leases for
 	// this context's model.
 	SingularClaimer() (lease.Claimer, error)
-}
-
-// RaftContext describes methods for handling raft related capabilities.
-type RaftContext interface {
-
-	// ApplyLease attempts to apply the command on to the raft FSM. It only
-	// takes a command and enqueues that against the raft instance. If the raft
-	// instance is already processing a application, then back pressure is
-	// applied to the caller and a ErrEnqueueDeadlineExceeded will be sent.
-	// It's up to the caller to retry or drop depending on how the retry
-	// algorithm is implemented.
-	ApplyLease(context.Context, raftlease.Command) error
 }
 
 // Context exposes useful capabilities to a Facade.
@@ -157,9 +143,6 @@ type Context interface {
 
 	// RequestRecorder defines a metrics collector for outbound requests.
 	RequestRecorder() RequestRecorder
-
-	// Raft returns a lease context for managing raft.
-	Raft() RaftContext
 
 	// HTTPClient returns an HTTP client to use for the given purpose.
 	HTTPClient(purpose HTTPClientPurpose) HTTPClient

@@ -34,7 +34,6 @@ type Context struct {
 	LeadershipPinner_   leadership.Pinner
 	LeadershipReader_   leadership.Reader
 	SingularClaimer_    lease.Claimer
-	Raft_               facade.RaftContext
 	CharmhubHTTPClient_ facade.HTTPClient
 	// Identity is not part of the facade.Context interface, but is instead
 	// used to make sure that the context objects are the same.
@@ -132,7 +131,7 @@ func (context Context) LeadershipPinner(modelUUID string) (leadership.Pinner, er
 	return context.LeadershipPinner_, nil
 }
 
-// LeadershipPinner implements facade.Context.
+// LeadershipReader implements facade.Context.
 func (context Context) LeadershipReader(modelUUID string) (leadership.Reader, error) {
 	return context.LeadershipReader_, nil
 }
@@ -140,10 +139,6 @@ func (context Context) LeadershipReader(modelUUID string) (leadership.Reader, er
 // SingularClaimer implements facade.Context.
 func (context Context) SingularClaimer() (lease.Claimer, error) {
 	return context.SingularClaimer_, nil
-}
-
-func (context Context) Raft() facade.RaftContext {
-	return context.Raft_
 }
 
 func (context Context) HTTPClient(purpose facade.HTTPClientPurpose) facade.HTTPClient {

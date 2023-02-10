@@ -425,7 +425,8 @@ func (s *storeSuite) TestLeases(c *gc.C) {
 		Holder: "mozart",
 		Expiry: in5Seconds,
 	}
-	result := s.store.Leases()
+	result, err := s.store.Leases()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(result), gc.Equals, 2)
 
 	r1 := result[lease1]
@@ -441,7 +442,9 @@ func (s *storeSuite) TestLeasesFilter(c *gc.C) {
 	lease1 := lease.Key{Namespace: "quam", ModelUUID: "olim", Lease: "abrahe"}
 	lease2 := lease.Key{Namespace: "la", ModelUUID: "cry", Lease: "mosa"}
 
-	_ = s.store.Leases(lease1, lease2)
+	_, err := s.store.Leases(lease1, lease2)
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.fsm.CheckCallNames(c, "Leases")
 	c.Check(s.fsm.Calls()[0].Args[1], jc.SameContents, []lease.Key{lease1, lease2})
 }
@@ -459,7 +462,8 @@ func (s *storeSuite) TestLeaseGroup(c *gc.C) {
 		Holder: "mozart",
 		Expiry: in5Seconds,
 	}
-	result := s.store.LeaseGroup("ns", "model")
+	result, err := s.store.LeaseGroup("ns", "model")
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(result), gc.Equals, 2)
 	s.fsm.CheckCall(c, 0, "LeaseGroup", s.clock.Now(), "ns", "model")
 
@@ -678,7 +682,10 @@ func (s *storeSuite) TestUnpinTimeout(c *gc.C) {
 
 func (s *storeSuite) TestPinned(c *gc.C) {
 	s.fsm.pinned = map[lease.Key][]string{}
-	c.Check(s.store.Pinned(), gc.DeepEquals, s.fsm.pinned)
+
+	pinned, err := s.store.Pinned()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(pinned, gc.DeepEquals, s.fsm.pinned)
 	s.fsm.CheckCallNames(c, "Pinned")
 }
 
