@@ -99,10 +99,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			configJujuDBSnapChannel := controllerConfig.JujuDBSnapChannel()
 			jujuDBSnapChannelChanged := agentsJujuDBSnapChannel != configJujuDBSnapChannel
 
-			agentsNonSyncedWritesToRaftLog := agent.CurrentConfig().NonSyncedWritesToRaftLog()
-			configNonSyncedWritesToRaftLog := controllerConfig.NonSyncedWritesToRaftLog()
-			nonSyncedWritesToRaftLogChanged := agentsNonSyncedWritesToRaftLog != configNonSyncedWritesToRaftLog
-
 			info, err := apiState.StateServingInfo()
 			if err != nil {
 				return nil, errors.Annotate(err, "getting state serving info")
@@ -129,10 +125,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 					logger.Debugf("setting agent config mongo snap channel: %q => %q", agentsJujuDBSnapChannel, configJujuDBSnapChannel)
 					config.SetJujuDBSnapChannel(configJujuDBSnapChannel)
 				}
-				if nonSyncedWritesToRaftLogChanged {
-					logger.Debugf("setting non synced writes to raft log: %t => %t", agentsNonSyncedWritesToRaftLog, configNonSyncedWritesToRaftLog)
-					config.SetNonSyncedWritesToRaftLog(configNonSyncedWritesToRaftLog)
-				}
 				return nil
 			})
 			if err != nil {
@@ -156,12 +148,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			return NewWorker(WorkerConfig{
-				Agent:                    agent,
-				Hub:                      hub,
-				MongoProfile:             configMongoMemoryProfile,
-				JujuDBSnapChannel:        configJujuDBSnapChannel,
-				NonSyncedWritesToRaftLog: configNonSyncedWritesToRaftLog,
-				Logger:                   config.Logger,
+				Agent:             agent,
+				Hub:               hub,
+				MongoProfile:      configMongoMemoryProfile,
+				JujuDBSnapChannel: configJujuDBSnapChannel,
+				Logger:            config.Logger,
 			})
 		},
 	}

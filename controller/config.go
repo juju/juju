@@ -219,10 +219,6 @@ const (
 	// hard (but configurable) limit of 16M.
 	MaxAgentStateSize = "max-agent-state-size"
 
-	// NonSyncedWritesToRaftLog allows the operator to disable fsync calls
-	// when writing to the raft log by setting this value to true.
-	NonSyncedWritesToRaftLog = "non-synced-writes-to-raft-log"
-
 	// MigrationMinionWaitMax is the maximum time that the migration-master
 	// worker will wait for agents to report for a migration phase when
 	// executing a model migration.
@@ -364,10 +360,6 @@ const (
 	// state data that agents can store to the controller.
 	DefaultMaxAgentStateSize = 512 * 1024
 
-	// DefaultNonSyncedWritesToRaftLog is the default value for the
-	// non-synced-writes-to-raft-log value. It is set to false by default.
-	DefaultNonSyncedWritesToRaftLog = false
-
 	// DefaultMigrationMinionWaitMax is the default value for
 	DefaultMigrationMinionWaitMax = 15 * time.Minute
 )
@@ -418,7 +410,6 @@ var (
 		MeteringURL,
 		MaxCharmStateSize,
 		MaxAgentStateSize,
-		NonSyncedWritesToRaftLog,
 		MigrationMinionWaitMax,
 		ApplicationResourceDownloadLimit,
 		ControllerResourceDownloadLimit,
@@ -469,7 +460,6 @@ var (
 		Features,
 		MaxCharmStateSize,
 		MaxAgentStateSize,
-		NonSyncedWritesToRaftLog,
 		MigrationMinionWaitMax,
 		ApplicationResourceDownloadLimit,
 		ControllerResourceDownloadLimit,
@@ -975,15 +965,6 @@ func (c Config) MaxAgentStateSize() int {
 	return c.intOrDefault(MaxAgentStateSize, DefaultMaxAgentStateSize)
 }
 
-// NonSyncedWritesToRaftLog returns true if fsync calls should be skipped
-// after each write to the raft log.
-func (c Config) NonSyncedWritesToRaftLog() bool {
-	if v, ok := c[NonSyncedWritesToRaftLog]; ok {
-		return v.(bool)
-	}
-	return DefaultNonSyncedWritesToRaftLog
-}
-
 // MigrationMinionWaitMax returns a duration for the maximum time that the
 // migration-master worker should wait for migration-minion reports during
 // phases of a model migration.
@@ -1320,7 +1301,6 @@ var configChecker = schema.FieldMap(schema.Fields{
 	MeteringURL:                      schema.String(),
 	MaxCharmStateSize:                schema.ForceInt(),
 	MaxAgentStateSize:                schema.ForceInt(),
-	NonSyncedWritesToRaftLog:         schema.Bool(),
 	MigrationMinionWaitMax:           schema.TimeDuration(),
 	ApplicationResourceDownloadLimit: schema.ForceInt(),
 	ControllerResourceDownloadLimit:  schema.ForceInt(),
@@ -1365,7 +1345,6 @@ var configChecker = schema.FieldMap(schema.Fields{
 	MeteringURL:                      romulus.DefaultAPIRoot,
 	MaxCharmStateSize:                DefaultMaxCharmStateSize,
 	MaxAgentStateSize:                DefaultMaxAgentStateSize,
-	NonSyncedWritesToRaftLog:         DefaultNonSyncedWritesToRaftLog,
 	MigrationMinionWaitMax:           DefaultMigrationMinionWaitMax,
 	ApplicationResourceDownloadLimit: schema.Omit,
 	ControllerResourceDownloadLimit:  schema.Omit,
@@ -1547,10 +1526,6 @@ Use "caas-image-repo" instead.`,
 	MaxAgentStateSize: {
 		Type:        environschema.Tint,
 		Description: `The maximum size (in bytes) of internal state data that agents can store to the controller`,
-	},
-	NonSyncedWritesToRaftLog: {
-		Type:        environschema.Tbool,
-		Description: `Do not perform fsync calls after appending entries to the raft log. Disabling sync improves performance at the cost of reliability`,
 	},
 	MigrationMinionWaitMax: {
 		Type:        environschema.Tstring,

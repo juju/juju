@@ -319,20 +319,6 @@ func (mr *MockConfigMockRecorder) MongoMemoryProfile() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MongoMemoryProfile", reflect.TypeOf((*MockConfig)(nil).MongoMemoryProfile))
 }
 
-// NonSyncedWritesToRaftLog mocks base method.
-func (m *MockConfig) NonSyncedWritesToRaftLog() bool {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NonSyncedWritesToRaftLog")
-	ret0, _ := ret[0].(bool)
-	return ret0
-}
-
-// NonSyncedWritesToRaftLog indicates an expected call of NonSyncedWritesToRaftLog.
-func (mr *MockConfigMockRecorder) NonSyncedWritesToRaftLog() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NonSyncedWritesToRaftLog", reflect.TypeOf((*MockConfig)(nil).NonSyncedWritesToRaftLog))
-}
-
 // Nonce mocks base method.
 func (m *MockConfig) Nonce() string {
 	m.ctrl.T.Helper()

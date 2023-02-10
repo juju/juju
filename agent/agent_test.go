@@ -377,18 +377,17 @@ var attributeParams = agent.AgentConfigParams{
 	Paths: agent.Paths{
 		DataDir: "/data/dir",
 	},
-	Tag:                      names.NewMachineTag("1"),
-	UpgradedToVersion:        jujuversion.Current,
-	Password:                 "sekrit",
-	CACert:                   "ca cert",
-	APIAddresses:             []string{"localhost:1235"},
-	Nonce:                    "a nonce",
-	Controller:               testing.ControllerTag,
-	Model:                    testing.ModelTag,
-	JujuDBSnapChannel:        controller.DefaultJujuDBSnapChannel,
-	NonSyncedWritesToRaftLog: false,
-	AgentLogfileMaxSizeMB:    150,
-	AgentLogfileMaxBackups:   4,
+	Tag:                    names.NewMachineTag("1"),
+	UpgradedToVersion:      jujuversion.Current,
+	Password:               "sekrit",
+	CACert:                 "ca cert",
+	APIAddresses:           []string{"localhost:1235"},
+	Nonce:                  "a nonce",
+	Controller:             testing.ControllerTag,
+	Model:                  testing.ModelTag,
+	JujuDBSnapChannel:      controller.DefaultJujuDBSnapChannel,
+	AgentLogfileMaxSizeMB:  150,
+	AgentLogfileMaxBackups: 4,
 }
 
 func (*suite) TestAttributes(c *gc.C) {
@@ -403,7 +402,6 @@ func (*suite) TestAttributes(c *gc.C) {
 	c.Assert(conf.Nonce(), gc.Equals, "a nonce")
 	c.Assert(conf.UpgradedToVersion(), jc.DeepEquals, jujuversion.Current)
 	c.Assert(conf.JujuDBSnapChannel(), gc.Equals, "4.4/stable")
-	c.Assert(conf.NonSyncedWritesToRaftLog(), jc.IsFalse)
 	c.Assert(conf.AgentLogfileMaxSizeMB(), gc.Equals, 150)
 	c.Assert(conf.AgentLogfileMaxBackups(), gc.Equals, 4)
 }
@@ -701,16 +699,4 @@ func (*suite) TestSetMongoChannel(c *gc.C) {
 	conf.SetJujuDBSnapChannel("latest/candidate")
 	snapChannel = conf.JujuDBSnapChannel()
 	c.Assert(snapChannel, gc.Equals, "latest/candidate", gc.Commentf("mongo snap channel setting not updated"))
-}
-
-func (*suite) TestSetSyncWritesToRaftLog(c *gc.C) {
-	conf, err := agent.NewAgentConfig(attributeParams)
-	c.Assert(err, jc.ErrorIsNil)
-
-	nonSyncedWritesToRaftLog := conf.NonSyncedWritesToRaftLog()
-	c.Assert(nonSyncedWritesToRaftLog, jc.IsFalse)
-
-	conf.SetNonSyncedWritesToRaftLog(true)
-	nonSyncedWritesToRaftLog = conf.NonSyncedWritesToRaftLog()
-	c.Assert(nonSyncedWritesToRaftLog, jc.IsTrue, gc.Commentf("sync writes to raft log settings not updated"))
 }
