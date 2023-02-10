@@ -99,14 +99,22 @@ run_deploy_exported_charmhub_bundle_with_float_revisions() {
 	file="${TEST_DIR}/test-export-bundles-deploy-with-float-revisions.log"
 
 	ensure "test-export-bundles-deploy-with-float-revisions" "${file}"
+	bundle=./tests/suites/deploy/bundles/telegraf_bundle_without_revisions.yaml
+	bundle_with_fake_revisions=./tests/suites/deploy/bundles/telegraf_bundle_with_fake_revisions.yaml
+	cp ${bundle} "${TEST_DIR}/telegraf_bundle_without_revisions.yaml"
+	cp ${bundle_with_fake_revisions} "${TEST_DIR}/telegraf_bundle_with_fake_revisions.yaml"
 	if [[ -n ${MODEL_ARCH:-} ]]; then
-		bundle=./tests/suites/deploy/bundles/telegraf_bundle_without_revisions_${MODEL_ARCH}.yaml
-		bundle_with_fake_revisions=./tests/suites/deploy/bundles/telegraf_bundle_with_fake_revisions_${MODEL_ARCH}.yaml
-	else
-		bundle=./tests/suites/deploy/bundles/telegraf_bundle_without_revisions.yaml
-		bundle_with_fake_revisions=./tests/suites/deploy/bundles/telegraf_bundle_with_fake_revisions.yaml
+		yq -i "
+      .applications.influxdb.constraints = \"arch=${MODEL_ARCH}\" |
+      .applications.ubuntu.constraints = \"arch=${MODEL_ARCH}\"
+    " "${TEST_DIR}/telegraf_bundle_without_revisions.yaml"
+		yq -i "
+      .applications.influxdb.constraints = \"arch=${MODEL_ARCH}\" |
+      .applications.ubuntu.constraints = \"arch=${MODEL_ARCH}\"
+    " "${TEST_DIR}/telegraf_bundle_with_fake_revisions.yaml"
 	fi
-	juju deploy ${bundle}
+
+	juju deploy "${TEST_DIR}/telegraf_bundle_without_revisions.yaml"
 
 	echo "Create telegraf_bundle_without_revisions.yaml with known latest revisions from charmhub"
 	if [[ -n ${MODEL_ARCH:-} ]]; then
@@ -120,7 +128,7 @@ run_deploy_exported_charmhub_bundle_with_float_revisions() {
 	fi
 
 	echo "Make a copy of reference yaml and insert revisions in it"
-	cp ${bundle_with_fake_revisions} "${TEST_DIR}/telegraf_bundle_with_revisions.yaml"
+	cp "${TEST_DIR}/telegraf_bundle_with_fake_revisions.yaml" "${TEST_DIR}/telegraf_bundle_with_revisions.yaml"
 	yq -i "
 		.applications.influxdb.revision = ${influxdb_rev} |
 		.applications.telegraf.revision = ${telegraf_rev} |
