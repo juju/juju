@@ -8,7 +8,7 @@ MUSL_VERSION="1.2.3"
 
 MUSL_PLACEMENT=${MUSL_PLACEMENT:-"system"}
 
-if [ "${MUSL_PLACEMENT}" = "local" ]; then
+if [ "${MUSL_PLACEMENT}" = "local" ] || [ "${BUILD_ARCH}" != "${CURRENT_ARCH}" ]; then
     MUSL_PATH=${PROJECT_DIR}/_deps/musl-${BUILD_ARCH}
     MUSL_BIN_PATH=${MUSL_PATH}/output/bin
 else
