@@ -26,7 +26,7 @@ type leadershipMachine struct {
 	*state.Machine
 }
 
-// LeadershipPinningBacked describes state method wrappers used by this API.
+// LeadershipPinningBackend describes state method wrappers used by this API.
 type LeadershipPinningBackend interface {
 	Machine(string) (LeadershipMachine, error)
 }
@@ -96,7 +96,10 @@ func (a *LeadershipPinning) PinnedLeadership() (params.PinnedLeadershipResult, e
 		return result, apiservererrors.ErrPerm
 	}
 
-	result.Result = a.pinner.PinnedLeadership()
+	result.Result, err = a.pinner.PinnedLeadership()
+	if err != nil {
+		result.Error = apiservererrors.ServerError(err)
+	}
 	return result, nil
 }
 

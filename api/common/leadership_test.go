@@ -46,6 +46,16 @@ func (s *LeadershipSuite) TestPinnedLeadership(c *gc.C) {
 	c.Check(res, gc.DeepEquals, map[string][]names.Tag{"redis": {names.NewMachineTag("0"), names.NewMachineTag("1")}})
 }
 
+func (s *LeadershipSuite) TestPinnedLeadershipError(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	resultSource := params.PinnedLeadershipResult{Error: apiservererrors.ServerError(errors.New("splat"))}
+	s.facade.EXPECT().FacadeCall("PinnedLeadership", nil, gomock.Any()).SetArg(2, resultSource)
+
+	_, err := s.client.PinnedLeadership()
+	c.Assert(err, gc.ErrorMatches, "splat")
+}
+
 func (s *LeadershipSuite) TestPinMachineApplicationsSuccess(c *gc.C) {
 	defer s.setup(c).Finish()
 

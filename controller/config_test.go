@@ -364,18 +364,6 @@ var newConfigTests = []struct {
 		},
 		expectError: `invalid max charm/agent state sizes: combined value should not exceed mongo's 16M per-document limit, got 17000000`,
 	}, {
-		about: "invalid non-synced-writes-to-raft-log - string",
-		config: controller.Config{
-			controller.NonSyncedWritesToRaftLog: "I live dangerously",
-		},
-		expectError: `non-synced-writes-to-raft-log: expected bool, got string\("I live dangerously"\)`,
-	}, {
-		about: "invalid batch-raft-fsm - string",
-		config: controller.Config{
-			controller.BatchRaftFSM: "I live dangerously",
-		},
-		expectError: `batch-raft-fsm: expected bool, got string\("I live dangerously"\)`,
-	}, {
 		about: "public-dns-address: expect string, got number",
 		config: controller.Config{
 			controller.PublicDNSAddress: 42,

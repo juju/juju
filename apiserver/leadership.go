@@ -100,8 +100,9 @@ func (m leadershipPinner) UnpinLeadership(applicationName string, entity string)
 // PinnedLeadership (leadership.Pinner) returns applications for which
 // leadership is pinned, along with the entities requiring the
 // pinned behaviour.
-func (m leadershipPinner) PinnedLeadership() map[string][]string {
-	return m.pinner.Pinned()
+func (m leadershipPinner) PinnedLeadership() (map[string][]string, error) {
+	pinned, err := m.pinner.Pinned()
+	return pinned, errors.Trace(err)
 }
 
 // leadershipReader implements leadership.Reader by wrapping a lease.Reader.
@@ -112,5 +113,6 @@ type leadershipReader struct {
 // Leaders (leadership.Reader) returns all application leaders in the
 // current model.
 func (r leadershipReader) Leaders() (map[string]string, error) {
-	return r.reader.Leases(), nil
+	leaders, err := r.reader.Leases()
+	return leaders, errors.Trace(err)
 }

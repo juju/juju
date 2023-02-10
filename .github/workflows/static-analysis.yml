@@ -6,6 +6,7 @@ on:
 #   paths:
 #     DON'T SET - these are "required" so they need to run on every PR
   workflow_dispatch:
+
 permissions:
   contents: read
 
@@ -48,10 +49,16 @@ jobs:
         echo "GOPATH=$(go env GOPATH)" >> $GITHUB_ENV
         echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
 
-        curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.46.2
-        sudo snap install shfmt
-        sudo apt install expect
-    
+        sudo add-apt-repository ppa:dqlite/dev -y --no-update
+        sudo apt-get update
+        sudo apt-get install -y \
+          expect \
+          libdqlite-dev \
+          libsqlite3-dev \
+          sqlite3
+
+        curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.50.1
+
     - name: Download Dependencies
       run: go mod download
 
@@ -72,8 +79,13 @@ jobs:
       run: |
         # Explicitly set GOROOT to avoid golangci-lint/issues/3107
         export "GOROOT=$(go env GOROOT)"
+        export "CGO_LDFLAGS=-L$(pwd)/_deps/juju-dqlite-static-lib-deps -luv -lraft -ldqlite -llz4 -lsqlite3"
+
         STATIC_ANALYSIS_JOB=test_static_analysis_go make static-analysis
       shell: bash
+      env:
+        CGO_ENABLED: 1
+        CGO_LDFLAGS_ALLOW: "(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"
 
     - name: "Static Analysis: Python Check"
       if: steps.filter.outputs.static-analysis == 'true' || steps.filter.outputs.python == 'true'
@@ -115,7 +127,13 @@ jobs:
     - name: Install Dependencies
       if: steps.filter.outputs.schema == 'true'
       run: |
-        sudo apt install expect
+        sudo add-apt-repository ppa:dqlite/dev -y --no-update
+        sudo apt-get update
+        sudo apt-get install -y \
+          expect \
+          libdqlite-dev \
+          libsqlite3-dev \
+          sqlite3
 
     - name: Schema Check
       if: steps.filter.outputs.schema == 'true'

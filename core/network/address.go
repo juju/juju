@@ -322,6 +322,21 @@ func NewMachineAddress(value string, options ...func(AddressMutator)) MachineAdd
 // MachineAddresses is a slice of MachineAddress
 type MachineAddresses []MachineAddress
 
+// NewMachineAddresses is a convenience function to create addresses
+// from a variable number of string arguments, applying any supplied
+// options to each address
+func NewMachineAddresses(values []string, options ...func(AddressMutator)) MachineAddresses {
+	if len(values) == 0 {
+		return nil
+	}
+
+	addrs := make(MachineAddresses, len(values))
+	for i, value := range values {
+		addrs[i] = NewMachineAddress(value, options...)
+	}
+	return addrs
+}
+
 // AsProviderAddresses is used to construct ProviderAddresses
 // element-wise from MachineAddresses
 func (as MachineAddresses) AsProviderAddresses(options ...func(mutator ProviderAddressMutator)) ProviderAddresses {
@@ -336,19 +351,16 @@ func (as MachineAddresses) AsProviderAddresses(options ...func(mutator ProviderA
 	return addrs
 }
 
-// NewMachineAddresses is a convenience function to create addresses
-// from a variable number of string arguments, applying any supplied
-// options to each address
-func NewMachineAddresses(values []string, options ...func(AddressMutator)) MachineAddresses {
-	if len(values) == 0 {
-		return nil
-	}
+// AllMatchingScope returns the addresses that satisfy
+// the input scope matching function.
+func (as MachineAddresses) AllMatchingScope(getMatcher ScopeMatchFunc) MachineAddresses {
+	return allMatchingScope(as, getMatcher)
+}
 
-	addrs := make(MachineAddresses, len(values))
-	for i, value := range values {
-		addrs[i] = NewMachineAddress(value, options...)
-	}
-	return addrs
+// Values transforms the MachineAddresses to a string slice
+// containing their raw IP values.
+func (as MachineAddresses) Values() []string {
+	return toStrings(as)
 }
 
 // deriveScope attempts to derive the network scope from an address'
@@ -638,8 +650,8 @@ func (sas SpaceAddresses) OneMatchingScope(getMatcher ScopeMatchFunc) (SpaceAddr
 	return addrs[0], true
 }
 
-// AllMatchingScope returns the addresses that best satisfy the input scope
-// matching function.
+// AllMatchingScope returns the addresses that satisfy
+// the input scope matching function.
 func (sas SpaceAddresses) AllMatchingScope(getMatcher ScopeMatchFunc) SpaceAddresses {
 	return allMatchingScope(sas, getMatcher)
 }

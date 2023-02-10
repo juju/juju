@@ -18,7 +18,6 @@ import (
 	corecontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/presence"
-	"github.com/juju/juju/core/raft/queue"
 	"github.com/juju/juju/pubsub/controller"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -81,7 +80,6 @@ func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 		presence:            presence.New(clock.WallClock),
 		leaseManager:        &lease.Manager{},
 		controllerConfig:    controllerConfig,
-		raftOpQueue:         queue.NewOpQueue(clock.WallClock),
 		logger:              loggo.GetLogger("test"),
 	}
 }

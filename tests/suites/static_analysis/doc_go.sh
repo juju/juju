@@ -1,5 +1,5 @@
 run_check_doc_go() {
-	python3 tests/suites/static_analysis/doc_go.py
+	python3 tests/suites/static_analysis/doc_go.py -i ./_deps
 }
 
 test_doc_go() {

@@ -99,7 +99,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/metricsmanager"
 	"github.com/juju/juju/apiserver/facades/controller/migrationmaster"
 	"github.com/juju/juju/apiserver/facades/controller/migrationtarget"
-	"github.com/juju/juju/apiserver/facades/controller/raftlease"
 	"github.com/juju/juju/apiserver/facades/controller/remoterelations"
 	"github.com/juju/juju/apiserver/facades/controller/secretbackendmanager"
 	"github.com/juju/juju/apiserver/facades/controller/singular"
@@ -189,7 +188,6 @@ func AllFacades() *facade.Registry {
 	payloadshookcontext.Register(registry)
 	provisioner.Register(registry)
 	proxyupdater.Register(registry)
-	raftlease.Register(registry)
 	reboot.Register(registry)
 	remoterelations.Register(registry)
 	resources.Register(registry)

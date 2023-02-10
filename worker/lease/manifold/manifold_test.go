@@ -4,16 +4,14 @@
 package manifold_test
 
 import (
-	"context"
+	"database/sql"
 	"io"
 	"time"
 
-	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/pubsub/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3"
@@ -25,7 +23,6 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	corelease "github.com/juju/juju/core/lease"
-	"github.com/juju/juju/core/raftlease"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/worker/lease"
 	leasemanager "github.com/juju/juju/worker/lease/manifold"
@@ -37,17 +34,16 @@ type manifoldSuite struct {
 	context  dependency.Context
 	manifold dependency.Manifold
 
-	agent *mockAgent
-	clock *testclock.Clock
-	hub   *pubsub.StructuredHub
+	agent      *mockAgent
+	clock      *testclock.Clock
+	dbAccessor stubDBGetter
 
-	fsm     *raftlease.FSM
 	logger  loggo.Logger
 	metrics prometheus.Registerer
 
 	worker worker.Worker
-	store  *raftlease.Store
-	client raftlease.Client
+	db     *sql.DB
+	store  *lease.Store
 
 	stub testing.Stub
 }
@@ -59,42 +55,39 @@ func (s *manifoldSuite) SetUpTest(c *gc.C) {
 
 	s.stub.ResetCalls()
 
+	s.db = &sql.DB{}
+
 	s.agent = &mockAgent{conf: mockAgentConfig{
 		uuid:    "controller-uuid",
 		apiInfo: &api.Info{},
 	}}
 	s.clock = testclock.NewClock(time.Now())
-	s.hub = pubsub.NewStructuredHub(nil)
+	s.dbAccessor = stubDBGetter{s.db}
 
-	s.fsm = raftlease.NewFSM()
 	s.logger = loggo.GetLogger("lease.manifold_test")
 	registerer := struct{ prometheus.Registerer }{}
 	s.metrics = &registerer
 
 	s.worker = &mockWorker{}
-	s.store = &raftlease.Store{}
-	s.client = &mockClient{}
+	s.store = &lease.Store{}
 
 	s.context = s.newContext(nil)
 	s.manifold = leasemanager.Manifold(leasemanager.ManifoldConfig{
 		AgentName:            "agent",
 		ClockName:            "clock",
-		CentralHubName:       "hub",
-		FSM:                  s.fsm,
-		RequestTopic:         "lease.manifold_test",
+		DBAccessorName:       "db-accessor",
 		Logger:               &s.logger,
 		PrometheusRegisterer: s.metrics,
 		NewWorker:            s.newWorker,
 		NewStore:             s.newStore,
-		NewClient:            s.newClient,
 	})
 }
 
 func (s *manifoldSuite) newContext(overlay map[string]interface{}) dependency.Context {
 	resources := map[string]interface{}{
-		"agent": s.agent,
-		"clock": s.clock,
-		"hub":   s.hub,
+		"agent":       s.agent,
+		"clock":       s.clock,
+		"db-accessor": s.dbAccessor,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -110,18 +103,13 @@ func (s *manifoldSuite) newWorker(config lease.ManagerConfig) (worker.Worker, er
 	return s.worker, nil
 }
 
-func (s *manifoldSuite) newStore(config raftlease.StoreConfig) *raftlease.Store {
+func (s *manifoldSuite) newStore(config lease.StoreConfig) *lease.Store {
 	s.stub.MethodCall(s, "NewStore", config)
 	return s.store
 }
 
-func (s *manifoldSuite) newClient(hub *pubsub.StructuredHub, topic string, clock clock.Clock, metrics *raftlease.OperationClientMetrics) raftlease.Client {
-	s.stub.MethodCall(s, "NewClient", hub, topic, clock, metrics)
-	return s.client
-}
-
 var expectedInputs = []string{
-	"agent", "clock", "hub",
+	"agent", "clock", "db-accessor",
 }
 
 func (s *manifoldSuite) TestInputs(c *gc.C) {
@@ -130,10 +118,10 @@ func (s *manifoldSuite) TestInputs(c *gc.C) {
 
 func (s *manifoldSuite) TestMissingInputs(c *gc.C) {
 	for _, input := range expectedInputs {
-		context := s.newContext(map[string]interface{}{
+		ctx := s.newContext(map[string]interface{}{
 			input: dependency.ErrMissing,
 		})
-		_, err := s.manifold.Start(context)
+		_, err := s.manifold.Start(ctx)
 		c.Assert(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 	}
 }
@@ -142,25 +130,20 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 	_, err := s.manifold.Start(s.context)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "NewClient", "NewStore", "NewWorker")
+	s.stub.CheckCallNames(c, "NewStore", "NewWorker")
 
 	args := s.stub.Calls()[0].Args
-	c.Assert(args, gc.HasLen, 4)
-
-	args = s.stub.Calls()[1].Args
 	c.Assert(args, gc.HasLen, 1)
-	c.Assert(args[0], gc.FitsTypeOf, raftlease.StoreConfig{})
+	c.Assert(args[0], gc.FitsTypeOf, lease.StoreConfig{})
 
-	storeConfig := args[0].(raftlease.StoreConfig)
-	storeConfig.Client = nil
-	storeConfig.MetricsCollector = nil
+	storeConfig := args[0].(lease.StoreConfig)
 
-	c.Assert(storeConfig, gc.DeepEquals, raftlease.StoreConfig{
-		FSM:   s.fsm,
-		Clock: s.clock,
+	c.Assert(storeConfig, gc.DeepEquals, lease.StoreConfig{
+		DB:     s.db,
+		Logger: &s.logger,
 	})
 
-	args = s.stub.Calls()[2].Args
+	args = s.stub.Calls()[1].Args
 	c.Assert(args, gc.HasLen, 1)
 	c.Assert(args[0], gc.FitsTypeOf, lease.ManagerConfig{})
 	config := args[0].(lease.ManagerConfig)
@@ -168,7 +151,7 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 	secretary, err := config.Secretary(corelease.SingularControllerNamespace)
 	c.Assert(err, jc.ErrorIsNil)
 	// Check that this secretary knows the controller uuid.
-	err = secretary.CheckLease(corelease.Key{"", "", "controller-uuid"})
+	err = secretary.CheckLease(corelease.Key{Lease: "controller-uuid"})
 	c.Assert(err, jc.ErrorIsNil)
 	config.Secretary = nil
 
@@ -227,8 +210,13 @@ func (*mockWorker) Wait() error {
 	return nil
 }
 
-type mockClient struct{}
+type stubDBGetter struct {
+	db *sql.DB
+}
 
-func (*mockClient) Request(context.Context, *raftlease.Command) error {
-	return nil
+func (s stubDBGetter) GetDB(name string) (*sql.DB, error) {
+	if name != "controller" {
+		return nil, errors.Errorf(`expected a request for "controller" DB; got %q`, name)
+	}
+	return s.db, nil
 }

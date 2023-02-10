@@ -20,13 +20,11 @@ import (
 // WorkerConfig contains the information necessary to run
 // the agent config updater worker.
 type WorkerConfig struct {
-	Agent                    coreagent.Agent
-	Hub                      *pubsub.StructuredHub
-	MongoProfile             mongo.MemoryProfile
-	JujuDBSnapChannel        string
-	NonSyncedWritesToRaftLog bool
-	BatchRaftFSM             bool
-	Logger                   Logger
+	Agent             coreagent.Agent
+	Hub               *pubsub.StructuredHub
+	MongoProfile      mongo.MemoryProfile
+	JujuDBSnapChannel string
+	Logger            Logger
 }
 
 // Validate ensures that the required values are set in the structure.
@@ -46,11 +44,10 @@ func (c *WorkerConfig) Validate() error {
 type agentConfigUpdater struct {
 	config WorkerConfig
 
-	tomb                     tomb.Tomb
-	mongoProfile             mongo.MemoryProfile
-	jujuDBSnapChannel        string
-	nonSyncedWritesToRaftLog bool
-	batchRaftFSM             bool
+	tomb              tomb.Tomb
+	mongoProfile      mongo.MemoryProfile
+	jujuDBSnapChannel string
+	batchRaftFSM      bool
 }
 
 // NewWorker creates a new agent config updater worker.
@@ -61,11 +58,9 @@ func NewWorker(config WorkerConfig) (worker.Worker, error) {
 
 	started := make(chan struct{})
 	w := &agentConfigUpdater{
-		config:                   config,
-		mongoProfile:             config.MongoProfile,
-		jujuDBSnapChannel:        config.JujuDBSnapChannel,
-		nonSyncedWritesToRaftLog: config.NonSyncedWritesToRaftLog,
-		batchRaftFSM:             config.BatchRaftFSM,
+		config:            config,
+		mongoProfile:      config.MongoProfile,
+		jujuDBSnapChannel: config.JujuDBSnapChannel,
 	}
 	w.tomb.Go(func() error {
 		return w.loop(started)
@@ -105,13 +100,7 @@ func (w *agentConfigUpdater) onConfigChanged(topic string, data controllermsg.Co
 	jujuDBSnapChannel := data.Config.JujuDBSnapChannel()
 	jujuDBSnapChannelChanged := jujuDBSnapChannel != w.jujuDBSnapChannel
 
-	nonSyncedWritesToRaftLog := data.Config.NonSyncedWritesToRaftLog()
-	nonSyncedWritesToRaftLogChanged := nonSyncedWritesToRaftLog != w.nonSyncedWritesToRaftLog
-
-	batchRaftFSM := data.Config.BatchRaftFSM()
-	batchRaftFSMChanged := batchRaftFSM != w.batchRaftFSM
-
-	changeDetected := mongoProfileChanged || jujuDBSnapChannelChanged || nonSyncedWritesToRaftLogChanged || batchRaftFSMChanged
+	changeDetected := mongoProfileChanged || jujuDBSnapChannelChanged
 	if !changeDetected {
 		// Nothing to do, all good.
 		return
@@ -125,14 +114,6 @@ func (w *agentConfigUpdater) onConfigChanged(topic string, data controllermsg.Co
 		if jujuDBSnapChannelChanged {
 			w.config.Logger.Debugf("setting agent config mongo snap channel: %q => %q", w.jujuDBSnapChannel, jujuDBSnapChannel)
 			setter.SetJujuDBSnapChannel(jujuDBSnapChannel)
-		}
-		if nonSyncedWritesToRaftLogChanged {
-			w.config.Logger.Debugf("setting no sync writes to raft log: %t => %t", w.nonSyncedWritesToRaftLog, nonSyncedWritesToRaftLog)
-			setter.SetNonSyncedWritesToRaftLog(nonSyncedWritesToRaftLog)
-		}
-		if batchRaftFSMChanged {
-			w.config.Logger.Debugf("setting batch raft fsm: %t => %t", w.batchRaftFSM, batchRaftFSM)
-			setter.SetBatchRaftFSM(batchRaftFSM)
 		}
 		return nil
 	})

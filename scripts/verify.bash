@@ -19,8 +19,5 @@ else
     echo "Ignoring static analysis, run again with STATIC_ANALYSIS=1 ..."
 fi
 
-echo "checking: go build ..."
-go build $(go list github.com/juju/juju/... | grep -v /vendor/)
-
 echo "checking: tests are wired up ..."
 ./scripts/checktesting.bash

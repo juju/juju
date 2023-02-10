@@ -40,27 +40,21 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	})
 	s.agent = &mockAgent{
 		conf: mockConfig{
-			profile:                  controller.DefaultMongoMemoryProfile,
-			snapChannel:              controller.DefaultJujuDBSnapChannel,
-			nonSyncedWritesToRaftLog: controller.DefaultNonSyncedWritesToRaftLog,
-			batchRaftFSM:             controller.DefaultBatchRaftFSM,
+			profile:     controller.DefaultMongoMemoryProfile,
+			snapChannel: controller.DefaultJujuDBSnapChannel,
 		},
 	}
 	s.config = agentconfigupdater.WorkerConfig{
-		Agent:                    s.agent,
-		Hub:                      s.hub,
-		MongoProfile:             controller.DefaultMongoMemoryProfile,
-		JujuDBSnapChannel:        controller.DefaultJujuDBSnapChannel,
-		NonSyncedWritesToRaftLog: controller.DefaultNonSyncedWritesToRaftLog,
-		BatchRaftFSM:             controller.DefaultBatchRaftFSM,
-		Logger:                   s.logger,
+		Agent:             s.agent,
+		Hub:               s.hub,
+		MongoProfile:      controller.DefaultMongoMemoryProfile,
+		JujuDBSnapChannel: controller.DefaultJujuDBSnapChannel,
+		Logger:            s.logger,
 	}
 	s.initialConfigMsg = controllermsg.ConfigChangedMessage{
 		Config: controller.Config{
-			controller.MongoMemoryProfile:       controller.DefaultMongoMemoryProfile,
-			controller.JujuDBSnapChannel:        controller.DefaultJujuDBSnapChannel,
-			controller.NonSyncedWritesToRaftLog: controller.DefaultNonSyncedWritesToRaftLog,
-			controller.BatchRaftFSM:             controller.DefaultBatchRaftFSM,
+			controller.MongoMemoryProfile: controller.DefaultMongoMemoryProfile,
+			controller.JujuDBSnapChannel:  controller.DefaultJujuDBSnapChannel,
 		},
 	}
 }
@@ -176,68 +170,6 @@ func (s *WorkerSuite) TestUpdateJujuDBSnapChannel(c *gc.C) {
 	workertest.CheckAlive(c, w)
 
 	newConfig.Config[controller.JujuDBSnapChannel] = "latest/candidate"
-	handled, err = s.hub.Publish(controllermsg.ConfigChanged, newConfig)
-	c.Assert(err, jc.ErrorIsNil)
-	select {
-	case <-pubsub.Wait(handled):
-	case <-time.After(testing.LongWait):
-		c.Fatalf("event not handled")
-	}
-
-	err = workertest.CheckKilled(c, w)
-
-	c.Assert(err, gc.Equals, jworker.ErrRestartAgent)
-}
-
-func (s *WorkerSuite) TestUpdateSyncWritesToRaftLog(c *gc.C) {
-	w, err := agentconfigupdater.NewWorker(s.config)
-	c.Assert(w, gc.NotNil)
-	c.Check(err, jc.ErrorIsNil)
-
-	newConfig := s.initialConfigMsg
-	handled, err := s.hub.Publish(controllermsg.ConfigChanged, newConfig)
-	c.Assert(err, jc.ErrorIsNil)
-	select {
-	case <-pubsub.Wait(handled):
-	case <-time.After(testing.LongWait):
-		c.Fatalf("event not handled")
-	}
-
-	// No sync flag is the same, worker still alive.
-	workertest.CheckAlive(c, w)
-
-	newConfig.Config[controller.NonSyncedWritesToRaftLog] = !controller.DefaultNonSyncedWritesToRaftLog
-	handled, err = s.hub.Publish(controllermsg.ConfigChanged, newConfig)
-	c.Assert(err, jc.ErrorIsNil)
-	select {
-	case <-pubsub.Wait(handled):
-	case <-time.After(testing.LongWait):
-		c.Fatalf("event not handled")
-	}
-
-	err = workertest.CheckKilled(c, w)
-
-	c.Assert(err, gc.Equals, jworker.ErrRestartAgent)
-}
-
-func (s *WorkerSuite) TestUpdateBatchRaftFSM(c *gc.C) {
-	w, err := agentconfigupdater.NewWorker(s.config)
-	c.Assert(w, gc.NotNil)
-	c.Check(err, jc.ErrorIsNil)
-
-	newConfig := s.initialConfigMsg
-	handled, err := s.hub.Publish(controllermsg.ConfigChanged, newConfig)
-	c.Assert(err, jc.ErrorIsNil)
-	select {
-	case <-pubsub.Wait(handled):
-	case <-time.After(testing.LongWait):
-		c.Fatalf("event not handled")
-	}
-
-	// No sync flag is the same, worker still alive.
-	workertest.CheckAlive(c, w)
-
-	newConfig.Config[controller.BatchRaftFSM] = !controller.DefaultBatchRaftFSM
 	handled, err = s.hub.Publish(controllermsg.ConfigChanged, newConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	select {
