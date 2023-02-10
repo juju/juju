@@ -4,5 +4,5 @@
 package keymanager
 
 var (
-	NewKeyManagerAPI = newKeyManagerAPI
+	NewKeyManagerAPI = newFacadeV1
 )
