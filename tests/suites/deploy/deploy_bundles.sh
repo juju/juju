@@ -119,12 +119,12 @@ run_deploy_exported_charmhub_bundle_with_float_revisions() {
 	echo "Create telegraf_bundle_without_revisions.yaml with known latest revisions from charmhub"
 	if [[ -n ${MODEL_ARCH:-} ]]; then
 		influxdb_rev=$(juju info influxdb --arch="${MODEL_ARCH}" --format json | jq -r '."channels"."latest"."stable"[0].revision')
-    telegraf_rev=$(juju info telegraf --arch="${MODEL_ARCH}" --format json | jq -r '."channels"."latest"."stable"[0].revision')
-    ubuntu_rev=$(juju info ubuntu --arch="${MODEL_ARCH}" --format json | jq -r '."channels"."latest"."stable"[0].revision')
+		telegraf_rev=$(juju info telegraf --arch="${MODEL_ARCH}" --format json | jq -r '."channels"."latest"."stable"[0].revision')
+		ubuntu_rev=$(juju info ubuntu --arch="${MODEL_ARCH}" --format json | jq -r '."channels"."latest"."stable"[0].revision')
 	else
 		influxdb_rev=$(juju info influxdb --format json | jq -r '."channels"."latest"."stable"[0].revision')
-    telegraf_rev=$(juju info telegraf --format json | jq -r '."channels"."latest"."stable"[0].revision')
-    ubuntu_rev=$(juju info ubuntu --format json | jq -r '."channels"."latest"."stable"[0].revision')
+		telegraf_rev=$(juju info telegraf --format json | jq -r '."channels"."latest"."stable"[0].revision')
+		ubuntu_rev=$(juju info ubuntu --format json | jq -r '."channels"."latest"."stable"[0].revision')
 	fi
 
 	echo "Make a copy of reference yaml and insert revisions in it"
