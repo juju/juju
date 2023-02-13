@@ -22,7 +22,8 @@ type Logger interface {
 	Tracef(message string, args ...interface{})
 }
 
-type StreamFn func(*sql.DB, clock.Clock, Logger) DBStream
+// StreamFn is an alias function that allows the creation of a DBStream.
+type StreamFn = func(*sql.DB, clock.Clock, Logger) DBStream
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will
 // depend.

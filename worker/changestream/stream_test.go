@@ -138,8 +138,9 @@ func (s *streamSuite) TestMultipleChanges(c *gc.C) {
 
 	c.Assert(results, gc.HasLen, 10)
 	for i, result := range results {
+		idx := len(results) - 1 - i
 		c.Assert(result.Namespace(), gc.Equals, "foo")
-		c.Assert(result.ChangedUUID(), gc.Equals, inserts[i].uuid)
+		c.Assert(result.ChangedUUID(), gc.Equals, inserts[idx].uuid)
 	}
 
 	workertest.CleanKill(c, stream)
@@ -201,8 +202,9 @@ func (s *streamSuite) TestMultipleChangesWithSameUUIDCoalesce(c *gc.C) {
 
 	c.Assert(results, gc.HasLen, 8)
 	for i, result := range results {
+		idx := len(results) - 1 - i
 		c.Assert(result.Namespace(), gc.Equals, "foo")
-		c.Assert(result.ChangedUUID(), gc.Equals, inserts[i].uuid)
+		c.Assert(result.ChangedUUID(), gc.Equals, inserts[idx].uuid)
 	}
 
 	workertest.CleanKill(c, stream)
@@ -250,12 +252,13 @@ func (s *streamSuite) TestMultipleChangesWithNamespaces(c *gc.C) {
 
 	c.Assert(results, gc.HasLen, 10)
 	for i, result := range results {
+		idx := len(results) - 1 - i
 		namespace := "foo"
-		if inserts[i].id == 2 {
+		if inserts[idx].id == 2 {
 			namespace = "bar"
 		}
 		c.Assert(result.Namespace(), gc.Equals, namespace)
-		c.Assert(result.ChangedUUID(), gc.Equals, inserts[i].uuid)
+		c.Assert(result.ChangedUUID(), gc.Equals, inserts[idx].uuid)
 	}
 
 	workertest.CleanKill(c, stream)
@@ -318,12 +321,13 @@ func (s *streamSuite) TestMultipleChangesWithNamespacesCoalesce(c *gc.C) {
 
 	c.Assert(results, gc.HasLen, 8)
 	for i, result := range results {
+		idx := len(results) - 1 - i
 		namespace := "foo"
-		if inserts[i].id == 2 {
+		if inserts[idx].id == 2 {
 			namespace = "bar"
 		}
 		c.Assert(result.Namespace(), gc.Equals, namespace)
-		c.Assert(result.ChangedUUID(), gc.Equals, inserts[i].uuid)
+		c.Assert(result.ChangedUUID(), gc.Equals, inserts[idx].uuid)
 	}
 
 	workertest.CleanKill(c, stream)
@@ -394,14 +398,15 @@ func (s *streamSuite) TestMultipleChangesWithNoNamespacesDoNotCoalesce(c *gc.C) 
 
 	c.Assert(results, gc.HasLen, 9)
 	for i, result := range results {
+		idx := len(results) - 1 - i
 		namespace := "foo"
-		if inserts[i].id == 2 {
+		if inserts[idx].id == 2 {
 			namespace = "bar"
-		} else if inserts[i].id == 3 {
+		} else if inserts[idx].id == 3 {
 			namespace = "baz"
 		}
 		c.Assert(result.Namespace(), gc.Equals, namespace)
-		c.Assert(result.ChangedUUID(), gc.Equals, inserts[i].uuid)
+		c.Assert(result.ChangedUUID(), gc.Equals, inserts[idx].uuid)
 	}
 
 	workertest.CleanKill(c, stream)

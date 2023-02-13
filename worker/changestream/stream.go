@@ -109,13 +109,13 @@ func (s *Stream) loop() error {
 
 const (
 	query = `
-SELECT MAX(c.id), c.edit_type_id, n.namespace, changed_uuid, MAX(created_at)
+SELECT MAX(c.id), c.edit_type_id, n.namespace, changed_uuid, created_at
 	FROM change_log c
 		JOIN change_log_edit_type t ON c.edit_type_id = t.id
 		JOIN change_log_namespace n ON c.namespace_id = n.id
 	WHERE c.id > ?
 	GROUP BY c.edit_type_id, c.namespace_id, c.changed_uuid 
-	ORDER BY c.id ASC;
+	ORDER BY c.id DESC;
 `
 )
 
