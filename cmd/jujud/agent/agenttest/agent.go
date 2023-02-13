@@ -118,7 +118,7 @@ type AgentSuite struct {
 
 	// InitialDBOps can be set prior to calling PrimeStateAgentVersion,
 	// ensuring that the functions are executed against the controller database
-	// immediately after Sqlite is set up.
+	// immediately after Dqlite is set up.
 	InitialDBOps []func(db *sql.DB) error
 }
 

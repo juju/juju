@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"bytes"
 	stdcontext "context"
+	"database/sql"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -110,13 +111,10 @@ func (noopRevisionUpdater) UpdateLatestRevisions() error {
 }
 
 func (s *MachineSuite) SetUpTest(c *gc.C) {
-	c.Skip("skipping until we get dqlite working in the following tests")
-
 	s.ControllerConfigAttrs = map[string]interface{}{
 		controller.AuditingEnabled: true,
 	}
 	s.commonMachineSuite.SetUpTest(c)
-	bootstrapRaft(c, s.DataDir())
 
 	// Restart failed workers much faster for the tests.
 	s.PatchValue(&engine.EngineErrorDelay, 100*time.Millisecond)
@@ -125,10 +123,6 @@ func (s *MachineSuite) SetUpTest(c *gc.C) {
 	// If any given test hits a minute, we have almost certainly become
 	// wedged, so dump the logs.
 	coretesting.DumpTestLogsAfter(time.Minute, c, s)
-}
-
-func bootstrapRaft(c *gc.C, dataDir string) {
-	// TODO (stickupkid): Use the dqlite suite.
 }
 
 func (s *MachineSuite) TestParseNonsense(c *gc.C) {
@@ -1374,7 +1368,7 @@ func (s *MachineSuite) TestDyingModelCleanedUp(c *gc.C) {
 func (s *MachineSuite) TestModelWorkersRespectSingularResponsibilityFlag(c *gc.C) {
 	// Grab responsibility for the model on behalf of another machine.
 	uuid := s.BackingState.ModelUUID()
-	claimSingularRaftLease(c, s.DataDir(), uuid)
+	s.claimSingularLease(uuid)
 
 	// Then run a normal model-tracking test, just checking for
 	// a different set of workers.
@@ -1388,8 +1382,15 @@ func (s *MachineSuite) TestModelWorkersRespectSingularResponsibilityFlag(c *gc.C
 	})
 }
 
-func claimSingularRaftLease(c *gc.C, dataDir string, modelUUID string) {
-	// TODO(stickupkid): Implement for the dqlite implementation.
+func (s *MachineSuite) claimSingularLease(modelUUID string) {
+	s.InitialDBOps = append(s.InitialDBOps, func(db *sql.DB) error {
+		q := `
+INSERT INTO lease (uuid, lease_type_id, model_uuid, name, holder, start, expiry)
+VALUES (?, 0, ?, ?, 'machine-999-lxd-99', datetime('now'), datetime('now', '+100 seconds'))`[1:]
+
+		_, err := db.Exec(q, utils.MustNewUUID().String(), modelUUID, modelUUID)
+		return err
+	})
 }
 
 func (s *MachineSuite) setUpNewModel(c *gc.C) (newSt *state.State, closer func()) {
@@ -1441,7 +1442,7 @@ type cleanupSuite interface {
 
 func startAddressPublisher(suite cleanupSuite, c *gc.C, agent *MachineAgent) {
 	// Start publishing a test API address on the central hub so that
-	// the raft workers can start. The other way of unblocking them
+	// dependent workers can start. The other way of unblocking them
 	// would be to get the peergrouper healthy, but that has proved
 	// difficult - trouble getting the replicaset correctly
 	// configured.
