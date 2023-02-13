@@ -8,6 +8,19 @@ PATH=${PATH}:${MUSL_BIN_PATH} which musl-gcc >/dev/null || { echo "Installing re
 
 echo "musl-gcc already installed"
 
+if [ $(is_darwin) ] && [ ! -f "${MUSL_LOCAL_PATH}/output/bin/musl-gcc" ]; then
+    echo "Symlinking musl-gcc to ${BUILD_ARCH}"
+    mkdir -p ${MUSL_LOCAL_PATH}/output/bin || { echo "Failed to create ${MUSL_LOCAL_PATH}/output/bin"; exit 1; }
+    BREW_PATH=$(brew --prefix)
+    BREW_BIN_PATH=${BREW_PATH}/bin
+    case ${BUILD_ARCH} in
+		amd64) ln -s "${BREW_BIN_PATH}/x86_64-linux-musl-gcc" ${MUSL_LOCAL_PATH}/output/bin/musl-gcc || { echo "Failed to link musl-gcc"; exit 1; } ;;
+		arm64) ln -s "${BREW_BIN_PATH}/aarch64-linux-musl-gcc" ${MUSL_LOCAL_PATH}/output/bin/musl-gcc || { echo "Failed to link musl-gcc"; exit 1; } ;;
+		*) { echo "Unsupported arch ${BUILD_ARCH}."; exit 1; } ;;
+	esac
+    exit 0
+fi
+
 if [ ! -f "${MUSL_LOCAL_PATH}/output/bin/musl-gcc" ]; then
     P=$(PATH=${PATH}:${MUSL_BIN_PATH} which musl-gcc)
     echo "Symlinking ${P}"

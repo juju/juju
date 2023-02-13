@@ -14,7 +14,7 @@ GOARCH=$(shell go env GOARCH)
 GOHOSTOS=$(shell go env GOHOSTOS)
 GOHOSTARCH=$(shell go env GOHOSTARCH)
 GO_MOD_VERSION=$(shell grep "^go" go.mod | awk '{print $$2}')
-GO_INSTALLED_VERSION=$(shell go version | awk '{print $$3}' | sed -e /.*go/s///)
+GO_INSTALLED_VERSION=$(shell go version 2>/dev/null | awk '{print $$3}' | sed -e /.*go/s///)
 
 # Build number passed in must be a monotonic int representing
 # the build.
@@ -22,7 +22,7 @@ JUJU_BUILD_NUMBER ?=
 
 # JUJU_VERSION is the JUJU version currently being represented in this
 # repository.
-JUJU_VERSION=$(shell go run -ldflags "-X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER)" version/helper/main.go)
+JUJU_VERSION=$(shell go run -ldflags "-X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER)" version/helper/main.go 2>/dev/null)
 
 # BUILD_DIR is the directory relative to this project where we place build
 # artifacts created by this Makefile.
@@ -120,7 +120,6 @@ endef
 define INSTALL_TARGETS
 	juju \
 	jujuc \
-	jujud \
 	containeragent \
 	juju-metadata
 endef
@@ -133,7 +132,8 @@ endif
 
 # We only add pebble to the list of install targets if we are building for linux
 ifeq ($(GOOS), linux)
-	INSTALL_TARGETS += pebble
+	INSTALL_TARGETS += pebble \
+	                   jujud
 endif
 
 # Allow the tests to take longer on restricted platforms.
@@ -220,9 +220,9 @@ define run_cgo_build
 	$(eval BUILD_ARCH = $(subst ppc64el,ppc64le,${ARCH}))
 	@@mkdir -p ${BBIN_DIR}
 	@echo "Building ${PACKAGE} for ${OS}/${ARCH}"
-	@env PATH=${MUSL_BIN_PATH}:${PATH} \
+	env PATH=${MUSL_BIN_PATH}:${PATH} \
 		CC="musl-gcc" \
-		CGO_CFLAGS="-I${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}/include" \
+		CGO_CFLAGS="-I${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}/include${CGO_CFLAGS1} -I$(shell pwd)/_deps/musl-${BUILD_ARCH}/include" \
 		CGO_LDFLAGS="-L${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} -luv -lraft -ldqlite -llz4 -lsqlite3" \
 		CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
 		LD_LIBRARY_PATH="${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}" \
@@ -252,11 +252,13 @@ define run_cgo_install
 	@echo "Installing ${PACKAGE}"
 	@env PATH=${MUSL_BIN_PATH}:${PATH} \
 		CC="musl-gcc" \
-		CGO_CFLAGS="-I${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}/include" \
+		CGO_CFLAGS="-I${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}/include${CGO_CFLAGS} -I$(shell pwd)/_deps/musl-${BUILD_ARCH}/headers" \
 		CGO_LDFLAGS="-L${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} -luv -lraft -ldqlite -llz4 -lsqlite3" \
 		CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
 		LD_LIBRARY_PATH="${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}" \
 		CGO_ENABLED=1 \
+		GOOS=${GOOS} \
+		GOARCH=${GOARCH} \
 		go install \
 			-mod=$(JUJU_GOMOD_MODE) \
 			-tags=$(BUILD_TAGS) \

@@ -4,6 +4,8 @@ set -e
 
 source "$(dirname $0)/../env.sh"
 
+check_dependencies sha256sum
+
 sha() {
 	case ${BUILD_ARCH} in
 		amd64) echo "124a578c8bd63d9288093f4de4aaffa09c034d6641065cd079e446ac91b1b611" ;;

@@ -143,7 +143,16 @@ musl_install_precompiled_cross_arch() {
     tar -xjf ${FILE} -C ${EXTRACTED_DEPS_PATH} || { echo "Failed to extract musl"; exit 1; }
 }
 
+musl_install_cross_darwin() {
+    echo "Installing musl-cross for darwin"
+    brew --version >/dev/null || { echo "homebrew not installed"; exit 1; }
+    brew install -q filosottile/musl-cross/musl-cross --with-aarch64 --with-x86_64 || { echo "Failed to install musl-cross"; exit 1; }
+}
+
 install() {
+    if [[ $(is_darwin) ]]; then
+        musl_install_cross_darwin && exit 0
+    fi
     if [ "${MUSL_PRECOMPILED}" = "1" ]; then
         echo "Installing precompiled musl"
         musl_install_precompiled_cross_arch
