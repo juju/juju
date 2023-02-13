@@ -195,6 +195,7 @@ func (api *KeyManagerAPI) AddKeys(arg params.ModifyUserSSHKeys) (params.ErrorRes
 		if currentFingerprints.Contains(fingerprint) {
 			return params.ErrorResult{Error: apiservererrors.ServerError(fmt.Errorf("duplicate ssh key: %s", key))}
 		}
+		currentFingerprints.Add(fingerprint)
 		sshKeys = append(sshKeys, key)
 		return params.ErrorResult{}
 	})

@@ -209,7 +209,7 @@ func (s *keyManagerSuite) assertAddKeys(c *gc.C, st *state.State, apiUser names.
 	newKey := sshtesting.ValidKeyThree.Key + " newuser@host"
 	args := params.ModifyUserSSHKeys{
 		User: s.AdminUserTag(c).Name(),
-		Keys: []string{key2, newKey, "invalid-key"},
+		Keys: []string{key2, newKey, newKey, "invalid-key"},
 	}
 	results, err := s.keymanager.AddKeys(args)
 	if !ok {
@@ -223,6 +223,7 @@ func (s *keyManagerSuite) assertAddKeys(c *gc.C, st *state.State, apiUser names.
 		Results: []params.ErrorResult{
 			{Error: apiservertesting.ServerError(fmt.Sprintf("duplicate ssh key: %s", key2))},
 			{Error: nil},
+			{Error: apiservertesting.ServerError(fmt.Sprintf("duplicate ssh key: %s", newKey))},
 			{Error: apiservertesting.ServerError("invalid ssh key: invalid-key")},
 		},
 	})
