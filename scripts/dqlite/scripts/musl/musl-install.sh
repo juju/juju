@@ -5,13 +5,14 @@ set -e
 source "$(dirname $0)/../env.sh"
 
 MUSL_VERSION="1.2.3"
+MUSL_CROSS_COMPILE=${MUSL_CROSS_COMPILE:-"1"}
 
-MUSL_PLACEMENT=${MUSL_PLACEMENT:-"system"}
+MUSL_LOCAL_PLACEMENT=${MUSL_LOCAL_PLACEMENT:-"system"}
 
 MUSL_LOCAL_PATH=${PROJECT_DIR}/_deps/musl-${BUILD_ARCH}
 MUSL_SYSTEM_PATH=/usr/local/musl
 
-if [ "${MUSL_PLACEMENT}" = "local" ] || [ "${BUILD_ARCH}" != "${CURRENT_ARCH}" ]; then
+if [ "${MUSL_LOCAL_PLACEMENT}" = "local" ] || [ "${MUSL_CROSS_COMPILE}" = "1" ]; then
     MUSL_PATH=${MUSL_LOCAL_PATH}
     MUSL_BIN_PATH=${MUSL_PATH}/output/bin
 else
@@ -51,7 +52,7 @@ musl_install() {
     wget -q https://musl.libc.org/releases/musl-${MUSL_VERSION}.tar.gz -O - | tar -xzf - -C ${TMP_DIR}
     cd ${TMP_DIR}/musl-${MUSL_VERSION}
 
-    if [ "${MUSL_PLACEMENT}" = "local" ]; then
+    if [ "${MUSL_LOCAL_PLACEMENT}" = "local" ]; then
         echo "Installing local musl"
         musl_install_local
     else
@@ -102,12 +103,12 @@ musl_install_cross_arch() {
 }
 
 install() {
-    if [ "${BUILD_ARCH}" = "${CURRENT_ARCH}" ]; then
-        musl_install
+    if [ "${MUSL_CROSS_COMPILE}" = "1" ]; then
+        echo "Installing cross-arch musl"
+        musl_install_cross_arch
         exit 0
     fi
 
-    echo "Installing cross-arch musl"
-    musl_install_cross_arch
+    musl_install
     exit 0
 }

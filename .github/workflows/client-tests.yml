@@ -42,7 +42,7 @@ jobs:
       if: (matrix.os == 'ubuntu-latest')
       shell: bash
       run: |
-        sudo make musl-install dqlite-install
+        sudo make MUSL_CROSS_COMPILE=0 musl-install dqlite-install
 
     - name: "Test client (Ubuntu)"
       if: (matrix.os == 'ubuntu-latest')
