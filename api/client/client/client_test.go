@@ -4,9 +4,29 @@
 package client_test
 
 import (
+	"bytes"
+	"encoding/json"
+	"fmt"
 	"github.com/golang/mock/gomock"
+	"github.com/gorilla/websocket"
+	"github.com/juju/errors"
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base/mocks"
+	"github.com/juju/juju/api/client/client"
+	"github.com/juju/juju/api/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/rpc"
+	"github.com/juju/juju/rpc/params"
+	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
+	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"io"
+	"net/http"
+	"net/url"
+	"strings"
+	"time"
 )
 
 type clientSuite struct {
@@ -24,9 +44,12 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 	s.APIState = mocks.NewMockAPICaller(s.Ctrl)
 }
 
-/*
 func (s *clientSuite) TestWatchDebugLogConnected(c *gc.C) {
-	client := client.NewClient(s.APIState)
+	defer s.Ctrl.Finish()
+
+	mockAPIcaller := client.NewFakeAPICaller(s.Ctrl)
+	client := client.NewClientFromAPICaller(mockAPIcaller)
+
 	// Use the no tail option so we don't try to start a tailing cursor
 	// on the oplog when there is no oplog configured in mongo as the tests
 	// don't set up mongo in replicaset mode.
@@ -35,48 +58,43 @@ func (s *clientSuite) TestWatchDebugLogConnected(c *gc.C) {
 	c.Assert(messages, gc.NotNil)
 }
 
-*/
-
 func (s *clientSuite) TestConnectStreamRequiresSlashPathPrefix(c *gc.C) {
-	defer s.Ctrl.Finish()
+	s.APIState.EXPECT().APICall("WebsocketDial", nil, "foo", nil, nil, &params.Error{Message: "cannot make API path from non-slash-prefixed path \"foo\""})
 	reader, err := s.APIState.ConnectStream("foo", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot make API path from non-slash-prefixed path "foo"`)
 	c.Assert(reader, gc.Equals, nil)
 }
 
-/*
 func (s *clientSuite) TestConnectStreamErrorBadConnection(c *gc.C) {
-	s.PatchValue(&api.WebsocketDial, func(_ api.WebsocketDialer, _ string, _ http.Header) (base.Stream, error) {
-		return nil, fmt.Errorf("bad connection")
-	})
+	s.APIState.EXPECT().APICall("WebsocketDial", nil, "/", nil, nil, fmt.Errorf("bad connection"))
 	reader, err := s.APIState.ConnectStream("/", nil)
 	c.Assert(err, gc.ErrorMatches, "bad connection")
 	c.Assert(reader, gc.IsNil)
 }
 
 func (s *clientSuite) TestConnectStreamErrorNoData(c *gc.C) {
-	s.PatchValue(&api.WebsocketDial, func(_ api.WebsocketDialer, _ string, _ http.Header) (base.Stream, error) {
-		return api.NewFakeStreamReader(&bytes.Buffer{}), nil
-	})
+	s.APIState.EXPECT().APICall("WebsocketDial", nil, "/", nil,
+		api.NewFakeStreamReader(&bytes.Buffer{}),
+		&params.Error{Message: "unable to read initial response: EOF"})
 	reader, err := s.APIState.ConnectStream("/", nil)
 	c.Assert(err, gc.ErrorMatches, "unable to read initial response: EOF")
 	c.Assert(reader, gc.IsNil)
 }
 
 func (s *clientSuite) TestConnectStreamErrorBadData(c *gc.C) {
-	s.PatchValue(&api.WebsocketDial, func(_ api.WebsocketDialer, _ string, _ http.Header) (base.Stream, error) {
-		return api.NewFakeStreamReader(strings.NewReader("junk\n")), nil
-	})
+	s.APIState.EXPECT().APICall("WebsocketDial", nil, "/", nil,
+		api.NewFakeStreamReader(strings.NewReader("junk\n")),
+		&params.Error{Message: "unable to unmarshal initial response"})
 	reader, err := s.APIState.ConnectStream("/", nil)
 	c.Assert(err, gc.ErrorMatches, "unable to unmarshal initial response: .*")
 	c.Assert(reader, gc.IsNil)
 }
 
 func (s *clientSuite) TestConnectStreamErrorReadError(c *gc.C) {
-	s.PatchValue(&api.WebsocketDial, func(_ api.WebsocketDialer, _ string, _ http.Header) (base.Stream, error) {
-		err := fmt.Errorf("bad read")
-		return api.NewFakeStreamReader(&badReader{err}), nil
-	})
+	err := fmt.Errorf("bad read")
+	s.APIState.EXPECT().APICall("WebsocketDial", nil, "/", nil,
+		api.NewFakeStreamReader(&badReader{err}),
+		&params.Error{Message: "unable to read initial response: bad read"})
 	reader, err := s.APIState.ConnectStream("/", nil)
 	c.Assert(err, gc.ErrorMatches, "unable to read initial response: bad read")
 	c.Assert(reader, gc.IsNil)
@@ -99,18 +117,17 @@ func (s *clientSuite) TestConnectControllerStreamAppliesHeaders(c *gc.C) {
 	headers := http.Header{}
 	headers.Add("thomas", "cromwell")
 	headers.Add("anne", "boleyn")
-	s.PatchValue(&api.WebsocketDial, catcher.RecordLocation)
+	s.APIState.EXPECT().APICall("WebsocketDial", catcher.RecordLocation, "", nil, nil, nil)
 
 	_, err := s.APIState.ConnectControllerStream("/something", nil, headers)
 	c.Assert(err, jc.ErrorIsNil)
-
 	c.Assert(catcher.Headers().Get("thomas"), gc.Equals, "cromwell")
 	c.Assert(catcher.Headers().Get("anne"), gc.Equals, "boleyn")
 }
 
 func (s *clientSuite) TestWatchDebugLogParamsEncoded(c *gc.C) {
 	catcher := api.UrlCatcher{}
-	s.PatchValue(&api.WebsocketDial, catcher.RecordLocation)
+	s.APIState.EXPECT().APICall("WebsocketDial", catcher.RecordLocation, "", nil, nil, nil)
 
 	params := common.DebugLogParams{
 		IncludeEntity: []string{"a", "b"},
@@ -127,7 +144,9 @@ func (s *clientSuite) TestWatchDebugLogParamsEncoded(c *gc.C) {
 		StartTime:     time.Date(2016, 11, 30, 11, 48, 0, 100, time.UTC),
 	}
 
-	client := client.NewClient(s.APIState)
+	mockAPIcaller := client.NewFakeAPICaller(s.Ctrl)
+	client := client.NewClientFromAPICaller(mockAPIcaller)
+	//client := client.NewClient(s.APIState)
 	_, err := client.WatchDebugLog(params)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -153,28 +172,25 @@ func (s *clientSuite) TestWatchDebugLogParamsEncoded(c *gc.C) {
 
 func (s *clientSuite) TestConnectStreamAtUUIDPath(c *gc.C) {
 	catcher := api.UrlCatcher{}
-	s.PatchValue(&api.WebsocketDial, catcher.RecordLocation)
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	info := s.APIInfo(c)
-	info.ModelTag = model.ModelTag()
+	s.APIState.EXPECT().APICall("WebsocketDial", catcher.RecordLocation, "/path", "test-model-uuid", nil, nil)
+
+	mt, _ := s.APIState.ModelTag()
+	info := &api.Info{ModelTag: mt}
 	apistate, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer apistate.Close()
-	_, err = apistate.ConnectStream("/path", nil)
+
+	_, err = s.APIState.ConnectStream("/path", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	connectURL, err := url.Parse(catcher.Location())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(connectURL.Path, gc.Matches, fmt.Sprintf("/model/%s/path", model.UUID()))
+	connectURL, err2 := url.Parse(catcher.Location())
+	c.Assert(err2, jc.ErrorIsNil)
+	c.Assert(connectURL.Path, gc.Matches, fmt.Sprintf("/model/%s/path", "test-model-uuid"))
 }
 
 func (s *clientSuite) TestOpenUsesModelUUIDPaths(c *gc.C) {
-	info := s.APIInfo(c)
-
 	// Passing in the correct model UUID should work
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	info.ModelTag = model.ModelTag()
+	mt, _ := s.APIState.ModelTag()
+	info := &api.Info{ModelTag: mt}
 	apistate, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	apistate.Close()
@@ -191,7 +207,10 @@ func (s *clientSuite) TestOpenUsesModelUUIDPaths(c *gc.C) {
 }
 
 func (s *clientSuite) TestAbortCurrentUpgrade(c *gc.C) {
-	cl := client.NewClient(s.APIState)
+	defer s.Ctrl.Finish()
+	mockAPIcaller := client.NewFakeAPICaller(s.Ctrl)
+	cl := client.NewClientFromAPICaller(mockAPIcaller)
+
 	someErr := errors.New("random")
 	cleanup := client.PatchClientFacadeCall(cl,
 		func(request string, args interface{}, response interface{}) error {
@@ -295,5 +314,3 @@ func (c *closeWatcher) Close() error {
 	c.closed = true
 	return nil
 }
-
-*/
