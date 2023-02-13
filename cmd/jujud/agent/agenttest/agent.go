@@ -5,6 +5,7 @@ package agenttest
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"github.com/juju/clock"
@@ -114,10 +115,17 @@ func (f *FakeEnsureMongo) InitiateMongo(p peergrouper.InitiateMongoParams) error
 // AgentSuite is a fixture to be used by agent test suites.
 type AgentSuite struct {
 	testing.JujuConnSuite
+
+	// InitialDBOps can be set prior to calling PrimeStateAgentVersion,
+	// ensuring that the functions are executed against the controller database
+	// immediately after Dqlite is set up.
+	InitialDBOps []func(db *sql.DB) error
 }
 
 func (s *AgentSuite) SetUpSuite(c *gc.C) {
 	s.JujuConnSuite.SetUpSuite(c)
+
+	s.InitialDBOps = make([]func(db *sql.DB) error, 0)
 	s.PatchValue(&database.DefaultBindAddress, "127.0.0.1")
 }
 
@@ -204,7 +212,7 @@ func (s *AgentSuite) PrimeStateAgentVersion(c *gc.C, tag names.Tag, password str
 	conf := s.WriteStateAgentConfig(c, tag, password, vers, model.ModelTag())
 	s.primeAPIHostPorts(c)
 
-	err = database.BootstrapDqlite(context.TODO(), database.NewOptionFactory(conf, logger), logger)
+	err = database.BootstrapDqlite(context.TODO(), database.NewOptionFactory(conf, logger), logger, s.InitialDBOps...)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return conf, agentTools

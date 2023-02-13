@@ -31,7 +31,6 @@ func (s *workerSuite) TestGetControllerDBSuccess(c *gc.C) {
 	optExp := s.optFactory.EXPECT()
 	optExp.EnsureDataDir().Return(c.MkDir(), nil)
 	optExp.WithAddressOption().Return(nil, nil)
-	optExp.WithTLSOption().Return(nil, nil)
 	optExp.WithClusterOption().Return(nil, nil)
 	optExp.WithLogFuncOption().Return(nil)
 
