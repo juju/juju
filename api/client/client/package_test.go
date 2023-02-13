@@ -19,3 +19,9 @@ func NewClientFromCaller(caller base.FacadeCaller) *Client {
 		facade: caller,
 	}
 }
+
+func NewClientFromAPICaller(caller FakeAPICaller) *Client {
+	return &Client{
+		conn: caller,
+	}
+}
