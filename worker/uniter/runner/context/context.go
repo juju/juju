@@ -1524,7 +1524,7 @@ func (ctx *HookContext) doFlush(process string) error {
 		} else {
 			toDelete = []int{*d.Revision}
 		}
-		ctx.logger.Debugf("deleting secret %q provider ids: %v", d.URI.String(), toDelete)
+		ctx.logger.Debugf("deleting secret %q provider ids: %v", d.URI.ID, toDelete)
 		for _, rev := range toDelete {
 			if err := secretsBackend.DeleteContent(d.URI, rev); err != nil {
 				if errors.IsNotFound(err) {

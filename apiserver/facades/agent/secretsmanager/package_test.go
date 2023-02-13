@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/leadership"
 	coresecrets "github.com/juju/juju/core/secrets"
+	coretesting "github.com/juju/juju/testing"
 )
 
 func TestPackage(t *testing.T) {
@@ -37,7 +38,7 @@ func NewTestAPI(
 	consumer SecretsConsumer,
 	secretTriggers SecretTriggers,
 	backendConfigGetter commonsecrets.BackendConfigGetter,
-	adminConfigGetter commonsecrets.BackendConfigGetter,
+	adminConfigGetter commonsecrets.BackendAdminConfigGetter,
 	authTag names.Tag,
 	clock clock.Clock,
 ) (*SecretsManagerAPI, error) {
@@ -55,6 +56,7 @@ func NewTestAPI(
 		backendConfigGetter: backendConfigGetter,
 		adminConfigGetter:   adminConfigGetter,
 		clock:               clock,
+		modelUUID:           coretesting.ModelTag.Id(),
 	}, nil
 }
 

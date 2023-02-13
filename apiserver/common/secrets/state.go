@@ -6,6 +6,7 @@ package secrets
 import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cloud"
@@ -75,4 +76,17 @@ func (c *credentialShim) AuthType() string {
 
 func (c *credentialShim) Attributes() map[string]string {
 	return c.Credential.Attributes
+}
+
+type SecretsGetter interface {
+	GetSecret(*secrets.URI) (*secrets.SecretMetadata, error)
+	GetSecretValue(*secrets.URI, int) (secrets.SecretValue, *secrets.ValueRef, error)
+}
+
+// SecretsConsumer instances provide secret consumer apis.
+type SecretsConsumer interface {
+	GetSecretConsumer(*secrets.URI, names.Tag) (*secrets.SecretConsumerMetadata, error)
+	GetURIByConsumerLabel(string, names.Tag) (*secrets.URI, error)
+	SaveSecretConsumer(*secrets.URI, names.Tag, *secrets.SecretConsumerMetadata) error
+	SecretAccess(uri *secrets.URI, subject names.Tag) (secrets.SecretRole, error)
 }

@@ -913,10 +913,10 @@ func NewSecretsTriggerWatcher(
 func (w *secretsTriggerWatcher) mergeChanges(current, newChanges []watcher.SecretTriggerChange) []watcher.SecretTriggerChange {
 	chMap := make(map[string]watcher.SecretTriggerChange)
 	for _, c := range current {
-		chMap[c.URI.String()] = c
+		chMap[c.URI.ID] = c
 	}
 	for _, c := range newChanges {
-		chMap[c.URI.String()] = c
+		chMap[c.URI.ID] = c
 	}
 	result := make([]watcher.SecretTriggerChange, len(chMap))
 	i := 0

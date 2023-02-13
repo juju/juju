@@ -46,11 +46,15 @@ func (s *undertakerSuite) setupStateAndAPI(c *gc.C, isSystem bool, modelName str
 
 	api, err := undertaker.NewUndertaker(st, nil, authorizer, func() (*provider.ModelBackendConfigInfo, error) {
 		return &provider.ModelBackendConfigInfo{
-			ModelUUID: "9d3d3b19-2b0c-4a3f-acde-0b1645586a72",
-			Configs: map[string]provider.BackendConfig{
+			ActiveID: "backend-id",
+			Configs: map[string]provider.ModelBackendConfig{
 				"backend-id": {
-					BackendType: "some-backend",
-				}},
+					ModelUUID: "9d3d3b19-2b0c-4a3f-acde-0b1645586a72",
+					BackendConfig: provider.BackendConfig{
+						BackendType: "some-backend",
+					},
+				},
+			},
 		}, nil
 	})
 	c.Assert(err, jc.ErrorIsNil)

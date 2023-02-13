@@ -9,14 +9,26 @@ import (
 	"github.com/juju/juju/core/secrets"
 )
 
+// SecretBackendArgs holds args for querying secret backends.
+type SecretBackendArgs struct {
+	BackendIDs []string `json:"backend-ids"`
+}
+
 // SecretBackendConfigResults holds config info for creating
 // secret backend clients for a specific model.
 type SecretBackendConfigResults struct {
-	ControllerUUID string                         `json:"model-controller"`
-	ModelUUID      string                         `json:"model-uuid"`
-	ModelName      string                         `json:"model-name"`
-	ActiveID       string                         `json:"active-id"`
-	Configs        map[string]SecretBackendConfig `json:"configs,omitempty"`
+	ActiveID string                               `json:"active-id"`
+	Results  map[string]SecretBackendConfigResult `json:"results,omitempty"`
+}
+
+// SecretBackendConfigResult holds config info for creating
+// secret backend clients for a specific model.
+type SecretBackendConfigResult struct {
+	ControllerUUID string              `json:"model-controller"`
+	ModelUUID      string              `json:"model-uuid"`
+	ModelName      string              `json:"model-name"`
+	Draining       bool                `json:"draining"`
+	Config         SecretBackendConfig `json:"config,omitempty"`
 }
 
 // SecretBackendConfig holds config for creating a secret backend client.
@@ -142,8 +154,9 @@ type SecretContentResults struct {
 
 // SecretContentResult is the result of getting secret content.
 type SecretContentResult struct {
-	Content SecretContentParams `json:"content"`
-	Error   *Error              `json:"error,omitempty"`
+	Content       SecretContentParams        `json:"content"`
+	BackendConfig *SecretBackendConfigResult `json:"backend-config,omitempty"`
+	Error         *Error                     `json:"error,omitempty"`
 }
 
 // SecretValueResult is the result of getting a secret value.
