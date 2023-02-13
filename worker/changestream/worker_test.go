@@ -30,7 +30,7 @@ func (s *workerSuite) TestChanges(c *gc.C) {
 	s.dbGetter.EXPECT().GetDB("controller").Return(&sql.DB{}, nil)
 	s.dbStream.EXPECT().Changes().Return(changes)
 	s.dbStream.EXPECT().Wait().Return(nil).MinTimes(1)
-	s.dbStream.EXPECT().Kill()
+	s.dbStream.EXPECT().Kill().MinTimes(1)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
