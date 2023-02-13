@@ -119,7 +119,7 @@ func newSubscriber(config WorkerConfig) (*subscriber, error) {
 }
 
 // Report returns the same information as the introspection report
-// but in the map for for the dependency engine report.
+// but in the map for the dependency engine report.
 func (s *subscriber) Report() map[string]interface{} {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -150,7 +150,7 @@ func (s *subscriber) IntrospectionReport() string {
 		result = append(result, info)
 	}
 	prefix := fmt.Sprintf("Source: %s\n\n", s.config.Origin)
-	// Sorting the result gives us consisten ordering.
+	// Sorting the result gives us consistent ordering.
 	sort.Strings(result)
 	return prefix + strings.Join(result, "\n")
 }
