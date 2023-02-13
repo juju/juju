@@ -177,7 +177,7 @@ func (e *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) 
 
 	for i, id := range ids {
 		d, resp, err := e.equinixClient.Devices.Get(string(id), nil)
-		if err != nil && resp != nil && resp.Request.Response.StatusCode == http.StatusNotFound {
+		if err != nil && resp != nil && resp.Response.StatusCode == http.StatusNotFound {
 			logger.Warningf("instance %s not found", string(id))
 			missingInstanceCount = missingInstanceCount + 1
 			continue
@@ -833,11 +833,7 @@ func waitDeviceActive(ctx context.ProviderCallContext, c *packngo.Client, id str
 		Clock:    clock.WallClock,
 	})
 
-	if d != nil {
-		return d, nil
-	}
-
-	return nil, err
+	return d, errors.Trace(err)
 }
 
 // Helper function to get supported OS version
