@@ -63,4 +63,5 @@ type Model interface {
 
 type BlockChecker interface {
 	ChangeAllowed() error
+	RemoveAllowed() error
 }

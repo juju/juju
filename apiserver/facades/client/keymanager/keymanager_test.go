@@ -388,7 +388,7 @@ func (s *keyManagerSuite) TestBlockDeleteKeys(c *gc.C) {
 		Keys: []string{sshtesting.ValidKeyTwo.Fingerprint, sshtesting.ValidKeyThree.Fingerprint, "invalid-key"},
 	}
 
-	s.BlockAllChanges(c, "TestBlockDeleteKeys")
+	s.BlockRemoveObject(c, "TestBlockDeleteKeys")
 	_, err := s.keymanager.DeleteKeys(args)
 	// Check that the call is blocked
 	s.AssertBlocked(c, err, "TestBlockDeleteKeys")

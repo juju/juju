@@ -345,7 +345,7 @@ func (api *KeyManagerAPI) DeleteKeys(arg params.ModifyUserSSHKeys) (params.Error
 	if err := api.checkCanWrite(arg.User); err != nil {
 		return params.ErrorResults{}, apiservererrors.ServerError(err)
 	}
-	if err := api.check.ChangeAllowed(); err != nil {
+	if err := api.check.RemoveAllowed(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 	if len(arg.Keys) == 0 {
