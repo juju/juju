@@ -9,7 +9,10 @@ import (
 	"github.com/juju/utils/v3/ssh/testing"
 )
 
-var multiOneDup = testing.ValidKeyFour.Key + "\n" + testing.ValidKeyTwo.Key
+var (
+	multiOneDup = testing.ValidKeyFour.Key + "\n" + testing.ValidKeyTwo.Key
+	SystemKey   = testing.ValidKeyThree.Key + " juju-system-key"
+)
 
 var importResponses = map[string]string{
 	"lp:validuser":    testing.ValidKeyThree.Key,
@@ -19,6 +22,7 @@ var importResponses = map[string]string{
 	"lp:multiempty":   testing.EmptyKeyMulti,
 	"lp:multiinvalid": testing.MultiInvalid,
 	"lp:multionedup":  multiOneDup,
+	"lp:systemkey":    SystemKey,
 }
 
 var FakeImport = func(keyId string) (string, error) {

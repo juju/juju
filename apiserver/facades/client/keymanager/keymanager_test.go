@@ -275,26 +275,21 @@ func (s *keyManagerSuite) TestBlockAddKeys(c *gc.C) {
 }
 
 func (s *keyManagerSuite) TestAddJujuSystemKey(c *gc.C) {
-	anAuthoriser := s.authorizer
-	anAuthoriser.Tag = names.NewUserTag("fred")
-	var err error
-	s.keymanager, err = keymanager.NewKeyManagerAPI(facadetest.Context{
-		State_:     s.State,
-		Resources_: s.resources,
-		Auth_:      anAuthoriser,
-	})
-	c.Assert(err, jc.ErrorIsNil)
 	key1 := sshtesting.ValidKeyOne.Key
 	s.setAuthorisedKeys(c, key1)
 
 	newKey := sshtesting.ValidKeyThree.Key + " juju-system-key"
 	args := params.ModifyUserSSHKeys{
-		User: "juju-system-key",
+		User: s.AdminUserTag(c).Name(),
 		Keys: []string{newKey},
 	}
-	_, err = s.keymanager.AddKeys(args)
-	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
+	results, err := s.keymanager.AddKeys(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: apiservertesting.ServerError("may not add key with comment juju-system-key: " + newKey)},
+		},
+	})
 	s.assertModelKeys(c, []string{key1})
 }
 
@@ -542,6 +537,26 @@ func (s *keyManagerSuite) TestImportKeysModelAdmin(c *gc.C) {
 func (s *keyManagerSuite) TestImportKeysNonAuthorised(c *gc.C) {
 	user := s.Factory.MakeUser(c, nil)
 	s.assertImportKeys(c, s.State, user.UserTag(), false)
+}
+
+func (s *keyManagerSuite) TestImportJujuSystemKey(c *gc.C) {
+	s.PatchValue(&keymanager.RunSSHImportId, keymanagertesting.FakeImport)
+
+	key1 := sshtesting.ValidKeyOne.Key
+	s.setAuthorisedKeys(c, key1)
+
+	args := params.ModifyUserSSHKeys{
+		User: s.AdminUserTag(c).Name(),
+		Keys: []string{"lp:systemkey"},
+	}
+	results, err := s.keymanager.ImportKeys(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: apiservertesting.ServerError("may not add key with comment juju-system-key: " + keymanagertesting.SystemKey)},
+		},
+	})
+	s.assertModelKeys(c, []string{key1})
 }
 
 func (s *keyManagerSuite) TestBlockImportKeys(c *gc.C) {

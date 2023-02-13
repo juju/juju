@@ -188,9 +188,12 @@ func (api *KeyManagerAPI) AddKeys(arg params.ModifyUserSSHKeys) (params.ErrorRes
 
 	// Ensure we are not going to add invalid or duplicate keys.
 	results := transform.Slice(arg.Keys, func(key string) params.ErrorResult {
-		fingerprint, _, err := ssh.KeyFingerprint(key)
+		fingerprint, comment, err := ssh.KeyFingerprint(key)
 		if err != nil {
 			return params.ErrorResult{Error: apiservererrors.ServerError(fmt.Errorf("invalid ssh key: %s", key))}
+		}
+		if internalComments.Contains(comment) {
+			return params.ErrorResult{Error: apiservererrors.ServerError(fmt.Errorf("may not add key with comment %s: %s", comment, key))}
 		}
 		if currentFingerprints.Contains(fingerprint) {
 			return params.ErrorResult{Error: apiservererrors.ServerError(fmt.Errorf("duplicate ssh key: %s", key))}
@@ -210,6 +213,7 @@ func (api *KeyManagerAPI) AddKeys(arg params.ModifyUserSSHKeys) (params.ErrorRes
 type importedSSHKey struct {
 	key         string
 	fingerprint string
+	comment     string
 	err         error
 }
 
@@ -238,11 +242,11 @@ func runSSHKeyImport(keyIds []string) map[string][]importedSSHKey {
 				continue
 			}
 			hasKey = true
-			// ignore key comment (e.g., user@host)
-			fingerprint, _, err := ssh.KeyFingerprint(line)
+			fingerprint, comment, err := ssh.KeyFingerprint(line)
 			keyInfo = append(keyInfo, importedSSHKey{
 				key:         line,
 				fingerprint: fingerprint,
+				comment:     comment,
 				err:         errors.Annotatef(err, "invalid ssh key for %s", keyId),
 			})
 		}
@@ -282,6 +286,10 @@ func (api *KeyManagerAPI) ImportKeys(arg params.ModifyUserSSHKeys) (params.Error
 		for _, keyInfo := range importedKeyInfo[key] {
 			if keyInfo.err != nil {
 				compoundErr += fmt.Sprintf("%v\n", keyInfo.err)
+				continue
+			}
+			if internalComments.Contains(keyInfo.comment) {
+				compoundErr += fmt.Sprintf("%v\n", errors.Errorf("may not add key with comment %s: %s", keyInfo.comment, keyInfo.key))
 				continue
 			}
 			if currentFingerprints.Contains(keyInfo.fingerprint) {
