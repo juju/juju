@@ -10,6 +10,10 @@ build() {
         MACHINE_TYPE="powerpc64le"
         CUSTOM_CFLAGS="-mlong-double-64"
     fi
+    DQLITE_CONFIGURE_FLAGS=
+    if [ "${DEBUG_MODE}" = "true" ]; then
+        DQLITE_CONFIGURE_FLAGS="--enable-debug"
+    fi
 
     # Ensure that when apt installs tzdata skips it's prompt in all contexts
     sudo ln -fs /usr/share/zoneinfo/UTC /etc/localtime
@@ -127,7 +131,7 @@ build() {
             UV_CFLAGS="-I${PWD}/../libuv/include" \
             UV_LIBS="-L${PWD}/../libuv/.libs" \
             SQLITE_CFLAGS="-I${PWD}/../sqlite" \
-            ./configure --disable-shared
+            ./configure --disable-shared ${DQLITE_CONFIGURE_FLAGS}
     make
     cd ../
 

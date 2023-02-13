@@ -4,6 +4,8 @@ set -e
 
 PROJECT_DIR=$(pwd)
 
+DEBUG_MODE=${DEBUG_MODE:-false}
+
 current_arch() {
 	case $(uname -m) in
 		x86_64) echo amd64 ;;
