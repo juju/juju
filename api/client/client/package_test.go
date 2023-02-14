@@ -6,16 +6,17 @@ package client
 import (
 	"testing"
 
+	gc "gopkg.in/check.v1"
+
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
-	coretesting "github.com/juju/juju/testing"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/connection_mock.go github.com/juju/juju/api Connection
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/stream_mock.go github.com/juju/juju/api/base Stream
 
 func TestAll(t *testing.T) {
-	coretesting.MgoTestPackage(t)
+	gc.TestingT(t)
 }
 
 func NewClientFromAPIConnection(conn api.Connection) *Client {
