@@ -148,11 +148,8 @@ func Generate(pkgRegistry PackageRegistry, linker Linker, client APIServer, opti
 				if err != nil {
 					continue
 				}
-				// Remove functions that only have a single struct parameter
-				// and no return value. These are facade methods intended to
-				// hide and discontinue use of the method.
 				if m.Params == structType && m.Result == nil {
-					objType.RemoveMethod(method)
+					return nil, errors.Errorf("method %q on facade %q has unexpected params. If you're trying to hide the method, use `func (_, _ struct{})`.", method, facade.Name)
 				}
 			}
 		}
