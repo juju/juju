@@ -6,22 +6,26 @@ package client
 import (
 	"testing"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	coretesting "github.com/juju/juju/testing"
 )
+
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/connection_mock.go github.com/juju/juju/api Connection
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/stream_mock.go github.com/juju/juju/api/base Stream
 
 func TestAll(t *testing.T) {
 	coretesting.MgoTestPackage(t)
 }
 
-func NewClientFromCaller(caller base.FacadeCaller) *Client {
+func NewClientFromAPIConnection(conn api.Connection) *Client {
 	return &Client{
-		facade: caller,
+		conn: conn,
 	}
 }
 
-func NewClientFromAPICaller(caller FakeAPICaller) *Client {
+func NewClientFromFacadeCaller(facade base.FacadeCaller) *Client {
 	return &Client{
-		conn: caller,
+		facade: facade,
 	}
 }
