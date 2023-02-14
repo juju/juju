@@ -29,32 +29,21 @@ jobs:
            - { os: darwin, arch: amd64 }
 
     steps:
-    - name: Checkout
+    - name: "Checkout"
       uses: actions/checkout@v3
 
-    - name: Set up Go
+    - name: "Set up Go"
       uses: actions/setup-go@v3
       with:
         go-version-file: 'go.mod'
         cache: true
-
-    - name: "Restore musl cache"
-      id: restore-musl-cache
+    
+    - name: "Install musl"
       if: (matrix.os == 'linux')
-      uses: actions/cache/restore@v3
-      with:
-        key: ${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('./scripts/dqlite/Makefile') }}
-        path: |
-          ./_deps/musl-${{ runner.arch }}
+      shell: bash
+      run: |
+        sudo make MUSL_CROSS_COMPILE=0 MUSL_PLACEMENT=local musl-install
 
     - name: "Build"
       run: |
-        GOOS=${{ matrix.platform.os }} GOARCH=${{ matrix.platform.arch }} make MUSL_PLACEMENT=local go-build
-
-    - name: "Save musl cache"
-      uses: actions/cache/save@v3
-      if: (matrix.os == 'linux')
-      with:
-        key: ${{ steps.restore-musl-cache.outputs.cache-primary-key }}
-        path: |
-          ./_deps/musl-${{ runner.arch }}
+        GOOS=${{ matrix.platform.os }} GOARCH=${{ matrix.platform.arch }} make go-build
