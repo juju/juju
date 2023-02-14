@@ -69,6 +69,7 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"central-hub",
 			"certificate-updater",
 			"certificate-watcher",
+			"change-stream",
 			"charmhub-http-client",
 			"clock",
 			"controller-port",
@@ -146,6 +147,7 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"caas-units-manager",
 			"central-hub",
 			"certificate-watcher",
+			"change-stream",
 			"charmhub-http-client",
 			"clock",
 			"controller-port",
@@ -221,6 +223,7 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"certificate-updater",
 		"certificate-watcher",
 		"central-hub",
+		"change-stream",
 		"charmhub-http-client",
 		"clock",
 		"controller-port",
@@ -293,6 +296,7 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 		"upgrade-database-gate",
 		"upgrade-database-runner",
 		"db-accessor",
+		"change-stream",
 	)
 
 	// Explicitly guarded by ifPrimaryController.
@@ -510,6 +514,13 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 	"certificate-watcher": {
 		"agent",
+		"is-controller-flag",
+		"state-config-watcher",
+	},
+
+	"change-stream": {
+		"agent",
+		"db-accessor",
 		"is-controller-flag",
 		"state-config-watcher",
 	},
@@ -1076,6 +1087,13 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 
 	"certificate-watcher": {
 		"agent",
+		"is-controller-flag",
+		"state-config-watcher",
+	},
+
+	"change-stream": {
+		"agent",
+		"db-accessor",
 		"is-controller-flag",
 		"state-config-watcher",
 	},

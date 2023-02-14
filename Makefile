@@ -244,7 +244,7 @@ endef
 
 define run_cgo_install
 	@echo "Installing ${PACKAGE}"
-	env PATH=${MUSL_BIN_PATH}:${PATH} \
+	@env PATH=${MUSL_BIN_PATH}:${PATH} \
 		CC="musl-gcc" \
 		CGO_CFLAGS="-I${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}/include" \
 		CGO_LDFLAGS="-L${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} -luv -lraft -ldqlite -llz4 -lsqlite3" \

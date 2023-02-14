@@ -37,7 +37,7 @@ musl-install-if-missing:
 	@./scripts/dqlite/scripts/musl/install-if-missing.sh
 
 repl-install:
-	@./scripts/dqlite/script/repl/install.sh
+	@./scripts/dqlite/scripts/repl/install.sh
 
 repl: repl-install
-	@./script/dqlite/script/repl/repl.sh
+	@./scripts/dqlite/scripts/repl/repl.sh
