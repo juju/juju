@@ -1447,7 +1447,7 @@ func (api *APIv16) DestroyUnits(args params.DestroyApplicationUnits) error {
 	return apiservererrors.DestroyErr("units", args.UnitNames, errs)
 }
 
-func (*APIBase) DestroyUnits(_ struct{}) {}
+func (*APIBase) DestroyUnits(_, _ struct{}) {}
 
 func (api *APIv15) DestroyUnit(argsV15 params.DestroyUnitsParamsV15) (params.DestroyUnitResults, error) {
 	args := params.DestroyUnitsParams{
@@ -1587,7 +1587,7 @@ func (api *APIv16) Destroy(in params.ApplicationDestroy) error {
 	return nil
 }
 
-func (*APIBase) Destroy(_ struct{}) {}
+func (*APIBase) Destroy(_, _ struct{}) {}
 
 // DestroyApplication removes a given set of applications.
 func (api *APIv15) DestroyApplication(argsV15 params.DestroyApplicationsParamsV15) (params.DestroyApplicationResults, error) {
