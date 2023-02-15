@@ -11,11 +11,16 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/worker/dbaccessor"
+	"github.com/juju/juju/worker/filenotifywatcher"
 )
 
 // DBGetter describes the ability to supply a sql.DB
 // reference for a particular database.
 type DBGetter = dbaccessor.DBGetter
+
+// FileNotifyWatcher is the interface that the worker uses to interact with the
+// file notify watcher.
+type FileNotifyWatcher = filenotifywatcher.FileNotifyWatcher
 
 // ChangeStream represents a stream of changes that flows from the underlying
 // change log table in the database.
@@ -41,21 +46,27 @@ type DBStream interface {
 // WorkerConfig encapsulates the configuration options for the
 // changestream worker.
 type WorkerConfig struct {
-	DBGetter  DBGetter
-	Clock     clock.Clock
-	Logger    Logger
-	NewStream StreamFn
+	DBGetter          DBGetter
+	FileNotifyWatcher FileNotifyWatcher
+	Clock             clock.Clock
+	Logger            Logger
+	NewStream         StreamFn
 }
 
 // Validate ensures that the config values are valid.
 func (c *WorkerConfig) Validate() error {
+	if c.DBGetter == nil {
+		return errors.NotValidf("missing DBGetter")
+	}
+	if c.FileNotifyWatcher == nil {
+		return errors.NotValidf("missing FileNotifyWatcher")
+	}
 	if c.Clock == nil {
 		return errors.NotValidf("missing clock")
 	}
 	if c.Logger == nil {
 		return errors.NotValidf("missing logger")
 	}
-
 	return nil
 }
 

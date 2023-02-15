@@ -28,15 +28,20 @@ type StreamFn = func(*sql.DB, clock.Clock, Logger) DBStream
 // ManifoldConfig defines the names of the manifolds on which a Manifold will
 // depend.
 type ManifoldConfig struct {
-	DBAccessor string
-	Clock      clock.Clock
-	Logger     Logger
-	NewStream  StreamFn
+	DBAccessor        string
+	FileNotifyWatcher string
+
+	Clock     clock.Clock
+	Logger    Logger
+	NewStream StreamFn
 }
 
 func (cfg ManifoldConfig) Validate() error {
 	if cfg.DBAccessor == "" {
 		return errors.NotValidf("empty DBAccessorName")
+	}
+	if cfg.FileNotifyWatcher == "" {
+		return errors.NotValidf("empty FileNotifyWatcherName")
 	}
 	if cfg.Clock == nil {
 		return errors.NotValidf("nil Clock")
@@ -56,6 +61,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.DBAccessor,
+			config.FileNotifyWatcher,
 		},
 		Output: changeStreamOutput,
 		Start: func(context dependency.Context) (worker.Worker, error) {
@@ -65,7 +71,12 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			var dbGetter DBGetter
 			if err := context.Get(config.DBAccessor, &dbGetter); err != nil {
-				return nil, err
+				return nil, errors.Trace(err)
+			}
+
+			var fileNotifyWatcher FileNotifyWatcher
+			if err := context.Get(config.FileNotifyWatcher, &fileNotifyWatcher); err != nil {
+				return nil, errors.Trace(err)
 			}
 
 			cfg := WorkerConfig{

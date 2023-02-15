@@ -78,6 +78,7 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"disk-manager",
 			"external-controller-updater",
 			"fan-configurer",
+			"file-notify-watcher",
 			"host-key-reporter",
 			"http-server",
 			"http-server-args",
@@ -153,6 +154,7 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"controller-port",
 			"db-accessor",
 			"external-controller-updater",
+			"file-notify-watcher",
 			"http-server",
 			"http-server-args",
 			"is-controller-flag",
@@ -229,6 +231,7 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"controller-port",
 		"db-accessor",
 		"deployer",
+		"file-notify-watcher",
 		"global-clock-updater",
 		"http-server",
 		"http-server-args",
@@ -297,6 +300,7 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 		"upgrade-database-runner",
 		"db-accessor",
 		"change-stream",
+		"file-notify-watcher",
 	)
 
 	// Explicitly guarded by ifPrimaryController.
@@ -521,6 +525,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 	"change-stream": {
 		"agent",
 		"db-accessor",
+		"file-notify-watcher",
 		"is-controller-flag",
 		"state-config-watcher",
 	},
@@ -589,6 +594,12 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-check-gate",
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
+	},
+
+	"file-notify-watcher": {
+		"agent",
+		"is-controller-flag",
+		"state-config-watcher",
 	},
 
 	"host-key-reporter": {
@@ -1094,6 +1105,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 	"change-stream": {
 		"agent",
 		"db-accessor",
+		"file-notify-watcher",
 		"is-controller-flag",
 		"state-config-watcher",
 	},
@@ -1128,6 +1140,12 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"upgrade-check-gate",
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
+	},
+
+	"file-notify-watcher": {
+		"agent",
+		"is-controller-flag",
+		"state-config-watcher",
 	},
 
 	"http-server": {
