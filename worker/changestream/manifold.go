@@ -23,7 +23,7 @@ type Logger interface {
 }
 
 // StreamFn is an alias function that allows the creation of a DBStream.
-type StreamFn = func(*sql.DB, clock.Clock, Logger) DBStream
+type StreamFn = func(*sql.DB, FileNotifier, clock.Clock, Logger) DBStream
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will
 // depend.
@@ -80,10 +80,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			cfg := WorkerConfig{
-				DBGetter:  dbGetter,
-				Clock:     config.Clock,
-				Logger:    config.Logger,
-				NewStream: config.NewStream,
+				DBGetter:          dbGetter,
+				FileNotifyWatcher: fileNotifyWatcher,
+				Clock:             config.Clock,
+				Logger:            config.Logger,
+				NewStream:         config.NewStream,
 			}
 
 			w, err := newWorker(cfg)

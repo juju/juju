@@ -22,6 +22,13 @@ type DBGetter = dbaccessor.DBGetter
 // file notify watcher.
 type FileNotifyWatcher = filenotifywatcher.FileNotifyWatcher
 
+// FileNotifyWatcher represents a way to watch for changes in a namespace folder
+// directory.
+type FileNotifier interface {
+	// Changes returns a channel if a file was created or deleted.
+	Changes() (<-chan bool, error)
+}
+
 // ChangeStream represents a stream of changes that flows from the underlying
 // change log table in the database.
 type ChangeStream interface {
@@ -73,6 +80,7 @@ func (c *WorkerConfig) Validate() error {
 type changeStreamWorker struct {
 	cfg      WorkerConfig
 	catacomb catacomb.Catacomb
+	runner   *worker.Runner
 }
 
 func newWorker(cfg WorkerConfig) (*changeStreamWorker, error) {
@@ -83,11 +91,20 @@ func newWorker(cfg WorkerConfig) (*changeStreamWorker, error) {
 
 	w := &changeStreamWorker{
 		cfg: cfg,
+		runner: worker.NewRunner(worker.RunnerParams{
+			// Prevent the runner from restarting the worker, if one of the
+			// workers dies, we want to stop the whole thing.
+			IsFatal: func(err error) bool { return false },
+			Clock:   cfg.Clock,
+		}),
 	}
 
 	if err = catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
 		Work: w.loop,
+		Init: []worker.Worker{
+			w.runner,
+		},
 	}); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -96,6 +113,8 @@ func newWorker(cfg WorkerConfig) (*changeStreamWorker, error) {
 }
 
 func (w *changeStreamWorker) loop() (err error) {
+	defer w.runner.Kill()
+
 	for {
 		select {
 		case <-w.catacomb.Dying():
@@ -117,16 +136,35 @@ func (w *changeStreamWorker) Wait() error {
 // Changes returns a channel containing all the change events for the given
 // namespace.
 func (w *changeStreamWorker) Changes(namespace string) (<-chan changestream.ChangeEvent, error) {
+	if w, err := w.runner.Worker(namespace, w.catacomb.Dying()); err == nil {
+		return w.(DBStream).Changes(), nil
+	}
+
 	db, err := w.cfg.DBGetter.GetDB(namespace)
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting db for namespace %q", namespace)
 	}
 
-	// TODO (stickupkid): We could potentially cache the streams here and hand
-	// out the same stream for the same namespace.
-	stream := w.cfg.NewStream(db, w.cfg.Clock, w.cfg.Logger)
-	if err := w.catacomb.Add(stream); err != nil {
-		return nil, errors.Trace(err)
+	stream := w.cfg.NewStream(db, fileNotifyWatcher{
+		fileNotifier: w.cfg.FileNotifyWatcher,
+		namespace:    namespace,
+	}, w.cfg.Clock, w.cfg.Logger)
+
+	if err := w.runner.StartWorker(namespace, func() (worker.Worker, error) {
+		return stream, nil
+	}); err != nil {
+		return nil, errors.Annotatef(err, "starting worker for namespace %q", namespace)
 	}
 	return stream.Changes(), nil
+}
+
+// fileNotifyWatcher is a wrapper around the FileNotifyWatcher that is used to
+// filter the events to only those that are for the given namespace.
+type fileNotifyWatcher struct {
+	fileNotifier FileNotifyWatcher
+	namespace    string
+}
+
+func (f fileNotifyWatcher) Changes() (<-chan bool, error) {
+	return f.fileNotifier.Changes(f.namespace)
 }

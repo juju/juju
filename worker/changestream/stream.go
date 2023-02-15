@@ -22,9 +22,10 @@ const (
 
 // Stream defines a worker that will poll the database for change events.
 type Stream struct {
-	db     *sql.DB
-	clock  clock.Clock
-	logger Logger
+	db           *sql.DB
+	fileNotifier FileNotifier
+	clock        clock.Clock
+	logger       Logger
 
 	changes chan changestream.ChangeEvent
 	lastID  int64
@@ -33,12 +34,13 @@ type Stream struct {
 }
 
 // NewStream creates a new Stream.
-func NewStream(db *sql.DB, clock clock.Clock, logger Logger) DBStream {
+func NewStream(db *sql.DB, fileNotifier FileNotifier, clock clock.Clock, logger Logger) DBStream {
 	stream := &Stream{
-		db:      db,
-		clock:   clock,
-		logger:  logger,
-		changes: make(chan changestream.ChangeEvent),
+		db:           db,
+		fileNotifier: fileNotifier,
+		clock:        clock,
+		logger:       logger,
+		changes:      make(chan changestream.ChangeEvent),
 	}
 
 	stream.tomb.Go(stream.loop)
@@ -68,6 +70,11 @@ func (s *Stream) Wait() error {
 }
 
 func (s *Stream) loop() error {
+	fileNotifier, err := s.fileNotifier.Changes()
+	if err != nil {
+		return errors.Annotate(err, "getting file notifier")
+	}
+
 	// TODO (stickupkid): We need to read the last id from the database and
 	// set it here.
 	stmt, err := s.db.Prepare(query)
@@ -83,6 +90,37 @@ func (s *Stream) loop() error {
 		select {
 		case <-s.tomb.Dying():
 			return tomb.ErrDying
+
+		case fileCreated, ok := <-fileNotifier:
+			if !ok {
+				fileNotifier, err = s.fileNotifier.Changes()
+				if err != nil {
+					return errors.Annotate(err, "retrying file notifier")
+				}
+				continue
+			}
+
+			// If the file was removed, just continue, we're clearly not in the
+			// middle of a created block.
+			if !fileCreated {
+				continue
+			}
+
+			// Create a inner loop, that will block the outer loop until, we
+			// receive a change event from the file notifier.
+		INNER:
+			for {
+				select {
+				case <-s.tomb.Dying():
+					return tomb.ErrDying
+				case inner, ok := <-fileNotifier:
+					if !ok || !inner {
+						break INNER
+					}
+					s.logger.Debugf("ignoring file change event")
+				}
+			}
+
 		case <-timer.Chan():
 			changes, err := s.readChanges(stmt)
 			if err != nil {

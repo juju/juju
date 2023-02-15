@@ -33,6 +33,9 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 
 	cfg = s.getConfig()
 	cfg.DBAccessor = ""
+
+	cfg = s.getConfig()
+	cfg.FileNotifyWatcher = ""
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 
 	cfg = s.getConfig()
@@ -42,10 +45,11 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
-		DBAccessor: "dbaccessor",
-		Clock:      s.clock,
-		Logger:     s.logger,
-		NewStream: func(*sql.DB, clock.Clock, Logger) DBStream {
+		DBAccessor:        "dbaccessor",
+		FileNotifyWatcher: "filenotifywatcher",
+		Clock:             s.clock,
+		Logger:            s.logger,
+		NewStream: func(*sql.DB, FileNotifier, clock.Clock, Logger) DBStream {
 			return s.dbStream
 		},
 	}

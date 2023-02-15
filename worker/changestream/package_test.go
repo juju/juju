@@ -12,7 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package changestream -destination stream_mock_test.go github.com/juju/juju/worker/changestream ChangeStream,DBGetter,DBStream
+//go:generate go run github.com/golang/mock/mockgen -package changestream -destination stream_mock_test.go github.com/juju/juju/worker/changestream ChangeStream,DBGetter,DBStream,FileNotifier,FileNotifyWatcher
 //go:generate go run github.com/golang/mock/mockgen -package changestream -destination logger_mock_test.go github.com/juju/juju/worker/changestream Logger
 //go:generate go run github.com/golang/mock/mockgen -package changestream -destination clock_mock_test.go github.com/juju/clock Clock,Timer
 
@@ -23,11 +23,13 @@ func TestPackage(t *testing.T) {
 type baseSuite struct {
 	dbtesting.ControllerSuite
 
-	dbGetter *MockDBGetter
-	clock    *MockClock
-	timer    *MockTimer
-	logger   *MockLogger
-	dbStream *MockDBStream
+	dbGetter          *MockDBGetter
+	clock             *MockClock
+	timer             *MockTimer
+	logger            *MockLogger
+	dbStream          *MockDBStream
+	fileNotifyWatcher *MockFileNotifyWatcher
+	FileNotifier      *MockFileNotifier
 }
 
 func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -38,6 +40,8 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.timer = NewMockTimer(ctrl)
 	s.logger = NewMockLogger(ctrl)
 	s.dbStream = NewMockDBStream(ctrl)
+	s.fileNotifyWatcher = NewMockFileNotifyWatcher(ctrl)
+	s.FileNotifier = NewMockFileNotifier(ctrl)
 
 	return ctrl
 }
@@ -47,6 +51,10 @@ func (s *baseSuite) expectAnyLogs() {
 	s.logger.EXPECT().Warningf(gomock.Any()).AnyTimes()
 	s.logger.EXPECT().Infof(gomock.Any(), gomock.Any()).AnyTimes()
 	s.logger.EXPECT().Debugf(gomock.Any()).AnyTimes()
+}
+
+func (s *baseSuite) expectClock() {
+	s.clock.EXPECT().Now().Return(time.Now()).AnyTimes()
 }
 
 func (s *baseSuite) expectTimer(ticks int) <-chan struct{} {
@@ -66,4 +74,9 @@ func (s *baseSuite) expectTimer(ticks int) <-chan struct{} {
 		}
 	}()
 	return done
+}
+
+func (s *baseSuite) expectFileNotifyWatcher() {
+	ch := make(chan bool)
+	s.FileNotifier.EXPECT().Changes().Return(ch, nil).MinTimes(1)
 }

@@ -23,6 +23,7 @@ func (s *workerSuite) TestChanges(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
+	s.expectClock()
 
 	changes := make(chan changestream.ChangeEvent)
 	defer close(changes)
@@ -46,10 +47,11 @@ func (s *workerSuite) TestChanges(c *gc.C) {
 
 func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 	cfg := WorkerConfig{
-		DBGetter: s.dbGetter,
-		Clock:    s.clock,
-		Logger:   s.logger,
-		NewStream: func(*sql.DB, clock.Clock, Logger) DBStream {
+		DBGetter:          s.dbGetter,
+		FileNotifyWatcher: s.fileNotifyWatcher,
+		Clock:             s.clock,
+		Logger:            s.logger,
+		NewStream: func(*sql.DB, FileNotifier, clock.Clock, Logger) DBStream {
 			return s.dbStream
 		},
 	}
