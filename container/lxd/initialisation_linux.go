@@ -17,7 +17,6 @@ import (
 	"github.com/juju/os/v2/series"
 	"github.com/juju/packaging/v2/manager"
 	"github.com/juju/proxy"
-	"github.com/lxc/lxd/shared"
 
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/packaging"
@@ -223,7 +222,7 @@ func ensureDependencies(lxdSnapChannel, series string) error {
 // lxdViaSnap interrogates the location of the Snap LXD socket in order
 // to determine if LXD is being provided via that method.
 var lxdViaSnap = func() bool {
-	return shared.IsUnixSocket("/var/snap/lxd/common/lxd/unix.socket")
+	return IsUnixSocket("/var/snap/lxd/common/lxd/unix.socket")
 }
 
 // randomizedOctetRange is a variable for testing purposes.

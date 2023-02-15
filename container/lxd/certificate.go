@@ -12,7 +12,6 @@ import (
 	"io"
 
 	"github.com/juju/errors"
-	"github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
 )
 
@@ -30,7 +29,7 @@ type Certificate struct {
 // GenerateClientCertificate creates and returns a new certificate for client
 // communication with an LXD server.
 func GenerateClientCertificate() (*Certificate, error) {
-	cert, key, err := shared.GenerateMemCert(true, true)
+	cert, key, err := GenerateMemCert(true, true)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
