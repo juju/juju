@@ -4,11 +4,13 @@
 package keymanager_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
-	"github.com/juju/juju/testing"
+	gc "gopkg.in/check.v1"
 )
 
-func TestAll(t *stdtesting.T) {
-	testing.MgoTestPackage(t)
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/keymanager_mock.go github.com/juju/juju/apiserver/facades/client/keymanager Model,BlockChecker
+
+func TestAll(t *testing.T) {
+	gc.TestingT(t)
 }

@@ -24941,7 +24941,7 @@
     },
     {
         "Name": "KeyManager",
-        "Description": "KeyManagerAPI implements the KeyUpdater interface and is the concrete\nimplementation of the api end point.",
+        "Description": "KeyManagerAPI provides api endpoints for manipulating ssh keys",
         "Version": 1,
         "AvailableTo": [
             "model-user"

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -20,34 +21,21 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.keymanager")
 
 // The comment values used by juju internal ssh keys.
-var internalComments = set.NewStrings([]string{"juju-client-key", "juju-system-key"}...)
+var internalComments = set.NewStrings("juju-client-key", config.JujuSystemKey)
 
-// KeyManager defines the methods on the keymanager API end point.
-type KeyManager interface {
-	ListKeys(arg params.ListSSHKeys) (params.StringsResults, error)
-	AddKeys(arg params.ModifyUserSSHKeys) (params.ErrorResults, error)
-	DeleteKeys(arg params.ModifyUserSSHKeys) (params.ErrorResults, error)
-	ImportKeys(arg params.ModifyUserSSHKeys) (params.ErrorResults, error)
-}
-
-// KeyManagerAPI implements the KeyUpdater interface and is the concrete
-// implementation of the api end point.
+// KeyManagerAPI provides api endpoints for manipulating ssh keys
 type KeyManagerAPI struct {
-	state      *state.State
-	model      *state.Model
-	resources  facade.Resources
+	model      Model
 	authorizer facade.Authorizer
-	apiUser    names.UserTag
-	check      *common.BlockChecker
-}
+	check      BlockChecker
 
-var _ KeyManager = (*KeyManagerAPI)(nil)
+	controllerTag names.ControllerTag
+}
 
 func (api *KeyManagerAPI) checkCanRead(sshUser string) error {
 	if err := api.checkCanWrite(sshUser); err == nil {
@@ -57,14 +45,14 @@ func (api *KeyManagerAPI) checkCanRead(sshUser string) error {
 	}
 	if sshUser == config.JujuSystemKey {
 		// users cannot read the system key.
+		// NOTE: This check currently has no use as the apiserver ignores the user(s) included
+		// in requests. It exists as an added layer of protection for the future, to prevent users
+		// requesting the system key. Later, when keys are not global we will need to put more
+		// thought into exactly how we should ensure the system key is never exposed to users.
+		// At the moment this is handled by using `internalComments`
 		return apiservererrors.ErrPerm
 	}
-	ok, err := common.HasPermission(
-		api.state.UserPermission,
-		api.apiUser,
-		permission.ReadAccess,
-		api.model.ModelTag(),
-	)
+	ok, err := api.authorizer.HasPermission(permission.ReadAccess, api.model.ModelTag())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -77,9 +65,14 @@ func (api *KeyManagerAPI) checkCanRead(sshUser string) error {
 func (api *KeyManagerAPI) checkCanWrite(sshUser string) error {
 	if sshUser == config.JujuSystemKey {
 		// users cannot modify the system key.
+		// NOTE: This check currently has no use as the apiserver ignores the user(s) included
+		// in requests. It exists as an added layer of protection for the future, to prevent users
+		// requesting the system key. Later, when keys are not global we will need to put more
+		// thought into exactly how we should ensure the system key is never exposed to users.
+		// At the moment this is handled by using `internalComments`
 		return apiservererrors.ErrPerm
 	}
-	ok, err := common.HasModelAdmin(api.authorizer, api.state.ControllerTag(), names.NewModelTag(api.state.ModelUUID()))
+	ok, err := common.HasModelAdmin(api.authorizer, api.controllerTag, api.model.ModelTag())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -94,28 +87,28 @@ func (api *KeyManagerAPI) ListKeys(arg params.ListSSHKeys) (params.StringsResult
 	if len(arg.Entities.Entities) == 0 {
 		return params.StringsResults{}, nil
 	}
-	results := make([]params.StringsResult, len(arg.Entities.Entities))
 
 	// For now, authorised keys are global, common to all users.
-	var keyInfo []string
-	cfg, configErr := api.model.ModelConfig()
-	if configErr == nil {
-		keys := ssh.SplitAuthorisedKeys(cfg.AuthorizedKeys())
-		keyInfo = parseKeys(keys, arg.Mode)
+	cfg, err := api.model.ModelConfig()
+	if err != nil {
+		// Return error embedded in results for compatibility.
+		// TODO: Change this to a call-error on next facade bump
+		results := transform.Slice(arg.Entities.Entities, func(_ params.Entity) params.StringsResult {
+			return params.StringsResult{Error: apiservererrors.ServerError(err)}
+		})
+		return params.StringsResults{Results: results}, nil
 	}
+	keys := ssh.SplitAuthorisedKeys(cfg.AuthorizedKeys())
+	keyInfo := parseKeys(keys, arg.Mode)
 
-	for i, entity := range arg.Entities.Entities {
+	results := transform.Slice(arg.Entities.Entities, func(entity params.Entity) params.StringsResult {
 		// NOTE: entity.Tag isn't a tag, but a username.
 		if err := api.checkCanRead(entity.Tag); err != nil {
-			results[i].Error = apiservererrors.ServerError(err)
-			continue
+			return params.StringsResult{Error: apiservererrors.ServerError(err)}
 		}
 		// All keys are global, no need to look up the user.
-		if configErr == nil {
-			results[i].Result = keyInfo
-		}
-		results[i].Error = apiservererrors.ServerError(configErr)
-	}
+		return params.StringsResult{Result: keyInfo}
+	})
 	return params.StringsResults{Results: results}, nil
 }
 
@@ -177,18 +170,14 @@ func (api *KeyManagerAPI) currentKeyDataForAdd() (keys []string, fingerprints se
 
 // AddKeys adds new authorised ssh keys for the specified user.
 func (api *KeyManagerAPI) AddKeys(arg params.ModifyUserSSHKeys) (params.ErrorResults, error) {
+	if err := api.checkCanWrite(arg.User); err != nil {
+		return params.ErrorResults{}, apiservererrors.ServerError(err)
+	}
 	if err := api.check.ChangeAllowed(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(arg.Keys)),
-	}
 	if len(arg.Keys) == 0 {
-		return result, nil
-	}
-
-	if err := api.checkCanWrite(arg.User); err != nil {
-		return params.ErrorResults{}, apiservererrors.ServerError(err)
+		return params.ErrorResults{}, nil
 	}
 
 	// For now, authorised keys are global, common to all users.
@@ -198,29 +187,33 @@ func (api *KeyManagerAPI) AddKeys(arg params.ModifyUserSSHKeys) (params.ErrorRes
 	}
 
 	// Ensure we are not going to add invalid or duplicate keys.
-	result.Results = make([]params.ErrorResult, len(arg.Keys))
-	for i, key := range arg.Keys {
-		fingerprint, _, err := ssh.KeyFingerprint(key)
+	results := transform.Slice(arg.Keys, func(key string) params.ErrorResult {
+		fingerprint, comment, err := ssh.KeyFingerprint(key)
 		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(fmt.Errorf("invalid ssh key: %s", key))
-			continue
+			return params.ErrorResult{Error: apiservererrors.ServerError(fmt.Errorf("invalid ssh key: %s", key))}
+		}
+		if internalComments.Contains(comment) {
+			return params.ErrorResult{Error: apiservererrors.ServerError(fmt.Errorf("may not add key with comment %s: %s", comment, key))}
 		}
 		if currentFingerprints.Contains(fingerprint) {
-			result.Results[i].Error = apiservererrors.ServerError(fmt.Errorf("duplicate ssh key: %s", key))
-			continue
+			return params.ErrorResult{Error: apiservererrors.ServerError(fmt.Errorf("duplicate ssh key: %s", key))}
 		}
+		currentFingerprints.Add(fingerprint)
 		sshKeys = append(sshKeys, key)
-	}
+		return params.ErrorResult{}
+	})
+
 	err = api.writeSSHKeys(sshKeys)
 	if err != nil {
 		return params.ErrorResults{}, apiservererrors.ServerError(err)
 	}
-	return result, nil
+	return params.ErrorResults{Results: results}, nil
 }
 
 type importedSSHKey struct {
 	key         string
 	fingerprint string
+	comment     string
 	err         error
 }
 
@@ -249,11 +242,11 @@ func runSSHKeyImport(keyIds []string) map[string][]importedSSHKey {
 				continue
 			}
 			hasKey = true
-			// ignore key comment (e.g., user@host)
-			fingerprint, _, err := ssh.KeyFingerprint(line)
+			fingerprint, comment, err := ssh.KeyFingerprint(line)
 			keyInfo = append(keyInfo, importedSSHKey{
 				key:         line,
 				fingerprint: fingerprint,
+				comment:     comment,
 				err:         errors.Annotatef(err, "invalid ssh key for %s", keyId),
 			})
 		}
@@ -269,18 +262,14 @@ func runSSHKeyImport(keyIds []string) map[string][]importedSSHKey {
 
 // ImportKeys imports new authorised ssh keys from the specified key ids for the specified user.
 func (api *KeyManagerAPI) ImportKeys(arg params.ModifyUserSSHKeys) (params.ErrorResults, error) {
+	if err := api.checkCanWrite(arg.User); err != nil {
+		return params.ErrorResults{}, apiservererrors.ServerError(err)
+	}
 	if err := api.check.ChangeAllowed(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(arg.Keys)),
-	}
 	if len(arg.Keys) == 0 {
-		return result, nil
-	}
-
-	if err := api.checkCanWrite(arg.User); err != nil {
-		return params.ErrorResults{}, apiservererrors.ServerError(err)
+		return params.ErrorResults{}, nil
 	}
 
 	// For now, authorised keys are global, common to all users.
@@ -290,13 +279,17 @@ func (api *KeyManagerAPI) ImportKeys(arg params.ModifyUserSSHKeys) (params.Error
 	}
 
 	importedKeyInfo := runSSHKeyImport(arg.Keys)
+
 	// Ensure we are not going to add invalid or duplicate keys.
-	result.Results = make([]params.ErrorResult, len(importedKeyInfo))
-	for i, key := range arg.Keys {
+	results := transform.Slice(arg.Keys, func(key string) params.ErrorResult {
 		compoundErr := ""
 		for _, keyInfo := range importedKeyInfo[key] {
 			if keyInfo.err != nil {
 				compoundErr += fmt.Sprintf("%v\n", keyInfo.err)
+				continue
+			}
+			if internalComments.Contains(keyInfo.comment) {
+				compoundErr += fmt.Sprintf("%v\n", errors.Errorf("may not add key with comment %s: %s", keyInfo.comment, keyInfo.key))
 				continue
 			}
 			if currentFingerprints.Contains(keyInfo.fingerprint) {
@@ -306,15 +299,16 @@ func (api *KeyManagerAPI) ImportKeys(arg params.ModifyUserSSHKeys) (params.Error
 			sshKeys = append(sshKeys, keyInfo.key)
 		}
 		if compoundErr != "" {
-			result.Results[i].Error = apiservererrors.ServerError(errors.Errorf(strings.TrimSuffix(compoundErr, "\n")))
+			return params.ErrorResult{Error: apiservererrors.ServerError(errors.Errorf(strings.TrimSuffix(compoundErr, "\n")))}
 		}
+		return params.ErrorResult{}
+	})
 
-	}
 	err = api.writeSSHKeys(sshKeys)
 	if err != nil {
 		return params.ErrorResults{}, apiservererrors.ServerError(err)
 	}
-	return result, nil
+	return params.ErrorResults{Results: results}, nil
 }
 
 // currentKeyDataForDelete gathers data used when deleting ssh keys.
@@ -348,18 +342,14 @@ func (api *KeyManagerAPI) currentKeyDataForDelete() (
 
 // DeleteKeys deletes the authorised ssh keys for the specified user.
 func (api *KeyManagerAPI) DeleteKeys(arg params.ModifyUserSSHKeys) (params.ErrorResults, error) {
-	if err := api.check.ChangeAllowed(); err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
-	}
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(arg.Keys)),
-	}
-	if len(arg.Keys) == 0 {
-		return result, nil
-	}
-
 	if err := api.checkCanWrite(arg.User); err != nil {
 		return params.ErrorResults{}, apiservererrors.ServerError(err)
+	}
+	if err := api.check.RemoveAllowed(); err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+	if len(arg.Keys) == 0 {
+		return params.ErrorResults{}, nil
 	}
 
 	allKeys, byFingerprint, byComment, err := api.currentKeyDataForDelete()
@@ -370,26 +360,24 @@ func (api *KeyManagerAPI) DeleteKeys(arg params.ModifyUserSSHKeys) (params.Error
 	// Record the keys to be deleted in the second pass.
 	keysToDelete := make(set.Strings)
 
-	// Find the keys corresponding to the specified key fingerprints or comments.
-	for i, keyId := range arg.Keys {
+	results := transform.Slice(arg.Keys, func(keyId string) params.ErrorResult {
 		// Is given keyId a fingerprint?
 		key, ok := byFingerprint[keyId]
 		if ok {
 			keysToDelete.Add(key)
-			continue
+			return params.ErrorResult{}
 		}
 		// Not a fingerprint, is it a comment?
 		key, ok = byComment[keyId]
 		if ok {
 			if internalComments.Contains(keyId) {
-				result.Results[i].Error = apiservererrors.ServerError(fmt.Errorf("may not delete internal key: %s", keyId))
-				continue
+				return params.ErrorResult{Error: apiservererrors.ServerError(fmt.Errorf("may not delete internal key: %s", keyId))}
 			}
 			keysToDelete.Add(key)
-			continue
+			return params.ErrorResult{}
 		}
-		result.Results[i].Error = apiservererrors.ServerError(fmt.Errorf("invalid ssh key: %s", keyId))
-	}
+		return params.ErrorResult{Error: apiservererrors.ServerError(fmt.Errorf("invalid ssh key: %s", keyId))}
+	})
 
 	var keysToWrite []string
 
@@ -408,5 +396,5 @@ func (api *KeyManagerAPI) DeleteKeys(arg params.ModifyUserSSHKeys) (params.Error
 	if err != nil {
 		return params.ErrorResults{}, apiservererrors.ServerError(err)
 	}
-	return result, nil
+	return params.ErrorResults{Results: results}, nil
 }
