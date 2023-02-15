@@ -49,8 +49,8 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		FileNotifyWatcher: "filenotifywatcher",
 		Clock:             s.clock,
 		Logger:            s.logger,
-		NewStream: func(*sql.DB, FileNotifier, clock.Clock, Logger) DBStream {
-			return s.dbStream
+		NewStream: func(*sql.DB, FileNotifier, clock.Clock, Logger) (DBStream, error) {
+			return s.dbStream, nil
 		},
 	}
 }

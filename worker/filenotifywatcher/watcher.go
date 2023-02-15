@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	defaultWatcherPath = "/var/lib/juju/agents/watchers"
+	defaultWatcherPath = "/var/lib/juju/locks"
 )
 
 // FileWatcher is an interface that allows a worker to watch a file for changes.
@@ -109,7 +109,7 @@ func NewWatcher(namespace string, opts ...Option) (FileWatcher, error) {
 		namespace: namespace,
 		changes:   make(chan bool),
 		watcher:   watcher,
-		watchPath: filepath.Join(o.path, namespace),
+		watchPath: filepath.Join(o.path, namespace+".db.lock"),
 		logger:    o.logger,
 	}
 

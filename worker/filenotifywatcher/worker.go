@@ -103,8 +103,8 @@ func (w *fileNotifyWorker) Wait() error {
 // Changes returns a channel containing all the change events for the given
 // namespace.
 func (w *fileNotifyWorker) Changes(namespace string) (<-chan bool, error) {
-	if w, err := w.runner.Worker(namespace, w.catacomb.Dying()); err == nil {
-		return w.(FileWatcher).Changes(), nil
+	if fw, err := w.runner.Worker(namespace, w.catacomb.Dying()); err == nil {
+		return fw.(FileWatcher).Changes(), nil
 	}
 
 	watcher, err := w.cfg.NewWatcher(namespace, WithLogger(w.cfg.Logger))

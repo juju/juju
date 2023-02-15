@@ -20,10 +20,11 @@ type Logger interface {
 	Infof(message string, args ...interface{})
 	Debugf(message string, args ...interface{})
 	Tracef(message string, args ...interface{})
+	IsTraceEnabled() bool
 }
 
 // StreamFn is an alias function that allows the creation of a DBStream.
-type StreamFn = func(*sql.DB, FileNotifier, clock.Clock, Logger) DBStream
+type StreamFn = func(*sql.DB, FileNotifier, clock.Clock, Logger) (DBStream, error)
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will
 // depend.

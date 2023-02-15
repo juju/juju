@@ -51,6 +51,7 @@ func (s *baseSuite) expectAnyLogs() {
 	s.logger.EXPECT().Warningf(gomock.Any()).AnyTimes()
 	s.logger.EXPECT().Infof(gomock.Any(), gomock.Any()).AnyTimes()
 	s.logger.EXPECT().Debugf(gomock.Any()).AnyTimes()
+	s.logger.EXPECT().IsTraceEnabled().Return(false).AnyTimes()
 }
 
 func (s *baseSuite) expectClock() {

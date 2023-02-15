@@ -84,6 +84,20 @@ func (mr *MockLoggerMockRecorder) Infof(arg0 interface{}, arg1 ...interface{}) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Infof", reflect.TypeOf((*MockLogger)(nil).Infof), varargs...)
 }
 
+// IsTraceEnabled mocks base method.
+func (m *MockLogger) IsTraceEnabled() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsTraceEnabled")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// IsTraceEnabled indicates an expected call of IsTraceEnabled.
+func (mr *MockLoggerMockRecorder) IsTraceEnabled() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsTraceEnabled", reflect.TypeOf((*MockLogger)(nil).IsTraceEnabled))
+}
+
 // Tracef mocks base method.
 func (m *MockLogger) Tracef(arg0 string, arg1 ...interface{}) {
 	m.ctrl.T.Helper()

@@ -51,8 +51,8 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 		FileNotifyWatcher: s.fileNotifyWatcher,
 		Clock:             s.clock,
 		Logger:            s.logger,
-		NewStream: func(*sql.DB, FileNotifier, clock.Clock, Logger) DBStream {
-			return s.dbStream
+		NewStream: func(*sql.DB, FileNotifier, clock.Clock, Logger) (DBStream, error) {
+			return s.dbStream, nil
 		},
 	}
 

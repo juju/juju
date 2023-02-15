@@ -136,8 +136,8 @@ func (w *changeStreamWorker) Wait() error {
 // Changes returns a channel containing all the change events for the given
 // namespace.
 func (w *changeStreamWorker) Changes(namespace string) (<-chan changestream.ChangeEvent, error) {
-	if w, err := w.runner.Worker(namespace, w.catacomb.Dying()); err == nil {
-		return w.(DBStream).Changes(), nil
+	if s, err := w.runner.Worker(namespace, w.catacomb.Dying()); err == nil {
+		return s.(DBStream).Changes(), nil
 	}
 
 	db, err := w.cfg.DBGetter.GetDB(namespace)
@@ -145,10 +145,13 @@ func (w *changeStreamWorker) Changes(namespace string) (<-chan changestream.Chan
 		return nil, errors.Annotatef(err, "getting db for namespace %q", namespace)
 	}
 
-	stream := w.cfg.NewStream(db, fileNotifyWatcher{
+	stream, err := w.cfg.NewStream(db, fileNotifyWatcher{
 		fileNotifier: w.cfg.FileNotifyWatcher,
 		namespace:    namespace,
 	}, w.cfg.Clock, w.cfg.Logger)
+	if err != nil {
+		return nil, errors.Annotatef(err, "creating stream for namespace %q", namespace)
+	}
 
 	if err := w.runner.StartWorker(namespace, func() (worker.Worker, error) {
 		return stream, nil
