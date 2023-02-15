@@ -51,6 +51,21 @@ func (mr *MockNodeManagerMockRecorder) EnsureDataDir() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureDataDir", reflect.TypeOf((*MockNodeManager)(nil).EnsureDataDir))
 }
 
+// IsExistingNode mocks base method.
+func (m *MockNodeManager) IsExistingNode() (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsExistingNode")
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsExistingNode indicates an expected call of IsExistingNode.
+func (mr *MockNodeManagerMockRecorder) IsExistingNode() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsExistingNode", reflect.TypeOf((*MockNodeManager)(nil).IsExistingNode))
+}
+
 // WithAddressOption mocks base method.
 func (m *MockNodeManager) WithAddressOption() (app.Option, error) {
 	m.ctrl.T.Helper()

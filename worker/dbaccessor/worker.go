@@ -22,6 +22,10 @@ const replSocketFileName = "juju.sock"
 
 // NodeManager creates Dqlite `App` initialisation arguments and options.
 type NodeManager interface {
+	// IsExistingNode returns true if this machine of container has run a
+	// Dqlite node in the past
+	IsExistingNode() (bool, error)
+
 	// EnsureDataDir ensures that a directory for Dqlite data exists at
 	// a path determined by the agent config, then returns that path.
 	EnsureDataDir() (string, error)
@@ -227,28 +231,47 @@ func (w *dbWorker) initializeDqlite() error {
 		return nil
 	}
 
-	opt := w.cfg.NodeManager
+	mgr := w.cfg.NodeManager
 
-	dataDir, err := opt.EnsureDataDir()
+	dataDir, err := mgr.EnsureDataDir()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	withAddr, err := opt.WithAddressOption()
+	options := []app.Option{mgr.WithLogFuncOption()}
+
+	// If we have started this node before, there is no need to supply address
+	// or clustering options. These are already committed to Dqlite's Raft log
+	// and are indicated by the contents of cluster.yaml and info.yaml in the
+	// data directory.
+	extant, err := mgr.IsExistingNode()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	withCluster, err := opt.WithClusterOption()
-	if err != nil {
+	if extant {
+		w.cfg.Logger.Infof("host is configured as a Dqlite node")
+	} else {
+		w.cfg.Logger.Infof("configuring host as a Dqlite node for the first time")
+
+		withAddr, err := mgr.WithAddressOption()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		options = append(options, withAddr)
+
+		withCluster, err := mgr.WithClusterOption()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		options = append(options, withCluster)
+	}
+
+	if w.dbApp, err = w.cfg.NewApp(dataDir, options...); err != nil {
 		return errors.Trace(err)
 	}
 
-	if w.dbApp, err = w.cfg.NewApp(dataDir, withAddr, withCluster, opt.WithLogFuncOption()); err != nil {
-		return errors.Trace(err)
-	}
-
-	// Ensure dqlite is ready to accept new changes.
+	// Ensure Dqlite is ready to accept new changes.
 	if err := w.dbApp.Ready(context.TODO()); err != nil {
 		_ = w.dbApp.Close()
 		w.dbApp = nil
@@ -265,8 +288,9 @@ func (w *dbWorker) initializeDqlite() error {
 		return errors.Annotatef(err, "starting Dqlite REPL")
 	}
 
+	// Start handling GetDB calls from third parties.
+	close(w.dbReadyCh)
 	w.cfg.Logger.Infof("initialized Dqlite application (ID: %v)", w.dbApp.ID())
-	close(w.dbReadyCh) // start accepting GetDB() requests.
 	return nil
 }
 
