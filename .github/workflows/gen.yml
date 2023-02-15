@@ -28,9 +28,6 @@ jobs:
           go-version-file: 'go.mod'
           cache: true
 
-      - name: "go get dependencies"
-        run: go get ./...
-
       - name: "Install musl & dqlite"
         shell: bash
         run: |
@@ -56,6 +53,7 @@ jobs:
           #  3. Unique every file, so we only go generate the file once.
           #  4. Using xargs perform go generate in parallel.
           #
+          ls -la .
           make run-go-generate
 
       - name: "Check diff"
