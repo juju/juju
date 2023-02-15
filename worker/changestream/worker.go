@@ -136,10 +136,6 @@ func (w *changeStreamWorker) Wait() error {
 // Changes returns a channel containing all the change events for the given
 // namespace.
 func (w *changeStreamWorker) Changes(namespace string) (<-chan changestream.ChangeEvent, error) {
-	if s, err := w.runner.Worker(namespace, w.catacomb.Dying()); err == nil {
-		return s.(DBStream).Changes(), nil
-	}
-
 	db, err := w.cfg.DBGetter.GetDB(namespace)
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting db for namespace %q", namespace)
