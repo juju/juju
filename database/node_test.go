@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"net"
 	"os"
+	"path"
 	"strconv"
 
 	"github.com/juju/testing"
@@ -26,24 +27,50 @@ type nodeManagerSuite struct {
 
 var _ = gc.Suite(&nodeManagerSuite{})
 
+func (s *nodeManagerSuite) TestIsExistingNode(c *gc.C) {
+	subDir := strconv.Itoa(rand.Intn(10))
+
+	cfg := fakeAgentConfig{dataDir: "/tmp/" + subDir}
+	s.AddCleanup(func(*gc.C) { _ = os.RemoveAll(cfg.DataDir()) })
+
+	m := NewNodeManager(cfg, stubLogger{})
+
+	// Empty directory indicates we've never started.
+	extant, err := m.IsExistingNode()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(extant, jc.IsFalse)
+
+	// Non-empty indicates we've come up before.
+	dataDir, err := m.EnsureDataDir()
+	c.Assert(err, jc.ErrorIsNil)
+
+	someFile := path.Join(dataDir, "a-file.txt")
+	err = os.WriteFile(someFile, nil, 06000)
+	c.Assert(err, jc.ErrorIsNil)
+
+	extant, err = m.IsExistingNode()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(extant, jc.IsTrue)
+}
+
 func (s *nodeManagerSuite) TestEnsureDataDirSuccess(c *gc.C) {
 	subDir := strconv.Itoa(rand.Intn(10))
 
 	cfg := fakeAgentConfig{dataDir: "/tmp/" + subDir}
-	f := NewNodeManager(cfg, stubLogger{})
+	m := NewNodeManager(cfg, stubLogger{})
 
 	expected := fmt.Sprintf("/tmp/%s/%s", subDir, dqliteDataDir)
 	s.AddCleanup(func(*gc.C) { _ = os.RemoveAll(cfg.DataDir()) })
 
 	// Call twice to check both the creation and extant scenarios.
-	dir, err := f.EnsureDataDir()
+	dir, err := m.EnsureDataDir()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(dir, gc.Equals, expected)
 
 	_, err = os.Stat(expected)
 	c.Assert(err, jc.ErrorIsNil)
 
-	dir, err = f.EnsureDataDir()
+	dir, err = m.EnsureDataDir()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(dir, gc.Equals, expected)
 
@@ -52,9 +79,9 @@ func (s *nodeManagerSuite) TestEnsureDataDirSuccess(c *gc.C) {
 }
 
 func (s *nodeManagerSuite) TestWithAddressOptionSuccess(c *gc.C) {
-	f := NewNodeManager(nil, stubLogger{})
+	m := NewNodeManager(nil, stubLogger{})
 
-	withAddress, err := f.WithAddressOption()
+	withAddress, err := m.WithAddressOption()
 	c.Assert(err, jc.ErrorIsNil)
 
 	dqlite, err := app.New(c.MkDir(), withAddress)
@@ -65,9 +92,9 @@ func (s *nodeManagerSuite) TestWithAddressOptionSuccess(c *gc.C) {
 
 func (s *nodeManagerSuite) TestWithTLSOptionSuccess(c *gc.C) {
 	cfg := fakeAgentConfig{}
-	f := NewNodeManager(cfg, stubLogger{})
+	m := NewNodeManager(cfg, stubLogger{})
 
-	withTLS, err := f.WithTLSOption()
+	withTLS, err := m.WithTLSOption()
 	c.Assert(err, jc.ErrorIsNil)
 
 	dqlite, err := app.New(c.MkDir(), withTLS)
@@ -90,9 +117,9 @@ func (s *nodeManagerSuite) TestWithClusterOptionSuccess(c *gc.C) {
 		},
 	}
 
-	f := NewNodeManager(cfg, stubLogger{})
+	m := NewNodeManager(cfg, stubLogger{})
 
-	withCluster, err := f.WithClusterOption()
+	withCluster, err := m.WithClusterOption()
 	c.Assert(err, jc.ErrorIsNil)
 
 	dqlite, err := app.New(c.MkDir(), withCluster)
@@ -109,9 +136,9 @@ func (s *nodeManagerSuite) TestWithClusterNotHASuccess(c *gc.C) {
 
 	cfg := fakeAgentConfig{apiAddrs: []string{h.bindAddress}}
 
-	f := NewNodeManager(cfg, stubLogger{})
+	m := NewNodeManager(cfg, stubLogger{})
 
-	withCluster, err := f.WithClusterOption()
+	withCluster, err := m.WithClusterOption()
 	c.Assert(err, jc.ErrorIsNil)
 
 	dqlite, err := app.New(c.MkDir(), withCluster)
