@@ -212,7 +212,7 @@ func (s *AgentSuite) PrimeStateAgentVersion(c *gc.C, tag names.Tag, password str
 	conf := s.WriteStateAgentConfig(c, tag, password, vers, model.ModelTag())
 	s.primeAPIHostPorts(c)
 
-	err = database.BootstrapDqlite(context.TODO(), database.NewOptionFactory(conf, logger), logger, s.InitialDBOps...)
+	err = database.BootstrapDqlite(context.TODO(), database.NewNodeManager(conf, logger), logger, s.InitialDBOps...)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return conf, agentTools
