@@ -20,8 +20,8 @@ import (
 
 const replSocketFileName = "juju.sock"
 
-// OptionFactory creates Dqlite `App` initialisation arguments and options.
-type OptionFactory interface {
+// NodeManager creates Dqlite `App` initialisation arguments and options.
+type NodeManager interface {
 	// EnsureDataDir ensures that a directory for Dqlite data exists at
 	// a path determined by the agent config, then returns that path.
 	EnsureDataDir() (string, error)
@@ -55,15 +55,15 @@ type DBGetter interface {
 // WorkerConfig encapsulates the configuration options for the
 // dbaccessor worker.
 type WorkerConfig struct {
-	OptionFactory OptionFactory
-	Clock         clock.Clock
-	Logger        Logger
-	NewApp        func(string, ...app.Option) (DBApp, error)
+	NodeManager NodeManager
+	Clock       clock.Clock
+	Logger      Logger
+	NewApp      func(string, ...app.Option) (DBApp, error)
 }
 
 // Validate ensures that the config values are valid.
 func (c *WorkerConfig) Validate() error {
-	if c.OptionFactory == nil {
+	if c.NodeManager == nil {
 		return errors.NotValidf("missing Dqlite option factory")
 	}
 	if c.Clock == nil {
@@ -227,7 +227,7 @@ func (w *dbWorker) initializeDqlite() error {
 		return nil
 	}
 
-	opt := w.cfg.OptionFactory
+	opt := w.cfg.NodeManager
 
 	dataDir, err := opt.EnsureDataDir()
 	if err != nil {

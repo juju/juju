@@ -32,9 +32,10 @@ const (
 // WithAddressOption. It is used in tests to override address detection.
 var DefaultBindAddress = ""
 
-// OptionFactory creates Dqlite `App` initialisation arguments and options.
-// These generally depend on a controller's agent config.
-type OptionFactory struct {
+// NodeManager is responsible for interrogating a single Dqlite node,
+// and emitting configuration for starting its Dqlite `App` based on
+// operational requirements and controller agent config.
+type NodeManager struct {
 	cfg    agent.Config
 	port   int
 	logger Logger
@@ -42,10 +43,10 @@ type OptionFactory struct {
 	bindAddress string
 }
 
-// NewOptionFactory returns a new OptionFactory reference
+// NewNodeManager returns a new NodeManager reference
 // based on the input agent configuration.
-func NewOptionFactory(cfg agent.Config, logger Logger) *OptionFactory {
-	return &OptionFactory{
+func NewNodeManager(cfg agent.Config, logger Logger) *NodeManager {
+	return &NodeManager{
 		cfg:         cfg,
 		port:        dqlitePort,
 		logger:      logger,
@@ -55,7 +56,7 @@ func NewOptionFactory(cfg agent.Config, logger Logger) *OptionFactory {
 
 // EnsureDataDir ensures that a directory for Dqlite data exists at
 // a path determined by the agent config, then returns that path.
-func (f *OptionFactory) EnsureDataDir() (string, error) {
+func (f *NodeManager) EnsureDataDir() (string, error) {
 	dir := filepath.Join(f.cfg.DataDir(), dqliteDataDir)
 	err := os.MkdirAll(dir, 0700)
 	return dir, errors.Annotatef(err, "creating directory for Dqlite data")
@@ -63,7 +64,7 @@ func (f *OptionFactory) EnsureDataDir() (string, error) {
 
 // WithLogFuncOption returns a Dqlite application Option that will proxy Dqlite
 // log output via this factory's logger where the level is recognised.
-func (f *OptionFactory) WithLogFuncOption() app.Option {
+func (f *NodeManager) WithLogFuncOption() app.Option {
 	return app.WithLogFunc(func(level client.LogLevel, msg string, args ...interface{}) {
 		if actualLevel, known := loggo.ParseLevel(level.String()); known {
 			f.logger.Logf(actualLevel, msg, args...)
@@ -74,7 +75,7 @@ func (f *OptionFactory) WithLogFuncOption() app.Option {
 // WithAddressOption returns a Dqlite application Option
 // for specifying the local address:port to use.
 // See the comment for ensureBindAddress below.
-func (f *OptionFactory) WithAddressOption() (app.Option, error) {
+func (f *NodeManager) WithAddressOption() (app.Option, error) {
 	if err := f.ensureBindAddress(); err != nil {
 		return nil, errors.Annotate(err, "ensuring Dqlite bind address")
 	}
@@ -84,7 +85,7 @@ func (f *OptionFactory) WithAddressOption() (app.Option, error) {
 
 // WithTLSOption returns a Dqlite application Option for TLS encryption
 // of traffic between clients and clustered application nodes.
-func (f *OptionFactory) WithTLSOption() (app.Option, error) {
+func (f *NodeManager) WithTLSOption() (app.Option, error) {
 	stateInfo, ok := f.cfg.StateServingInfo()
 	if !ok {
 		return nil, errors.NotSupportedf("Dqlite node initialisation on non-controller machine/container")
@@ -122,7 +123,7 @@ func (f *OptionFactory) WithTLSOption() (app.Option, error) {
 // This will need revision in the context of juju-ha-space as well.
 // Furthermore, relying on agent config for API addresses implicitly makes this
 // affected by a configured juju-ctrl-space, which might be undesired.
-func (f *OptionFactory) WithClusterOption() (app.Option, error) {
+func (f *NodeManager) WithClusterOption() (app.Option, error) {
 	if err := f.ensureBindAddress(); err != nil {
 		return nil, errors.Annotate(err, "ensuring Dqlite bind address")
 	}
@@ -155,7 +156,7 @@ func (f *OptionFactory) WithClusterOption() (app.Option, error) {
 // ensureBindAddress sets the bind address, used by clients and peers.
 // We will need to revisit this because at present it is not influenced
 // by a configured juju-ha-space.
-func (f *OptionFactory) ensureBindAddress() error {
+func (f *NodeManager) ensureBindAddress() error {
 	if f.bindAddress != "" {
 		return nil
 	}

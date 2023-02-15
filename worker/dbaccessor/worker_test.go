@@ -18,7 +18,7 @@ import (
 type workerSuite struct {
 	baseSuite
 
-	optFactory *MockOptionFactory
+	nodeManager *MockNodeManager
 }
 
 var _ = gc.Suite(&workerSuite{})
@@ -28,7 +28,7 @@ func (s *workerSuite) TestGetControllerDBSuccess(c *gc.C) {
 
 	s.expectAnyLogs()
 
-	optExp := s.optFactory.EXPECT()
+	optExp := s.nodeManager.EXPECT()
 	optExp.EnsureDataDir().Return(c.MkDir(), nil)
 	optExp.WithAddressOption().Return(nil, nil)
 	optExp.WithClusterOption().Return(nil, nil)
@@ -55,15 +55,15 @@ func (s *workerSuite) TestGetControllerDBSuccess(c *gc.C) {
 
 func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
-	s.optFactory = NewMockOptionFactory(ctrl)
+	s.nodeManager = NewMockNodeManager(ctrl)
 	return ctrl
 }
 
 func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 	cfg := WorkerConfig{
-		OptionFactory: s.optFactory,
-		Clock:         s.clock,
-		Logger:        s.logger,
+		NodeManager: s.nodeManager,
+		Clock:       s.clock,
+		Logger:      s.logger,
 		NewApp: func(string, ...app.Option) (DBApp, error) {
 			return s.dbApp, nil
 		},

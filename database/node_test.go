@@ -20,17 +20,17 @@ import (
 	jujutesting "github.com/juju/juju/testing"
 )
 
-type optionSuite struct {
+type nodeManagerSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&optionSuite{})
+var _ = gc.Suite(&nodeManagerSuite{})
 
-func (s *optionSuite) TestEnsureDataDirSuccess(c *gc.C) {
+func (s *nodeManagerSuite) TestEnsureDataDirSuccess(c *gc.C) {
 	subDir := strconv.Itoa(rand.Intn(10))
 
 	cfg := fakeAgentConfig{dataDir: "/tmp/" + subDir}
-	f := NewOptionFactory(cfg, stubLogger{})
+	f := NewNodeManager(cfg, stubLogger{})
 
 	expected := fmt.Sprintf("/tmp/%s/%s", subDir, dqliteDataDir)
 	s.AddCleanup(func(*gc.C) { _ = os.RemoveAll(cfg.DataDir()) })
@@ -51,8 +51,8 @@ func (s *optionSuite) TestEnsureDataDirSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *optionSuite) TestWithAddressOptionSuccess(c *gc.C) {
-	f := NewOptionFactory(nil, stubLogger{})
+func (s *nodeManagerSuite) TestWithAddressOptionSuccess(c *gc.C) {
+	f := NewNodeManager(nil, stubLogger{})
 
 	withAddress, err := f.WithAddressOption()
 	c.Assert(err, jc.ErrorIsNil)
@@ -63,9 +63,9 @@ func (s *optionSuite) TestWithAddressOptionSuccess(c *gc.C) {
 	_ = dqlite.Close()
 }
 
-func (s *optionSuite) TestWithTLSOptionSuccess(c *gc.C) {
+func (s *nodeManagerSuite) TestWithTLSOptionSuccess(c *gc.C) {
 	cfg := fakeAgentConfig{}
-	f := NewOptionFactory(cfg, stubLogger{})
+	f := NewNodeManager(cfg, stubLogger{})
 
 	withTLS, err := f.WithTLSOption()
 	c.Assert(err, jc.ErrorIsNil)
@@ -76,9 +76,9 @@ func (s *optionSuite) TestWithTLSOptionSuccess(c *gc.C) {
 	_ = dqlite.Close()
 }
 
-func (s *optionSuite) TestWithClusterOptionSuccess(c *gc.C) {
+func (s *nodeManagerSuite) TestWithClusterOptionSuccess(c *gc.C) {
 	// Hack to get a bind address to add to config.
-	h := NewOptionFactory(fakeAgentConfig{}, stubLogger{})
+	h := NewNodeManager(fakeAgentConfig{}, stubLogger{})
 	err := h.ensureBindAddress()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -90,7 +90,7 @@ func (s *optionSuite) TestWithClusterOptionSuccess(c *gc.C) {
 		},
 	}
 
-	f := NewOptionFactory(cfg, stubLogger{})
+	f := NewNodeManager(cfg, stubLogger{})
 
 	withCluster, err := f.WithClusterOption()
 	c.Assert(err, jc.ErrorIsNil)
@@ -101,15 +101,15 @@ func (s *optionSuite) TestWithClusterOptionSuccess(c *gc.C) {
 	_ = dqlite.Close()
 }
 
-func (s *optionSuite) TestWithClusterNotHASuccess(c *gc.C) {
+func (s *nodeManagerSuite) TestWithClusterNotHASuccess(c *gc.C) {
 	// Hack to get a bind address to add to config.
-	h := NewOptionFactory(fakeAgentConfig{}, stubLogger{})
+	h := NewNodeManager(fakeAgentConfig{}, stubLogger{})
 	err := h.ensureBindAddress()
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg := fakeAgentConfig{apiAddrs: []string{h.bindAddress}}
 
-	f := NewOptionFactory(cfg, stubLogger{})
+	f := NewNodeManager(cfg, stubLogger{})
 
 	withCluster, err := f.WithClusterOption()
 	c.Assert(err, jc.ErrorIsNil)
@@ -120,7 +120,7 @@ func (s *optionSuite) TestWithClusterNotHASuccess(c *gc.C) {
 	_ = dqlite.Close()
 }
 
-func (s *optionSuite) TestIgnoreInterface(c *gc.C) {
+func (s *nodeManagerSuite) TestIgnoreInterface(c *gc.C) {
 	shouldIgnore := []string{
 		"lxdbr0",
 		"virbr0",

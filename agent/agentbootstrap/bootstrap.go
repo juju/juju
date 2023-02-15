@@ -106,7 +106,7 @@ func InitializeState(
 	info.Tag = nil
 	info.Password = c.OldPassword()
 
-	if err := database.BootstrapDqlite(stdcontext.TODO(), database.NewOptionFactory(c, logger), logger); err != nil {
+	if err := database.BootstrapDqlite(stdcontext.TODO(), database.NewNodeManager(c, logger), logger); err != nil {
 		return nil, errors.Trace(err)
 	}
 
