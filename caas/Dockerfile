@@ -1,4 +1,4 @@
-FROM ubuntu:20.04
+FROM public.ecr.aws/ubuntu/ubuntu:20.04
 ARG TARGETOS
 ARG TARGETARCH
 ARG BUILDOS
