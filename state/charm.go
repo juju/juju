@@ -797,6 +797,38 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 	return newCharm(st, &cdoc), nil
 }
 
+// Charm returns the charm with the given URL. Charms pending to be uploaded
+// are returned for Charmhub charms. Charm placeholders are never returned.
+func (st *State) CharmFromSha256(bundleSha256 string) (*Charm, error) {
+	var cdoc charmDoc
+
+	charms, closer := st.db().GetCollection(charmsC)
+	defer closer()
+
+	findExpr := fmt.Sprintf("^%s", bundleSha256)
+	what := bson.D{
+		{"bundlesha256", bson.D{{"$regex", findExpr}}},
+		{"placeholder", bson.D{{"$ne", true}}},
+	}
+	what = append(what, nsLife.notDead()...)
+	err := charms.Find(what).One(&cdoc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("charm with sha256 %q", bundleSha256)
+	}
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get charm with sha256 %q", bundleSha256)
+	}
+
+	charmurl, err := charm.ParseURL(*cdoc.URL)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot parse url from charm %q", *cdoc.URL)
+	}
+	if cdoc.PendingUpload && !charm.CharmHub.Matches(charmurl.Schema) {
+		return nil, errors.NotFoundf("charm %q", charmurl.String())
+	}
+	return newCharm(st, &cdoc), nil
+}
+
 // LatestPlaceholderCharm returns the latest charm described by the
 // given URL but which is not yet deployed.
 func (st *State) LatestPlaceholderCharm(curl *charm.URL) (*Charm, error) {

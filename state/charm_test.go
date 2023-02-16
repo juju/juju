@@ -113,6 +113,51 @@ func (s *CharmSuite) testCharm(c *gc.C) {
 		})
 }
 
+func (s *CharmSuite) TestCharmFromSha256(c *gc.C) {
+	ch, err := s.State.Charm(s.curl)
+	c.Assert(err, jc.ErrorIsNil)
+
+	dummy, err := s.State.CharmFromSha256(ch.BundleSha256()[0:7])
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dummy.String(), gc.Equals, s.curl.String())
+	c.Assert(dummy.Revision(), gc.Equals, 1)
+	c.Assert(dummy.StoragePath(), gc.Equals, "dummy-path")
+	c.Assert(dummy.BundleSha256(), gc.Equals, "quantal-dummy-1-sha256")
+	c.Assert(dummy.IsUploaded(), jc.IsTrue)
+	meta := dummy.Meta()
+	c.Assert(meta.Name, gc.Equals, "dummy")
+	config := dummy.Config()
+	c.Assert(config.Options["title"], gc.Equals,
+		charm.Option{
+			Default:     "My Title",
+			Description: "A descriptive title used for the application.",
+			Type:        "string",
+		},
+	)
+	actions := dummy.Actions()
+	c.Assert(actions, gc.NotNil)
+	c.Assert(actions.ActionSpecs, gc.Not(gc.HasLen), 0)
+	c.Assert(actions.ActionSpecs["snapshot"], gc.NotNil)
+	c.Assert(actions.ActionSpecs["snapshot"].Params, gc.Not(gc.HasLen), 0)
+	c.Assert(actions.ActionSpecs["snapshot"], gc.DeepEquals,
+		charm.ActionSpec{
+			Description: "Take a snapshot of the database.",
+			Params: map[string]interface{}{
+				"type":        "object",
+				"title":       "snapshot",
+				"description": "Take a snapshot of the database.",
+				"properties": map[string]interface{}{
+					"outfile": map[string]interface{}{
+						"description": "The file to write out to.",
+						"type":        "string",
+						"default":     "foo.bz2",
+					},
+				},
+			},
+		})
+}
+
 func (s *CharmSuite) TestRemovedCharmNotFound(c *gc.C) {
 	s.remove(c)
 	s.checkRemoved(c)
@@ -134,6 +179,12 @@ func (s *CharmSuite) TestCharmNotFound(c *gc.C) {
 	curl := charm.MustParseURL("local:anotherseries/dummy-1")
 	_, err := s.State.Charm(curl)
 	c.Assert(err, gc.ErrorMatches, `charm "local:anotherseries/dummy-1" not found`)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *CharmSuite) TestCharmFromSha256NotFound(c *gc.C) {
+	_, err := s.State.CharmFromSha256("abcd0123")
+	c.Assert(err, gc.ErrorMatches, `charm with sha256 "abcd0123" not found`)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 

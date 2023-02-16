@@ -613,6 +613,7 @@ func (srv *Server) loop(ready chan struct{}) error {
 
 func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	const modelRoutePrefix = "/model/:modeluuid"
+	const charmsObjectsRoutePrefix = "/:bucket/charms/:object"
 
 	type handler struct {
 		pattern         string
@@ -650,6 +651,11 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 				h = &httpcontext.QueryModelHandler{
 					Handler: h,
 					Query:   ":modeluuid",
+				}
+			} else if strings.HasPrefix(handler.pattern, charmsObjectsRoutePrefix) {
+				h = &httpcontext.BucketModelHandler{
+					Handler: h,
+					Query:   ":bucket",
 				}
 			} else {
 				h = &httpcontext.ImpliedModelHandler{
@@ -712,6 +718,15 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		GetHandler:  modelCharmsHandler.ServeGet,
 	}
 	modelCharmsUploadAuthorizer := tagKindAuthorizer{names.UserTagKind}
+
+	modelObjectsCharmsHandler := &objectsCharmHandler{
+		ctxt: httpCtxt,
+	}
+	modelObjectsCharmsHTTPHandler := &objectsCharmHTTPHandler{
+		GetHandler:          modelObjectsCharmsHandler.ServeGet,
+		LegacyCharmsHandler: modelCharmsHTTPHandler,
+	}
+
 	modelToolsUploadHandler := &toolsUploadHandler{
 		ctxt:          httpCtxt,
 		stateAuthFunc: httpCtxt.stateForRequestAuthenticatedUser,
@@ -922,6 +937,10 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		methods:    []string{"POST"},
 		handler:    modelCharmsHTTPHandler,
 		authorizer: modelCharmsUploadAuthorizer,
+	}, {
+		pattern: charmsObjectsRoutePrefix,
+		methods: []string{"GET"},
+		handler: modelObjectsCharmsHTTPHandler,
 	}}
 	if srv.registerIntrospectionHandlers != nil {
 		add := func(subpath string, h http.Handler) {
