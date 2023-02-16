@@ -420,17 +420,6 @@ run-go-tests: musl-install-if-missing dqlite-install-if-missing
 		CGO_ENABLED=1 \
 		go test -v -mod=$(JUJU_GOMOD_MODE) -tags=$(BUILD_TAGS) $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) ${TEST_PACKAGES} -check.v -check.f $(TEST_FILTER)
 
-run-go-generate: musl-install-if-missing dqlite-install-if-missing
-## run-go-generate: Generate go code
-	@PATH=${MUSL_BIN_PATH}:${PATH} \
-		CC="musl-gcc" \
-		CGO_CFLAGS="-I${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}/include" \
-		CGO_LDFLAGS="-L${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} -luv -lraft -ldqlite -llz4 -lsqlite3" \
-		CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
-		LD_LIBRARY_PATH="${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}" \
-		CGO_ENABLED=1 \
-		go generate -x ./...
-
 .PHONY: install
 install: rebuild-schema go-install
 ## install: Install Juju binaries with a rebuilt schema
