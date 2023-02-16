@@ -15,14 +15,7 @@ test_deploy_aks() {
 
 	bootstrap_custom_controller "test-deploy-aks" "aks-k8s-cloud"
 
-	case "${BOOTSTRAP_PROVIDER:-}" in
-	"k8s")
-		test_deploy_aks_charms
-		;;
-	*)
-		echo "==> TEST SKIPPED: test_deploy_aks_charms test runs on k8s only"
-		;;
-	esac
+	test_deploy_aks_charms
 
 	destroy_controller "test-deploy-aks"
 
