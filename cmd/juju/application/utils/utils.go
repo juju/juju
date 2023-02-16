@@ -217,7 +217,7 @@ func shouldUpgradeResourceLocalCharm(
 	switch {
 	case !curFound && !providedResourceFound:
 		// If there's no information on the server, there might be a new resource added to the charm.
-		return false, errors.NewNotValid(nil, fmt.Sprintf("new resource %q was missing, provide via --resource", name))
+		return false, errors.NewNotValid(nil, fmt.Sprintf("new resource %q was missing, please provide it via --resource", name))
 	case curFound && providedResourceFound:
 		_, err := strconv.Atoi(providedResource)
 		if err != nil {
@@ -227,7 +227,10 @@ func shouldUpgradeResourceLocalCharm(
 		} else {
 			return false, errors.NewNotFound(nil, fmt.Sprintf("resource %q revision not found, provide via --resource", name))
 		}
+	case providedResourceFound:
+		return true, nil
 	}
+
 	return false, nil
 }
 
