@@ -890,7 +890,7 @@ func (s *RefreshSuccessStateSuite) TestInitWithResources(c *gc.C) {
 	})
 }
 
-func (s *RefreshSuite) TestUpgradeSameVersionWithResources(c *gc.C) {
+func (s *RefreshSuite) TestUpgradeSameVersionWithResourceUpload(c *gc.C) {
 	s.resolvedCharmURL = charm.MustParseURL("cs:quantal/foo-1")
 	s.charmClient.charmInfo = &apicommoncharms.CharmInfo{
 		URL: s.resolvedCharmURL.String(),
@@ -903,6 +903,7 @@ func (s *RefreshSuite) TestUpgradeSameVersionWithResources(c *gc.C) {
 			},
 		},
 	}
+	s.charmClient.charmResources = []charmresource.Resource{}
 	dir := c.MkDir()
 	barpath := path.Join(dir, "bar")
 	err := ioutil.WriteFile(barpath, []byte("bar"), 0600)
@@ -1083,7 +1084,8 @@ func (m *mockCharmAdder) AddLocalCharm(curl *charm.URL, ch charm.Charm, force bo
 type mockCharmClient struct {
 	utils.CharmClient
 	testing.Stub
-	charmInfo *apicommoncharms.CharmInfo
+	charmInfo      *apicommoncharms.CharmInfo
+	charmResources []charmresource.Resource
 }
 
 func (m *mockCharmClient) CharmInfo(curl string) (*apicommoncharms.CharmInfo, error) {
@@ -1092,6 +1094,14 @@ func (m *mockCharmClient) CharmInfo(curl string) (*apicommoncharms.CharmInfo, er
 		return nil, err
 	}
 	return m.charmInfo, nil
+}
+
+func (m *mockCharmClient) ListCharmResources(curl *charm.URL, origin commoncharm.Origin) ([]charmresource.Resource, error) {
+	m.MethodCall(m, "ListCharmResources", curl, origin)
+	if err := m.NextErr(); err != nil {
+		return nil, err
+	}
+	return m.charmResources, nil
 }
 
 type mockCharmResolver struct {
