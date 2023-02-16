@@ -20,7 +20,7 @@ test_deploy_caas() {
 		test_deploy_aks
 		;;
 	*)
-		echo "==> TEST SKIPPED: test_deploy_caas test runs on k8s only"
+		echo "==> TEST SKIPPED: test_deploy_aks test runs on k8s only"
 		;;
 	esac
 
