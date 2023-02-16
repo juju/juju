@@ -3,8 +3,6 @@
 run_deploy_aks() {
 	echo
 
-	file="${TEST_DIR}/test-deploy-aks.log"
-
 	echo "Add model"
 	juju add-model "test-deploy-aks"
 
