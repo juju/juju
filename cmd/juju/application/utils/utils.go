@@ -7,8 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
-
-	"github.com/mattn/go-isatty"
+	"strconv"
 
 	"github.com/juju/charm/v9"
 	charmresource "github.com/juju/charm/v9/resource"
@@ -16,7 +15,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
+	"github.com/mattn/go-isatty"
 
+	"github.com/juju/juju/api/client/application"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/resources"
@@ -72,25 +73,30 @@ func flagWithMinus(name string) string {
 	return "-" + name
 }
 
-// GetUpgradeResources
+// GetUpgradeResources returns a map of resources which require
+// refresh.
 func GetUpgradeResources(
-	newCharmURL *charm.URL,
+	newCharmID application.CharmID,
+	repositoryResourceLister CharmClient,
 	resourceLister ResourceLister,
 	applicationID string,
-	cliResources map[string]string,
+	providedResources map[string]string,
 	meta map[string]charmresource.Meta,
 ) (map[string]charmresource.Meta, error) {
 	if len(meta) == 0 {
 		return nil, nil
 	}
-	current, err := getResources(applicationID, resourceLister)
+	available, err := getAvailableRepositoryResources(newCharmID, repositoryResourceLister)
+	current, err := getCurrentResources(applicationID, resourceLister)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return filterResources(newCharmURL, meta, current, cliResources)
+	return filterResourcesForUpgrade(newCharmID.URL, meta, current, available, providedResources)
 }
 
-func getResources(
+// getCurrentResources gets the current resources for this charm in
+// state.
+func getCurrentResources(
 	applicationID string,
 	resourceLister ResourceLister,
 ) (map[string]resources.Resource, error) {
@@ -101,15 +107,43 @@ func getResources(
 	return resources.AsMap(svcs[0].Resources), nil
 }
 
-func filterResources(
+// getAvailableRepositoryResources gets the current resources for this
+// charm available in the repository.
+func getAvailableRepositoryResources(newCharmID application.CharmID, repositoryResourceLister CharmClient) (map[string]charmresource.Resource, error) {
+	if repositoryResourceLister == nil {
+		// not required for local charms
+		return nil, nil
+	}
+	available, err := repositoryResourceLister.ListCharmResources(newCharmID.URL, newCharmID.Origin)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(available) == 0 {
+		// heather
+	}
+	availableResources := make(map[string]charmresource.Resource)
+	for _, resource := range available {
+		availableResources[resource.Name] = resource
+	}
+	return availableResources, nil
+}
+
+func filterResourcesForUpgrade(
 	newCharmURL *charm.URL,
 	meta map[string]charmresource.Meta,
 	current map[string]resources.Resource,
-	uploads map[string]string,
+	available map[string]charmresource.Resource,
+	providedResources map[string]string,
 ) (map[string]charmresource.Meta, error) {
 	filtered := make(map[string]charmresource.Meta)
 	for name, res := range meta {
-		doUpgrade, err := shouldUpgradeResource(newCharmURL, res, uploads, current)
+		var doUpgrade bool
+		var err error
+		if newCharmURL.Schema == charm.Local.String() {
+			doUpgrade, err = shouldUpgradeResourceLocalCharm(res.Name, providedResources, current)
+		} else {
+			doUpgrade, err = shouldUpgradeResource(res.Name, providedResources, current, available)
+		}
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -121,36 +155,82 @@ func filterResources(
 }
 
 // shouldUpgradeResource reports whether we should upload the metadata for the given
-// resource.  This is always true for resources we're adding with the --resource
-// flag. For resources we're not adding with --resource, we only upload metadata
-// for charmstore resources.  Previously uploaded resources stay pinned to the
-// data the user uploaded.
-func shouldUpgradeResource(newCharmURL *charm.URL, res charmresource.Meta, uploads map[string]string, current map[string]resources.Resource) (bool, error) {
-	// Always upload metadata for resources the user is uploading during
-	// upgrade-charm.
-	if _, ok := uploads[res.Name]; ok {
-		logger.Tracef("%q provided to upgrade existing resource", res.Name)
-		return true, nil
-	}
+// resource.
+//
+// Upgrade when:
+//  1. Resources specified as a local file on the cli to be uploaded.
+//  2. Resources specified as resource revision on the cli, which are
+//     not currently in use.
+//  3. Upstream has a new resource available than what is currently used.
+//  4. A new upstream resource is available.
+//
+// Caveat: Previously uploaded resources stay pinned to the data the user uploaded.
+func shouldUpgradeResource(
+	resName string,
+	providedResources map[string]string,
+	current map[string]resources.Resource,
+	available map[string]charmresource.Resource,
+) (bool, error) {
 
-	cur, ok := current[res.Name]
-	if !ok {
-		// If there's no information on the server, there might be a new resource added to the charm.
-		if newCharmURL.Schema == charm.Local.String() {
-			return false, errors.NewNotValid(nil, fmt.Sprintf("new resource %q was missing, please provide it via --resource", res.Name))
+	cur, curFound := current[resName]
+	providedResource, providedResourceFound := providedResources[resName]
+
+	if providedResourceFound {
+		providedResourceRev, err := strconv.Atoi(providedResource)
+		if err == nil && curFound && cur.Revision == providedResourceRev && cur.Origin == charmresource.OriginStore {
+			// A revision refers to resources in a repository. If the specified revision
+			// is already uploaded, nothing to do.
+			logger.Tracef("provided revision of %s resource already loaded", resName)
+			return false, nil
 		}
-
-		logger.Tracef("resource %q does not exist in controller, so it will be uploaded", res.Name)
+		logger.Tracef("%q provided to upgrade existing resource", resName)
 		return true, nil
 	}
-	if newCharmURL.Schema == charm.Local.String() {
-		// We are switching to a local charm, and this resource was not provided
-		// by --resource, so no need to override existing resource.
-		logger.Tracef("switching to a local charm, resource %q will not be upgraded because it was not provided by --resource", res.Name)
+
+	if !curFound {
+		// If there's no information on the server, there might be a new resource added to the charm.
+		logger.Tracef("resource %q does not exist in controller, so it will be uploaded", resName)
+		return true, nil
+	}
+
+	avail, availFound := available[resName]
+	if availFound &&
+		avail.Revision == cur.Revision &&
+		cur.Origin != charmresource.OriginUpload {
+		logger.Tracef("available resource and current store resource have same revision, no upgrade")
 		return false, nil
 	}
 	// Never override existing resources a user has already uploaded.
 	return cur.Origin != charmresource.OriginUpload, nil
+}
+
+// shouldUpgradeResourceLocalCharm returns true if the resource provided as
+// resName should be upgraded where a local charm is used. Only return true
+// if a local file is provided for a resource known by the charm.
+//
+// resName is a resource name found in the charm metadata.
+func shouldUpgradeResourceLocalCharm(
+	name string,
+	providedResources map[string]string,
+	current map[string]resources.Resource,
+) (bool, error) {
+	_, curFound := current[name]
+	providedResource, providedResourceFound := providedResources[name]
+	switch {
+	case !curFound && !providedResourceFound:
+		// If there's no information on the server, there might be a new resource added to the charm.
+		return false, errors.NewNotValid(nil, fmt.Sprintf("new resource %q was missing, provide via --resource", name))
+	case curFound && providedResourceFound:
+		_, err := strconv.Atoi(providedResource)
+		if err != nil {
+			// This is a filename to be uploaded.
+			logger.Tracef("%q provided to upgrade existing resource", name)
+			return true, nil
+		} else {
+			return false, errors.NewNotFound(nil, fmt.Sprintf("resource %q revision not found, provide via --resource", name))
+		}
+	}
+	return false, nil
 }
 
 const maxValueSize = 5242880 // Max size for a config file.
