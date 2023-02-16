@@ -1,10 +1,10 @@
 # Deploy some simple charms to our AKS k8s controller, and relate them together.
 # Then verify that the our application is reachable
-run_deploy_aks() {
+run_deploy_aks_charms() {
 	echo
 
 	echo "Add model"
-	juju add-model "test-deploy-aks"
+	juju add-model "test-deploy-aks-charms"
 
 	echo "Deploy some charms"
 	juju deploy postgresql-k8s
@@ -19,12 +19,12 @@ run_deploy_aks() {
 	juju run --unit mattermost-k8s/0 "curl ${mattermost_ip}:8065 >/dev/null"
 
 	echo "Destroy model"
-	juju destroy-model "test-deploy-aks" -y
+	juju destroy-model "test-deploy-aks-charms" -y
 }
 
-test_deploy_aks() {
-	if [ "$(skip 'test_deploy_aks')" ]; then
-		echo "==> TEST SKIPPED: Test deploy aks"
+test_deploy_aks_charms() {
+	if [ "$(skip 'test_deploy_aks_charms')" ]; then
+		echo "==> TEST SKIPPED: Test deploy aks charms"
 		return
 	fi
 	(
@@ -32,6 +32,6 @@ test_deploy_aks() {
 
 		cd .. || exit
 
-		run "run_deploy_aks"
+		run "run_deploy_aks_charms"
 	)
 }

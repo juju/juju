@@ -1,6 +1,6 @@
 test_deploy_aks() {
-	if [ "$(skip 'test_deploy_caas')" ]; then
-		echo "==> TEST SKIPPED: Deploy CAAS tests"
+	if [ "$(skip 'test_deploy_aks')" ]; then
+		echo "==> TEST SKIPPED: Deploy aks tests"
 		return
 	fi
 
@@ -17,10 +17,10 @@ test_deploy_aks() {
 
 	case "${BOOTSTRAP_PROVIDER:-}" in
 	"k8s")
-		test_deploy_aks
+		test_deploy_aks_charms
 		;;
 	*)
-		echo "==> TEST SKIPPED: test_deploy_aks test runs on k8s only"
+		echo "==> TEST SKIPPED: test_deploy_aks_charms test runs on k8s only"
 		;;
 	esac
 
