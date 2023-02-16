@@ -11,15 +11,14 @@ run_deploy_aks_charms() {
 	juju deploy mattermost-k8s
 	juju relate mattermost-k8s postgresql-k8s:db
 
-	wait_for "postgresql-k8s" "$(idle_condition "postgresql-k8s" 1)"
-	wait_for "mattermost-k8s" "$(idle_condition "mattermost-k8s" 0)"
+	wait_for 2 '[.applications[] | select(."application-status".current == "active")] | length'
 
 	echo "Verify application is reachable"
 	mattermost_ip="$(juju status --format json | jq -r '.applications["mattermost-k8s"].units["mattermost-k8s/0"].address')"
-	juju run --unit mattermost-k8s/0 "curl ${mattermost_ip}:8065 >/dev/null"
+	juju run --unit mattermost-k8s/0 "curl \"${mattermost_ip}:8065\" >/dev/null"
 
 	echo "Destroy model"
-	juju destroy-model "test-deploy-aks-charms" -y
+	juju destroy-model "test-deploy-aks-charms" --destroy-storage -y
 }
 
 test_deploy_aks_charms() {
