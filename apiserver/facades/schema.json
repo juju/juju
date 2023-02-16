@@ -39450,6 +39450,9 @@
                 "GetSecretBackendConfig": {
                     "type": "object",
                     "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/SecretBackendArgs"
+                        },
                         "Result": {
                             "$ref": "#/definitions/SecretBackendConfigResults"
                         }
@@ -39487,16 +39490,7 @@
                             "$ref": "#/definitions/SecretContentResults"
                         }
                     },
-                    "description": "GetSecretRevisionContentInfo returns the secret values for the specified secret revisions."
-                },
-                "GetSecretStoreConfig": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/SecretBackendConfig"
-                        }
-                    },
-                    "description": "GetSecretStoreConfig is for 3.0.x agents.\nTODO(wallyworld) - remove when we auto upgrade migrated models."
+                    "description": "GetSecretRevisionContentInfo returns the secret values for the specified secret revisions.\nUsed when deleting a secret; only returns external revision info."
                 },
                 "RemoveSecrets": {
                     "type": "object",
@@ -39961,6 +39955,21 @@
                         "results"
                     ]
                 },
+                "SecretBackendArgs": {
+                    "type": "object",
+                    "properties": {
+                        "backend-ids": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "backend-ids"
+                    ]
+                },
                 "SecretBackendConfig": {
                     "type": "object",
                     "properties": {
@@ -39982,19 +39991,14 @@
                         "type"
                     ]
                 },
-                "SecretBackendConfigResults": {
+                "SecretBackendConfigResult": {
                     "type": "object",
                     "properties": {
-                        "active-id": {
-                            "type": "string"
+                        "config": {
+                            "$ref": "#/definitions/SecretBackendConfig"
                         },
-                        "configs": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "$ref": "#/definitions/SecretBackendConfig"
-                                }
-                            }
+                        "draining": {
+                            "type": "boolean"
                         },
                         "model-controller": {
                             "type": "string"
@@ -40011,6 +40015,26 @@
                         "model-controller",
                         "model-uuid",
                         "model-name",
+                        "draining"
+                    ]
+                },
+                "SecretBackendConfigResults": {
+                    "type": "object",
+                    "properties": {
+                        "active-id": {
+                            "type": "string"
+                        },
+                        "results": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/SecretBackendConfigResult"
+                                }
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
                         "active-id"
                     ]
                 },
@@ -40068,6 +40092,9 @@
                 "SecretContentResult": {
                     "type": "object",
                     "properties": {
+                        "backend-config": {
+                            "$ref": "#/definitions/SecretBackendConfigResult"
+                        },
                         "content": {
                             "$ref": "#/definitions/SecretContentParams"
                         },
@@ -45211,6 +45238,9 @@
                 "GetSecretBackendConfig": {
                     "type": "object",
                     "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/SecretBackendArgs"
+                        },
                         "Result": {
                             "$ref": "#/definitions/SecretBackendConfigResults"
                         }
@@ -45248,16 +45278,7 @@
                             "$ref": "#/definitions/SecretContentResults"
                         }
                     },
-                    "description": "GetSecretRevisionContentInfo returns the secret values for the specified secret revisions."
-                },
-                "GetSecretStoreConfig": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/SecretBackendConfig"
-                        }
-                    },
-                    "description": "GetSecretStoreConfig is for 3.0.x agents.\nTODO(wallyworld) - remove when we auto upgrade migrated models."
+                    "description": "GetSecretRevisionContentInfo returns the secret values for the specified secret revisions.\nUsed when deleting a secret; only returns external revision info."
                 },
                 "GoalStates": {
                     "type": "object",
@@ -48182,6 +48203,21 @@
                         "results"
                     ]
                 },
+                "SecretBackendArgs": {
+                    "type": "object",
+                    "properties": {
+                        "backend-ids": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "backend-ids"
+                    ]
+                },
                 "SecretBackendConfig": {
                     "type": "object",
                     "properties": {
@@ -48203,19 +48239,14 @@
                         "type"
                     ]
                 },
-                "SecretBackendConfigResults": {
+                "SecretBackendConfigResult": {
                     "type": "object",
                     "properties": {
-                        "active-id": {
-                            "type": "string"
+                        "config": {
+                            "$ref": "#/definitions/SecretBackendConfig"
                         },
-                        "configs": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "$ref": "#/definitions/SecretBackendConfig"
-                                }
-                            }
+                        "draining": {
+                            "type": "boolean"
                         },
                         "model-controller": {
                             "type": "string"
@@ -48232,6 +48263,26 @@
                         "model-controller",
                         "model-uuid",
                         "model-name",
+                        "draining"
+                    ]
+                },
+                "SecretBackendConfigResults": {
+                    "type": "object",
+                    "properties": {
+                        "active-id": {
+                            "type": "string"
+                        },
+                        "results": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/SecretBackendConfigResult"
+                                }
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
                         "active-id"
                     ]
                 },
@@ -48289,6 +48340,9 @@
                 "SecretContentResult": {
                     "type": "object",
                     "properties": {
+                        "backend-config": {
+                            "$ref": "#/definitions/SecretBackendConfigResult"
+                        },
                         "content": {
                             "$ref": "#/definitions/SecretContentParams"
                         },

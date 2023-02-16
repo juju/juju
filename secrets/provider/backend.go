@@ -37,12 +37,9 @@ type ModelBackendConfig struct {
 	BackendConfig
 }
 
-// ModelBackendConfigInfo holds all the secret backends relevant
-// for a particular model.
+// ModelBackendConfigInfo holds secret backends, one of which
+// is the active backend for a model.
 type ModelBackendConfigInfo struct {
-	ControllerUUID string
-	ModelUUID      string
-	ModelName      string
-	ActiveID       string
-	Configs        map[string]BackendConfig
+	ActiveID string
+	Configs  map[string]ModelBackendConfig
 }

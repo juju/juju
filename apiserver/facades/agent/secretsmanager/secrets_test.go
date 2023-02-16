@@ -77,28 +77,34 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 
 	s.clock = testclock.NewClock(time.Now())
 
-	backendConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
+	backendConfigGetter := func(backendIds []string) (*provider.ModelBackendConfigInfo, error) {
 		return &provider.ModelBackendConfigInfo{
-			ControllerUUID: coretesting.ControllerTag.Id(),
-			ModelUUID:      coretesting.ModelTag.Id(),
-			ModelName:      "fred",
-			Configs: map[string]provider.BackendConfig{
+			ActiveID: "backend-id",
+			Configs: map[string]provider.ModelBackendConfig{
 				"backend-id": {
-					BackendType: "some-backend",
-					Config:      map[string]interface{}{"foo": "bar"},
+					ControllerUUID: coretesting.ControllerTag.Id(),
+					ModelUUID:      coretesting.ModelTag.Id(),
+					ModelName:      "fred",
+					BackendConfig: provider.BackendConfig{
+						BackendType: "some-backend",
+						Config:      map[string]interface{}{"foo": "bar"},
+					},
 				},
 			},
 		}, nil
 	}
 	adminConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
 		return &provider.ModelBackendConfigInfo{
-			ControllerUUID: coretesting.ControllerTag.Id(),
-			ModelUUID:      coretesting.ModelTag.Id(),
-			ModelName:      "fred",
-			Configs: map[string]provider.BackendConfig{
+			ActiveID: "backend-id",
+			Configs: map[string]provider.ModelBackendConfig{
 				"backend-id": {
-					BackendType: "some-backend",
-					Config:      map[string]interface{}{"foo": "admin"},
+					ControllerUUID: coretesting.ControllerTag.Id(),
+					ModelUUID:      coretesting.ModelTag.Id(),
+					ModelName:      "fred",
+					BackendConfig: provider.BackendConfig{
+						BackendType: "some-backend",
+						Config:      map[string]interface{}{"foo": "admin"},
+					},
 				},
 			},
 		}, nil
@@ -140,16 +146,22 @@ func ptr[T any](v T) *T {
 func (s *SecretsManagerSuite) TestGetSecretBackendConfig(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	result, err := s.facade.GetSecretBackendConfig()
+	result, err := s.facade.GetSecretBackendConfig(params.SecretBackendArgs{
+		BackendIDs: []string{"backend-id"},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.SecretBackendConfigResults{
-		ControllerUUID: coretesting.ControllerTag.Id(),
-		ModelUUID:      coretesting.ModelTag.Id(),
-		ModelName:      "fred",
-		Configs: map[string]params.SecretBackendConfig{
+		ActiveID: "backend-id",
+		Results: map[string]params.SecretBackendConfigResult{
 			"backend-id": {
-				BackendType: "some-backend",
-				Params:      map[string]interface{}{"foo": "bar"},
+				ControllerUUID: coretesting.ControllerTag.Id(),
+				ModelUUID:      coretesting.ModelTag.Id(),
+				ModelName:      "fred",
+				Draining:       false,
+				Config: params.SecretBackendConfig{
+					BackendType: "some-backend",
+					Params:      map[string]interface{}{"foo": "bar"},
+				},
 			},
 		},
 	})
@@ -545,7 +557,6 @@ func (s *SecretsManagerSuite) TestGetSecretContentForOwnerSecretURIArg(c *gc.C) 
 	data := map[string]string{"foo": "bar"}
 	val := coresecrets.NewSecretValue(data)
 	uri := coresecrets.NewURI()
-	s.expectSecretAccessQuery(1)
 	s.secretsState.EXPECT().ListSecrets(state.SecretsFilter{
 		OwnerTags: []names.Tag{
 			names.NewUnitTag("mariadb/0"),
@@ -581,7 +592,6 @@ func (s *SecretsManagerSuite) TestGetSecretContentForOwnerSecretLabelArg(c *gc.C
 	data := map[string]string{"foo": "bar"}
 	val := coresecrets.NewSecretValue(data)
 	uri := coresecrets.NewURI()
-	s.expectSecretAccessQuery(1)
 	s.secretsState.EXPECT().ListSecrets(state.SecretsFilter{
 		OwnerTags: []names.Tag{
 			names.NewUnitTag("mariadb/0"),
@@ -618,7 +628,6 @@ func (s *SecretsManagerSuite) TestGetSecretContentForUnitAccessApplicationOwnedS
 	data := map[string]string{"foo": "bar"}
 	val := coresecrets.NewSecretValue(data)
 	uri := coresecrets.NewURI()
-	s.expectSecretAccessQuery(1)
 	s.secretsState.EXPECT().ListSecrets(state.SecretsFilter{
 		OwnerTags: []names.Tag{
 			names.NewUnitTag("mariadb/0"),
@@ -937,12 +946,13 @@ func (s *SecretsManagerSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 func (s *SecretsManagerSuite) TestGetSecretRevisionContentInfo(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	data := map[string]string{"foo": "bar"}
-	val := coresecrets.NewSecretValue(data)
 	uri := coresecrets.NewURI()
-	s.expectSecretAccessQuery(1)
+	s.secretsConsumer.EXPECT().SecretAccess(uri, s.authTag).Return(coresecrets.RoleManage, nil)
 	s.secretsState.EXPECT().GetSecretValue(uri, 666).Return(
-		val, nil, nil,
+		nil, &coresecrets.ValueRef{
+			BackendID:  "backend-id",
+			RevisionID: "rev-id",
+		}, nil,
 	)
 
 	results, err := s.facade.GetSecretRevisionContentInfo(params.SecretRevisionArg{
@@ -952,7 +962,22 @@ func (s *SecretsManagerSuite) TestGetSecretRevisionContentInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.SecretContentResults{
 		Results: []params.SecretContentResult{{
-			Content: params.SecretContentParams{Data: data},
+			Content: params.SecretContentParams{
+				ValueRef: &params.SecretValueRef{
+					BackendID:  "backend-id",
+					RevisionID: "rev-id",
+				},
+			},
+			BackendConfig: &params.SecretBackendConfigResult{
+				ControllerUUID: coretesting.ControllerTag.Id(),
+				ModelUUID:      coretesting.ModelTag.Id(),
+				ModelName:      "fred",
+				Draining:       false,
+				Config: params.SecretBackendConfig{
+					BackendType: "some-backend",
+					Params:      map[string]interface{}{"foo": "bar"},
+				},
+			},
 		}},
 	})
 }
@@ -1018,7 +1043,7 @@ func (s *SecretsManagerSuite) TestWatchSecretsRotationChanges(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, params.SecretTriggerWatchResult{
 		WatcherId: "1",
 		Changes: []params.SecretTriggerChange{{
-			URI:             uri.String(),
+			URI:             uri.ID,
 			NextTriggerTime: next,
 		}},
 	})
@@ -1038,7 +1063,7 @@ func (s *SecretsManagerSuite) TestSecretsRotated(c *gc.C) {
 
 	result, err := s.facade.SecretsRotated(params.SecretRotatedArgs{
 		Args: []params.SecretRotatedArg{{
-			URI:              uri.String(),
+			URI:              uri.ID,
 			OriginalRevision: 666,
 		}, {
 			URI: "bad",
@@ -1071,7 +1096,7 @@ func (s *SecretsManagerSuite) TestSecretsRotatedRetry(c *gc.C) {
 
 	result, err := s.facade.SecretsRotated(params.SecretRotatedArgs{
 		Args: []params.SecretRotatedArg{{
-			URI:              uri.String(),
+			URI:              uri.ID,
 			OriginalRevision: 666,
 		}},
 	})
@@ -1100,7 +1125,7 @@ func (s *SecretsManagerSuite) TestSecretsRotatedForce(c *gc.C) {
 
 	result, err := s.facade.SecretsRotated(params.SecretRotatedArgs{
 		Args: []params.SecretRotatedArg{{
-			URI:              uri.String(),
+			URI:              uri.ID,
 			OriginalRevision: 666,
 		}},
 	})
@@ -1126,7 +1151,7 @@ func (s *SecretsManagerSuite) TestSecretsRotatedThenNever(c *gc.C) {
 
 	result, err := s.facade.SecretsRotated(params.SecretRotatedArgs{
 		Args: []params.SecretRotatedArg{{
-			URI:              uri.String(),
+			URI:              uri.ID,
 			OriginalRevision: 666,
 		}},
 	})
@@ -1168,7 +1193,7 @@ func (s *SecretsManagerSuite) TestWatchSecretRevisionsExpiryChanges(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, params.SecretTriggerWatchResult{
 		WatcherId: "1",
 		Changes: []params.SecretTriggerChange{{
-			URI:             uri.String(),
+			URI:             uri.ID,
 			Revision:        666,
 			NextTriggerTime: next,
 		}},
