@@ -183,11 +183,6 @@ func GenerateNetplan(interfaces corenetwork.InterfaceInfos) (string, error) {
 		if info.MTU != 0 && info.MTU != 1500 {
 			iface.MTU = info.MTU
 		}
-		if info.MACAddress != "" {
-			iface.Match = map[string]string{"macaddress": info.MACAddress}
-		} else {
-			iface.Match = map[string]string{"name": info.InterfaceName}
-		}
 		for _, route := range info.Routes {
 			route := netplan.Route{
 				To:     route.DestinationCIDR,
