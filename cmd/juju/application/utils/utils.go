@@ -119,7 +119,7 @@ func getAvailableRepositoryResources(newCharmID application.CharmID, repositoryR
 		return nil, errors.Trace(err)
 	}
 	if len(available) == 0 {
-		// heather
+		return nil, nil
 	}
 	availableResources := make(map[string]charmresource.Resource)
 	for _, resource := range available {
