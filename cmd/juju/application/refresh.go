@@ -429,30 +429,23 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	charmID, err := factory.Run(cfg)
-	switch {
-	case err == nil:
-		curl := charmID.URL
-		charmOrigin := charmID.Origin
+	charmID, runErr := factory.Run(cfg)
+	if runErr != nil && !errors.Is(runErr, refresher.ErrAlreadyUpToDate) {
+		// Process errors.Is(runErr, refresher.ErrAlreadyUpToDate) after reviewing resources.
+		if termErr, ok := errors.Cause(runErr).(*common.TermsRequiredError); ok {
+			return errors.Trace(termErr.UserErr())
+		}
+		return block.ProcessBlockedError(runErr, block.BlockChange)
+	}
+	curl := charmID.URL
+	charmOrigin := charmID.Origin
+	if runErr == nil {
 		// The current charm URL that's been found and selected.
 		channel := ""
 		if charmOrigin.Source == corecharm.CharmHub || charmOrigin.Source == corecharm.CharmStore {
 			channel = fmt.Sprintf(" in channel %s", charmID.Origin.Channel.String())
 		}
 		ctx.Infof("Added %s charm %q, revision %d%s, to the model", charmOrigin.Source, curl.Name, curl.Revision, channel)
-	case errors.Is(err, refresher.ErrAlreadyUpToDate) && c.Channel.String() != oldOrigin.CoreCharmOrigin().Channel.String():
-		ctx.Infof("%s. Note: all future refreshes will now use channel %q", err.Error(), charmID.Origin.Channel.String())
-	case errors.Is(err, refresher.ErrAlreadyUpToDate) && len(c.Resources) == 0:
-		// Charm already up-to-date and no resources to refresh.
-		ctx.Infof(err.Error())
-		return nil
-	case errors.Is(err, refresher.ErrAlreadyUpToDate) && len(c.Resources) > 0:
-		ctx.Infof("%s. Attempt to update resources requested.", err.Error())
-	default:
-		if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {
-			return errors.Trace(termErr.UserErr())
-		}
-		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 
 	// Next, upgrade resources.
@@ -460,7 +453,6 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	curl := charmID.URL
 	charmsClient := c.NewCharmClient(apiRoot)
 	meta, err := utils.GetMetaResources(curl, charmsClient)
 	if err != nil {
@@ -474,9 +466,24 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		URL:    curl,
 		Origin: origin,
 	}
-	resourceIDs, err := c.upgradeResources(apiRoot, resourceLister, chID, charmID.Macaroon, meta)
+	resourceIDs, err := c.upgradeResources(apiRoot, charmsClient, resourceLister, chID, charmID.Macaroon, meta)
 	if err != nil {
 		return errors.Trace(err)
+	}
+	// Process error from above where the charm itself is already up-to-date.
+	// There are 2 scenarios where we should continue.
+	// 1. There is a change to the charm's channel.
+	// 2. There is a resource change to process.
+	if errors.Is(runErr, refresher.ErrAlreadyUpToDate) {
+		if c.Channel.String() != oldOrigin.CoreCharmOrigin().Channel.String() {
+			ctx.Infof("Note: all future refreshes will now use channel %q", runErr.Error(), charmID.Origin.Channel.String())
+		}
+		if len(resourceIDs) > 0 {
+			ctx.Infof("resources to be upgraded")
+		}
+		if len(resourceIDs) == 0 && c.Channel.String() == oldOrigin.CoreCharmOrigin().Channel.String() {
+			return nil
+		}
 	}
 
 	var bindingsChangelog []string
@@ -594,13 +601,15 @@ func (c *refreshCommand) checkApplicationFacadeSupport(verQuerier versionQuerier
 // DeployResources should accept a resource-specific client instead.
 func (c *refreshCommand) upgradeResources(
 	apiRoot base.APICallCloser,
+	repositoryResourceLister utils.CharmClient,
 	resourceLister utils.ResourceLister,
 	chID application.CharmID,
 	csMac *macaroon.Macaroon,
 	meta map[string]charmresource.Meta,
 ) (map[string]string, error) {
 	filtered, err := utils.GetUpgradeResources(
-		chID.URL,
+		chID,
+		repositoryResourceLister,
 		resourceLister,
 		c.ApplicationName,
 		c.Resources,
