@@ -1311,7 +1311,7 @@ func (api *APIBase) applicationSetCharm(
 		ForceSeries:        force.ForceSeries,
 		ForceUnits:         force.ForceUnits,
 		Force:              force.Force,
-		ResourceIDs:        params.ResourceIDs,
+		PendingResourceIDs: params.ResourceIDs,
 		StorageConstraints: stateStorageConstraints,
 		EndpointBindings:   params.EndpointBindings,
 	}
