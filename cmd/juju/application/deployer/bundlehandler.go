@@ -24,6 +24,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/client/application"
+	"github.com/juju/juju/api/client/charms"
 	"github.com/juju/juju/api/client/resources"
 	commoncharm "github.com/juju/juju/api/common/charm"
 	app "github.com/juju/juju/apiserver/facades/client/application"
@@ -1333,7 +1334,7 @@ func (h *bundleHandler) upgradeCharm(change *bundlechanges.UpgradeCharmChange) e
 	if err != nil {
 		return errors.Trace(err)
 	}
-	filtered, err := utils.GetUpgradeResources(curl, resourceLister, p.Application, resMap, meta)
+	filtered, err := utils.GetUpgradeResources(chID, charms.NewClient(h.deployAPI), resourceLister, p.Application, resMap, meta)
 	if err != nil {
 		return errors.Trace(err)
 	}
