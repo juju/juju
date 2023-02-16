@@ -93,6 +93,11 @@ const (
 	resourcesCharmstoreIDSuffix = "#charmstore"
 )
 
+// A change in CharmModifiedVersion triggers the uniter to run the upgrade_charm
+// hook (and config hook). Increment required for a running unit to pick up
+// new resources from `attach` or when a charm is upgraded without a new charm
+// revision.
+//
 // IncrementCharmModifiedVersionType is the argument type for incrementing CharmModifiedVersion or not.
 type IncrementCharmModifiedVersionType bool
 
