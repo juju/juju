@@ -19,7 +19,7 @@ bootstrap_alt_controller() {
 
 # Bootstraps custom controller in test
 bootstrap_custom_controller() {
-	local name, cloud_name
+	local name cloud_name
 
 	name=${1}
 	cloud_name=${2}
