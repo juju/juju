@@ -46,13 +46,13 @@ func NewStream(db *sql.DB, clock clock.Clock, logger Logger) DBStream {
 	return stream
 }
 
-// Changes returns a channel that will contain new changes events. The channel
-// will return change events that represent change log rows from the database.
-// The change events will be monotically increasing events (monotonic in that
-// they're always increasing, but not in that they're always sequential).
-// The change events will be ordered by the row id and will be coalesced
-// into a single change event if they are for the same entity and for the
-// change type.
+// Changes returns a channel for a given namespace (database).
+// The channel will return events represented by change log rows
+// from the database.
+// The change event IDs will be monotonically increasing
+// (though not necessarily sequential).
+// Events will be coalesced into a single change if they are
+// for the same entity and edit type.
 func (s *Stream) Changes() <-chan changestream.ChangeEvent {
 	return s.changes
 }
@@ -145,11 +145,11 @@ func (e changeEvent) ChangedUUID() string {
 
 var errRetryable = errors.New("retryable error")
 
-func (w *Stream) readChanges(stmt *sql.Stmt) ([]changeEvent, error) {
-	rows, err := stmt.Query(w.lastID)
+func (s *Stream) readChanges(stmt *sql.Stmt) ([]changeEvent, error) {
+	rows, err := stmt.Query(s.lastID)
 	if err != nil {
 		if database.IsErrRetryable(err) {
-			w.logger.Debugf("ignoring error during reading changes: %s", err.Error())
+			s.logger.Debugf("ignoring error during reading changes: %s", err.Error())
 			return nil, errRetryable
 		}
 		return nil, errors.Annotate(err, "querying for changes")

@@ -10,9 +10,7 @@ import (
 	"context"
 	"crypto/tls"
 	"database/sql"
-	"net"
 	"path/filepath"
-	"time"
 
 	"github.com/juju/errors"
 	_ "github.com/mattn/go-sqlite3"
@@ -22,11 +20,6 @@ import (
 
 // Option can be used to tweak app parameters.
 type Option func()
-
-type SnapshotParams struct {
-	Threshold uint64
-	Trailing  uint64
-}
 
 // WithAddress sets the network address of the application node.
 //
@@ -54,14 +47,6 @@ func WithCluster(cluster []string) Option {
 	return func() {}
 }
 
-// WithExternalConn enables passing an external dial function that will be used
-// whenever dqlite needs to make an outside connection.
-//
-// Also takes a net.Conn channel that should be received when the external connection has been accepted.
-func WithExternalConn(dialFunc client.DialFunc, acceptCh chan net.Conn) Option {
-	return func() {}
-}
-
 // WithTLS enables TLS encryption of network traffic.
 //
 // The "listen" parameter must hold the TLS configuration to use when accepting
@@ -73,83 +58,8 @@ func WithTLS(listen *tls.Config, dial *tls.Config) Option {
 	return func() {}
 }
 
-// WithUnixSocket allows setting a specific socket path for communication between go-dqlite and dqlite.
-//
-// The default is an empty string which means a random abstract unix socket.
-func WithUnixSocket(path string) Option {
-	return func() {}
-}
-
-// WithVoters sets the number of nodes in the cluster that should have the
-// Voter role.
-//
-// When a new node is added to the cluster or it is started again after a
-// shutdown it will be assigned the Voter role in case the current number of
-// voters is below n.
-//
-// Similarly when a node with the Voter role is shutdown gracefully by calling
-// the Handover() method, it will try to transfer its Voter role to another
-// non-Voter node, if one is available.
-//
-// All App instances in a cluster must be created with the same WithVoters
-// setting.
-//
-// The given value must be an odd number greater than one.
-//
-// The default value is 3.
-func WithVoters(n int) Option {
-	return func() {}
-}
-
-// WithStandBys sets the number of nodes in the cluster that should have the
-// StandBy role.
-//
-// When a new node is added to the cluster or it is started again after a
-// shutdown it will be assigned the StandBy role in case there are already
-// enough online voters, but the current number of stand-bys is below n.
-//
-// Similarly when a node with the StandBy role is shutdown gracefully by
-// calling the Handover() method, it will try to transfer its StandBy role to
-// another non-StandBy node, if one is available.
-//
-// All App instances in a cluster must be created with the same WithStandBys
-// setting.
-//
-// The default value is 3.
-func WithStandBys(n int) Option {
-	return func() {}
-}
-
-// WithRolesAdjustmentFrequency sets the frequency at which the current cluster
-// leader will check if the roles of the various nodes in the cluster matches
-// the desired setup and perform promotions/demotions to adjust the situation
-// if needed.
-//
-// The default is 30 seconds.
-func WithRolesAdjustmentFrequency(frequency time.Duration) Option {
-	return func() {}
-}
-
 // WithLogFunc sets a custom log function.
 func WithLogFunc(log client.LogFunc) Option {
-	return func() {}
-}
-
-// WithFailureDomain sets the node's failure domain.
-//
-// Failure domains are taken into account when deciding which nodes to promote
-// to Voter or StandBy when needed.
-func WithFailureDomain(code uint64) Option {
-	return func() {}
-}
-
-// WithNetworkLatency sets the average one-way network latency.
-func WithNetworkLatency(latency time.Duration) Option {
-	return func() {}
-}
-
-// WithSnapshotParams sets the raft snapshot parameters.
-func WithSnapshotParams(params SnapshotParams) Option {
 	return func() {}
 }
 

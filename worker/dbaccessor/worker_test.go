@@ -5,6 +5,7 @@ package dbaccessor
 
 import (
 	"database/sql"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
@@ -13,26 +14,28 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/database/app"
+	"github.com/juju/juju/testing"
 )
 
 type workerSuite struct {
 	baseSuite
 
-	optFactory *MockOptionFactory
+	nodeManager *MockNodeManager
 }
 
 var _ = gc.Suite(&workerSuite{})
 
-func (s *workerSuite) TestGetControllerDBSuccess(c *gc.C) {
+func (s *workerSuite) TestGetControllerDBSuccessNotExistingNode(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
 
-	optExp := s.optFactory.EXPECT()
-	optExp.EnsureDataDir().Return(c.MkDir(), nil)
-	optExp.WithAddressOption().Return(nil, nil)
-	optExp.WithClusterOption().Return(nil, nil)
-	optExp.WithLogFuncOption().Return(nil)
+	mgrExp := s.nodeManager.EXPECT()
+	mgrExp.EnsureDataDir().Return(c.MkDir(), nil)
+	mgrExp.IsExistingNode().Return(false, nil)
+	mgrExp.WithAddressOption().Return(nil, nil)
+	mgrExp.WithClusterOption().Return(nil, nil)
+	mgrExp.WithLogFuncOption().Return(nil)
 
 	appExp := s.dbApp.EXPECT()
 	appExp.Ready(gomock.Any()).Return(nil)
@@ -53,17 +56,54 @@ func (s *workerSuite) TestGetControllerDBSuccess(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
+func (s *workerSuite) TestWorkerStartupExistingNode(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAnyLogs()
+
+	mgrExp := s.nodeManager.EXPECT()
+	mgrExp.EnsureDataDir().Return(c.MkDir(), nil)
+
+	// If this is an existing node, we don't invoke
+	// the address or cluster options.
+	mgrExp.IsExistingNode().Return(true, nil)
+	mgrExp.WithLogFuncOption().Return(nil)
+
+	sync := make(chan struct{})
+
+	appExp := s.dbApp.EXPECT()
+	appExp.Ready(gomock.Any()).Return(nil)
+	appExp.ID().DoAndReturn(func() uint64 {
+		close(sync)
+		return uint64(666)
+	})
+	appExp.Open(gomock.Any(), "controller").Return(&sql.DB{}, nil)
+	appExp.Handover(gomock.Any()).Return(nil)
+	appExp.Close().Return(nil)
+
+	w := s.newWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-sync:
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting for synchronisation")
+	}
+
+	workertest.CleanKill(c, w)
+}
+
 func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
-	s.optFactory = NewMockOptionFactory(ctrl)
+	s.nodeManager = NewMockNodeManager(ctrl)
 	return ctrl
 }
 
 func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 	cfg := WorkerConfig{
-		OptionFactory: s.optFactory,
-		Clock:         s.clock,
-		Logger:        s.logger,
+		NodeManager: s.nodeManager,
+		Clock:       s.clock,
+		Logger:      s.logger,
 		NewApp: func(string, ...app.Option) (DBApp, error) {
 			return s.dbApp, nil
 		},

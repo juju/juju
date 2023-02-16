@@ -13,31 +13,31 @@ import (
 	app "github.com/juju/juju/database/app"
 )
 
-// MockOptionFactory is a mock of OptionFactory interface.
-type MockOptionFactory struct {
+// MockNodeManager is a mock of NodeManager interface.
+type MockNodeManager struct {
 	ctrl     *gomock.Controller
-	recorder *MockOptionFactoryMockRecorder
+	recorder *MockNodeManagerMockRecorder
 }
 
-// MockOptionFactoryMockRecorder is the mock recorder for MockOptionFactory.
-type MockOptionFactoryMockRecorder struct {
-	mock *MockOptionFactory
+// MockNodeManagerMockRecorder is the mock recorder for MockNodeManager.
+type MockNodeManagerMockRecorder struct {
+	mock *MockNodeManager
 }
 
-// NewMockOptionFactory creates a new mock instance.
-func NewMockOptionFactory(ctrl *gomock.Controller) *MockOptionFactory {
-	mock := &MockOptionFactory{ctrl: ctrl}
-	mock.recorder = &MockOptionFactoryMockRecorder{mock}
+// NewMockNodeManager creates a new mock instance.
+func NewMockNodeManager(ctrl *gomock.Controller) *MockNodeManager {
+	mock := &MockNodeManager{ctrl: ctrl}
+	mock.recorder = &MockNodeManagerMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockOptionFactory) EXPECT() *MockOptionFactoryMockRecorder {
+func (m *MockNodeManager) EXPECT() *MockNodeManagerMockRecorder {
 	return m.recorder
 }
 
 // EnsureDataDir mocks base method.
-func (m *MockOptionFactory) EnsureDataDir() (string, error) {
+func (m *MockNodeManager) EnsureDataDir() (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EnsureDataDir")
 	ret0, _ := ret[0].(string)
@@ -46,13 +46,28 @@ func (m *MockOptionFactory) EnsureDataDir() (string, error) {
 }
 
 // EnsureDataDir indicates an expected call of EnsureDataDir.
-func (mr *MockOptionFactoryMockRecorder) EnsureDataDir() *gomock.Call {
+func (mr *MockNodeManagerMockRecorder) EnsureDataDir() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureDataDir", reflect.TypeOf((*MockOptionFactory)(nil).EnsureDataDir))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureDataDir", reflect.TypeOf((*MockNodeManager)(nil).EnsureDataDir))
+}
+
+// IsExistingNode mocks base method.
+func (m *MockNodeManager) IsExistingNode() (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsExistingNode")
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsExistingNode indicates an expected call of IsExistingNode.
+func (mr *MockNodeManagerMockRecorder) IsExistingNode() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsExistingNode", reflect.TypeOf((*MockNodeManager)(nil).IsExistingNode))
 }
 
 // WithAddressOption mocks base method.
-func (m *MockOptionFactory) WithAddressOption() (app.Option, error) {
+func (m *MockNodeManager) WithAddressOption() (app.Option, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WithAddressOption")
 	ret0, _ := ret[0].(app.Option)
@@ -61,13 +76,13 @@ func (m *MockOptionFactory) WithAddressOption() (app.Option, error) {
 }
 
 // WithAddressOption indicates an expected call of WithAddressOption.
-func (mr *MockOptionFactoryMockRecorder) WithAddressOption() *gomock.Call {
+func (mr *MockNodeManagerMockRecorder) WithAddressOption() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithAddressOption", reflect.TypeOf((*MockOptionFactory)(nil).WithAddressOption))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithAddressOption", reflect.TypeOf((*MockNodeManager)(nil).WithAddressOption))
 }
 
 // WithClusterOption mocks base method.
-func (m *MockOptionFactory) WithClusterOption() (app.Option, error) {
+func (m *MockNodeManager) WithClusterOption() (app.Option, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WithClusterOption")
 	ret0, _ := ret[0].(app.Option)
@@ -76,13 +91,13 @@ func (m *MockOptionFactory) WithClusterOption() (app.Option, error) {
 }
 
 // WithClusterOption indicates an expected call of WithClusterOption.
-func (mr *MockOptionFactoryMockRecorder) WithClusterOption() *gomock.Call {
+func (mr *MockNodeManagerMockRecorder) WithClusterOption() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithClusterOption", reflect.TypeOf((*MockOptionFactory)(nil).WithClusterOption))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithClusterOption", reflect.TypeOf((*MockNodeManager)(nil).WithClusterOption))
 }
 
 // WithLogFuncOption mocks base method.
-func (m *MockOptionFactory) WithLogFuncOption() app.Option {
+func (m *MockNodeManager) WithLogFuncOption() app.Option {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WithLogFuncOption")
 	ret0, _ := ret[0].(app.Option)
@@ -90,13 +105,13 @@ func (m *MockOptionFactory) WithLogFuncOption() app.Option {
 }
 
 // WithLogFuncOption indicates an expected call of WithLogFuncOption.
-func (mr *MockOptionFactoryMockRecorder) WithLogFuncOption() *gomock.Call {
+func (mr *MockNodeManagerMockRecorder) WithLogFuncOption() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithLogFuncOption", reflect.TypeOf((*MockOptionFactory)(nil).WithLogFuncOption))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithLogFuncOption", reflect.TypeOf((*MockNodeManager)(nil).WithLogFuncOption))
 }
 
 // WithTLSOption mocks base method.
-func (m *MockOptionFactory) WithTLSOption() (app.Option, error) {
+func (m *MockNodeManager) WithTLSOption() (app.Option, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WithTLSOption")
 	ret0, _ := ret[0].(app.Option)
@@ -105,9 +120,9 @@ func (m *MockOptionFactory) WithTLSOption() (app.Option, error) {
 }
 
 // WithTLSOption indicates an expected call of WithTLSOption.
-func (mr *MockOptionFactoryMockRecorder) WithTLSOption() *gomock.Call {
+func (mr *MockNodeManagerMockRecorder) WithTLSOption() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithTLSOption", reflect.TypeOf((*MockOptionFactory)(nil).WithTLSOption))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithTLSOption", reflect.TypeOf((*MockNodeManager)(nil).WithTLSOption))
 }
 
 // MockDBGetter is a mock of DBGetter interface.

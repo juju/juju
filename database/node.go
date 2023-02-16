@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -32,20 +33,22 @@ const (
 // WithAddressOption. It is used in tests to override address detection.
 var DefaultBindAddress = ""
 
-// OptionFactory creates Dqlite `App` initialisation arguments and options.
-// These generally depend on a controller's agent config.
-type OptionFactory struct {
+// NodeManager is responsible for interrogating a single Dqlite node,
+// and emitting configuration for starting its Dqlite `App` based on
+// operational requirements and controller agent config.
+type NodeManager struct {
 	cfg    agent.Config
 	port   int
 	logger Logger
 
+	dataDir     string
 	bindAddress string
 }
 
-// NewOptionFactory returns a new OptionFactory reference
+// NewNodeManager returns a new NodeManager reference
 // based on the input agent configuration.
-func NewOptionFactory(cfg agent.Config, logger Logger) *OptionFactory {
-	return &OptionFactory{
+func NewNodeManager(cfg agent.Config, logger Logger) *NodeManager {
+	return &NodeManager{
 		cfg:         cfg,
 		port:        dqlitePort,
 		logger:      logger,
@@ -53,20 +56,49 @@ func NewOptionFactory(cfg agent.Config, logger Logger) *OptionFactory {
 	}
 }
 
+// IsExistingNode returns true if this machine or container has
+// ever started a Dqlite `App` before. Specifically, this is whether
+// the Dqlite data directory is empty.
+func (m *NodeManager) IsExistingNode() (bool, error) {
+	if _, err := m.EnsureDataDir(); err != nil {
+		return false, errors.Annotate(err, "ensuring Dqlite data directory")
+	}
+
+	dir, err := os.Open(m.dataDir)
+	if err != nil {
+		return false, errors.Annotate(err, "opening Dqlite data directory")
+	}
+
+	_, err = dir.Readdirnames(1)
+	switch err {
+	case nil:
+		return true, nil
+	case io.EOF:
+		return false, nil
+	default:
+		return false, errors.Annotate(err, "reading Dqlite data directory")
+	}
+}
+
 // EnsureDataDir ensures that a directory for Dqlite data exists at
 // a path determined by the agent config, then returns that path.
-func (f *OptionFactory) EnsureDataDir() (string, error) {
-	dir := filepath.Join(f.cfg.DataDir(), dqliteDataDir)
-	err := os.MkdirAll(dir, 0700)
-	return dir, errors.Annotatef(err, "creating directory for Dqlite data")
+func (m *NodeManager) EnsureDataDir() (string, error) {
+	if m.dataDir == "" {
+		dir := filepath.Join(m.cfg.DataDir(), dqliteDataDir)
+		if err := os.MkdirAll(dir, 0700); err != nil {
+			return "", errors.Annotatef(err, "creating directory for Dqlite data")
+		}
+		m.dataDir = dir
+	}
+	return m.dataDir, nil
 }
 
 // WithLogFuncOption returns a Dqlite application Option that will proxy Dqlite
 // log output via this factory's logger where the level is recognised.
-func (f *OptionFactory) WithLogFuncOption() app.Option {
+func (m *NodeManager) WithLogFuncOption() app.Option {
 	return app.WithLogFunc(func(level client.LogLevel, msg string, args ...interface{}) {
 		if actualLevel, known := loggo.ParseLevel(level.String()); known {
-			f.logger.Logf(actualLevel, msg, args...)
+			m.logger.Logf(actualLevel, msg, args...)
 		}
 	})
 }
@@ -74,24 +106,24 @@ func (f *OptionFactory) WithLogFuncOption() app.Option {
 // WithAddressOption returns a Dqlite application Option
 // for specifying the local address:port to use.
 // See the comment for ensureBindAddress below.
-func (f *OptionFactory) WithAddressOption() (app.Option, error) {
-	if err := f.ensureBindAddress(); err != nil {
+func (m *NodeManager) WithAddressOption() (app.Option, error) {
+	if err := m.ensureBindAddress(); err != nil {
 		return nil, errors.Annotate(err, "ensuring Dqlite bind address")
 	}
 
-	return app.WithAddress(fmt.Sprintf("%s:%d", f.bindAddress, f.port)), nil
+	return app.WithAddress(fmt.Sprintf("%s:%d", m.bindAddress, m.port)), nil
 }
 
 // WithTLSOption returns a Dqlite application Option for TLS encryption
 // of traffic between clients and clustered application nodes.
-func (f *OptionFactory) WithTLSOption() (app.Option, error) {
-	stateInfo, ok := f.cfg.StateServingInfo()
+func (m *NodeManager) WithTLSOption() (app.Option, error) {
+	stateInfo, ok := m.cfg.StateServingInfo()
 	if !ok {
 		return nil, errors.NotSupportedf("Dqlite node initialisation on non-controller machine/container")
 	}
 
 	caCertPool := x509.NewCertPool()
-	caCertPool.AppendCertsFromPEM([]byte(f.cfg.CACert()))
+	caCertPool.AppendCertsFromPEM([]byte(m.cfg.CACert()))
 
 	controllerCert, err := tls.X509KeyPair([]byte(stateInfo.Cert), []byte(stateInfo.PrivateKey))
 	if err != nil {
@@ -122,12 +154,12 @@ func (f *OptionFactory) WithTLSOption() (app.Option, error) {
 // This will need revision in the context of juju-ha-space as well.
 // Furthermore, relying on agent config for API addresses implicitly makes this
 // affected by a configured juju-ctrl-space, which might be undesired.
-func (f *OptionFactory) WithClusterOption() (app.Option, error) {
-	if err := f.ensureBindAddress(); err != nil {
+func (m *NodeManager) WithClusterOption() (app.Option, error) {
+	if err := m.ensureBindAddress(); err != nil {
 		return nil, errors.Annotate(err, "ensuring Dqlite bind address")
 	}
 
-	apiAddrs, err := f.cfg.APIAddresses()
+	apiAddrs, err := m.cfg.APIAddresses()
 	if err != nil {
 		return nil, errors.Annotate(err, "retrieving API addresses")
 	}
@@ -143,20 +175,20 @@ func (f *OptionFactory) WithClusterOption() (app.Option, error) {
 	// Just ensure that our address is not one of the peers.
 	var peerAddrs []string
 	for _, addr := range apiAddrs {
-		if addr != f.bindAddress && addr != "localhost" {
-			peerAddrs = append(peerAddrs, fmt.Sprintf("%s:%d", addr, f.port))
+		if addr != m.bindAddress && addr != "localhost" {
+			peerAddrs = append(peerAddrs, fmt.Sprintf("%s:%d", addr, m.port))
 		}
 	}
 
-	f.logger.Debugf("determined Dqlite cluster members: %v", peerAddrs)
+	m.logger.Debugf("determined Dqlite cluster members: %v", peerAddrs)
 	return app.WithCluster(peerAddrs), nil
 }
 
 // ensureBindAddress sets the bind address, used by clients and peers.
 // We will need to revisit this because at present it is not influenced
 // by a configured juju-ha-space.
-func (f *OptionFactory) ensureBindAddress() error {
-	if f.bindAddress != "" {
+func (m *NodeManager) ensureBindAddress() error {
+	if m.bindAddress != "" {
 		return nil
 	}
 
@@ -194,8 +226,8 @@ func (f *OptionFactory) ensureBindAddress() error {
 	}
 
 	sort.Strings(cloudLocal)
-	f.bindAddress = cloudLocal[0]
-	f.logger.Debugf("chose Dqlite bind address %v from %v", f.bindAddress, cloudLocal)
+	m.bindAddress = cloudLocal[0]
+	m.logger.Debugf("chose Dqlite bind address %v from %v", m.bindAddress, cloudLocal)
 	return nil
 }
 
