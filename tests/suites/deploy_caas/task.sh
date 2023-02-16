@@ -11,15 +11,6 @@ test_deploy_caas() {
 
 	file="${TEST_DIR}/test-deploy-caas.log"
 
-	case "${BOOTSTRAP_PROVIDER:-}" in
-  "k8s")
-    test_deploy_aks
-    ;;
-  *)
-    echo "==> TEST SKIPPED: test_deploy_caas test runs on k8s only"
-    ;;
-  esac
-
 	bootstrap "test-deploy-caas" "${file}"
 
 	case "${BOOTSTRAP_PROVIDER:-}" in

@@ -5,14 +5,6 @@ run_deploy_aks() {
 
 	file="${TEST_DIR}/test-deploy-aks.log"
 
-	echo "Prepare and add AKS k8s-cloud"
-	az group create -l eastus -n test-aks-resource-group
-	az aks create -g test-aks-resource-group -n aks-cluster --generate-ssh-keys
-	juju add-k8s --aks --client --resource-group test-aks-resource-group --storage test-aks-storage --cluster-name aks-cluster aks-k8s-cloud
-
-	echo "Bootstrap aks controller"
-	juju bootstrap aks-k8s-cloud aks
-
 	echo "Add model"
 	juju add-model "test-deploy-aks"
 
@@ -28,15 +20,9 @@ run_deploy_aks() {
 	mattermost_ip="$(juju status --format json | jq -r '.applications["mattermost-k8s"].units["mattermost-k8s/0"].address')"
 	juju run --unit mattermost-k8s/0 "curl ${mattermost_ip}:8065 >/dev/null"
 
-	echo "Destroy aks controller"
-	juju destroy-controller aks --destroy-all-models --destroy-storage -y
-
-	echo "Remove aks cloud"
-	juju remove-k8s --client aks-k8s-cloud
-	az group delete -y -g test-aks-resource-group
-
+	echo "Destroy model"
+	juju destroy-model "test-deploy-aks" -y
 }
-
 
 test_deploy_aks() {
 	if [ "$(skip 'test_deploy_aks')" ]; then
