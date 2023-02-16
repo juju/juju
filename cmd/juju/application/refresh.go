@@ -8,7 +8,6 @@ import (
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/charm/v9"
-	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/charmrepo/v7"
 	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/cmd/v3"
@@ -426,19 +425,6 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// Next, upgrade resources.
-	resourceLister, err := c.NewResourceLister(apiRoot)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	charmsClient := c.NewCharmClient(apiRoot)
-	charmInfo, err := charmsClient.CharmInfo(curl.String())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	meta, err := utils.GetMetaResources(curl, charmsClient)
-	if err != nil {
-		return errors.Trace(err)
-	}
 	origin, err := commoncharm.CoreCharmOrigin(charmID.Origin)
 	if err != nil {
 		return errors.Trace(err)
@@ -447,27 +433,31 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		URL:    curl,
 		Origin: origin,
 	}
-	resourceIDs, err := c.upgradeResources(apiRoot, charmsClient, resourceLister, chID, charmID.Macaroon, meta)
+	resourceIDs, err := c.upgradeResources(apiRoot, chID, charmID.Macaroon)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// Process error from above where the charm itself is already up-to-date.
-	// There are 2 scenarios where we should continue.
+	// Process the factory Run error from above where the charm itself is
+	// already up-to-date. There are 2 scenarios where we should continue.
 	// 1. There is a change to the charm's channel.
 	// 2. There is a resource change to process.
 	if errors.Is(runErr, refresher.ErrAlreadyUpToDate) {
+		if len(resourceIDs) == 0 && c.Channel.String() == oldOrigin.CoreCharmOrigin().Channel.String() {
+			return nil
+		}
 		if c.Channel.String() != oldOrigin.CoreCharmOrigin().Channel.String() {
 			ctx.Infof("Note: all future refreshes will now use channel %q", runErr.Error(), charmID.Origin.Channel.String())
 		}
 		if len(resourceIDs) > 0 {
 			ctx.Infof("resources to be upgraded")
 		}
-		if len(resourceIDs) == 0 && c.Channel.String() == oldOrigin.CoreCharmOrigin().Channel.String() {
-			return nil
-		}
 	}
 
 	// Print out the updated endpoint binding plan.
+	charmInfo, err := c.NewCharmClient(apiRoot).CharmInfo(curl.String())
+	if err != nil {
+		return errors.Trace(err)
+	}
 	var bindingsChangelog []string
 	curBindings := applicationInfo.EndpointBindings
 	appDefaultSpace := curBindings[""]
@@ -556,15 +546,21 @@ func (c *refreshCommand) parseBindFlag(apiRoot base.APICallCloser) error {
 // DeployResources should accept a resource-specific client instead.
 func (c *refreshCommand) upgradeResources(
 	apiRoot base.APICallCloser,
-	repositoryResourceLister utils.CharmClient,
-	resourceLister utils.ResourceLister,
 	chID application.CharmID,
 	csMac *macaroon.Macaroon,
-	meta map[string]charmresource.Meta,
 ) (map[string]string, error) {
+	resourceLister, err := c.NewResourceLister(apiRoot)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	charmsClient := c.NewCharmClient(apiRoot)
+	meta, err := utils.GetMetaResources(chID.URL, charmsClient)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	filtered, err := utils.GetUpgradeResources(
 		chID,
-		repositoryResourceLister,
+		charmsClient,
 		resourceLister,
 		c.ApplicationName,
 		c.Resources,
