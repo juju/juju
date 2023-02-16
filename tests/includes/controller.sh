@@ -22,7 +22,7 @@ bootstrap_custom_controller() {
 	local name, cloud_name
 
 	name=${1}
-  cloud_name=${2}
+	cloud_name=${2}
 
 	START_TIME=$(date +%s)
 	echo "====> Bootstrapping ${name}"
