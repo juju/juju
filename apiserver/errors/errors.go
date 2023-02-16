@@ -261,6 +261,16 @@ func ServerError(err error) *params.Error {
 	}
 }
 
+// ServerErrors converts a slice of error into a slice
+// of apiserver errors.
+func ServerErrors(errs []error) []*params.Error {
+	convertedErrors := make([]*params.Error, len(errs))
+	for i, err := range errs {
+		convertedErrors[i] = ServerError(err)
+	}
+	return convertedErrors
+}
+
 func DestroyErr(desc string, ids []string, errs []error) error {
 	// TODO(waigani) refactor DestroyErr to take a map of ids to errors.
 	if len(errs) == 0 {

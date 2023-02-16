@@ -59,9 +59,14 @@ var ClassifyDetachedStorage = storagecommon.ClassifyDetachedStorage
 
 var logger = loggo.GetLogger("juju.apiserver.application")
 
+// APIv18 provides the Application API facade for version 18.
+type APIv18 struct {
+	*APIBase
+}
+
 // APIv17 provides the Application API facade for version 17.
 type APIv17 struct {
-	*APIBase
+	*APIv18
 }
 
 // APIv16 provides the Application API facade for version 16.

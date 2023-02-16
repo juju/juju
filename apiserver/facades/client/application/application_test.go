@@ -979,7 +979,9 @@ var applicationDestroyTests = []struct {
 func (s *applicationSuite) apiv16() *application.APIv16 {
 	return &application.APIv16{
 		APIv17: &application.APIv17{
-			APIBase: s.applicationAPI,
+			APIv18: &application.APIv18{
+				APIBase: s.applicationAPI,
+			},
 		},
 	}
 }

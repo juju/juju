@@ -1833,8 +1833,8 @@
     },
     {
         "Name": "Application",
-        "Description": "APIv17 provides the Application API facade for version 17.",
-        "Version": 17,
+        "Description": "APIv18 provides the Application API facade for version 18.",
+        "Version": 18,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -1927,6 +1927,18 @@
                         }
                     },
                     "description": "Deploy fetches the charms from the charm store and deploys them\nusing the specified placement directives."
+                },
+                "DeployFromRepository": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/DeployFromRepositoryArgs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/DeployFromRepositoryResults"
+                        }
+                    },
+                    "description": "DeployFromRepository is a one-stop deployment method for repository\ncharms. Only a charm name is required to deploy. If argument validation\nfails, a list of all errors found in validation will be returned. If a\nlocal resource is provided, details required for uploading the validated\nresource will be returned."
                 },
                 "DestroyApplication": {
                     "type": "object",
@@ -2909,6 +2921,21 @@
                         "channel"
                     ]
                 },
+                "Channel": {
+                    "type": "object",
+                    "properties": {
+                        "branch": {
+                            "type": "string"
+                        },
+                        "risk": {
+                            "type": "string"
+                        },
+                        "track": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false
+                },
                 "CharmOrigin": {
                     "type": "object",
                     "properties": {
@@ -3167,6 +3194,167 @@
                         }
                     },
                     "additionalProperties": false
+                },
+                "DeployFromRepositoryArg": {
+                    "type": "object",
+                    "properties": {
+                        "ApplicationName": {
+                            "type": "string"
+                        },
+                        "AttachStorage": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "Base": {
+                            "$ref": "#/definitions/Base"
+                        },
+                        "Channel": {
+                            "$ref": "#/definitions/Channel"
+                        },
+                        "CharmName": {
+                            "type": "string"
+                        },
+                        "ConfigYAML": {
+                            "type": "string"
+                        },
+                        "Cons": {
+                            "$ref": "#/definitions/Value"
+                        },
+                        "Devices": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/Constraints"
+                                }
+                            }
+                        },
+                        "DryRun": {
+                            "type": "boolean"
+                        },
+                        "EndpointBindings": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "Force": {
+                            "type": "boolean"
+                        },
+                        "NumUnits": {
+                            "type": "integer"
+                        },
+                        "Placement": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Placement"
+                            }
+                        },
+                        "Resources": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "Revision": {
+                            "type": "integer"
+                        },
+                        "Storage": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/Constraints"
+                                }
+                            }
+                        },
+                        "Trust": {
+                            "type": "boolean"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "CharmName",
+                        "ApplicationName",
+                        "AttachStorage",
+                        "Base",
+                        "Channel",
+                        "ConfigYAML",
+                        "Cons",
+                        "Devices",
+                        "DryRun",
+                        "EndpointBindings",
+                        "Force",
+                        "NumUnits",
+                        "Placement",
+                        "Revision",
+                        "Resources",
+                        "Storage",
+                        "Trust"
+                    ]
+                },
+                "DeployFromRepositoryArgs": {
+                    "type": "object",
+                    "properties": {
+                        "Args": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/DeployFromRepositoryArg"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "Args"
+                    ]
+                },
+                "DeployFromRepositoryResult": {
+                    "type": "object",
+                    "properties": {
+                        "Errors": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Error"
+                            }
+                        },
+                        "Info": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "PendingResourceUploads": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/PendingResourceUpload"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "Errors",
+                        "Info",
+                        "PendingResourceUploads"
+                    ]
+                },
+                "DeployFromRepositoryResults": {
+                    "type": "object",
+                    "properties": {
+                        "Results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/DeployFromRepositoryResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "Results"
+                    ]
                 },
                 "DestroyApplicationInfo": {
                     "type": "object",
@@ -3580,6 +3768,30 @@
                         "user",
                         "display-name",
                         "access"
+                    ]
+                },
+                "PendingResourceUpload": {
+                    "type": "object",
+                    "properties": {
+                        "Filename": {
+                            "type": "string"
+                        },
+                        "Name": {
+                            "type": "string"
+                        },
+                        "PendingID": {
+                            "type": "string"
+                        },
+                        "Type": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "Name",
+                        "Filename",
+                        "PendingID",
+                        "Type"
                     ]
                 },
                 "Placement": {
