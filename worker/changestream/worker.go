@@ -20,13 +20,13 @@ type DBGetter = dbaccessor.DBGetter
 // ChangeStream represents a stream of changes that flows from the underlying
 // change log table in the database.
 type ChangeStream interface {
-	// Changes returns a channel for a given namespace. The channel will return
-	// change events that represent change log rows from the database. The
-	// change events will be monotically increasing events (monotonic in that
-	// they're always increasing, but not in that they're always sequential).
-	// The change events will be ordered by the row id and will be coalesced
-	// into a single change event if they are for the same entity and for the
-	// change type.
+	// Changes returns a channel for a given namespace (database).
+	// The channel will return events represented by change log rows
+	// from the database.
+	// The change event IDs will be monotonically increasing
+	// (though not necessarily sequential).
+	// Events will be coalesced into a single change if they are
+	// for the same entity and edit type.
 	Changes(namespace string) (<-chan changestream.ChangeEvent, error)
 }
 
