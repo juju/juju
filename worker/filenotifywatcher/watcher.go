@@ -85,8 +85,8 @@ var NewINotifyWatcher = newWatcher
 type Watcher struct {
 	catacomb catacomb.Catacomb
 
-	namespace string
-	changes   chan bool
+	fileName string
+	changes  chan bool
 
 	watchPath string
 	watcher   INotifyWatcher
@@ -94,7 +94,7 @@ type Watcher struct {
 	logger Logger
 }
 
-func NewWatcher(namespace string, opts ...Option) (FileWatcher, error) {
+func NewWatcher(fileName string, opts ...Option) (FileWatcher, error) {
 	o := newOption()
 	for _, opt := range opts {
 		opt(o)
@@ -102,17 +102,17 @@ func NewWatcher(namespace string, opts ...Option) (FileWatcher, error) {
 
 	watcher, err := o.watcherFn()
 	if err != nil {
-		return nil, errors.Annotatef(err, "creating watcher for namespace %q", namespace)
+		return nil, errors.Annotatef(err, "creating watcher for file %q in path %q", fileName, o.path)
 	}
 	if err := watcher.Watch(o.path); err != nil {
-		return nil, errors.Annotatef(err, "watching namespace %q", namespace)
+		return nil, errors.Annotatef(err, "watching file %q in path %q", fileName, o.path)
 	}
 
 	w := &Watcher{
-		namespace: namespace,
+		fileName:  fileName,
 		changes:   make(chan bool),
 		watcher:   watcher,
-		watchPath: filepath.Join(o.path, namespace+".db.lock"),
+		watchPath: filepath.Join(o.path, fileName),
 		logger:    o.logger,
 	}
 
@@ -136,7 +136,7 @@ func (w *Watcher) Wait() error {
 	return w.catacomb.Wait()
 }
 
-// Changes returns the changes for the given namespace.
+// Changes returns the changes for the given fileName.
 func (w *Watcher) Changes() <-chan bool {
 	return w.changes
 }
@@ -153,7 +153,7 @@ func (w *Watcher) loop() error {
 			return w.catacomb.ErrDying()
 		case event := <-w.watcher.Events():
 			if w.logger.IsTraceEnabled() {
-				w.logger.Tracef("inotify event for namespace %q: %v", w.namespace, event)
+				w.logger.Tracef("inotify event for %v", event)
 			}
 			// Ignore events for other files in the directory.
 			if event.Name != w.watchPath {
@@ -164,19 +164,16 @@ func (w *Watcher) loop() error {
 				continue
 			}
 
-			// TODO (stickupkid): Read the file to see how much we want to
-			// step for. For now we just send a bool to indicate we should
-			// step.
 			created := event.Mask&inotify.InCreate != 0
 
 			if w.logger.IsTraceEnabled() {
-				w.logger.Tracef("dispatch event for namespace %q: %v", w.namespace, event)
+				w.logger.Tracef("dispatch event for fileName %q: %v", w.fileName, event)
 			}
 
 			w.changes <- created
 
 		case err := <-w.watcher.Errors():
-			w.logger.Errorf("error watching namespace %q with %v", w.namespace, err)
+			w.logger.Errorf("error watching fileName %q with %v", w.fileName, err)
 		}
 	}
 }

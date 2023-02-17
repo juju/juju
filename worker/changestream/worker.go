@@ -4,6 +4,8 @@
 package changestream
 
 import (
+	"fmt"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
@@ -143,7 +145,7 @@ func (w *changeStreamWorker) Changes(namespace string) (<-chan changestream.Chan
 
 	stream, err := w.cfg.NewStream(db, fileNotifyWatcher{
 		fileNotifier: w.cfg.FileNotifyWatcher,
-		namespace:    namespace,
+		fileName:     fmt.Sprintf("change-stream-%s", namespace),
 	}, w.cfg.Clock, w.cfg.Logger)
 	if err != nil {
 		return nil, errors.Annotatef(err, "creating stream for namespace %q", namespace)
@@ -161,9 +163,9 @@ func (w *changeStreamWorker) Changes(namespace string) (<-chan changestream.Chan
 // filter the events to only those that are for the given namespace.
 type fileNotifyWatcher struct {
 	fileNotifier FileNotifyWatcher
-	namespace    string
+	fileName     string
 }
 
 func (f fileNotifyWatcher) Changes() (<-chan bool, error) {
-	return f.fileNotifier.Changes(f.namespace)
+	return f.fileNotifier.Changes(f.fileName)
 }

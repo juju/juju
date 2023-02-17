@@ -13,12 +13,12 @@ import (
 // FileNotifyWatcher represents a way to watch for changes in a namespace folder
 // directory.
 type FileNotifyWatcher interface {
-	// Changes returns a channel for the given namespace that will contain
+	// Changes returns a channel for the given file name that will contain
 	// if a file was created or deleted.
 	// TODO (stickupkid): We could further advance this to return a channel
 	// of ints that represents the number of changes we want to advance per
 	// step.
-	Changes(namespace string) (<-chan bool, error)
+	Changes(fileName string) (<-chan bool, error)
 }
 
 // WorkerConfig encapsulates the configuration options for the
@@ -102,21 +102,21 @@ func (w *fileNotifyWorker) Wait() error {
 }
 
 // Changes returns a channel containing all the change events for the given
-// namespace.
-func (w *fileNotifyWorker) Changes(namespace string) (<-chan bool, error) {
-	if fw, err := w.runner.Worker(namespace, w.catacomb.Dying()); err == nil {
+// fileName.
+func (w *fileNotifyWorker) Changes(fileName string) (<-chan bool, error) {
+	if fw, err := w.runner.Worker(fileName, w.catacomb.Dying()); err == nil {
 		return fw.(FileWatcher).Changes(), nil
 	}
 
-	watcher, err := w.cfg.NewWatcher(namespace, WithLogger(w.cfg.Logger), WithINotifyWatcherFn(w.cfg.NewINotifyWatcher))
+	watcher, err := w.cfg.NewWatcher(fileName, WithLogger(w.cfg.Logger), WithINotifyWatcherFn(w.cfg.NewINotifyWatcher))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	if err := w.runner.StartWorker(namespace, func() (worker.Worker, error) {
+	if err := w.runner.StartWorker(fileName, func() (worker.Worker, error) {
 		return watcher, nil
 	}); err != nil {
-		return nil, errors.Annotatef(err, "starting worker for namespace %q", namespace)
+		return nil, errors.Annotatef(err, "starting worker for fileName %q", fileName)
 	}
 
 	return watcher.Changes(), nil
