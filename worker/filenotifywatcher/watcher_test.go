@@ -31,7 +31,7 @@ func (s *watcherSuite) TestWatching(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
-	file := filepath.Join(dir, "controller")
+	file := filepath.Join(dir, "controller.db.lock")
 	_, err = os.OpenFile(file, os.O_WRONLY|os.O_CREATE, 0666)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -66,7 +66,7 @@ func (s *watcherSuite) TestNotWatching(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
-	file := filepath.Join(dir, "controller")
+	file := filepath.Join(dir, "controller.db.lock")
 	f, err := os.OpenFile(file, os.O_WRONLY|os.O_CREATE, 0666)
 	c.Assert(err, jc.ErrorIsNil)
 

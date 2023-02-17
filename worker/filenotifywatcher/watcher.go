@@ -31,10 +31,10 @@ type INotifyWatcher interface {
 	// Watch adds the given file or directory (non-recursively) to the watch.
 	Watch(path string) error
 
-	// Event returns the next event.
+	// Events returns the next event.
 	Events() <-chan *inotify.Event
 
-	// Error returns the next error.
+	// Errors returns the next error.
 	Errors() <-chan error
 
 	// Close removes all watches and closes the events channel.
@@ -78,6 +78,9 @@ func newOption() *option {
 		watcherFn: newWatcher,
 	}
 }
+
+// NewInotifyWatcher returns a new INotifyWatcher.
+var NewINotifyWatcher = newWatcher
 
 type Watcher struct {
 	catacomb catacomb.Catacomb
@@ -149,6 +152,9 @@ func (w *Watcher) loop() error {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 		case event := <-w.watcher.Events():
+			if w.logger.IsTraceEnabled() {
+				w.logger.Tracef("inotify event for namespace %q: %v", w.namespace, event)
+			}
 			// Ignore events for other files in the directory.
 			if event.Name != w.watchPath {
 				continue
@@ -162,6 +168,11 @@ func (w *Watcher) loop() error {
 			// step for. For now we just send a bool to indicate we should
 			// step.
 			created := event.Mask&inotify.InCreate != 0
+
+			if w.logger.IsTraceEnabled() {
+				w.logger.Tracef("dispatch event for namespace %q: %v", w.namespace, event)
+			}
+
 			w.changes <- created
 
 		case err := <-w.watcher.Errors():

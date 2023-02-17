@@ -31,6 +31,10 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	cfg = s.getConfig()
 	cfg.NewWatcher = nil
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+
+	cfg = s.getConfig()
+	cfg.NewINotifyWatcher = nil
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 }
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {
@@ -38,6 +42,9 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		Clock:  s.clock,
 		Logger: s.logger,
 		NewWatcher: func(string, ...Option) (FileWatcher, error) {
+			return nil, nil
+		},
+		NewINotifyWatcher: func() (INotifyWatcher, error) {
 			return nil, nil
 		},
 	}

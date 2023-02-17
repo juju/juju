@@ -700,9 +700,10 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		fileNotifyWatcherName: ifController(filenotifywatcher.Manifold(filenotifywatcher.ManifoldConfig{
-			Clock:      config.Clock,
-			Logger:     loggo.GetLogger("juju.worker.filenotifywatcher"),
-			NewWatcher: filenotifywatcher.NewWatcher,
+			Clock:             config.Clock,
+			Logger:            loggo.GetLogger("juju.worker.filenotifywatcher"),
+			NewWatcher:        filenotifywatcher.NewWatcher,
+			NewINotifyWatcher: filenotifywatcher.NewINotifyWatcher,
 		})),
 
 		changeStreamName: ifController(changestream.Manifold(changestream.ManifoldConfig{

@@ -19,6 +19,7 @@ type Logger interface {
 	Infof(message string, args ...interface{})
 	Debugf(message string, args ...interface{})
 	Tracef(message string, args ...interface{})
+	IsTraceEnabled() bool
 }
 
 // WatcherFn is a function that returns a new Watcher.
@@ -27,9 +28,10 @@ type WatcherFn = func(string, ...Option) (FileWatcher, error)
 // ManifoldConfig defines the names of the manifolds on which a Manifold will
 // depend.
 type ManifoldConfig struct {
-	Clock      clock.Clock
-	Logger     Logger
-	NewWatcher WatcherFn
+	Clock             clock.Clock
+	Logger            Logger
+	NewWatcher        WatcherFn
+	NewINotifyWatcher func() (INotifyWatcher, error)
 }
 
 func (cfg ManifoldConfig) Validate() error {
@@ -42,6 +44,9 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.NewWatcher == nil {
 		return errors.NotValidf("nil NewWatcher")
 	}
+	if cfg.NewINotifyWatcher == nil {
+		return errors.NotValidf("nil NewINotifyWatcher")
+	}
 	return nil
 }
 
@@ -50,16 +55,17 @@ func (cfg ManifoldConfig) Validate() error {
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{},
-		Output: changeStreamStepperOutput,
+		Output: fileNotifyWatcherOutput,
 		Start: func(context dependency.Context) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
 				return nil, errors.Trace(err)
 			}
 
 			cfg := WorkerConfig{
-				Clock:      config.Clock,
-				Logger:     config.Logger,
-				NewWatcher: config.NewWatcher,
+				Clock:             config.Clock,
+				Logger:            config.Logger,
+				NewWatcher:        config.NewWatcher,
+				NewINotifyWatcher: config.NewINotifyWatcher,
 			}
 
 			w, err := newWorker(cfg)
@@ -71,13 +77,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	}
 }
 
-func changeStreamStepperOutput(in worker.Worker, out interface{}) error {
+func fileNotifyWatcherOutput(in worker.Worker, out interface{}) error {
 	if w, ok := in.(*common.CleanupWorker); ok {
 		in = w.Worker
 	}
 	w, ok := in.(*fileNotifyWorker)
 	if !ok {
-		return errors.Errorf("in should be a *; got %T", in)
+		return errors.Errorf("in should be a *fileNotifyWorker; got %T", in)
 	}
 
 	switch out := out.(type) {

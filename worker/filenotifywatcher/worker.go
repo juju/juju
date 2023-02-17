@@ -24,9 +24,10 @@ type FileNotifyWatcher interface {
 // WorkerConfig encapsulates the configuration options for the
 // changestream worker.
 type WorkerConfig struct {
-	Clock      clock.Clock
-	Logger     Logger
-	NewWatcher WatcherFn
+	Clock             clock.Clock
+	Logger            Logger
+	NewWatcher        WatcherFn
+	NewINotifyWatcher func() (INotifyWatcher, error)
 }
 
 // Validate ensures that the config values are valid.
@@ -107,7 +108,7 @@ func (w *fileNotifyWorker) Changes(namespace string) (<-chan bool, error) {
 		return fw.(FileWatcher).Changes(), nil
 	}
 
-	watcher, err := w.cfg.NewWatcher(namespace, WithLogger(w.cfg.Logger))
+	watcher, err := w.cfg.NewWatcher(namespace, WithLogger(w.cfg.Logger), WithINotifyWatcherFn(w.cfg.NewINotifyWatcher))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
