@@ -10,6 +10,14 @@ import (
 	"github.com/canonical/go-dqlite/client"
 )
 
+// YamlNodeStore persists a list addresses of dqlite nodes in a YAML file.
+type YamlNodeStore = client.YamlNodeStore
+
+// NewYamlNodeStore creates a new YamlNodeStore backed by the given YAML file.
+func NewYamlNodeStore(path string) (*YamlNodeStore, error) {
+	return client.NewYamlNodeStore(path)
+}
+
 // LogFunc is a function that can be used for logging.
 type LogFunc = client.LogFunc
 
