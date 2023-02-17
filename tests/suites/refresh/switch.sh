@@ -38,13 +38,10 @@ run_refresh_switch_cs_to_ch_no_new_revision() {
 
 	ensure "${model_name}" "${file}"
 
-	OUT=$(juju deploy cs:ubuntu >&1 || true)
-	# shellcheck disable=SC2059
-	printf "${OUT}\n"
-	# format: Added charm-store charm "ubuntu", revision 21 in channel stable, to the model
-	cs_revision=$(echo "${OUT}" | awk 'BEGIN{FS=","} {print $2}' | awk 'BEGIN{FS=" "} {print $2}')
+	juju deploy cs:ubuntu
 
 	wait_for "ubuntu" "$(idle_condition "ubuntu")"
+	cs_revision=$(juju status --format json | jq -S '.applications | .["ubuntu"] | .["charm-rev"]')
 
 	OUT=$(juju refresh ubuntu --switch ch:ubuntu 2>&1 || true)
 	if echo "${OUT}" | grep -E -vq "Added charm-hub charm"; then
@@ -55,8 +52,8 @@ run_refresh_switch_cs_to_ch_no_new_revision() {
 	# shellcheck disable=SC2059
 	printf "${OUT}\n"
 
-	wait_for "ubuntu" "$(charm_rev "ubuntu" "${cs_revision}")"
 	wait_for "ubuntu" "$(idle_condition "ubuntu")"
+	wait_for "ubuntu" "$(charm_rev "ubuntu" "${cs_revision}")"
 
 	destroy_model "${model_name}"
 }
