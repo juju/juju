@@ -5,11 +5,12 @@ set -e
 source "$(dirname $0)/../env.sh"
 
 MUSL_VERSION="1.2.3"
+MUSL_PRECOMPILED=${MUSL_PRECOMPILED:-"1"}
 MUSL_CROSS_COMPILE=${MUSL_CROSS_COMPILE:-"1"}
 
 MUSL_LOCAL_PLACEMENT=${MUSL_LOCAL_PLACEMENT:-"system"}
 
-MUSL_LOCAL_PATH=${PROJECT_DIR}/_deps/musl-${BUILD_ARCH}
+MUSL_LOCAL_PATH=${EXTRACTED_DEPS_PATH}/musl-${BUILD_ARCH}
 MUSL_SYSTEM_PATH=/usr/local/musl
 
 if [ "${MUSL_LOCAL_PLACEMENT}" = "local" ] || [ "${MUSL_CROSS_COMPILE}" = "1" ]; then
@@ -24,7 +25,7 @@ musl_install_system() {
     sudo ./configure || { echo "Failed to configure musl"; exit 1; }
     sudo make install || { echo "Failed to install musl"; exit 1; }
 
-    LOCAL_PATH=${PROJECT_DIR}/_deps/musl-${BUILD_ARCH}/output/bin
+    LOCAL_PATH=${EXTRACTED_DEPS_PATH}/musl-${BUILD_ARCH}/output/bin
 
     mkdir -p ${LOCAL_PATH} || { echo "Failed to create ${MUSL_BIN_PATH}"; exit 1; }
     sudo ln -s ${MUSL_BIN_PATH}/musl-gcc ${LOCAL_PATH}/musl-gcc || { echo "Failed to link musl-gcc"; exit 1; }
@@ -102,7 +103,52 @@ musl_install_cross_arch() {
     esac
 }
 
+sha() {
+    case ${BUILD_ARCH} in
+        amd64) echo "c19e7337cd28232b44b19db7da68089dd1b957a474440046c113e507b5af0290" ;;
+        *) echo "" ;;
+    esac
+}
+
+musl_install_precompiled_cross_arch() {
+    mkdir -p ${EXTRACTED_DEPS_PATH} || { exit 1; }
+    cd ${EXTRACTED_DEPS_PATH}
+
+    SHA=$(sha)
+    if [ "${SHA}" = "" ]; then
+        echo "No precompiled musl for ${BUILD_ARCH} falling back to building"
+        musl_install_cross_arch
+        exit 0
+    fi
+
+    echo "Downloading precompiled musl for ${BUILD_ARCH}"
+    
+    FILE="$(mktemp -d)/musl-${BUILD_ARCH}.tar.bz2"
+
+    name=${SHA}.tar.bz2
+    echo " + Retrieving ${name}"
+    curl --fail -o ${FILE} -s https://dqlite-static-libs.s3.amazonaws.com/musl/${name} || {
+			echo " + Failed to retrieve ${name}";
+			rm -f ${FILE} || true;
+			exit 1;
+		}
+
+    SUM=$(sha256sum ${FILE} | awk '{print $1}')
+    if [ "${SUM}" != ${SHA} ]; then
+        echo "sha256sum mismatch (${SUM}, expected $(sha))"
+        exit 1
+    fi
+
+    echo " + Extracting ${FILE}"
+    tar -xjf ${FILE} -C ${EXTRACTED_DEPS_PATH} || { echo "Failed to extract musl"; exit 1; }
+}
+
 install() {
+    if [ "${MUSL_PRECOMPILED}" = "1" ]; then
+        echo "Installing precompiled musl"
+        musl_install_precompiled_cross_arch
+        exit 0
+    fi
     if [ "${MUSL_CROSS_COMPILE}" = "1" ]; then
         echo "Installing cross-arch musl"
         musl_install_cross_arch
