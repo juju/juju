@@ -24,7 +24,7 @@ func (srv *Server) CreateVolume(ctx context.Context, in *ec2.CreateVolumeInput, 
 
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
-	volume := srv.newVolume("magnetic", 1)
+	volume := srv.newVolume("magnetic", 1, in.TagSpecifications)
 	volume.AvailabilityZone = in.AvailabilityZone
 	if in.VolumeType != "" {
 		volume.VolumeType = in.VolumeType
@@ -36,6 +36,7 @@ func (srv *Server) CreateVolume(ctx context.Context, in *ec2.CreateVolumeInput, 
 	volume.Iops = in.Iops
 	volume.KmsKeyId = in.KmsKeyId
 	volume.Throughput = in.Throughput
+
 	return &ec2.CreateVolumeOutput{
 		Attachments:      nil,
 		AvailabilityZone: volume.AvailabilityZone,
@@ -119,7 +120,11 @@ func (srv *Server) SetCreateRootDisks(create bool) {
 	srv.mu.Unlock()
 }
 
-func (srv *Server) newVolume(volumeType types.VolumeType, size int32) *volume {
+func (srv *Server) newVolume(
+	volumeType types.VolumeType,
+	size int32,
+	tagSpecs []types.TagSpecification,
+) *volume {
 	// Create a volume and volume attachment too.
 	volume := &volume{}
 	volume.VolumeId = aws.String(fmt.Sprintf("vol-%d", srv.volumeId.next()))
@@ -127,6 +132,7 @@ func (srv *Server) newVolume(volumeType types.VolumeType, size int32) *volume {
 	volume.CreateTime = aws.Time(time.Now())
 	volume.VolumeType = volumeType
 	volume.Size = aws.Int32(size)
+	volume.Tags = tagSpecForType(types.ResourceTypeVolume, tagSpecs).Tags
 	srv.volumes[aws.ToString(volume.VolumeId)] = volume
 	return volume
 }
