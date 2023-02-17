@@ -10,18 +10,19 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/state"
 	"github.com/juju/names/v4"
 )
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("KeyManager", 1, func(ctx facade.Context) (facade.Facade, error) {
-		return newKeyManagerAPI(ctx)
+		return newFacadeV1(ctx)
 	}, reflect.TypeOf((*KeyManagerAPI)(nil)))
 }
 
-// newKeyManagerAPI creates a new server-side keyupdater API end point.
-func newKeyManagerAPI(ctx facade.Context) (*KeyManagerAPI, error) {
+func newFacadeV1(ctx facade.Context) (*KeyManagerAPI, error) {
 	// Only clients can access the key manager service.
 	authorizer := ctx.Auth()
 	if !authorizer.AuthClient() {
@@ -32,12 +33,35 @@ func newKeyManagerAPI(ctx facade.Context) (*KeyManagerAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	return newKeyManagerAPI(
+		m,
+		authorizer,
+		common.NewBlockChecker(st),
+		st.ControllerTag(),
+	), nil
+}
+
+func newKeyManagerAPI(
+	model Model,
+	authorizer facade.Authorizer,
+	check BlockChecker,
+	controllerTag names.ControllerTag,
+) *KeyManagerAPI {
 	return &KeyManagerAPI{
-		state:      st,
-		model:      m,
-		resources:  ctx.Resources(),
-		authorizer: authorizer,
-		apiUser:    authorizer.GetAuthTag().(names.UserTag),
-		check:      common.NewBlockChecker(st),
-	}, nil
+		model:         model,
+		authorizer:    authorizer,
+		check:         check,
+		controllerTag: controllerTag,
+	}
+}
+
+type Model interface {
+	ModelTag() names.ModelTag
+	ModelConfig() (*config.Config, error)
+	UpdateModelConfig(map[string]interface{}, []string, ...state.ValidateConfigFunc) error
+}
+
+type BlockChecker interface {
+	ChangeAllowed() error
+	RemoveAllowed() error
 }

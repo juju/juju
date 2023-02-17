@@ -26,10 +26,11 @@ This command upgrades the Juju agent for a controller.
 A controller's agent version can be shown with `[1:] + "`juju model-config -m controller agent-\nversion`" + `.
 A version is denoted by: major.minor.patch
 
-If '--agent-version' is not specified, then the upgrade candidate
-will default to the most recent minor version matching the current 
-major version. If a more recent minor version is not available then
-the next patch version is chosen.
+You can upgrade the controller to a new patch version by specifying
+the '--agent-version' flag. If not specified, the upgrade candidate
+will default to the most recent patch version matching the current 
+major and minor version. Upgrading to a new major or minor version is
+not supported.
 
 The command will abort if an upgrade is in progress. It will also abort if
 a previous upgrade was not fully completed (e.g.: if one of the
