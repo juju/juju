@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package changestream
+package stream
 
 import (
 	"database/sql"
@@ -9,10 +9,26 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"gopkg.in/tomb.v2"
+
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/database"
-	"github.com/juju/worker/v3/catacomb"
 )
+
+// Logger represents the logging methods called.
+type Logger interface {
+	Infof(message string, args ...interface{})
+	Debugf(message string, args ...interface{})
+	Tracef(message string, args ...interface{})
+	IsTraceEnabled() bool
+}
+
+// FileNotifyWatcher represents a way to watch for changes in a namespace folder
+// directory.
+type FileNotifier interface {
+	// Changes returns a channel if a file was created or deleted.
+	Changes() (<-chan bool, error)
+}
 
 const (
 	// PollInterval is the amount of time to wait between polling the database
@@ -22,7 +38,7 @@ const (
 
 // Stream defines a worker that will poll the database for change events.
 type Stream struct {
-	catacomb catacomb.Catacomb
+	tomb tomb.Tomb
 
 	db           *sql.DB
 	fileNotifier FileNotifier
@@ -33,8 +49,8 @@ type Stream struct {
 	lastID  int64
 }
 
-// NewStream creates a new Stream.
-func NewStream(db *sql.DB, fileNotifier FileNotifier, clock clock.Clock, logger Logger) (DBStream, error) {
+// New creates a new Stream.
+func New(db *sql.DB, fileNotifier FileNotifier, clock clock.Clock, logger Logger) *Stream {
 	stream := &Stream{
 		db:           db,
 		fileNotifier: fileNotifier,
@@ -43,14 +59,9 @@ func NewStream(db *sql.DB, fileNotifier FileNotifier, clock clock.Clock, logger 
 		changes:      make(chan changestream.ChangeEvent),
 	}
 
-	if err := catacomb.Invoke(catacomb.Plan{
-		Site: &stream.catacomb,
-		Work: stream.loop,
-	}); err != nil {
-		return nil, errors.Trace(err)
-	}
+	stream.tomb.Go(stream.loop)
 
-	return stream, nil
+	return stream
 }
 
 // Changes returns a channel for a given namespace (database).
@@ -66,12 +77,12 @@ func (s *Stream) Changes() <-chan changestream.ChangeEvent {
 
 // Kill is part of the worker.Worker interface.
 func (w *Stream) Kill() {
-	w.catacomb.Kill(nil)
+	w.tomb.Kill(nil)
 }
 
 // Wait is part of the worker.Worker interface.
 func (w *Stream) Wait() error {
-	return w.catacomb.Wait()
+	return w.tomb.Wait()
 }
 
 func (s *Stream) loop() error {
@@ -93,8 +104,8 @@ func (s *Stream) loop() error {
 
 	for {
 		select {
-		case <-s.catacomb.Dying():
-			return s.catacomb.ErrDying()
+		case <-s.tomb.Dying():
+			return tomb.ErrDying
 
 		case fileCreated, ok := <-fileNotifier:
 			if !ok {
@@ -118,8 +129,8 @@ func (s *Stream) loop() error {
 		INNER:
 			for {
 				select {
-				case <-s.catacomb.Dying():
-					return s.catacomb.ErrDying()
+				case <-s.tomb.Dying():
+					return tomb.ErrDying
 				case inner, ok := <-fileNotifier:
 					if !ok || !inner {
 						break INNER

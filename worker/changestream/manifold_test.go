@@ -33,13 +33,14 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 
 	cfg = s.getConfig()
 	cfg.DBAccessor = ""
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 
 	cfg = s.getConfig()
 	cfg.FileNotifyWatcher = ""
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 
 	cfg = s.getConfig()
-	cfg.NewStream = nil
+	cfg.NewEventQueueWorker = nil
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 }
 
@@ -49,8 +50,8 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		FileNotifyWatcher: "filenotifywatcher",
 		Clock:             s.clock,
 		Logger:            s.logger,
-		NewStream: func(*sql.DB, FileNotifier, clock.Clock, Logger) (DBStream, error) {
-			return s.dbStream, nil
+		NewEventQueueWorker: func(*sql.DB, FileNotifier, clock.Clock, Logger) (EventQueueWorker, error) {
+			return nil, nil
 		},
 	}
 }
