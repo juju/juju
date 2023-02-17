@@ -159,7 +159,7 @@ func filterResourcesForUpgrade(
 //  1. Resources specified as a local file on the cli to be uploaded.
 //  2. Resources specified as resource revision on the cli, which are
 //     not currently in use.
-//  3. Upstream has a new resource available than what is currently used.
+//  3. Upstream has a newer resource available than what is currently used.
 //  4. A new upstream resource is available.
 //
 // Caveat: Previously uploaded resources stay pinned to the data the user uploaded.
