@@ -101,15 +101,34 @@ run_deploy_exported_charmhub_bundle_with_float_revisions() {
 	ensure "test-export-bundles-deploy-with-float-revisions" "${file}"
 	bundle=./tests/suites/deploy/bundles/telegraf_bundle_without_revisions.yaml
 	bundle_with_fake_revisions=./tests/suites/deploy/bundles/telegraf_bundle_with_fake_revisions.yaml
-	juju deploy ${bundle}
+	cp ${bundle} "${TEST_DIR}/telegraf_bundle_without_revisions.yaml"
+	cp ${bundle_with_fake_revisions} "${TEST_DIR}/telegraf_bundle_with_fake_revisions.yaml"
+	if [[ -n ${MODEL_ARCH:-} ]]; then
+		yq -i "
+      .applications.influxdb.constraints = \"arch=${MODEL_ARCH}\" |
+      .applications.ubuntu.constraints = \"arch=${MODEL_ARCH}\"
+    " "${TEST_DIR}/telegraf_bundle_without_revisions.yaml"
+		yq -i "
+      .applications.influxdb.constraints = \"arch=${MODEL_ARCH}\" |
+      .applications.ubuntu.constraints = \"arch=${MODEL_ARCH}\"
+    " "${TEST_DIR}/telegraf_bundle_with_fake_revisions.yaml"
+	fi
+
+	juju deploy "${TEST_DIR}/telegraf_bundle_without_revisions.yaml"
 
 	echo "Create telegraf_bundle_without_revisions.yaml with known latest revisions from charmhub"
-	influxdb_rev=$(juju info influxdb --format json | jq -r '."channels"."latest"."stable"[0].revision')
-	telegraf_rev=$(juju info telegraf --format json | jq -r '."channels"."latest"."stable"[0].revision')
-	ubuntu_rev=$(juju info ubuntu --format json | jq -r '."channels"."latest"."stable"[0].revision')
+	if [[ -n ${MODEL_ARCH:-} ]]; then
+		influxdb_rev=$(juju info influxdb --arch="${MODEL_ARCH}" --format json | jq -r '."channels"."latest"."stable"[0].revision')
+		telegraf_rev=$(juju info telegraf --arch="${MODEL_ARCH}" --format json | jq -r '."channels"."latest"."stable"[0].revision')
+		ubuntu_rev=$(juju info ubuntu --arch="${MODEL_ARCH}" --format json | jq -r '."channels"."latest"."stable"[0].revision')
+	else
+		influxdb_rev=$(juju info influxdb --format json | jq -r '."channels"."latest"."stable"[0].revision')
+		telegraf_rev=$(juju info telegraf --format json | jq -r '."channels"."latest"."stable"[0].revision')
+		ubuntu_rev=$(juju info ubuntu --format json | jq -r '."channels"."latest"."stable"[0].revision')
+	fi
 
 	echo "Make a copy of reference yaml and insert revisions in it"
-	cp ${bundle_with_fake_revisions} "${TEST_DIR}/telegraf_bundle_with_revisions.yaml"
+	cp "${TEST_DIR}/telegraf_bundle_with_fake_revisions.yaml" "${TEST_DIR}/telegraf_bundle_with_revisions.yaml"
 	yq -i "
 		.applications.influxdb.revision = ${influxdb_rev} |
 		.applications.telegraf.revision = ${telegraf_rev} |
@@ -118,6 +137,8 @@ run_deploy_exported_charmhub_bundle_with_float_revisions() {
 
 	if [[ -n ${MODEL_ARCH:-} ]]; then
 		yq -i "
+			.applications.influxdb.constraints = \"arch=${MODEL_ARCH}\" |
+			.applications.ubuntu.constraints = \"arch=${MODEL_ARCH}\" |
 			.machines.\"0\".constraints = \"arch=${MODEL_ARCH}\" |
 			.machines.\"1\".constraints = \"arch=${MODEL_ARCH}\"
 		" "${TEST_DIR}/telegraf_bundle_with_revisions.yaml"
