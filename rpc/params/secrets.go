@@ -6,6 +6,9 @@ package params
 import (
 	"time"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
+	"gopkg.in/macaroon.v2"
+
 	"github.com/juju/juju/core/secrets"
 )
 
@@ -369,4 +372,26 @@ type SecretBackendRotateWatchResult struct {
 	WatcherId string                      `json:"watcher-id"`
 	Changes   []SecretBackendRotateChange `json:"changes"`
 	Error     *Error                      `json:"error,omitempty"`
+}
+
+// GetRemoteSecretContentArgs holds args for fetching remote secret contents.
+type GetRemoteSecretContentArgs struct {
+	Args []GetRemoteSecretContentArg `json:"relations"`
+}
+
+// GetRemoteSecretContentArg holds ares for fetching a remote secret.
+type GetRemoteSecretContentArg struct {
+	// ApplicationToken is the application token on the remote model.
+	ApplicationToken string `json:"application-token"`
+
+	// UnitId uniquely identifies the remote unit.
+	UnitId int `json:"unit-id"`
+
+	// Macaroons are used for authentication.
+	Macaroons macaroon.Slice `json:"macaroons,omitempty"`
+
+	// BakeryVersion is the version of the bakery used to mint macaroons.
+	BakeryVersion bakery.Version `json:"bakery-version,omitempty"`
+
+	GetSecretContentArg `json:",inline"`
 }

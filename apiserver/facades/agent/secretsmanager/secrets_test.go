@@ -40,6 +40,8 @@ type SecretsManagerSuite struct {
 	token                 *mocks.MockToken
 	secretsState          *mocks.MockSecretsState
 	secretsConsumer       *mocks.MockSecretsConsumer
+	crossModelState       *mocks.MockCrossModelState
+	remoteClient          *mocks.MockCrossModelSecretsClient
 	secretsWatcher        *mocks.MockStringsWatcher
 	secretTriggers        *mocks.MockSecretTriggers
 	secretsTriggerWatcher *mocks.MockSecretsTriggerWatcher
@@ -68,6 +70,7 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 	s.token = mocks.NewMockToken(ctrl)
 	s.secretsState = mocks.NewMockSecretsState(ctrl)
 	s.secretsConsumer = mocks.NewMockSecretsConsumer(ctrl)
+	s.crossModelState = mocks.NewMockCrossModelState(ctrl)
 	s.secretsWatcher = mocks.NewMockStringsWatcher(ctrl)
 	s.secretTriggers = mocks.NewMockSecretTriggers(ctrl)
 	s.secretsTriggerWatcher = mocks.NewMockSecretsTriggerWatcher(ctrl)
@@ -109,10 +112,15 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 			},
 		}, nil
 	}
+	remoteClientGetter := func(uri *coresecrets.URI) (secretsmanager.CrossModelSecretsClient, error) {
+		return s.remoteClient, nil
+	}
+
 	var err error
 	s.facade, err = secretsmanager.NewTestAPI(
-		s.authorizer, s.resources, s.leadership, s.secretsState, s.secretsConsumer, s.secretTriggers,
-		backendConfigGetter, adminConfigGetter, s.authTag, s.clock)
+		s.authorizer, s.resources, s.leadership, s.secretsState, s.secretsConsumer,
+		s.secretTriggers, backendConfigGetter, adminConfigGetter, remoteClientGetter,
+		s.crossModelState, s.authTag, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return ctrl
@@ -908,6 +916,60 @@ func (s *SecretsManagerSuite) TestGetSecretContentConsumerPeekArg(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, params.SecretContentResults{
 		Results: []params.SecretContentResult{{
 			Content: params.SecretContentParams{Data: data},
+		}},
+	})
+}
+
+func (s *SecretsManagerSuite) TestGetSecretContentCrossModel(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	anotherUUID := "deadbeef-0bad-0666-8000-4b1d0d06f66d"
+	uri := coresecrets.NewURI().WithSource(anotherUUID)
+
+	s.remoteClient = mocks.NewMockCrossModelSecretsClient(ctrl)
+
+	s.crossModelState.EXPECT().GetToken(names.NewApplicationTag("mariadb")).Return("token", nil)
+	s.remoteClient.EXPECT().GetRemoteSecretContentInfo(uri, true, false, "token", 0).Return(
+		&secrets.ContentParams{
+			ValueRef: &coresecrets.ValueRef{
+				BackendID:  "backend-id",
+				RevisionID: "rev-id",
+			},
+		}, &provider.ModelBackendConfig{
+			ControllerUUID: coretesting.ControllerTag.Id(),
+			ModelUUID:      coretesting.ModelTag.Id(),
+			ModelName:      "fred",
+			BackendConfig: provider.BackendConfig{
+				BackendType: "vault",
+				Config:      map[string]interface{}{"foo": "bar"},
+			},
+		}, true, nil)
+
+	results, err := s.facade.GetSecretContentInfo(params.GetSecretContentArgs{
+		Args: []params.GetSecretContentArg{
+			{URI: uri.String(), Refresh: true},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.SecretContentResults{
+		Results: []params.SecretContentResult{{
+			Content: params.SecretContentParams{
+				ValueRef: &params.SecretValueRef{
+					BackendID:  "backend-id",
+					RevisionID: "rev-id",
+				},
+			},
+			BackendConfig: &params.SecretBackendConfigResult{
+				ControllerUUID: coretesting.ControllerTag.Id(),
+				ModelUUID:      coretesting.ModelTag.Id(),
+				ModelName:      "fred",
+				Draining:       true,
+				Config: params.SecretBackendConfig{
+					BackendType: "vault",
+					Params:      map[string]interface{}{"foo": "bar"},
+				},
+			},
 		}},
 	})
 }

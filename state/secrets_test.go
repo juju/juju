@@ -1183,11 +1183,19 @@ func (s *SecretsSuite) TestSecretGrantAccess(c *gc.C) {
 	c.Assert(access, gc.Equals, secrets.RoleView)
 }
 
-func (s *SecretsSuite) TestSecretGrantCrossModel(c *gc.C) {
+func (s *SecretsSuite) TestSecretGrantCrossModelOffer(c *gc.C) {
+	s.assertSecretGrantCrossModelOffer(c, true)
+}
+
+func (s *SecretsSuite) TestSecretGrantCrossModelConsumer(c *gc.C) {
+	s.assertSecretGrantCrossModelOffer(c, false)
+}
+
+func (s *SecretsSuite) assertSecretGrantCrossModelOffer(c *gc.C, offer bool) {
 	rwordpress, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:            "remote-wordpress",
 		SourceModel:     names.NewModelTag("source-model"),
-		IsConsumerProxy: true,
+		IsConsumerProxy: offer,
 		OfferUUID:       "offer-uuid",
 		Endpoints: []charm.Relation{{
 			Interface: "mysql",
@@ -1223,7 +1231,14 @@ func (s *SecretsSuite) TestSecretGrantCrossModel(c *gc.C) {
 		Subject:     rwordpress.Tag(),
 		Role:        secrets.RoleView,
 	})
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	if offer {
+		c.Assert(err, jc.ErrorIsNil)
+		access, err := s.State.SecretAccess(uri, rwordpress.Tag())
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(access, gc.Equals, secrets.RoleView)
+	} else {
+		c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	}
 }
 
 func (s *SecretsSuite) TestSecretGrantAccessDyingScope(c *gc.C) {

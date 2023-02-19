@@ -40,3 +40,7 @@ type SecretsState interface {
 	ListSecretRevisions(uri *secrets.URI) ([]*secrets.SecretRevisionMetadata, error)
 	WatchObsolete(owners []names.Tag) (state.StringsWatcher, error)
 }
+
+type CrossModelState interface {
+	GetToken(entity names.Tag) (string, error)
+}

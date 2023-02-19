@@ -1986,17 +1986,31 @@ func (st *State) GrantSecretAccess(uri *secrets.URI, p SecretAccessParams) (err 
 	if subjectEntity.Life() != Alive {
 		return errors.Errorf("cannot grant dying %q access to secret", p.Subject)
 	}
+
+	// Apps on the offering side of a cross model relation can grant secret access.
+	type remoteApp interface {
+		IsConsumerProxy() bool
+	}
+	var subjectApp remoteApp
+
 	isCrossModel := subjectCollName == remoteApplicationsC
 	if subjectCollName == unitsC {
 		unitApp, _ := names.UnitApplication(p.Subject.Id())
-		_, err = st.RemoteApplication(unitApp)
+		remoteApp, err := st.RemoteApplication(unitApp)
 		if err != nil && !errors.IsNotFound(err) {
 			return errors.Trace(err)
 		}
-		isCrossModel = err == nil
+		if isCrossModel = err == nil; isCrossModel {
+			subjectApp = remoteApp
+		}
 	}
 	if isCrossModel {
-		return errors.NotSupportedf("sharing secrets across a cross model relation")
+		if e, ok := subjectEntity.(remoteApp); ok {
+			subjectApp = e
+		}
+		if !subjectApp.IsConsumerProxy() {
+			return errors.NotSupportedf("sharing consumer secrets across a cross model relation")
+		}
 	}
 
 	isScopeAliveOp := txn.Op{
