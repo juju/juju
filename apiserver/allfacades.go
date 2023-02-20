@@ -45,6 +45,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/facades/client/modelupgrader"
 	"github.com/juju/juju/apiserver/facades/client/secretbackends"
+	"github.com/juju/juju/apiserver/facades/controller/crossmodelsecrets"
 
 	// ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/applicationoffers"
@@ -146,6 +147,7 @@ func AllFacades() *facade.Registry {
 
 	controller.Register(registry)
 	crossmodelrelations.Register(registry)
+	crossmodelsecrets.Register(registry)
 	crosscontroller.Register(registry)
 	credentialmanager.Register(registry)
 	credentialvalidator.Register(registry)

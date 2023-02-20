@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/secrets"
 	"github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/secrets/provider/juju"
 	"github.com/juju/juju/secrets/provider/kubernetes"
@@ -434,63 +433,4 @@ func PingBackend(p provider.SecretBackendProvider, cfg provider.ConfigAttrs) err
 		return errors.Annotate(err, "checking backend")
 	}
 	return b.Ping()
-}
-
-// SecretContentGetter is used to get the content of a secret
-// for a specified consumer.
-type SecretContentGetter struct {
-	SecretsState    SecretsGetter
-	SecretsConsumer SecretsConsumer
-	Consumer        names.Tag
-	CanRead         func(uri *coresecrets.URI, entity names.Tag) bool
-}
-
-// GetSecretContent returns the content of a secret.
-func (s *SecretContentGetter) GetSecretContent(uri *coresecrets.URI, refresh, peek bool, label string, updateLabel bool) (*secrets.ContentParams, error) {
-	revision, err := s.getLatestRevision(uri, refresh, peek, label, updateLabel)
-	if err != nil {
-		return nil, errors.Annotate(err, "getting latest secret revision")
-	}
-
-	if !s.CanRead(uri, s.Consumer) {
-		return nil, apiservererrors.ErrPerm
-	}
-	val, valueRef, err := s.SecretsState.GetSecretValue(uri, revision)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &secrets.ContentParams{SecretValue: val, ValueRef: valueRef}, nil
-}
-
-func (s *SecretContentGetter) getLatestRevision(uri *coresecrets.URI, refresh, peek bool, label string, possibleUpdateLabel bool) (int, error) {
-	consumerInfo, err := s.SecretsConsumer.GetSecretConsumer(uri, s.Consumer)
-	if err != nil && !errors.Is(err, errors.NotFound) {
-		return 0, errors.Trace(err)
-	}
-	refresh = refresh ||
-		err != nil // Not found, so need to create one.
-
-	// Use the latest revision as the current one if --refresh or --peek.
-	if refresh || peek {
-		md, err := s.SecretsState.GetSecret(uri)
-		if err != nil {
-			return 0, errors.Trace(err)
-		}
-		if consumerInfo == nil {
-			consumerInfo = &coresecrets.SecretConsumerMetadata{
-				LatestRevision: md.LatestRevision,
-			}
-		}
-		consumerInfo.CurrentRevision = md.LatestRevision
-	}
-	// Save the latest consumer info if required.
-	if refresh || possibleUpdateLabel {
-		if label != "" {
-			consumerInfo.Label = label
-		}
-		if err := s.SecretsConsumer.SaveSecretConsumer(uri, s.Consumer, consumerInfo); err != nil {
-			return 0, errors.Trace(err)
-		}
-	}
-	return consumerInfo.CurrentRevision, nil
 }

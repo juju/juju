@@ -29,6 +29,7 @@ var commonModelFacadeNames = set.NewStrings(
 	"CredentialValidator",
 	"CrossController",
 	"CrossModelRelations",
+	"CrossModelSecrets",
 	"EnvironUpgrader",
 	"ExternalControllerUpdater",
 	"FilesystemAttachmentsWatcher",

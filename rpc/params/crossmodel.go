@@ -25,7 +25,7 @@ type ExternalControllerInfoResult struct {
 	Error  *Error                  `json:"error"`
 }
 
-// SetControllersInfoParams contains the parameters for setting the
+// SetExternalControllersInfoParams contains the parameters for setting the
 // info for a set of external controllers.
 type SetExternalControllersInfoParams struct {
 	Controllers []SetExternalControllerInfoParams `json:"controllers"`
@@ -558,7 +558,7 @@ type RegisterRemoteRelationResult struct {
 	Error  *Error                 `json:"error,omitempty"`
 }
 
-// RemoteRemoteRelationResults has a set of remote relation results.
+// RegisterRemoteRelationResults has a set of remote relation results.
 type RegisterRemoteRelationResults struct {
 	Results []RegisterRemoteRelationResult `json:"results,omitempty"`
 }
@@ -654,7 +654,7 @@ type RemoteEntities struct {
 	Tokens []string `json:"tokens"`
 }
 
-// RelationUnit holds a remote relation token and a unit tag.
+// RemoteRelationUnit holds a remote relation token and a unit tag.
 type RemoteRelationUnit struct {
 	RelationToken string         `json:"relation-token"`
 	Unit          string         `json:"unit"`
@@ -667,7 +667,7 @@ type RemoteRelationUnits struct {
 	RelationUnits []RemoteRelationUnit `json:"relation-units"`
 }
 
-// ModifyModelAccessRequest holds the parameters for making grant and revoke offer calls.
+// ModifyOfferAccessRequest holds the parameters for making grant and revoke offer calls.
 type ModifyOfferAccessRequest struct {
 	Changes []ModifyOfferAccess `json:"changes"`
 }

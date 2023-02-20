@@ -8,12 +8,17 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/controller/crossmodelsecrets"
 	"github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/worker/apicaller"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -46,6 +51,26 @@ func NewSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 		}
 		return secrets.AdminBackendConfigInfo(secrets.SecretsModel(model))
 	}
+	remoteClientGetter := func(uri *coresecrets.URI) (CrossModelSecretsClient, error) {
+		externalControllers := context.State().NewExternalControllers()
+		ext, err := externalControllers.ControllerForModel(uri.SourceUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		info := ext.ControllerInfo()
+		apiInfo := api.Info{
+			Addrs:    info.Addrs,
+			CACert:   info.CACert,
+			ModelTag: names.NewModelTag(uri.SourceUUID),
+		}
+		apiInfo.Tag = names.NewUserTag(api.AnonymousUsername)
+		conn, err := apicaller.NewExternalControllerConnection(&apiInfo)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return crossmodelsecrets.NewClient(conn), nil
+	}
+
 	return &SecretsManagerAPI{
 		authTag:             context.Auth().GetAuthTag(),
 		leadershipChecker:   leadershipChecker,
@@ -57,5 +82,7 @@ func NewSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 		modelUUID:           context.State().ModelUUID(),
 		backendConfigGetter: secretBackendConfigGetter,
 		adminConfigGetter:   secretBackendAdminConfigGetter,
+		remoteClientGetter:  remoteClientGetter,
+		crossModelState:     context.State().RemoteEntities(),
 	}, nil
 }
