@@ -4,6 +4,7 @@
 package database
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"net"
@@ -26,6 +27,31 @@ type nodeManagerSuite struct {
 }
 
 var _ = gc.Suite(&nodeManagerSuite{})
+
+func (s *nodeManagerSuite) TestEnsureDataDirSuccess(c *gc.C) {
+	subDir := strconv.Itoa(rand.Intn(10))
+
+	cfg := fakeAgentConfig{dataDir: "/tmp/" + subDir}
+	m := NewNodeManager(cfg, stubLogger{})
+
+	expected := fmt.Sprintf("/tmp/%s/%s", subDir, dqliteDataDir)
+	s.AddCleanup(func(*gc.C) { _ = os.RemoveAll(cfg.DataDir()) })
+
+	// Call twice to check both the creation and extant scenarios.
+	dir, err := m.EnsureDataDir()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(dir, gc.Equals, expected)
+
+	_, err = os.Stat(expected)
+	c.Assert(err, jc.ErrorIsNil)
+
+	dir, err = m.EnsureDataDir()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(dir, gc.Equals, expected)
+
+	_, err = os.Stat(expected)
+	c.Assert(err, jc.ErrorIsNil)
+}
 
 func (s *nodeManagerSuite) TestIsExistingNode(c *gc.C) {
 	subDir := strconv.Itoa(rand.Intn(10))
@@ -53,29 +79,69 @@ func (s *nodeManagerSuite) TestIsExistingNode(c *gc.C) {
 	c.Check(extant, jc.IsTrue)
 }
 
-func (s *nodeManagerSuite) TestEnsureDataDirSuccess(c *gc.C) {
+func (s *nodeManagerSuite) TestIsBootstrappedNode(c *gc.C) {
 	subDir := strconv.Itoa(rand.Intn(10))
 
 	cfg := fakeAgentConfig{dataDir: "/tmp/" + subDir}
-	m := NewNodeManager(cfg, stubLogger{})
-
-	expected := fmt.Sprintf("/tmp/%s/%s", subDir, dqliteDataDir)
 	s.AddCleanup(func(*gc.C) { _ = os.RemoveAll(cfg.DataDir()) })
 
-	// Call twice to check both the creation and extant scenarios.
-	dir, err := m.EnsureDataDir()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(dir, gc.Equals, expected)
+	m := NewNodeManager(cfg, stubLogger{})
+	ctx := context.TODO()
 
-	_, err = os.Stat(expected)
+	// Empty directory indicates we are not the bootstrapped node.
+	asBootstrapped, err := m.IsBootstrappedNode(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(asBootstrapped, jc.IsFalse)
+
+	dataDir, err := m.EnsureDataDir()
 	c.Assert(err, jc.ErrorIsNil)
 
-	dir, err = m.EnsureDataDir()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(dir, gc.Equals, expected)
+	clusterFile := path.Join(dataDir, "cluster.yaml")
 
-	_, err = os.Stat(expected)
+	// Multiple nodes indicates the cluster has mutated since bootstrap.
+	data := `
+- Address: 10.246.27.114:17666
+  ID: 3297041220608546238
+  Role: 0
+- Address: 10.246.27.115:17666
+  ID: 123456789
+  Role: 0
+`[1:]
+
+	err = os.WriteFile(clusterFile, []byte(data), 0600)
 	c.Assert(err, jc.ErrorIsNil)
+
+	asBootstrapped, err = m.IsBootstrappedNode(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(asBootstrapped, jc.IsFalse)
+
+	// Non-loopback address indicates node was reconfigured since bootstrap.
+	data = `
+- Address: 10.246.27.114:17666
+  ID: 3297041220608546238
+  Role: 0
+`[1:]
+
+	err = os.WriteFile(clusterFile, []byte(data), 0600)
+	c.Assert(err, jc.ErrorIsNil)
+
+	asBootstrapped, err = m.IsBootstrappedNode(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(asBootstrapped, jc.IsFalse)
+
+	// Loopback IP address indicates the node is as we bootstrapped it.
+	data = `
+- Address: 127.0.0.1:17666
+  ID: 3297041220608546238
+  Role: 0
+`[1:]
+
+	err = os.WriteFile(clusterFile, []byte(data), 0600)
+	c.Assert(err, jc.ErrorIsNil)
+
+	asBootstrapped, err = m.IsBootstrappedNode(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(asBootstrapped, jc.IsTrue)
 }
 
 func (s *nodeManagerSuite) TestWithAddressOptionSuccess(c *gc.C) {

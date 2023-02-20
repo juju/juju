@@ -4,12 +4,14 @@
 package database
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
 	"io"
 	"net"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -54,6 +56,35 @@ func NewNodeManager(cfg agent.Config, logger Logger) *NodeManager {
 		logger:      logger,
 		bindAddress: DefaultBindAddress,
 	}
+}
+
+// IsBootstrappedNode returns true if this machine or container was where we
+// first bootstrapped Dqlite, and it hasn't been reconfigured since.
+// Specifically, whether we are a cluster of one, and bound to the loopback
+// IP address.
+func (m *NodeManager) IsBootstrappedNode(ctx context.Context) (bool, error) {
+	extant, err := m.IsExistingNode()
+	if err != nil {
+		return false, errors.Annotate(err, "determining existing Dqlite node")
+	}
+	if !extant {
+		return false, nil
+	}
+
+	store, err := m.nodeClusterStore()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	servers, err := store.Get(ctx)
+	if err != nil {
+		return false, errors.Annotate(err, "retrieving servers from Dqlite node store")
+	}
+
+	if len(servers) != 1 {
+		return false, nil
+	}
+
+	return strings.HasPrefix(servers[0].Address, "127.0.0.1"), nil
 }
 
 // IsExistingNode returns true if this machine or container has
@@ -182,6 +213,13 @@ func (m *NodeManager) WithClusterOption() (app.Option, error) {
 
 	m.logger.Debugf("determined Dqlite cluster members: %v", peerAddrs)
 	return app.WithCluster(peerAddrs), nil
+}
+
+// nodeClusterStore returns a YamlNodeStore instance based
+// on the cluster.yaml file in the Dqlite data directory.
+func (m *NodeManager) nodeClusterStore() (*client.YamlNodeStore, error) {
+	store, err := client.NewYamlNodeStore(path.Join(m.dataDir, "cluster.yaml"))
+	return store, errors.Annotate(err, "opening Dqlite cluster node store")
 }
 
 // ensureBindAddress sets the bind address, used by clients and peers.
