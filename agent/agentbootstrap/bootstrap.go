@@ -5,6 +5,7 @@ package agentbootstrap
 
 import (
 	stdcontext "context"
+	"database/sql"
 	"fmt"
 
 	"github.com/juju/clock"
@@ -106,7 +107,18 @@ func InitializeState(
 	info.Tag = nil
 	info.Password = c.OldPassword()
 
-	if err := database.BootstrapDqlite(stdcontext.TODO(), database.NewNodeManager(c, logger), logger); err != nil {
+	if err := database.BootstrapDqlite(
+		stdcontext.TODO(),
+		database.NewNodeManager(c, logger),
+		logger,
+		func(db *sql.DB) error {
+			// Seed the bootstrap node.
+			// TODO (manadart 2023-02-20): this should be a UUID, but at the
+			// time of writing we have not yet modelled machines in Dqlite.
+			_, err := db.Exec("INSERT INTO node (controller_id) values ('0')")
+			return err
+		},
+	); err != nil {
 		return nil, errors.Trace(err)
 	}
 
