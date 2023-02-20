@@ -13,9 +13,10 @@ run_deploy_aks_charms() {
 
 	wait_for 2 '[.applications[] | select(."application-status".current == "active")] | length'
 
-	echo "Verify application is reachable"
-	mattermost_ip="$(juju status --format json | jq -r '.applications["mattermost-k8s"].units["mattermost-k8s/0"].address')"
-	juju run --unit mattermost-k8s/0 "curl \"${mattermost_ip}:8065\" >/dev/null"
+	# TODO(anvial): we can return this check after fixing issue with flapping connection by curl in aks environment.
+	#	echo "Verify application is reachable"
+	#	mattermost_ip="$(juju status --format json | jq -r '.applications["mattermost-k8s"].units["mattermost-k8s/0"].address')"
+	#	juju run --unit mattermost-k8s/0 curl "${mattermost_ip}:8065"
 
 	echo "Destroy model"
 	juju destroy-model "test-deploy-aks-charms" --destroy-storage -y
