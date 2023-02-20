@@ -8,6 +8,7 @@ func ControllerDDL() []string {
 	schemas := []func() string{
 		leaseSchema,
 		changeLogSchema,
+		nodeSchema,
 	}
 
 	var deltas []string
@@ -95,9 +96,8 @@ CREATE TABLE change_log_namespace (
 CREATE UNIQUE INDEX idx_change_log_namespace_namespace
 ON change_log_namespace (namespace);
 
--- TODO (stickupkid): Add the namespaces we want to track.
--- INSERT INTO change_log_namespace VALUES
---    (1, 'foo');
+INSERT INTO change_log_namespace VALUES
+    (1, 'node');
 
 CREATE TABLE change_log (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -112,4 +112,37 @@ CREATE TABLE change_log (
             FOREIGN KEY (namespace_id)
             REFERENCES  change_log_namespace(id)
 );`[1:]
+}
+
+func nodeSchema() string {
+	return `
+CREATE TABLE node (
+    controller_id  TEXT PRIMARY KEY, 
+    dqlite_node_id INT,               -- This is the uint64 from Dqlite NodeInfo.
+    bind_address   TEXT               -- IP address (no port) that Dqlite is bound to. 
+);
+
+CREATE UNIQUE INDEX idx_node_dqlite_node
+ON node (dqlite_node_id);
+
+CREATE UNIQUE INDEX idx_node_bind_address
+ON node (bind_address);
+
+CREATE TRIGGER trg_changelog_node_insert
+AFTER INSERT ON node FOR EACH ROW
+BEGIN
+	INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid) VALUES (1, 1, NEW.controller_id);
+END;
+
+CREATE TRIGGER trg_changelog_node_update
+AFTER UPDATE ON node FOR EACH ROW
+BEGIN
+	INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid) VALUES (2, 1, OLD.controller_id);
+END;
+
+CREATE TRIGGER trg_changelog_node_delete
+AFTER DELETE ON node FOR EACH ROW
+BEGIN
+	INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid) VALUES (4, 1, OLD.controller_id);
+END;`[1:]
 }
