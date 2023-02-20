@@ -76,6 +76,10 @@ func (s *CrossModelSecretsSuite) setup(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
+func ptr[T any](v T) *T {
+	return &v
+}
+
 func (s *CrossModelSecretsSuite) TestGetSecretContentInfo(c *gc.C) {
 	defer s.setup(c).Finish()
 
@@ -84,14 +88,9 @@ func (s *CrossModelSecretsSuite) TestGetSecretContentInfo(c *gc.C) {
 	consumer := names.NewUnitTag("remote-app/666")
 
 	s.crossModelState.EXPECT().GetRemoteEntity("token").Return(app, nil)
-	s.secretsConsumer.EXPECT().GetSecretConsumer(uri, consumer)
 	s.secretsState.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{
 		LatestRevision: 667,
 	}, nil)
-	s.secretsConsumer.EXPECT().SaveSecretConsumer(uri, consumer, &coresecrets.SecretConsumerMetadata{
-		CurrentRevision: 667,
-		LatestRevision:  667,
-	}).Return(nil)
 	s.secretsConsumer.EXPECT().SecretAccess(uri, consumer).Return(coresecrets.RoleView, nil)
 	s.secretsState.EXPECT().GetSecretValue(uri, 667).Return(
 		nil,
@@ -101,7 +100,6 @@ func (s *CrossModelSecretsSuite) TestGetSecretContentInfo(c *gc.C) {
 		}, nil,
 	)
 
-	badURI := coresecrets.NewURI()
 	args := params.GetRemoteSecretContentArgs{
 		Args: []params.GetRemoteSecretContentArg{{
 			ApplicationToken: "token",
@@ -109,15 +107,12 @@ func (s *CrossModelSecretsSuite) TestGetSecretContentInfo(c *gc.C) {
 			BakeryVersion:    3,
 			// TODO(cmr secrets)
 			Macaroons: nil,
-			GetSecretContentArg: params.GetSecretContentArg{
-				URI:     uri.String(),
-				Refresh: true,
-				Peek:    false,
-			},
+			URI:       uri.String(),
+			Latest:    true,
 		}, {
-			GetSecretContentArg: params.GetSecretContentArg{
-				URI: badURI.String(),
-			},
+			URI: coresecrets.NewURI().String(),
+		}, {
+			URI: uri.String(),
 		}},
 	}
 	results, err := s.facade.GetSecretContentInfo(args)
@@ -140,10 +135,16 @@ func (s *CrossModelSecretsSuite) TestGetSecretContentInfo(c *gc.C) {
 					Params:      map[string]interface{}{"foo": "bar"},
 				},
 			},
+			LatestRevision: ptr(667),
 		}, {
 			Error: &params.Error{
 				Code:    "not valid",
 				Message: "secret URI with empty source UUID not valid",
+			},
+		}, {
+			Error: &params.Error{
+				Code:    "not valid",
+				Message: "empty secret revision not valid",
 			},
 		}},
 	})

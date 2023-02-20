@@ -157,9 +157,10 @@ type SecretContentResults struct {
 
 // SecretContentResult is the result of getting secret content.
 type SecretContentResult struct {
-	Content       SecretContentParams        `json:"content"`
-	BackendConfig *SecretBackendConfigResult `json:"backend-config,omitempty"`
-	Error         *Error                     `json:"error,omitempty"`
+	Content        SecretContentParams        `json:"content"`
+	BackendConfig  *SecretBackendConfigResult `json:"backend-config,omitempty"`
+	LatestRevision *int                       `json:"latest-revision,omitempty"`
+	Error          *Error                     `json:"error,omitempty"`
 }
 
 // SecretValueResult is the result of getting a secret value.
@@ -387,11 +388,18 @@ type GetRemoteSecretContentArg struct {
 	// UnitId uniquely identifies the remote unit.
 	UnitId int `json:"unit-id"`
 
+	// Revision, if specified, is the secret revision to fetch.
+	Revision *int `json:"revision,omitempty"`
+
 	// Macaroons are used for authentication.
 	Macaroons macaroon.Slice `json:"macaroons,omitempty"`
 
 	// BakeryVersion is the version of the bakery used to mint macaroons.
 	BakeryVersion bakery.Version `json:"bakery-version,omitempty"`
 
-	GetSecretContentArg `json:",inline"`
+	// URI is the secret URI.
+	URI string `json:"uri"`
+
+	// Latest is true if the latest revision should be used.
+	Latest bool `json:"latest,omitempty"`
 }

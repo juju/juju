@@ -14,7 +14,6 @@ import (
 	"github.com/juju/names/v4"
 	"gopkg.in/macaroon.v2"
 
-	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	coresecrets "github.com/juju/juju/core/secrets"
@@ -73,7 +72,7 @@ func (s *CrossModelSecretsAPI) GetSecretContentInfo(args params.GetRemoteSecretC
 		Results: make([]params.SecretContentResult, len(args.Args)),
 	}
 	for i, arg := range args.Args {
-		content, backend, err := s.getSecretContent(arg)
+		content, backend, latestRevision, err := s.getSecretContent(arg)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -90,53 +89,66 @@ func (s *CrossModelSecretsAPI) GetSecretContentInfo(args params.GetRemoteSecretC
 		}
 		result.Results[i].Content = contentParams
 		result.Results[i].BackendConfig = backend
+		result.Results[i].LatestRevision = &latestRevision
 	}
 	return result, nil
 }
 
-func (s *CrossModelSecretsAPI) getSecretContent(arg params.GetRemoteSecretContentArg) (*secrets.ContentParams, *params.SecretBackendConfigResult, error) {
+func (s *CrossModelSecretsAPI) getSecretContent(arg params.GetRemoteSecretContentArg) (*secrets.ContentParams, *params.SecretBackendConfigResult, int, error) {
 	if arg.URI == "" {
-		return nil, nil, errors.NewNotValid(nil, "empty uri")
+		return nil, nil, 0, errors.NewNotValid(nil, "empty uri")
 	}
 	uri, err := coresecrets.ParseURI(arg.URI)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, nil, 0, errors.Trace(err)
 	}
 	if uri.SourceUUID == "" {
-		return nil, nil, errors.NotValidf("secret URI with empty source UUID")
+		return nil, nil, 0, errors.NotValidf("secret URI with empty source UUID")
+	}
+	if arg.Revision == nil && !arg.Latest {
+		return nil, nil, 0, errors.NotValidf("empty secret revision")
 	}
 
 	app, err := s.crossModelState.GetRemoteEntity(arg.ApplicationToken)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, nil, 0, errors.Trace(err)
 	}
 	consumer := names.NewUnitTag(fmt.Sprintf("%s/%d", app.Id(), arg.UnitId))
 
 	if err := s.checkMacaroonsForConsumer(app, uri.ID, arg.Macaroons, arg.BakeryVersion); err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, nil, 0, errors.Trace(err)
 	}
 
 	secretState, secretsConsumer, closer, err := s.secretsStateGetter(uri.SourceUUID)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, nil, 0, errors.Trace(err)
 	}
 	defer closer()
 
-	canRead := func(uri *coresecrets.URI, entity names.Tag) bool {
-		return s.canRead(secretsConsumer, uri, entity)
+	if !s.canRead(secretsConsumer, uri, consumer) {
+		return nil, nil, 0, apiservererrors.ErrPerm
 	}
-	contentGetter := commonsecrets.SecretContentGetter{
-		SecretsState:    secretState,
-		SecretsConsumer: secretsConsumer,
-		Consumer:        consumer,
-		CanRead:         canRead,
+
+	md, err := secretState.GetSecret(uri)
+	if err != nil {
+		return nil, nil, 0, errors.Trace(err)
 	}
-	content, err := contentGetter.GetSecretContent(uri, arg.Refresh, arg.Peek, "", false)
+
+	var wantRevision int
+	// Use the latest revision as the current one if --peek.
+	if arg.Latest {
+		wantRevision = md.LatestRevision
+	} else {
+		wantRevision = *arg.Revision
+	}
+
+	val, valueRef, err := secretState.GetSecretValue(uri, wantRevision)
+	content := &secrets.ContentParams{SecretValue: val, ValueRef: valueRef}
 	if err != nil || content.ValueRef == nil {
-		return content, nil, errors.Trace(err)
+		return content, nil, md.LatestRevision, errors.Trace(err)
 	}
 	backend, err := s.getBackend(uri.SourceUUID, content.ValueRef.BackendID)
-	return content, backend, errors.Trace(err)
+	return content, backend, md.LatestRevision, errors.Trace(err)
 }
 
 func (s *CrossModelSecretsAPI) getBackend(modelUUID string, backendID string) (*params.SecretBackendConfigResult, error) {

@@ -20623,14 +20623,14 @@
                 "GetRemoteSecretContentArg": {
                     "type": "object",
                     "properties": {
-                        "GetSecretContentArg": {
-                            "$ref": "#/definitions/GetSecretContentArg"
-                        },
                         "application-token": {
                             "type": "string"
                         },
                         "bakery-version": {
                             "type": "integer"
+                        },
+                        "latest": {
+                            "type": "boolean"
                         },
                         "macaroons": {
                             "type": "array",
@@ -20638,15 +20638,21 @@
                                 "$ref": "#/definitions/Macaroon"
                             }
                         },
+                        "revision": {
+                            "type": "integer"
+                        },
                         "unit-id": {
                             "type": "integer"
+                        },
+                        "uri": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
                         "application-token",
                         "unit-id",
-                        "GetSecretContentArg"
+                        "uri"
                     ]
                 },
                 "GetRemoteSecretContentArgs": {
@@ -20662,27 +20668,6 @@
                     "additionalProperties": false,
                     "required": [
                         "relations"
-                    ]
-                },
-                "GetSecretContentArg": {
-                    "type": "object",
-                    "properties": {
-                        "label": {
-                            "type": "string"
-                        },
-                        "peek": {
-                            "type": "boolean"
-                        },
-                        "refresh": {
-                            "type": "boolean"
-                        },
-                        "uri": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "uri"
                     ]
                 },
                 "Macaroon": {
@@ -20765,6 +20750,9 @@
                         },
                         "error": {
                             "$ref": "#/definitions/Error"
+                        },
+                        "latest-revision": {
+                            "type": "integer"
                         }
                     },
                     "additionalProperties": false,
@@ -40338,6 +40326,9 @@
                         },
                         "error": {
                             "$ref": "#/definitions/Error"
+                        },
+                        "latest-revision": {
+                            "type": "integer"
                         }
                     },
                     "additionalProperties": false,
@@ -48586,6 +48577,9 @@
                         },
                         "error": {
                             "$ref": "#/definitions/Error"
+                        },
+                        "latest-revision": {
+                            "type": "integer"
                         }
                     },
                     "additionalProperties": false,

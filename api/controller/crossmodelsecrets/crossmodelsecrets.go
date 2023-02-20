@@ -87,19 +87,21 @@ func (c *Client) getCachedMacaroon(opName, token string) (macaroon.Slice, bool) 
 }
 
 // GetRemoteSecretContentInfo gets secret content from a cross model controller.
-func (c *Client) GetRemoteSecretContentInfo(uri *coresecrets.URI, refresh, peek bool, appToken string, unitId int) (
-	*secrets.ContentParams, *provider.ModelBackendConfig, bool, error,
+func (c *Client) GetRemoteSecretContentInfo(uri *coresecrets.URI, revision int, latest bool, appToken string, unitId int) (
+	*secrets.ContentParams, *provider.ModelBackendConfig, int, bool, error,
 ) {
+	if uri == nil {
+		return nil, nil, 0, false, errors.NotValidf("empty secret URI")
+	}
+
 	arg := params.GetRemoteSecretContentArg{
 		ApplicationToken: appToken,
 		UnitId:           unitId,
-		GetSecretContentArg: params.GetSecretContentArg{
-			Refresh: refresh,
-			Peek:    peek,
-		},
+		URI:              uri.String(),
+		Latest:           latest,
 	}
-	if uri != nil {
-		arg.URI = uri.String()
+	if revision > 0 {
+		arg.Revision = &revision
 	}
 
 	args := params.GetRemoteSecretContentArgs{Args: []params.GetRemoteSecretContentArg{arg}}
@@ -109,20 +111,20 @@ func (c *Client) GetRemoteSecretContentInfo(uri *coresecrets.URI, refresh, peek 
 		args.Args[0].BakeryVersion = bakery.LatestVersion
 	}
 
-	apiCall := func() (*secrets.ContentParams, *provider.ModelBackendConfig, bool, error) {
+	apiCall := func() (*secrets.ContentParams, *provider.ModelBackendConfig, int, bool, error) {
 		var results params.SecretContentResults
 
 		if err := c.facade.FacadeCall(
 			"GetSecretContentInfo", args, &results,
 		); err != nil {
-			return nil, nil, false, errors.Trace(err)
+			return nil, nil, 0, false, errors.Trace(err)
 		}
 		if n := len(results.Results); n != 1 {
-			return nil, nil, false, errors.Errorf("expected 1 result, got %d", n)
+			return nil, nil, 0, false, errors.Errorf("expected 1 result, got %d", n)
 		}
 
 		if err := results.Results[0].Error; err != nil {
-			return nil, nil, false, apiservererrors.RestoreError(err)
+			return nil, nil, 0, false, apiservererrors.RestoreError(err)
 		}
 		content := &secrets.ContentParams{}
 		result := results.Results[0].Content
@@ -151,19 +153,23 @@ func (c *Client) GetRemoteSecretContentInfo(uri *coresecrets.URI, refresh, peek 
 			}
 			draining = cfg.Draining
 		}
-		return content, backendCfg, draining, nil
+		var latestRevision int
+		if rev := results.Results[0].LatestRevision; rev != nil {
+			latestRevision = *rev
+		}
+		return content, backendCfg, latestRevision, draining, nil
 	}
 
 	// Make the api call the first time.
-	content, backend, draining, err := apiCall()
+	content, backend, latestRevision, draining, err := apiCall()
 	if err == nil || errors.IsNotFound(err) {
-		return content, backend, draining, errors.Trace(err)
+		return content, backend, latestRevision, draining, errors.Trace(err)
 	}
 
 	// On error, possibly discharge the macaroon and retry.
 	mac, err2 := c.handleError(err)
 	if err2 != nil {
-		return nil, nil, false, errors.Trace(err2)
+		return nil, nil, 0, false, errors.Trace(err2)
 	}
 	args.Args[0].Macaroons = mac
 	args.Args[0].BakeryVersion = bakery.LatestVersion

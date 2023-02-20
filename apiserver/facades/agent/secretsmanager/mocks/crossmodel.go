@@ -76,14 +76,15 @@ func (m *MockCrossModelSecretsClient) EXPECT() *MockCrossModelSecretsClientMockR
 }
 
 // GetRemoteSecretContentInfo mocks base method.
-func (m *MockCrossModelSecretsClient) GetRemoteSecretContentInfo(arg0 *secrets.URI, arg1, arg2 bool, arg3 string, arg4 int) (*secrets0.ContentParams, *provider.ModelBackendConfig, bool, error) {
+func (m *MockCrossModelSecretsClient) GetRemoteSecretContentInfo(arg0 *secrets.URI, arg1 int, arg2 bool, arg3 string, arg4 int) (*secrets0.ContentParams, *provider.ModelBackendConfig, int, bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetRemoteSecretContentInfo", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(*secrets0.ContentParams)
 	ret1, _ := ret[1].(*provider.ModelBackendConfig)
-	ret2, _ := ret[2].(bool)
-	ret3, _ := ret[3].(error)
-	return ret0, ret1, ret2, ret3
+	ret2, _ := ret[2].(int)
+	ret3, _ := ret[3].(bool)
+	ret4, _ := ret[4].(error)
+	return ret0, ret1, ret2, ret3, ret4
 }
 
 // GetRemoteSecretContentInfo indicates an expected call of GetRemoteSecretContentInfo.

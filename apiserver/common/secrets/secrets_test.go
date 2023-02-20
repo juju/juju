@@ -6,7 +6,6 @@ package secrets_test
 import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -17,7 +16,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/leadership"
 	coresecrets "github.com/juju/juju/core/secrets"
-	jujusecrets "github.com/juju/juju/secrets"
 	"github.com/juju/juju/secrets/provider"
 	_ "github.com/juju/juju/secrets/provider/all"
 	"github.com/juju/juju/secrets/provider/juju"
@@ -479,111 +477,4 @@ func (s *secretsSuite) TestBackendConfigInfoFailedInvalidAuthTag(c *gc.C) {
 
 	_, err := secrets.BackendConfigInfo(model, []string{"some-id"}, badTag, leadershipChecker)
 	c.Assert(err, gc.ErrorMatches, `login as "user-foo" not supported`)
-}
-
-func (s *secretsSuite) TestGetSecretContentExisting(c *gc.C) {
-	s.assertGetSecretContentExisting(c, false, false)
-}
-
-func (s *secretsSuite) TestGetSecretContentExistingRefresh(c *gc.C) {
-	s.assertGetSecretContentExisting(c, true, false)
-}
-
-func (s *secretsSuite) TestGetSecretContentExistingPeek(c *gc.C) {
-	s.assertGetSecretContentExisting(c, false, true)
-}
-
-func (s *secretsSuite) assertGetSecretContentExisting(c *gc.C, refresh, peek bool) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	secretsState := mocks.NewMockSecretsStore(ctrl)
-	secretsConsumer := mocks.NewMockSecretsConsumer(ctrl)
-
-	uri := coresecrets.NewURI()
-	contentGetter := &secrets.SecretContentGetter{
-		Consumer:        names.NewUnitTag("mariadb/0"),
-		SecretsConsumer: secretsConsumer,
-		SecretsState:    secretsState,
-		CanRead: func(uri *coresecrets.URI, entity names.Tag) bool {
-			c.Assert(uri.String(), gc.Equals, uri.String())
-			c.Assert(entity.String(), gc.Equals, "unit-mariadb-0")
-			return true
-		},
-	}
-
-	currentRev := 665
-	if peek || refresh {
-		currentRev = 666
-	}
-	secretsConsumer.EXPECT().GetSecretConsumer(uri, contentGetter.Consumer).Return(&coresecrets.SecretConsumerMetadata{
-		CurrentRevision: 665,
-		LatestRevision:  666,
-	}, nil)
-	if refresh || peek {
-		secretsState.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{LatestRevision: currentRev}, nil)
-	}
-
-	consumerMetadata := &coresecrets.SecretConsumerMetadata{
-		Label:           "foo",
-		CurrentRevision: currentRev,
-		LatestRevision:  666,
-	}
-	secretsConsumer.EXPECT().SaveSecretConsumer(uri, contentGetter.Consumer, consumerMetadata)
-	secretsState.EXPECT().GetSecretValue(uri, currentRev).Return(nil, &coresecrets.ValueRef{
-		BackendID:  "backend-id",
-		RevisionID: "rev-id",
-	}, nil)
-
-	content, err := contentGetter.GetSecretContent(uri, refresh, peek, "foo", true)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(content, jc.DeepEquals, &jujusecrets.ContentParams{
-		ValueRef: &coresecrets.ValueRef{
-			BackendID:  "backend-id",
-			RevisionID: "rev-id",
-		},
-	})
-}
-
-func (s *secretsSuite) TestGetSecretContent(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	secretsState := mocks.NewMockSecretsStore(ctrl)
-	secretsConsumer := mocks.NewMockSecretsConsumer(ctrl)
-
-	uri := coresecrets.NewURI()
-	contentGetter := &secrets.SecretContentGetter{
-		Consumer:        names.NewUnitTag("mariadb/0"),
-		SecretsConsumer: secretsConsumer,
-		SecretsState:    secretsState,
-		CanRead: func(uri *coresecrets.URI, entity names.Tag) bool {
-			c.Assert(uri.String(), gc.Equals, uri.String())
-			c.Assert(entity.String(), gc.Equals, "unit-mariadb-0")
-			return true
-		},
-	}
-
-	secretsConsumer.EXPECT().GetSecretConsumer(uri, contentGetter.Consumer).Return(nil, errors.NotFoundf(""))
-	secretsState.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{LatestRevision: 666}, nil)
-
-	consumerMetadata := &coresecrets.SecretConsumerMetadata{
-		Label:           "foo",
-		CurrentRevision: 666,
-		LatestRevision:  666,
-	}
-	secretsConsumer.EXPECT().SaveSecretConsumer(uri, contentGetter.Consumer, consumerMetadata)
-	secretsState.EXPECT().GetSecretValue(uri, 666).Return(nil, &coresecrets.ValueRef{
-		BackendID:  "backend-id",
-		RevisionID: "rev-id",
-	}, nil)
-
-	content, err := contentGetter.GetSecretContent(uri, false, false, "foo", true)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(content, jc.DeepEquals, &jujusecrets.ContentParams{
-		ValueRef: &coresecrets.ValueRef{
-			BackendID:  "backend-id",
-			RevisionID: "rev-id",
-		},
-	})
 }

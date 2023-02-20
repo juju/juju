@@ -2008,7 +2008,7 @@ func (st *State) GrantSecretAccess(uri *secrets.URI, p SecretAccessParams) (err 
 		if e, ok := subjectEntity.(remoteApp); ok {
 			subjectApp = e
 		}
-		if !subjectApp.IsConsumerProxy() {
+		if subjectApp == nil || !subjectApp.IsConsumerProxy() {
 			return errors.NotSupportedf("sharing consumer secrets across a cross model relation")
 		}
 	}

@@ -33,7 +33,7 @@ var (
 
 // CrossModelSecretsClient gets secret content from a cross model controller.
 type CrossModelSecretsClient interface {
-	GetRemoteSecretContentInfo(uri *coresecrets.URI, refresh, peek bool, appToken string, unitId int) (*secrets.ContentParams, *secretsprovider.ModelBackendConfig, bool, error)
+	GetRemoteSecretContentInfo(uri *coresecrets.URI, revision int, latest bool, appToken string, unitId int) (*secrets.ContentParams, *secretsprovider.ModelBackendConfig, int, bool, error)
 }
 
 // SecretsManagerAPI is the implementation for the SecretsManager facade.
@@ -464,22 +464,37 @@ func (s *SecretsManagerAPI) getRemoteSecretContent(uri *coresecrets.URI, refresh
 	if err != nil {
 		return nil, nil, false, errors.Annotatef(err, "getting remote token for %q", consumerApp)
 	}
-	var untiId int
+	var unitId int
 	if unitTag, ok := s.authTag.(names.UnitTag); ok {
-		untiId = unitTag.Number()
+		unitId = unitTag.Number()
 	} else {
 		return nil, nil, false, errors.NotSupportedf("getting cross model secret for consumer %q", s.authTag)
 	}
-	content, backend, draining, err := extClient.GetRemoteSecretContentInfo(uri, refresh, peek, token, untiId)
+
+	consumerInfo, err := s.secretsConsumer.GetSecretConsumer(uri, s.authTag)
+	if err != nil && !errors.Is(err, errors.NotFound) {
+		return nil, nil, false, errors.Trace(err)
+	}
+	var wantRevision int
+	if err == nil {
+		wantRevision = consumerInfo.CurrentRevision
+	}
+	refresh = refresh ||
+		err != nil // Not found, so need to create one.
+
+	content, backend, latestRevision, draining, err := extClient.GetRemoteSecretContentInfo(uri, wantRevision, refresh || peek, token, unitId)
 	if err != nil {
 		return nil, nil, false, errors.Trace(err)
 	}
-	if updateLabel {
-		consumerInfo, err := s.secretsConsumer.GetSecretConsumer(uri, s.authTag)
-		if err != nil {
-			return nil, nil, false, errors.Trace(err)
+	if refresh || updateLabel {
+		if consumerInfo == nil {
+			consumerInfo = &coresecrets.SecretConsumerMetadata{}
 		}
-		consumerInfo.Label = label
+		consumerInfo.LatestRevision = latestRevision
+		consumerInfo.CurrentRevision = latestRevision
+		if label != "" {
+			consumerInfo.Label = label
+		}
 		if err := s.secretsConsumer.SaveSecretConsumer(uri, s.authTag, consumerInfo); err != nil {
 			return nil, nil, false, errors.Trace(err)
 		}
@@ -660,19 +675,56 @@ func (s *SecretsManagerAPI) getSecretContent(arg params.GetSecretContentArg) (
 		return s.getRemoteSecretContent(uri, arg.Refresh, arg.Peek, arg.Label, possibleUpdateLabel)
 	}
 
-	// arg.Label is the consumer label for consumers.
-	contentGetter := commonsecrets.SecretContentGetter{
-		SecretsState:    s.secretsState,
-		SecretsConsumer: s.secretsConsumer,
-		Consumer:        s.authTag,
-		CanRead:         s.canRead,
+	if !s.canRead(uri, s.authTag) {
+		return nil, nil, false, apiservererrors.ErrPerm
 	}
-	content, err := contentGetter.GetSecretContent(uri, arg.Refresh, arg.Peek, arg.Label, possibleUpdateLabel)
+
+	// arg.Label is the consumer label for consumers.
+	consumedRevision, err := s.getConsumedRevision(uri, arg.Refresh, arg.Peek, arg.Label, possibleUpdateLabel)
+	if err != nil {
+		return nil, nil, false, errors.Annotate(err, "getting latest secret revision")
+	}
+
+	val, valueRef, err := s.secretsState.GetSecretValue(uri, consumedRevision)
+	content := &secrets.ContentParams{SecretValue: val, ValueRef: valueRef}
 	if err != nil || content.ValueRef == nil {
 		return content, nil, false, errors.Trace(err)
 	}
 	backend, draining, err := s.getBackend(content.ValueRef.BackendID)
 	return content, backend, draining, errors.Trace(err)
+}
+
+func (s *SecretsManagerAPI) getConsumedRevision(uri *coresecrets.URI, refresh, peek bool, label string, possibleUpdateLabel bool) (int, error) {
+	consumerInfo, err := s.secretsConsumer.GetSecretConsumer(uri, s.authTag)
+	if err != nil && !errors.Is(err, errors.NotFound) {
+		return 0, errors.Trace(err)
+	}
+	refresh = refresh ||
+		err != nil // Not found, so need to create one.
+
+	// Use the latest revision as the current one if --refresh or --peek.
+	if refresh || peek {
+		md, err := s.secretsState.GetSecret(uri)
+		if err != nil {
+			return 0, errors.Trace(err)
+		}
+		if consumerInfo == nil {
+			consumerInfo = &coresecrets.SecretConsumerMetadata{
+				LatestRevision: md.LatestRevision,
+			}
+		}
+		consumerInfo.CurrentRevision = md.LatestRevision
+	}
+	// Save the latest consumer info if required.
+	if refresh || possibleUpdateLabel {
+		if label != "" {
+			consumerInfo.Label = label
+		}
+		if err := s.secretsConsumer.SaveSecretConsumer(uri, s.authTag, consumerInfo); err != nil {
+			return 0, errors.Trace(err)
+		}
+	}
+	return consumerInfo.CurrentRevision, nil
 }
 
 // WatchConsumedSecretsChanges sets up a watcher to notify of changes to secret revisions for the specified consumers.

@@ -31,6 +31,10 @@ func (s *CrossControllerSuite) TestNewClient(c *gc.C) {
 	c.Assert(client, gc.NotNil)
 }
 
+func ptr[T any](v T) *T {
+	return &v
+}
+
 func (s *CrossControllerSuite) TestGetRemoteSecretContentInfo(c *gc.C) {
 	uri := coresecrets.NewURI()
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
@@ -42,13 +46,11 @@ func (s *CrossControllerSuite) TestGetRemoteSecretContentInfo(c *gc.C) {
 			Args: []params.GetRemoteSecretContentArg{{
 				ApplicationToken: "token",
 				UnitId:           666,
+				Revision:         ptr(665),
 				Macaroons:        nil,
 				BakeryVersion:    0,
-				GetSecretContentArg: params.GetSecretContentArg{
-					URI:     uri.String(),
-					Refresh: true,
-					Peek:    true,
-				},
+				URI:              uri.String(),
+				Latest:           true,
 			}},
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.SecretContentResults{})
@@ -70,13 +72,15 @@ func (s *CrossControllerSuite) TestGetRemoteSecretContentInfo(c *gc.C) {
 						Params:      map[string]interface{}{"foo": "bar"},
 					},
 				},
+				LatestRevision: ptr(666),
 			}},
 		}
 		return nil
 	})
 	client := crossmodelsecrets.NewClient(apiCaller)
-	content, backend, draining, err := client.GetRemoteSecretContentInfo(uri, true, true, "token", 666)
+	content, backend, latestRevision, draining, err := client.GetRemoteSecretContentInfo(uri, 665, true, "token", 666)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(latestRevision, gc.Equals, 666)
 	c.Assert(draining, jc.IsTrue)
 	c.Assert(content, jc.DeepEquals, &secrets.ContentParams{
 		ValueRef: &coresecrets.ValueRef{
@@ -105,7 +109,7 @@ func (s *CrossControllerSuite) TestControllerInfoError(c *gc.C) {
 		return nil
 	})
 	client := crossmodelsecrets.NewClient(apiCaller)
-	content, backend, _, err := client.GetRemoteSecretContentInfo(coresecrets.NewURI(), true, false, "token", 666)
+	content, backend, _, _, err := client.GetRemoteSecretContentInfo(coresecrets.NewURI(), 665, false, "token", 666)
 	c.Assert(err, gc.ErrorMatches, "boom")
 	c.Assert(content, gc.IsNil)
 	c.Assert(backend, gc.IsNil)

@@ -15,9 +15,6 @@ type SecretsState interface {
 }
 
 type SecretsConsumer interface {
-	GetSecretConsumer(*secrets.URI, names.Tag) (*secrets.SecretConsumerMetadata, error)
-	GetURIByConsumerLabel(string, names.Tag) (*secrets.URI, error)
-	SaveSecretConsumer(*secrets.URI, names.Tag, *secrets.SecretConsumerMetadata) error
 	SecretAccess(uri *secrets.URI, subject names.Tag) (secrets.SecretRole, error)
 }
 
