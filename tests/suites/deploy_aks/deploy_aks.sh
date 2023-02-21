@@ -11,7 +11,8 @@ run_deploy_aks_charms() {
 	juju deploy mattermost-k8s
 	juju relate mattermost-k8s postgresql-k8s:db
 
-	wait_for 2 '[.applications[] | select(."application-status".current == "active")] | length'
+	wait_for "postgresql-k8s" "$(idle_condition "postgresql-k8s" 1)"
+	wait_for "mattermost-k8s" "$(idle_condition "mattermost-k8s" 0)"
 
 	# TODO(anvial): we can return this check after fixing issue with flapping connection by curl in aks environment.
 	#	echo "Verify application is reachable"
