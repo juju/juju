@@ -58,14 +58,18 @@ func (s *baseSuite) expectClock() {
 	s.clock.EXPECT().Now().Return(time.Now()).AnyTimes()
 }
 
-func (s *baseSuite) expectTimer(ticks int) <-chan struct{} {
-	ch := make(chan time.Time)
-	s.timer.EXPECT().Chan().Return(ch).AnyTimes()
+func (s *baseSuite) setupTimer() chan time.Time {
 	s.timer.EXPECT().Stop().MinTimes(1)
 	s.timer.EXPECT().Reset(gomock.Any()).AnyTimes()
 
 	s.clock.EXPECT().NewTimer(PollInterval).Return(s.timer)
 
+	ch := make(chan time.Time)
+	s.timer.EXPECT().Chan().Return(ch).AnyTimes()
+	return ch
+}
+
+func (s *baseSuite) expectTick(ch chan time.Time, ticks int) <-chan struct{} {
 	done := make(chan struct{})
 	go func() {
 		close(done)
@@ -77,7 +81,13 @@ func (s *baseSuite) expectTimer(ticks int) <-chan struct{} {
 	return done
 }
 
-func (s *baseSuite) expectFileNotifyWatcher() {
+func (s *baseSuite) expectTimer(ticks int) <-chan struct{} {
+	ch := s.setupTimer()
+	return s.expectTick(ch, ticks)
+}
+
+func (s *baseSuite) expectFileNotifyWatcher() chan bool {
 	ch := make(chan bool)
 	s.FileNotifier.EXPECT().Changes().Return(ch, nil).MinTimes(1)
+	return ch
 }

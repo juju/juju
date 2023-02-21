@@ -84,7 +84,7 @@ func (s *Stream) loop() error {
 	// set it here.
 	stmt, err := s.db.Prepare(query)
 	if err != nil {
-		return errors.Annotate(err, "preparing query")
+		return errors.Annotate(err, "preparing query 111")
 	}
 	defer stmt.Close()
 
@@ -113,7 +113,7 @@ func (s *Stream) loop() error {
 
 			s.logger.Infof("Change stream has been blocked")
 
-			// Create a inner loop, that will block the outer loop until, we
+			// Create an inner loop, that will block the outer loop until we
 			// receive a change event from the file notifier.
 		INNER:
 			for {

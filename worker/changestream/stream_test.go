@@ -428,6 +428,87 @@ func (s *streamSuite) TestMultipleChangesWithNoNamespacesDoNotCoalesce(c *gc.C) 
 	workertest.CleanKill(c, stream)
 }
 
+func (s *streamSuite) TestOneChangeIsBlockedByFile(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAnyLogs()
+	notify := s.expectFileNotifyWatcher()
+
+	s.insertNamespace(c, 1, "foo")
+
+	stream, err := NewStream(s.DB, s.FileNotifier, s.clock, s.logger)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, stream)
+
+	timeTick := s.setupTimer()
+	changes := stream.Changes()
+
+	assertChange := func(expected func(<-chan changestream.ChangeEvent, string) string) string {
+		done := s.expectTick(timeTick, 1)
+
+		change := change{
+			id:   1,
+			uuid: utils.MustNewUUID().String(),
+		}
+		s.insertChange(c, change)
+
+		select {
+		case <-done:
+		case <-time.After(testing.LongWait):
+			c.Fatal("timed out waiting for timer to fire")
+		}
+
+		return expected(changes, change.uuid)
+	}
+	expectOneChange := func(changes <-chan changestream.ChangeEvent, uuid string) string {
+		var results []changestream.ChangeEvent
+		select {
+		case change := <-changes:
+			results = append(results, change)
+		case <-time.After(testing.LongWait):
+			c.Fatal("timed out waiting for change")
+		}
+
+		c.Assert(results, gc.HasLen, 1)
+		c.Assert(results[0].Namespace(), gc.Equals, "foo")
+		c.Assert(results[0].ChangedUUID(), gc.Equals, uuid)
+
+		return uuid
+	}
+	expectNoChange := func(changes <-chan changestream.ChangeEvent, uuid string) string {
+		select {
+		case <-changes:
+			c.Fatal("timed out waiting for change")
+		case <-time.After(time.Second):
+		}
+		return uuid
+	}
+	expectNotify := func(block bool) {
+		notified := make(chan bool)
+		go func() {
+			defer close(notified)
+			notify <- block
+		}()
+		select {
+		case <-notified:
+		case <-time.After(testing.LongWait):
+			c.Fatal("timed out waiting for change")
+		}
+	}
+
+	assertChange(expectOneChange)
+
+	expectNotify(true)
+
+	uuid := assertChange(expectNoChange)
+
+	expectNotify(false)
+
+	expectOneChange(changes, uuid)
+
+	workertest.CleanKill(c, stream)
+}
+
 func (s *streamSuite) insertNamespace(c *gc.C, id int, name string) {
 	q := `
 INSERT INTO change_log_namespace VALUES (?, ?);
@@ -454,13 +535,12 @@ VALUES (2, ?, ?)
 	c.Assert(err, jc.ErrorIsNil)
 
 	for _, v := range changes {
+		c.Logf("Executing insert change: %v %v", v.id, v.uuid)
 		_, err = stmt.Exec(v.id, v.uuid)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
+	c.Logf("Commmiting insert change")
 	err = tx.Commit()
-	if err != nil {
-		c.Assert(tx.Rollback(), jc.ErrorIsNil)
-	}
 	c.Assert(err, jc.ErrorIsNil)
 }
