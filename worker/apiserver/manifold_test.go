@@ -4,6 +4,7 @@
 package apiserver_test
 
 import (
+	"database/sql"
 	"net/http"
 	"time"
 
@@ -59,6 +60,7 @@ type ManifoldSuite struct {
 	upgradeGate          stubGateWaiter
 	sysLogger            syslogger.SysLogger
 	charmhubHTTPClient   *http.Client
+	dbGetter             stubDBGetter
 
 	stub testing.Stub
 }
@@ -71,11 +73,11 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.agent = &mockAgent{}
 	s.authenticator = &mockAuthenticator{}
 	s.clock = testclock.NewClock(time.Time{})
-	controller, err := cache.NewController(cache.ControllerConfig{
+	cachedCtrl, err := cache.NewController(cache.ControllerConfig{
 		Changes: make(chan interface{}),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.controller = controller
+	s.controller = cachedCtrl
 	s.mux = apiserverhttp.NewMux()
 	s.state = stubStateTracker{}
 	s.metricsCollector = coreapiserver.NewMetricsCollector()
@@ -101,6 +103,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		LeaseManagerName:                  "lease-manager",
 		SyslogName:                        "syslog",
 		CharmhubHTTPClientName:            "charmhub-http-client",
+		DBAccessorName:                    "db-accessor",
 		PrometheusRegisterer:              &s.prometheusRegisterer,
 		RegisterIntrospectionHTTPHandlers: func(func(string, http.Handler)) {},
 		Hub:                               &s.hub,
@@ -124,6 +127,7 @@ func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 		"lease-manager":        s.leaseManager,
 		"syslog":               s.sysLogger,
 		"charmhub-http-client": s.charmhubHTTPClient,
+		"db-accessor":          s.dbGetter,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -154,7 +158,7 @@ func (s *ManifoldSuite) newMetricsCollector() *coreapiserver.Collector {
 var expectedInputs = []string{
 	"agent", "authenticator", "clock", "modelcache", "multiwatcher", "mux",
 	"state", "upgrade", "auditconfig-updater", "lease-manager",
-	"syslog", "charmhub-http-client",
+	"syslog", "charmhub-http-client", "db-accessor",
 }
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
@@ -370,4 +374,15 @@ type mockAuthenticator struct {
 
 type fakeMultiwatcherFactory struct {
 	multiwatcher.Factory
+}
+
+type stubDBGetter struct {
+	db *sql.DB
+}
+
+func (s stubDBGetter) GetDB(name string) (*sql.DB, error) {
+	if name != "controller" {
+		return nil, errors.Errorf(`expected a request for "controller" DB; got %q`, name)
+	}
+	return s.db, nil
 }

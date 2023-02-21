@@ -649,10 +649,8 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			LeaseManagerName:       leaseManagerName,
 			UpgradeGateName:        upgradeStepsGateName,
 			AuditConfigUpdaterName: auditConfigUpdaterName,
-			// Synthetic dependency - if raft-transport bounces we
-			// need to bounce api-server too, otherwise http-server
-			// can't shutdown properly.
 			CharmhubHTTPClientName: charmhubHTTPClientName,
+			DBAccessorName:         dbAccessorName,
 
 			PrometheusRegisterer:              config.PrometheusRegisterer,
 			RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,

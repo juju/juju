@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/worker/dbaccessor"
 	"github.com/juju/juju/worker/syslogger"
 )
 
@@ -44,6 +45,7 @@ type Config struct {
 	MetricsCollector                  *apiserver.Collector
 	EmbeddedCommand                   apiserver.ExecEmbeddedCommandFunc
 	CharmhubHTTPClient                HTTPClient
+	DBGetter                          dbaccessor.DBGetter
 }
 
 type HTTPClient interface {
@@ -103,6 +105,9 @@ func (config Config) Validate() error {
 	}
 	if config.CharmhubHTTPClient == nil {
 		return errors.NotValidf("nil CharmhubHTTPClient")
+	}
+	if config.DBGetter == nil {
+		return errors.NotValidf("nil DBGetter")
 	}
 	return nil
 }

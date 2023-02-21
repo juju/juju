@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/worker/common"
+	"github.com/juju/juju/worker/dbaccessor"
 	"github.com/juju/juju/worker/gate"
 	workerstate "github.com/juju/juju/worker/state"
 	"github.com/juju/juju/worker/syslogger"
@@ -47,6 +48,7 @@ type ManifoldConfig struct {
 	LeaseManagerName       string
 	SyslogName             string
 	CharmhubHTTPClientName string
+	DBAccessorName         string
 
 	PrometheusRegisterer              prometheus.Registerer
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
@@ -99,7 +101,10 @@ func (config ManifoldConfig) Validate() error {
 		return errors.NotValidf("empty SyslogName")
 	}
 	if config.CharmhubHTTPClientName == "" {
-		return errors.NotValidf("nil CharmhubHTTPClientName")
+		return errors.NotValidf("empty CharmhubHTTPClientName")
+	}
+	if config.DBAccessorName == "" {
+		return errors.NotValidf("empty DBAccessorName")
 	}
 	if config.Hub == nil {
 		return errors.NotValidf("nil Hub")
@@ -134,6 +139,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.LeaseManagerName,
 			config.SyslogName,
 			config.CharmhubHTTPClientName,
+			config.DBAccessorName,
 		},
 		Start: config.start,
 	}
@@ -202,6 +208,11 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 
 	var charmhubHTTPClient HTTPClient
 	if err := context.Get(config.CharmhubHTTPClientName, &charmhubHTTPClient); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var dbGetter dbaccessor.DBGetter
+	if err := context.Get(config.DBAccessorName, &dbGetter); err != nil {
 		return nil, errors.Trace(err)
 	}
 
