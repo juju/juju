@@ -9,8 +9,8 @@ test_deploy_aks() {
 	echo "==> Checking for dependencies"
 	check_dependencies juju
 
-  # TODO(anvial): we need to add separate provider for such tests (for example, "aks") and move all this code to
-  # create/delete to code from here.
+	# TODO(anvial): we need to add separate provider for such tests (for example, "aks") and move all this code to
+	# create/delete to code from here.
 	resource_group_name="test-aks-resource-group-$(rnd_str)"
 	az group create -l eastus -n "${resource_group_name}"
 	az aks create -g "${resource_group_name}" -n aks-cluster --generate-ssh-keys
