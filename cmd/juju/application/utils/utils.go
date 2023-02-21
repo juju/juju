@@ -85,6 +85,9 @@ func GetUpgradeResources(
 		return nil, nil
 	}
 	available, err := getAvailableRepositoryResources(newCharmID, repositoryResourceLister)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	current, err := getCurrentResources(applicationID, resourceLister)
 	if err != nil {
 		return nil, errors.Trace(err)
