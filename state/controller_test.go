@@ -4,6 +4,8 @@
 package state_test
 
 import (
+	"time"
+
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -40,7 +42,6 @@ func (s *ControllerSuite) TestControllerAndModelConfigInitialisation(c *gc.C) {
 		controller.AutocertDNSNameKey,
 		controller.CAASImageRepo,
 		controller.CAASOperatorImagePath,
-		controller.CharmStoreURL,
 		controller.ControllerAPIPort,
 		controller.ControllerName,
 		controller.Features,
@@ -61,8 +62,6 @@ func (s *ControllerSuite) TestControllerAndModelConfigInitialisation(c *gc.C) {
 		controller.PublicDNSAddress,
 		controller.MaxCharmStateSize,
 		controller.MaxAgentStateSize,
-		controller.NonSyncedWritesToRaftLog,
-		controller.BatchRaftFSM,
 		controller.MigrationMinionWaitMax,
 		controller.AgentLogfileMaxBackups,
 		controller.AgentLogfileMaxSize,
@@ -110,7 +109,9 @@ func (s *ControllerSuite) TestUpdateControllerConfig(c *gc.C) {
 	err = s.State.UpdateControllerConfig(map[string]interface{}{
 		controller.AuditingEnabled:     true,
 		controller.AuditLogCaptureArgs: false,
+		controller.AuditLogMaxBackups:  "10",
 		controller.PublicDNSAddress:    "controller.test.com:1234",
+		controller.APIPortOpenDelay:    "100ms",
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -119,7 +120,9 @@ func (s *ControllerSuite) TestUpdateControllerConfig(c *gc.C) {
 
 	c.Assert(newCfg.AuditingEnabled(), gc.Equals, true)
 	c.Assert(newCfg.AuditLogCaptureArgs(), gc.Equals, false)
+	c.Assert(newCfg.AuditLogMaxBackups(), gc.Equals, 10)
 	c.Assert(newCfg.PublicDNSAddress(), gc.Equals, "controller.test.com:1234")
+	c.Assert(newCfg.APIPortOpenDelay(), gc.Equals, 100*time.Millisecond)
 }
 
 func (s *ControllerSuite) TestUpdateControllerConfigRemoveYieldsDefaults(c *gc.C) {

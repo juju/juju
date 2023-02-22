@@ -8,19 +8,19 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"text/template"
 	"time"
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd/v3"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/client/modelconfig"
 	"github.com/juju/juju/api/client/modelmanager"
-	"github.com/juju/juju/api/client/storage"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -48,15 +48,14 @@ func NewDestroyCommand() cmd.Command {
 // destroyCommand destroys the specified model.
 type destroyCommand struct {
 	modelcmd.ModelCommandBase
+	modelcmd.DestroyConfirmationCommandBase
 
 	clock jujuclock.Clock
 
-	assumeYes      bool
 	timeout        time.Duration
 	destroyStorage bool
 	releaseStorage bool
 	api            DestroyModelAPI
-	storageAPI     StorageAPI
 
 	Force  bool
 	NoWait bool
@@ -89,27 +88,31 @@ without delay waiting for each step to complete.
 Examples:
 
     juju destroy-model test
-    juju destroy-model -y mymodel
-    juju destroy-model -y mymodel --timeout 5m
-    juju destroy-model -y mymodel --destroy-storage
-    juju destroy-model -y mymodel --release-storage
-    juju destroy-model -y mymodel --force
-    juju destroy-model -y mymodel --force --no-wait
+    juju destroy-model --no-prompt mymodel
+    juju destroy-model --no-prompt mymodel --timeout 5m
+    juju destroy-model --no-prompt mymodel --destroy-storage
+    juju destroy-model --no-prompt mymodel --release-storage
+    juju destroy-model --no-prompt mymodel --force
+    juju destroy-model --no-prompt mymodel --force --no-wait
 
 See also:
     destroy-controller
 `
-var destroyIAASModelMsg = `
-WARNING! This command will destroy the %q model.
-This includes all machines, applications, data and other resources.
 
-Continue [y/N]? `[1:]
+var destroyModelMsg = `
+This command will destroy the %q model and all its resources`[1:]
 
-var destroyCAASModelMsg = `
-WARNING! This command will destroy the %q model.
-This includes all containers, applications, data and other resources.
-
-Continue [y/N]? `[1:]
+var destroyModelMsgDetails = `
+{{- if gt .MachineCount 0}}
+ - {{.MachineCount}} {{if .IsCaaS}}container{{else}}machine{{end}}{{if gt .MachineCount 1}}s{{end}} will be destroyed
+  - {{if .IsCaaS}}container{{else}}machine{{end}} list:{{range .MachineIds}} "{{.}}"{{end}}
+ - {{.ApplicationCount}} application{{if gt .ApplicationCount 1}}s{{end}} will be removed
+ {{- if gt (len .ApplicationNames) 0}}
+  - application list:{{range .ApplicationNames}} "{{.}}"{{end}}
+ {{- end}}
+ - {{.FilesystemCount}} filesystem{{if gt .FilesystemCount 1}}s{{end}} and {{.VolumeCount}} volume{{if gt .VolumeCount 1}}s{{end}} will be {{if .ReleaseStorage}}released{{else}}destroyed{{end}}
+{{- end}}
+`
 
 // DestroyModelAPI defines the methods on the modelmanager
 // API that the destroy command calls. It is exported for mocking in tests.
@@ -117,13 +120,6 @@ type DestroyModelAPI interface {
 	Close() error
 	DestroyModel(tag names.ModelTag, destroyStorage, force *bool, maxWait *time.Duration, timeout time.Duration) error
 	ModelStatus(models ...names.ModelTag) ([]base.ModelStatus, error)
-}
-
-// ModelConfigAPI defines the methods on the modelconfig
-// API that the destroy command calls. It is exported for mocking in tests.
-type ModelConfigAPI interface {
-	Close() error
-	SLALevel() (string, error)
 }
 
 // Info implements Command.Info.
@@ -141,8 +137,7 @@ const defaultTimeout = 30 * time.Minute
 // SetFlags implements Command.SetFlags.
 func (c *destroyCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.BoolVar(&c.assumeYes, "y", false, "Do not prompt for confirmation")
-	f.BoolVar(&c.assumeYes, "yes", false, "")
+	c.DestroyConfirmationCommandBase.SetFlags(f)
 	f.DurationVar(&c.timeout, "t", defaultTimeout, "Timeout before model destruction is aborted")
 	f.DurationVar(&c.timeout, "timeout", defaultTimeout, "")
 	f.BoolVar(&c.destroyStorage, "destroy-storage", false, "Destroy all storage instances in the model")
@@ -160,7 +155,6 @@ func (c *destroyCommand) Init(args []string) error {
 	if c.timeout < 0 {
 		return errors.New("timeout must be zero or greater")
 	}
-
 	switch len(args) {
 	case 0:
 		return errors.New("no model specified")
@@ -182,23 +176,38 @@ func (c *destroyCommand) getAPI() (DestroyModelAPI, error) {
 	return modelmanager.NewClient(root), nil
 }
 
-func (c *destroyCommand) getModelConfigAPI() (ModelConfigAPI, error) {
-	root, err := c.NewAPIRoot()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return modelconfig.NewClient(root), nil
+// getMachineIds gets slice of machine ids from modelData.
+func getMachineIds(data base.ModelStatus) []string {
+	return transform.Slice(data.Machines, func(f base.Machine) string {
+		return fmt.Sprintf("%s (%s)", f.Id, f.InstanceId)
+	})
 }
 
-func (c *destroyCommand) getStorageAPI() (StorageAPI, error) {
-	if c.storageAPI != nil {
-		return c.storageAPI, nil
-	}
-	root, err := c.NewAPIRoot()
+// getApplicationNames gets slice of application names from modelData.
+func getApplicationNames(data base.ModelStatus) []string {
+	return transform.Slice(data.Applications, func(app base.Application) string {
+		return fmt.Sprintf("%s", app.Name)
+	})
+}
+
+// printDestroyWarningDetails prints to stderr the warning with additional info about destroying model.
+func printDestroyWarningDetails(ctx *cmd.Context, modelStatus base.ModelStatus, modelName string, modelType model.ModelType, releaseStorage bool) error {
+	destroyMsgDetailsTmpl := template.New("destroyMsdDetails")
+	destroyMsgDetailsTmpl, err := destroyMsgDetailsTmpl.Parse(destroyModelMsgDetails)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return errors.Annotate(err, "Destroy controller message template parsing error.")
 	}
-	return storage.NewClient(root), nil
+	_ = destroyMsgDetailsTmpl.Execute(ctx.Stderr, map[string]any{
+		"IsCaaS":           modelType == model.CAAS,
+		"MachineCount":     modelStatus.HostedMachineCount,
+		"MachineIds":       getMachineIds(modelStatus),
+		"ApplicationCount": modelStatus.ApplicationCount,
+		"ApplicationNames": getApplicationNames(modelStatus),
+		"FilesystemCount":  len(modelStatus.Filesystems),
+		"VolumeCount":      len(modelStatus.Volumes),
+		"ReleaseStorage":   releaseStorage,
+	})
+	return nil
 }
 
 // Run implements Command.Run
@@ -230,25 +239,8 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-
 	if modelDetails.ModelUUID == controllerDetails.ControllerUUID {
 		return errors.Errorf("%q is a controller; use 'juju destroy-controller' to destroy it", modelName)
-	}
-
-	if !c.assumeYes {
-		modelType, err := c.ModelType()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		msg := destroyIAASModelMsg
-		if modelType == model.CAAS {
-			msg = destroyCAASModelMsg
-		}
-		fmt.Fprintf(ctx.Stdout, msg, modelName)
-
-		if err := jujucmd.UserConfirmYes(ctx); err != nil {
-			return errors.Annotate(err, "model destruction")
-		}
 	}
 
 	// Attempt to connect to the API.  If we can't, fail the destroy.
@@ -256,10 +248,24 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Annotate(err, "cannot connect to API")
 	}
-	defer api.Close()
+	defer func() { _ = api.Close() }()
+
+	if c.DestroyConfirmationCommandBase.NeedsConfirmation() {
+		modelStatuses, err := api.ModelStatus(names.NewModelTag(modelDetails.ModelUUID))
+		if err != nil {
+			return errors.Annotate(err, "getting model status")
+		}
+		ctx.Warningf(destroyModelMsg, modelName)
+		if err := printDestroyWarningDetails(ctx, modelStatuses[0], modelName, modelDetails.ModelType, c.releaseStorage); err != nil {
+			return errors.Trace(err)
+		}
+		if err := jujucmd.UserConfirmName(modelName, "model", ctx); err != nil {
+			return errors.Annotate(err, "model destruction")
+		}
+	}
 
 	// Attempt to destroy the model.
-	fmt.Fprint(ctx.Stderr, "Destroying model")
+	_, _ = fmt.Fprint(ctx.Stderr, "Destroying model")
 	var destroyStorage *bool
 	if c.destroyStorage || c.releaseStorage {
 		destroyStorage = &c.destroyStorage
@@ -624,10 +630,4 @@ option instead. The storage can then be imported
 into another Juju model.
 
 `, modelName, buf.String())
-}
-
-// StorageAPI defines the storage client API interface.
-type StorageAPI interface {
-	Close() error
-	ListStorageDetails() ([]params.StorageDetails, error)
 }

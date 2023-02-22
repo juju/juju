@@ -9,7 +9,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -2534,6 +2534,12 @@ func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value)
 	}
 	if cons.HasZones() {
 		suitableTerms = append(suitableTerms, bson.DocElem{"availzone", bson.D{{"$in", *cons.Zones}}})
+	}
+	// VirtType is orthogonal to the containertype, i.e. an LXC container can
+	// be a container or a virtual machine. Once KVM is removed, we can drop
+	// the containertype and rely just on the virt-type.
+	if cons.HasVirtType() {
+		suitableTerms = append(suitableTerms, bson.DocElem{"virttype", *cons.VirtType})
 	}
 	if len(suitableTerms) > 0 {
 		instanceDataCollection, iCloser := db.GetCollection(instanceDataC)

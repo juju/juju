@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
 	"github.com/juju/juju/apiserver/facades/client/charms/services/mocks"
-	"github.com/juju/juju/controller"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/charm/repository"
 	"github.com/juju/juju/environs/config"
@@ -26,21 +25,6 @@ type repoFactoryTestSuite struct {
 	stateBackend *mocks.MockStateBackend
 	modelBackend *mocks.MockModelBackend
 	repoFactory  corecharm.RepositoryFactory
-}
-
-func (s *repoFactoryTestSuite) TestGetCharmStoreRepository(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.stateBackend.EXPECT().ControllerConfig().Return(
-		controller.Config{
-			controller.CharmStoreURL: "https://blobs4u.charmstore.com",
-		},
-		nil,
-	)
-
-	repo, err := s.repoFactory.GetCharmRepository(corecharm.CharmStore)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(repo, gc.FitsTypeOf, new(repository.CharmStoreRepository), gc.Commentf("expected to get a CharmStoreRepository instance"))
 }
 
 func (s *repoFactoryTestSuite) TestGetCharmHubRepository(c *gc.C) {

@@ -4,7 +4,7 @@
 package application
 
 import (
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
 
@@ -84,7 +84,7 @@ func (api *APIBase) getConfig(
 		return params.ApplicationGetResults{}, err
 	}
 
-	appChannel := string(app.Channel())
+	var appChannel string
 
 	// If the applications charm origin is from charm-hub, then build the real
 	// channel and send that back.

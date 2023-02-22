@@ -5,7 +5,7 @@ package upgradeseries_test
 
 import (
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v9/hooks"
+	"github.com/juju/charm/v10/hooks"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
@@ -38,7 +38,7 @@ func (s ResolverSuite) TestNextOpWithValidationStatus(c *gc.C) {
 	mockFactory := mocks.NewMockFactory(ctrl)
 	res := s.NewResolver()
 	_, err := res.NextOp(resolver.LocalState{}, remotestate.Snapshot{
-		UpgradeSeriesStatus: model.UpgradeSeriesValidate,
+		UpgradeMachineStatus: model.UpgradeSeriesValidate,
 	}, mockFactory)
 	c.Assert(err, gc.Equals, resolver.ErrDoNotProceed)
 }
@@ -50,7 +50,7 @@ func (s ResolverSuite) TestNextOpWithRemoveStateCompleted(c *gc.C) {
 	mockFactory := mocks.NewMockFactory(ctrl)
 	res := s.NewResolver()
 	_, err := res.NextOp(resolver.LocalState{}, remotestate.Snapshot{
-		UpgradeSeriesStatus: model.UpgradeSeriesPrepareCompleted,
+		UpgradeMachineStatus: model.UpgradeSeriesPrepareCompleted,
 	}, mockFactory)
 	c.Assert(err, gc.Equals, resolver.ErrDoNotProceed)
 }
@@ -69,9 +69,9 @@ func (s ResolverSuite) TestNextOpWithPreSeriesUpgrade(c *gc.C) {
 		State: operation.State{
 			Kind: operation.Continue,
 		},
-		UpgradeSeriesStatus: model.UpgradeSeriesNotStarted,
+		UpgradeMachineStatus: model.UpgradeSeriesNotStarted,
 	}, remotestate.Snapshot{
-		UpgradeSeriesStatus: model.UpgradeSeriesPrepareStarted,
+		UpgradeMachineStatus: model.UpgradeSeriesPrepareStarted,
 	}, mockFactory)
 	c.Assert(err, gc.IsNil)
 	c.Assert(op, gc.NotNil)
@@ -91,9 +91,9 @@ func (s ResolverSuite) TestNextOpWithPostSeriesUpgrade(c *gc.C) {
 		State: operation.State{
 			Kind: operation.Continue,
 		},
-		UpgradeSeriesStatus: model.UpgradeSeriesNotStarted,
+		UpgradeMachineStatus: model.UpgradeSeriesNotStarted,
 	}, remotestate.Snapshot{
-		UpgradeSeriesStatus: model.UpgradeSeriesCompleteStarted,
+		UpgradeMachineStatus: model.UpgradeSeriesCompleteStarted,
 	}, mockFactory)
 	c.Assert(err, gc.IsNil)
 	c.Assert(op, gc.NotNil)
@@ -113,9 +113,9 @@ func (s ResolverSuite) TestNextOpWithFinishUpgradeSeries(c *gc.C) {
 		State: operation.State{
 			Kind: operation.Continue,
 		},
-		UpgradeSeriesStatus: model.UpgradeSeriesCompleted,
+		UpgradeMachineStatus: model.UpgradeSeriesCompleted,
 	}, remotestate.Snapshot{
-		UpgradeSeriesStatus: model.UpgradeSeriesNotStarted,
+		UpgradeMachineStatus: model.UpgradeSeriesNotStarted,
 	}, mockFactory)
 	c.Assert(err, gc.IsNil)
 	c.Assert(op, gc.NotNil)

@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
-	"github.com/juju/charmrepo/v7/csclient"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -111,9 +110,6 @@ const (
 
 	// CACertKey is the key for the controller's CA certificate attribute.
 	CACertKey = "ca-cert"
-
-	// CharmStoreURL is the key for the url to use for charmstore API calls
-	CharmStoreURL = "charmstore-url"
 
 	// ControllerUUIDKey is the key for the controller UUID attribute.
 	ControllerUUIDKey = "controller-uuid"
@@ -223,13 +219,6 @@ const (
 	// hard (but configurable) limit of 16M.
 	MaxAgentStateSize = "max-agent-state-size"
 
-	// NonSyncedWritesToRaftLog allows the operator to disable fsync calls
-	// when writing to the raft log by setting this value to true.
-	NonSyncedWritesToRaftLog = "non-synced-writes-to-raft-log"
-
-	// BatchRaftFSM allows the operator to batch raft FSM calls.
-	BatchRaftFSM = "batch-raft-fsm"
-
 	// MigrationMinionWaitMax is the maximum time that the migration-master
 	// worker will wait for agents to report for a migration phase when
 	// executing a model migration.
@@ -306,8 +295,7 @@ const (
 	DefaultAPIPort int = 17070
 
 	// DefaultAPIPortOpenDelay is the default value for api-port-open-delay.
-	// It is a string representation of a time.Duration.
-	DefaultAPIPortOpenDelay = "2s"
+	DefaultAPIPortOpenDelay = 2 * time.Second
 
 	// DefaultMongoMemoryProfile is the default profile used by mongo.
 	DefaultMongoMemoryProfile = MongoProfDefault
@@ -362,7 +350,7 @@ const (
 	// processing 1000 txs seems to take about 100ms, so a sleep time of 10ms
 	// represents a 10% slowdown, but allows other systems to
 	// operate concurrently.
-	DefaultPruneTxnSleepTime = "10ms"
+	DefaultPruneTxnSleepTime = 10 * time.Millisecond
 
 	// DefaultMaxCharmStateSize is the maximum size (in bytes) of charm
 	// state data that each unit can store to the controller.
@@ -372,16 +360,8 @@ const (
 	// state data that agents can store to the controller.
 	DefaultMaxAgentStateSize = 512 * 1024
 
-	// DefaultNonSyncedWritesToRaftLog is the default value for the
-	// non-synced-writes-to-raft-log value. It is set to false by default.
-	DefaultNonSyncedWritesToRaftLog = false
-
-	// DefaultBatchRaftFSM is the default value for batch-raft-fsm value.
-	// It is set to false by default.
-	DefaultBatchRaftFSM = false
-
 	// DefaultMigrationMinionWaitMax is the default value for
-	DefaultMigrationMinionWaitMax = "15m"
+	DefaultMigrationMinionWaitMax = 15 * time.Minute
 )
 
 var (
@@ -396,7 +376,6 @@ var (
 		AutocertDNSNameKey,
 		AutocertURLKey,
 		CACertKey,
-		CharmStoreURL,
 		ControllerAPIPort,
 		ControllerName,
 		ControllerUUIDKey,
@@ -431,8 +410,6 @@ var (
 		MeteringURL,
 		MaxCharmStateSize,
 		MaxAgentStateSize,
-		NonSyncedWritesToRaftLog,
-		BatchRaftFSM,
 		MigrationMinionWaitMax,
 		ApplicationResourceDownloadLimit,
 		ControllerResourceDownloadLimit,
@@ -483,8 +460,6 @@ var (
 		Features,
 		MaxCharmStateSize,
 		MaxAgentStateSize,
-		NonSyncedWritesToRaftLog,
-		BatchRaftFSM,
 		MigrationMinionWaitMax,
 		ApplicationResourceDownloadLimit,
 		ControllerResourceDownloadLimit,
@@ -635,11 +610,7 @@ func (c Config) APIPort() int {
 // the APIPort once the controller has started up. Only used when
 // the ControllerAPIPort is non-zero.
 func (c Config) APIPortOpenDelay() time.Duration {
-	v := c.asString(APIPortOpenDelay)
-	// We know that v must be a parseable time.Duration for the config
-	// to be valid.
-	d, _ := time.ParseDuration(v)
-	return d
+	return c.durationOrDefault(APIPortOpenDelay, DefaultAPIPortOpenDelay)
 }
 
 // ControllerAPIPort returns the optional API port to be used for
@@ -761,15 +732,6 @@ func (c Config) Features() set.Strings {
 	return features
 }
 
-// CharmStoreURL returns the URL to use for charmstore api calls.
-func (c Config) CharmStoreURL() string {
-	url := c.asString(CharmStoreURL)
-	if url == "" {
-		return csclient.ServerURL
-	}
-	return url
-}
-
 // ControllerName returns the name for the controller
 func (c Config) ControllerName() string {
 	return c.asString(ControllerName)
@@ -887,11 +849,7 @@ func (c Config) ModelLogsSizeMB() int {
 // MaxDebugLogDuration is the maximum time a debug-log session is allowed
 // to run before it is terminated by the server.
 func (c Config) MaxDebugLogDuration() time.Duration {
-	duration, ok := c[MaxDebugLogDuration].(time.Duration)
-	if !ok {
-		duration = DefaultMaxDebugLogDuration
-	}
-	return duration
+	return c.durationOrDefault(MaxDebugLogDuration, DefaultMaxDebugLogDuration)
 }
 
 // MaxTxnLogSizeMB is the maximum size in MiB of the txn log collection.
@@ -916,16 +874,7 @@ func (c Config) PruneTxnQueryCount() int {
 
 // PruneTxnSleepTime is the amount of time to sleep between batches.
 func (c Config) PruneTxnSleepTime() time.Duration {
-	asInterface, ok := c[PruneTxnSleepTime]
-	if !ok {
-		asInterface = DefaultPruneTxnSleepTime
-	}
-	asStr, ok := asInterface.(string)
-	if !ok {
-		asStr = DefaultPruneTxnSleepTime
-	}
-	val, _ := time.ParseDuration(asStr)
-	return val
+	return c.durationOrDefault(PruneTxnSleepTime, DefaultPruneTxnSleepTime)
 }
 
 // PublicDNSAddress returns the DNS name of the controller.
@@ -1016,37 +965,11 @@ func (c Config) MaxAgentStateSize() int {
 	return c.intOrDefault(MaxAgentStateSize, DefaultMaxAgentStateSize)
 }
 
-// NonSyncedWritesToRaftLog returns true if fsync calls should be skipped
-// after each write to the raft log.
-func (c Config) NonSyncedWritesToRaftLog() bool {
-	if v, ok := c[NonSyncedWritesToRaftLog]; ok {
-		return v.(bool)
-	}
-	return DefaultNonSyncedWritesToRaftLog
-}
-
-// BatchRaftFSM returns true if raft should use batch writing to the FSM.
-func (c Config) BatchRaftFSM() bool {
-	if v, ok := c[BatchRaftFSM]; ok {
-		return v.(bool)
-	}
-	return DefaultBatchRaftFSM
-}
-
 // MigrationMinionWaitMax returns a duration for the maximum time that the
 // migration-master worker should wait for migration-minion reports during
 // phases of a model migration.
 func (c Config) MigrationMinionWaitMax() time.Duration {
-	asInterface, ok := c[MigrationMinionWaitMax]
-	if !ok {
-		asInterface = DefaultMigrationMinionWaitMax
-	}
-	asStr, ok := asInterface.(string)
-	if !ok {
-		asStr = DefaultMigrationMinionWaitMax
-	}
-	val, _ := time.ParseDuration(asStr)
-	return val
+	return c.durationOrDefault(MigrationMinionWaitMax, DefaultMigrationMinionWaitMax)
 }
 
 // Validate ensures that config is a valid configuration.
@@ -1346,7 +1269,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	AuditLogMaxBackups:               schema.ForceInt(),
 	AuditLogExcludeMethods:           schema.List(schema.String()),
 	APIPort:                          schema.ForceInt(),
-	APIPortOpenDelay:                 schema.String(),
+	APIPortOpenDelay:                 schema.TimeDuration(),
 	ControllerAPIPort:                schema.ForceInt(),
 	ControllerName:                   schema.String(),
 	StatePort:                        schema.ForceInt(),
@@ -1368,20 +1291,17 @@ var configChecker = schema.FieldMap(schema.Fields{
 	ModelLogfileMaxSize:              schema.String(),
 	ModelLogsSize:                    schema.String(),
 	PruneTxnQueryCount:               schema.ForceInt(),
-	PruneTxnSleepTime:                schema.String(),
+	PruneTxnSleepTime:                schema.TimeDuration(),
 	PublicDNSAddress:                 schema.String(),
 	JujuHASpace:                      schema.String(),
 	JujuManagementSpace:              schema.String(),
 	CAASOperatorImagePath:            schema.String(),
 	CAASImageRepo:                    schema.String(),
 	Features:                         schema.List(schema.String()),
-	CharmStoreURL:                    schema.String(),
 	MeteringURL:                      schema.String(),
 	MaxCharmStateSize:                schema.ForceInt(),
 	MaxAgentStateSize:                schema.ForceInt(),
-	NonSyncedWritesToRaftLog:         schema.Bool(),
-	BatchRaftFSM:                     schema.Bool(),
-	MigrationMinionWaitMax:           schema.String(),
+	MigrationMinionWaitMax:           schema.TimeDuration(),
 	ApplicationResourceDownloadLimit: schema.ForceInt(),
 	ControllerResourceDownloadLimit:  schema.ForceInt(),
 }, schema.Defaults{
@@ -1422,12 +1342,9 @@ var configChecker = schema.FieldMap(schema.Fields{
 	CAASOperatorImagePath:            schema.Omit,
 	CAASImageRepo:                    schema.Omit,
 	Features:                         schema.Omit,
-	CharmStoreURL:                    csclient.ServerURL,
 	MeteringURL:                      romulus.DefaultAPIRoot,
 	MaxCharmStateSize:                DefaultMaxCharmStateSize,
 	MaxAgentStateSize:                DefaultMaxAgentStateSize,
-	NonSyncedWritesToRaftLog:         DefaultNonSyncedWritesToRaftLog,
-	BatchRaftFSM:                     DefaultBatchRaftFSM,
 	MigrationMinionWaitMax:           DefaultMigrationMinionWaitMax,
 	ApplicationResourceDownloadLimit: schema.Omit,
 	ControllerResourceDownloadLimit:  schema.Omit,
@@ -1598,10 +1515,6 @@ Use "caas-image-repo" instead.`,
 		Type:        environschema.Tlist,
 		Description: `A list of runtime changeable features to be updated`,
 	},
-	CharmStoreURL: {
-		Type:        environschema.Tstring,
-		Description: `The url for charmstore API calls`,
-	},
 	MeteringURL: {
 		Type:        environschema.Tstring,
 		Description: `The url for metrics`,
@@ -1613,14 +1526,6 @@ Use "caas-image-repo" instead.`,
 	MaxAgentStateSize: {
 		Type:        environschema.Tint,
 		Description: `The maximum size (in bytes) of internal state data that agents can store to the controller`,
-	},
-	NonSyncedWritesToRaftLog: {
-		Type:        environschema.Tbool,
-		Description: `Do not perform fsync calls after appending entries to the raft log. Disabling sync improves performance at the cost of reliability`,
-	},
-	BatchRaftFSM: {
-		Type:        environschema.Tbool,
-		Description: `Allow raft to use batch writing to the FSM.`,
 	},
 	MigrationMinionWaitMax: {
 		Type:        environschema.Tstring,

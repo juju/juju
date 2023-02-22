@@ -1,5 +1,5 @@
 _build/
-_deps/
+_deps*
 cmd/juju/juju
 cmd/jujud/jujud
 cmd/builddb/builddb
@@ -31,3 +31,4 @@ tests/tmp.*
 *.charm
 *.bundle
 *.log
+dqlite-deps.tar.bz2

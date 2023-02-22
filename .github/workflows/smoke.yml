@@ -6,7 +6,6 @@ on:
     paths:
       - '**.go'
       - 'go.mod'
-      - 'snap/**'
       - 'testcharms/**'
       - 'tests/main.sh'
       - 'tests/includes/**'
@@ -23,43 +22,38 @@ jobs:
     name: Smoke
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft == false
+    strategy:
+      fail-fast: false
+      matrix:
+        cloud: ["localhost", "microk8s"]
     steps:
 
     - name: Install Dependencies
       shell: bash
       run: |
         set -euxo pipefail
-        sudo snap install snapcraft --classic
-        
-        sudo apt-get remove lxd lxd-client
-        if snap info lxd | grep "installed"; then
-          sudo snap refresh lxd --channel=latest/stable
-        else
-          sudo snap install lxd --channel=latest/stable
-        fi
-        
-        sudo lxd waitready
-        sudo lxd init --auto
-        sudo chmod a+wr /var/snap/lxd/common/lxd/unix.socket
         echo "/snap/bin" >> $GITHUB_PATH
-        lxc network set lxdbr0 ipv6.address none
-        lxc version
         sudo apt install expect
 
     - name: Checkout
       uses: actions/checkout@v3
 
-    - name: Find required go version
-      id: go-version
-      run: |
-        set -euxo pipefail
-        echo "::set-output name=version::$(grep '^go ' go.mod | awk '{print $2}')"
+    - name: Setup LXD
+      if: matrix.cloud == 'localhost'
+      uses: canonical/setup-lxd@ea57509243d3cf39f8ab926e021bb353947b01b5
+
+    - name: Setup MicroK8s
+      if: matrix.cloud == 'microk8s'
+      uses: balchua/microk8s-actions@v0.3.1
+      with:
+        channel: "1.25-strict/stable"
+        addons: '["dns", "hostpath-storage", "rbac"]'
 
     - name: Set up Go
       uses: actions/setup-go@v3
       with:
-        go-version: ${{ steps.go-version.outputs.version }}
-      id: go
+        go-version-file: 'go.mod'
+        cache: true
 
     - name: setup env
       shell: bash
@@ -67,26 +61,27 @@ jobs:
         echo "GOPATH=$(go env GOPATH)" >> $GITHUB_ENV
         echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
 
-    - name: Build snap
+    - name: Install local Juju
       shell: bash
       run: |
-        set -euxo pipefail
-        snapcraft --use-lxd
+        make go-install
 
-    - name: Install snap
-      shell: bash
+    - name: Update microk8s operator image
+      if: matrix.cloud == 'microk8s'
       run: |
-        set -euxo pipefail
-        sudo snap install *.snap --dangerous
-        # Since we're installing dangerously, we need to
-        # manually grant permissions to juju
-        sudo snap connect juju:lxd lxd
-        sudo snap connect juju:dot-local-share-juju
-        sudo snap connect juju:ssh-keys
-        snap connections juju
+        # TODO: use temporary Docker account (set DOCKER_USERNAME env var)
+        sg snap_microk8s 'make microk8s-operator-update'
 
-    - name: Smoke Test
+    - name: Smoke test (LXD)
+      if: matrix.cloud == 'localhost'
       shell: bash
       run: |
         cd tests
-        ./main.sh -v smoke
+        ./main.sh -v -s 'test_build' smoke
+
+    - name: Smoke test (MicroK8s)
+      if: matrix.cloud == 'microk8s'
+      shell: bash
+      run: |
+        cd tests
+        sg snap_microk8s './main.sh -c microk8s -s test_build -v smoke'

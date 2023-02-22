@@ -37,15 +37,6 @@ const (
 	// ErrAborted indicates that the stop channel returned before the operation
 	// succeeded or failed.
 	ErrAborted = errors.ConstError("lease operation aborted")
-
-	// ErrDropped indicated that the underlying request was dropped. This is
-	// indicative of no valid connection to propagate the lease operation to
-	// the leader.
-	ErrDropped = errors.ConstError("lease operation dropped")
-
-	// ErrDeadlineExceeded indicates if the underlying request was rejected
-	// because enqueuing exceeded the timeout.
-	ErrDeadlineExceeded = errors.ConstError("lease deadline exceeded")
 )
 
 // IsInvalid returns whether the specified error represents ErrInvalid
@@ -76,33 +67,4 @@ func IsAborted(err error) bool {
 // (even if it's wrapped).
 func IsNotHeld(err error) bool {
 	return errors.Cause(err) == ErrNotHeld
-}
-
-// IsDropped returns whether the specified error represents ErrErrDropped
-// (even if it's wrapped).
-func IsDropped(err error) bool {
-	return errors.Cause(err) == ErrDropped
-}
-
-// IsDeadlineExceeded returns whether the specified errors represents
-// ErrDeadlineExceeded (even if it's wrapped).
-func IsDeadlineExceeded(err error) bool {
-	return errors.Cause(err) == ErrDeadlineExceeded
-}
-
-// IsLeaseError returns whether the specified error is part of the collection
-// of lease errors.
-func IsLeaseError(err error) bool {
-	switch {
-	case errors.Is(err, ErrInvalid),
-		errors.Is(err, ErrHeld),
-		errors.Is(err, ErrTimeout),
-		errors.Is(err, ErrAborted),
-		errors.Is(err, ErrNotHeld),
-		errors.Is(err, ErrDropped),
-		errors.Is(err, ErrDeadlineExceeded):
-		return true
-	default:
-		return false
-	}
 }

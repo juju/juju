@@ -36,16 +36,11 @@ func MigrateToAllowed(modelVersion, targetControllerVersion version.Number) (boo
 	)
 }
 
-// MinMajorUpgradeVersions defines the minimum version all models
-// must be running before a major version upgrade.
-// var MinMajorUpgradeVersions = MinAgentVersions // We don't support upgrading in place from 2.9 to 3.0 yet.
-var MinMajorUpgradeVersions = map[int]version.Number{}
-
-// UpgradeToAllowed returns true if a major version upgrade is allowed
-// for the specified from and to versions.
-func UpgradeToAllowed(from, to version.Number) (bool, version.Number, error) {
+// UpgradeControllerAllowed returns true if a controller upgrade is allowed
+// when it hosts a model with the specified version.
+func UpgradeControllerAllowed(modelVersion, targetControllerVersion version.Number) (bool, version.Number, error) {
 	return versionCheck(
-		from, to, MinMajorUpgradeVersions, "upgrade",
+		modelVersion, targetControllerVersion, MinAgentVersions, "upgrading controller",
 	)
 }
 

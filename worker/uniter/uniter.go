@@ -8,7 +8,7 @@ import (
 	"os"
 	"sync"
 
-	corecharm "github.com/juju/charm/v9"
+	corecharm "github.com/juju/charm/v10"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -85,7 +85,7 @@ type Uniter struct {
 	catacomb                     catacomb.Catacomb
 	st                           *uniter.State
 	secretsClient                SecretsClient
-	secretsStoreGetter           context.SecretsStoreGetter
+	secretsBackendGetter         context.SecretsBackendGetter
 	paths                        Paths
 	unit                         *uniter.Unit
 	resources                    *uniter.ResourcesFacadeClient
@@ -190,7 +190,7 @@ type UniterParams struct {
 	ResourcesFacade               *uniter.ResourcesFacadeClient
 	PayloadFacade                 *uniter.PayloadFacadeClient
 	SecretsClient                 SecretsClient
-	SecretsStoreGetter            context.SecretsStoreGetter
+	SecretsBackendGetter          context.SecretsBackendGetter
 	UnitTag                       names.UnitTag
 	ModelType                     model.ModelType
 	LeadershipTrackerFunc         func(names.UnitTag) leadership.TrackerWorker
@@ -267,7 +267,7 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 			resources:                     uniterParams.ResourcesFacade,
 			payloads:                      uniterParams.PayloadFacade,
 			secretsClient:                 uniterParams.SecretsClient,
-			secretsStoreGetter:            uniterParams.SecretsStoreGetter,
+			secretsBackendGetter:          uniterParams.SecretsBackendGetter,
 			paths:                         NewPaths(uniterParams.DataDir, uniterParams.UnitTag, uniterParams.SocketConfig),
 			modelType:                     uniterParams.ModelType,
 			hookLock:                      uniterParams.MachineLock,
@@ -539,7 +539,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		localState := resolver.LocalState{
 			CharmURL:             charmURL,
 			CharmModifiedVersion: charmModifiedVersion,
-			UpgradeSeriesStatus:  model.UpgradeSeriesNotStarted,
+			UpgradeMachineStatus: model.UpgradeSeriesNotStarted,
 			// CAAS remote units should trigger remote update of the charm every start.
 			OutdatedRemoteCharm: u.isRemoteUnit,
 		}
@@ -844,18 +844,18 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return errors.Annotatef(err, "cannot create deployer")
 	}
 	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
-		State:              u.st,
-		SecretsClient:      u.secretsClient,
-		SecretsStoreGetter: u.secretsStoreGetter,
-		Unit:               u.unit,
-		Resources:          u.resources,
-		Payloads:           u.payloads,
-		Tracker:            u.leadershipTracker,
-		GetRelationInfos:   u.relationStateTracker.GetInfo,
-		Storage:            u.storage,
-		Paths:              u.paths,
-		Clock:              u.clock,
-		Logger:             u.logger.Child("context"),
+		State:                u.st,
+		SecretsClient:        u.secretsClient,
+		SecretsBackendGetter: u.secretsBackendGetter,
+		Unit:                 u.unit,
+		Resources:            u.resources,
+		Payloads:             u.payloads,
+		Tracker:              u.leadershipTracker,
+		GetRelationInfos:     u.relationStateTracker.GetInfo,
+		Storage:              u.storage,
+		Paths:                u.paths,
+		Clock:                u.clock,
+		Logger:               u.logger.Child("context"),
 	})
 	if err != nil {
 		return err

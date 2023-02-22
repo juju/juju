@@ -16,7 +16,6 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/juju/clock"
-	"github.com/juju/clock/testclock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/set"
 	jujuhttp "github.com/juju/http/v2"
@@ -40,7 +39,6 @@ import (
 	"github.com/juju/juju/core/cache"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/presence"
-	"github.com/juju/juju/core/raft/queue"
 	"github.com/juju/juju/jujuclient"
 	psapiserver "github.com/juju/juju/pubsub/apiserver"
 	"github.com/juju/juju/pubsub/centralhub"
@@ -180,8 +178,7 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 			}
 			return 0
 		},
-		SysLogger:   noopSysLogger{},
-		RaftOpQueue: queue.NewOpQueue(testclock.NewClock(time.Now())),
+		SysLogger: noopSysLogger{},
 	}
 }
 

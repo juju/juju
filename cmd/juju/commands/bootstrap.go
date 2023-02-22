@@ -12,7 +12,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
@@ -30,6 +30,7 @@ import (
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/constants"
 	"github.com/juju/juju/cmd/juju/application/refresher"
 	"github.com/juju/juju/cmd/juju/common"
 	cmdcontroller "github.com/juju/juju/cmd/juju/controller"
@@ -107,13 +108,16 @@ address.
     # How often to refresh controller addresses from the API server.
     bootstrap-addresses-delay: 10 # default: 10 seconds
 
-It is possible to override the series Juju attempts to bootstrap on to, by
-supplying a series argument to '--bootstrap-series'.
+It is possible to override the base e.g. ubuntu@22.04, Juju attempts 
+to bootstrap on to, by supplying a base argument to '--bootstrap-base'.
 
-An error is emitted if the determined series is not supported. Using the
+An error is emitted if the determined base is not supported. Using the
 '--force' option to override this check:
 
-	juju bootstrap --bootstrap-series=focal --force
+	juju bootstrap --bootstrap-base=ubuntu@22.04 --force
+
+The '--bootstrap-series' can be still used, but is deprecated in favour
+of '--bootstrap-base'.
 
 Private clouds may need to specify their own custom image metadata and
 tools/agent. Use '--metadata-source' whose value is a local directory.
@@ -178,6 +182,7 @@ Examples:
     juju bootstrap --agent-version=2.2.4 aws joe-us-east-1
     juju bootstrap --config bootstrap-timeout=1200 azure joe-eastus
     juju bootstrap aws --storage-pool name=secret --storage-pool type=ebs --storage-pool encrypted=true
+	juju bootstrap lxd --bootstrap-base=ubuntu@22.04
 
     # For a bootstrap on k8s, setting the service type of the Juju controller service to LoadBalancer
     juju bootstrap --config controller-service-type=loadbalancer
@@ -216,6 +221,7 @@ type bootstrapCommand struct {
 	BootstrapConstraints     constraints.Value
 	BootstrapConstraintsStr  string
 	BootstrapSeries          string
+	BootstrapBase            string
 	BootstrapImage           string
 	BuildAgent               bool
 	JujuDbSnapPath           string
@@ -304,8 +310,9 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.StringVar(&c.ConstraintsStr, "constraints", "", "Set model constraints")
 	f.StringVar(&c.BootstrapConstraintsStr, "bootstrap-constraints", "", "Specify bootstrap machine constraints")
-	f.StringVar(&c.BootstrapSeries, "bootstrap-series", "", "Specify the series of the bootstrap machine")
-	f.StringVar(&c.BootstrapImage, "bootstrap-image", "", "Specify the image of the bootstrap machine")
+	f.StringVar(&c.BootstrapSeries, "bootstrap-series", "", "Specify the series of the bootstrap machine (deprecated use bootstrap-base)")
+	f.StringVar(&c.BootstrapBase, "bootstrap-base", "", "Specify the base of the bootstrap machine")
+	f.StringVar(&c.BootstrapImage, "bootstrap-image", "", "Specify the image of the bootstrap machine (requires --bootstrap-constraints specifying architecture)")
 	f.BoolVar(&c.BuildAgent, "build-agent", false, "Build local version of agent binary before bootstrapping")
 	f.StringVar(&c.JujuDbSnapPath, "db-snap", "",
 		"Path to a locally built .snap to use as the internal juju-db service.")
@@ -343,6 +350,26 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 		}
 	}
 
+	if c.BootstrapSeries != "" && c.BootstrapBase != "" {
+		return errors.New("cannot specify both --bootstrap-series and --bootstrap-base")
+	}
+
+	if c.BootstrapSeries != "" {
+		base, err := series.GetBaseFromSeries(c.BootstrapSeries)
+		if err != nil {
+			return errors.Errorf("cannot determine base for series %q", c.BootstrapSeries)
+		}
+
+		c.BootstrapBase = base.String()
+		c.BootstrapSeries = ""
+	}
+	// Validate the bootstrap base looks like a base.
+	if c.BootstrapBase != "" {
+		if _, err := series.ParseBaseFromString(c.BootstrapBase); err != nil {
+			return errors.NotValidf("base %q", c.BootstrapBase)
+		}
+	}
+
 	// fill in JujuDbSnapAssertionsPath from the same directory as JujuDbSnapPath
 	if c.JujuDbSnapAssertionsPath == "" && c.JujuDbSnapPath != "" {
 		assertionsPath := strings.Replace(c.JujuDbSnapPath, path.Ext(c.JujuDbSnapPath), ".assert", -1)
@@ -375,10 +402,9 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 				return errors.Errorf("--controller-charm-path %q is not a %q charm", c.ControllerCharmPath,
 					bootstrap.ControllerCharmName)
 			}
-		} else {
-			// Assume this is a Charmhub URL
-			// TODO(barrettj12): validate the charm exists on CharmHub
 		}
+		// Assume this is a Charmhub URL
+		// TODO(barrettj12): validate the charm exists on CharmHub
 	}
 
 	c.ControllerCharmChannel, err = parseControllerCharmChannel(c.ControllerCharmChannelStr)
@@ -398,12 +424,6 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 	if c.AgentVersionParam != "" && c.BuildAgent {
 		return errors.New("--agent-version and --build-agent can't be used together")
 	}
-	// charm.IsValidSeries doesn't actually check against a list of bootstrap
-	// series, but instead, just validates if it conforms to a regexp.
-	if c.BootstrapSeries != "" && !charm.IsValidSeries(c.BootstrapSeries) {
-		return errors.NotValidf("series %q", c.BootstrapSeries)
-	}
-
 	if c.initialModelName == "" {
 		c.initialModelName = os.Getenv("JUJU_BOOTSTRAP_MODEL")
 	}
@@ -516,7 +536,7 @@ var getBootstrapFuncs = func() BootstrapInterface {
 	return &bootstrapFuncs{}
 }
 
-var supportedJujuSeries = series.ControllerSeries
+var supportedJujuBases = series.ControllerBases
 
 var (
 	bootstrapPrepareController = bootstrap.PrepareController
@@ -638,6 +658,12 @@ to create a new model to deploy %sworkloads.
 			ctx.Infof(msg)
 		}
 	}()
+
+	// TODO(stickupkid): Once default-series has been deprecated, it's safe to
+	// remove this.
+	if err := c.warnDeprecatedModelConfig(ctx); err != nil {
+		return err
+	}
 
 	if err := c.parseConstraints(ctx); err != nil {
 		return err
@@ -774,17 +800,26 @@ to create a new model to deploy %sworkloads.
 		}
 	}()
 
+	var bootstrapBase series.Base
+	if c.BootstrapBase != "" {
+		var err error
+		bootstrapBase, err = series.ParseBaseFromString(c.BootstrapBase)
+		if err != nil {
+			return errors.NotValidf("bootstrap base %q", c.BootstrapBase)
+		}
+	}
+
 	// Get the supported bootstrap series.
 	var imageStream string
 	if cfg, ok := bootstrapCfg.bootstrapModel["image-stream"]; ok {
 		imageStream = cfg.(string)
 	}
 	now := c.clock.Now()
-	supportedBootstrapSeries, err := supportedJujuSeries(now, c.BootstrapSeries, imageStream)
+	supportedBootstrapBases, err := supportedJujuBases(now, bootstrapBase, imageStream)
 	if err != nil {
 		return errors.Annotate(err, "error reading supported bootstrap series")
 	}
-	logger.Tracef("supported bootstrap series %s", supportedBootstrapSeries.SortedValues())
+	logger.Tracef("supported bootstrap bases %v", supportedBootstrapBases)
 
 	bootstrapCfg.controller[controller.ControllerName] = c.controllerName
 
@@ -853,8 +888,8 @@ to create a new model to deploy %sworkloads.
 
 	bootstrapParams := bootstrap.BootstrapParams{
 		ControllerName:            c.controllerName,
-		BootstrapSeries:           c.BootstrapSeries,
-		SupportedBootstrapSeries:  supportedBootstrapSeries,
+		BootstrapBase:             bootstrapBase,
+		SupportedBootstrapBases:   supportedBootstrapBases,
 		BootstrapImage:            c.BootstrapImage,
 		Placement:                 c.Placement,
 		BuildAgent:                c.BuildAgent,
@@ -943,6 +978,11 @@ See `[1:] + "`juju kill-controller`" + `.`)
 			}
 		}
 	}()
+
+	if envMetadataSrc := os.Getenv(constants.EnvJujuMetadataSource); c.MetadataSource == "" && envMetadataSrc != "" {
+		c.MetadataSource = envMetadataSrc
+		ctx.Infof("Using metadata source directory %q", c.MetadataSource)
+	}
 
 	// If --metadata-source is specified, override the default tools metadata source so
 	// SyncTools can use it, and also upload any image metadata.
@@ -1123,8 +1163,8 @@ func (c *bootstrapCommand) controllerDataRefresher(
 
 func (c *bootstrapCommand) handleCommandLineErrorsAndInfoRequests(ctx *cmd.Context) (bool, error) {
 	if c.BootstrapImage != "" {
-		if c.BootstrapSeries == "" {
-			return true, errors.Errorf("--bootstrap-image must be used with --bootstrap-series")
+		if c.BootstrapBase == "" {
+			return true, errors.Errorf("--bootstrap-image must be used with --bootstrap-base")
 		}
 		cons, err := constraints.Merge(c.Constraints, c.BootstrapConstraints)
 		if err != nil {
@@ -1400,10 +1440,20 @@ func (c *bootstrapCommand) bootstrapConfigs(
 	if err != nil {
 		return bootstrapConfigs{}, errors.Trace(err)
 	}
+
+	if userConfigAttrs, err = ensureDefaultBase(userConfigAttrs); err != nil {
+		return bootstrapConfigs{}, errors.Trace(err)
+	}
+
 	modelDefaultConfigAttrs, err := c.modelDefaults.ReadAttrs(ctx)
 	if err != nil {
 		return bootstrapConfigs{}, errors.Trace(err)
 	}
+
+	if modelDefaultConfigAttrs, err = ensureDefaultBase(modelDefaultConfigAttrs); err != nil {
+		return bootstrapConfigs{}, errors.Trace(err)
+	}
+
 	// The provider may define some custom attributes specific
 	// to the provider. These will be added to the model config.
 	var providerAttrs map[string]interface{}
@@ -1475,6 +1525,7 @@ func (c *bootstrapCommand) bootstrapConfigs(
 		}
 		inheritedControllerAttrs[k] = v
 	}
+
 	// Model defaults are added to the inherited controller attributes.
 	// Any command line set model defaults override what is in the cloud config.
 	for k, v := range modelDefaultConfigAttrs {
@@ -1580,6 +1631,26 @@ func (c *bootstrapCommand) bootstrapConfigs(
 	return configs, nil
 }
 
+// ensureDefaultBase ensures that the default base is set if the default series
+// is supplied. It removes the default-series, if there was one.
+func ensureDefaultBase(m map[string]interface{}) (map[string]interface{}, error) {
+	// TODO(stickupkid): Remove this once series has been deleted and the
+	// bases are the default.
+	if key, ok := m[config.DefaultSeriesKey]; ok {
+		if key == "" {
+			m[config.DefaultBaseKey] = ""
+		} else {
+			s, err := series.GetBaseFromSeries(key.(string))
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			m[config.DefaultBaseKey] = s.String()
+		}
+		delete(m, config.DefaultSeriesKey)
+	}
+	return m, nil
+}
+
 func (c *bootstrapCommand) InitialModelConfig(
 	initialModelUUID utils.UUID,
 	inheritedControllerAttrs,
@@ -1651,6 +1722,32 @@ func (c *bootstrapCommand) runInteractive(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	return nil
+}
+
+func (c *bootstrapCommand) warnDeprecatedModelConfig(ctx *cmd.Context) error {
+	var reported bool
+	warn := func(attrs map[string]any) {
+		if _, ok := attrs["default-series"]; !reported && ok {
+			ctx.Warningf("default-series configuration option is deprecated in favour of default-base")
+			reported = true
+		}
+	}
+
+	type read func(*cmd.Context) (map[string]any, error)
+
+	for _, read := range []read{
+		c.config.ReadAttrs,
+		c.modelDefaults.ReadAttrs,
+	} {
+		attrs, err := read(ctx)
+		if err != nil {
+			return err
+		}
+
+		warn(attrs)
+	}
+
 	return nil
 }
 

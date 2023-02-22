@@ -282,6 +282,7 @@ var commandNames = []string{
 	"add-k8s",
 	"add-machine",
 	"add-model",
+	"add-secret-backend",
 	"add-space",
 	"add-ssh-key",
 	"add-storage",
@@ -321,6 +322,7 @@ var commandNames = []string{
 	"disable-command",
 	"disable-user",
 	"disabled-commands",
+	"documentation",
 	"download",
 	"download-backup",
 	"enable-command",
@@ -359,6 +361,7 @@ var commandNames = []string{
 	"list-payloads",
 	"list-regions",
 	"list-resources",
+	"list-secret-backends",
 	"list-secrets",
 	"list-spaces",
 	"list-ssh-keys",
@@ -393,6 +396,7 @@ var commandNames = []string{
 	"remove-offer",
 	"remove-relation",
 	"remove-saas",
+	"remove-secret-backend",
 	"remove-space",
 	"remove-ssh-key",
 	"remove-storage",
@@ -411,6 +415,7 @@ var commandNames = []string{
 	"scale-application",
 	"scp",
 	"secrets",
+	"secret-backends",
 	"set-application-base",
 	"set-credential",
 	"set-constraints",
@@ -430,6 +435,7 @@ var commandNames = []string{
 	"show-offer",
 	"show-operation",
 	"show-secret",
+	"show-secret-backend",
 	"show-status-log",
 	"show-storage",
 	"show-space",
@@ -454,6 +460,7 @@ var commandNames = []string{
 	"update-public-clouds",
 	"update-credential",
 	"update-credentials",
+	"update-secret-backend",
 	"update-storage-pool",
 	"upgrade-controller",
 	"upgrade-model",
@@ -562,7 +569,8 @@ func (s *MainSuite) TestRegisterCommands(c *gc.C) {
 	stub := &jujutesting.Stub{}
 
 	registry := &stubRegistry{stub: stub}
-	registry.names = append(registry.names, "help") // implicit
+	registry.names = append(registry.names, "help")          // implicit
+	registry.names = append(registry.names, "documentation") //implicit
 	registerCommands(registry)
 	sort.Strings(registry.names)
 

@@ -33,6 +33,7 @@ type PrecheckBackend interface {
 	AllMachines() ([]PrecheckMachine, error)
 	AllApplications() ([]PrecheckApplication, error)
 	AllRelations() ([]PrecheckRelation, error)
+	AllCharmURLs() ([]*string, error)
 	ControllerBackend() (PrecheckBackend, error)
 	CloudCredential(tag names.CloudCredentialTag) (state.Credential, error)
 	HasUpgradeSeriesLocks() (bool, error)

@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charmrepo/v7/csclient"
 	"github.com/juju/collections/set"
 	"github.com/juju/loggo"
 	"github.com/juju/romulus"
@@ -248,13 +247,13 @@ var newConfigTests = []struct {
 		config: controller.Config{
 			controller.APIPortOpenDelay: "15",
 		},
-		expectError: `api-port-open-delay value "15" must be a valid duration`,
+		expectError: `api-port-open-delay: conversion to duration: time: missing unit in duration "15"`,
 	}, {
 		about: "txn-prune-sleep-time not a duration",
 		config: controller.Config{
 			controller.PruneTxnSleepTime: "15",
 		},
-		expectError: `prune-txn-sleep-time must be a valid duration \(eg "10ms"\): time: missing unit in duration "?15"?`,
+		expectError: `prune-txn-sleep-time: conversion to duration: time: missing unit in duration "15"`,
 	}, {
 		about: "mongo-memory-profile not valid",
 		config: controller.Config{
@@ -365,18 +364,6 @@ var newConfigTests = []struct {
 		},
 		expectError: `invalid max charm/agent state sizes: combined value should not exceed mongo's 16M per-document limit, got 17000000`,
 	}, {
-		about: "invalid non-synced-writes-to-raft-log - string",
-		config: controller.Config{
-			controller.NonSyncedWritesToRaftLog: "I live dangerously",
-		},
-		expectError: `non-synced-writes-to-raft-log: expected bool, got string\("I live dangerously"\)`,
-	}, {
-		about: "invalid batch-raft-fsm - string",
-		config: controller.Config{
-			controller.BatchRaftFSM: "I live dangerously",
-		},
-		expectError: `batch-raft-fsm: expected bool, got string\("I live dangerously"\)`,
-	}, {
 		about: "public-dns-address: expect string, got number",
 		config: controller.Config{
 			controller.PublicDNSAddress: 42,
@@ -387,7 +374,7 @@ var newConfigTests = []struct {
 		config: controller.Config{
 			controller.MigrationMinionWaitMax: "15",
 		},
-		expectError: `migration-agent-wait-time value "15" must be a valid duration`,
+		expectError: `migration-agent-wait-time: conversion to duration: time: missing unit in duration "15"`,
 	}, {
 		about: "application-resource-download-limit cannot be negative",
 		config: controller.Config{
@@ -731,16 +718,6 @@ func (s *ConfigSuite) TestCAASImageRepo(c *gc.C) {
 	}
 }
 
-func (s *ConfigSuite) TestCharmstoreURLDefault(c *gc.C) {
-	cfg, err := controller.NewConfig(
-		testing.ControllerTag.Id(),
-		testing.CACert,
-		map[string]interface{}{},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cfg.CharmStoreURL(), gc.Equals, csclient.ServerURL)
-}
-
 func (s *ConfigSuite) TestControllerNameDefault(c *gc.C) {
 	cfg := controller.Config{}
 	c.Check(cfg.ControllerName(), gc.Equals, "")
@@ -756,19 +733,6 @@ func (s *ConfigSuite) TestControllerNameSetGet(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cfg.ControllerName(), gc.Equals, "test")
-}
-
-func (s *ConfigSuite) TestCharmstoreURLSettingValue(c *gc.C) {
-	csURL := "http://homestarrunner.com/charmstore"
-	cfg, err := controller.NewConfig(
-		testing.ControllerTag.Id(),
-		testing.CACert,
-		map[string]interface{}{
-			controller.CharmStoreURL: csURL,
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.CharmStoreURL(), gc.Equals, csURL)
 }
 
 func (s *ConfigSuite) TestMeteringURLDefault(c *gc.C) {
@@ -949,9 +913,7 @@ func (s *ConfigSuite) TestMigrationMinionWaitMax(c *gc.C) {
 		testing.CACert, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	defaultDuration, err := time.ParseDuration(controller.DefaultMigrationMinionWaitMax)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.MigrationMinionWaitMax(), gc.Equals, defaultDuration)
+	c.Assert(cfg.MigrationMinionWaitMax(), gc.Equals, controller.DefaultMigrationMinionWaitMax)
 
 	cfg[controller.MigrationMinionWaitMax] = "500ms"
 	c.Assert(cfg.MigrationMinionWaitMax(), gc.Equals, 500*time.Millisecond)

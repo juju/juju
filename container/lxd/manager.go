@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jujuarch "github.com/juju/utils/v3/arch"
-	"github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
@@ -133,8 +132,16 @@ func (m *containerManager) CreateContainer(
 	}
 	_ = callback(status.Running, "Container started", nil)
 
-	return &lxdInstance{c.Name, m.server.InstanceServer},
-		&instance.HardwareCharacteristics{AvailabilityZone: &m.availabilityZone}, nil
+	virtType := string(spec.VirtType)
+	hardware := &instance.HardwareCharacteristics{
+		AvailabilityZone: &m.availabilityZone,
+		VirtType:         &virtType,
+	}
+
+	return &lxdInstance{
+		id:     c.Name,
+		server: m.server.InstanceServer,
+	}, hardware, nil
 }
 
 // ListContainers implements container.Manager.
@@ -176,7 +183,7 @@ func (m *containerManager) ensureInitialized() error {
 // IsInitialized implements container.Manager.
 // It returns true if we can find a LXD socket on this host.
 func (m *containerManager) IsInitialized() bool {
-	return SocketPath(shared.IsUnixSocket) != ""
+	return SocketPath(IsUnixSocket) != ""
 }
 
 // getContainerSpec generates a spec for creating a new container.
@@ -194,12 +201,21 @@ func (m *containerManager) getContainerSpec(
 		return ContainerSpec{}, errors.Trace(err)
 	}
 
+	virtType := api.InstanceTypeContainer
+	if cons.HasVirtType() {
+		v, err := instance.ParseVirtType(*cons.VirtType)
+		if err != nil {
+			return ContainerSpec{}, errors.Trace(err)
+		}
+		virtType = v
+	}
+
 	// Lock around finding an image.
 	// The provisioner works concurrently to create containers.
 	// If an image needs to be copied from a remote, we don't want many
 	// goroutines attempting to do it at once.
 	m.imageMutex.Lock()
-	found, err := m.server.FindImage(base, jujuarch.HostArch(), imageSources, true, callback)
+	found, err := m.server.FindImage(base, jujuarch.HostArch(), virtType, imageSources, true, callback)
 	m.imageMutex.Unlock()
 	if err != nil {
 		return ContainerSpec{}, errors.Annotatef(err, "acquiring LXD image")

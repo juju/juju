@@ -28,6 +28,9 @@ const DefaultLXDBridge = "lxdbr0"
 // Note: we don't import this from 'container' to avoid import loops
 const DefaultKVMBridge = "virbr0"
 
+// DefaultDockerBridge is the bridge that is set up by Docker.
+const DefaultDockerBridge = "docker0"
+
 // DeviceToBridge gives the information about a particular device that
 // should be bridged.
 type DeviceToBridge struct {

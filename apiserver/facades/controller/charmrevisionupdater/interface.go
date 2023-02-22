@@ -4,14 +4,12 @@
 package charmrevisionupdater
 
 import (
-	"github.com/juju/charm/v9"
-	csparams "github.com/juju/charmrepo/v7/csclient/params"
+	"github.com/juju/charm/v10"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 )
@@ -22,7 +20,6 @@ type State interface {
 	AllApplications() ([]Application, error)
 	Charm(curl *charm.URL) (*state.Charm, error)
 	Cloud(name string) (cloud.Cloud, error)
-	ControllerConfig() (controller.Config, error)
 	ControllerUUID() string
 	Model() (Model, error)
 	Resources() state.Resources
@@ -33,7 +30,6 @@ type State interface {
 type Application interface {
 	CharmURL() (curl *string, force bool)
 	CharmOrigin() *state.CharmOrigin
-	Channel() csparams.Channel
 	ApplicationTag() names.ApplicationTag
 	UnitCount() int
 }

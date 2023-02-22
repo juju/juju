@@ -213,8 +213,8 @@ type Broker interface {
 	// SecretsProvider provides an API for accessing the broker interface for managing secret k8s provider resources.
 	SecretsProvider
 
-	// SecretsStore provides an API for managing Juju secrets.
-	SecretsStore
+	// SecretsBackend provides an API for managing Juju secrets.
+	SecretsBackend
 
 	// ModelOperatorManager provides an API for deploying operators for
 	// individual models.
@@ -265,8 +265,8 @@ type SecretsProvider interface {
 	RemoveSecretAccessToken(tag names.Tag) error
 }
 
-// SecretsStore provides an API for managing Juju secrets.
-type SecretsStore interface {
+// SecretsBackend provides an API for managing Juju secrets.
+type SecretsBackend interface {
 	// SaveJujuSecret saves a secret, returning an id used to access the secret later.
 	SaveJujuSecret(ctx context.Context, name string, value secrets.SecretValue) (string, error)
 

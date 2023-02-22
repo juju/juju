@@ -6,8 +6,7 @@ package application
 import (
 	"time"
 
-	"github.com/juju/charm/v9"
-	csparams "github.com/juju/charmrepo/v7/csclient/params"
+	"github.com/juju/charm/v10"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/schema"
@@ -77,7 +76,6 @@ type Application interface {
 	ApplicationTag() names.ApplicationTag
 	Charm() (Charm, bool, error)
 	CharmURL() (*string, bool)
-	Channel() csparams.Channel
 	CharmOrigin() *state.CharmOrigin
 	ClearExposed() error
 	CharmConfig(string) (charm.Settings, error)

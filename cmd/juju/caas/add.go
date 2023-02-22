@@ -100,11 +100,6 @@ with the specified name.
 If the cluster does not have a storage provisioning capability, use the
 --skip-storage option to add the cluster without any workload storage configured.
 
-When adding an AKS, EKS, or GKE cluster, you can use the --aks, --eks, or --gke
-option to interactively be stepped through the registration process, or you can
-supply the necessary parameters directly. For this to work, you'll have to have az,
-eksctl, or gcloud installed and logged in.
-
 Examples:
 
 When your kubeconfig file is in the default location:
@@ -122,27 +117,6 @@ To add a Kubernetes cloud using data from your kubeconfig file, when this file i
 
 To add a Kubernetes cloud using data from kubectl, when your kubeconfig file is not in the default location:
     kubectl config view --raw | juju add-k8s myk8scloud --cluster-name=my_cluster_name
-
-To add a GKE cluster 'myk8scloud' after gcloud login:
-    juju add-k8s --gke myk8scloud
-
-To add a GKE cluster specifying the project the cluster belongs to:
-    juju add-k8s --gke --project=myproject myk8scloud
-
-To specify the credential to use when accessing the  cluster:
-    juju add-k8s --gke --credential=myaccount --project=myproject myk8scloud
-
-To specify the K8s cluster region or cloud/region:
-    juju add-k8s --gke --credential=myaccount --project=myproject --region=someregion myk8scloud
-
-To add an AKS cluster named 'myk8scloud' after az login:
-    juju add-k8s --aks myk8scloud
-
-To specify the cluster to import, when you have more than one cluster:
-    juju add-k8s --aks --cluster-name mycluster myk8scloud
-
-To specify the Azure resource group of the AKS cluster:
-    juju add-k8s --aks --cluster-name mycluster --resource-group myrg myk8scloud
 
 See also:
     remove-k8s
@@ -262,10 +236,10 @@ func (c *AddCAASCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.hostCloud, "cloud", "", "k8s cluster cloud")
 	f.StringVar(&c.workloadStorage, "storage", "", "k8s storage class for workload storage")
 	f.BoolVar(&c.skipStorage, "skip-storage", false, "used when adding a cluster that doesn't have storage")
-	f.StringVar(&c.project, "project", "", "project to which the cluster belongs")
 	f.StringVar(&c.credential, "credential", "", "the credential to use when accessing the cluster")
-	f.StringVar(&c.resourceGroup, "resource-group", "", "the Azure resource group of the AKS cluster")
 	// TODO(k8s) - support k8s tooling in strict snap
+	// f.StringVar(&c.project, "project", "", "project to which the cluster belongs")
+	// f.StringVar(&c.resourceGroup, "resource-group", "", "the Azure resource group of the AKS cluster")
 	//f.BoolVar(&c.gke, "gke", false, "used when adding a GKE cluster")
 	//f.BoolVar(&c.aks, "aks", false, "used when adding an AKS cluster")
 	//f.BoolVar(&c.eks, "eks", false, "used when adding an EKS cluster")

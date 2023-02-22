@@ -7,7 +7,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/controller"
@@ -38,12 +38,14 @@ type CAASApplicationControllerState interface {
 	ModelUUID() string
 	APIHostPortsForAgents() ([]network.SpaceHostPorts, error)
 	WatchAPIHostPortsForAgents() state.NotifyWatcher
+	WatchControllerConfig() state.NotifyWatcher
 }
 
 type Model interface {
 	UUID() string
 	ModelConfig() (*config.Config, error)
 	Containers(providerIds ...string) ([]state.CloudContainer, error)
+	WatchForModelConfigChanges() state.NotifyWatcher
 }
 
 type Application interface {
@@ -64,6 +66,7 @@ type Application interface {
 	ApplicationConfig() (coreconfig.ConfigAttributes, error)
 	GetScale() int
 	ClearResources() error
+	Watch() state.NotifyWatcher
 	WatchUnits() state.StringsWatcher
 }
 

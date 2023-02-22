@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -19,7 +19,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/juju/application/deployer"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
@@ -55,8 +54,7 @@ func (s *BundleDeployCharmStoreSuite) SetUpSuite(c *gc.C) {
 
 func (s *BundleDeployCharmStoreSuite) SetUpTest(c *gc.C) {
 	s.stub = &testing.Stub{}
-	handler := &testMetricsRegistrationHandler{Stub: s.stub}
-	s.server = httptest.NewServer(handler)
+
 	// Set metering URL config so the config is set during bootstrap
 	if s.ControllerConfigAttrs == nil {
 		s.ControllerConfigAttrs = make(map[string]interface{})
@@ -100,75 +98,24 @@ func (s *BundleDeployCharmStoreSuite) makeBundleDir(c *gc.C, content string) str
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidFlags(c *gc.C) {
-	s.setupCharm(c, "cs:xenial/mysql-42", "mysql", "bionic")
-	s.setupCharm(c, "cs:xenial/wordpress-47", "wordpress", "bionic")
-	s.setupBundle(c, "cs:bundle/wordpress-simple-1", "wordpress-simple", "bionic", "xenial")
+	s.setupCharm(c, "ch:xenial/mysql-42", "mysql", "bionic")
+	s.setupCharm(c, "ch:xenial/wordpress-47", "wordpress", "bionic")
+	s.setupBundle(c, "ch:bundle/wordpress-simple-1", "wordpress-simple", "bionic", "xenial")
 
-	err := s.runDeploy(c, "cs:bundle/wordpress-simple", "--config", "config.yaml")
+	err := s.runDeploy(c, "ch:bundle/wordpress-simple", "--config", "config.yaml")
 	c.Assert(err, gc.ErrorMatches, "options provided but not supported when deploying a bundle: --config")
-	err = s.runDeploy(c, "cs:bundle/wordpress-simple", "-n", "2")
+	err = s.runDeploy(c, "ch:bundle/wordpress-simple", "-n", "2")
 	c.Assert(err, gc.ErrorMatches, "options provided but not supported when deploying a bundle: -n")
-	err = s.runDeploy(c, "cs:bundle/wordpress-simple", "--series", "xenial")
+	err = s.runDeploy(c, "ch:bundle/wordpress-simple", "--series", "xenial")
 	c.Assert(err, gc.ErrorMatches, "options provided but not supported when deploying a bundle: --series")
 }
 
-func (s *BundleDeployCharmStoreSuite) TestAddMetricCredentials(c *gc.C) {
-	s.fakeAPI.planURL = s.server.URL
-	s.setupCharm(c, "cs:xenial/wordpress", "wordpress", "bionic")
-	s.setupCharm(c, "cs:xenial/mysql", "mysql", "bionic")
-	s.setupBundle(c, "cs:bundle/wordpress-with-plans-1", "wordpress-with-plans", "xenial")
-
-	// `"hello registration"\n` (quotes and newline from json
-	// encoding) is returned by the fake http server. This is binary64
-	// encoded before the call into SetMetricCredentials.
-	creds := append([]byte(`"aGVsbG8gcmVnaXN0cmF0aW9u"`), 0xA)
-	s.fakeAPI.Call("SetMetricCredentials", "wordpress", creds).Returns(error(nil))
-
-	deploy := s.deployCommandForState()
-	deploy.Steps = []deployer.DeployStep{&deployer.RegisterMeteredCharm{PlanURL: s.server.URL, RegisterPath: "", QueryPath: ""}}
-	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:bundle/wordpress-with-plans")
-	c.Assert(err, jc.ErrorIsNil)
-
-	// The order of calls here does not matter and is, in fact, not guaranteed.
-	// All we care about here is that the calls exist.
-	s.stub.CheckCallsUnordered(c, []testing.StubCall{{
-		FuncName: "DefaultPlan",
-		Args:     []interface{}{"cs:wordpress"},
-	}, {
-		FuncName: "Authorize",
-		Args: []interface{}{deployer.MetricRegistrationPost{
-			ModelUUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-			CharmURL:        "cs:wordpress",
-			ApplicationName: "wordpress",
-			PlanURL:         "thisplan",
-			IncreaseBudget:  0,
-		}},
-	}, {
-		FuncName: "Authorize",
-		Args: []interface{}{deployer.MetricRegistrationPost{
-			ModelUUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-			CharmURL:        "cs:mysql",
-			ApplicationName: "mysql",
-			PlanURL:         "test/plan",
-			IncreaseBudget:  0,
-		}},
-	}})
-
-	mysqlApp, err := s.State.Application("mysql")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mysqlApp.MetricCredentials(), jc.DeepEquals, append([]byte(`"aGVsbG8gcmVnaXN0cmF0aW9u"`), 0xA))
-
-	wordpressApp, err := s.State.Application("wordpress")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(wordpressApp.MetricCredentials(), jc.DeepEquals, append([]byte(`"aGVsbG8gcmVnaXN0cmF0aW9u"`), 0xA))
-}
-
 func (s *BundleDeployCharmStoreSuite) TestDryRunTwice(c *gc.C) {
-	s.setupCharmMaybeAdd(c, "cs:xenial/mysql-42", "mysql", "bionic", false)
-	s.setupCharmMaybeAdd(c, "cs:xenial/wordpress-47", "wordpress", "bionic", false)
-	s.setupBundle(c, "cs:bundle/wordpress-simple-1", "wordpress-simple", "bionic")
+	s.setupCharmMaybeAdd(c, "ch:xenial/mysql-42", "mysql", "bionic", false)
+	s.setupCharmMaybeAdd(c, "ch:xenial/wordpress-47", "wordpress", "bionic", false)
+	s.setupBundle(c, "ch:bundle/wordpress-simple-1", "wordpress-simple", "bionic")
 
-	stdOut, _, err := s.runDeployWithOutput(c, "cs:bundle/wordpress-simple", "--dry-run")
+	stdOut, _, err := s.runDeployWithOutput(c, "ch:bundle/wordpress-simple", "--dry-run")
 	c.Assert(err, jc.ErrorIsNil)
 	expected := "" +
 		"Changes to deploy bundle:\n" +
@@ -183,7 +130,7 @@ func (s *BundleDeployCharmStoreSuite) TestDryRunTwice(c *gc.C) {
 		"- set annotations for mysql"
 
 	c.Check(stdOut, gc.Equals, expected)
-	stdOut, _, err = s.runDeployWithOutput(c, "cs:bundle/wordpress-simple", "--dry-run")
+	stdOut, _, err = s.runDeployWithOutput(c, "ch:bundle/wordpress-simple", "--dry-run")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(stdOut, gc.Equals, expected)
 
@@ -310,7 +257,7 @@ charm path in application "mysql" does not exist: .*mysql`,
 	content: `
         applications:
             rails:
-                charm: cs:xenial/rails-42
+                charm: ch:xenial/rails-42
                 num_units: 1
     `,
 	err: `cannot resolve charm or bundle "rails": .* charm or bundle not found`,
@@ -323,7 +270,7 @@ charm path in application "mysql" does not exist: .*mysql`,
 	content: `
         applications:
             mysql:
-                charm: cs:mysql
+                charm: ch:mysql
                 num_units: -1
     `,
 	err: `the provided bundle has the following errors:
@@ -333,7 +280,7 @@ negative number of units specified on application "mysql"`,
 	content: `
         applications:
             mysql:
-                charm: cs:mysql
+                charm: ch:mysql
                 num_units: 1
                 constraints: bad-wolf
     `,
@@ -344,7 +291,7 @@ invalid constraints "bad-wolf" in application "mysql": malformed constraint "bad
 	content: `
         applications:
             mysql:
-                charm: cs:mysql
+                charm: ch:mysql
                 num_units: -1
                 constraints: bad-wolf
     `,
@@ -388,8 +335,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleWatcherTimeout(c *gc.C) {
 	//	return watcher, nil
 	//})
 
-	s.setupCharm(c, "cs:xenial/django-0", "django", "bionic")
-	s.setupCharm(c, "cs:xenial/wordpress-0", "wordpress", "bionic")
+	s.setupCharm(c, "ch:xenial/django-0", "django", "bionic")
+	s.setupCharm(c, "ch:xenial/wordpress-0", "wordpress", "bionic")
 	//s.PatchValue(&updateUnitStatusPeriod, 0*time.Second)
 	err := s.DeployBundleYAML(c, `
        applications:
@@ -542,13 +489,13 @@ applications:
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalAndCharmStoreCharms(c *gc.C) {
 	charmsPath := c.MkDir()
-	wpch := s.setupCharm(c, "cs:xenial/wordpress-42", "wordpress", "bionic")
+	wpch := s.setupCharm(c, "ch:xenial/wordpress-42", "wordpress", "bionic")
 	mysqlPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(charmsPath, "mysql")
 	err := s.DeployBundleYAML(c, fmt.Sprintf(`
        series: xenial
        applications:
            wordpress:
-               charm: cs:xenial/wordpress-42
+               charm: ch:xenial/wordpress-42
                series: xenial
                num_units: 1
            mysql:
@@ -558,7 +505,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalAndCharmStoreCharms(c
            - ["wordpress:db", "mysql:server"]
    `, mysqlPath))
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCharmsUploaded(c, "local:xenial/mysql-1", "cs:xenial/wordpress-42")
+	s.assertCharmsUploaded(c, "local:xenial/mysql-1", "ch:xenial/wordpress-42")
 	mysqlch, err := s.State.Charm(charm.MustParseURL("local:xenial/mysql-1"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
@@ -567,7 +514,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalAndCharmStoreCharms(c
 			config: mysqlch.Config().DefaultSettings(),
 		},
 		"wordpress": {
-			charm:  "cs:xenial/wordpress-42",
+			charm:  "ch:xenial/wordpress-42",
 			config: wpch.Config().DefaultSettings(),
 		},
 	})
@@ -579,29 +526,29 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalAndCharmStoreCharms(c
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationDefaultArchConstraints(c *gc.C) {
-	wpch := s.setupCharm(c, "cs:xenial/wordpress-42", "wordpress", "bionic")
-	dch := s.setupCharm(c, "cs:bionic/dummy-0", "dummy", "bionic")
+	wpch := s.setupCharm(c, "ch:xenial/wordpress-42", "wordpress", "bionic")
+	dch := s.setupCharm(c, "ch:bionic/dummy-0", "dummy", "bionic")
 
 	err := s.DeployBundleYAML(c, `
        applications:
            wordpress:
-               charm: cs:wordpress
+               charm: ch:wordpress
                constraints: mem=4G cores=2
            customized:
-               charm: cs:bionic/dummy-0
+               charm: ch:bionic/dummy-0
                num_units: 1
                constraints: arch=amd64
    `)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCharmsUploaded(c, "cs:bionic/dummy-0", "cs:xenial/wordpress-42")
+	s.assertCharmsUploaded(c, "ch:bionic/dummy-0", "ch:xenial/wordpress-42")
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
 		"customized": {
-			charm:       "cs:bionic/dummy-0",
+			charm:       "ch:bionic/dummy-0",
 			constraints: constraints.MustParse("arch=amd64"),
 			config:      dch.Config().DefaultSettings(),
 		},
 		"wordpress": {
-			charm:       "cs:xenial/wordpress-42",
+			charm:       "ch:xenial/wordpress-42",
 			constraints: constraints.MustParse("mem=4G cores=2"),
 			config:      wpch.Config().DefaultSettings(),
 		},
@@ -612,29 +559,33 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationDefaultArchCons
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationConstraints(c *gc.C) {
-	wpch := s.setupCharm(c, "cs:xenial/wordpress-42", "wordpress", "bionic")
-	dch := s.setupCharmWithArch(c, "cs:bionic/dummy-0", "dummy", "bionic", "i386")
+	wpch := s.setupCharm(c, "ch:xenial/wordpress-42", "wordpress", "bionic")
+	dch := s.setupCharmWithArch(c, "ch:bionic/dummy-0", "dummy", "bionic", "i386")
 
 	err := s.DeployBundleYAML(c, `
        applications:
            wordpress:
-               charm: cs:wordpress
+               charm: ch:wordpress
+               series: bionic
                constraints: mem=4G cores=2
            customized:
-               charm: cs:bionic/dummy-0
+               charm: ch:dummy
+               revision: 0
+               channel: stable
+               series: xenial
                num_units: 1
                constraints: arch=i386
    `)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCharmsUploaded(c, "cs:bionic/dummy-0", "cs:xenial/wordpress-42")
+	s.assertCharmsUploaded(c, "ch:bionic/dummy-0", "ch:xenial/wordpress-42")
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
 		"customized": {
-			charm:       "cs:bionic/dummy-0",
+			charm:       "ch:bionic/dummy-0",
 			constraints: constraints.MustParse("arch=i386"),
 			config:      dch.Config().DefaultSettings(),
 		},
 		"wordpress": {
-			charm:       "cs:xenial/wordpress-42",
+			charm:       "ch:xenial/wordpress-42",
 			constraints: constraints.MustParse("mem=4G cores=2"),
 			config:      wpch.Config().DefaultSettings(),
 		},
@@ -645,40 +596,40 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationConstraints(c *
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleSetAnnotations(c *gc.C) {
-	s.setupCharm(c, "cs:xenial/wordpress", "wordpress", "bionic")
-	s.setupCharm(c, "cs:xenial/mysql", "mysql", "bionic")
-	s.setupBundle(c, "cs:bundle/wordpress-simple-1", "wordpress-simple", "bionic")
+	s.setupCharm(c, "ch:xenial/wordpress", "wordpress", "bionic")
+	s.setupCharm(c, "ch:xenial/mysql", "mysql", "bionic")
+	s.setupBundle(c, "ch:bundle/wordpress-simple-1", "wordpress-simple", "bionic")
 
 	deploy := s.deployCommandForState()
-	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:bundle/wordpress-simple")
+	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "ch:bundle/wordpress-simple")
 	c.Assert(err, jc.ErrorIsNil)
 	application, err := s.State.Application("wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	ann, err := s.Model.Annotations(application)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ann, jc.DeepEquals, map[string]string{"bundleURL": "cs:bundle/wordpress-simple-1"})
+	c.Assert(ann, jc.DeepEquals, map[string]string{"bundleURL": "ch:bundle/wordpress-simple-1"})
 	application2, err := s.State.Application("mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	ann2, err := s.Model.Annotations(application2)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ann2, jc.DeepEquals, map[string]string{"bundleURL": "cs:bundle/wordpress-simple-1"})
+	c.Assert(ann2, jc.DeepEquals, map[string]string{"bundleURL": "ch:bundle/wordpress-simple-1"})
 }
 
 func (s *BundleDeployCharmStoreSuite) TestLXCTreatedAsLXD(c *gc.C) {
-	s.setupCharm(c, "cs:xenial/wordpress-0", "wordpress", "bionic")
+	s.setupCharm(c, "ch:xenial/wordpress-0", "wordpress", "bionic")
 
 	// Note that we use lxc here, to represent a 1.x bundle that specifies lxc.
 	content := `
         applications:
             wp:
-                charm: cs:xenial/wordpress-0
+                charm: ch:wordpress
                 num_units: 1
                 to:
                     - lxc:0
                 options:
                     blog-title: these are the voyages
             wp2:
-                charm: cs:xenial/wordpress-0
+                charm: ch:wordpress
                 num_units: 1
                 to:
                     - lxc:0
@@ -704,24 +655,30 @@ func (s *BundleDeployCharmStoreSuite) TestLXCTreatedAsLXD(c *gc.C) {
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleMassiveUnitColocation(c *gc.C) {
-	s.setupCharm(c, "cs:bionic/django-42", "dummy", "bionic")
-	s.setupCharm(c, "cs:bionic/mem-47", "dummy", "bionic")
-	s.setupCharm(c, "cs:bionic/rails-0", "dummy", "bionic")
+	s.setupCharm(c, "ch:bionic/django-42", "dummy", "bionic")
+	s.setupCharm(c, "ch:bionic/mem-47", "dummy", "bionic")
+	s.setupCharm(c, "ch:bionic/rails-0", "dummy", "bionic")
 
 	err := s.DeployBundleYAML(c, `
        applications:
            memcached:
-               charm: cs:bionic/mem-47
+               charm: ch:mem
+               revision: 47
+               channel: stable
+               series: bionic
                num_units: 3
                to: [1, 2, 3]
            django:
-               charm: cs:bionic/django-42
+               charm: ch:django
+               revision: 42
+               channel: stable
+               series: bionic
                num_units: 4
                to:
                    - 1
                    - lxd:memcached
            ror:
-               charm: cs:rails
+               charm: ch:rails
                num_units: 3
                to:
                    - 1
@@ -754,17 +711,26 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMassiveUnitColocation(c *g
 	content := `
        applications:
            memcached:
-               charm: cs:bionic/mem-47
+               charm: ch:mem
+               revision: 47
+               channel: stable
+               series: bionic
                num_units: 3
                to: [1, 2, 3]
            django:
-               charm: cs:bionic/django-42
+               charm: ch:django
+               revision: 42
+               channel: stable
+               series: bionic
                num_units: 4
                to:
                    - 1
                    - lxd:memcached
            node:
-               charm: cs:bionic/django-42
+               charm: ch:django
+               revision: 42
+               channel: stable
+               series: bionic
                num_units: 1
                to:
                    - lxd:memcached
@@ -780,7 +746,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMassiveUnitColocation(c *g
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(stdOut, gc.Equals, ""+
 		"Executing changes:\n"+
-		"- deploy application node from charm-store on bionic using django\n"+
+		"- deploy application node from charm-hub on bionic using django\n"+
 		"- add unit node/0 to 0/lxd/0 to satisfy [lxd:memcached]",
 	)
 
@@ -804,19 +770,22 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMassiveUnitColocation(c *g
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleWithAnnotations_OutputIsCorrect(c *gc.C) {
-	s.setupCharm(c, "cs:bionic/django-42", "dummy", "bionic")
-	s.setupCharm(c, "cs:bionic/mem-47", "dummy", "bionic")
+	s.setupCharm(c, "ch:bionic/django-42", "dummy", "bionic")
+	s.setupCharm(c, "ch:bionic/mem-47", "dummy", "bionic")
 	stdOut, stdErr, err := s.DeployBundleYAMLWithOutput(c, `
        applications:
            django:
-               charm: cs:django
+               charm: ch:django
                num_units: 1
                annotations:
                    key1: value1
                    key2: value2
                to: [1]
            memcached:
-               charm: cs:bionic/mem-47
+               charm: ch:mem
+               revision: 47
+               channel: stable
+               series: bionic
                num_units: 1
        machines:
            1:

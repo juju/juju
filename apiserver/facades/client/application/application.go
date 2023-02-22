@@ -10,8 +10,8 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/juju/charm/v9"
-	csparams "github.com/juju/charmrepo/v7/csclient/params"
+	"github.com/juju/charm/v10"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -30,7 +30,6 @@ import (
 	k8s "github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/charmhub"
-	"github.com/juju/juju/controller"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
@@ -60,15 +59,28 @@ var ClassifyDetachedStorage = storagecommon.ClassifyDetachedStorage
 
 var logger = loggo.GetLogger("juju.apiserver.application")
 
+// APIv18 provides the Application API facade for version 18.
+type APIv18 struct {
+	*APIBase
+}
+
+// APIv17 provides the Application API facade for version 17.
+type APIv17 struct {
+	*APIv18
+}
+
+// APIv16 provides the Application API facade for version 16.
+type APIv16 struct {
+	*APIv17
+}
+
 // APIv15 provides the Application API facade for version 15.
 type APIv15 struct {
-	*APIBase
+	*APIv16
 }
 
 // APIBase implements the shared application interface and is the concrete
 // implementation of the api end point.
-//
-// API provides the Application API facade for version 5.
 type APIBase struct {
 	backend       Backend
 	storageAccess StorageInterface
@@ -275,6 +287,10 @@ func (api *APIBase) Deploy(args params.ApplicationsDeploy) (params.ErrorResults,
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
+		if err := common.ValidateCharmOrigin(arg.CharmOrigin); err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
 		err := deployApplication(
 			api.backend,
 			api.model,
@@ -390,7 +406,6 @@ func splitApplicationAndCharmConfigFromYAML(modelType state.ModelType, inYaml, a
 
 func caasPrecheck(
 	ch Charm,
-	controllerCfg controller.Config,
 	model Model,
 	args params.ApplicationDeploy,
 	storagePoolManager poolmanager.PoolManager,
@@ -508,11 +523,7 @@ func deployApplication(
 
 	modelType := model.Type()
 	if modelType != state.ModelTypeIAAS {
-		cfg, err := backend.ControllerConfig()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if err := caasPrecheck(ch, cfg, model, args, storagePoolManager, registry, caasBroker); err != nil {
+		if err := caasPrecheck(ch, model, args, storagePoolManager, registry, caasBroker); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -539,7 +550,7 @@ func deployApplication(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	origin, err := convertCharmOrigin(args.CharmOrigin, curl, args.Channel)
+	origin, err := convertCharmOrigin(args.CharmOrigin, curl)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -547,7 +558,6 @@ func deployApplication(
 		ApplicationName:   args.ApplicationName,
 		Charm:             stateCharm(ch),
 		CharmOrigin:       origin,
-		Channel:           csparams.Channel(args.Channel),
 		NumUnits:          args.NumUnits,
 		ApplicationConfig: appConfig,
 		CharmConfig:       charmSettings,
@@ -563,7 +573,7 @@ func deployApplication(
 	return errors.Trace(err)
 }
 
-func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL, charmStoreChannel string) (corecharm.Origin, error) {
+func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL) (corecharm.Origin, error) {
 	var (
 		originType string
 		platform   corecharm.Platform
@@ -582,24 +592,6 @@ func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL, charmStoreC
 	}
 
 	switch {
-	case origin == nil || origin.Source == "" || origin.Source == "charm-store":
-		var rev *int
-		if curl.Revision != -1 {
-			rev = &curl.Revision
-		}
-		var ch *charm.Channel
-		if charmStoreChannel != "" {
-			ch = &charm.Channel{
-				Risk: charm.Risk(charmStoreChannel),
-			}
-		}
-		return corecharm.Origin{
-			Type:     originType,
-			Source:   corecharm.CharmStore,
-			Revision: rev,
-			Channel:  ch,
-			Platform: platform,
-		}, nil
 	case origin.Source == "local":
 		return corecharm.Origin{
 			Type:     originType,
@@ -607,6 +599,8 @@ func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL, charmStoreC
 			Revision: &curl.Revision,
 			Platform: platform,
 		}, nil
+	case origin.Source != "charm-hub":
+		return corecharm.Origin{}, errors.NotValidf("origin source not local nor charm-hub")
 	}
 
 	var track string
@@ -811,7 +805,6 @@ type setCharmParams struct {
 	AppName               string
 	Application           Application
 	CharmOrigin           *params.CharmOrigin
-	Channel               csparams.Channel
 	ConfigSettingsStrings map[string]string
 	ConfigSettingsYAML    string
 	ResourceIDs           map[string]string
@@ -914,6 +907,11 @@ func (api *APIBase) SetCharm(args params.ApplicationSetCharm) error {
 	if err := api.checkCanWrite(); err != nil {
 		return err
 	}
+
+	if err := common.ValidateCharmOrigin(args.CharmOrigin); err != nil {
+		return err
+	}
+
 	// when forced units in error, don't block
 	if !args.ForceUnits {
 		if err := api.check.ChangeAllowed(); err != nil {
@@ -924,13 +922,11 @@ func (api *APIBase) SetCharm(args params.ApplicationSetCharm) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	channel := csparams.Channel(args.Channel)
 	return api.setCharmWithAgentValidation(
 		setCharmParams{
 			AppName:               args.ApplicationName,
 			Application:           oneApplication,
 			CharmOrigin:           args.CharmOrigin,
-			Channel:               channel,
 			ConfigSettingsStrings: args.ConfigSettings,
 			ConfigSettingsYAML:    args.ConfigSettingsYAML,
 			ResourceIDs:           args.ResourceIDs,
@@ -988,7 +984,7 @@ func (api *APIBase) setCharmWithAgentValidation(
 	if err != nil {
 		logger.Debugf("Unable to locate current charm: %v", err)
 	}
-	newOrigin, err := convertCharmOrigin(params.CharmOrigin, curl, string(params.Channel))
+	newOrigin, err := convertCharmOrigin(params.CharmOrigin, curl)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1094,7 +1090,6 @@ func (api *APIBase) applicationSetCharm(
 	cfg := state.SetCharmConfig{
 		Charm:              api.stateCharm(newCharm),
 		CharmOrigin:        newOrigin,
-		Channel:            params.Channel,
 		ConfigSettings:     settings,
 		ForceBase:          force.ForceBase,
 		ForceUnits:         force.ForceUnits,
@@ -1430,15 +1425,8 @@ func addApplicationUnits(backend Backend, modelType state.ModelType, args params
 
 // DestroyUnits removes a given set of application units.
 //
-// NOTE(axw) this exists only for backwards compatibility,
-// for API facade versions 1-3; clients should prefer its
-// successor, DestroyUnit, below. Until all consumers have
-// been updated, or we bump a major version, we can't drop
-// this.
-//
-// TODO(axw) 2017-03-16 #1673323
-// Drop this in Juju 3.0.
-func (api *APIBase) DestroyUnits(args params.DestroyApplicationUnits) error {
+// TODO(jack-w-shaw) Drop this once facade 16 is not longer supported
+func (api *APIv16) DestroyUnits(args params.DestroyApplicationUnits) error {
 	var errs []error
 	entities := params.DestroyUnitsParams{
 		Units: make([]params.DestroyUnitParams, 0, len(args.UnitNames)),
@@ -1462,6 +1450,23 @@ func (api *APIBase) DestroyUnits(args params.DestroyApplicationUnits) error {
 		}
 	}
 	return apiservererrors.DestroyErr("units", args.UnitNames, errs)
+}
+
+func (*APIBase) DestroyUnits(_, _ struct{}) {}
+
+func (api *APIv15) DestroyUnit(argsV15 params.DestroyUnitsParamsV15) (params.DestroyUnitResults, error) {
+	args := params.DestroyUnitsParams{
+		Units: transform.Slice(argsV15.Units, func(p params.DestroyUnitParamsV15) params.DestroyUnitParams {
+			return params.DestroyUnitParams{
+				UnitTag:        p.UnitTag,
+				DestroyStorage: p.DestroyStorage,
+				Force:          p.Force,
+				MaxWait:        p.MaxWait,
+				DryRun:         false,
+			}
+		}),
+	}
+	return api.APIv16.DestroyUnit(args)
 }
 
 // DestroyUnit removes a given set of application units.
@@ -1534,6 +1539,9 @@ func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyU
 				return nil, errors.Trace(err)
 			}
 		}
+		if arg.DryRun {
+			return &info, nil
+		}
 		op := unit.DestroyOperation()
 		op.DestroyStorage = arg.DestroyStorage
 		op.Force = arg.Force
@@ -1564,15 +1572,8 @@ func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyU
 
 // Destroy destroys a given application, local or remote.
 //
-// NOTE(axw) this exists only for backwards compatibility,
-// for API facade versions 1-3; clients should prefer its
-// successor, DestroyApplication, below. Until all consumers
-// have been updated, or we bump a major version, we can't
-// drop this.
-//
-// TODO(axw) 2017-03-16 #1673323
-// Drop this in Juju 3.0.
-func (api *APIBase) Destroy(in params.ApplicationDestroy) error {
+// TODO(jack-w-shaw) Drop this once facade 16 is not longer supported
+func (api *APIv16) Destroy(in params.ApplicationDestroy) error {
 	if !names.IsValidApplication(in.ApplicationName) {
 		return errors.NotValidf("application name %q", in.ApplicationName)
 	}
@@ -1589,6 +1590,24 @@ func (api *APIBase) Destroy(in params.ApplicationDestroy) error {
 		return apiservererrors.ServerError(err)
 	}
 	return nil
+}
+
+func (*APIBase) Destroy(_, _ struct{}) {}
+
+// DestroyApplication removes a given set of applications.
+func (api *APIv15) DestroyApplication(argsV15 params.DestroyApplicationsParamsV15) (params.DestroyApplicationResults, error) {
+	args := params.DestroyApplicationsParams{
+		Applications: transform.Slice(argsV15.Applications, func(p params.DestroyApplicationParamsV15) params.DestroyApplicationParams {
+			return params.DestroyApplicationParams{
+				ApplicationTag: p.ApplicationTag,
+				DestroyStorage: p.DestroyStorage,
+				Force:          p.Force,
+				MaxWait:        p.MaxWait,
+				DryRun:         false,
+			}
+		}),
+	}
+	return api.APIBase.DestroyApplication(args)
 }
 
 // DestroyApplication removes a given set of applications.
@@ -1664,6 +1683,11 @@ func (api *APIBase) DestroyApplication(args params.DestroyApplicationsParams) (p
 				info.DetachedStorage = append(info.DetachedStorage, detached...)
 			}
 		}
+
+		if arg.DryRun {
+			return &info, nil
+		}
+
 		op := app.DestroyOperation()
 		op.DestroyStorage = arg.DestroyStorage
 		op.Force = arg.Force

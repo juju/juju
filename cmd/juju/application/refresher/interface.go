@@ -4,8 +4,7 @@
 package refresher
 
 import (
-	"github.com/juju/charm/v9"
-	"gopkg.in/macaroon.v2"
+	"github.com/juju/charm/v10"
 
 	commoncharm "github.com/juju/juju/api/common/charm"
 	corecharm "github.com/juju/juju/core/charm"
@@ -32,9 +31,8 @@ type Refresher interface {
 
 // CharmID represents a charm identifier.
 type CharmID struct {
-	URL      *charm.URL
-	Origin   corecharm.Origin
-	Macaroon *macaroon.Macaroon
+	URL    *charm.URL
+	Origin corecharm.Origin
 }
 
 // CharmResolver defines methods required to resolve charms, as required

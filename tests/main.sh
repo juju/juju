@@ -55,6 +55,7 @@ TEST_NAMES="agents \
             expose_ec2 \
             hooks \
             hooktools \
+			kubeflow \
             machine \
             magma \
             manual \
@@ -64,6 +65,8 @@ TEST_NAMES="agents \
             refresh \
             relations \
             resources \
+            secrets_iaas \
+            secrets_k8s \
             sidecar \
             smoke \
             spaces_ec2 \
@@ -231,7 +234,6 @@ if [[ $# -eq 0 ]]; then
 		echo "$(red '---------------------------------------')"
 		echo ""
 		show_help
-		exit 1
 	fi
 fi
 

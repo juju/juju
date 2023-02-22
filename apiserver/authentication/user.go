@@ -20,7 +20,7 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/charmstore"
+	coremacaroon "github.com/juju/juju/core/macaroon"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -211,7 +211,7 @@ func (u *LocalUserAuthenticator) authenticateMacaroons(
 		}
 	}
 	loginMac := ai.Macaroons[ai.OpIndexes[identchecker.LoginOp]]
-	declared := checkers.InferDeclared(charmstore.MacaroonNamespace, loginMac)
+	declared := checkers.InferDeclared(coremacaroon.MacaroonNamespace, loginMac)
 	username := declared[usernameKey]
 	if tag.Id() != username {
 		return nil, apiservererrors.ErrPerm

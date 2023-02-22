@@ -4,7 +4,7 @@
 package upgradeseries
 
 import (
-	"github.com/juju/charm/v9/hooks"
+	"github.com/juju/charm/v10/hooks"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/uniter/hook"
@@ -32,7 +32,7 @@ func (r *upgradeSeriesResolver) NextOp(
 ) (operation.Operation, error) {
 	// If the unit is in the validate state, just sit and idle until validation
 	// has been completed.
-	if remoteState.UpgradeSeriesStatus == model.UpgradeSeriesValidate {
+	if remoteState.UpgradeMachineStatus == model.UpgradeSeriesValidate {
 		r.logger.Debugf("unit validating, waiting for prepare started")
 		return nil, resolver.ErrDoNotProceed
 	}
@@ -40,20 +40,20 @@ func (r *upgradeSeriesResolver) NextOp(
 	// If the unit has completed a pre-series-upgrade hook
 	// (as noted by its state) then the uniter should idle in the face of all
 	// remote state changes.
-	if remoteState.UpgradeSeriesStatus == model.UpgradeSeriesPrepareCompleted {
+	if remoteState.UpgradeMachineStatus == model.UpgradeSeriesPrepareCompleted {
 		r.logger.Debugf("unit prepared, waiting for complete request")
 		return nil, resolver.ErrDoNotProceed
 	}
 
-	r.logger.Tracef("localState.Kind=%q, localState.UpgradeSeriesStatus=%q, remoteState.UpgradeSeriesStatus=%q",
-		localState.Kind, localState.UpgradeSeriesStatus, remoteState.UpgradeSeriesStatus)
+	r.logger.Tracef("localState.Kind=%q, localState.UpgradeMachineStatus=%q, remoteState.UpgradeMachineStatus=%q",
+		localState.Kind, localState.UpgradeMachineStatus, remoteState.UpgradeMachineStatus)
 
 	if localState.Kind == operation.Continue {
-		if localState.UpgradeSeriesStatus == model.UpgradeSeriesNotStarted &&
-			remoteState.UpgradeSeriesStatus == model.UpgradeSeriesPrepareStarted {
+		if localState.UpgradeMachineStatus == model.UpgradeSeriesNotStarted &&
+			remoteState.UpgradeMachineStatus == model.UpgradeSeriesPrepareStarted {
 			return opFactory.NewRunHook(hook.Info{
-				Kind:                hooks.PreSeriesUpgrade,
-				SeriesUpgradeTarget: remoteState.UpgradeSeriesTarget,
+				Kind:                 hooks.PreSeriesUpgrade,
+				MachineUpgradeTarget: remoteState.UpgradeMachineTarget,
 			})
 		}
 
@@ -61,17 +61,17 @@ func (r *upgradeSeriesResolver) NextOp(
 		// uniter was stopped for any reason, while performing a series upgrade.
 		// If the uniter was not stopped then it will be in the "prepare completed"
 		// state and likewise run the post upgrade hook.
-		if (localState.UpgradeSeriesStatus == model.UpgradeSeriesNotStarted ||
-			localState.UpgradeSeriesStatus == model.UpgradeSeriesPrepareCompleted) &&
-			remoteState.UpgradeSeriesStatus == model.UpgradeSeriesCompleteStarted {
+		if (localState.UpgradeMachineStatus == model.UpgradeSeriesNotStarted ||
+			localState.UpgradeMachineStatus == model.UpgradeSeriesPrepareCompleted) &&
+			remoteState.UpgradeMachineStatus == model.UpgradeSeriesCompleteStarted {
 			return opFactory.NewRunHook(hook.Info{Kind: hooks.PostSeriesUpgrade})
 		}
 
 		// If the local state is completed but the remote state is not started,
 		// then this means that the lock has been removed and the local uniter
 		// state should be reset.
-		if localState.UpgradeSeriesStatus == model.UpgradeSeriesCompleted &&
-			remoteState.UpgradeSeriesStatus == model.UpgradeSeriesNotStarted {
+		if localState.UpgradeMachineStatus == model.UpgradeSeriesCompleted &&
+			remoteState.UpgradeMachineStatus == model.UpgradeSeriesNotStarted {
 			return opFactory.NewNoOpFinishUpgradeSeries()
 		}
 	}

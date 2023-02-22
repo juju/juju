@@ -75,10 +75,10 @@ func (*SourcePrecheckSuite) TestCharmUpgrades(c *gc.C) {
 		apps: []migration.PrecheckApplication{
 			&fakeApp{
 				name:     "spanner",
-				charmURL: "cs:spanner-3",
+				charmURL: "ch:spanner-3",
 				units: []migration.PrecheckUnit{
-					&fakeUnit{name: "spanner/0", charmURL: "cs:spanner-3"},
-					&fakeUnit{name: "spanner/1", charmURL: "cs:spanner-2"},
+					&fakeUnit{name: "spanner/0", charmURL: "ch:spanner-3"},
+					&fakeUnit{name: "spanner/1", charmURL: "ch:spanner-2"},
 				},
 			},
 		},
@@ -932,6 +932,10 @@ func (b *fakeBackend) MongoCurrentStatus() (*replicaset.Status, error) {
 	return b.mongoCurrentStatus, b.mongoCurrentStatusErr
 }
 
+func (b *fakeBackend) AllCharmURLs() ([]*string, error) {
+	return nil, errors.NotFoundf("charms")
+}
+
 type fakePool struct {
 	models []migration.PrecheckModel
 }
@@ -1076,7 +1080,7 @@ func (a *fakeApp) Life() state.Life {
 func (a *fakeApp) CharmURL() (*string, bool) {
 	url := a.charmURL
 	if url == "" {
-		url = "cs:foo-1"
+		url = "ch:foo-1"
 	}
 	return &url, false
 }
@@ -1128,7 +1132,7 @@ func (u *fakeUnit) ShouldBeAssigned() bool {
 func (u *fakeUnit) CharmURL() *string {
 	url := u.charmURL
 	if url == "" {
-		url = "cs:foo-1"
+		url = "ch:foo-1"
 	}
 	return &url
 }

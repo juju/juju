@@ -78,8 +78,7 @@ func NewAPI(backend Backend, resources facade.Resources, authorizer facade.Autho
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	backupDir := modelConfig.BackupDir()
-
+	backupDir := backups.BackupDirToUse(modelConfig.BackupDir())
 	paths := backups.Paths{
 		BackupDir: backupDir,
 		DataDir:   dataDir,

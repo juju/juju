@@ -450,7 +450,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	if err == nil {
 		_ = st.Close()
 	}
-	c.Assert(err, gc.ErrorMatches, "bootstrapping raft cluster: bootstrap only works on new clusters")
+	c.Assert(err, gc.ErrorMatches, "creating controller database schema.*")
 }
 
 func (s *bootstrapSuite) TestMachineJobFromParams(c *gc.C) {

@@ -4,7 +4,7 @@
 package operation_test
 
 import (
-	"github.com/juju/charm/v9/hooks"
+	"github.com/juju/charm/v10/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -199,7 +199,7 @@ func (s *RunHookSuite) getExecuteRunnerTest(
 
 	// Target is supplied for the special-cased pre-series-upgrade hook.
 	// This is the only one of the designated unit hooks with validation.
-	op, err := newHook(factory, hook.Info{Kind: kind, SeriesUpgradeTarget: "focal"})
+	op, err := newHook(factory, hook.Info{Kind: kind, MachineUpgradeTarget: "ubuntu@20.04"})
 
 	c.Assert(err, jc.ErrorIsNil)
 	return op, callbacks, runnerFactory

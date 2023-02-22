@@ -272,9 +272,6 @@ const (
 	// using.
 	// It is expected that when in a different mode, Juju will perform in a
 	// different state.
-	// The lack of a mode means it will default into compatibility mode.
-	//
-	//  - strict mode ensures that we handle any fallbacks as errors.
 	ModeKey = "mode"
 
 	//
@@ -302,12 +299,12 @@ const (
 	// explicitly use for charms unless otherwise provided.
 	DefaultSeriesKey = "default-series"
 
-	// SecretStoreKey is used to specify the secret store backend.
-	SecretStoreKey = "secret-store"
+	// DefaultBaseKey is a key for determining the base a model should
+	// explicitly use for charms unless otherwise provided.
+	DefaultBaseKey = "default-base"
 
-	// SecretStoreConfigKey is used to configure the secret store backend.
-	// The config is provider dependent and is expected to be json or yaml.
-	SecretStoreConfigKey = "secret-store-config"
+	// SecretBackendKey is used to specify the secret backend.
+	SecretBackendKey = "secret-backend"
 )
 
 // ParseHarvestMode parses description of harvesting method and
@@ -374,35 +371,28 @@ func (method HarvestMode) HarvestUnknown() bool {
 	return method&HarvestUnknown != 0
 }
 
-// HasDefaultSeries defines a interface if a type has a default series or not.
-type HasDefaultSeries interface {
-	DefaultSeries() (string, bool)
-}
-
-// GetDefaultSupportedLTS returns the DefaultSupportedLTS.
+// GetDefaultSupportedLTSBase returns the DefaultSupportedLTSBase.
 // This is exposed for one reason and one reason only; testing!
-// The fact that PreferredSeries doesn't take an argument for a default series
+// The fact that PreferredBase doesn't take an argument for a default base
 // as a fallback. We then have to expose this so we can exercise the branching
 // code for other scenarios makes me sad.
-var GetDefaultSupportedLTS = jujuversion.DefaultSupportedLTS
+var GetDefaultSupportedLTSBase = jujuversion.DefaultSupportedLTSBase
 
-// PreferredSeries returns the preferred series to use when a charm does not
-// explicitly specify a series.
-func PreferredSeries(cfg HasDefaultSeries) string {
-	if series, ok := cfg.DefaultSeries(); ok {
-		return series
-	}
-	return GetDefaultSupportedLTS()
+// HasDefaultBase defines a interface if a type has a default base or not.
+type HasDefaultBase interface {
+	DefaultBase() (string, bool)
 }
 
 // PreferredBase returns the preferred base to use when a charm does not
 // explicitly specify a base.
-func PreferredBase(cfg HasDefaultSeries) series.Base {
-	ser, ok := cfg.DefaultSeries()
-	if !ok {
-		return jujuversion.DefaultSupportedLTSBase()
+func PreferredBase(cfg HasDefaultBase) series.Base {
+	base, ok := cfg.DefaultBase()
+	if ok {
+		// We can safely ignore the error here as we know that we have
+		// validated the base when we set it.
+		return series.MustParseBaseFromString(base)
 	}
-	return series.MakeDefaultBase("ubuntu", ser)
+	return GetDefaultSupportedLTSBase()
 }
 
 // Config holds an immutable environment configuration.
@@ -451,7 +441,25 @@ func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error)
 	checker := noDefaultsChecker
 	if withDefaults {
 		checker = withDefaultsChecker
+	} else {
+		// Config may be from an older Juju.
+		// Handle the case where we are parsing a fully formed
+		// set of config attributes (NoDefaults) and a value is strictly
+		// not optional, but may have previously been either set to empty
+		// or is missing.
+		// In this case, we use the default.
+		for k := range defaultsWhenParsing {
+			v, ok := attrs[k]
+			if ok && v != "" {
+				continue
+			}
+			_, explicitlyOptional := alwaysOptional[k]
+			if !explicitlyOptional {
+				attrs[k] = defaultsWhenParsing[k]
+			}
+		}
 	}
+
 	defined, err := checker.Coerce(attrs, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -495,6 +503,12 @@ const (
 
 	// DefaultActionResultsSize is the default size of the action results.
 	DefaultActionResultsSize = "5G"
+
+	// DefaultLxdSnapChannel is the default lxd snap channel to install on host vms.
+	DefaultLxdSnapChannel = "5.0/stable"
+
+	// DefaultSecretBackend is the default secret backend to use.
+	DefaultSecretBackend = "auto"
 )
 
 var defaultConfigValues = map[string]interface{}{
@@ -525,7 +539,8 @@ var defaultConfigValues = map[string]interface{}{
 	NetBondReconfigureDelayKey: 17,
 	ContainerNetworkingMethod:  "",
 
-	DefaultSeriesKey:                "",
+	DefaultBaseKey: "",
+
 	ProvisionerHarvestModeKey:       HarvestDestroyed.String(),
 	NumProvisionWorkersKey:          16,
 	NumContainerProvisionWorkersKey: 4,
@@ -537,6 +552,7 @@ var defaultConfigValues = map[string]interface{}{
 	"enable-os-upgrade":             true,
 	"development":                   false,
 	TestModeKey:                     false,
+	ModeKey:                         RequiresPromptsMode,
 	DisableTelemetryKey:             false,
 	TransmitVendorMetricsKey:        true,
 	UpdateStatusHookInterval:        DefaultUpdateStatusHookInterval,
@@ -545,7 +561,7 @@ var defaultConfigValues = map[string]interface{}{
 	CloudInitUserDataKey:            "",
 	ContainerInheritPropertiesKey:   "",
 	BackupDirKey:                    "",
-	LXDSnapChannel:                  "latest/stable",
+	LXDSnapChannel:                  DefaultLxdSnapChannel,
 
 	CharmHubURLKey: charmhub.DefaultServerURL,
 
@@ -588,9 +604,8 @@ var defaultConfigValues = map[string]interface{}{
 	MaxActionResultsAge:  DefaultActionResultsAge,
 	MaxActionResultsSize: DefaultActionResultsSize,
 
-	// By default the Juju backend is used.
-	SecretStoreKey:       "",
-	SecretStoreConfigKey: "",
+	// Secret settings.
+	SecretBackendKey: DefaultSecretBackend,
 }
 
 // defaultLoggingConfig is the default value for logging-config if it is otherwise not set.
@@ -837,7 +852,7 @@ func Validate(cfg, old *Config) error {
 		return errors.Trace(err)
 	}
 
-	if err := cfg.validateDefaultSeries(); err != nil {
+	if err := cfg.validateDefaultBase(); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -977,28 +992,39 @@ func (c *Config) DefaultSpace() string {
 	return c.asString(DefaultSpace)
 }
 
-var supportedJujuSeries = series.WorkloadSeries
-
-func (c *Config) validateDefaultSeries() error {
-	defaultSeries, configured := c.DefaultSeries()
+func (c *Config) validateDefaultBase() error {
+	defaultBase, configured := c.DefaultBase()
 	if !configured {
 		return nil
 	}
-	supported, err := supportedJujuSeries(time.Now(), "", "")
+
+	parsedBase, err := series.ParseBaseFromString(defaultBase)
 	if err != nil {
-		return errors.Annotate(err, "cannot read supported series")
+		return errors.Annotatef(err, "invalid default base %q", defaultBase)
 	}
-	logger.Tracef("supported series %s", supported.SortedValues())
-	if !supported.Contains(defaultSeries) {
-		return errors.NotSupportedf("series %q", defaultSeries)
+
+	supported, err := series.WorkloadBases(time.Now(), series.Base{}, "")
+	if err != nil {
+		return errors.Annotate(err, "cannot read supported bases")
+	}
+	logger.Tracef("supported bases %s", supported)
+	var found bool
+	for _, supportedBase := range supported {
+		if parsedBase.IsCompatible(supportedBase) {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return errors.NotSupportedf("base %q", parsedBase.DisplayString())
 	}
 	return nil
 }
 
-// DefaultSeries returns the configured default Ubuntu series for the model,
-// and whether the default series was explicitly configured on the environment.
-func (c *Config) DefaultSeries() (string, bool) {
-	s, ok := c.defined[DefaultSeriesKey]
+// DefaultBase returns the configured default base for the model, and whether
+// the default base was explicitly configured on the environment.
+func (c *Config) DefaultBase() (string, bool) {
+	s, ok := c.defined[DefaultBaseKey]
 	if !ok {
 		return "", false
 	}
@@ -1006,22 +1032,14 @@ func (c *Config) DefaultSeries() (string, bool) {
 	case string:
 		return s, s != ""
 	default:
-		logger.Errorf("invalid default-series: %q", s)
+		logger.Errorf("invalid default-base: %q", s)
 		return "", false
 	}
 }
 
-// SecretStore returns the secret store name.
-func (c *Config) SecretStore() string {
-	value, _ := c.defined[SecretStoreKey].(string)
-	return value
-}
-
-// SecretStoreConfig returns the secret store config,
-// expected to be a json or yaml encoded config struct
-// relevant to the configured secret store type.
-func (c *Config) SecretStoreConfig() string {
-	value, _ := c.defined[SecretStoreConfigKey].(string)
+// SecretBackend returns the secret backend name.
+func (c *Config) SecretBackend() string {
+	value, _ := c.defined[SecretBackendKey].(string)
 	return value
 }
 
@@ -1459,13 +1477,25 @@ func (c *Config) validateCharmHubURL() error {
 	return nil
 }
 
-// Mode returns the mode type for the configuration.
-// Only two modes exist at the moment (strict or ""). Empty string
-// implies compatible mode.
-func (c *Config) Mode() ([]string, bool) {
+const (
+	// RequiresPromptsMode is used to tell clients interacting with
+	// model that confirmation prompts are required when removing
+	// potentially important resources
+	RequiresPromptsMode = "requires-prompts"
+
+	// StrictMode is currently unused
+	// TODO(jack-w-shaw) remove this mode
+	StrictMode = "strict"
+)
+
+var allModes = set.NewStrings(RequiresPromptsMode, StrictMode)
+
+// Mode returns a set of mode types for the configuration.
+// Only one option exists at the moment ('requires-prompts')
+func (c *Config) Mode() (set.Strings, bool) {
 	modes, ok := c.defined[ModeKey]
 	if !ok {
-		return []string{}, false
+		return set.NewStrings(), false
 	}
 	if m, ok := modes.(string); ok {
 		s := set.NewStrings()
@@ -1476,21 +1506,18 @@ func (c *Config) Mode() ([]string, bool) {
 			s.Add(strings.TrimSpace(v))
 		}
 		if s.Size() > 0 {
-			return s.SortedValues(), true
+			return s, true
 		}
 	}
 
-	return []string{}, false
+	return set.NewStrings(), false
 }
 
 func (c *Config) validateMode() error {
 	modes, _ := c.Mode()
-	for _, mode := range modes {
-		switch strings.TrimSpace(mode) {
-		case "strict":
-		default:
-			return errors.NotValidf("mode %q", mode)
-		}
+	difference := modes.Difference(allModes)
+	if !difference.IsEmpty() {
+		return errors.NotValidf("mode(s) %q", strings.Join(difference.SortedValues(), ", "))
 	}
 	return nil
 }
@@ -1779,7 +1806,7 @@ var alwaysOptional = schema.Defaults{
 	AgentMetadataURLKey:             schema.Omit,
 	ContainerImageStreamKey:         schema.Omit,
 	ContainerImageMetadataURLKey:    schema.Omit,
-	DefaultSeriesKey:                schema.Omit,
+	DefaultBaseKey:                  schema.Omit,
 	"development":                   schema.Omit,
 	"ssl-hostname-verification":     schema.Omit,
 	"proxy-ssh":                     schema.Omit,
@@ -1805,8 +1832,6 @@ var alwaysOptional = schema.Defaults{
 	DefaultSpace:                    schema.Omit,
 	LXDSnapChannel:                  schema.Omit,
 	CharmHubURLKey:                  schema.Omit,
-	SecretStoreKey:                  schema.Omit,
-	SecretStoreConfigKey:            schema.Omit,
 }
 
 func allowEmpty(attr string) bool {
@@ -1842,7 +1867,6 @@ var immutableAttributes = []string{
 	UUIDKey,
 	"firewall-mode",
 	CharmHubURLKey,
-	SecretStoreKey,
 }
 
 var (
@@ -1944,8 +1968,7 @@ func AptProxyConfigMap(proxySettings proxy.Settings) map[string]interface{} {
 func developerConfigValue(name string) bool {
 	if !featureflag.Enabled(feature.DeveloperMode) {
 		switch name {
-		case SecretStoreKey, SecretStoreConfigKey:
-			return true
+		// Add developer-mode keys here.
 		}
 	}
 	return false
@@ -2031,11 +2054,12 @@ var configSchema = environschema.Fields{
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
-	DefaultSeriesKey: {
-		Description: "The default series of Ubuntu to use for deploying charms, will act like --series when deploying charms",
+	DefaultBaseKey: {
+		Description: "The default base image to use for deploying charms, will act like --base when deploying charms",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
+	// TODO (jack-w-shaw) integrate this into mode
 	"development": {
 		Description: "Whether the model is in development mode",
 		Type:        environschema.Tbool,
@@ -2261,10 +2285,11 @@ data of the store. (default false)`,
 		Group:       environschema.EnvironGroup,
 	},
 	ModeKey: {
-		Description: `Mode sets the type of mode the model should run in.
-If the mode is set to "strict" then errors will be used instead of
-using fallbacks. By default mode is set to be lenient and use fallbacks
-where possible. (default "")`,
+		Description: `Mode is a comma-separated list which sets the 
+mode the model should run in. So far only one is implemented
+- If 'requires-prompts' is present, clients will ask for confirmation before removing
+potentially valuable resources.
+(default "")`,
 		Type:  environschema.Tstring,
 		Group: environschema.EnvironGroup,
 	},
@@ -2371,15 +2396,9 @@ where possible. (default "")`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
-	SecretStoreKey: {
-		Description: `The name of the secret store backend. (default "" which implies Juju)`,
+	SecretBackendKey: {
+		Description: `The name of the secret store backend. (default "auto")`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
-	},
-	SecretStoreConfigKey: {
-		Description: `The json or yaml secret store config. (default "")`,
-		Type:        environschema.Tstring,
-		Group:       environschema.EnvironGroup,
-		Secret:      true,
 	},
 }

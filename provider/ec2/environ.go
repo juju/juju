@@ -39,7 +39,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
-	coreseries "github.com/juju/juju/core/series"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -477,14 +477,19 @@ func (e *environ) PrecheckInstance(ctx context.ProviderCallContext, args environ
 
 // AgentMetadataLookupParams returns parameters which are used to query agent simple-streams metadata.
 func (e *environ) AgentMetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
-	series := config.PreferredSeries(e.ecfg())
-	hostOSType := coreseries.DefaultOSTypeNameFromSeries(series)
-	return e.metadataLookupParams(region, hostOSType)
+	base := config.PreferredBase(e.ecfg())
+	return e.metadataLookupParams(region, base.OS)
 }
 
 // ImageMetadataLookupParams returns parameters which are used to query image simple-streams metadata.
 func (e *environ) ImageMetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
-	release, err := imagemetadata.ImageRelease(config.PreferredSeries(e.ecfg()))
+	base := config.PreferredBase(e.ecfg())
+	baseSeries, err := series.GetSeriesFromBase(base)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	release, err := imagemetadata.ImageRelease(baseSeries)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -663,6 +668,13 @@ func (e *environ) StartInstance(
 		SecurityGroupIds:    groupIDs,
 		BlockDeviceMappings: blockDeviceMappings,
 		ImageId:             aws.String(spec.Image.Id),
+		MetadataOptions: &types.InstanceMetadataOptionsRequest{
+			HttpEndpoint: types.InstanceMetadataEndpointStateEnabled,
+			// By forcing HTTP tokens here we move all created instances over to
+			// IMDSv2.
+			// Fixes lp1960568
+			HttpTokens: types.HttpTokensStateRequired,
+		},
 	}
 
 	runArgs := commonRunArgs

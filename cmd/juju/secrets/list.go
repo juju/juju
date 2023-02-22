@@ -90,6 +90,7 @@ type secretValueDetails struct {
 
 type secretRevisionDetails struct {
 	Revision   int        `json:"revision" yaml:"revision"`
+	Backend    string     `json:"backend,omitempty" yaml:"backend,omitempty"`
 	CreateTime time.Time  `json:"created" yaml:"created"`
 	UpdateTime time.Time  `json:"updated" yaml:"updated"`
 	ExpireTime *time.Time `json:"expires,omitempty" yaml:"expires,omitempty"`
@@ -166,15 +167,19 @@ func gatherSecretInfo(secrets []apisecrets.SecretDetails, reveal, includeRevisio
 		if includeRevisions {
 			info.Revisions = make([]secretRevisionDetails, len(m.Revisions))
 			for i, r := range m.Revisions {
-				info.Revisions[i] = secretRevisionDetails{
+				rev := secretRevisionDetails{
 					Revision:   r.Revision,
 					CreateTime: r.CreateTime,
 					UpdateTime: r.UpdateTime,
 					ExpireTime: r.ExpireTime,
 				}
+				if r.BackendName != nil {
+					rev.Backend = *r.BackendName
+				}
+				info.Revisions[i] = rev
 			}
 		}
-		if reveal && !m.Value.IsEmpty() {
+		if reveal && m.Value != nil && !m.Value.IsEmpty() {
 			valueDetails := &secretValueDetails{}
 			val, err := m.Value.Values()
 			if err != nil {

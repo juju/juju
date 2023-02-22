@@ -117,7 +117,7 @@ func (s *CAASOperatorSuite) TestCharm(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, params.ApplicationCharmResults{
 		Results: []params.ApplicationCharmResult{{
 			Result: &params.ApplicationCharm{
-				URL:                  "cs:gitlab-1",
+				URL:                  "ch:gitlab-1",
 				ForceUpgrade:         false,
 				SHA256:               "fake-sha256",
 				CharmModifiedVersion: 666,

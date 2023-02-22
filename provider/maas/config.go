@@ -27,8 +27,8 @@ type maasModelConfig struct {
 	attrs map[string]interface{}
 }
 
-func (prov EnvironProvider) newConfig(cfg *config.Config) (*maasModelConfig, error) {
-	validCfg, err := prov.Validate(cfg, nil)
+func (p EnvironProvider) newConfig(cfg *config.Config) (*maasModelConfig, error) {
+	validCfg, err := p.Validate(cfg, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +59,7 @@ func (p EnvironProvider) ConfigDefaults() schema.Defaults {
 	return configDefaults
 }
 
-func (prov EnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.Config, error) {
+func (p EnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.Config, error) {
 	// Validate base configuration change before validating MAAS specifics.
 	err := config.Validate(cfg, oldCfg)
 	if err != nil {

@@ -6,21 +6,47 @@ package params
 import (
 	"time"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
+	"gopkg.in/macaroon.v2"
+
 	"github.com/juju/juju/core/secrets"
 )
 
-// SecretStoreConfig holds config for creating a secret store client.
-type SecretStoreConfig struct {
-	StoreType string                 `json:"type"`
-	Params    map[string]interface{} `json:"params,omitempty"`
+// SecretBackendArgs holds args for querying secret backends.
+type SecretBackendArgs struct {
+	BackendIDs []string `json:"backend-ids"`
+}
+
+// SecretBackendConfigResults holds config info for creating
+// secret backend clients for a specific model.
+type SecretBackendConfigResults struct {
+	ActiveID string                               `json:"active-id"`
+	Results  map[string]SecretBackendConfigResult `json:"results,omitempty"`
+}
+
+// SecretBackendConfigResult holds config info for creating
+// secret backend clients for a specific model.
+type SecretBackendConfigResult struct {
+	ControllerUUID string              `json:"model-controller"`
+	ModelUUID      string              `json:"model-uuid"`
+	ModelName      string              `json:"model-name"`
+	Draining       bool                `json:"draining"`
+	Config         SecretBackendConfig `json:"config,omitempty"`
+}
+
+// SecretBackendConfig holds config for creating a secret backend client.
+type SecretBackendConfig struct {
+	BackendType string                 `json:"type"`
+	Params      map[string]interface{} `json:"params,omitempty"`
 }
 
 // SecretContentParams holds params for representing the content of a secret.
 type SecretContentParams struct {
 	// Data is the key values of the secret value itself.
 	Data map[string]string `json:"data,omitempty"`
-	// ProviderId is the content id for when a secret store like vault is used.
-	ProviderId *string `json:"provider-id,omitempty"`
+	// ValueRef is the content reference for when a secret
+	// backend like vault is used.
+	ValueRef *SecretValueRef `json:"value-ref,omitempty"`
 }
 
 // UpsertSecretArg holds the args for creating or updating a secret.
@@ -85,6 +111,13 @@ type DeleteSecretArg struct {
 	Revisions []int  `json:"revisions,omitempty"`
 }
 
+// SecretRevisionArg holds the args for secret revisions.
+type SecretRevisionArg struct {
+	URI           string `json:"uri"`
+	Revisions     []int  `json:"revisions"`
+	PendingDelete bool   `json:"pending-delete"`
+}
+
 // GetSecretConsumerInfoArgs holds the args for getting secret
 // consumer metadata.
 type GetSecretConsumerInfoArgs struct {
@@ -111,10 +144,10 @@ type GetSecretContentArgs struct {
 
 // GetSecretContentArg holds the args for getting a secret value.
 type GetSecretContentArg struct {
-	URI    string `json:"uri"`
-	Label  string `json:"label,omitempty"`
-	Update bool   `json:"update,omitempty"`
-	Peek   bool   `json:"peek,omitempty"`
+	URI     string `json:"uri"`
+	Label   string `json:"label,omitempty"`
+	Refresh bool   `json:"refresh,omitempty"`
+	Peek    bool   `json:"peek,omitempty"`
 }
 
 // SecretContentResults holds secret value results.
@@ -124,8 +157,10 @@ type SecretContentResults struct {
 
 // SecretContentResult is the result of getting secret content.
 type SecretContentResult struct {
-	Content SecretContentParams `json:"content"`
-	Error   *Error              `json:"error,omitempty"`
+	Content        SecretContentParams        `json:"content"`
+	BackendConfig  *SecretBackendConfigResult `json:"backend-config,omitempty"`
+	LatestRevision *int                       `json:"latest-revision,omitempty"`
+	Error          *Error                     `json:"error,omitempty"`
 }
 
 // SecretValueResult is the result of getting a secret value.
@@ -152,12 +187,21 @@ type ListSecretResults struct {
 	Results []ListSecretResult `json:"results"`
 }
 
+// SecretValueRef holds a reference to a secret
+// value in a secret backend.
+type SecretValueRef struct {
+	BackendID  string `json:"backend-id"`
+	RevisionID string `json:"revision-id"`
+}
+
+// SecretRevision holds secret revision metadata.
 type SecretRevision struct {
-	Revision   int        `json:"revision"`
-	ProviderId *string    `json:"provider-id,omitempty"`
-	CreateTime time.Time  `json:"create-time,omitempty"`
-	UpdateTime time.Time  `json:"update-time,omitempty"`
-	ExpireTime *time.Time `json:"expire-time,omitempty"`
+	Revision    int             `json:"revision"`
+	ValueRef    *SecretValueRef `json:"value-ref,omitempty"`
+	BackendName *string         `json:"backend-name,omitempty"`
+	CreateTime  time.Time       `json:"create-time,omitempty"`
+	UpdateTime  time.Time       `json:"update-time,omitempty"`
+	ExpireTime  *time.Time      `json:"expire-time,omitempty"`
 }
 
 // ListSecretResult is the result of getting secret metadata.
@@ -221,4 +265,141 @@ type GrantRevokeSecretArg struct {
 
 	// Role is the role being granted.
 	Role string `json:"role"`
+}
+
+// ListSecretBackendsResults holds secret backend results.
+type ListSecretBackendsResults struct {
+	Results []SecretBackendResult `json:"results"`
+}
+
+// SecretBackendResult holds a secret backend and related info.
+type SecretBackendResult struct {
+	Result SecretBackend `json:"result"`
+	// Include the ID so we can report on backends with errors.
+	ID         string `json:"id"`
+	NumSecrets int    `json:"num-secrets"`
+	Status     string `json:"status"`
+	Message    string `json:"message,omitempty"`
+	Error      *Error `json:"error,omitempty"`
+}
+
+// AddSecretBackendArgs holds args for adding secret backends.
+type AddSecretBackendArgs struct {
+	Args []AddSecretBackendArg `json:"args"`
+}
+
+// AddSecretBackendArg holds args for adding a secret backend.
+type AddSecretBackendArg struct {
+	SecretBackend
+	// Include the ID so we can optionally
+	// import existing backend metadata.
+	ID string `json:"id,omitempty"`
+}
+
+// UpdateSecretBackendArgs holds args for updating secret backends.
+type UpdateSecretBackendArgs struct {
+	Args []UpdateSecretBackendArg `json:"args"`
+}
+
+// UpdateSecretBackendArg holds args for updating a secret backend.
+type UpdateSecretBackendArg struct {
+	// Name is the name of the backend to update.
+	Name string `json:"name"`
+
+	// NameChange if set, renames the backend.
+	NameChange *string `json:"name-change,omitempty"`
+
+	// TokenRotateInterval is the interval to rotate
+	// the backend master access token.
+	TokenRotateInterval *time.Duration `json:"token-rotate-interval"`
+
+	// Config are the backend's updated configuration attributes.
+	Config map[string]interface{} `json:"config"`
+
+	// Reset contains attributes to clear or reset.
+	Reset []string `json:"reset"`
+
+	// Force means to update the backend even if a ping fails.
+	Force bool `json:"force,omitempty"`
+}
+
+// ListSecretBackendsArgs holds the args for listing secret backends.
+type ListSecretBackendsArgs struct {
+	Names  []string `json:"names"`
+	Reveal bool     `json:"reveal"`
+}
+
+// SecretBackend holds secret backend details.
+type SecretBackend struct {
+	// Name is the name of the backend.
+	Name string `json:"name"`
+
+	// Backend is the backend provider, eg "vault".
+	BackendType string `json:"backend-type"`
+
+	// TokenRotateInterval is the interval to rotate
+	// the backend master access token.
+	TokenRotateInterval *time.Duration `json:"token-rotate-interval,omitempty"`
+
+	// Config are the backend's configuration attributes.
+	Config map[string]interface{} `json:"config"`
+}
+
+// RemoveSecretBackendArgs holds args for removing secret backends.
+type RemoveSecretBackendArgs struct {
+	Args []RemoveSecretBackendArg `json:"args"`
+}
+
+// RemoveSecretBackendArg holds args for removing a secret backend.
+type RemoveSecretBackendArg struct {
+	Name  string `json:"name"`
+	Force bool   `json:"force,omitempty"`
+}
+
+// RotateSecretBackendArgs holds the args for updating rotated secret backend info.
+type RotateSecretBackendArgs struct {
+	BackendIDs []string `json:"backend-ids"`
+}
+
+// SecretBackendRotateChange describes a change to a secret backend rotation.
+type SecretBackendRotateChange struct {
+	ID              string    `json:"id"`
+	Name            string    `json:"backend-name"`
+	NextTriggerTime time.Time `json:"next-trigger-time"`
+}
+
+// SecretBackendRotateWatchResult holds secret backend rotate change events.
+type SecretBackendRotateWatchResult struct {
+	WatcherId string                      `json:"watcher-id"`
+	Changes   []SecretBackendRotateChange `json:"changes"`
+	Error     *Error                      `json:"error,omitempty"`
+}
+
+// GetRemoteSecretContentArgs holds args for fetching remote secret contents.
+type GetRemoteSecretContentArgs struct {
+	Args []GetRemoteSecretContentArg `json:"relations"`
+}
+
+// GetRemoteSecretContentArg holds ares for fetching a remote secret.
+type GetRemoteSecretContentArg struct {
+	// ApplicationToken is the application token on the remote model.
+	ApplicationToken string `json:"application-token"`
+
+	// UnitId uniquely identifies the remote unit.
+	UnitId int `json:"unit-id"`
+
+	// Revision, if specified, is the secret revision to fetch.
+	Revision *int `json:"revision,omitempty"`
+
+	// Macaroons are used for authentication.
+	Macaroons macaroon.Slice `json:"macaroons,omitempty"`
+
+	// BakeryVersion is the version of the bakery used to mint macaroons.
+	BakeryVersion bakery.Version `json:"bakery-version,omitempty"`
+
+	// URI is the secret URI.
+	URI string `json:"uri"`
+
+	// Latest is true if the latest revision should be used.
+	Latest bool `json:"latest,omitempty"`
 }

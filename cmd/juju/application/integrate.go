@@ -293,7 +293,7 @@ func (c *addRelationCommand) Run(ctx *cmd.Context) error {
 		splitError := strings.Join(strings.Split(err.Error(), ": "), "\n")
 		infoErr := errors.Errorf(`
 
-Use 'juju status --integrations' to view the current integrations.`)
+Use 'juju status --relations' to view the current relations.`)
 		return errors.Annotatef(infoErr, splitError)
 	}
 	if err != nil {

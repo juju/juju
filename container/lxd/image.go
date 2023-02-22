@@ -12,6 +12,7 @@ import (
 	lxd "github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/shared/api"
 
+	"github.com/juju/juju/core/instance"
 	jujuos "github.com/juju/juju/core/os"
 	jujuseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
@@ -36,7 +37,9 @@ type SourcedImage struct {
 // Copied images will have the juju/series/arch alias added to them.
 // The callback argument is used to report copy progress.
 func (s *Server) FindImage(
-	base jujuseries.Base, arch string,
+	base jujuseries.Base,
+	arch string,
+	virtType instance.VirtType,
 	sources []ServerSpec,
 	copyLocal bool,
 	callback environs.StatusCallbackFunc,
@@ -46,7 +49,7 @@ func (s *Server) FindImage(
 	}
 
 	// First we check if we have the image locally.
-	localAlias := baseLocalAlias(base.DisplayString(), arch)
+	localAlias := baseLocalAlias(base.DisplayString(), arch, virtType)
 	var target string
 	entry, _, err := s.GetImageAlias(localAlias)
 	if err != nil && !IsLXDNotFound(err) {
@@ -57,7 +60,7 @@ func (s *Server) FindImage(
 		// We already have an image with the given alias, so just use that.
 		target = entry.Target
 		image, _, err := s.GetImage(target)
-		if err == nil {
+		if isCompatibleVirtType(virtType, image.Type) && err == nil {
 			logger.Debugf("Found image locally - %q %q", image.Filename, target)
 			return SourcedImage{
 				Image:     image,
@@ -84,7 +87,7 @@ func (s *Server) FindImage(
 			continue
 		}
 		for _, alias := range aliases {
-			if res, _, err := source.GetImageAliasType("container", alias); err == nil && res != nil && res.Target != "" {
+			if res, _, err := source.GetImageAliasType(string(virtType), alias); err == nil && res != nil && res.Target != "" {
 				target = res.Target
 				break
 			}
@@ -173,29 +176,55 @@ func (s *Server) CopyRemoteImage(
 // baseLocalAlias returns the alias to assign to images for the
 // specified series. The alias is juju-specific, to support the
 // user supplying a customised image (e.g. CentOS with cloud-init).
-func baseLocalAlias(base, arch string) string {
-	return fmt.Sprintf("juju/%s/%s", base, arch)
+func baseLocalAlias(base, arch string, virtType instance.VirtType) string {
+	// We use a different alias for VMs, so that we can distinguish between
+	// a VM image and a container image. We don't add anything to the alias
+	// for containers to keep backwards compatibility with older versions
+	// of the image aliases.
+	switch virtType {
+	case api.InstanceTypeVM:
+		return fmt.Sprintf("juju/%s/%s/vm", base, arch)
+	default:
+		return fmt.Sprintf("juju/%s/%s", base, arch)
+	}
 }
 
 // baseRemoteAliases returns the aliases to look for in remotes.
 func baseRemoteAliases(base jujuseries.Base, arch string) ([]string, error) {
+	alias, err := constructBaseRemoteAlias(base, arch)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return []string{
+		alias,
+	}, nil
+}
+
+func isCompatibleVirtType(virtType instance.VirtType, instanceType string) bool {
+	if instanceType == "" && (virtType == api.InstanceTypeAny || virtType == api.InstanceTypeContainer) {
+		return true
+	}
+	return string(virtType) == instanceType
+}
+
+func constructBaseRemoteAlias(base jujuseries.Base, arch string) (string, error) {
 	seriesOS := jujuos.OSTypeForName(base.OS)
 	switch seriesOS {
 	case jujuos.Ubuntu:
-		return []string{path.Join(base.Channel.Track, arch)}, nil
+		return path.Join(base.Channel.Track, arch), nil
 	case jujuos.CentOS:
 		if arch == jujuarch.AMD64 {
 			switch base.Channel.Track {
 			case "7", "8":
-				return []string{fmt.Sprintf("centos/%s/cloud/amd64", base.Channel.Track)}, nil
+				return fmt.Sprintf("centos/%s/cloud/amd64", base.Channel.Track), nil
 			case "9":
-				return []string{"centos/9-Stream/cloud/amd64"}, nil
+				return "centos/9-Stream/cloud/amd64", nil
 			}
 		}
 	case jujuos.OpenSUSE:
 		if base.Channel.Track == "opensuse42" && arch == jujuarch.AMD64 {
-			return []string{"opensuse/42.2/amd64"}, nil
+			return "opensuse/42.2/amd64", nil
 		}
 	}
-	return nil, errors.NotSupportedf("base %q", base.DisplayString())
+	return "", errors.NotSupportedf("base %q", base.DisplayString())
 }

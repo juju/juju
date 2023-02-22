@@ -6,6 +6,7 @@ package provider_test
 import (
 	"context"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
@@ -77,7 +78,9 @@ func (s *secretsSuite) TestGetJujuSecret(c *gc.C) {
 
 	value, err := s.broker.GetJujuSecret(context.Background(), "provider-id")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(value.EncodedValues(), jc.DeepEquals, map[string]string{
+	data, err := value.Values()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(data, jc.DeepEquals, map[string]string{
 		"foo": "bar",
 	})
 }
@@ -110,9 +113,8 @@ func (s *secretsSuite) TestDeleteJujuSecret(c *gc.C) {
 
 	err = s.broker.DeleteJujuSecret(context.Background(), "provider-id")
 	c.Assert(err, jc.ErrorIsNil)
-	// Idempotent.
 	err = s.broker.DeleteJujuSecret(context.Background(), "provider-id")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	result, err := s.mockSecrets.List(context.Background(), v1.ListOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Items, gc.HasLen, 1)
@@ -123,7 +125,7 @@ func (s *secretsSuite) TestSaveJujuSecret(c *gc.C) {
 	uri := secrets.NewURI()
 	providerId, err := s.broker.SaveJujuSecret(context.Background(), uri.ID+"-666",
 		secrets.NewSecretValue(map[string]string{
-			"foo": "bar",
+			"foo": "YmFy",
 		}),
 	)
 	c.Assert(err, jc.ErrorIsNil)

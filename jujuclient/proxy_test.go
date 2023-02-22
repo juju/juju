@@ -4,97 +4,86 @@
 package jujuclient_test
 
 import (
-	"fmt"
-
+	"github.com/golang/mock/gomock"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v3"
 
+	"github.com/juju/juju/caas/kubernetes/provider/proxy"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/proxy"
-	"github.com/juju/juju/proxy/factory"
 )
 
-type dummyProxier struct {
-	Conf string
-}
-
 type proxyWrapperSuite struct {
-	factory *factory.Factory
+	testing.IsolationSuite
 }
 
 var _ = gc.Suite(&proxyWrapperSuite{})
 
-func (d *dummyProxier) MarshalYAML() (interface{}, error) {
-	if d.Conf == "" {
-		d.Conf = "test"
+func (p *proxyWrapperSuite) TestMarshalling(c *gc.C) {
+	config := proxy.ProxierConfig{
+		APIHost:             "https://127.0.0.1:443",
+		CAData:              "cadata====",
+		Namespace:           "test",
+		RemotePort:          "8123",
+		Service:             "test",
+		ServiceAccountToken: "token====",
 	}
-	return map[string]string{
-		"conf": d.Conf,
-	}, nil
-}
-
-func (d *dummyProxier) RawConfig() (map[string]interface{}, error) {
-	return map[string]interface{}{}, nil
-}
-
-func (d *dummyProxier) Start() error {
-	return nil
-}
-
-func (d *dummyProxier) Stop() {
-}
-
-func (d *dummyProxier) Type() string {
-	return "dummy-proxier"
-}
-
-func (p *proxyWrapperSuite) SetUpTest(c *gc.C) {
-	p.factory = factory.NewFactory()
-}
-
-func (p *proxyWrapperSuite) TestMarshallingKeys(c *gc.C) {
-	proxier := &dummyProxier{}
-	wrapper := jujuclient.ProxyConfWrapper{proxier}
-	marshalled, err := wrapper.MarshalYAML()
+	proxier := proxy.NewProxier(config)
+	wrapper := &jujuclient.ProxyConfWrapper{proxier}
+	data, err := yaml.Marshal(wrapper)
 	c.Assert(err, jc.ErrorIsNil)
-
-	marshalledMap, valid := marshalled.(map[string]interface{})
-	c.Assert(valid, jc.IsTrue)
-
-	typeVal, valid := marshalledMap["type"].(string)
-	c.Assert(valid, jc.IsTrue)
-	c.Assert(typeVal, gc.Equals, proxier.Type())
-
-	_, valid = marshalledMap["config"].(*dummyProxier)
-	c.Assert(valid, jc.IsTrue)
+	c.Assert(string(data), gc.Equals, `
+type: kubernetes-port-forward
+config:
+    api-host: https://127.0.0.1:443
+    ca-cert: cadata====
+    namespace: test
+    remote-port: "8123"
+    service: test
+    service-account-token: token====
+`[1:])
 }
 
 func (p *proxyWrapperSuite) TestUnmarshalling(c *gc.C) {
-	proxier := &dummyProxier{}
-	wrapper := &jujuclient.ProxyConfWrapper{proxier}
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
-	y, err := yaml.Marshal(wrapper)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = p.factory.Register(proxier.Type(), factory.FactoryRegister{
-		ConfigFn: func() interface{} {
-			return &dummyProxier{}
-		},
-		MakerFn: func(i interface{}) (proxy.Proxier, error) {
-			t, valid := i.(*dummyProxier)
-			c.Assert(valid, jc.IsTrue)
-			return t, nil
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	fmt.Println(string(y))
-
-	jujuclient.NewProxierFactory = func() (*factory.Factory, error) {
-		return p.factory, nil
+	config := proxy.ProxierConfig{
+		APIHost:             "https://127.0.0.1:443",
+		CAData:              "cadata====",
+		Namespace:           "test",
+		RemotePort:          "8123",
+		Service:             "test",
+		ServiceAccountToken: "token====",
 	}
+	proxier := proxy.NewProxier(config)
+	rawConfig := map[string]interface{}{
+		"api-host":              "https://127.0.0.1:443",
+		"ca-cert":               "cadata====",
+		"namespace":             "test",
+		"remote-port":           "8123",
+		"service":               "test",
+		"service-account-token": "token====",
+	}
+	factory := NewMockProxyFactory(ctrl)
+	factory.EXPECT().ProxierFromConfig("kubernetes-port-forward", rawConfig).Return(proxier, nil)
+	p.PatchValue(&jujuclient.NewProxierFactory, func() (jujuclient.ProxyFactory, error) { return factory, nil })
 
-	inWrapper := &jujuclient.ProxyConfWrapper{}
-	c.Assert(yaml.Unmarshal(y, inWrapper), jc.ErrorIsNil)
+	var wrapper jujuclient.ProxyConfWrapper
+	err := yaml.Unmarshal([]byte(`
+type: kubernetes-port-forward
+config:
+    api-host: https://127.0.0.1:443
+    ca-cert: cadata====
+    namespace: test
+    remote-port: "8123"
+    service: test
+    service-account-token: token====
+`[1:]), &wrapper)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(wrapper.Proxier.Type(), gc.Equals, "kubernetes-port-forward")
+	rCfg, err := wrapper.Proxier.RawConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rCfg, gc.DeepEquals, rawConfig)
 }

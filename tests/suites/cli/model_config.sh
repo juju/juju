@@ -30,7 +30,7 @@ EOF
 	OUT=$(juju model-config cloudinit-userdata)
 	echo "${OUT}" | grep -q "shellcheck"
 
-	# cloudinit-userdata is not present from the default tabluar output
+	# cloudinit-userdata is not present from the default tabular output
 	! juju model-config cloudinit-userdata | grep -q "^cloudinit-userdata: |$"
 
 	# cloudinit-userdata is hidden in the normal output
@@ -51,7 +51,9 @@ test_model_config() {
 
 		cd .. || exit
 
-		run "run_model_config_isomorphic"
+		# TODO(anvial): this subtest is commented because we support both 'default-series' and 'default-base'.
+		# We need to return this subtest back when we fully drop series support.
+		#	run "run_model_config_isomorphic"
 		run "run_model_config_cloudinit_userdata"
 	)
 }

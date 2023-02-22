@@ -120,19 +120,20 @@ func (src Versions) Newest() (version.Number, Versions) {
 }
 
 // NewestCompatible returns the most recent version compatible with
-// base, i.e. with the same major and minor numbers and greater or
-// equal patch and build numbers.
-func (src Versions) NewestCompatible(base version.Number) (newest version.Number, found bool) {
+// base, i.e. with the same major number and greater or
+// equal minor, patch and build numbers.
+func (src Versions) NewestCompatible(base version.Number, allowDevBuilds bool) (newest version.Number, found bool) {
 	newest = base
 	found = false
 	for _, agent := range src {
-		toolVersion := agent.AgentVersion()
-		if newest == toolVersion {
+		agentVersion := agent.AgentVersion()
+		if newest == agentVersion {
 			found = true
-		} else if newest.Compare(toolVersion) < 0 &&
-			toolVersion.Major == newest.Major &&
-			toolVersion.Minor == newest.Minor {
-			newest = toolVersion
+		} else if newest.Compare(agentVersion) < 0 &&
+			agentVersion.Major == newest.Major &&
+			agentVersion.Minor == newest.Minor &&
+			(allowDevBuilds || agentVersion.Build == 0) {
+			newest = agentVersion
 			found = true
 		}
 	}

@@ -8,7 +8,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/juju/charm/v9/hooks"
+	"github.com/juju/charm/v10/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -77,8 +77,8 @@ type SecretsAccessor interface {
 	SecretRotated(uri string, oldRevision int) error
 }
 
-// SecretsStoreGetter creates a secrets store client.
-type SecretsStoreGetter func() (jujusecrets.Store, error)
+// SecretsBackendGetter creates a secrets backend client.
+type SecretsBackendGetter func() (jujusecrets.BackendsClient, error)
 
 // RelationsFunc is used to get snapshots of relation membership at context
 // creation time.
@@ -86,13 +86,13 @@ type RelationsFunc func() map[int]*RelationInfo
 
 type contextFactory struct {
 	// API connection fields; unit should be deprecated, but isn't yet.
-	unit               *uniter.Unit
-	state              *uniter.State
-	resources          *uniter.ResourcesFacadeClient
-	payloads           *uniter.PayloadFacadeClient
-	secretsClient      SecretsAccessor
-	secretsStoreGetter SecretsStoreGetter
-	tracker            leadership.Tracker
+	unit                 *uniter.Unit
+	state                *uniter.State
+	resources            *uniter.ResourcesFacadeClient
+	payloads             *uniter.PayloadFacadeClient
+	secretsClient        SecretsAccessor
+	secretsBackendGetter SecretsBackendGetter
+	tracker              leadership.Tracker
 
 	logger loggo.Logger
 
@@ -118,18 +118,18 @@ type contextFactory struct {
 // FactoryConfig contains configuration values
 // for the context factory.
 type FactoryConfig struct {
-	State              *uniter.State
-	SecretsClient      SecretsAccessor
-	SecretsStoreGetter SecretsStoreGetter
-	Unit               *uniter.Unit
-	Resources          *uniter.ResourcesFacadeClient
-	Payloads           *uniter.PayloadFacadeClient
-	Tracker            leadership.Tracker
-	GetRelationInfos   RelationsFunc
-	Storage            StorageContextAccessor
-	Paths              Paths
-	Clock              Clock
-	Logger             loggo.Logger
+	State                *uniter.State
+	SecretsClient        SecretsAccessor
+	SecretsBackendGetter SecretsBackendGetter
+	Unit                 *uniter.Unit
+	Resources            *uniter.ResourcesFacadeClient
+	Payloads             *uniter.PayloadFacadeClient
+	Tracker              leadership.Tracker
+	GetRelationInfos     RelationsFunc
+	Storage              StorageContextAccessor
+	Paths                Paths
+	Clock                Clock
+	Logger               loggo.Logger
 }
 
 // NewContextFactory returns a ContextFactory capable of creating execution contexts backed
@@ -162,26 +162,26 @@ func NewContextFactory(config FactoryConfig) (ContextFactory, error) {
 	}
 
 	f := &contextFactory{
-		unit:               config.Unit,
-		state:              config.State,
-		resources:          config.Resources,
-		payloads:           config.Payloads,
-		secretsClient:      config.SecretsClient,
-		secretsStoreGetter: config.SecretsStoreGetter,
-		tracker:            config.Tracker,
-		logger:             config.Logger,
-		paths:              config.Paths,
-		modelUUID:          m.UUID,
-		modelName:          m.Name,
-		machineTag:         machineTag,
-		getRelationInfos:   config.GetRelationInfos,
-		relationCaches:     map[int]*RelationCache{},
-		storage:            config.Storage,
-		rand:               rand.New(rand.NewSource(time.Now().Unix())),
-		clock:              config.Clock,
-		zone:               zone,
-		principal:          principal,
-		modelType:          m.ModelType,
+		unit:                 config.Unit,
+		state:                config.State,
+		resources:            config.Resources,
+		payloads:             config.Payloads,
+		secretsClient:        config.SecretsClient,
+		secretsBackendGetter: config.SecretsBackendGetter,
+		tracker:              config.Tracker,
+		logger:               config.Logger,
+		paths:                config.Paths,
+		modelUUID:            m.UUID,
+		modelName:            m.Name,
+		machineTag:           machineTag,
+		getRelationInfos:     config.GetRelationInfos,
+		relationCaches:       map[int]*RelationCache{},
+		storage:              config.Storage,
+		rand:                 rand.New(rand.NewSource(time.Now().Unix())),
+		clock:                config.Clock,
+		zone:                 zone,
+		principal:            principal,
+		modelType:            m.ModelType,
 	}
 	return f, nil
 }
@@ -200,23 +200,23 @@ func (f *contextFactory) coreContext() (*HookContext, error) {
 		f.unit.Name(),
 	)
 	ctx := &HookContext{
-		unit:               f.unit,
-		state:              f.state,
-		secretsClient:      f.secretsClient,
-		secretsStoreGetter: f.secretsStoreGetter,
-		LeadershipContext:  leadershipContext,
-		uuid:               f.modelUUID,
-		modelName:          f.modelName,
-		modelType:          f.modelType,
-		unitName:           f.unit.Name(),
-		assignedMachineTag: f.machineTag,
-		relations:          f.getContextRelations(),
-		relationId:         -1,
-		storage:            f.storage,
-		clock:              f.clock,
-		logger:             f.logger,
-		availabilityZone:   f.zone,
-		principal:          f.principal,
+		unit:                 f.unit,
+		state:                f.state,
+		secretsClient:        f.secretsClient,
+		secretsBackendGetter: f.secretsBackendGetter,
+		LeadershipContext:    leadershipContext,
+		uuid:                 f.modelUUID,
+		modelName:            f.modelName,
+		modelType:            f.modelType,
+		unitName:             f.unit.Name(),
+		assignedMachineTag:   f.machineTag,
+		relations:            f.getContextRelations(),
+		relationId:           -1,
+		storage:              f.storage,
+		clock:                f.clock,
+		logger:               f.logger,
+		availabilityZone:     f.zone,
+		principal:            f.principal,
 		ResourcesHookContext: &resources.ResourcesHookContext{
 			Client:       f.resources,
 			ResourcesDir: f.paths.GetResourcesDir(),
@@ -290,7 +290,7 @@ func (f *contextFactory) HookContext(hookInfo hook.Info) (*HookContext, error) {
 		hookName = fmt.Sprintf("%s-%s", hookInfo.WorkloadName, hookName)
 	}
 	if hookInfo.Kind == hooks.PreSeriesUpgrade {
-		ctx.seriesUpgradeTarget = hookInfo.SeriesUpgradeTarget
+		ctx.baseUpgradeTarget = hookInfo.MachineUpgradeTarget
 	}
 	if hookInfo.Kind.IsSecret() {
 		ctx.secretURI = hookInfo.SecretURI
@@ -303,8 +303,11 @@ func (f *contextFactory) HookContext(hookInfo hook.Info) (*HookContext, error) {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			uri, _ := secrets.ParseURI(ctx.secretURI)
-			md, _ := info[uri.ID]
+			uri, err := secrets.ParseURI(ctx.secretURI)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			md := info[uri.ID]
 			ctx.secretLabel = md.Label
 		}
 	}
@@ -403,7 +406,9 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 	}
 
 	var machPortRanges map[names.UnitTag]network.GroupedPortRanges
-	if f.modelType == model.IAAS {
+	var appPortRanges network.GroupedPortRanges
+	switch f.modelType {
+	case model.IAAS:
 		if machPortRanges, err = f.state.OpenedMachinePortRangesByEndpoint(f.machineTag); err != nil {
 			return errors.Trace(err)
 		}
@@ -412,9 +417,13 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 		if err != nil && !params.IsCodeNoAddressSet(err) {
 			f.logger.Warningf("cannot get legacy private address for %v: %v", f.unit.Name(), err)
 		}
+	case model.CAAS:
+		if appPortRanges, err = f.state.OpenedApplicationPortRangesByEndpoint(f.unit.ApplicationTag()); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
-	ctx.portRangeChanges = newPortRangeChangeRecorder(ctx.logger, f.unit.Tag(), machPortRanges)
+	ctx.portRangeChanges = newPortRangeChangeRecorder(ctx.logger, f.unit.Tag(), f.modelType, machPortRanges, appPortRanges)
 	ctx.secretChanges = newSecretsChangeRecorder(ctx.logger)
 	owner := f.unit.Tag().String()
 	info, err := ctx.secretsClient.SecretMetadata(secrets.Filter{
@@ -426,10 +435,6 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 	ctx.secretMetadata = make(map[string]jujuc.SecretMetadata)
 	for _, v := range info {
 		md := v.Metadata
-		providerIds := make(map[int]string)
-		for rev, id := range v.ProviderIds {
-			providerIds[rev] = id
-		}
 		ownerTag, err := names.ParseTag(md.OwnerTag)
 		if err != nil {
 			return err
@@ -442,7 +447,7 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 			LatestRevision:   md.LatestRevision,
 			LatestExpireTime: md.LatestExpireTime,
 			NextRotateTime:   md.NextRotateTime,
-			ProviderIds:      providerIds,
+			Revisions:        v.Revisions,
 		}
 	}
 

@@ -34,7 +34,7 @@ func localToolsArch() string {
 
 // validateUploadAllowed returns an error if an attempt to upload tools should
 // not be allowed.
-func validateUploadAllowed(env environs.ConfigGetter, toolsArch, toolsSeries *string, validator constraints.Validator) error {
+func validateUploadAllowed(env environs.ConfigGetter, toolsArch *string, toolsBase *coreseries.Base, validator constraints.Validator) error {
 	// Now check that the architecture and series for which we are setting up an
 	// environment matches that from which we are bootstrapping.
 	hostArch := localToolsArch()
@@ -43,13 +43,9 @@ func validateUploadAllowed(env environs.ConfigGetter, toolsArch, toolsSeries *st
 		return fmt.Errorf("cannot use agent built for %q using a machine running on %q", *toolsArch, hostArch)
 	}
 	hostOS := coreos.HostOS()
-	if toolsSeries != nil {
-		toolsSeriesOS, err := coreseries.GetOSFromSeries(*toolsSeries)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if !toolsSeriesOS.EquivalentTo(hostOS) {
-			return errors.Errorf("cannot use agent built for %q using a machine running %q", *toolsSeries, hostOS)
+	if toolsBase != nil {
+		if !coreos.OSTypeForName(toolsBase.OS).EquivalentTo(hostOS) {
+			return errors.Errorf("cannot use agent built for %q using a machine running %q", toolsBase.String(), hostOS)
 		}
 	}
 	// If no architecture is specified, ensure the target provider supports instances matching our architecture.
@@ -67,7 +63,7 @@ func findPackagedTools(
 	env environs.BootstrapEnviron,
 	ss envtools.SimplestreamsFetcher,
 	vers *version.Number,
-	arch, series *string,
+	arch *string, base *coreseries.Base,
 ) (coretools.List, error) {
 	// Look for tools in the environment's simplestreams search paths
 	// for existing tools.
@@ -80,7 +76,7 @@ func findPackagedTools(
 		}
 	}
 	logger.Infof("looking for bootstrap agent binaries: version=%v", vers)
-	toolsList, findToolsErr := findBootstrapTools(env, ss, vers, arch, series)
+	toolsList, findToolsErr := findBootstrapTools(env, ss, vers, arch, base)
 	logger.Infof("found %d packaged agent binaries", len(toolsList))
 	if findToolsErr != nil {
 		return nil, findToolsErr
@@ -110,15 +106,16 @@ func locallyBuildableTools() (buildable coretools.List, _ version.Number, _ erro
 // which it would be reasonable to launch an environment's first machine,
 // given the supplied constraints. If a specific agent version is not requested,
 // all tools matching the current major.minor version are chosen.
-func findBootstrapTools(env environs.BootstrapEnviron, ss envtools.SimplestreamsFetcher, vers *version.Number, arch, series *string) (list coretools.List, err error) {
+func findBootstrapTools(env environs.BootstrapEnviron, ss envtools.SimplestreamsFetcher, vers *version.Number, arch *string, base *coreseries.Base) (list coretools.List, err error) {
 	// Construct a tools filter.
 	cliVersion := jujuversion.Current
 	var filter coretools.Filter
 	if arch != nil {
 		filter.Arch = *arch
 	}
-	if series != nil {
-		filter.OSType = coreseries.DefaultOSTypeNameFromSeries(*series)
+	if base != nil {
+		// We can use must here, because we've already validated the base.
+		filter.OSType = base.OS
 	}
 	if vers != nil {
 		filter.Number = *vers

@@ -72,13 +72,6 @@ func (r *firewallRulesDoc) toRule() *FirewallRule {
 	}
 }
 
-// FirewallRuler instances provide access to firewall rules in state.
-type FirewallRuler interface {
-	Save(service firewall.WellKnownServiceType, whiteListCidrs []string) (FirewallRule, error)
-	Rule(service firewall.WellKnownServiceType) (FirewallRule, error)
-	AllRules() ([]FirewallRule, error)
-}
-
 type firewallRulesState struct {
 	st *State
 }

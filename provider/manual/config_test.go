@@ -33,6 +33,7 @@ func MinimalConfigValues() map[string]interface{} {
 		"uuid":            coretesting.ModelTag.Id(),
 		"controller-uuid": coretesting.ControllerTag.Id(),
 		"firewall-mode":   "instance",
+		"secret-backend":  "auto",
 		// While the ca-cert bits aren't entirely minimal, they avoid the need
 		// to set up a fake home.
 		"ca-cert":        coretesting.CACert,

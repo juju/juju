@@ -82,14 +82,12 @@ func NewExportBundleCommandForTest(bundleAPI ExportBundleAPI, store jujuclient.C
 // NewDestroyCommandForTest returns a DestroyCommand with the api provided as specified.
 func NewDestroyCommandForTest(
 	api DestroyModelAPI,
-	storageAPI StorageAPI,
 	clk jujuclock.Clock,
 	refreshFunc func(jujuclient.ClientStore, string) error, store jujuclient.ClientStore,
 ) cmd.Command {
 	cmd := &destroyCommand{
-		api:        api,
-		clock:      clk,
-		storageAPI: storageAPI,
+		api:   api,
+		clock: clk,
 	}
 	cmd.SetClientStore(store)
 	cmd.SetModelRefresh(refreshFunc)

@@ -73,21 +73,21 @@ type syncToolCommandTestCase struct {
 var syncToolCommandTests = []syncToolCommandTestCase{
 	{
 		description: "minimum argument",
-		args:        []string{"--version", "2.9.99", "-m", "test-target"},
+		args:        []string{"--agent-version", "2.9.99", "-m", "test-target"},
 	},
 	{
 		description: "specifying also the synchronization source",
-		args:        []string{"--version", "2.9.99", "-m", "test-target", "--source", "/foo/bar"},
+		args:        []string{"--agent-version", "2.9.99", "-m", "test-target", "--source", "/foo/bar"},
 		source:      "/foo/bar",
 	},
 	{
 		description: "just make a dry run",
-		args:        []string{"--version", "2.9.99", "-m", "test-target", "--dry-run"},
+		args:        []string{"--agent-version", "2.9.99", "-m", "test-target", "--dry-run"},
 		dryRun:      true,
 	},
 	{
 		description: "specified public (ignored by API)",
-		args:        []string{"--version", "2.9.99", "-m", "test-target", "--public"},
+		args:        []string{"--agent-version", "2.9.99", "-m", "test-target", "--public"},
 		public:      false,
 	},
 }
@@ -129,7 +129,8 @@ func (s *syncToolSuite) TestSyncToolsCommand(c *gc.C) {
 
 func (s *syncToolSuite) TestSyncToolsCommandTargetDirectory(c *gc.C) {
 	dir := c.MkDir()
-	ctrl, run := s.getSyncAgentBinariesCommand(c, "--version", "2.9.99", "-m", "test-target", "--local-dir", dir, "--stream", "proposed")
+	ctrl, run := s.getSyncAgentBinariesCommand(
+		c, "--agent-version", "2.9.99", "-m", "test-target", "--local-dir", dir, "--stream", "proposed")
 	defer ctrl.Finish()
 
 	called := false
@@ -155,7 +156,8 @@ func (s *syncToolSuite) TestSyncToolsCommandTargetDirectory(c *gc.C) {
 
 func (s *syncToolSuite) TestSyncToolsCommandTargetDirectoryPublic(c *gc.C) {
 	dir := c.MkDir()
-	ctrl, run := s.getSyncAgentBinariesCommand(c, "--version", "2.9.99", "-m", "test-target", "--local-dir", dir, "--public")
+	ctrl, run := s.getSyncAgentBinariesCommand(
+		c, "--agent-version", "2.9.99", "-m", "test-target", "--local-dir", dir, "--public")
 	defer ctrl.Finish()
 
 	called := false
@@ -187,7 +189,8 @@ func (s *syncToolSuite) TestAPIAdapterUploadTools(c *gc.C) {
 }
 
 func (s *syncToolSuite) TestAPIAdapterBlockUploadTools(c *gc.C) {
-	ctrl, run := s.getSyncAgentBinariesCommand(c, "-m", "test-target", "--version", "2.9.99", "--local-dir", c.MkDir(), "--stream", "released")
+	ctrl, run := s.getSyncAgentBinariesCommand(
+		c, "-m", "test-target", "--agent-version", "2.9.99", "--local-dir", c.MkDir(), "--stream", "released")
 	defer ctrl.Finish()
 
 	syncTools = func(sctx *sync.SyncContext) error {

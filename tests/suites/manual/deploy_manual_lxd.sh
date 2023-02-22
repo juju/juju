@@ -98,8 +98,8 @@ run_deploy_manual_lxd() {
 
 		attempt=0
 		while [[ ${attempt} -lt 30 ]]; do
-			address=$(lxc list "$1" --format json |
-				jq --raw-output '.[0].state.network.eth0.addresses | map(select( .family == "inet")) | .[0].address')
+			address=$(lxc list --format json |
+				jq --raw-output ".[] | select(.name == \"${container_name}\") | .state.network.eth0.addresses | map(select( .family == \"inet\")) | .[0].address")
 
 			if echo "${address}" | grep -q '^[0-9]\+\.[0-9]\+\.[0-9]\+\.[0-9]\+$'; then
 				echo "Using container address ${address}"

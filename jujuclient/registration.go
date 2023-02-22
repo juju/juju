@@ -21,4 +21,8 @@ type RegistrationInfo struct {
 	// caller of "juju add-user" that will be used to suggest a name for
 	// the caller of "juju register".
 	ControllerName string
+
+	// ProxyConfig is a config around a real proxier interface that should
+	// be used to connect to the controller.
+	ProxyConfig string
 }

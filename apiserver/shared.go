@@ -43,7 +43,6 @@ type sharedServerContext struct {
 	centralHub          SharedHub
 	presence            presence.Recorder
 	leaseManager        lease.Manager
-	raftOpQueue         Queue
 	logger              loggo.Logger
 	cancel              <-chan struct{}
 	charmhubHTTPClient  facade.HTTPClient
@@ -63,7 +62,6 @@ type sharedServerConfig struct {
 	presence            presence.Recorder
 	leaseManager        lease.Manager
 	controllerConfig    jujucontroller.Config
-	raftOpQueue         Queue
 	logger              loggo.Logger
 	charmhubHTTPClient  facade.HTTPClient
 }
@@ -90,9 +88,6 @@ func (c *sharedServerConfig) validate() error {
 	if c.controllerConfig == nil {
 		return errors.NotValidf("nil controllerConfig")
 	}
-	if c.raftOpQueue == nil {
-		return errors.NotValidf("nil raftOpQueue")
-	}
 	return nil
 }
 
@@ -109,7 +104,6 @@ func newSharedServerContext(config sharedServerConfig) (*sharedServerContext, er
 		leaseManager:        config.leaseManager,
 		logger:              config.logger,
 		controllerConfig:    config.controllerConfig,
-		raftOpQueue:         config.raftOpQueue,
 		charmhubHTTPClient:  config.charmhubHTTPClient,
 	}
 	ctx.features = config.controllerConfig.Features()

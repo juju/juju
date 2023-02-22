@@ -89,11 +89,11 @@ func csOne() *changeset {
 	// TestSiblingContainers
 	// applications:
 	//  mysql:
-	//    charm: cs:mysql
+	//    charm: mysql
 	//    num_units: 3
 	//    to: ["lxd:new"]
 	//	keystone:
-	//	  charm: cs:keystone
+	//	  charm: keystone
 	//	  num_units: 3
 	//	  to: ["lxd:mysql"]
 
@@ -157,11 +157,11 @@ func csTwo() *changeset {
 	// TestSiblingContainers
 	// applications:
 	//  mysql:
-	//    charm: cs:mysql
+	//    charm: mysql
 	//    num_units: 3
 	//    to: ["lxd:new"]
 	//	keystone:
-	//	  charm: cs:keystone
+	//	  charm: keystone
 	//	  num_units: 3
 	//	  to: ["lxd:mysql"]
 

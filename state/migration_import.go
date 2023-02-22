@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/collections/set"
 	"github.com/juju/description/v4"
 	"github.com/juju/errors"
@@ -246,14 +246,14 @@ func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err
 }
 
 // modelConfig creates a config for the model being imported.
-// If the tools version is before 2.9.35, the default-series
-// value is cleared. This matches an upgrade step for 2.9.35
-// as well. Ensuring that the default-series value is set by
-// the user rather than a hold over from an old juju set value.
-// Related to using the default-series value in the same way
-// as a series flag at deploy.
 func modelConfig(attrs map[string]interface{}) (*config.Config, error) {
-	v, ok := attrs["agent-version"].(string)
+	// If the tools version is before 2.9.35, the default-series
+	// value is cleared. This matches an upgrade step for 2.9.35
+	// as well. Ensuring that the default-series value is set by
+	// the user rather than a hold over from an old juju set value.
+	// Related to using the default-series value in the same way
+	// as a series flag at deploy.
+	v, ok := attrs[config.AgentVersionKey].(string)
 	if !ok {
 		return nil, errors.New("model config missing agent-version")
 	}
@@ -263,10 +263,29 @@ func modelConfig(attrs map[string]interface{}) (*config.Config, error) {
 	}
 	// Using MustParse as the value parsed will never change.
 	newer := version.MustParse("2.9.35")
-	if comp := toolsVersion.Compare(newer); comp >= 0 {
-		return config.New(config.NoDefaults, attrs)
+	if comp := toolsVersion.Compare(newer); comp < 0 {
+		attrs[config.DefaultBaseKey] = ""
+		delete(attrs, config.DefaultSeriesKey)
 	}
-	attrs["default-series"] = ""
+
+	if v, ok := attrs[config.DefaultSeriesKey]; ok {
+		if v == "" {
+			attrs[config.DefaultBaseKey] = ""
+		} else {
+			s, err := series.GetBaseFromSeries(v.(string))
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			attrs[config.DefaultBaseKey] = s.String()
+		}
+		delete(attrs, config.DefaultSeriesKey)
+	}
+
+	// Ensure the expected default secret-backend value is set.
+	if v, ok := attrs[config.SecretBackendKey].(string); v == "" || !ok {
+		attrs[config.SecretBackendKey] = config.DefaultSecretBackend
+	}
+
 	return config.New(config.NoDefaults, attrs)
 }
 
@@ -276,10 +295,11 @@ func modelConfig(attrs map[string]interface{}) (*config.Config, error) {
 // Running the state migration visits all the migrations and exits upon seeing
 // the first error from the migration.
 type ImportStateMigration struct {
-	src        description.Model
-	dst        Database
-	importer   *importer
-	migrations []func() error
+	src                 description.Model
+	dst                 Database
+	knownSecretBackends set.Strings
+	importer            *importer
+	migrations          []func() error
 }
 
 // Add adds a migration to execute at a later time
@@ -306,6 +326,7 @@ type importer struct {
 	// applicationUnits is populated at the end of loading the applications, and is a
 	// map of application name to the units of that application.
 	applicationUnits map[string]map[string]*Unit
+	charmOrigins     map[string]*CharmOrigin
 }
 
 func (i *importer) modelExtras() error {
@@ -629,6 +650,9 @@ func (i *importer) machineInstanceOp(mdoc *machineDoc, inst description.CloudIns
 	if az := inst.AvailabilityZone(); az != "" {
 		doc.AvailZone = &az
 	}
+	if vt := inst.VirtType(); vt != "" {
+		doc.VirtType = &vt
+	}
 	if profiles := inst.CharmProfiles(); len(profiles) > 0 {
 		doc.CharmProfiles = profiles
 	}
@@ -802,6 +826,8 @@ func (i *importer) applications() error {
 			principals = append(principals, app)
 		}
 	}
+
+	i.charmOrigins = make(map[string]*CharmOrigin, len(principals)+len(subordinates))
 
 	for _, s := range append(principals, subordinates...) {
 		if err := i.application(s, ctrlCfg); err != nil {
@@ -1314,7 +1340,6 @@ func (i *importer) makeApplicationDoc(a description.Application) (*applicationDo
 		Name:                 a.Name(),
 		Subordinate:          a.Subordinate(),
 		CharmURL:             &cURL,
-		Channel:              a.Channel(),
 		CharmModifiedVersion: a.CharmModifiedVersion(),
 		CharmOrigin:          *origin,
 		ForceCharm:           a.ForceCharm(),
@@ -1369,22 +1394,29 @@ func (i *importer) loadInstanceHardwareFromUnits(units []description.Unit) ([]in
 }
 
 func (i *importer) makeCharmOrigin(a description.Application) (*CharmOrigin, error) {
-	curl, err := charm.ParseURL(a.CharmURL())
-	if err != nil {
-		return nil, errors.Trace(err)
+	curlStr := a.CharmURL()
+
+	// Fix bad datasets from LP 1999060 during migration.
+	// ID and Hash missing from N-1 of N applications'
+	// charm origins when deployed using the same charm.
+	if foundOrigin, ok := i.charmOrigins[curlStr]; ok {
+		return foundOrigin, nil
 	}
 
 	co := a.CharmOrigin()
 	rev := co.Revision()
 
 	var channel *Channel
-	if serialized := co.Channel(); serialized != "" {
+	// Only charmhub charms will have a channel. Local charms
+	// should not have a channel, so drop even if provided.
+	serialized := co.Channel()
+	if serialized != "" && corecharm.CharmHub.Matches(co.Source()) {
 		c, err := charm.ParseChannelNormalize(serialized)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		track := c.Track
-		if charm.CharmHub.Matches(co.Source()) && track == "" {
+		if track == "" {
 			track = "latest"
 		}
 		channel = &Channel{
@@ -1392,9 +1424,8 @@ func (i *importer) makeCharmOrigin(a description.Application) (*CharmOrigin, err
 			Risk:   string(c.Risk),
 			Branch: c.Branch,
 		}
-	} else {
-		// Attempt to fallback to get the channel if it's missing.
-		_, channel = getApplicationSourceChannel(a, curl)
+	} else if serialized != "" && corecharm.Local.Matches(co.Source()) {
+		i.logger.Warningf("Dropping channel: %q for application %q, should not exist", serialized, a.Name())
 	}
 
 	p, err := corecharm.ParsePlatformNormalize(co.Platform())
@@ -1408,7 +1439,7 @@ func (i *importer) makeCharmOrigin(a description.Application) (*CharmOrigin, err
 	}
 
 	// We can hardcode type to charm as we never store bundles in state.
-	return &CharmOrigin{
+	origin := &CharmOrigin{
 		Source:   co.Source(),
 		Type:     "charm",
 		ID:       co.ID(),
@@ -1416,44 +1447,9 @@ func (i *importer) makeCharmOrigin(a description.Application) (*CharmOrigin, err
 		Revision: &rev,
 		Channel:  channel,
 		Platform: platform,
-	}, nil
-}
-
-// Attempt to get as much information from the appChannel where possible.
-func getApplicationSourceChannel(a description.Application, url *charm.URL) (corecharm.Source, *Channel) {
-	var source corecharm.Source
-	switch url.Schema {
-	case "cs":
-		source = corecharm.CharmStore
-	case "local":
-		source = corecharm.Local
-	default:
-		source = corecharm.CharmHub
 	}
-
-	c := a.Channel()
-	if c == "" || source == corecharm.Local {
-		return source, nil
-	}
-
-	if source == corecharm.CharmStore {
-		return source, &Channel{Risk: a.Channel()}
-	}
-
-	norm, err := charm.ParseChannelNormalize(a.Channel())
-	if err != nil {
-		return source, nil
-	}
-
-	if norm.Track == "" {
-		norm.Track = "latest"
-	}
-
-	return source, &Channel{
-		Track:  norm.Track,
-		Risk:   string(norm.Risk),
-		Branch: norm.Branch,
-	}
+	i.charmOrigins[curlStr] = origin
+	return origin, nil
 }
 
 func (i *importer) relationCount(application string) int {
@@ -1608,6 +1604,7 @@ func (i *importer) makeRemoteApplicationDoc(app description.RemoteApplication) *
 		IsConsumerProxy: app.IsConsumerProxy(),
 		Bindings:        app.Bindings(),
 		Macaroon:        app.Macaroon(),
+		Version:         app.ConsumeVersion(),
 	}
 	descEndpoints := app.Endpoints()
 	eps := make([]remoteEndpointDoc, len(descEndpoints))
@@ -1700,14 +1697,27 @@ func (i *importer) relation(rel description.Relation) error {
 
 		units := i.applicationUnits[endpoint.ApplicationName()]
 		for unitName, settings := range endpoint.AllSettings() {
-			unit, ok := units[unitName]
-			if !ok {
-				return errors.NotFoundf("unit %q", unitName)
+			var ru *RelationUnit
+			var err error
+
+			if unit, ok := units[unitName]; ok {
+				ru, err = dbRelation.Unit(unit)
+				if err != nil {
+					return errors.Trace(err)
+				}
+			} else {
+				ru, err = dbRelation.RemoteUnit(unitName)
+				if err != nil {
+					if errors.Is(err, errors.NotFound) {
+						// This mirrors the logic from export.
+						// If there are no local or remote units in scope,
+						// then we are done for this endpoint.
+						continue
+					}
+					return errors.Trace(err)
+				}
 			}
-			ru, err := dbRelation.Unit(unit)
-			if err != nil {
-				return errors.Trace(err)
-			}
+
 			ruKey := ru.key()
 			ops = append(ops, txn.Op{
 				C:      relationScopesC,
@@ -2684,16 +2694,27 @@ func (i *importer) storagePools() error {
 
 func (i *importer) secrets() error {
 	i.logger.Debugf("importing secrets")
+	backends := NewSecretBackends(i.st)
+	allBackends, err := backends.ListSecretBackends()
+	if err != nil {
+		return errors.Annotate(err, "loading secret backends")
+	}
+	knownBackends := set.NewStrings()
+	for _, b := range allBackends {
+		knownBackends.Add(b.ID)
+	}
+
 	migration := &ImportStateMigration{
-		src: i.model,
-		dst: i.st.db(),
+		src:                 i.model,
+		dst:                 i.st.db(),
+		knownSecretBackends: knownBackends,
 	}
 	migration.Add(func() error {
 		m := ImportSecrets{}
 		return m.Execute(stateModelNamspaceShim{
 			Model: migration.src,
 			st:    i.st,
-		}, migration.dst)
+		}, migration.dst, migration.knownSecretBackends)
 	})
 	if err := migration.Run(); err != nil {
 		return errors.Trace(err)

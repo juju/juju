@@ -97,8 +97,9 @@ func (b *boundManager) Token(leaseName, holderName string) lease.Token {
 
 // Pinned (lease.Pinner) returns applications and the entities requiring their
 // pinned behaviour, for pinned leases in the bound namespace/model.
-func (b *boundManager) Pinned() map[string][]string {
-	return b.manager.pinned(b.namespace, b.modelUUID)
+func (b *boundManager) Pinned() (map[string][]string, error) {
+	pinned, err := b.manager.pinned(b.namespace, b.modelUUID)
+	return pinned, errors.Trace(err)
 }
 
 // Pin (lease.Pinner) sends a pin message to the worker loop.
@@ -113,8 +114,9 @@ func (b *boundManager) Unpin(leaseName string, entity string) error {
 
 // Leases (lease.Reader) returns all leases and holders
 // in the bound namespace/model.
-func (b *boundManager) Leases() map[string]string {
-	return b.manager.leases(b.namespace, b.modelUUID)
+func (b *boundManager) Leases() (map[string]string, error) {
+	leases, err := b.manager.leases(b.namespace, b.modelUUID)
+	return leases, errors.Trace(err)
 }
 
 // pinOp creates a pin instance from the input lease name,

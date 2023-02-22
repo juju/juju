@@ -140,12 +140,11 @@ WARNING! This command will remove the space with the following existing boundari
 - "myspace" is used as a binding on: mysql, mediawiki
 - "myspace" is used for controller config(s): jujuhaspace, juuuu-space
 
-
-Continue [y/N]?`[1:]
+Continue [y/N]? `[1:]
 
 	ctx, _, err := s.runCommand(c, api, spaceName, "--force")
 
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expectedErrMsg)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, expectedErrMsg)
 	c.Assert(err, gc.ErrorMatches, `cannot remove space "myspace": space removal: aborted`)
 }
 
@@ -192,7 +191,7 @@ Continue [y/N]? `[1:]
 
 	ctx, _, err := s.runCommand(c, api, spaceName, "--force")
 
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expectedErrMsg)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, expectedErrMsg)
 	c.Assert(err, gc.ErrorMatches, `cannot remove space "default": space removal: aborted`)
 }
 

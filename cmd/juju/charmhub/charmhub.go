@@ -36,8 +36,11 @@ type charmHubCommand struct {
 
 	arch        string
 	arches      arch.Arches
-	series      string
+	base        string
 	charmHubURL string
+
+	// DEPRECATED: Use --base instead.
+	series string
 
 	CharmHubClientFunc func(charmhub.Config) (CharmHubClient, error)
 }

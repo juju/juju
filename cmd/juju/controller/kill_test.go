@@ -51,7 +51,7 @@ func (s *KillSuite) newKillCommand() cmd.Command {
 		clock = testclock.NewClock(time.Now())
 	}
 	return controller.NewKillCommandForTest(
-		s.api, s.clientapi, s.store, s.apierror, clock, nil,
+		s.api, s.store, s.apierror, clock, nil,
 		func() (controller.CredentialAPI, error) { return s.controllerCredentialAPI, nil },
 		environs.Destroy,
 	)
@@ -366,14 +366,14 @@ func (s *KillSuite) TestKillUnknownController(c *gc.C) {
 
 func (s *KillSuite) TestKillCannotConnectToAPISucceeds(c *gc.C) {
 	s.api, s.apierror = nil, errors.New("connection refused")
-	ctx, err := s.runKillCommand(c, "test1", "-y")
+	ctx, err := s.runKillCommand(c, "test1", "--no-prompt")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cmdtesting.Stderr(ctx), jc.Contains, "Unable to open API: connection refused")
 	checkControllerRemovedFromStore(c, "test1", s.store)
 }
 
 func (s *KillSuite) TestKillWithAPIConnection(c *gc.C) {
-	_, err := s.runKillCommand(c, "test1", "-y")
+	_, err := s.runKillCommand(c, "test1", "--no-prompt")
 	c.Assert(err, jc.ErrorIsNil)
 	s.api.CheckCallNames(c, "DestroyController", "AllModels", "ModelStatus", "Close")
 	destroyStorage := true
@@ -381,13 +381,12 @@ func (s *KillSuite) TestKillWithAPIConnection(c *gc.C) {
 		DestroyModels:  true,
 		DestroyStorage: &destroyStorage,
 	})
-	c.Assert(s.clientapi.destroycalled, jc.IsFalse)
 	checkControllerRemovedFromStore(c, "test1", s.store)
 }
 
 func (s *KillSuite) TestKillEnvironmentGetFailsWithoutAPIConnection(c *gc.C) {
 	s.api, s.apierror = nil, errors.New("connection refused")
-	_, err := s.runKillCommand(c, "test3", "-y")
+	_, err := s.runKillCommand(c, "test3", "--no-prompt")
 	c.Assert(err, gc.ErrorMatches,
 		"getting controller environ: unable to get bootstrap information from client store or API",
 	)
@@ -396,7 +395,7 @@ func (s *KillSuite) TestKillEnvironmentGetFailsWithoutAPIConnection(c *gc.C) {
 
 func (s *KillSuite) TestKillEnvironmentGetFailsWithAPIConnection(c *gc.C) {
 	s.api.SetErrors(errors.NotFoundf(`controller "test3"`))
-	_, err := s.runKillCommand(c, "test3", "-y")
+	_, err := s.runKillCommand(c, "test3", "--no-prompt")
 	c.Assert(err, gc.ErrorMatches,
 		"getting controller environ: getting model config from API: controller \"test3\" not found",
 	)
@@ -405,34 +404,36 @@ func (s *KillSuite) TestKillEnvironmentGetFailsWithAPIConnection(c *gc.C) {
 
 func (s *KillSuite) TestKillDestroysControllerWithAPIError(c *gc.C) {
 	s.api.SetErrors(errors.New("some destroy error"))
-	ctx, err := s.runKillCommand(c, "test1", "-y")
+	ctx, err := s.runKillCommand(c, "test1", "--no-prompt")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cmdtesting.Stderr(ctx), jc.Contains, "Unable to destroy controller through the API: some destroy error\nDestroying through provider")
 	checkControllerRemovedFromStore(c, "test1", s.store)
 }
 
 func (s *KillSuite) TestKillCommandConfirmation(c *gc.C) {
-	var stdin, stdout bytes.Buffer
+	var stdin, stdout, stderr bytes.Buffer
 	ctx, err := cmd.DefaultContext()
 	c.Assert(err, jc.ErrorIsNil)
 	ctx.Stdout = &stdout
 	ctx.Stdin = &stdin
+	ctx.Stderr = &stderr
 
-	// Ensure confirmation is requested if "-y" is not specified.
+	// Ensure confirmation is requested if "--no-prompt" is not specified.
 	stdin.WriteString("n")
 	_, errc := cmdtest.RunCommandWithDummyProvider(ctx, s.newKillCommand(), "test1")
 	select {
 	case err := <-errc:
-		c.Check(err, gc.ErrorMatches, "controller destruction aborted")
+		c.Check(err, gc.ErrorMatches, "controller destruction: aborted")
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("command took too long")
 	}
-	c.Check(cmdtesting.Stdout(ctx), gc.Matches, "WARNING!.*test1(.|\n)*")
+	testLog := c.GetTestLog()
+	c.Check(testLog, gc.Matches, "(.|\n)*WARNING.*test1(.|\n)*")
 	checkControllerExistsInStore(c, "test1", s.store)
 }
 
 func (s *KillSuite) TestKillCommandControllerAlias(c *gc.C) {
-	_, err := cmdtesting.RunCommand(c, s.newKillCommand(), "test1", "-y")
+	_, err := cmdtesting.RunCommand(c, s.newKillCommand(), "test1", "--no-prompt")
 	c.Assert(err, jc.ErrorIsNil)
 	checkControllerRemovedFromStore(c, "test1:test1", s.store)
 }
@@ -441,11 +442,11 @@ func (s *KillSuite) TestKillAPIPermErrFails(c *gc.C) {
 	testDialer := func(*api.Info, api.DialOpts) (api.Connection, error) {
 		return nil, apiservererrors.ErrPerm
 	}
-	cmd := controller.NewKillCommandForTest(nil, nil, s.store, nil, clock.WallClock, testDialer,
+	cmd := controller.NewKillCommandForTest(nil, s.store, nil, clock.WallClock, testDialer,
 		func() (controller.CredentialAPI, error) { return s.controllerCredentialAPI, nil },
 		environs.Destroy,
 	)
-	_, err := cmdtesting.RunCommand(c, cmd, "test1", "-y")
+	_, err := cmdtesting.RunCommand(c, cmd, "test1", "--no-prompt")
 	c.Assert(err, gc.ErrorMatches, "cannot destroy controller: permission denied")
 	checkControllerExistsInStore(c, "test1", s.store)
 }
@@ -460,11 +461,11 @@ func (s *KillSuite) TestKillEarlyAPIConnectionTimeout(c *gc.C) {
 		return nil, errors.New("kill command waited too long")
 	}
 
-	cmd := controller.NewKillCommandForTest(nil, nil, s.store, nil, clock, testDialer,
+	cmd := controller.NewKillCommandForTest(nil, s.store, nil, clock, testDialer,
 		func() (controller.CredentialAPI, error) { return s.controllerCredentialAPI, nil },
 		environs.Destroy,
 	)
-	ctx, err := cmdtesting.RunCommand(c, cmd, "test1", "-y")
+	ctx, err := cmdtesting.RunCommand(c, cmd, "test1", "--no-prompt")
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(cmdtesting.Stderr(ctx), jc.Contains, "Unable to open API: open connection timed out")
 	checkControllerRemovedFromStore(c, "test1", s.store)
@@ -510,12 +511,12 @@ func (s *KillSuite) TestControllerStatus(c *gc.C) {
 		}
 	}
 
-	ctrStatus, envsStatus, err := controller.NewData(s.api, "123")
+	environmentStatus, err := controller.NewData(s.api, "123")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctrStatus.HostedModelCount, gc.Equals, 2)
-	c.Assert(ctrStatus.HostedMachineCount, gc.Equals, 6)
-	c.Assert(ctrStatus.ApplicationCount, gc.Equals, 3)
-	c.Assert(envsStatus, gc.HasLen, 2)
+	c.Assert(environmentStatus.Controller.HostedModelCount, gc.Equals, 2)
+	c.Assert(environmentStatus.Controller.HostedMachineCount, gc.Equals, 6)
+	c.Assert(environmentStatus.Controller.ApplicationCount, gc.Equals, 3)
+	c.Assert(environmentStatus.Models, gc.HasLen, 2)
 
 	for i, expected := range []struct {
 		Owner              string
@@ -538,11 +539,11 @@ func (s *KillSuite) TestControllerStatus(c *gc.C) {
 			ApplicationCount:   1,
 		},
 	} {
-		c.Assert(envsStatus[i].Owner, gc.Equals, expected.Owner)
-		c.Assert(envsStatus[i].Name, gc.Equals, expected.Name)
-		c.Assert(envsStatus[i].Life, gc.Equals, expected.Life)
-		c.Assert(envsStatus[i].HostedMachineCount, gc.Equals, expected.HostedMachineCount)
-		c.Assert(envsStatus[i].ApplicationCount, gc.Equals, expected.ApplicationCount)
+		c.Assert(environmentStatus.Models[i].Owner, gc.Equals, expected.Owner)
+		c.Assert(environmentStatus.Models[i].Name, gc.Equals, expected.Name)
+		c.Assert(environmentStatus.Models[i].Life, gc.Equals, expected.Life)
+		c.Assert(environmentStatus.Models[i].HostedMachineCount, gc.Equals, expected.HostedMachineCount)
+		c.Assert(environmentStatus.Models[i].ApplicationCount, gc.Equals, expected.ApplicationCount)
 	}
 
 }

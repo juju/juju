@@ -593,14 +593,6 @@ func (ctx *facadeContext) SingularClaimer() (lease.Claimer, error) {
 	)
 }
 
-func (ctx *facadeContext) Raft() facade.RaftContext {
-	return &raftMediator{
-		queue:  ctx.r.shared.raftOpQueue,
-		logger: ctx.r.shared.logger,
-		clock:  ctx.r.clock,
-	}
-}
-
 func (ctx *facadeContext) HTTPClient(purpose facade.HTTPClientPurpose) facade.HTTPClient {
 	switch purpose {
 	case facade.CharmhubHTTPClient:

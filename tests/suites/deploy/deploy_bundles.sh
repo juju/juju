@@ -101,15 +101,34 @@ run_deploy_exported_charmhub_bundle_with_float_revisions() {
 	ensure "test-export-bundles-deploy-with-float-revisions" "${file}"
 	bundle=./tests/suites/deploy/bundles/telegraf_bundle_without_revisions.yaml
 	bundle_with_fake_revisions=./tests/suites/deploy/bundles/telegraf_bundle_with_fake_revisions.yaml
-	juju deploy ${bundle}
+	cp ${bundle} "${TEST_DIR}/telegraf_bundle_without_revisions.yaml"
+	cp ${bundle_with_fake_revisions} "${TEST_DIR}/telegraf_bundle_with_fake_revisions.yaml"
+	if [[ -n ${MODEL_ARCH:-} ]]; then
+		yq -i "
+      .applications.influxdb.constraints = \"arch=${MODEL_ARCH}\" |
+      .applications.ubuntu.constraints = \"arch=${MODEL_ARCH}\"
+    " "${TEST_DIR}/telegraf_bundle_without_revisions.yaml"
+		yq -i "
+      .applications.influxdb.constraints = \"arch=${MODEL_ARCH}\" |
+      .applications.ubuntu.constraints = \"arch=${MODEL_ARCH}\"
+    " "${TEST_DIR}/telegraf_bundle_with_fake_revisions.yaml"
+	fi
+
+	juju deploy "${TEST_DIR}/telegraf_bundle_without_revisions.yaml"
 
 	echo "Create telegraf_bundle_without_revisions.yaml with known latest revisions from charmhub"
-	influxdb_rev=$(juju info influxdb --format json | jq -r '."channels"."latest"."stable"[0].revision')
-	telegraf_rev=$(juju info telegraf --format json | jq -r '."channels"."latest"."stable"[0].revision')
-	ubuntu_rev=$(juju info ubuntu --format json | jq -r '."channels"."latest"."stable"[0].revision')
+	if [[ -n ${MODEL_ARCH:-} ]]; then
+		influxdb_rev=$(juju info influxdb --arch="${MODEL_ARCH}" --format json | jq -r '."channels"."latest"."stable"[0].revision')
+		telegraf_rev=$(juju info telegraf --arch="${MODEL_ARCH}" --format json | jq -r '."channels"."latest"."stable"[0].revision')
+		ubuntu_rev=$(juju info ubuntu --arch="${MODEL_ARCH}" --format json | jq -r '."channels"."latest"."stable"[0].revision')
+	else
+		influxdb_rev=$(juju info influxdb --format json | jq -r '."channels"."latest"."stable"[0].revision')
+		telegraf_rev=$(juju info telegraf --format json | jq -r '."channels"."latest"."stable"[0].revision')
+		ubuntu_rev=$(juju info ubuntu --format json | jq -r '."channels"."latest"."stable"[0].revision')
+	fi
 
 	echo "Make a copy of reference yaml and insert revisions in it"
-	cp ${bundle_with_fake_revisions} "${TEST_DIR}/telegraf_bundle_with_revisions.yaml"
+	cp "${TEST_DIR}/telegraf_bundle_with_fake_revisions.yaml" "${TEST_DIR}/telegraf_bundle_with_revisions.yaml"
 	yq -i "
 		.applications.influxdb.revision = ${influxdb_rev} |
 		.applications.telegraf.revision = ${telegraf_rev} |
@@ -118,6 +137,8 @@ run_deploy_exported_charmhub_bundle_with_float_revisions() {
 
 	if [[ -n ${MODEL_ARCH:-} ]]; then
 		yq -i "
+			.applications.influxdb.constraints = \"arch=${MODEL_ARCH}\" |
+			.applications.ubuntu.constraints = \"arch=${MODEL_ARCH}\" |
 			.machines.\"0\".constraints = \"arch=${MODEL_ARCH}\" |
 			.machines.\"1\".constraints = \"arch=${MODEL_ARCH}\"
 		" "${TEST_DIR}/telegraf_bundle_with_revisions.yaml"
@@ -239,6 +260,30 @@ run_deploy_lxd_profile_bundle() {
 	destroy_model "${model_name}"
 }
 
+# run_deploy_multi_app_single_charm_bundle:
+# LP 1999060 found an issue in async charm download when a bundle
+# uses the same charm for multiple applications. This is common in
+# many Canonical bundles such a full openstack.
+run_deploy_multi_app_single_charm_bundle() {
+	echo
+
+	model_name="test-deploy-multi-app-single-charm-bundle"
+	file="${TEST_DIR}/${model_name}.log"
+
+	ensure "${model_name}" "${file}"
+
+	bundle=./tests/suites/deploy/bundles/multi-app-single-charm.yaml
+	juju deploy "${bundle}"
+
+	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test" 0)"
+	wait_for "juju-qa-test-dup" "$(idle_condition "juju-qa-test-dup" 1)"
+
+	# ensure juju-qa-test-dup can refresh and us it's resources.
+	juju refresh juju-qa-test-dup
+
+	destroy_model "${model_name}"
+}
+
 test_deploy_bundles() {
 	if [ "$(skip 'test_deploy_bundles')" ]; then
 		echo "==> TEST SKIPPED: deploy bundles"
@@ -256,6 +301,7 @@ test_deploy_bundles() {
 		run "run_deploy_exported_charmhub_bundle_with_float_revisions"
 		run "run_deploy_trusted_bundle"
 		run "run_deploy_charmhub_bundle"
+		run "run_deploy_multi_app_single_charm_bundle"
 
 		case "${BOOTSTRAP_PROVIDER:-}" in
 		"lxd" | "localhost")

@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -582,11 +582,11 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 				},
 			},
 		},
-		CloudCredential:          cloudSpec.Credential,
-		CloudCredentialName:      "cred",
-		AdminSecret:              AdminSecret,
-		CAPrivateKey:             testing.CAKey,
-		SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
+		CloudCredential:         cloudSpec.Credential,
+		CloudCredentialName:     "cred",
+		AdminSecret:             AdminSecret,
+		CAPrivateKey:            testing.CAKey,
+		SupportedBootstrapBases: testing.FakeSupportedJujuBases,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -848,16 +848,19 @@ func (s *JujuConnSuite) AddTestingApplication(c *gc.C, name string, ch *state.Ch
 	c.Assert(err, jc.ErrorIsNil)
 	app, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name: name, Charm: ch,
-		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
-			OS:      base.OS,
-			Channel: base.Channel.String(),
-		}},
+		CharmOrigin: &state.CharmOrigin{
+			Source: "charm-hub",
+			Platform: &state.Platform{
+				OS:      base.OS,
+				Channel: base.Channel.String(),
+			}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return app
 }
 
 func (s *JujuConnSuite) AddTestingApplicationWithOrigin(c *gc.C, name string, ch *state.Charm, origin *state.CharmOrigin) *state.Application {
+	c.Assert(origin.Source, gc.Not(gc.Equals), "", gc.Commentf("supplied origin must have a source"))
 	app, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:        name,
 		Charm:       ch,
@@ -873,11 +876,13 @@ func (s *JujuConnSuite) AddTestingApplicationWithArch(c *gc.C, name string, ch *
 	app, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:  name,
 		Charm: ch,
-		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
-			Architecture: arch,
-			OS:           base.OS,
-			Channel:      base.Channel.String(),
-		}},
+		CharmOrigin: &state.CharmOrigin{
+			Source: "charm-hub",
+			Platform: &state.Platform{
+				Architecture: arch,
+				OS:           base.OS,
+				Channel:      base.Channel.String(),
+			}},
 		Constraints: constraints.MustParse("arch=" + arch),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -890,10 +895,12 @@ func (s *JujuConnSuite) AddTestingApplicationWithStorage(c *gc.C, name string, c
 	app, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:  name,
 		Charm: ch,
-		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
-			OS:      base.OS,
-			Channel: base.Channel.String(),
-		}},
+		CharmOrigin: &state.CharmOrigin{
+			Source: "charm-hub",
+			Platform: &state.Platform{
+				OS:      base.OS,
+				Channel: base.Channel.String(),
+			}},
 		Storage: storage,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -906,10 +913,12 @@ func (s *JujuConnSuite) AddTestingApplicationWithBindings(c *gc.C, name string, 
 	app, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:  name,
 		Charm: ch,
-		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
-			OS:      base.OS,
-			Channel: base.Channel.String(),
-		}},
+		CharmOrigin: &state.CharmOrigin{
+			Source: "charm-hub",
+			Platform: &state.Platform{
+				OS:      base.OS,
+				Channel: base.Channel.String(),
+			}},
 		EndpointBindings: bindings,
 	})
 	c.Assert(err, jc.ErrorIsNil)

@@ -96,7 +96,6 @@ func (s *removeSuite) TestRemoveForceMessage(c *gc.C) {
 	err = cmdtesting.InitCommand(com, []string{"fred/model.db2", "--force"})
 	c.Assert(err, jc.ErrorIsNil)
 	com.Run(ctx)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
 
 	expected := `
 WARNING! This command will remove offers: fred/model.db2
@@ -104,7 +103,7 @@ This includes all relations to those offers.
 
 Continue [y/N]? `[1:]
 
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expected)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, expected)
 }
 
 func (s *removeSuite) TestRemoveNameOnly(c *gc.C) {

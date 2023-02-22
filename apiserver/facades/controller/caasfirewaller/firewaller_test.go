@@ -4,7 +4,8 @@
 package caasfirewaller_test
 
 import (
-	"github.com/juju/charm/v9"
+	"github.com/golang/mock/gomock"
+	"github.com/juju/charm/v10"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
@@ -16,8 +17,10 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/caasfirewaller"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
+	statemocks "github.com/juju/juju/state/mocks"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -69,7 +72,8 @@ var _ = gc.Suite(&firewallerLegacySuite{
 type firewallerSidecarSuite struct {
 	firewallerBaseSuite
 
-	facade facadeSidecar
+	facade        facadeSidecar
+	appPortRanges *statemocks.MockApplicationPortRanges
 }
 
 var _ = gc.Suite(&firewallerSidecarSuite{
@@ -113,6 +117,13 @@ func (s *firewallerSidecarSuite) SetUpTest(c *gc.C) {
 	c.Assert(ok, jc.IsTrue)
 }
 
+func (s *firewallerSidecarSuite) getCtrl(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.appPortRanges = statemocks.NewMockApplicationPortRanges(ctrl)
+	s.st.application.appPortRanges = s.appPortRanges
+	return ctrl
+}
+
 func (s *firewallerSidecarSuite) TestWatchOpenedPorts(c *gc.C) {
 	openPortsChanges := []string{"port1", "port2"}
 	s.openPortsChanges <- openPortsChanges
@@ -129,6 +140,50 @@ func (s *firewallerSidecarSuite) TestWatchOpenedPorts(c *gc.C) {
 	c.Assert(result.Changes, jc.DeepEquals, openPortsChanges)
 }
 
+func (s *firewallerSidecarSuite) TestGetApplicationOpenedPorts(c *gc.C) {
+	ctrl := s.getCtrl(c)
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.appPortRanges.EXPECT().ByEndpoint().Return(network.GroupedPortRanges{
+			"": []network.PortRange{
+				{
+					FromPort: 80,
+					ToPort:   80,
+					Protocol: "tcp",
+				},
+			},
+			"endport-1": []network.PortRange{
+				{
+					FromPort: 8888,
+					ToPort:   8888,
+					Protocol: "tcp",
+				},
+			},
+		}),
+	)
+
+	results, err := s.facade.GetApplicationOpenedPorts(params.Entity{
+		Tag: "application-gitlab",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	result := results.Results[0]
+	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.ApplicationPortRanges, gc.DeepEquals, []params.ApplicationOpenedPorts{
+		{
+			PortRanges: []params.PortRange{
+				{FromPort: 80, ToPort: 80, Protocol: "tcp"},
+			},
+		},
+		{
+			Endpoint: "endport-1",
+			PortRanges: []params.PortRange{
+				{FromPort: 8888, ToPort: 8888, Protocol: "tcp"},
+			},
+		},
+	})
+}
+
 type facadeCommon interface {
 	IsExposed(args params.Entities) (params.BoolResults, error)
 	ApplicationsConfig(args params.Entities) (params.ApplicationGetConfigResults, error)
@@ -141,6 +196,7 @@ type facadeCommon interface {
 type facadeSidecar interface {
 	facadeCommon
 	WatchOpenedPorts(args params.Entities) (params.StringsWatchResults, error)
+	GetApplicationOpenedPorts(arg params.Entity) (params.ApplicationOpenedPortsResults, error)
 }
 
 func (s *firewallerBaseSuite) SetUpTest(c *gc.C) {
@@ -159,7 +215,7 @@ func (s *firewallerBaseSuite) SetUpTest(c *gc.C) {
 					Deployment: &charm.Deployment{},
 				},
 				manifest: &charm.Manifest{},
-				url:      &charm.URL{Schema: "cs", Name: "gitlab", Revision: -1},
+				url:      &charm.URL{Schema: "ch", Name: "gitlab", Revision: -1},
 			},
 		},
 		applicationsWatcher: statetesting.NewMockStringsWatcher(s.applicationsChanges),

@@ -58,7 +58,7 @@ type Pinner interface {
 
 	// Pinned returns all names for pinned leases, with the entities requiring
 	// their pinned behaviour.
-	Pinned() map[string][]string
+	Pinned() (map[string][]string, error)
 }
 
 // Checker exposes facts about lease ownership.
@@ -80,7 +80,7 @@ type Token interface {
 // Reader describes retrieval of all leases and holders
 // for a known namespace and model.
 type Reader interface {
-	Leases() map[string]string
+	Leases() (map[string]string, error)
 }
 
 // Manager describes methods for acquiring objects that manipulate and query

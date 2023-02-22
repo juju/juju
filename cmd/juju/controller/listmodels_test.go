@@ -78,17 +78,14 @@ func (f *fakeModelMgrAPIClient) ListModelSummaries(user string, all bool) ([]bas
 		cloud, err := names.ParseCloudTag(info.Result.CloudTag)
 		if err != nil {
 			cloud = names.NewCloudTag("aws")
-
 		}
 		cred, err := names.ParseCloudCredentialTag(info.Result.CloudCredentialTag)
 		if err != nil {
 			cred = names.NewCloudCredentialTag("foo/bob/one")
-
 		}
 		owner, err := names.ParseUserTag(info.Result.OwnerTag)
 		if err != nil {
 			owner = names.NewUserTag("admin")
-
 		}
 		results[i] = base.UserModelSummary{
 			Name:            info.Result.Name,
@@ -231,7 +228,7 @@ func (s *ModelsSuite) SetUpTest(c *gc.C) {
 		LastConnection: &last1,
 		Access:         params.ModelReadAccess,
 	}}
-	//2nd model
+	// 2nd model
 	secondModel := s.api.infos[1].Result
 	last2 := time.Date(2015, 3, 1, 0, 0, 0, 0, time.UTC)
 	secondModel.Users = []params.ModelUserInfo{{
@@ -361,19 +358,15 @@ func (s *ModelsSuite) TestUnrecognizedArg(c *gc.C) {
 }
 
 func (s *ModelsSuite) TestInvalidUser(c *gc.C) {
-	context, err := cmdtesting.RunCommand(c, s.newCommand(), "--user", "+bob")
+	_, err := cmdtesting.RunCommand(c, s.newCommand(), "--user", "+bob")
 	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`user "+bob" not valid`))
-	c.Assert(cmdtesting.Stdout(context), gc.Equals, "")
-	c.Assert(cmdtesting.Stderr(context), gc.Equals, "user \"+bob\" not valid\n")
 	s.api.CheckNoCalls(c)
 }
 
 func (s *ModelsSuite) TestModelsError(c *gc.C) {
 	s.api.err = apiservererrors.ErrPerm
-	context, err := cmdtesting.RunCommand(c, s.newCommand())
+	_, err := cmdtesting.RunCommand(c, s.newCommand())
 	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(cmdtesting.Stdout(context), gc.Equals, "")
-	c.Assert(cmdtesting.Stderr(context), gc.Equals, "permission denied\n")
 	s.checkAPICalls(c, "ListModelSummaries", "Close")
 }
 

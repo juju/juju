@@ -47,7 +47,7 @@ func (s *metricsDebugSuite) TestSetMeterStatus(c *gc.C) {
 	testUnit1 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: testApplication, SetCharmURL: true})
 	testUnit2 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: testApplication, SetCharmURL: true})
 
-	csCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered-1"})
+	csCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:amd64/quantal/metered-1"})
 	csApplication := s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "cs-application", Charm: csCharm})
 	csUnit1 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: csApplication, SetCharmURL: true})
 

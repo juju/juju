@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/retry"
@@ -25,7 +25,7 @@ func newRetryClient(client ResourceGetter) *ResourceRetryClient {
 		// (anastasiamac 2017-05-25) This might not work as the error types
 		// may be lost after a call to some clients.
 		IsFatalError: func(err error) bool {
-			return errors.IsNotFound(err) || errors.IsNotValid(err)
+			return errors.Is(err, errors.NotFound) || errors.Is(err, errors.NotValid)
 		},
 		// We don't want to retry for ever.
 		// If we cannot get a resource after trying a few times,

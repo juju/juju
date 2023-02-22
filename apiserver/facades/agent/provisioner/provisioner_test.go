@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/proxy"
@@ -1433,8 +1433,9 @@ func (s *provisionerSuite) getManagerConfig(c *gc.C, typ instance.ContainerType)
 func (s *withoutControllerSuite) TestContainerManagerConfigDefaults(c *gc.C) {
 	cfg := s.getManagerConfig(c, instance.KVM)
 	c.Assert(cfg, jc.DeepEquals, map[string]string{
-		container.ConfigModelUUID:      coretesting.ModelTag.Id(),
-		config.ContainerImageStreamKey: "released",
+		container.ConfigModelUUID:        coretesting.ModelTag.Id(),
+		config.ContainerImageStreamKey:   "released",
+		config.ContainerNetworkingMethod: config.ConfigDefaults()[config.ContainerNetworkingMethod].(string),
 	})
 }
 
@@ -1474,32 +1475,6 @@ func (s *withoutControllerSuite) TestWatchMachineErrorRetry(c *gc.C) {
 	result, err := aProvisioner.WatchMachineErrorRetry()
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{})
-}
-
-func (s *withoutControllerSuite) TestFindTools(c *gc.C) {
-	otherSt := s.Factory.MakeModel(c, nil)
-	defer otherSt.Close()
-	provisionerAPI, err := provisioner.NewProvisionerAPI(facadetest.Context{
-		Auth_:      s.authorizer,
-		State_:     otherSt,
-		StatePool_: s.StatePool,
-		Resources_: s.resources,
-	},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	args := params.FindToolsParams{
-		MajorVersion: -1,
-		MinorVersion: -1,
-	}
-	result, err := provisionerAPI.FindTools(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.List, gc.Not(gc.HasLen), 0)
-	for _, tools := range result.List {
-		url := fmt.Sprintf("https://%s/model/%s/tools/%s",
-			s.APIState.Addr(), otherSt.ModelUUID(), tools.Version)
-		c.Assert(tools.URL, gc.Equals, url)
-	}
 }
 
 func (s *withoutControllerSuite) TestMarkMachinesForRemoval(c *gc.C) {
@@ -1824,7 +1799,8 @@ func (s *withImageMetadataSuite) TestContainerManagerConfigImageMetadata(c *gc.C
 		container.ConfigModelUUID:           coretesting.ModelTag.Id(),
 		config.ContainerImageStreamKey:      "daily",
 		config.ContainerImageMetadataURLKey: "https://images.linuxcontainers.org/",
-		config.LXDSnapChannel:               "latest/stable",
+		config.LXDSnapChannel:               "5.0/stable",
+		config.ContainerNetworkingMethod:    config.ConfigDefaults()[config.ContainerNetworkingMethod].(string),
 	})
 }
 

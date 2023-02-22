@@ -8,8 +8,8 @@ import (
 	"github.com/juju/juju/state"
 )
 
-type SecretsBackend interface {
-	GetSecretValue(*secrets.URI, int) (secrets.SecretValue, *string, error)
+type SecretsState interface {
+	GetSecretValue(*secrets.URI, int) (secrets.SecretValue, *secrets.ValueRef, error)
 	GetSecretRevision(uri *secrets.URI, revision int) (*secrets.SecretRevisionMetadata, error)
 	ListSecrets(state.SecretsFilter) ([]*secrets.SecretMetadata, error)
 	ListSecretRevisions(uri *secrets.URI) ([]*secrets.SecretRevisionMetadata, error)

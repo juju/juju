@@ -85,7 +85,7 @@ type PinApplicationResult struct {
 	Error *Error `json:"error,omitempty"`
 }
 
-// PinnedLeadershipResults holds data representing the current applications for
+// PinnedLeadershipResult holds data representing the current applications for
 // which leadership is pinned
 type PinnedLeadershipResult struct {
 	// Result has:
@@ -93,4 +93,8 @@ type PinnedLeadershipResult struct {
 	// - Tag slice values representing the entities requiring pinned
 	//   behaviour for each application.
 	Result map[string][]string `json:"result,omitempty"`
+
+	// Error will contain a reference to an error resulting from
+	// reading lease data, if one occurred.
+	Error *Error `json:"error,omitempty"`
 }

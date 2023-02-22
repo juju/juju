@@ -777,7 +777,9 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerContainerNetw
 	// machine. Triggers the fallback code to have us bridge all devices.
 	missing, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.containerMachine)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(missing, jc.DeepEquals, []network.DeviceToBridge{})
+	c.Check(missing, jc.DeepEquals, []network.DeviceToBridge{
+		{DeviceName: "ens3", BridgeName: "br-ens3", MACAddress: ""},
+	})
 	c.Check(reconfigureDelay, gc.Equals, 0)
 }
 
@@ -1199,6 +1201,7 @@ func (g configGetter) Config() *config.Config {
 		config.NameKey:                    "some-model",
 		config.TypeKey:                    "some-cloud",
 		config.UUIDKey:                    utils.MustNewUUID().String(),
+		config.SecretBackendKey:           "auto",
 		config.NetBondReconfigureDelayKey: g.reconfDelay,
 		config.ContainerNetworkingMethod:  g.netMethod,
 		config.FanConfig:                  "172.16.0.0/16=253.0.0.0/8",

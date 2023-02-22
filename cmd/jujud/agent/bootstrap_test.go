@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
@@ -29,7 +29,6 @@ import (
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agentbootstrap"
@@ -199,6 +198,50 @@ func (s *BootstrapSuite) TestLocalControllerCharm(c *gc.C) {
 	s.assertControllerApplication(c)
 }
 
+func stringp(v string) *string {
+	return &v
+}
+
+func (s *BootstrapSuite) TestControllerCharmConstraints(c *gc.C) {
+	if coreos.HostOS() != coreos.Ubuntu {
+		c.Skip("controller charm only supported on Ubuntu")
+	}
+
+	s.PatchValue(&osseries.HostSeries, func() (string, error) {
+		return "jammy", nil
+	})
+
+	s.bootstrapParams.BootstrapMachineConstraints = constraints.Value{
+		Arch: stringp("arm64"),
+	}
+	s.writeBootstrapParamsFile(c)
+	_, cmd, err := s.initBootstrapCommand(c, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var tw loggo.TestWriter
+	err = loggo.RegisterWriter("bootstrap-test", &tw)
+	c.Assert(err, jc.ErrorIsNil)
+	defer loggo.RemoveWriter("bootstrap-test")
+
+	err = cmd.Run(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
+		loggo.DEBUG,
+		`Successfully deployed local Juju controller charm`,
+	}})
+	s.assertControllerApplication(c)
+	st, closer := s.getSystemState(c)
+	defer closer()
+
+	app, err := st.Application("controller")
+	c.Assert(err, jc.ErrorIsNil)
+	constraints, err := app.Constraints()
+	c.Assert(err, jc.ErrorIsNil)
+	consArch := constraints.Arch
+	c.Assert(consArch, gc.NotNil)
+	c.Assert(*consArch, gc.Equals, "arm64")
+}
+
 func (s *BootstrapSuite) TestStoreControllerCharm(c *gc.C) {
 	if coreos.HostOS() != coreos.Ubuntu {
 		c.Skip("controller charm only supported on Ubuntu")
@@ -242,10 +285,10 @@ func (s *BootstrapSuite) TestStoreControllerCharm(c *gc.C) {
 	storeCurl.Architecture = "amd64"
 	storeOrigin := origin
 	storeOrigin.Type = "charm"
-	repo.EXPECT().ResolveWithPreferredChannel(curl, origin, nil).Return(&storeCurl, storeOrigin, nil, nil)
+	repo.EXPECT().ResolveWithPreferredChannel(curl, origin).Return(&storeCurl, storeOrigin, nil, nil)
 
-	downloader.EXPECT().DownloadAndStore(&storeCurl, storeOrigin, nil, false).
-		DoAndReturn(func(charmURL *charm.URL, requestedOrigin corecharm.Origin, macaroons macaroon.Slice, force bool) (corecharm.Origin, error) {
+	downloader.EXPECT().DownloadAndStore(&storeCurl, storeOrigin, false).
+		DoAndReturn(func(charmURL *charm.URL, requestedOrigin corecharm.Origin, force bool) (corecharm.Origin, error) {
 			controllerCharm := testcharms.Repo.CharmArchive(c.MkDir(), "juju-controller")
 			st, closer := s.getSystemState(c)
 			defer closer()

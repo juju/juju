@@ -16,10 +16,44 @@ func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Application", 15, func(ctx facade.Context) (facade.Facade, error) {
 		return newFacadeV15(ctx)
 	}, reflect.TypeOf((*APIv15)(nil)))
+	registry.MustRegister("Application", 16, func(ctx facade.Context) (facade.Facade, error) {
+		return newFacadeV16(ctx) // DestroyApplication & DestroyUnit gains dry-run
+	}, reflect.TypeOf((*APIv16)(nil)))
+	registry.MustRegister("Application", 17, func(ctx facade.Context) (facade.Facade, error) {
+		return newFacadeV17(ctx) // Drop deprecated DestroyUnits & Destroy facades
+	}, reflect.TypeOf((*APIv17)(nil)))
+	registry.MustRegister("Application", 18, func(ctx facade.Context) (facade.Facade, error) {
+		return newFacadeV18(ctx) // Added new DeployFromRepository
+	}, reflect.TypeOf((*APIv18)(nil)))
+
+}
+
+func newFacadeV18(ctx facade.Context) (*APIv18, error) {
+	api, err := newFacadeBase(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIv18{api}, nil
+}
+
+func newFacadeV17(ctx facade.Context) (*APIv17, error) {
+	api, err := newFacadeV18(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIv17{api}, nil
+}
+
+func newFacadeV16(ctx facade.Context) (*APIv16, error) {
+	api, err := newFacadeV17(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIv16{api}, nil
 }
 
 func newFacadeV15(ctx facade.Context) (*APIv15, error) {
-	api, err := newFacadeBase(ctx)
+	api, err := newFacadeV16(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -348,11 +348,11 @@ func (t *localServerSuite) prepareWithParamsAndBootstrapWithVPCID(c *gc.C, param
 
 	err := bootstrap.Bootstrap(t.BootstrapContext, env,
 		t.callCtx, bootstrap.BootstrapParams{
-			ControllerConfig:         coretesting.FakeControllerConfig(),
-			AdminSecret:              testing.AdminSecret,
-			CAPrivateKey:             coretesting.CAKey,
-			Placement:                "zone=test-available",
-			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+			ControllerConfig:        coretesting.FakeControllerConfig(),
+			AdminSecret:             testing.AdminSecret,
+			CAPrivateKey:            coretesting.CAKey,
+			Placement:               "zone=test-available",
+			SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -376,11 +376,11 @@ func (t *localServerSuite) TestSystemdBootstrapInstanceUserDataAndState(c *gc.C)
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(t.BootstrapContext, env,
 		t.callCtx, bootstrap.BootstrapParams{
-			ControllerConfig:         coretesting.FakeControllerConfig(),
-			BootstrapSeries:          coreseries.LatestLTS(),
-			AdminSecret:              testing.AdminSecret,
-			CAPrivateKey:             coretesting.CAKey,
-			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+			ControllerConfig:        coretesting.FakeControllerConfig(),
+			BootstrapBase:           coreseries.LatestLTSBase(),
+			AdminSecret:             testing.AdminSecret,
+			CAPrivateKey:            coretesting.CAKey,
+			SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -450,10 +450,10 @@ func (t *localServerSuite) TestTerminateInstancesIgnoresNotFound(c *gc.C) {
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(t.BootstrapContext, env,
 		t.callCtx, bootstrap.BootstrapParams{
-			ControllerConfig:         coretesting.FakeControllerConfig(),
-			AdminSecret:              testing.AdminSecret,
-			CAPrivateKey:             coretesting.CAKey,
-			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+			ControllerConfig:        coretesting.FakeControllerConfig(),
+			AdminSecret:             testing.AdminSecret,
+			CAPrivateKey:            coretesting.CAKey,
+			SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -529,10 +529,10 @@ func (t *localServerSuite) TestGetTerminatedInstances(c *gc.C) {
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(t.BootstrapContext, env,
 		t.callCtx, bootstrap.BootstrapParams{
-			ControllerConfig:         coretesting.FakeControllerConfig(),
-			AdminSecret:              testing.AdminSecret,
-			CAPrivateKey:             coretesting.CAKey,
-			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+			ControllerConfig:        coretesting.FakeControllerConfig(),
+			AdminSecret:             testing.AdminSecret,
+			CAPrivateKey:            coretesting.CAKey,
+			SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -697,16 +697,34 @@ func (t *localServerSuite) TestInstanceStatus(c *gc.C) {
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(t.BootstrapContext, env,
 		t.callCtx, bootstrap.BootstrapParams{
-			ControllerConfig:         coretesting.FakeControllerConfig(),
-			AdminSecret:              testing.AdminSecret,
-			CAPrivateKey:             coretesting.CAKey,
-			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+			ControllerConfig:        coretesting.FakeControllerConfig(),
+			AdminSecret:             testing.AdminSecret,
+			CAPrivateKey:            coretesting.CAKey,
+			SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	t.srv.ec2srv.SetInitialInstanceState(ec2test.Terminated)
 	inst, _ := testing.AssertStartInstance(c, env, t.callCtx, t.ControllerUUID, "1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(inst.Status(t.callCtx).Message, gc.Equals, "terminated")
+}
+
+func (t *localServerSuite) TestInstancesCreatedWithIMDSv2(c *gc.C) {
+	t.srv.ec2srv.SetInitialInstanceState(ec2test.Running)
+	t.prepareAndBootstrap(c)
+
+	output, err := t.srv.ec2srv.DescribeInstances(
+		stdcontext.Background(), &awsec2.DescribeInstancesInput{
+			Filters: []types.Filter{makeFilter("tag:"+tags.JujuController, t.ControllerUUID)},
+		})
+	c.Assert(err, jc.ErrorIsNil)
+
+	for _, res := range output.Reservations {
+		for _, inst := range res.Instances {
+			c.Assert(inst.MetadataOptions, gc.NotNil)
+			c.Assert(inst.MetadataOptions.HttpEndpoint, gc.Equals, types.InstanceMetadataEndpointStateEnabled)
+		}
+	}
 }
 
 func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
@@ -1171,12 +1189,12 @@ func (t *localServerSuite) prepareAndBootstrapWithConfig(c *gc.C, config coretes
 
 	err := bootstrap.Bootstrap(t.BootstrapContext, env,
 		t.callCtx, bootstrap.BootstrapParams{
-			BootstrapConstraints:     constraints,
-			ControllerConfig:         controllerConfig,
-			AdminSecret:              testing.AdminSecret,
-			CAPrivateKey:             coretesting.CAKey,
-			Placement:                "zone=test-available",
-			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+			BootstrapConstraints:    constraints,
+			ControllerConfig:        controllerConfig,
+			AdminSecret:             testing.AdminSecret,
+			CAPrivateKey:            coretesting.CAKey,
+			Placement:               "zone=test-available",
+			SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	return env
@@ -1598,10 +1616,10 @@ func (t *localServerSuite) setUpInstanceWithDefaultVpc(c *gc.C) (environs.Networ
 	env := t.prepareEnviron(c)
 	err := bootstrap.Bootstrap(t.BootstrapContext, env,
 		t.callCtx, bootstrap.BootstrapParams{
-			ControllerConfig:         coretesting.FakeControllerConfig(),
-			AdminSecret:              testing.AdminSecret,
-			CAPrivateKey:             coretesting.CAKey,
-			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+			ControllerConfig:        coretesting.FakeControllerConfig(),
+			AdminSecret:             testing.AdminSecret,
+			CAPrivateKey:            coretesting.CAKey,
+			SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 

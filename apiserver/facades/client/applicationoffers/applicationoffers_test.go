@@ -9,7 +9,7 @@ import (
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -295,7 +295,7 @@ func (s *applicationOffersSuite) assertList(c *gc.C, expectedErr error, expected
 				},
 			},
 			ApplicationName: "test",
-			CharmURL:        "cs:db2-2",
+			CharmURL:        "ch:db2-2",
 			Connections: []params.OfferConnection{{
 				SourceModelTag: testing.ModelTag.String(),
 				RelationId:     1,
@@ -450,7 +450,7 @@ func (s *applicationOffersSuite) TestShow(c *gc.C) {
 				},
 			},
 			ApplicationName: "test",
-			CharmURL:        "cs:db2-2",
+			CharmURL:        "ch:db2-2",
 			Connections: []params.OfferConnection{{
 				SourceModelTag: "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
 				RelationId:     1, Username: "fred@external", Endpoint: "db",
@@ -767,7 +767,7 @@ func (s *applicationOffersSuite) TestFind(c *gc.C) {
 					{UserName: "admin", DisplayName: "", Access: "admin"},
 				}},
 			ApplicationName: "test",
-			CharmURL:        "cs:db2-2",
+			CharmURL:        "ch:db2-2",
 			Connections: []params.OfferConnection{{
 				SourceModelTag: "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
 				RelationId:     1, Username: "fred@external", Endpoint: "db",
@@ -894,7 +894,7 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 		"db2": &mockApplication{
 			name:  "db2",
 			charm: ch,
-			curl:  "cs:db2-2",
+			curl:  "ch:db2-2",
 			bindings: map[string]string{
 				"db2": "myspace",
 			},
@@ -942,14 +942,14 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 		"mysql": &mockApplication{
 			name:  "mysql",
 			charm: ch,
-			curl:  "cs:mysql-2",
+			curl:  "ch:mysql-2",
 			bindings: map[string]string{
 				"mysql": "anotherspace",
 			},
 		},
 		"postgresql": &mockApplication{
 			charm: ch,
-			curl:  "cs:postgresql-2",
+			curl:  "ch:postgresql-2",
 			bindings: map[string]string{
 				"postgresql": "anotherspace",
 			},
@@ -1076,7 +1076,7 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 						{UserName: "someone", DisplayName: "someone", Access: "admin"},
 					},
 				},
-				CharmURL: "cs:postgresql-2",
+				CharmURL: "ch:postgresql-2",
 			},
 		},
 	})

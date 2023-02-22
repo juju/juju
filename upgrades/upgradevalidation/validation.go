@@ -8,6 +8,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/juju/charm/v10"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/replicaset/v3"
@@ -156,7 +158,7 @@ var windowsSeries = []string{
 	"win2016", "win2016hv", "win2019", "win7", "win8", "win81", "win10",
 }
 
-func checkNoWinMachinesForModel(modelUUID string, pool StatePool, st State, model Model) (*Blocker, error) {
+func checkNoWinMachinesForModel(_ string, _ StatePool, st State, _ Model) (*Blocker, error) {
 	windowsBases := make([]state.Base, len(windowsSeries))
 	for i, s := range windowsSeries {
 		windowsBases[i] = state.Base{OS: "windows", Channel: s}
@@ -188,7 +190,7 @@ func stringifyMachineCounts(result map[string]int) string {
 }
 
 func checkForDeprecatedUbuntuSeriesForModel(
-	modelUUID string, pool StatePool, st State, model Model,
+	_ string, _ StatePool, st State, _ Model,
 ) (*Blocker, error) {
 	supported := false
 	var deprecatedBases []state.Base
@@ -212,6 +214,58 @@ func checkForDeprecatedUbuntuSeriesForModel(
 		), nil
 	}
 	return nil, nil
+}
+
+func checkForCharmStoreCharms(_ string, _ StatePool, st State, _ Model) (*Blocker, error) {
+	curls, err := st.AllCharmURLs()
+	if errors.Is(err, errors.NotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	result := set.NewStrings()
+	for _, curlStr := range curls {
+		if curlStr == nil {
+			return nil, errors.New("malformed charm in database with no URL")
+		}
+		curl, err := charm.ParseURL(*curlStr)
+		if err != nil {
+			logger.Errorf("error from ParseURL: %s", err)
+			return nil, errors.New(fmt.Sprintf("malformed charm url in database: %q", *curlStr))
+		}
+		// TODO 6-dec-2022
+		// Update check once charm's ValidateSchema rejects charm store charms.
+		if !charm.CharmHub.Matches(curl.Schema) && !charm.Local.Matches(curl.Schema) {
+			c := curl.WithSeries("").WithArchitecture("")
+			result.Add(c.String())
+		}
+	}
+	if !result.IsEmpty() {
+		return NewBlocker("the model hosts deprecated charm store charms(s): %s",
+			strings.Join(result.SortedValues(), ", "),
+		), nil
+	}
+	return nil, nil
+}
+
+func getCheckTargetVersionForControllerModel(
+	targetVersion version.Number,
+) Validator {
+	return func(modelUUID string, pool StatePool, st State, model Model) (*Blocker, error) {
+		agentVersion, err := model.AgentVersion()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if targetVersion.Major == agentVersion.Major &&
+			targetVersion.Minor == agentVersion.Minor {
+			return nil, nil
+		}
+
+		return NewBlocker(
+			"upgrading a controller to a newer major.minor version %d.%d not supported", targetVersion.Major, targetVersion.Minor,
+		), nil
+	}
 }
 
 func getCheckTargetVersionForModel(
@@ -270,7 +324,7 @@ func checkMongoStatusForControllerUpgrade(modelUUID string, pool StatePool, st S
 	return nil, nil
 }
 
-func checkMongoVersionForControllerModel(modelUUID string, pool StatePool, st State, model Model) (*Blocker, error) {
+func checkMongoVersionForControllerModel(_ string, pool StatePool, _ State, _ Model) (*Blocker, error) {
 	v, err := pool.MongoVersion()
 	if err != nil {
 		return nil, errors.Trace(err)

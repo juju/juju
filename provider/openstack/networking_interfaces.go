@@ -19,14 +19,10 @@ type Networking interface {
 	// to the specified instance.
 	AllocatePublicIP(instance.Id) (*string, error)
 
-	// DefaultNetworks returns the set of networks that should be
-	// added by default to all new instances.
-	DefaultNetworks() ([]nova.ServerNetworks, error)
-
-	// ResolveNetwork takes either a network ID or label
+	// ResolveNetworks takes either a network ID or label
 	// with a string to specify whether the network is external
-	// and returns the corresponding network ID.
-	ResolveNetwork(string, bool) (string, error)
+	// and returns the corresponding matching networks.
+	ResolveNetworks(string, bool) ([]neutron.NetworkV2, error)
 
 	// Subnets returns basic information about subnets known
 	// by OpenStack for the environment.
@@ -77,7 +73,7 @@ type NetworkingNeutron interface {
 // NetworkingEnvironConfig describes the environConfig methods needed for
 // Networking.
 type NetworkingEnvironConfig interface {
-	network() string
+	networks() []string
 	externalNetwork() string
 }
 

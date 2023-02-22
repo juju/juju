@@ -5,6 +5,7 @@ package openstack
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/schema"
 	"github.com/juju/utils/v3"
@@ -69,8 +70,13 @@ func (c *environConfig) useDefaultSecurityGroup() bool {
 	return c.attrs[UseDefaultSecgroupKey].(bool)
 }
 
-func (c *environConfig) network() string {
-	return c.attrs[NetworkKey].(string)
+func (c *environConfig) networks() []string {
+	raw := strings.Split(c.attrs[NetworkKey].(string), ",")
+	res := make([]string, len(raw))
+	for i, net := range raw {
+		res[i] = strings.TrimSpace(net)
+	}
+	return res
 }
 
 func (c *environConfig) externalNetwork() string {

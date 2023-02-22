@@ -27,6 +27,7 @@ import (
 	"github.com/go-goose/goose/v5/nova"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/http/v2"
 	"github.com/juju/jsonschema"
@@ -45,7 +46,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
-	coreseries "github.com/juju/juju/core/series"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -221,7 +222,7 @@ func (p EnvironProvider) getEnvironNetworkingFirewaller(e *Environ) (Networking,
 // DetectRegions implements environs.CloudRegionDetector.
 func (EnvironProvider) DetectRegions() ([]cloud.Region, error) {
 	// If OS_REGION_NAME and OS_AUTH_URL are both set,
-	// return return a region using them.
+	// return a region using them.
 	creds, err := identity.CredentialsFromEnv()
 	if err != nil {
 		return nil, errors.Errorf("failed to retrieve credential from env : %v", err)
@@ -1143,8 +1144,7 @@ func (e *Environ) startInstance(
 			if err != nil {
 				return nil, environs.ZoneIndependentError(err)
 			}
-			if net.PortSecurityEnabled != nil &&
-				*net.PortSecurityEnabled == false {
+			if net.PortSecurityEnabled != nil && !*net.PortSecurityEnabled {
 				createSecurityGroups = *net.PortSecurityEnabled
 				logger.Infof("network %q has port_security_enabled set to false. Not using security groups.", net.Id)
 				break
@@ -1176,7 +1176,6 @@ func (e *Environ) startInstance(
 		id string,
 		timeout time.Duration,
 	) (server *nova.ServerDetail, err error) {
-
 		var errStillBuilding = errors.Errorf("instance %q has status BUILD", id)
 		err = retry.Call(retry.CallArgs{
 			Clock:       e.clock,
@@ -1272,6 +1271,13 @@ func (e *Environ) startInstance(
 
 	server, err := tryStartNovaInstance(shortAttempt, e.nova(), opts)
 	if err != nil || server == nil {
+		// Attempt to clean up any security groups we created.
+		if err := e.cleanupGroups(ctx, e.nova(), novaGroupNames); err != nil {
+			// If we failed to clean up the security groups, we need the user
+			// to manually clean them up.
+			logger.Errorf("cannot cleanup security groups: %v", err)
+		}
+
 		logger.Debugf("cannot run instance full error: %q", err)
 		err = errors.Annotate(errors.Cause(err), "cannot run instance")
 		// Improve the error message if there is no valid network.
@@ -1344,6 +1350,19 @@ func (e *Environ) startInstance(
 	}, nil
 }
 
+// Clean up any groups that we have created if we fail to start the instance.
+func (e *Environ) cleanupGroups(
+	ctx context.ProviderCallContext,
+	client *nova.Client,
+	groups []nova.SecurityGroupName,
+) error {
+	names := make([]string, len(groups))
+	for i, group := range groups {
+		names[i] = group.Name
+	}
+	return e.firewaller.DeleteGroups(ctx, names...)
+}
+
 func (e *Environ) userFriendlyInvalidNetworkError(err error) error {
 	msg := fmt.Sprintf("%s\n\t%s\n\t%s", err.Error(),
 		"This error was caused by juju attempting to create an OpenStack instance with no network defined.",
@@ -1395,67 +1414,44 @@ func (e *Environ) networksForInstance(
 		return nil, errors.Trace(err)
 	}
 
+	// If there are no constraints or bindings to accommodate,
+	// the instance will have a NIC for each configured internal network.
+	// Note that uif there is no configured network, this means a NIC in
+	// all *available* networks.
 	if len(args.SubnetsToZones) == 0 {
-		return networks, nil
+		toServerNet := func(n neutron.NetworkV2) nova.ServerNetworks { return nova.ServerNetworks{NetworkId: n.Id} }
+		return transform.Slice(networks, toServerNet), nil
 	}
+
 	if len(networks) == 0 {
 		return nil, errors.New(
-			"space constraints and/or bindings were supplied, but no Openstack network is configured")
+			"space constraints and/or bindings were supplied, but no OpenStack networks can be determined")
 	}
 
-	// We know that we are operating in the single configured network.
-	networkID := networks[0].NetworkId
-
-	// Attempt to filter the subnet IDs for the configured availability zone.
-	// If there is no configured zone, consider all subnet IDs.
-	az := args.AvailabilityZone
-	subnetIDsForZone := make([][]network.Id, len(args.SubnetsToZones))
-	for i, nic := range args.SubnetsToZones {
-		var subnetIDs []network.Id
-		if az != "" {
-			var err error
-			if subnetIDs, err = network.FindSubnetIDsForAvailabilityZone(az, nic); err != nil {
-				return nil, errors.Annotatef(err, "getting subnets in zone %q", az)
-			}
-			if len(subnetIDs) == 0 {
-				return nil, errors.Errorf("availability zone %q has no subnets satisfying space constraints", az)
-			}
-		} else {
-			for subnetID := range nic {
-				subnetIDs = append(subnetIDs, subnetID)
-			}
-		}
-
-		// Filter out any fan networks.
-		subnetIDsForZone[i] = network.FilterInFanNetwork(subnetIDs)
-	}
-
-	// For each list of subnet IDs that satisfy space and zone constraints,
-	// choose a single one at random.
-	subnetIDForZone := make([]network.Id, len(subnetIDsForZone))
-	for i, subnetIDs := range subnetIDsForZone {
-		if len(subnetIDs) == 1 {
-			subnetIDForZone[i] = subnetIDs[0]
-			continue
-		}
-
-		subnetIDForZone[i] = subnetIDs[rand.Intn(len(subnetIDs))]
+	subnetIDForZone, err := subnetInZone(args.AvailabilityZone, args.SubnetsToZones)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	// Set the subnetID on the network for all networks.
 	// For each of the subnetIDs selected, create a port for each one.
 	subnetNetworks := make([]nova.ServerNetworks, 0, len(subnetIDForZone))
-	netInfo := make(network.InterfaceInfos, len(subnetIDsForZone))
+	netInfo := make(network.InterfaceInfos, len(subnetIDForZone))
 	for i, subnetID := range subnetIDForZone {
+		subnetNet, err := networkForSubnet(networks, subnetID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
 		var port *neutron.PortV2
-		port, err = e.networking.CreatePort(e.uuid, networkID, subnetID)
+		port, err = e.networking.CreatePort(e.uuid, subnetNet.Id, subnetID)
 		if err != nil {
 			break
 		}
 
 		logger.Infof("created new port %q connected to Openstack subnet %q", port.Id, subnetID)
 		subnetNetworks = append(subnetNetworks, nova.ServerNetworks{
-			NetworkId: networkID,
+			NetworkId: subnetNet.Id,
 			PortId:    port.Id,
 		})
 
@@ -1488,6 +1484,63 @@ func (e *Environ) networksForInstance(
 	return subnetNetworks, nil
 }
 
+// subnetInZone chooses a subnet at random for each entry in the input slice of
+// subnet:zones that is in the input availability zone.
+func subnetInZone(az string, subnetsToZones []map[network.Id][]string) ([]network.Id, error) {
+	// Attempt to filter the constraint/binding subnet IDs for the supplied
+	// availability zone.
+	// The zone is supplied by the provisioner based on its attempt to maintain
+	// distribution of units across zones.
+	// The zones recorded against O7k subnets in Juju are affected by the
+	// `availability_zone_hints` attribute on the network where they reside,
+	// and the default AZ configuration for the project.
+	// They are a read-only attribute.
+	// If a subnet in the subnets-to-zones map has no zones, we assume a basic
+	// O7k set-up where networks are not zone-limited. We log a warning and
+	// consider all the supplied subnets.
+	// See:
+	// - https://docs.openstack.org/neutron/latest/admin/config-az.html#availability-zone-related-attributes
+	// - https://docs.openstack.org/neutron/latest/admin/ovn/availability_zones.html#network-availability-zones
+	subnetIDsForZone := make([][]network.Id, len(subnetsToZones))
+	for i, nic := range subnetsToZones {
+		subnetIDs, err := network.FindSubnetIDsForAvailabilityZone(az, nic)
+		if err != nil {
+			// We found no subnets in the zone.
+			// Add subnets without zone-limited networks.
+			for subnetID, zones := range nic {
+				if len(zones) == 0 {
+					logger.Warningf(
+						"subnet %q is not in a network with availability zones listed; assuming availability in zone %q",
+						subnetID, az)
+					subnetIDs = append(subnetIDs, subnetID)
+				}
+			}
+
+			if len(subnetIDs) == 0 {
+				// If we still have no candidate subnets, then they are all in
+				// networks with availability zones, and none of those zones
+				// match the input one. Return the error we have in hand.
+				return nil, errors.Annotatef(err, "determining subnets in zone %q", az)
+			}
+		}
+
+		subnetIDsForZone[i] = network.FilterInFanNetwork(subnetIDs)
+	}
+
+	// For each list of subnet IDs that satisfy space and zone constraints,
+	// choose a single one at random.
+	subnetIDForZone := make([]network.Id, len(subnetIDsForZone))
+	for i, subnetIDs := range subnetIDsForZone {
+		if len(subnetIDs) == 1 {
+			subnetIDForZone[i] = subnetIDs[0]
+			continue
+		}
+		subnetIDForZone[i] = subnetIDs[rand.Intn(len(subnetIDs))]
+	}
+
+	return subnetIDForZone, nil
+}
+
 // DeletePorts goes through and attempts to delete any ports that have been
 // created during the creation of the networks for the given instance.
 func (e *Environ) DeletePorts(networks []nova.ServerNetworks) error {
@@ -1511,37 +1564,41 @@ func (e *Environ) DeletePorts(networks []nova.ServerNetworks) error {
 	return nil
 }
 
-// networksForModel returns the Openstack network list based on current model
-// configuration.
-// Note that the current implementation of DefaultNetworks means that this will
-// always return a single network, or none.
-func (e *Environ) networksForModel() ([]nova.ServerNetworks, error) {
-	networks, err := e.networking.DefaultNetworks()
-	if err != nil {
-		return nil, errors.Annotate(err, "getting initial networks")
+// networksForModel returns the Openstack network list
+// based on current model configuration.
+func (e *Environ) networksForModel() ([]neutron.NetworkV2, error) {
+	var resolvedNetworks []neutron.NetworkV2
+	networkIDs := set.NewStrings()
+	cfgNets := e.ecfg().networks()
+
+	for _, cfgNet := range cfgNets {
+		networks, err := e.networking.ResolveNetworks(cfgNet, false)
+		if err != nil {
+			logger.Warningf("filtering networks for %q", cfgNet)
+		}
+
+		for _, net := range networks {
+			if networkIDs.Contains(net.Id) {
+				continue
+			}
+
+			resolvedNetworks = append(resolvedNetworks, net)
+			networkIDs.Add(net.Id)
+		}
 	}
 
-	usingNetwork := e.ecfg().network()
-	networkID, err := e.networking.ResolveNetwork(usingNetwork, false)
-	if err != nil {
-		if usingNetwork == "" {
-			// If there is no network configured, we only throw out when the
-			// error reports multiple Openstack networks.
-			// If there are no Openstack networks at all (such as Canonistack),
-			// having no network config is not an error condition.
-			if strings.HasPrefix(err.Error(), "multiple networks") {
-				return nil, errors.New(noNetConfigMsg(err))
-			}
+	if networkIDs.Size() == 0 {
+		if len(cfgNets) == 1 && cfgNets[0] == "" {
 			return nil, nil
 		}
-		return nil, errors.Trace(err)
+		return nil, errors.Errorf("unable to determine networks for configured list: %v", cfgNets)
 	}
 
-	logger.Debugf("using network id %q", networkID)
-	return append(networks, nova.ServerNetworks{NetworkId: networkID}), nil
+	logger.Debugf("using network IDs %v", networkIDs.Values())
+	return resolvedNetworks, nil
 }
 
-func (e *Environ) configureRootDisk(ctx context.ProviderCallContext, args environs.StartInstanceParams,
+func (e *Environ) configureRootDisk(_ context.ProviderCallContext, args environs.StartInstanceParams,
 	spec *instances.InstanceSpec, runOpts *nova.RunServerOpts) error {
 	rootDiskSource := rootDiskSourceLocal
 	if args.Constraints.HasRootDiskSource() {
@@ -1665,25 +1722,10 @@ func isInvalidNetworkError(err error) bool {
 }
 
 func (e *Environ) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
-	// If in instance firewall mode, gather the security group names.
-	securityGroupNames, err := e.firewaller.GetSecurityGroups(ctx, ids...)
-	if err == environs.ErrNoInstances {
-		return nil
-	}
-	if err != nil {
-		handleCredentialError(err, ctx)
-		return err
-	}
 	logger.Debugf("terminating instances %v", ids)
 	if err := e.terminateInstances(ctx, ids); err != nil {
 		handleCredentialError(err, ctx)
 		return err
-	}
-	if securityGroupNames != nil {
-		if err := e.firewaller.DeleteGroups(ctx, securityGroupNames...); err != nil {
-			handleCredentialError(err, ctx)
-			return err
-		}
 	}
 	return nil
 }
@@ -2108,8 +2150,25 @@ func (e *Environ) terminateInstances(ctx context.ProviderCallContext, ids []inst
 	if len(ids) == 0 {
 		return nil
 	}
-	var firstErr error
+
 	novaClient := e.nova()
+
+	// If in instance firewall mode, gather the security group names.
+	securityGroupNames, err := e.firewaller.GetSecurityGroups(ctx, ids...)
+	if err == environs.ErrNoInstances {
+		return nil
+	}
+	if err != nil {
+		logger.Debugf("error retrieving security groups for %v: %v", ids, err)
+		if denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
+			// We'll likely fail all subsequent calls if we have an invalid credential.
+			return errors.Trace(err)
+		}
+	}
+
+	// Record the first error we encounter, as that's the one we're currently
+	// reporting to the user.
+	var firstErr error
 	for _, id := range ids {
 		// Attempt to destroy the ports that could have been created when using
 		// spaces.
@@ -2120,19 +2179,29 @@ func (e *Environ) terminateInstances(ctx context.ProviderCallContext, ids []inst
 		}
 
 		// Once ports have been deleted, attempt to delete the server.
-		err := novaClient.DeleteServer(string(id))
+		err = novaClient.DeleteServer(string(id))
 		if IsNotFoundError(err) {
-			err = nil
+			continue
 		}
-		if err != nil && firstErr == nil {
+		if err != nil {
 			logger.Debugf("error terminating instance %q: %v", id, err)
-			firstErr = err
+			if firstErr == nil {
+				firstErr = err
+			}
 			if denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
-				// We'll 100% fail all subsequent calls if we have an invalid credential.
-				break
+				// We'll likely fail all subsequent calls if we have an invalid credential.
+				return errors.Trace(err)
 			}
 		}
 	}
+
+	if len(securityGroupNames) > 0 {
+		logger.Tracef("deleting security groups %v", securityGroupNames)
+		if err := e.firewaller.DeleteGroups(ctx, securityGroupNames...); err != nil {
+			return err
+		}
+	}
+
 	return firstErr
 }
 
@@ -2192,14 +2261,19 @@ func (e *Environ) terminateInstanceNetworkPorts(id instance.Id) error {
 
 // AgentMetadataLookupParams returns parameters which are used to query agent simple-streams metadata.
 func (e *Environ) AgentMetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
-	series := config.PreferredSeries(e.ecfg())
-	hostOSType := coreseries.DefaultOSTypeNameFromSeries(series)
-	return e.metadataLookupParams(region, hostOSType)
+	base := config.PreferredBase(e.ecfg())
+	return e.metadataLookupParams(region, base.OS)
 }
 
 // ImageMetadataLookupParams returns parameters which are used to query image simple-streams metadata.
 func (e *Environ) ImageMetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
-	release, err := imagemetadata.ImageRelease(config.PreferredSeries(e.ecfg()))
+	base := config.PreferredBase(e.ecfg())
+	baseSeries, err := series.GetSeriesFromBase(base)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	release, err := imagemetadata.ImageRelease(baseSeries)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

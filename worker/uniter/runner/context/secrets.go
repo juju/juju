@@ -4,6 +4,7 @@
 package context
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/api/agent/uniter"
@@ -33,14 +34,20 @@ func (s *secretsChangeRecorder) haveContentUpdates() bool {
 		len(s.pendingDeletes) > 0
 }
 
-func (s *secretsChangeRecorder) create(arg uniter.SecretCreateArg) {
+func (s *secretsChangeRecorder) create(arg uniter.SecretCreateArg) error {
 	for i, d := range s.pendingDeletes {
 		if d.URI.ID == arg.URI.ID {
 			s.pendingDeletes = append(s.pendingDeletes[:i], s.pendingDeletes[i+1:]...)
 			break
 		}
 	}
+	for _, c := range s.pendingCreates {
+		if c.Label != nil && arg.Label != nil && *c.Label == *arg.Label {
+			return errors.AlreadyExistsf("secret with label %q", *arg.Label)
+		}
+	}
 	s.pendingCreates = append(s.pendingCreates, arg)
+	return nil
 }
 
 func (s *secretsChangeRecorder) update(arg uniter.SecretUpdateArg) {

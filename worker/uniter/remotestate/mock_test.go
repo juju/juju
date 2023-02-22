@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -297,7 +297,7 @@ func (u *mockUnit) WatchInstanceData() (watcher.NotifyWatcher, error) {
 }
 
 func (u *mockUnit) UpgradeSeriesStatus() (model.UpgradeSeriesStatus, string, error) {
-	return model.UpgradeSeriesPrepareStarted, "focal", nil
+	return model.UpgradeSeriesPrepareStarted, "ubuntu@20.04", nil
 }
 
 func (u *mockUnit) SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus) error {

@@ -6,7 +6,7 @@ package application_test
 import (
 	"fmt"
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
@@ -31,7 +31,7 @@ import (
 type getSuite struct {
 	jujutesting.JujuConnSuite
 
-	applicationAPI *application.APIv15
+	applicationAPI *application.APIBase
 	authorizer     apiservertesting.FakeAuthorizer
 }
 
@@ -64,7 +64,7 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 		nil, // CAAS Broker not used in this suite.
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.applicationAPI = &application.APIv15{api}
+	s.applicationAPI = api
 }
 
 func (s *getSuite) TestClientApplicationGetIAASModelSmokeTest(c *gc.C) {

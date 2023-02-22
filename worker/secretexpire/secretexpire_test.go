@@ -154,7 +154,7 @@ func (s *workerSuite) TestExpires(c *gc.C) {
 		NextTriggerTime: next,
 	}}
 	s.advanceClock(c, time.Hour)
-	s.expectExpired(c, uri.String()+"/666")
+	s.expectExpired(c, uri.ID+"/666")
 }
 
 func (s *workerSuite) TestRetrigger(c *gc.C) {
@@ -176,14 +176,14 @@ func (s *workerSuite) TestRetrigger(c *gc.C) {
 		NextTriggerTime: next,
 	}}
 	s.advanceClock(c, time.Hour)
-	s.expectExpired(c, uri.String()+"/666")
+	s.expectExpired(c, uri.ID+"/666")
 
 	// Secret not removed, will retrigger in 5 minutes.
 	s.advanceClock(c, 2*time.Minute)
 	s.expectNoExpiry(c)
 
 	s.advanceClock(c, 3*time.Minute)
-	s.expectExpired(c, uri.String()+"/666")
+	s.expectExpired(c, uri.ID+"/666")
 
 	// Remove secret, will not retrigger.
 	s.expiryConfigChanges <- []corewatcher.SecretTriggerChange{{
@@ -220,7 +220,7 @@ func (s *workerSuite) TestSecretUpdateBeforeExpires(c *gc.C) {
 		NextTriggerTime: now.Add(time.Hour),
 	}}
 	s.advanceClock(c, 2*time.Hour)
-	s.expectExpired(c, uri.String()+"/666")
+	s.expectExpired(c, uri.ID+"/666")
 }
 
 func (s *workerSuite) TestSecretUpdateBeforeExpiresNotTriggered(c *gc.C) {
@@ -253,7 +253,7 @@ func (s *workerSuite) TestSecretUpdateBeforeExpiresNotTriggered(c *gc.C) {
 
 	// Final sanity check.
 	s.advanceClock(c, time.Hour)
-	s.expectExpired(c, uri.String()+"/666")
+	s.expectExpired(c, uri.ID+"/666")
 }
 
 func (s *workerSuite) TestNewSecretTriggersBefore(c *gc.C) {
@@ -285,10 +285,10 @@ func (s *workerSuite) TestNewSecretTriggersBefore(c *gc.C) {
 	}}
 	time.Sleep(testing.ShortWait) // ensure advanceClock happens after timer is updated
 	s.advanceClock(c, 15*time.Minute)
-	s.expectExpired(c, uri2.String()+"/667")
+	s.expectExpired(c, uri2.ID+"/667")
 
 	s.advanceClock(c, 30*time.Minute)
-	s.expectExpired(c, uri.String()+"/666", uri2.String()+"/667")
+	s.expectExpired(c, uri.ID+"/666", uri2.ID+"/667")
 }
 
 func (s *workerSuite) TestManySecretsTrigger(c *gc.C) {
@@ -319,7 +319,7 @@ func (s *workerSuite) TestManySecretsTrigger(c *gc.C) {
 	}}
 
 	s.advanceClock(c, 90*time.Minute)
-	s.expectExpired(c, uri.String()+"/666", uri2.String()+"/667")
+	s.expectExpired(c, uri.ID+"/666", uri2.ID+"/667")
 }
 
 func (s *workerSuite) TestDeleteSecretExpiry(c *gc.C) {
@@ -388,7 +388,7 @@ func (s *workerSuite) TestManySecretsDeleteOne(c *gc.C) {
 	s.expectNoExpiry(c)
 
 	s.advanceClock(c, 30*time.Minute)
-	s.expectExpired(c, uri.String()+"/666")
+	s.expectExpired(c, uri.ID+"/666")
 }
 
 func (s *workerSuite) TestExpiryGranularity(c *gc.C) {
@@ -418,5 +418,5 @@ func (s *workerSuite) TestExpiryGranularity(c *gc.C) {
 	}}
 	// First secret won't expire before the one minute granularity.
 	s.advanceClock(c, 46*time.Second)
-	s.expectExpired(c, uri.String()+"/666", uri2.String()+"/667")
+	s.expectExpired(c, uri.ID+"/666", uri2.ID+"/667")
 }

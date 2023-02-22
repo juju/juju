@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -845,7 +845,7 @@ func fetchAllApplicationsAndUnits(st Backend, model *state.Model, spaceInfos net
 			// Record the base URL for the application's charm so that
 			// the latest store revision can be looked up.
 			switch {
-			case charm.CharmHub.Matches(charmURL.Schema), charm.CharmStore.Matches(charmURL.Schema):
+			case charm.CharmHub.Matches(charmURL.Schema):
 				latestCharms[*charmURL.WithRevision(-1)] = nil
 			default:
 				// Don't look up revision for local charms
@@ -1265,8 +1265,6 @@ func (context *statusContext) processApplication(application *state.Application)
 			Risk:   charm.Risk(stChannel.Risk),
 			Branch: stChannel.Branch,
 		}).Normalize().String()
-	} else {
-		channel = string(application.Channel())
 	}
 
 	origin := application.CharmOrigin()
@@ -1340,7 +1338,8 @@ func (context *statusContext) processApplication(application *state.Application)
 		processedStatus.WorkloadVersion = versions[0].Message
 	}
 
-	if processedStatus.WorkloadVersion == "" && context.model.Type() == state.ModelTypeCAAS {
+	modelType := context.model.Type()
+	if processedStatus.WorkloadVersion == "" && modelType == state.ModelTypeCAAS {
 		// We'll punt on using the docker image name.
 		caasModel, err := context.model.CAASModel()
 		if err != nil {
@@ -1364,16 +1363,18 @@ func (context *statusContext) processApplication(application *state.Application)
 			}
 		}
 	}
-	serviceInfo, err := application.ServiceInfo()
-	if err == nil {
-		processedStatus.ProviderId = serviceInfo.ProviderId()
-		if len(serviceInfo.Addresses()) > 0 {
-			processedStatus.PublicAddress = serviceInfo.Addresses()[0].Value
+	if modelType == state.ModelTypeCAAS {
+		serviceInfo, err := application.ServiceInfo()
+		if err == nil {
+			processedStatus.ProviderId = serviceInfo.ProviderId()
+			if len(serviceInfo.Addresses()) > 0 {
+				processedStatus.PublicAddress = serviceInfo.Addresses()[0].Value
+			}
+		} else {
+			logger.Debugf("no service details for %v: %v", application.Name(), err)
 		}
-	} else {
-		logger.Debugf("no service details for %v: %v", application.Name(), err)
+		processedStatus.Scale = application.GetScale()
 	}
-	processedStatus.Scale = application.GetScale()
 	processedStatus.EndpointBindings = context.allAppsUnitsCharmBindings.endpointBindings[application.Name()]
 	return processedStatus
 }

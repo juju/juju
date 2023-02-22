@@ -1,20 +1,16 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package provisioner_test
+package provisioner
 
 import (
 	"errors"
-	"fmt"
 	"sync"
-	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
-	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
@@ -26,16 +22,11 @@ import (
 	"github.com/juju/juju/container/factory"
 	"github.com/juju/juju/container/testing"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
-	jworker "github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/mocks"
-	"github.com/juju/juju/worker/provisioner"
 )
 
 type containerSetupSuite struct {
@@ -47,14 +38,9 @@ type containerSetupSuite struct {
 	initialiser  *testing.MockInitialiser
 	facadeCaller *apimocks.MockFacadeCaller
 	machine      *provisionermocks.MockMachineProvisioner
-	notifyWorker *mocks.MockWorker
 	manager      *testing.MockManager
 
 	machineLock *fakeMachineLock
-
-	// The done channel is used by tests to indicate that
-	// the worker has accomplished the scenario and can be stopped.
-	done chan struct{}
 }
 
 func (s *containerSetupSuite) SetUpTest(c *gc.C) {
@@ -64,18 +50,22 @@ func (s *containerSetupSuite) SetUpTest(c *gc.C) {
 	s.controllerUUID = utils.MustNewUUID()
 
 	s.machineLock = &fakeMachineLock{}
-	s.done = make(chan struct{})
 }
 
 var _ = gc.Suite(&containerSetupSuite{})
 
-func (s *containerSetupSuite) TestStartContainerStartsContainerProvisioner(c *gc.C) {
+func (s *containerSetupSuite) TestInitialiseContainersKVM(c *gc.C) {
+	s.testInitialiseContainers(c, instance.KVM)
+}
+
+func (s *containerSetupSuite) TestInitialiseContainersLXD(c *gc.C) {
+	s.testInitialiseContainers(c, instance.LXD)
+}
+
+func (s *containerSetupSuite) testInitialiseContainers(c *gc.C, containerType instance.ContainerType) {
 	defer s.patch(c).Finish()
 
-	// Adding one new container machine.
-	s.notify([]string{"0/lxd/0"})
-
-	s.expectContainerManagerConfig("lxd")
+	s.expectContainerManagerConfig(containerType)
 	s.initialiser.EXPECT().Initialise().Return(nil)
 
 	s.PatchValue(
@@ -84,32 +74,42 @@ func (s *containerSetupSuite) TestStartContainerStartsContainerProvisioner(c *gc
 			return s.manager, nil
 		})
 
-	_, runner := s.setUpContainerWorker(c)
+	cs := s.setUpContainerSetup(c, containerType)
+	abort := make(chan struct{})
+	close(abort)
+	err := cs.initialiseContainers(abort)
+	c.Assert(err, jc.ErrorIsNil)
+}
 
-	// Watch the runner report. We are waiting for 2 workers to be started:
-	// the container watcher and the LXD provisioner.
-	workers := make(chan map[string]interface{})
-	go func() {
-		for {
-			rep := runner.Report()["workers"].(map[string]interface{})
-			if len(rep) == 2 {
-				workers <- rep
-				return
-			}
-			time.Sleep(time.Millisecond)
-		}
-	}()
+func (s *containerSetupSuite) TestInitialiseContainerProvisionerKVM(c *gc.C) {
+	s.testInitialiseContainers(c, instance.KVM)
+}
 
-	// Check that the provisioner is there.
-	select {
-	case w := <-workers:
-		_, ok := w["lxd-provisioner"]
-		c.Check(ok, jc.IsTrue)
-	case <-time.After(coretesting.LongWait):
-		c.Errorf("timed out waiting for runner to start all workers")
-	}
+func (s *containerSetupSuite) TestInitialiseContainerProvisonerLXD(c *gc.C) {
+	s.testInitialiseContainers(c, instance.LXD)
+}
 
-	s.cleanKill(c, runner)
+func (s *containerSetupSuite) testInitialiseContainerProvisioner(c *gc.C, containerType instance.ContainerType) {
+	defer s.patch(c).Finish()
+
+	s.expectContainerManagerConfig(containerType)
+	s.initialiser.EXPECT().Initialise().Return(nil)
+	s.machine.EXPECT().AvailabilityZone().Return("az1", nil)
+
+	s.PatchValue(
+		&factory.NewContainerManager,
+		func(forType instance.ContainerType, conf container.ManagerConfig) (container.Manager, error) {
+			return s.manager, nil
+		})
+
+	cs := s.setUpContainerSetup(c, containerType)
+	abort := make(chan struct{})
+	close(abort)
+	p, err := cs.initialiseContainerProvisioner()
+	c.Assert(err, jc.ErrorIsNil)
+	_, ok := p.(*containerProvisioner)
+	c.Assert(ok, jc.IsTrue)
+	workertest.CleanKill(c, p)
 }
 
 func (s *containerSetupSuite) TestContainerManagerConfigError(c *gc.C) {
@@ -119,25 +119,15 @@ func (s *containerSetupSuite) TestContainerManagerConfigError(c *gc.C) {
 		"ContainerManagerConfig", params.ContainerManagerConfigParams{Type: "lxd"}, gomock.Any()).Return(
 		errors.New("boom"))
 
-	s.notify(nil)
-	handler, runner := s.setUpContainerWorker(c)
-	s.cleanKill(c, runner)
-
+	cs := s.setUpContainerSetup(c, instance.LXD)
 	abort := make(chan struct{})
 	close(abort)
-	err := handler.Handle(abort, []string{"0/lxd/0"})
+	err := cs.initialiseContainers(abort)
 	c.Assert(err, gc.ErrorMatches, ".*generating container manager config: boom")
 }
 
-func (s *containerSetupSuite) setUpContainerWorker(c *gc.C) (watcher.StringsHandler, *worker.Runner) {
-	runner := worker.NewRunner(worker.RunnerParams{
-		IsFatal:       func(_ error) bool { return true },
-		MoreImportant: func(_, _ error) bool { return false },
-		RestartDelay:  jworker.RestartDelay,
-	})
-
+func (s *containerSetupSuite) setUpContainerSetup(c *gc.C, containerType instance.ContainerType) *ContainerSetup {
 	pState := apiprovisioner.NewStateFromFacade(s.facadeCaller)
-	watcherName := fmt.Sprintf("%s-container-watcher", s.machine.Id())
 
 	cfg, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
@@ -153,32 +143,51 @@ func (s *containerSetupSuite) setUpContainerWorker(c *gc.C) (watcher.StringsHand
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
-	args := provisioner.ContainerSetupParams{
-		Runner:              runner,
-		Logger:              loggo.GetLogger("test"),
-		WorkerName:          watcherName,
-		SupportedContainers: instance.ContainerTypes,
-		Machine:             s.machine,
-		Provisioner:         pState,
-		Config:              cfg,
-		MachineLock:         s.machineLock,
-		CredentialAPI:       &credentialAPIForTest{},
+	args := ContainerSetupParams{
+		Logger:        &noOpLogger{},
+		ContainerType: containerType,
+		MachineZone:   s.machine,
+		MTag:          s.machine.MachineTag(),
+		Provisioner:   pState,
+		Config:        cfg,
+		MachineLock:   s.machineLock,
+		CredentialAPI: &credentialAPIForTest{},
+		GetNetConfig: func(_ network.ConfigSource) ([]params.NetworkConfig, error) {
+			return nil, nil
+		},
 	}
 
-	// Stub out network config getter.
-	handler := provisioner.NewContainerSetupHandler(args)
-	handler.(*provisioner.ContainerSetup).SetGetNetConfig(
-		func(_ network.ConfigSource) ([]params.NetworkConfig, error) {
-			return nil, nil
-		})
+	return NewContainerSetup(args)
+}
 
-	_ = runner.StartWorker(watcherName, func() (worker.Worker, error) {
-		return watcher.NewStringsWorker(watcher.StringsConfig{
-			Handler: handler,
-		})
-	})
+func (s *containerSetupSuite) setUpInitialiseContainerProvisioner(c *gc.C, containerType instance.ContainerType) *ContainerSetup {
+	pState := apiprovisioner.NewStateFromFacade(s.facadeCaller)
 
-	return handler, runner
+	cfg, err := agent.NewAgentConfig(
+		agent.AgentConfigParams{
+			Paths:             agent.DefaultPaths,
+			Tag:               s.machine.MachineTag(),
+			UpgradedToVersion: jujuversion.Current,
+			Password:          "password",
+			Nonce:             "nonce",
+			APIAddresses:      []string{"0.0.0.0:12345"},
+			CACert:            coretesting.CACert,
+			Controller:        names.NewControllerTag(s.controllerUUID.String()),
+			Model:             names.NewModelTag(s.modelUUID.String()),
+		})
+	c.Assert(err, jc.ErrorIsNil)
+
+	return &ContainerSetup{
+		logger:        &noOpLogger{},
+		containerType: containerType,
+		machineZone:   s.machine,
+		mTag:          s.machine.MachineTag(),
+		provisioner:   pState,
+		config:        cfg,
+		machineLock:   s.machineLock,
+		credentialAPI: &credentialAPIForTest{},
+		managerConfig: make(map[string]string, 0),
+	}
 }
 
 func (s *containerSetupSuite) patch(c *gc.C) *gomock.Controller {
@@ -186,102 +195,16 @@ func (s *containerSetupSuite) patch(c *gc.C) *gomock.Controller {
 
 	s.initialiser = testing.NewMockInitialiser(ctrl)
 	s.facadeCaller = apimocks.NewMockFacadeCaller(ctrl)
-	s.notifyWorker = mocks.NewMockWorker(ctrl)
 	s.machine = provisionermocks.NewMockMachineProvisioner(ctrl)
 	s.manager = testing.NewMockManager(ctrl)
 
-	s.stubOutProvisioner(ctrl)
-
-	s.machine.EXPECT().Id().Return("0").AnyTimes()
 	s.machine.EXPECT().MachineTag().Return(names.NewMachineTag("0")).AnyTimes()
 
-	s.PatchValue(provisioner.GetContainerInitialiser, func(instance.ContainerType, map[string]string) container.Initialiser {
+	s.PatchValue(GetContainerInitialiser, func(instance.ContainerType, map[string]string, string) container.Initialiser {
 		return s.initialiser
 	})
 
-	s.manager.EXPECT().ListContainers().Return(nil, nil).AnyTimes()
-
 	return ctrl
-}
-
-// stubOutProvisioner is used to effectively ignore provisioner calls that we
-// do not care about for testing container provisioning.
-// The bulk of the calls mocked here are called in
-// authentication.NewAPIAuthenticator, which is passed the provisioner's
-// client-side state by the provisioner worker.
-func (s *containerSetupSuite) stubOutProvisioner(ctrl *gomock.Controller) {
-	// We could have mocked only the base caller and not the FacadeCaller,
-	// but expectations would be verbose to the point of obfuscation.
-	// So we only mock the base caller for calls that use it directly,
-	// such as watcher acquisition.
-	caller := apimocks.NewMockAPICaller(ctrl)
-	cExp := caller.EXPECT()
-	cExp.BestFacadeVersion(gomock.Any()).Return(0).AnyTimes()
-	cExp.APICall("NotifyWatcher", 0, gomock.Any(), gomock.Any(), nil, gomock.Any()).Return(nil).AnyTimes()
-	cExp.APICall("StringsWatcher", 0, gomock.Any(), gomock.Any(), nil, gomock.Any()).Return(nil).AnyTimes()
-
-	fExp := s.facadeCaller.EXPECT()
-	fExp.RawAPICaller().Return(caller).AnyTimes()
-
-	notifySource := params.NotifyWatchResult{NotifyWatcherId: "who-cares"}
-	fExp.FacadeCall("WatchForModelConfigChanges", nil, gomock.Any()).SetArg(2, notifySource).Return(nil).AnyTimes()
-
-	modelCfgSource := params.ModelConfigResult{
-		Config: map[string]interface{}{
-			"uuid": s.modelUUID.String(),
-			"type": "maas",
-			"name": "container-init-test-model",
-		},
-	}
-	fExp.FacadeCall("ModelConfig", nil, gomock.Any()).SetArg(2, modelCfgSource).Return(nil).AnyTimes()
-
-	addrSource := params.StringsResult{Result: []string{"0.0.0.0"}}
-	fExp.FacadeCall("StateAddresses", nil, gomock.Any()).SetArg(2, addrSource).Return(nil).AnyTimes()
-	fExp.FacadeCall("APIAddresses", nil, gomock.Any()).SetArg(2, addrSource).Return(nil).AnyTimes()
-
-	certSource := params.BytesResult{Result: []byte(coretesting.CACert)}
-	fExp.FacadeCall("CACert", nil, gomock.Any()).SetArg(2, certSource).Return(nil).AnyTimes()
-
-	uuidSource := params.StringResult{Result: s.modelUUID.String()}
-	fExp.FacadeCall("ModelUUID", nil, gomock.Any()).SetArg(2, uuidSource).Return(nil).AnyTimes()
-
-	lifeSource := params.LifeResults{Results: []params.LifeResult{{Life: life.Alive}}}
-	fExp.FacadeCall("Life", gomock.Any(), gomock.Any()).SetArg(2, lifeSource).Return(nil).AnyTimes()
-
-	watchSource := params.StringsWatchResults{Results: []params.StringsWatchResult{{
-		StringsWatcherId: "whatever",
-		Changes:          []string{},
-	}}}
-	fExp.FacadeCall("WatchContainers", gomock.Any(), gomock.Any()).SetArg(2, watchSource).Return(nil).AnyTimes()
-	fExp.FacadeCall("WatchContainersCharmProfiles", gomock.Any(), gomock.Any()).SetArg(2, watchSource).Return(nil).AnyTimes()
-
-	controllerCfgSource := params.ControllerConfigResult{
-		Config: map[string]interface{}{"controller-uuid": s.controllerUUID.String()},
-	}
-	fExp.FacadeCall("ControllerConfig", nil, gomock.Any()).SetArg(2, controllerCfgSource).Return(nil).AnyTimes()
-}
-
-// notify returns a suite behaviour that will cause the upgrade-series watcher
-// to send a number of notifications equal to the supplied argument.
-// Once notifications have been consumed, we notify via the suite's channel.
-func (s *containerSetupSuite) notify(messages ...[]string) {
-	ch := make(chan []string)
-
-	go func() {
-		for _, m := range messages {
-			ch <- m
-		}
-		close(s.done)
-	}()
-
-	s.notifyWorker.EXPECT().Kill().AnyTimes()
-	s.notifyWorker.EXPECT().Wait().Return(nil).AnyTimes()
-
-	s.machine.EXPECT().WatchAllContainers().Return(
-		&fakeWatcher{
-			Worker: s.notifyWorker,
-			ch:     ch,
-		}, nil)
 }
 
 // expectContainerManagerConfig sets up expectations associated with
@@ -293,19 +216,6 @@ func (s *containerSetupSuite) expectContainerManagerConfig(cType instance.Contai
 	s.facadeCaller.EXPECT().FacadeCall(
 		"ContainerManagerConfig", params.ContainerManagerConfigParams{Type: cType}, gomock.Any(),
 	).SetArg(2, resultSource).MinTimes(1)
-
-	s.machine.EXPECT().AvailabilityZone().Return("az1", nil)
-}
-
-// cleanKill waits for notifications to be processed, then waits for the input
-// worker to be killed cleanly. If either ops time out, the test fails.
-func (s *containerSetupSuite) cleanKill(c *gc.C, w worker.Worker) {
-	select {
-	case <-s.done:
-	case <-time.After(coretesting.LongWait):
-		c.Errorf("timed out waiting for notifications to be consumed")
-	}
-	workertest.CleanKill(c, w)
 }
 
 type credentialAPIForTest struct{}
@@ -329,11 +239,12 @@ func (f *fakeMachineLock) Report(opts ...machinelock.ReportOption) (string, erro
 	return "", nil
 }
 
-type fakeWatcher struct {
-	worker.Worker
-	ch <-chan []string
+type noOpLogger struct {
 }
 
-func (w *fakeWatcher) Changes() watcher.StringsChannel {
-	return w.ch
-}
+func (noOpLogger) Errorf(format string, values ...interface{})   {}
+func (noOpLogger) Warningf(format string, values ...interface{}) {}
+func (noOpLogger) Infof(format string, values ...interface{})    {}
+func (noOpLogger) Debugf(format string, values ...interface{})   {}
+func (noOpLogger) Tracef(format string, values ...interface{})   {}
+func (noOpLogger) IsTraceEnabled() bool                          { return false }

@@ -4,6 +4,8 @@
 package application
 
 import (
+	"strings"
+
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -17,47 +19,48 @@ import (
 	"github.com/juju/juju/core/series"
 )
 
-// NewSetSeriesCommand returns a command which updates the series of
+// NewSetApplicationBaseCommand returns a command which updates the base of
 // an application.
-func NewSetSeriesCommand() cmd.Command {
-	return modelcmd.Wrap(&setSeriesCommand{})
+func NewSetApplicationBaseCommand() cmd.Command {
+	return modelcmd.Wrap(&setApplicationBase{})
 }
 
-// setSeriesAPI defines a subset of the application facade, as required
+// setApplicationBaseAPI defines a subset of the application facade, as required
 // by the set-application-base command.
-type setSeriesAPI interface {
+type setApplicationBaseAPI interface {
 	Close() error
-	UpdateApplicationBase(string, string, bool) error
+	UpdateApplicationBase(string, series.Base, bool) error
 }
 
-// setSeriesCommand is responsible for updating the series of an application or machine.
-type setSeriesCommand struct {
+// setApplicationBase is responsible for updating the base of an application.
+type setApplicationBase struct {
 	modelcmd.ModelCommandBase
 	modelcmd.IAASOnlyCommand
 
-	setSeriesClient setSeriesAPI
+	apiClient setApplicationBaseAPI
 
 	applicationName string
-	series          string
+	releaseArg      string
 }
 
-var setSeriesDoc = `
-The specified application's series value will be set within juju. Any subordinates of
-the application will also have their series set to the provided value.
+var setApplicationBaseDoc = `
+The specified application's base value will be set within juju. Any subordinates 
+of the application will also have their base set to the provided value. A base 
+can be specified using the OS name and the version of the OS, separated by @.
 
-This will not change the series of any existing units, rather new units will use
-the new series when deployed.
+This will not change the base of any existing units, rather new units will use
+the new base when deployed.
 
-It is recommended to only do this after upgrade-machine has been run for machine containing
-all existing units of the application.
+It is recommended to only do this after upgrade-machine has been run for 
+machine containing all existing units of the application.
 
 To ensure correct binaries, run 'juju refresh' before running 'juju add-unit'.
 
 Examples:
 
-Set the series for the ubuntu application to focal
+Set the base for the ubuntu application to ubuntu@20.04
 
-	juju set-application-base ubuntu focal
+	juju set-application-base ubuntu ubuntu@20.04
 
 See also:
     status
@@ -65,21 +68,21 @@ See also:
     upgrade-machine
 `
 
-func (c *setSeriesCommand) Info() *cmd.Info {
+func (c *setApplicationBase) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "set-application-base",
-		Args:    "<application> <series>",
+		Args:    "<application> <base>",
 		Purpose: "Set an application's base.",
-		Doc:     setSeriesDoc,
+		Doc:     setApplicationBaseDoc,
 	})
 }
 
-func (c *setSeriesCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *setApplicationBase) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 }
 
 // Init implements cmd.Command.
-func (c *setSeriesCommand) Init(args []string) error {
+func (c *setApplicationBase) Init(args []string) error {
 	switch len(args) {
 	case 2:
 		if names.IsValidApplication(args[0]) {
@@ -87,18 +90,15 @@ func (c *setSeriesCommand) Init(args []string) error {
 		} else {
 			return errors.Errorf("invalid application name %q", args[0])
 		}
-		if _, err := series.GetOSFromSeries(args[1]); err != nil {
-			return errors.Errorf("invalid series %q", args[1])
-		}
-		c.series = args[1]
+		c.releaseArg = args[1]
 	case 1:
-		if _, err := series.GetOSFromSeries(args[0]); err != nil {
-			return errors.Errorf("no series specified")
-		} else {
+		if strings.Contains(args[0], "@") {
 			return errors.Errorf("no application name")
+		} else {
+			return errors.Errorf("no base specified")
 		}
 	case 0:
-		return errors.Errorf("application name and series required")
+		return errors.Errorf("application name and base required")
 	default:
 		return cmd.CheckEmpty(args[2:])
 	}
@@ -106,9 +106,9 @@ func (c *setSeriesCommand) Init(args []string) error {
 }
 
 // Run implements cmd.Run.
-func (c *setSeriesCommand) Run(ctx *cmd.Context) error {
+func (c *setApplicationBase) Run(ctx *cmd.Context) error {
 	var apiRoot api.Connection
-	if c.setSeriesClient == nil {
+	if c.apiClient == nil {
 		var err error
 		apiRoot, err = c.NewAPIRoot()
 		if err != nil {
@@ -118,15 +118,21 @@ func (c *setSeriesCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if c.applicationName != "" {
-		if c.setSeriesClient == nil {
-			c.setSeriesClient = application.NewClient(apiRoot)
-			defer func() { _ = c.setSeriesClient.Close() }()
+		if c.apiClient == nil {
+			c.apiClient = application.NewClient(apiRoot)
+			defer func() { _ = c.apiClient.Close() }()
 		}
-		err := c.updateApplicationSeries()
+
+		base, err := c.parseBase(ctx, c.releaseArg)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		err = c.updateApplicationBase(base)
 		if err == nil {
 			// TODO hmlanigan 2022-01-18
 			// Remove warning once improvements to develop are made, where by
-			// set-application-series downloads the new charm. Or this command is removed.
+			// set-application-base downloads the new charm. Or this command is removed.
 			// subordinate
 			ctx.Warningf("To ensure the correct charm binaries are installed when add-unit is next called, please first run `juju refresh` for this application and any related subordinates.")
 		}
@@ -137,10 +143,24 @@ func (c *setSeriesCommand) Run(ctx *cmd.Context) error {
 	return errors.New("no application name specified")
 }
 
-func (c *setSeriesCommand) updateApplicationSeries() error {
+func (c *setApplicationBase) updateApplicationBase(base series.Base) error {
 	err := block.ProcessBlockedError(
-		c.setSeriesClient.UpdateApplicationBase(c.applicationName, c.series, false),
+		c.apiClient.UpdateApplicationBase(c.applicationName, base, false),
 		block.BlockChange)
 
 	return err
+}
+
+func (c *setApplicationBase) parseBase(ctx *cmd.Context, arg string) (series.Base, error) {
+	// If this doesn't contain an @ then it's a series and not a base.
+	if strings.Contains(arg, "@") {
+		return series.ParseBaseFromString(arg)
+	}
+
+	ctx.Warningf("series argument is deprecated, use base instead")
+	_, err := series.GetOSFromSeries(arg)
+	if err != nil {
+		return series.Base{}, errors.Trace(err)
+	}
+	return series.GetBaseFromSeries(arg)
 }

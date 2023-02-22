@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -183,7 +183,7 @@ func NewWatcher(config WatcherConfig) (*RemoteStateWatcher, error) {
 			Storage:                 make(map[names.StorageTag]StorageSnapshot),
 			ActionsBlocked:          config.ContainerRunningStatusChannel != nil,
 			ActionChanged:           make(map[string]int),
-			UpgradeSeriesStatus:     model.UpgradeSeriesNotStarted,
+			UpgradeMachineStatus:    model.UpgradeSeriesNotStarted,
 			WorkloadEvents:          config.InitialWorkloadEventIDs,
 			ConsumedSecretInfo:      make(map[string]secrets.SecretRevisionInfo),
 			ObsoleteSecretRevisions: make(map[string][]int),
@@ -856,15 +856,15 @@ func (w *RemoteStateWatcher) upgradeSeriesStatusChanged() error {
 	if errors.IsNotFound(err) {
 		// There is no remote state so no upgrade is started.
 		w.logger.Debugf("no upgrade series in progress, reinitializing local upgrade series state")
-		w.current.UpgradeSeriesStatus = model.UpgradeSeriesNotStarted
+		w.current.UpgradeMachineStatus = model.UpgradeSeriesNotStarted
 		return nil
 	}
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	w.current.UpgradeSeriesStatus = status
-	w.current.UpgradeSeriesTarget = target
+	w.current.UpgradeMachineStatus = status
+	w.current.UpgradeMachineTarget = target
 
 	return nil
 }

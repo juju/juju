@@ -35,8 +35,8 @@ func getModelDoc(mb modelBackend) (map[string]interface{}, error) {
 	defer closer()
 
 	var doc map[string]interface{}
-	if err := coll.FindId(mb.modelUUID()).One(&doc); err != nil {
-		return nil, errors.Annotatef(err, "reading model %q", mb.modelUUID())
+	if err := coll.FindId(mb.ModelUUID()).One(&doc); err != nil {
+		return nil, errors.Annotatef(err, "reading model %q", mb.ModelUUID())
 	}
 	return doc, nil
 

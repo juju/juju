@@ -4,7 +4,7 @@
 package hook
 
 import (
-	"github.com/juju/charm/v9/hooks"
+	"github.com/juju/charm/v10/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -43,10 +43,10 @@ type Info struct {
 	// WorkloadName is the name of the sidecar container or workload relevant to the hook.
 	WorkloadName string `yaml:"workload-name,omitempty"`
 
-	// SeriesUpgradeTarget is the series that the unit's machine is to be
+	// MachineUpgradeTarget is the base that the unit's machine is to be
 	// updated to when Juju is issued the `upgrade-machine` command.
 	// It is only set for the pre-series-upgrade hook.
-	SeriesUpgradeTarget string `yaml:"series-upgrade-target,omitempty"`
+	MachineUpgradeTarget string `yaml:"series-upgrade-target,omitempty"`
 
 	// SecretURI is the secret URI relevant to the hook.
 	SecretURI string `yaml:"secret-uri,omitempty"`
@@ -84,8 +84,8 @@ func (hi Info) Validate() error {
 		}
 		return nil
 	case hooks.PreSeriesUpgrade:
-		if hi.SeriesUpgradeTarget == "" {
-			return errors.Errorf("%q hook requires a target series", hi.Kind)
+		if hi.MachineUpgradeTarget == "" {
+			return errors.Errorf("%q hook requires a target base", hi.Kind)
 		}
 		return nil
 	case hooks.Install, hooks.Remove, hooks.Start, hooks.ConfigChanged, hooks.UpgradeCharm, hooks.Stop,

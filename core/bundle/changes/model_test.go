@@ -6,7 +6,7 @@ package bundlechanges
 import (
 	"bytes"
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/loggo"
 	"github.com/juju/naturalsort"
 	"github.com/juju/testing"
@@ -41,7 +41,7 @@ func (*modelSuite) TestHasCharmNilApplications(c *gc.C) {
 func (*modelSuite) TestHasCharm(c *gc.C) {
 	app := &Application{
 		Name:     "foo",
-		Charm:    "cs:foo",
+		Charm:    "ch:foo",
 		Revision: -1,
 	}
 	model := &Model{
@@ -50,7 +50,7 @@ func (*modelSuite) TestHasCharm(c *gc.C) {
 	}
 	// Match must be exact.
 	c.Assert(model.hasCharm("foo", -1), jc.IsFalse)
-	c.Assert(model.hasCharm("cs:foo", -1), jc.IsTrue)
+	c.Assert(model.hasCharm("ch:foo", -1), jc.IsTrue)
 }
 
 func (*modelSuite) TestHasRelation(c *gc.C) {
@@ -243,7 +243,7 @@ func (*modelSuite) TestBundleMachineMapped(c *gc.C) {
 	model := &Model{
 		Applications: map[string]*Application{
 			"mysql": {
-				Charm: "cs:mysql",
+				Charm: "ch:mysql",
 				Units: []Unit{
 					{"mysql/0", "0/lxd/0"},
 				},
@@ -267,7 +267,7 @@ func (*modelSuite) TestBundleMachineNotMapped(c *gc.C) {
 	model := &Model{
 		Applications: map[string]*Application{
 			"mysql": {
-				Charm: "cs:mysql",
+				Charm: "ch:mysql",
 				Units: []Unit{
 					{"mysql/0", "0/lxd/0"},
 				},
@@ -298,7 +298,10 @@ func (s *inferMachineMapSuite) SetUpTest(c *gc.C) {
 	bundle := `
         applications:
             django:
-                charm: cs:trusty/django-42
+                charm: ch:django
+                revision: 42
+                channel: stable
+                series: trusty
                 num_units: 5
                 to:
                     - new
@@ -396,7 +399,7 @@ func (s *inferMachineMapSuite) TestOffest(c *gc.C) {
 	data := s.parseBundle(c, `
         applications:
             django:
-                charm: cs:xenial/django-42
+                charm: ch:django
                 num_units: 3
                 to: [1, 2, 3]
         machines:
@@ -458,7 +461,7 @@ func (s *inferMachineMapSuite) TestBundleMachinesDeterminism(c *gc.C) {
                 - 12
             memcached:
                 num_units: 6
-                charm: cs:memcached
+                charm: ch:memcached
                 to:
                 - 10
                 - 12

@@ -97,8 +97,6 @@ func NewEnableDestroyControllerCommandForTest(api removeBlocksAPI, store jujucli
 // client endpoints mocked out.
 func NewDestroyCommandForTest(
 	api destroyControllerAPI,
-	clientapi destroyClientAPI,
-	storageAPI storageAPI,
 	store jujuclient.ClientStore,
 	apierr error,
 	controllerCredentialAPIFunc newCredentialAPIFunc,
@@ -108,12 +106,10 @@ func NewDestroyCommandForTest(
 	cmd := &destroyCommand{
 		destroyCommandBase: destroyCommandBase{
 			api:                         api,
-			clientapi:                   clientapi,
 			apierr:                      apierr,
 			controllerCredentialAPIFunc: controllerCredentialAPIFunc,
 			environsDestroy:             environsDestroy,
 		},
-		storageAPI: storageAPI,
 	}
 	cmd.SetClientStore(store)
 	return modelcmd.WrapController(
@@ -127,7 +123,6 @@ func NewDestroyCommandForTest(
 // endpoints mocked out.
 func NewKillCommandForTest(
 	api destroyControllerAPI,
-	clientapi destroyClientAPI,
 	store jujuclient.ClientStore,
 	apierr error,
 	clock clock.Clock,
@@ -138,7 +133,6 @@ func NewKillCommandForTest(
 	kill := &killCommand{
 		destroyCommandBase: destroyCommandBase{
 			api:                         api,
-			clientapi:                   clientapi,
 			apierr:                      apierr,
 			controllerCredentialAPIFunc: controllerCredentialAPIFunc,
 			environsDestroy:             environsDestroy,
@@ -182,7 +176,7 @@ func FmtModelStatus(data ModelData) string {
 	return fmtModelStatus(modelData(data))
 }
 
-func NewData(api destroyControllerAPI, ctrUUID string) (ctrData, []modelData, error) {
+func NewData(api destroyControllerAPI, ctrUUID string) (environmentStatus, error) {
 	return newData(api, ctrUUID)
 }
 

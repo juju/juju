@@ -902,6 +902,7 @@ func NewSecretsTriggerWatcher(
 	}
 	w.newResult = func() interface{} { return new(params.SecretTriggerWatchResult) }
 	w.tomb.Go(func() error {
+		defer close(w.out)
 		return w.loop(result.Changes)
 	})
 	return w
@@ -912,10 +913,10 @@ func NewSecretsTriggerWatcher(
 func (w *secretsTriggerWatcher) mergeChanges(current, newChanges []watcher.SecretTriggerChange) []watcher.SecretTriggerChange {
 	chMap := make(map[string]watcher.SecretTriggerChange)
 	for _, c := range current {
-		chMap[c.URI.String()] = c
+		chMap[c.URI.ID] = c
 	}
 	for _, c := range newChanges {
-		chMap[c.URI.String()] = c
+		chMap[c.URI.ID] = c
 	}
 	result := make([]watcher.SecretTriggerChange, len(chMap))
 	i := 0
@@ -974,5 +975,95 @@ func (w *secretsTriggerWatcher) loop(initialChanges []params.SecretTriggerChange
 // a secret trigger. The first event reflects the current
 // values of these attributes.
 func (w *secretsTriggerWatcher) Changes() watcher.SecretTriggerChannel {
+	return w.out
+}
+
+// secretBackendRotateWatcher will send notifications of changes to secret trigger times.
+type secretBackendRotateWatcher struct {
+	commonWatcher
+	caller    base.APICaller
+	watcherId string
+	out       chan []watcher.SecretBackendRotateChange
+}
+
+// NewSecretBackendRotateWatcher returns a new secret backend rotate watcher.
+func NewSecretBackendRotateWatcher(
+	caller base.APICaller, result params.SecretBackendRotateWatchResult,
+) watcher.SecretBackendRotateWatcher {
+	w := &secretBackendRotateWatcher{
+		caller:    caller,
+		watcherId: result.WatcherId,
+		out:       make(chan []watcher.SecretBackendRotateChange),
+	}
+	w.newResult = func() interface{} { return new(params.SecretBackendRotateWatchResult) }
+	w.tomb.Go(func() error {
+		defer close(w.out)
+		return w.loop(result.Changes)
+	})
+	return w
+}
+
+// mergeChanges combines the changes in current and newChanges, such that we end up with
+// only one change per trigger change in the result; the most recent change wins.
+func (w *secretBackendRotateWatcher) mergeChanges(current, newChanges []watcher.SecretBackendRotateChange) []watcher.SecretBackendRotateChange {
+	chMap := make(map[string]watcher.SecretBackendRotateChange)
+	for _, c := range current {
+		chMap[c.ID] = c
+	}
+	for _, c := range newChanges {
+		chMap[c.ID] = c
+	}
+	result := make([]watcher.SecretBackendRotateChange, len(chMap))
+	i := 0
+	for _, c := range chMap {
+		result[i] = c
+		i++
+	}
+	return result
+}
+
+func (w *secretBackendRotateWatcher) loop(initialChanges []params.SecretBackendRotateChange) error {
+	w.call = makeWatcherAPICaller(w.caller, "SecretBackendsRotateWatcher", w.watcherId)
+	w.commonWatcher.init()
+	go w.commonLoop()
+
+	copyChanges := func(changes []params.SecretBackendRotateChange) []watcher.SecretBackendRotateChange {
+		result := make([]watcher.SecretBackendRotateChange, len(changes))
+		for i, ch := range changes {
+			result[i] = watcher.SecretBackendRotateChange{
+				ID:              ch.ID,
+				Name:            ch.Name,
+				NextTriggerTime: ch.NextTriggerTime,
+			}
+		}
+		return result
+	}
+	out := w.out
+	changes := copyChanges(initialChanges)
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		// Read the next change.
+		case data, ok := <-w.in:
+			if !ok {
+				// The tomb is already killed with the correct error
+				// at this point, so just return.
+				return nil
+			}
+			newChanges := copyChanges(data.(*params.SecretBackendRotateWatchResult).Changes)
+			changes = w.mergeChanges(changes, newChanges)
+			out = w.out
+		case out <- changes:
+			out = nil
+			changes = nil
+		}
+	}
+}
+
+// Changes returns a channel that will receive the changes to
+// a secret trigger. The first event reflects the current
+// values of these attributes.
+func (w *secretBackendRotateWatcher) Changes() watcher.SecretBackendRotateChannel {
 	return w.out
 }

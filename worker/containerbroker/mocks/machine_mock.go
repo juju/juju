@@ -201,21 +201,6 @@ func (mr *MockMachineProvisionerMockRecorder) ModelAgentVersion() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelAgentVersion", reflect.TypeOf((*MockMachineProvisioner)(nil).ModelAgentVersion))
 }
 
-// ProvisioningInfo mocks base method.
-func (m *MockMachineProvisioner) ProvisioningInfo() (*params.ProvisioningInfo, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ProvisioningInfo")
-	ret0, _ := ret[0].(*params.ProvisioningInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ProvisioningInfo indicates an expected call of ProvisioningInfo.
-func (mr *MockMachineProvisionerMockRecorder) ProvisioningInfo() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProvisioningInfo", reflect.TypeOf((*MockMachineProvisioner)(nil).ProvisioningInfo))
-}
-
 // Refresh mocks base method.
 func (m *MockMachineProvisioner) Refresh() error {
 	m.ctrl.T.Helper()
@@ -418,21 +403,6 @@ func (m *MockMachineProvisioner) Tag() names.Tag {
 func (mr *MockMachineProvisionerMockRecorder) Tag() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tag", reflect.TypeOf((*MockMachineProvisioner)(nil).Tag))
-}
-
-// WatchAllContainers mocks base method.
-func (m *MockMachineProvisioner) WatchAllContainers() (watcher.StringsWatcher, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchAllContainers")
-	ret0, _ := ret[0].(watcher.StringsWatcher)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// WatchAllContainers indicates an expected call of WatchAllContainers.
-func (mr *MockMachineProvisionerMockRecorder) WatchAllContainers() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchAllContainers", reflect.TypeOf((*MockMachineProvisioner)(nil).WatchAllContainers))
 }
 
 // WatchContainers mocks base method.

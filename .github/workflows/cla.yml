@@ -1,5 +1,6 @@
 name: "CLA check"
 on: [pull_request, workflow_dispatch]
+
 permissions:
   contents: read
 
@@ -10,6 +11,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check if CLA signed
-        uses: canonical/has-signed-canonical-cla@3eb79ef290553f0de096b3948a6770c15171fb15 # v1
+        uses: canonical/has-signed-canonical-cla@1.2.0
         with:
           accept-existing-contributors: true

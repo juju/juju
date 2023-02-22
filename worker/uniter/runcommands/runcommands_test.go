@@ -33,7 +33,7 @@ type runcommandsSuite struct {
 var _ = gc.Suite(&runcommandsSuite{})
 
 func (s *runcommandsSuite) SetUpTest(c *gc.C) {
-	s.charmURL = "cs:precise/mysql-2"
+	s.charmURL = "ch:precise/mysql-2"
 	s.remoteState = remotestate.Snapshot{
 		CharmURL: s.charmURL,
 	}

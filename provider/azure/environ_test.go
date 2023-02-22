@@ -1583,14 +1583,14 @@ func (s *environSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 			ControllerConfig: testing.FakeControllerConfig(),
 			AdminSecret:      jujutesting.AdminSecret,
 			CAPrivateKey:     testing.CAKey,
-			BootstrapSeries:  "jammy",
+			BootstrapBase:    coreseries.MustParseBaseFromString("ubuntu@22.04"),
 			BuildAgentTarball: func(
 				build bool, _ string, _ func(version.Number) version.Number,
 			) (*sync.BuiltAgent, error) {
 				c.Assert(build, jc.IsFalse)
 				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
 			},
-			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
+			SupportedBootstrapBases: testing.FakeSupportedJujuBases,
 		},
 	)
 	// If we aren't on amd64, this should correctly fail. See also:
@@ -1634,14 +1634,14 @@ func (s *environSuite) TestBootstrapCustomResourceGroup(c *gc.C) {
 			ControllerConfig: testing.FakeControllerConfig(),
 			AdminSecret:      jujutesting.AdminSecret,
 			CAPrivateKey:     testing.CAKey,
-			BootstrapSeries:  "jammy",
+			BootstrapBase:    coreseries.MustParseBaseFromString("ubuntu@22.04"),
 			BuildAgentTarball: func(
 				build bool, _ string, _ func(version.Number) version.Number,
 			) (*sync.BuiltAgent, error) {
 				c.Assert(build, jc.IsFalse)
 				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
 			},
-			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
+			SupportedBootstrapBases: testing.FakeSupportedJujuBases,
 		},
 	)
 	// If we aren't on amd64, this should correctly fail. See also:

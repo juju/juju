@@ -23,24 +23,25 @@ type ModelInfo struct {
 	Name string `json:"name" yaml:"name"`
 
 	// ShortName is un-qualified model name.
-	ShortName      string                      `json:"short-name" yaml:"short-name"`
-	UUID           string                      `json:"model-uuid" yaml:"model-uuid"`
-	Type           model.ModelType             `json:"model-type" yaml:"model-type"`
-	ControllerUUID string                      `json:"controller-uuid" yaml:"controller-uuid"`
-	ControllerName string                      `json:"controller-name" yaml:"controller-name"`
-	IsController   bool                        `json:"is-controller" yaml:"is-controller"`
-	Owner          string                      `json:"owner" yaml:"owner"`
-	Cloud          string                      `json:"cloud" yaml:"cloud"`
-	CloudRegion    string                      `json:"region,omitempty" yaml:"region,omitempty"`
-	ProviderType   string                      `json:"type,omitempty" yaml:"type,omitempty"`
-	Life           string                      `json:"life" yaml:"life"`
-	Status         *ModelStatus                `json:"status,omitempty" yaml:"status,omitempty"`
-	Users          map[string]ModelUserInfo    `json:"users,omitempty" yaml:"users,omitempty"`
-	Machines       map[string]ModelMachineInfo `json:"machines,omitempty" yaml:"machines,omitempty"`
-	SLA            string                      `json:"sla,omitempty" yaml:"sla,omitempty"`
-	SLAOwner       string                      `json:"sla-owner,omitempty" yaml:"sla-owner,omitempty"`
-	AgentVersion   string                      `json:"agent-version,omitempty" yaml:"agent-version,omitempty"`
-	Credential     *ModelCredential            `json:"credential,omitempty" yaml:"credential,omitempty"`
+	ShortName      string                       `json:"short-name" yaml:"short-name"`
+	UUID           string                       `json:"model-uuid" yaml:"model-uuid"`
+	Type           model.ModelType              `json:"model-type" yaml:"model-type"`
+	ControllerUUID string                       `json:"controller-uuid" yaml:"controller-uuid"`
+	ControllerName string                       `json:"controller-name" yaml:"controller-name"`
+	IsController   bool                         `json:"is-controller" yaml:"is-controller"`
+	Owner          string                       `json:"owner" yaml:"owner"`
+	Cloud          string                       `json:"cloud" yaml:"cloud"`
+	CloudRegion    string                       `json:"region,omitempty" yaml:"region,omitempty"`
+	ProviderType   string                       `json:"type,omitempty" yaml:"type,omitempty"`
+	Life           string                       `json:"life" yaml:"life"`
+	Status         *ModelStatus                 `json:"status,omitempty" yaml:"status,omitempty"`
+	Users          map[string]ModelUserInfo     `json:"users,omitempty" yaml:"users,omitempty"`
+	Machines       map[string]ModelMachineInfo  `json:"machines,omitempty" yaml:"machines,omitempty"`
+	SecretBackends map[string]SecretBackendInfo `json:"secret-backends,omitempty" yaml:"secret-backends,omitempty"`
+	SLA            string                       `json:"sla,omitempty" yaml:"sla,omitempty"`
+	SLAOwner       string                       `json:"sla-owner,omitempty" yaml:"sla-owner,omitempty"`
+	AgentVersion   string                       `json:"agent-version,omitempty" yaml:"agent-version,omitempty"`
+	Credential     *ModelCredential             `json:"credential,omitempty" yaml:"credential,omitempty"`
 
 	SupportedFeatures []SupportedFeature `json:"supported-features,omitempty" yaml:"supported-features,omitempty"`
 }
@@ -71,6 +72,13 @@ type ModelStatus struct {
 	Migration      string        `json:"migration,omitempty" yaml:"migration,omitempty"`
 	MigrationStart string        `json:"migration-start,omitempty" yaml:"migration-start,omitempty"`
 	MigrationEnd   string        `json:"migration-end,omitempty" yaml:"migration-end,omitempty"`
+}
+
+// SecretBackendInfo contains the current status of a secret backend.
+type SecretBackendInfo struct {
+	NumSecrets int    `yaml:"num-secrets" json:"num-secrets"`
+	Status     string `yaml:"status" json:"status"`
+	Message    string `yaml:"message,omitempty" json:"message,omitempty"`
 }
 
 // ModelUserInfo defines the serialization behaviour of the model user
@@ -161,6 +169,9 @@ func ModelInfoFromParams(info params.ModelInfo, now time.Time) (ModelInfo, error
 	if len(info.Machines) != 0 {
 		modelInfo.Machines = ModelMachineInfoFromParams(info.Machines)
 	}
+	if len(info.SecretBackends) != 0 {
+		modelInfo.SecretBackends = ModelSecretBackendInfoFromParams(info.SecretBackends)
+	}
 	if info.SLA != nil {
 		modelInfo.SLA = ModelSLAFromParams(info.SLA)
 		modelInfo.SLAOwner = ModelSLAOwnerFromParams(info.SLA)
@@ -202,6 +213,21 @@ func ModelMachineInfoFromParams(machines []params.ModelMachineInfo) map[string]M
 			mInfo.Cores = *info.Hardware.Cores
 		}
 		output[info.Id] = mInfo
+	}
+	return output
+}
+
+// ModelSecretBackendInfoFromParams translates []params.SecretBackendResult to a map of
+// secret backend names to SecretBackendInfo.
+func ModelSecretBackendInfoFromParams(backends []params.SecretBackendResult) map[string]SecretBackendInfo {
+	output := make(map[string]SecretBackendInfo, len(backends))
+	for _, info := range backends {
+		bInfo := SecretBackendInfo{
+			NumSecrets: info.NumSecrets,
+			Status:     info.Status,
+			Message:    info.Message,
+		}
+		output[info.Result.Name] = bInfo
 	}
 	return output
 }

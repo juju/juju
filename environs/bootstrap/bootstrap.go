@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -69,14 +69,6 @@ type BootstrapParams struct {
 
 	// ControllerName is the controller name.
 	ControllerName string
-
-	// BootstrapSeries, if specified, is the series to use for the
-	// initial bootstrap machine.
-	BootstrapSeries string
-
-	// SupportedBootstrapSeries is a supported set of series to use for
-	// validating against the bootstrap series.
-	SupportedBootstrapSeries set.Strings
 
 	// BootstrapImage, if specified, is the image ID to use for the
 	// initial bootstrap machine.
@@ -180,6 +172,14 @@ type BootstrapParams struct {
 
 	// ExtraAgentValuesForTesting are testing only values written to the agent config file.
 	ExtraAgentValuesForTesting map[string]string
+
+	// BootstrapBase, if specified, is the base to use for the
+	// initial bootstrap machine (deprecated use BootstrapBase).
+	BootstrapBase series.Base
+
+	// SupportedBootstrapBase is a supported set of bases to use for
+	// validating against the bootstrap base.
+	SupportedBootstrapBases []series.Base
 }
 
 // Validate validates the bootstrap parameters.
@@ -196,9 +196,10 @@ func (p BootstrapParams) Validate() error {
 	if p.CAPrivateKey == "" {
 		return errors.New("empty ca-private-key")
 	}
-	if p.SupportedBootstrapSeries == nil || p.SupportedBootstrapSeries.Size() == 0 {
-		return errors.NotValidf("supported bootstrap series")
+	if p.SupportedBootstrapBases == nil || len(p.SupportedBootstrapBases) == 0 {
+		return errors.NotValidf("supported bootstrap bases")
 	}
+
 	// TODO(axw) validate other things.
 	return nil
 }
@@ -247,8 +248,8 @@ func bootstrapCAAS(
 	if args.BootstrapImage != "" {
 		return errors.NotSupportedf("--bootstrap-image when bootstrapping a k8s controller")
 	}
-	if args.BootstrapSeries != "" {
-		return errors.NotSupportedf("--bootstrap-series when bootstrapping a k8s controller")
+	if !args.BootstrapBase.Empty() {
+		return errors.NotSupportedf("--bootstrap-series or --bootstrap-base when bootstrapping a k8s controller")
 	}
 
 	constraintsValidator, err := environ.ConstraintsValidator(callCtx)
@@ -353,9 +354,13 @@ func bootstrapIAAS(
 			return errors.Trace(err)
 		}
 
-		if args.BootstrapSeries == "" && detectedSeries != "" {
-			args.BootstrapSeries = detectedSeries
-			logger.Debugf("auto-selecting bootstrap series %q", args.BootstrapSeries)
+		if args.BootstrapBase.Empty() && detectedSeries != "" {
+			base, err := series.GetBaseFromSeries(detectedSeries)
+			if err != nil {
+				base = jujuversion.DefaultSupportedLTSBase()
+			}
+			args.BootstrapBase = base
+			logger.Debugf("auto-selecting bootstrap series %q", args.BootstrapBase.String())
 		}
 		if args.BootstrapConstraints.Arch == nil && args.ModelConstraints.Arch == nil && detectedHW.Arch != nil {
 			arch := *detectedHW.Arch
@@ -364,20 +369,20 @@ func bootstrapIAAS(
 		}
 	}
 
-	requestedBootstrapSeries, err := series.ValidateSeries(
-		args.SupportedBootstrapSeries,
-		args.BootstrapSeries,
-		config.PreferredSeries(cfg),
+	requestedBootstrapBase, err := series.ValidateBase(
+		args.SupportedBootstrapBases,
+		args.BootstrapBase,
+		config.PreferredBase(cfg),
 	)
 	if !args.Force && err != nil {
 		// If the series isn't valid at all, then don't prompt users to use
 		// the --force flag.
-		if _, err := series.UbuntuSeriesVersion(requestedBootstrapSeries); err != nil {
-			return errors.NotValidf("series %q", requestedBootstrapSeries)
+		if _, err := series.UbuntuBaseVersion(requestedBootstrapBase); err != nil {
+			return errors.NotValidf("base %q", requestedBootstrapBase.String())
 		}
 		return errors.Annotatef(err, "use --force to override")
 	}
-	bootstrapSeries := &requestedBootstrapSeries
+	bootstrapBase := requestedBootstrapBase
 
 	var bootstrapArchForImageSearch string
 	if args.BootstrapConstraints.Arch != nil {
@@ -395,7 +400,7 @@ func bootstrapIAAS(
 	ctx.Verbosef("Loading image metadata")
 	imageMetadata, err := bootstrapImageMetadata(environ,
 		ss,
-		bootstrapSeries,
+		&bootstrapBase,
 		bootstrapArchForImageSearch,
 		args.BootstrapImage,
 		&customImageMetadata,
@@ -467,7 +472,7 @@ func bootstrapIAAS(
 		}
 		ctx.Infof("Looking for %vpackaged Juju agent version %s for %s", latestPatchTxt, versionTxt, bootstrapArch)
 
-		availableTools, err = findPackagedTools(environ, ss, args.AgentVersion, &bootstrapArch, bootstrapSeries)
+		availableTools, err = findPackagedTools(environ, ss, args.AgentVersion, &bootstrapArch, &bootstrapBase)
 		if err != nil && !errors.IsNotFound(err) {
 			return err
 		}
@@ -489,7 +494,7 @@ func bootstrapIAAS(
 		if args.BuildAgentTarball == nil {
 			return errors.New("cannot build agent binary to upload")
 		}
-		if err = validateUploadAllowed(environ, &bootstrapArch, bootstrapSeries, constraintsValidator); err != nil {
+		if err = validateUploadAllowed(environ, &bootstrapArch, &bootstrapBase, constraintsValidator); err != nil {
 			return err
 		}
 		if args.BuildAgent {
@@ -690,14 +695,34 @@ func Bootstrap(
 	if err := args.Validate(); err != nil {
 		return errors.Annotate(err, "validating bootstrap parameters")
 	}
+
+	// TODO(stickupkid): Once environs doesn't have a dependency on series, we
+	// can remove this conversion.
+	var bootstrapSeries string
+	if !args.BootstrapBase.Empty() {
+		var err error
+		bootstrapSeries, err = series.GetSeriesFromBase(args.BootstrapBase)
+		if err != nil {
+			return errors.NotValidf("base %q", args.BootstrapBase)
+		}
+	}
+	supportedBootstrapSeries := set.NewStrings()
+	for _, base := range args.SupportedBootstrapBases {
+		s, err := series.GetSeriesFromBase(base)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		supportedBootstrapSeries.Add(s)
+	}
+
 	bootstrapParams := environs.BootstrapParams{
 		CloudName:                  args.Cloud.Name,
 		CloudRegion:                args.CloudRegion,
 		ControllerConfig:           args.ControllerConfig,
 		ModelConstraints:           args.ModelConstraints,
 		StoragePools:               args.StoragePools,
-		BootstrapSeries:            args.BootstrapSeries,
-		SupportedBootstrapSeries:   args.SupportedBootstrapSeries,
+		BootstrapSeries:            bootstrapSeries,
+		SupportedBootstrapSeries:   supportedBootstrapSeries,
 		Placement:                  args.Placement,
 		Force:                      args.Force,
 		ExtraAgentValuesForTesting: args.ExtraAgentValuesForTesting,
@@ -887,7 +912,7 @@ func userPublicSigningKey() (string, error) {
 func bootstrapImageMetadata(
 	environ environs.BootstrapEnviron,
 	fetcher imagemetadata.SimplestreamsFetcher,
-	bootstrapSeries *string,
+	bootstrapBase *series.Base,
 	bootstrapArch string,
 	bootstrapImageId string,
 	customImageMetadata *[]*imagemetadata.ImageMetadata,
@@ -912,10 +937,10 @@ func bootstrapImageMetadata(
 	}
 
 	if bootstrapImageId != "" {
-		if bootstrapSeries == nil {
-			return nil, errors.NotValidf("no series specified with bootstrap image")
+		if bootstrapBase == nil {
+			return nil, errors.NotValidf("no base specified with bootstrap image")
 		}
-		seriesVersion, err := series.SeriesVersion(*bootstrapSeries)
+		seriesVersion, err := series.BaseSeriesVersion(*bootstrapBase)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

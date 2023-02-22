@@ -8,14 +8,17 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 )
 
 type portRangeChangeRecorder struct {
 	machinePortRanges map[names.UnitTag]network.GroupedPortRanges
+	appPortRanges     network.GroupedPortRanges
 
 	// The tag of the unit that the following pending open/close ranges apply to.
 	unitTag            names.UnitTag
+	modelType          model.ModelType
 	pendingOpenRanges  network.GroupedPortRanges
 	pendingCloseRanges network.GroupedPortRanges
 	logger             loggo.Logger
@@ -23,19 +26,33 @@ type portRangeChangeRecorder struct {
 
 func newPortRangeChangeRecorder(
 	logger loggo.Logger, unit names.UnitTag,
+	modelType model.ModelType,
 	machinePortRanges map[names.UnitTag]network.GroupedPortRanges,
+	appPortRanges network.GroupedPortRanges,
 ) *portRangeChangeRecorder {
 	return &portRangeChangeRecorder{
 		logger:            logger,
 		unitTag:           unit,
+		modelType:         modelType,
+		appPortRanges:     appPortRanges,
 		machinePortRanges: machinePortRanges,
 	}
+}
+
+func (r *portRangeChangeRecorder) validatePortRangeForCAAS(portRange network.PortRange) error {
+	if r.modelType == model.IAAS || portRange.FromPort == portRange.ToPort {
+		return nil
+	}
+	return errors.NewNotSupported(nil, "port ranges are not supported for k8s applications, please specify a single port")
 }
 
 // OpenPortRange registers a request to open the specified port range for the
 // provided endpoint name.
 func (r *portRangeChangeRecorder) OpenPortRange(endpointName string, portRange network.PortRange) error {
 	if err := portRange.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+	if err := r.validatePortRangeForCAAS(portRange); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -85,6 +102,9 @@ func (r *portRangeChangeRecorder) ClosePortRange(endpointName string, portRange 
 	if err := portRange.Validate(); err != nil {
 		return errors.Trace(err)
 	}
+	if err := r.validatePortRangeForCAAS(portRange); err != nil {
+		return errors.Trace(err)
+	}
 
 	// If an open request is pending for this port, remove it.
 	for i, pr := range r.pendingOpenRanges[endpointName] {
@@ -122,8 +142,8 @@ func (r *portRangeChangeRecorder) ClosePortRange(endpointName string, portRange 
 		}
 	}
 
-	// If the machine has no open ports then this is a no-op.
-	if len(r.machinePortRanges) == 0 {
+	// If it has no open ports then this is a no-op.
+	if len(r.machinePortRanges)+len(r.appPortRanges) == 0 {
 		return nil
 	}
 
@@ -179,11 +199,14 @@ func (r *portRangeChangeRecorder) checkForConflict(incomingEndpoint string, inco
 // OpenedUnitPortRanges returns the set of port ranges currently open by the
 // current unit grouped by endpoint.
 func (r *portRangeChangeRecorder) OpenedUnitPortRanges() network.GroupedPortRanges {
-	return r.machinePortRanges[r.unitTag]
+	if len(r.machinePortRanges[r.unitTag]) > 0 {
+		return r.machinePortRanges[r.unitTag]
+	}
+	return r.appPortRanges
 }
 
 // PendingChanges returns the set of recorded open/close port range requests
-// (grouped by endpoint mame) for the current unit.
+// (grouped by endpoint name) for the current unit.
 func (r *portRangeChangeRecorder) PendingChanges() (network.GroupedPortRanges, network.GroupedPortRanges) {
 	return r.pendingOpenRanges, r.pendingCloseRanges
 }

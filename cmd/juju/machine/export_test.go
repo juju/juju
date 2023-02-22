@@ -14,7 +14,8 @@ import (
 )
 
 var (
-	SSHProvisioner = &sshProvisioner
+	SSHProvisioner        = &sshProvisioner
+	ErrDryRunNotSupported = errDryRunNotSupported
 )
 
 type AddCommand struct {
@@ -50,20 +51,21 @@ type RemoveCommand struct {
 }
 
 // NewRemoveCommand returns an RemoveCommand with the api provided as specified.
-func NewRemoveCommandForTest(apiRoot api.Connection, machineAPI RemoveMachineAPI) (cmd.Command, *RemoveCommand) {
+func NewRemoveCommandForTest(apiRoot api.Connection, machineAPI RemoveMachineAPI, modelConfigApi ModelConfigAPI) (cmd.Command, *RemoveCommand) {
 	command := &removeCommand{
-		apiRoot:    apiRoot,
-		machineAPI: machineAPI,
+		apiRoot:        apiRoot,
+		machineAPI:     machineAPI,
+		modelConfigApi: modelConfigApi,
 	}
 	command.SetClientStore(jujuclienttesting.MinimalStore())
 	return modelcmd.Wrap(command), &RemoveCommand{command}
 }
 
-// NewUpgradeSeriesCommand returns an upgrade series command for test
-func NewUpgradeSeriesCommandForTest(statusAPI StatusAPI, upgradeAPI UpgradeMachineSeriesAPI) cmd.Command {
-	command := &upgradeSeriesCommand{
-		statusClient:               statusAPI,
-		upgradeMachineSeriesClient: upgradeAPI,
+// NewUpgradeMachineCommand returns an upgrade machine command for test
+func NewUpgradeMachineCommandForTest(statusAPI StatusAPI, upgradeAPI UpgradeMachineAPI) cmd.Command {
+	command := &upgradeMachineCommand{
+		statusClient:         statusAPI,
+		upgradeMachineClient: upgradeAPI,
 	}
 	command.plan = catacomb.Plan{
 		Site: &command.catacomb,

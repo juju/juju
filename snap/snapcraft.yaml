@@ -1,5 +1,5 @@
 name: juju
-version: 3.1-beta1
+version: 3.2-beta1
 summary: Juju - a model-driven operator lifecycle manager for K8s and machines
 license: AGPL-3.0
 description: |
@@ -69,8 +69,44 @@ parts:
   wrappers:
     plugin: dump
     source: snap/local
+
+  dqlite:
+    plugin: juju-dqlite
+    source: .
+    organize:
+      juju-dqlite-static-lib-deps/*: .
+
+  jujud:
+    after:
+      - dqlite
+    plugin: juju-go
+    go-channel: 1.18/stable
+    source: .
+    go-packages:
+      - github.com/juju/juju/cmd/jujud
+    go-external-strings:
+      github.com/juju/juju/version.GitCommit: ""
+      github.com/juju/juju/version.GitTreeState: ""
+      github.com/juju/juju/version.build: ""
+    go-static: true
+    go-strip: true
+    go-cgo-enabled: "1"
+    go-cgo-cc: "musl-gcc"
+    go-cgo-cflags: "-I/usr/local/musl/include"
+    go-cgo-ldflags: "-luv -lraft -ldqlite -llz4 -lsqlite3"
+    go-cgo-ldflags-allow: "(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"
+    override-pull: |
+      snapcraftctl pull
+
+      mkdir -p /usr/local/musl/include
+
+      ln -s /usr/include/$(uname -m)-linux-gnu/asm /usr/local/musl/include/asm || true
+      ln -s /usr/include/asm-generic /usr/local/musl/include/asm-generic || true
+      ln -s /usr/include/linux /usr/local/musl/include/linux || true
+
   juju:
-    # TODO(hpidcock): move to upstream go plugin when it has the features we need.
+    after:
+      - jujud
     plugin: juju-go
     go-channel: 1.18/stable
     # The source can be your local tree or github
@@ -89,30 +125,23 @@ parts:
     # apply patches before building
     go-packages:
       - github.com/juju/juju/cmd/juju
-      # If you are releasing a build with public streams, you don't need to build the agent
-      # Instead, you should use the released agent
       - github.com/juju/juju/cmd/jujuc
-      - github.com/juju/juju/cmd/jujud
       - github.com/juju/juju/cmd/plugins/juju-metadata
-    # go-external-strings is not supported by the standard go plugin.
-    # these strings are filled in by CI.
     go-external-strings:
       github.com/juju/juju/version.GitCommit: ""
       github.com/juju/juju/version.GitTreeState: ""
       github.com/juju/juju/version.build: ""
-    # go-static is not supported by the standard go plugin.
     go-static: true
-    # go-strip is not supported by the standard go plugin.
     go-strip: true
     override-build: |
       snapcraftctl build
 
-      mkdir -p $SNAPCRAFT_PART_INSTALL/bash_completions
-      cp -a etc/bash_completion.d/juju* $SNAPCRAFT_PART_INSTALL/bash_completions/.
+      mkdir -p ${SNAPCRAFT_PART_INSTALL}/bash_completions
+      cp -a etc/bash_completion.d/juju* ${SNAPCRAFT_PART_INSTALL}/bash_completions/.
       # If you are releasing a build with public streams, copy in the agent directly
       # If needed, grab the agent from streams
-      # curl http://streams.canonical.com/juju/tools/agent/$SNAPCRAFT_PROJECT_VERSION/juju-$SNAPCRAFT_PROJECT_VERSION-ubuntu-amd64.tgz | tar xz -C $SNAPCRAFT_PART_INSTALL/bin/
-      jujud=$SNAPCRAFT_PART_INSTALL/bin/jujud
+      # curl http://streams.canonical.com/juju/tools/agent/$SNAPCRAFT_PROJECT_VERSION/juju-$SNAPCRAFT_PROJECT_VERSION-ubuntu-amd64.tgz | tar xz -C ${SNAPCRAFT_PART_INSTALL}/bin/
+      jujud=${SNAPCRAFT_STAGE}/bin/jujud
       version=$($jujud version)
       hash=$(sha256sum $jujud | cut -d " " -f 1)
       cat > jujud-versions.yaml <<EOF
@@ -120,14 +149,36 @@ parts:
         - version: $version
           sha256: $hash
       EOF
-      cp -a jujud-versions.yaml $SNAPCRAFT_PART_INSTALL/bin
+      cp -a jujud-versions.yaml ${SNAPCRAFT_PART_INSTALL}/bin
     stage-packages:
       - openssh-client
+
+  dqlite-cleanup:
+    # This ensures that we clean up the dqlite clean up files.
+    after:
+      - juju
+    plugin: nil
+    source: .
+    override-prime: |
+      snapcraftctl prime
+
+      rm -rf ${SNAPCRAFT_PRIME}/include || true
+      rm -rf ${SNAPCRAFT_PRIME}/juju-dqlite-static-lib-deps || true
+      rm -rf ${SNAPCRAFT_PRIME}/dqlite.tar.bz2 || true
+      rm -f ${SNAPCRAFT_PRIME}/lib* || true
 
 hooks:
   connect-plug-peers: {}
   disconnect-plug-peers: {}
   post-refresh: {}
+
+slots:
+  juju-bin:
+    interface: content
+    content: juju
+    source:
+      read:
+        - $SNAP/bin
 
 plugs:
   peers:

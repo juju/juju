@@ -39,7 +39,7 @@ func (s *AddMachineSuite) SetUpTest(c *gc.C) {
 func (s *AddMachineSuite) TestInit(c *gc.C) {
 	for i, test := range []struct {
 		args        []string
-		series      string
+		base        string
 		constraints string
 		placement   string
 		count       int
@@ -48,9 +48,9 @@ func (s *AddMachineSuite) TestInit(c *gc.C) {
 		{
 			count: 1,
 		}, {
-			args:   []string{"--series", "some-series"},
-			count:  1,
-			series: "some-series",
+			args:  []string{"--base", "some-series"},
+			count: 1,
+			base:  "some-series",
 		}, {
 			args:  []string{"-n", "2"},
 			count: 2,
@@ -108,7 +108,7 @@ func (s *AddMachineSuite) TestInit(c *gc.C) {
 		err := cmdtesting.InitCommand(wrappedCommand, test.args)
 		if test.errorString == "" {
 			c.Check(err, jc.ErrorIsNil)
-			c.Check(addCmd.Series, gc.Equals, test.series)
+			c.Check(addCmd.Base, gc.Equals, test.base)
 			c.Check(addCmd.Constraints.String(), gc.Equals, test.constraints)
 			if addCmd.Placement != nil {
 				c.Check(addCmd.Placement.String(), gc.Equals, test.placement)
@@ -125,6 +125,11 @@ func (s *AddMachineSuite) TestInit(c *gc.C) {
 func (s *AddMachineSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
 	add, _ := machine.NewAddCommandForTest(s.fakeAddMachine, s.fakeAddMachine)
 	return cmdtesting.RunCommand(c, add, args...)
+}
+
+func (s *AddMachineSuite) TestSeriesAndBaseError(c *gc.C) {
+	_, err := s.run(c, "--series=jammy", "--base=ubuntu@22.04")
+	c.Assert(err, gc.ErrorMatches, "--series and --base cannot be specified together")
 }
 
 func (s *AddMachineSuite) TestAddMachine(c *gc.C) {
@@ -165,7 +170,7 @@ func (s *AddMachineSuite) TestSSHPlacementError(c *gc.C) {
 }
 
 func (s *AddMachineSuite) TestParamsPassedOn(c *gc.C) {
-	_, err := s.run(c, "--constraints", "mem=8G", "--series=jammy", "zone=nz")
+	_, err := s.run(c, "--constraints", "mem=8G", "--base=ubuntu@22.04", "zone=nz")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.fakeAddMachine.args, gc.HasLen, 1)
 
@@ -177,7 +182,7 @@ func (s *AddMachineSuite) TestParamsPassedOn(c *gc.C) {
 }
 
 func (s *AddMachineSuite) TestParamsPassedOnNTimes(c *gc.C) {
-	_, err := s.run(c, "-n", "3", "--constraints", "mem=8G", "--series=jammy")
+	_, err := s.run(c, "-n", "3", "--constraints", "mem=8G", "--base=ubuntu@22.04")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.fakeAddMachine.args, gc.HasLen, 3)
 
@@ -256,7 +261,7 @@ func (f *fakeAddMachineAPI) AddMachines(args []params.AddMachineParams) ([]param
 	return results, nil
 }
 
-func (f *fakeAddMachineAPI) DestroyMachinesWithParams(force, keep bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error) {
+func (f *fakeAddMachineAPI) DestroyMachinesWithParams(force, keep, dryRun bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error) {
 	return nil, errors.NotImplementedf("ForceDestroyMachinesWithParams")
 }
 

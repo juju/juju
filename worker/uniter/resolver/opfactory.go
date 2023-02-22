@@ -4,7 +4,7 @@
 package resolver
 
 import (
-	"github.com/juju/charm/v9/hooks"
+	"github.com/juju/charm/v10/hooks"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/model"
@@ -51,7 +51,7 @@ func (s *resolverOpFactory) NewNoOpFinishUpgradeSeries() (operation.Operation, e
 		return nil, errors.Trace(err)
 	}
 	f := func(*operation.State) {
-		s.LocalState.UpgradeSeriesStatus = model.UpgradeSeriesNotStarted
+		s.LocalState.UpgradeMachineStatus = model.UpgradeSeriesNotStarted
 	}
 	op = onCommitWrapper{op, f}
 	return op, nil
@@ -142,20 +142,20 @@ func (s *resolverOpFactory) wrapHookOp(op operation.Operation, info hook.Info) o
 		op = onPrepareWrapper{op, func() {
 			//on prepare the local status should be made to reflect
 			//that the upgrade process for this united has started.
-			s.LocalState.UpgradeSeriesStatus = s.RemoteState.UpgradeSeriesStatus
+			s.LocalState.UpgradeMachineStatus = s.RemoteState.UpgradeMachineStatus
 		}}
 		op = onCommitWrapper{op, func(*operation.State) {
 			// on commit, the local status should indicate the hook
 			// has completed. The remote status should already
 			// indicate completion. We sync the states here.
-			s.LocalState.UpgradeSeriesStatus = model.UpgradeSeriesPrepareCompleted
+			s.LocalState.UpgradeMachineStatus = model.UpgradeSeriesPrepareCompleted
 		}}
 	case hooks.PostSeriesUpgrade:
 		op = onPrepareWrapper{op, func() {
-			s.LocalState.UpgradeSeriesStatus = s.RemoteState.UpgradeSeriesStatus
+			s.LocalState.UpgradeMachineStatus = s.RemoteState.UpgradeMachineStatus
 		}}
 		op = onCommitWrapper{op, func(*operation.State) {
-			s.LocalState.UpgradeSeriesStatus = model.UpgradeSeriesCompleted
+			s.LocalState.UpgradeMachineStatus = model.UpgradeSeriesCompleted
 		}}
 	case hooks.ConfigChanged:
 		configHash := s.RemoteState.ConfigHash

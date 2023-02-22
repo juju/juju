@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
@@ -103,7 +103,9 @@ func (c *BootstrapCommand) deployControllerCharm(st *state.State, cons constrain
 	origin.Platform.Channel = base.Channel.String()
 
 	// Once the charm is added, set up the controller application.
-	if controllerUnit, err = addControllerApplication(st, curl, *origin, controllerAddress); err != nil {
+	controllerUnit, err = addControllerApplication(
+		st, curl, *origin, cons, controllerAddress)
+	if err != nil {
 		return errors.Annotate(err, "cannot add controller application")
 	}
 
@@ -184,7 +186,7 @@ func populateStoreControllerCharm(st *state.State, charmPath string, channel cha
 	// error response.
 	//
 	// The controller charm doesn't have any series specific code.
-	curl, origin, _, err = charmRepo.ResolveWithPreferredChannel(curl, origin, nil)
+	curl, origin, _, err = charmRepo.ResolveWithPreferredChannel(curl, origin)
 	if err != nil {
 		return nil, nil, errors.Annotatef(err, "resolving %q", controllerCharmURL)
 	}
@@ -202,7 +204,7 @@ func populateStoreControllerCharm(st *state.State, charmPath string, channel cha
 	if err != nil {
 		return nil, nil, err
 	}
-	resOrigin, err := charmDownloader.DownloadAndStore(curl, origin, nil, false)
+	resOrigin, err := charmDownloader.DownloadAndStore(curl, origin, false)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -289,7 +291,13 @@ func addLocalControllerCharm(st *state.State, base coreseries.Base, charmFileNam
 }
 
 // addControllerApplication deploys and configures the controller application.
-func addControllerApplication(st *state.State, curl *charm.URL, origin corecharm.Origin, address string) (*state.Unit, error) {
+func addControllerApplication(
+	st *state.State,
+	curl *charm.URL,
+	origin corecharm.Origin,
+	cons constraints.Value,
+	address string,
+) (*state.Unit, error) {
 	ch, err := st.Charm(curl)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -326,12 +334,13 @@ func addControllerApplication(st *state.State, curl *charm.URL, origin corecharm
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Criticalf("ADD APP WITH PLATFORM: %+v", *stateOrigin.Platform)
+
 	app, err := st.AddApplication(state.AddApplicationArgs{
 		Name:              bootstrap.ControllerApplicationName,
 		Charm:             ch,
 		CharmOrigin:       stateOrigin,
 		CharmConfig:       cfg,
+		Constraints:       cons,
 		ApplicationConfig: appCfg,
 		NumUnits:          1,
 	})

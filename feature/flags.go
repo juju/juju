@@ -33,3 +33,7 @@ const Generations = "generations"
 
 // RawK8sSpec indicates that it's allowed to set k8s spec using raw yaml format.
 const RawK8sSpec = "raw-k8s-spec"
+
+// ServerSideCharmDeploy indicates that server side deploy of repository charms
+// will be done.
+const ServerSideCharmDeploy = "server-side-charm-deploy"

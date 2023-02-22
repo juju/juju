@@ -203,8 +203,9 @@ func (NewGetBootstrapConfigParamsFuncSuite) TestDetectCredentials(c *gc.C) {
 		CloudType:           "cloud-type",
 		ControllerModelUUID: coretesting.ModelTag.Id(),
 		Config: map[string]interface{}{
-			"name": "foo",
-			"type": "cloud-type",
+			"name":           "foo",
+			"type":           "cloud-type",
+			"secret-backend": "auto",
 		},
 	}
 	var registry mockProviderRegistry
@@ -228,8 +229,9 @@ func (NewGetBootstrapConfigParamsFuncSuite) TestCloudCACert(c *gc.C) {
 		CloudType:           "cloud-type",
 		ControllerModelUUID: coretesting.ModelTag.Id(),
 		Config: map[string]interface{}{
-			"name": "foo",
-			"type": "cloud-type",
+			"name":           "foo",
+			"type":           "cloud-type",
+			"secret-backend": "auto",
 		},
 		CloudCACertificates: []string{fakeCert},
 		SkipTLSVerify:       true,

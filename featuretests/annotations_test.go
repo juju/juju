@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/api/client/annotations"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -24,51 +25,57 @@ func (s *annotationsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *annotationsSuite) TearDownTest(c *gc.C) {
-	s.annotationsClient.ClientFacade.Close()
+	_ = s.annotationsClient.ClientFacade.Close()
 	s.JujuConnSuite.TearDownTest(c)
 }
 
 func (s *annotationsSuite) TestAnnotationFacadeCall(c *gc.C) {
-	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
+	})
+	machineTag := machine.Tag().String()
 
 	annts := map[string]string{"annotation": "test"}
 	callErrs, err := s.annotationsClient.Set(
 		map[string]map[string]string{
-			charm.Tag().String(): annts,
+			machineTag: annts,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(callErrs, gc.HasLen, 0)
 
-	charmTag := charm.Tag().String()
-	found, err := s.annotationsClient.Get([]string{charmTag})
+	found, err := s.annotationsClient.Get([]string{machineTag})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found, gc.HasLen, 1)
 
 	firstFound := found[0]
-	c.Assert(firstFound.EntityTag, gc.Equals, charmTag)
+	c.Assert(firstFound.EntityTag, gc.Equals, machineTag)
 	c.Assert(firstFound.Annotations, gc.DeepEquals, annts)
 	c.Assert(firstFound.Error.Error, gc.IsNil)
 }
 
 func (s *annotationsSuite) TestSetCallGettingErrors(c *gc.C) {
-	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
-	charmTag := charm.Tag().String()
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
+	})
+	machineTag := machine.Tag().String()
 
 	annts := map[string]string{"invalid.key": "test"}
 	callErrs, err := s.annotationsClient.Set(
 		map[string]map[string]string{
-			charmTag: annts,
+			machineTag: annts,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(callErrs, gc.HasLen, 1)
 	c.Assert(callErrs[0].Error.Error(), gc.Matches, `.*: invalid key "invalid.key"`)
 
-	found, err := s.annotationsClient.Get([]string{charmTag})
+	found, err := s.annotationsClient.Get([]string{machineTag})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found, gc.HasLen, 1)
 
 	firstFound := found[0]
-	c.Assert(firstFound.EntityTag, gc.Equals, charmTag)
+	c.Assert(firstFound.EntityTag, gc.Equals, machineTag)
 	c.Assert(firstFound.Annotations, gc.HasLen, 0)
 	c.Assert(firstFound.Error.Error, gc.IsNil)
 }

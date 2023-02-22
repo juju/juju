@@ -1,9 +1,7 @@
-series: bionic
 applications:
   apache2:
-    charm: cs:apache2-26
+    charm: ch:apache2
 ---
-series: bionic
 applications:
   apache2:
     offers:

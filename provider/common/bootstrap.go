@@ -85,31 +85,45 @@ func BootstrapInstance(
 	// no way to make sure that only one succeeds.
 
 	// First thing, ensure we have tools otherwise there's no point.
-	selectedSeries, err := coreseries.ValidateSeries(
-		args.SupportedBootstrapSeries,
-		args.BootstrapSeries,
-		config.PreferredSeries(env.Config()),
+	supportedBootstrapBase := make([]series.Base, len(args.SupportedBootstrapSeries))
+	for i, b := range args.SupportedBootstrapSeries.SortedValues() {
+		sb, err := series.GetBaseFromSeries(b)
+		if err != nil {
+			return nil, nil, nil, errors.Trace(err)
+		}
+		supportedBootstrapBase[i] = sb
+	}
+
+	var bootstrapBase series.Base
+	if args.BootstrapSeries != "" {
+		b, err := series.GetBaseFromSeries(args.BootstrapSeries)
+		if err != nil {
+			return nil, nil, nil, errors.Trace(err)
+		}
+		bootstrapBase = b
+	}
+
+	requestedBootstrapBase, err := coreseries.ValidateBase(
+		supportedBootstrapBase,
+		bootstrapBase,
+		config.PreferredBase(env.Config()),
 	)
 	if !args.Force && err != nil {
-		// If the series isn't valid at all, then don't prompt users to use
+		// If the base isn't valid at all, then don't prompt users to use
 		// the --force flag.
-		if _, err := series.UbuntuSeriesVersion(selectedSeries); err != nil {
-			return nil, nil, nil, errors.NotValidf("series %q", selectedSeries)
+		if _, err := series.UbuntuBaseVersion(requestedBootstrapBase); err != nil {
+			return nil, nil, nil, errors.NotValidf("base %q", requestedBootstrapBase.String())
 		}
 		return nil, nil, nil, errors.Annotatef(err, "use --force to override")
 	}
-	// The series we're attempting to bootstrap is empty, show a friendly
+	// The base we're attempting to bootstrap is empty, show a friendly
 	// error message, rather than the more cryptic error messages that follow
 	// onwards.
-	if selectedSeries == "" {
-		return nil, nil, nil, errors.NotValidf("bootstrap instance series")
-	}
-	selectedBase, err := coreseries.GetBaseFromSeries(selectedSeries)
-	if selectedSeries == "" {
-		return nil, nil, nil, errors.NotValidf("bootstrap instance series %q", selectedSeries)
+	if requestedBootstrapBase.Empty() {
+		return nil, nil, nil, errors.NotValidf("bootstrap instance base")
 	}
 	availableTools, err := args.AvailableTools.Match(coretools.Filter{
-		OSType: selectedBase.OS,
+		OSType: requestedBootstrapBase.OS,
 	})
 	if err != nil {
 		return nil, nil, nil, err
@@ -117,7 +131,7 @@ func BootstrapInstance(
 
 	// Filter image metadata to the selected series.
 	var imageMetadata []*imagemetadata.ImageMetadata
-	seriesVersion, err := series.SeriesVersion(selectedSeries)
+	seriesVersion, err := series.BaseSeriesVersion(requestedBootstrapBase)
 	if err != nil {
 		return nil, nil, nil, errors.Trace(err)
 	}
@@ -141,18 +155,19 @@ func BootstrapInstance(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	envCfg := env.Config()
+
 	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(
-		args.ControllerConfig, args.BootstrapConstraints, args.ModelConstraints, selectedBase, publicKey,
+		args.ControllerConfig, args.BootstrapConstraints, args.ModelConstraints, requestedBootstrapBase, publicKey,
 		args.ExtraAgentValuesForTesting,
 	)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	instanceConfig.EnableOSRefreshUpdate = env.Config().EnableOSRefreshUpdate()
-	instanceConfig.EnableOSUpgrade = env.Config().EnableOSUpgrade()
-	instanceConfig.NetBondReconfigureDelay = env.Config().NetBondReconfigureDelay()
 
+	envCfg := env.Config()
+	instanceConfig.EnableOSRefreshUpdate = envCfg.EnableOSRefreshUpdate()
+	instanceConfig.EnableOSUpgrade = envCfg.EnableOSUpgrade()
+	instanceConfig.NetBondReconfigureDelay = envCfg.NetBondReconfigureDelay()
 	instanceConfig.Tags = instancecfg.InstanceTags(envCfg.UUID(), args.ControllerConfig.ControllerUUID(), envCfg, true)
 
 	// We're creating a new instance; inject host keys so that we can then
@@ -325,7 +340,7 @@ func BootstrapInstance(
 		}
 		return FinishBootstrap(ctx, client, env, callCtx, result.Instance, icfg, opts)
 	}
-	return result, &selectedBase, finalizer, nil
+	return result, &requestedBootstrapBase, finalizer, nil
 }
 
 func startInstanceZones(env environs.Environ, ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) ([]string, error) {
@@ -372,6 +387,10 @@ func formatHardware(hw *instance.HardwareCharacteristics) string {
 	}
 	if hw.CpuCores != nil && *hw.CpuCores > 0 {
 		out = append(out, fmt.Sprintf("cores=%d", *hw.CpuCores))
+	}
+	// If the virt-type is the default, don't print it out, as it's just noise.
+	if hw.VirtType != nil && *hw.VirtType != "" && *hw.VirtType != string(instance.DefaultInstanceType) {
+		out = append(out, fmt.Sprintf("virt-type=%s", *hw.VirtType))
 	}
 	return strings.Join(out, " ")
 }
@@ -501,9 +520,9 @@ func ConfigureMachine(
 // an ssh.Options and a cleanup function, or an error.
 type HostSSHOptionsFunc func(host string) (*ssh.Options, func(), error)
 
-// DefaultHostSSHOptions returns a a nil *ssh.Options, which means
+// DefaultHostSSHOptions returns a nil *ssh.Options, which means
 // to use the defaults; and a no-op cleanup function.
-func DefaultHostSSHOptions(host string) (*ssh.Options, func(), error) {
+func DefaultHostSSHOptions(string) (*ssh.Options, func(), error) {
 	return nil, func() {}, nil
 }
 

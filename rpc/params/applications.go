@@ -6,9 +6,12 @@ package params
 import (
 	"time"
 
+	"github.com/juju/charm/v10"
+
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/storage"
 )
 
@@ -294,8 +297,34 @@ type ApplicationDestroy struct {
 
 // DestroyApplicationsParams holds bulk parameters for the
 // Application.DestroyApplication call.
+type DestroyApplicationsParamsV15 struct {
+	Applications []DestroyApplicationParamsV15 `json:"applications"`
+}
+
+// DestroyApplicationsParams holds bulk parameters for the
+// Application.DestroyApplication call.
 type DestroyApplicationsParams struct {
 	Applications []DestroyApplicationParams `json:"applications"`
+}
+
+// DestroyApplicationParamsV15 holds parameters for the
+// Application.DestroyApplication call on the v15 facade.
+type DestroyApplicationParamsV15 struct {
+	// ApplicationTag holds the tag of the application to destroy.
+	ApplicationTag string `json:"application-tag"`
+
+	// DestroyStorage controls whether or not storage attached to
+	// units of the application should be destroyed.
+	DestroyStorage bool `json:"destroy-storage,omitempty"`
+
+	// Force controls whether or not the destruction of an application
+	// will be forced, i.e. ignore operational errors.
+	Force bool `json:"force"`
+
+	// MaxWait specifies the amount of time that each step in application removal
+	// will wait before forcing the next step to kick-off. This parameter
+	// only makes sense in combination with 'force' set to 'true'.
+	MaxWait *time.Duration `json:"max-wait,omitempty"`
 }
 
 // DestroyApplicationParams holds parameters for the
@@ -316,6 +345,10 @@ type DestroyApplicationParams struct {
 	// will wait before forcing the next step to kick-off. This parameter
 	// only makes sense in combination with 'force' set to 'true'.
 	MaxWait *time.Duration `json:"max-wait,omitempty"`
+
+	// DryRun specifies whether this should perform this destroy
+	// action or just return what this action will destroy
+	DryRun bool `json:"dry-run,omitempty"`
 }
 
 // DestroyConsumedApplicationsParams holds bulk parameters for the
@@ -514,4 +547,115 @@ type ExposeInfoResult struct {
 	// with pre 2.9 clients, if this field is empty, all opened ports
 	// for the application will be exposed to 0.0.0.0/0.
 	ExposedEndpoints map[string]ExposedEndpoint `json:"exposed-endpoints,omitempty"`
+}
+
+type DeployFromRepositoryArgs struct {
+	Args []DeployFromRepositoryArg
+}
+
+type DeployFromRepositoryArg struct {
+	// CharmName is a string identifying the name of the thing to deploy.
+	// Required.
+	CharmName string
+
+	// ApplicationName is the name to give the application. Optional. By
+	// default, the charm name and the application name will be the same.
+	ApplicationName string
+
+	// AttachStorage contains IDs of existing storage that should be
+	// attached to the application unit that will be deployed. This
+	// may be non-empty only if NumUnits is 1.
+	AttachStorage []string
+
+	// Base describes the OS base intended to be used by the charm.
+	Base series.Base
+
+	// Channel is the channel in the repository to deploy from.
+	// This is an optional value. Required if revision is provided.
+	// Defaults to “stable” if not defined nor required.
+	Channel *charm.Channel
+
+	// ConfigYAML is a string that overrides the default config.yml.
+	ConfigYAML string
+
+	// Cons contains constraints on where units of this application
+	// may be placed.
+	Cons constraints.Value
+
+	// Devices contains Constraints specifying how devices should be
+	// handled.
+	Devices map[string]devices.Constraints
+
+	// DryRun just shows what the deploy would do, including finding the
+	// charm; determining version, channel and base to use; validation
+	// of the config. Does not actually download or deploy the charm.
+	DryRun bool
+
+	// EndpointBindings
+	EndpointBindings map[string]string
+
+	// Force can be set to true to bypass any checks for charm-specific
+	// requirements ("assumes" sections in charm metadata, supported series,
+	// LXD profile allow list)
+	Force bool
+
+	// NumUnits is the number of units to deploy. Defaults to 1 if no
+	// value provided. Synonymous with scale for kubernetes charms.
+	NumUnits *int
+
+	// Placement directives define on which machines the unit(s) must be
+	// created.
+	Placement []*instance.Placement
+
+	// Revision is the charm revision number. Requires the channel
+	// be explicitly set.
+	Revision *int
+
+	// Resources is a collection of resource names for the
+	// application, with the value being the revision of the
+	// resource to use if default revision is not desired.
+	Resources map[string]string
+
+	// Storage contains Constraints specifying how storage should be
+	// handled.
+	Storage map[string]storage.Constraints
+
+	//  Trust allows charm to run hooks that require access credentials
+	Trust bool
+}
+
+type DeployFromRepositoryResults struct {
+	Results []DeployFromRepositoryResult
+}
+
+type DeployFromRepositoryResult struct {
+	// Errors holds errors accumulated during validation of
+	// deployment, or errors during deployment
+	Errors []*Error
+
+	// Info
+	Info []string
+
+	// PendingResourceUploads returns a collection of data
+	// required to upload a specific resource for this charm.
+	// Deploy will validate the resource request against the
+	// charm, but not the upload data. Only resources indicated
+	// as local upload will be included. They have already been
+	// added as Pending.
+	PendingResourceUploads []*PendingResourceUpload
+}
+
+type PendingResourceUpload struct {
+	// Name is the name of the resource.
+	Name string
+
+	// Filename is the name of the file as it exists on disk.
+	// Sometimes referred to as the path.
+	Filename string
+
+	// PendingID is the pending ID to associate with this upload.
+	PendingID string
+
+	// Type of the resource, a string matching one of the resource.Type
+	Type string
 }

@@ -4,7 +4,7 @@
 package caasfirewaller_test
 
 import (
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 
@@ -72,7 +72,8 @@ type mockApplication struct {
 	exposed      bool
 	watcher      state.NotifyWatcher
 
-	charm mockCharm
+	charm         mockCharm
+	appPortRanges state.ApplicationPortRanges
 }
 
 func (a *mockApplication) Life() state.Life {
@@ -93,6 +94,11 @@ func (a *mockApplication) ApplicationConfig() (config.ConfigAttributes, error) {
 func (a *mockApplication) Watch() state.NotifyWatcher {
 	a.MethodCall(a, "Watch")
 	return a.watcher
+}
+
+func (a *mockApplication) OpenedPortRanges() (state.ApplicationPortRanges, error) {
+	a.MethodCall(a, "OpenedPortRanges")
+	return a.appPortRanges, nil
 }
 
 func (a *mockApplication) Charm() (charmscommon.Charm, bool, error) {

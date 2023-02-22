@@ -9,7 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package model_test -destination charm_mock_test.go github.com/juju/charm/v9 CharmMeta
+//go:generate go run github.com/golang/mock/mockgen -package model_test -destination charm_mock_test.go github.com/juju/charm/v10 CharmMeta
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)

@@ -52,8 +52,9 @@ func (s *containerAgentSuite) TestRegisteredSubCommandsForContainerAgentCommand(
 	ctx, err = cmdtesting.RunCommand(c, containerAgentCmd, []string{"help", "commands"}...)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
-help  Show help on a command or other topic.
-init  Initialize containeragent local state.
-unit  Start containeragent.
+documentation  Generate the documentation for all commands
+help           Show help on a command or other topic.
+init           Initialize containeragent local state.
+unit           Start containeragent.
 `[1:])
 }
