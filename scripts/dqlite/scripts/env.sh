@@ -35,7 +35,7 @@ current_arch() {
 		ppc64le) echo "ppc64le" ;;
 		riscv64) echo "riscv64" ;;
 		arm64)
-			if [[ $(is_darwin) ]]; then
+			if [[ $(is_darwin) = true  ]]; then
 				echo "arm64"
 			else
 				echo "Unsupported OS: ${OS}" && exit 1

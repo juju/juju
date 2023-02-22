@@ -150,7 +150,7 @@ musl_install_cross_darwin() {
 }
 
 install() {
-    if [[ $(is_darwin) ]]; then
+    if [[ $(is_darwin) = true ]]; then
         musl_install_cross_darwin && exit 0
     fi
     if [ "${MUSL_PRECOMPILED}" = "1" ]; then
