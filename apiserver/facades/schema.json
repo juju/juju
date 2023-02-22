@@ -20581,6 +20581,18 @@
         "Schema": {
             "type": "object",
             "properties": {
+                "GetSecretAccessScope": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/GetRemoteSecretAccessArgs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/StringResults"
+                        }
+                    },
+                    "description": "GetSecretAccessScope returns the tokens for the access scope of the specified secrets and consumers."
+                },
                 "GetSecretContentInfo": {
                     "type": "object",
                     "properties": {
@@ -20620,6 +20632,41 @@
                         "code"
                     ]
                 },
+                "GetRemoteSecretAccessArg": {
+                    "type": "object",
+                    "properties": {
+                        "application-token": {
+                            "type": "string"
+                        },
+                        "unit-id": {
+                            "type": "integer"
+                        },
+                        "uri": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "application-token",
+                        "unit-id",
+                        "uri"
+                    ]
+                },
+                "GetRemoteSecretAccessArgs": {
+                    "type": "object",
+                    "properties": {
+                        "relations": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/GetRemoteSecretAccessArg"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "relations"
+                    ]
+                },
                 "GetRemoteSecretContentArg": {
                     "type": "object",
                     "properties": {
@@ -20629,14 +20676,17 @@
                         "bakery-version": {
                             "type": "integer"
                         },
-                        "latest": {
-                            "type": "boolean"
-                        },
                         "macaroons": {
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/Macaroon"
                             }
+                        },
+                        "peek": {
+                            "type": "boolean"
+                        },
+                        "refresh": {
+                            "type": "boolean"
                         },
                         "revision": {
                             "type": "integer"
@@ -20789,6 +20839,36 @@
                     "required": [
                         "backend-id",
                         "revision-id"
+                    ]
+                },
+                "StringResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "result": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "result"
+                    ]
+                },
+                "StringResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/StringResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
                     ]
                 }
             }

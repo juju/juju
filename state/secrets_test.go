@@ -1093,6 +1093,41 @@ func (s *SecretsSuite) TestGetSecretConsumerAndGetSecretConsumerURI(c *gc.C) {
 	c.Check(mdOwnerNonLeaderUnit.CurrentRevision, gc.Equals, 666)
 }
 
+func (s *SecretsSuite) TestGetSecretConsumerCrossModelURI(c *gc.C) {
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
+			Label:       strPtr("owner-label"),
+		},
+	}
+	uri := secrets.NewURI().WithSource("some-uuid")
+	_, err := s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.GetSecretConsumer(uri, names.NewUnitTag("mariadb/0"))
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	md := &secrets.SecretConsumerMetadata{
+		Label:           "consumer-label",
+		CurrentRevision: 666,
+	}
+	err = s.State.SaveSecretConsumer(uri, names.NewUnitTag("mariadb/0"), md)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.GetSecretConsumer(nil, names.NewUnitTag("mariadb/0"))
+	c.Check(err, gc.ErrorMatches, `empty URI`)
+
+	md2, err := s.State.GetSecretConsumer(uri, names.NewUnitTag("mariadb/0"))
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(md2, jc.DeepEquals, md)
+
+	uri3, err := s.State.GetURIByConsumerLabel("consumer-label", names.NewUnitTag("mariadb/0"))
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(uri3, jc.DeepEquals, uri)
+}
+
 func (s *SecretsSuite) TestSaveSecretConsumer(c *gc.C) {
 	cp := state.CreateSecretParams{
 		Version: 1,
@@ -1145,6 +1180,25 @@ func (s *SecretsSuite) TestSaveSecretConsumerConcurrent(c *gc.C) {
 	err = s.State.SaveSecretConsumer(uri, names.NewUnitTag("mariadb/0"), md)
 	c.Assert(err, jc.ErrorIsNil)
 	md2, err := s.State.GetSecretConsumer(uri, names.NewUnitTag("mariadb/0"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(md2, jc.DeepEquals, md)
+}
+
+func (s *SecretsSuite) TestSaveSecretConsumerDifferentModel(c *gc.C) {
+	uri := secrets.NewURI().WithSource("some-uuid")
+	md := &secrets.SecretConsumerMetadata{
+		Label:           "foobar",
+		CurrentRevision: 666,
+	}
+	err := s.State.SaveSecretConsumer(uri, names.NewUnitTag("mariadb/0"), md)
+	c.Assert(err, jc.ErrorIsNil)
+	md2, err := s.State.GetSecretConsumer(uri, names.NewUnitTag("mariadb/0"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(md2, jc.DeepEquals, md)
+	md.CurrentRevision = 668
+	err = s.State.SaveSecretConsumer(uri, names.NewUnitTag("mariadb/0"), md)
+	c.Assert(err, jc.ErrorIsNil)
+	md2, err = s.State.GetSecretConsumer(uri, names.NewUnitTag("mariadb/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(md2, jc.DeepEquals, md)
 }
@@ -1350,6 +1404,33 @@ func (s *SecretsSuite) TestSecretRevokeAccess(c *gc.C) {
 		Subject:     subject,
 	})
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *SecretsSuite) TestSecretAccessScope(c *gc.C) {
+	uri := secrets.NewURI()
+	subject := names.NewApplicationTag("wordpress")
+
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
+		},
+	}
+	_, err := s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.GrantSecretAccess(uri, state.SecretAccessParams{
+		LeaderToken: &fakeToken{},
+		Scope:       s.relation.Tag(),
+		Subject:     subject,
+		Role:        secrets.RoleView,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	scope, err := s.State.SecretAccessScope(uri, subject)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(scope, jc.DeepEquals, s.relation.Tag())
 }
 
 func (s *SecretsSuite) TestDelete(c *gc.C) {

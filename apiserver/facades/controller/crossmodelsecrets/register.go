@@ -8,6 +8,8 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/common/secrets"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/secrets/provider"
@@ -24,8 +26,7 @@ func Register(registry facade.FacadeRegistry) {
 // newStateCrossModelSecretsAPI creates a new server-side CrossModelSecrets API facade
 // backed by global state.
 func newStateCrossModelSecretsAPI(ctx facade.Context) (*CrossModelSecretsAPI, error) {
-	// TODO(cmr secrets)
-	// authCtxt := ctx.Resources().Get("secretAccessAuthContext").(common.ValueResource).Value
+	authCtxt := ctx.Resources().Get("offerAccessAuthContext").(common.ValueResource).Value
 	secretBackendConfigGetter := func(modelUUID string) (*provider.ModelBackendConfigInfo, error) {
 		model, closer, err := ctx.StatePool().GetModel(modelUUID)
 		if err != nil {
@@ -45,9 +46,14 @@ func newStateCrossModelSecretsAPI(ctx facade.Context) (*CrossModelSecretsAPI, er
 	st := ctx.State()
 	return NewCrossModelSecretsAPI(
 		ctx.Resources(),
+		authCtxt.(*crossmodel.AuthContext),
 		st.ModelUUID(),
 		secretInfoGetter,
 		secretBackendConfigGetter,
-		st.RemoteEntities(),
+		&crossModelShim{
+			RemoteEntities: st.RemoteEntities(),
+			State:          st,
+		},
+		&stateBackendShim{st},
 	)
 }

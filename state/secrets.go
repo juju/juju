@@ -1048,6 +1048,7 @@ func (s *secretsStore) allSecretRevisions() ([]secretRevisionDoc, error) {
 type secretConsumerDoc struct {
 	DocID string `bson:"_id"`
 
+	SourceUUID      string `bson:"source-uuid,omitempty"`
 	ConsumerTag     string `bson:"consumer-tag"`
 	Label           string `bson:"label"`
 	CurrentRevision int    `bson:"current-revision"`
@@ -1251,7 +1252,7 @@ func (st *State) GetURIByConsumerLabel(label string, consumer names.Tag) (*secre
 	var doc secretConsumerDoc
 	err := secretConsumersCollection.Find(bson.M{
 		"consumer-tag": consumer.String(), "label": label,
-	}).Select(bson.D{{"_id", 1}}).One(&doc)
+	}).Select(bson.D{{"_id", 1}, {"source-uuid", 1}}).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("secret consumer with label %q for %q", label, consumer)
 	}
@@ -1262,7 +1263,10 @@ func (st *State) GetURIByConsumerLabel(label string, consumer names.Tag) (*secre
 	if id == "" {
 		return nil, errors.NotFoundf("secret consumer with label %q for %q", label, consumer)
 	}
-	return &secrets.URI{ID: id}, nil
+	return &secrets.URI{
+		ID:         id,
+		SourceUUID: doc.SourceUUID,
+	}, nil
 }
 
 // GetSecretConsumer gets secret consumer metadata.
@@ -1271,8 +1275,10 @@ func (st *State) GetSecretConsumer(uri *secrets.URI, consumer names.Tag) (*secre
 		return nil, errors.NewNotValid(nil, "empty URI")
 	}
 
-	if err := st.checkExists(uri); err != nil {
-		return nil, errors.Trace(err)
+	if uri.IsLocal(st.ModelUUID()) {
+		if err := st.checkExists(uri); err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 
 	secretConsumersCollection, closer := st.db().GetCollection(secretConsumersC)
@@ -1292,7 +1298,7 @@ func (st *State) GetSecretConsumer(uri *secrets.URI, consumer names.Tag) (*secre
 		LatestRevision:  doc.LatestRevision,
 	}
 
-	if md.Label == "" {
+	if md.Label == "" && uri.IsLocal(st.ModelUUID()) {
 		// Note: the leader unit always has the label cached on the uniter side, but non leaders do not.
 		// Therefore, below logic (fixes https://bugs.launchpad.net/juju/+bug/2004220) makes application
 		// owned secrets' labels visible for non leader units' secret-changed hook.
@@ -1366,10 +1372,15 @@ func (st *State) SaveSecretConsumer(uri *secrets.URI, consumer names.Tag, metada
 	secretConsumersCollection, closer := st.db().GetCollection(secretConsumersC)
 	defer closer()
 
+	// Cross model secrets do not exist in this model.
+	localSecret := uri.IsLocal(st.ModelUUID())
+
 	var doc secretConsumerDoc
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if err := st.checkExists(uri); err != nil {
-			return nil, errors.Trace(err)
+		if localSecret {
+			if err := st.checkExists(uri); err != nil {
+				return nil, errors.Trace(err)
+			}
 		}
 		err := secretConsumersCollection.FindId(key).One(&doc)
 		if err != nil && err != mgo.ErrNotFound {
@@ -1393,6 +1404,7 @@ func (st *State) SaveSecretConsumer(uri *secrets.URI, consumer names.Tag, metada
 				Assert: txn.DocMissing,
 				Insert: secretConsumerDoc{
 					DocID:           key,
+					SourceUUID:      uri.SourceUUID,
 					ConsumerTag:     consumer.String(),
 					Label:           metadata.Label,
 					CurrentRevision: metadata.CurrentRevision,
@@ -1400,13 +1412,15 @@ func (st *State) SaveSecretConsumer(uri *secrets.URI, consumer names.Tag, metada
 				},
 			})
 
-			// Increment the consumer count, ensuring no new consumers
-			// are added while update is in progress.
-			countRefOps, err := st.checkConsumerCountOps(uri, 1)
-			if err != nil {
-				return nil, errors.Trace(err)
+			if localSecret {
+				// Increment the consumer count, ensuring no new consumers
+				// are added while update is in progress.
+				countRefOps, err := st.checkConsumerCountOps(uri, 1)
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				ops = append(ops, countRefOps...)
 			}
-			ops = append(ops, countRefOps...)
 		} else {
 			ops = append(ops, txn.Op{
 				C:      secretConsumersC,
@@ -1419,13 +1433,15 @@ func (st *State) SaveSecretConsumer(uri *secrets.URI, consumer names.Tag, metada
 			})
 		}
 
-		// The consumer is tracking a new revision, which might result in the
-		// previous revision becoming obsolete.
-		obsoleteOps, err := st.markObsoleteRevisionOps(uri, consumer.String(), metadata.CurrentRevision)
-		if err != nil {
-			return nil, errors.Trace(err)
+		if localSecret {
+			// The consumer is tracking a new revision, which might result in the
+			// previous revision becoming obsolete.
+			obsoleteOps, err := st.markObsoleteRevisionOps(uri, consumer.String(), metadata.CurrentRevision)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			ops = append(ops, obsoleteOps...)
 		}
-		ops = append(ops, obsoleteOps...)
 
 		return ops, nil
 	}
@@ -2121,6 +2137,28 @@ func (st *State) SecretAccess(uri *secrets.URI, subject names.Tag) (secrets.Secr
 		return secrets.RoleNone, errors.Trace(err)
 	}
 	return secrets.SecretRole(doc.Role), nil
+}
+
+// SecretAccessScope returns the secret access scope for the subject.
+func (st *State) SecretAccessScope(uri *secrets.URI, subject names.Tag) (names.Tag, error) {
+	key := secretConsumerKey(uri.ID, subject.String())
+
+	secretPermissionsCollection, closer := st.db().GetCollection(secretPermissionsC)
+	defer closer()
+
+	if err := st.checkExists(uri); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var doc secretPermissionDoc
+	err := secretPermissionsCollection.FindId(key).One(&doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("secret access for consumer %q", subject)
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return names.ParseTag(doc.Scope)
 }
 
 func (st *State) removeScopedSecretPermissionOps(scope names.Tag) ([]txn.Op, error) {

@@ -4,12 +4,21 @@
 package crossmodelsecrets_test
 
 import (
+	"context"
+	"time"
+
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"github.com/golang/mock/gomock"
+	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/macaroon.v2"
 
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelsecrets"
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelsecrets/mocks"
 	coresecrets "github.com/juju/juju/core/secrets"
@@ -27,14 +36,60 @@ type CrossModelSecretsSuite struct {
 	secretsState    *mocks.MockSecretsState
 	secretsConsumer *mocks.MockSecretsConsumer
 	crossModelState *mocks.MockCrossModelState
+	stateBackend    *mocks.MockStateBackend
 
 	facade *crossmodelsecrets.CrossModelSecretsAPI
+
+	authContext *crossmodel.AuthContext
+	bakery      authentication.ExpirableStorageBakery
+}
+
+type testLocator struct {
+	PublicKey bakery.PublicKey
+}
+
+func (b testLocator) ThirdPartyInfo(ctx context.Context, loc string) (bakery.ThirdPartyInfo, error) {
+	if loc != "http://thirdparty" {
+		return bakery.ThirdPartyInfo{}, errors.NotFoundf("location %v", loc)
+	}
+	return bakery.ThirdPartyInfo{
+		PublicKey: b.PublicKey,
+		Version:   bakery.LatestVersion,
+	}, nil
+}
+
+type mockBakery struct {
+	*bakery.Bakery
+}
+
+func (m *mockBakery) ExpireStorageAfter(_ time.Duration) (authentication.ExpirableStorageBakery, error) {
+	return m, nil
+}
+
+func (m *mockBakery) Auth(mss ...macaroon.Slice) *bakery.AuthChecker {
+	return m.Bakery.Checker.Auth(mss...)
+}
+
+func (m *mockBakery) NewMacaroon(ctx context.Context, version bakery.Version, caveats []checkers.Caveat, ops ...bakery.Op) (*bakery.Macaroon, error) {
+	return m.Bakery.Oven.NewMacaroon(ctx, version, caveats, ops...)
 }
 
 func (s *CrossModelSecretsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.resources = common.NewResources()
 	s.AddCleanup(func(*gc.C) { s.resources.StopAll() })
+
+	key, err := bakery.GenerateKey()
+	c.Assert(err, jc.ErrorIsNil)
+	locator := testLocator{key.Public}
+	bakery := bakery.New(bakery.BakeryParams{
+		Locator:       locator,
+		Key:           bakery.MustGenerateKey(),
+		OpsAuthorizer: crossmodel.CrossModelAuthorizer{},
+	})
+	s.bakery = &mockBakery{bakery}
+	s.authContext, err = crossmodel.NewAuthContext(nil, key, s.bakery)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *CrossModelSecretsSuite) setup(c *gc.C) *gomock.Controller {
@@ -43,6 +98,7 @@ func (s *CrossModelSecretsSuite) setup(c *gc.C) *gomock.Controller {
 	s.secretsState = mocks.NewMockSecretsState(ctrl)
 	s.secretsConsumer = mocks.NewMockSecretsConsumer(ctrl)
 	s.crossModelState = mocks.NewMockCrossModelState(ctrl)
+	s.stateBackend = mocks.NewMockStateBackend(ctrl)
 
 	secretsStateGetter := func(modelUUID string) (crossmodelsecrets.SecretsState, crossmodelsecrets.SecretsConsumer, func() bool, error) {
 		return s.secretsState, s.secretsConsumer, func() bool { return false }, nil
@@ -66,10 +122,12 @@ func (s *CrossModelSecretsSuite) setup(c *gc.C) *gomock.Controller {
 	var err error
 	s.facade, err = crossmodelsecrets.NewCrossModelSecretsAPI(
 		s.resources,
+		s.authContext,
 		coretesting.ModelTag.Id(),
 		secretsStateGetter,
 		backendConfigGetter,
 		s.crossModelState,
+		s.stateBackend,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -86,8 +144,21 @@ func (s *CrossModelSecretsSuite) TestGetSecretContentInfo(c *gc.C) {
 	uri := coresecrets.NewURI().WithSource(coretesting.ModelTag.Id())
 	app := names.NewApplicationTag("remote-app")
 	consumer := names.NewUnitTag("remote-app/666")
+	relation := names.NewRelationTag("remote-app:foo local-app:foo")
+	offerUUID := "offer-uuid"
+	s.crossModelState.EXPECT().GetConsumerInfo("token").Return(app, offerUUID, nil)
+	s.stateBackend.EXPECT().HasEndpoint(relation.Id(), "remote-app").Return(true, nil)
 
-	s.crossModelState.EXPECT().GetRemoteEntity("token").Return(app, nil)
+	// Remote app 2 has mismatched offer.
+	app2 := names.NewApplicationTag("remote-app2")
+	offerUUID2 := "offer-uuid2"
+	s.crossModelState.EXPECT().GetConsumerInfo("token2").Return(app2, offerUUID2, nil)
+
+	// Remote app 3 has incorrect relation.
+	app3 := names.NewApplicationTag("remote-app3")
+	s.crossModelState.EXPECT().GetConsumerInfo("token3").Return(app3, offerUUID, nil)
+	s.stateBackend.EXPECT().HasEndpoint(relation.Id(), "remote-app3").Return(false, nil)
+
 	s.secretsState.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{
 		LatestRevision: 667,
 	}, nil)
@@ -100,19 +171,43 @@ func (s *CrossModelSecretsSuite) TestGetSecretContentInfo(c *gc.C) {
 		}, nil,
 	)
 
+	mac, err := s.bakery.NewMacaroon(
+		context.TODO(),
+		bakery.LatestVersion,
+		[]checkers.Caveat{
+			checkers.DeclaredCaveat("username", "mary"),
+			checkers.DeclaredCaveat("offer-uuid", offerUUID),
+			checkers.DeclaredCaveat("source-model-uuid", coretesting.ModelTag.Id()),
+			checkers.DeclaredCaveat("relation-key", relation.Id()),
+		}, bakery.Op{"consume", "mysql-uuid"})
+	c.Assert(err, jc.ErrorIsNil)
+
 	args := params.GetRemoteSecretContentArgs{
 		Args: []params.GetRemoteSecretContentArg{{
 			ApplicationToken: "token",
 			UnitId:           666,
 			BakeryVersion:    3,
-			// TODO(cmr secrets)
-			Macaroons: nil,
-			URI:       uri.String(),
-			Latest:    true,
+			Macaroons:        macaroon.Slice{mac.M()},
+			URI:              uri.String(),
+			Refresh:          true,
 		}, {
 			URI: coresecrets.NewURI().String(),
 		}, {
 			URI: uri.String(),
+		}, {
+			ApplicationToken: "token2",
+			UnitId:           666,
+			BakeryVersion:    3,
+			Macaroons:        macaroon.Slice{mac.M()},
+			URI:              uri.String(),
+			Refresh:          true,
+		}, {
+			ApplicationToken: "token3",
+			UnitId:           666,
+			BakeryVersion:    3,
+			Macaroons:        macaroon.Slice{mac.M()},
+			URI:              uri.String(),
+			Refresh:          true,
 		}},
 	}
 	results, err := s.facade.GetSecretContentInfo(args)
@@ -145,6 +240,16 @@ func (s *CrossModelSecretsSuite) TestGetSecretContentInfo(c *gc.C) {
 			Error: &params.Error{
 				Code:    "not valid",
 				Message: "empty secret revision not valid",
+			},
+		}, {
+			Error: &params.Error{
+				Code:    "unauthorized access",
+				Message: "permission denied",
+			},
+		}, {
+			Error: &params.Error{
+				Code:    "unauthorized access",
+				Message: "permission denied",
 			},
 		}},
 	})

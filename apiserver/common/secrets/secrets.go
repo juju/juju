@@ -15,6 +15,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/leadership"
+	corelogger "github.com/juju/juju/core/logger"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/cloudspec"
@@ -25,7 +26,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.common.secrets")
+var logger = loggo.GetLoggerWithLabels("juju.apiserver.common.secrets", corelogger.SECRETS)
 
 // For testing.
 var (

@@ -16,7 +16,9 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/macaroon.v2"
 
+	apitesting "github.com/juju/juju/api/testing"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/agent/secretsmanager"
 	"github.com/juju/juju/apiserver/facades/agent/secretsmanager/mocks"
@@ -928,6 +930,8 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerNoRe
 	uri := coresecrets.NewURI().WithSource(anotherUUID)
 
 	consumer := names.NewUnitTag("mariadb/0")
+	scopeTag := names.NewRelationTag("foo:bar baz:bar")
+	mac := apitesting.MustNewMacaroon("id")
 
 	s.remoteClient = mocks.NewMockCrossModelSecretsClient(ctrl)
 
@@ -935,7 +939,12 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerNoRe
 	s.secretsConsumer.EXPECT().GetSecretConsumer(uri, consumer).Return(&coresecrets.SecretConsumerMetadata{
 		CurrentRevision: 665,
 	}, nil)
-	s.remoteClient.EXPECT().GetRemoteSecretContentInfo(uri, 665, false, "token", 0).Return(
+
+	s.remoteClient.EXPECT().GetSecretAccessScope(uri, "token", 0).Return("scope-token", nil)
+	s.crossModelState.EXPECT().GetRemoteEntity("scope-token").Return(scopeTag, nil)
+	s.crossModelState.EXPECT().GetMacaroon(scopeTag).Return(mac, nil)
+
+	s.remoteClient.EXPECT().GetRemoteSecretContentInfo(uri, 665, false, false, "token", 0, macaroon.Slice{mac}).Return(
 		&secrets.ContentParams{
 			ValueRef: &coresecrets.ValueRef{
 				BackendID:  "backend-id",
@@ -987,6 +996,8 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerNoRe
 	uri := coresecrets.NewURI().WithSource(anotherUUID)
 
 	consumer := names.NewUnitTag("mariadb/0")
+	scopeTag := names.NewRelationTag("foo:bar baz:bar")
+	mac := apitesting.MustNewMacaroon("id")
 
 	s.remoteClient = mocks.NewMockCrossModelSecretsClient(ctrl)
 
@@ -994,7 +1005,12 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerNoRe
 	s.secretsConsumer.EXPECT().GetSecretConsumer(uri, consumer).Return(&coresecrets.SecretConsumerMetadata{
 		CurrentRevision: 665,
 	}, nil)
-	s.remoteClient.EXPECT().GetRemoteSecretContentInfo(uri, 665, false, "token", 0).Return(
+
+	s.remoteClient.EXPECT().GetSecretAccessScope(uri, "token", 0).Return("scope-token", nil)
+	s.crossModelState.EXPECT().GetRemoteEntity("scope-token").Return(scopeTag, nil)
+	s.crossModelState.EXPECT().GetMacaroon(scopeTag).Return(mac, nil)
+
+	s.remoteClient.EXPECT().GetRemoteSecretContentInfo(uri, 665, false, false, "token", 0, macaroon.Slice{mac}).Return(
 		&secrets.ContentParams{
 			ValueRef: &coresecrets.ValueRef{
 				BackendID:  "backend-id",
@@ -1052,6 +1068,8 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerRefr
 	uri := coresecrets.NewURI().WithSource(anotherUUID)
 
 	consumer := names.NewUnitTag("mariadb/0")
+	scopeTag := names.NewRelationTag("foo:bar baz:bar")
+	mac := apitesting.MustNewMacaroon("id")
 
 	s.remoteClient = mocks.NewMockCrossModelSecretsClient(ctrl)
 
@@ -1059,7 +1077,12 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerRefr
 	s.secretsConsumer.EXPECT().GetSecretConsumer(uri, consumer).Return(&coresecrets.SecretConsumerMetadata{
 		CurrentRevision: 665,
 	}, nil)
-	s.remoteClient.EXPECT().GetRemoteSecretContentInfo(uri, 665, true, "token", 0).Return(
+
+	s.remoteClient.EXPECT().GetSecretAccessScope(uri, "token", 0).Return("scope-token", nil)
+	s.crossModelState.EXPECT().GetRemoteEntity("scope-token").Return(scopeTag, nil)
+	s.crossModelState.EXPECT().GetMacaroon(scopeTag).Return(mac, nil)
+
+	s.remoteClient.EXPECT().GetRemoteSecretContentInfo(uri, 665, true, false, "token", 0, macaroon.Slice{mac}).Return(
 		&secrets.ContentParams{
 			ValueRef: &coresecrets.ValueRef{
 				BackendID:  "backend-id",
@@ -1116,12 +1139,19 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelNewConsumer(c *gc.C)
 	uri := coresecrets.NewURI().WithSource(anotherUUID)
 
 	consumer := names.NewUnitTag("mariadb/0")
+	scopeTag := names.NewRelationTag("foo:bar baz:bar")
+	mac := apitesting.MustNewMacaroon("id")
 
 	s.remoteClient = mocks.NewMockCrossModelSecretsClient(ctrl)
 
 	s.crossModelState.EXPECT().GetToken(names.NewApplicationTag("mariadb")).Return("token", nil)
 	s.secretsConsumer.EXPECT().GetSecretConsumer(uri, consumer).Return(nil, errors.NotFoundf(""))
-	s.remoteClient.EXPECT().GetRemoteSecretContentInfo(uri, 0, true, "token", 0).Return(
+
+	s.remoteClient.EXPECT().GetSecretAccessScope(uri, "token", 0).Return("scope-token", nil)
+	s.crossModelState.EXPECT().GetRemoteEntity("scope-token").Return(scopeTag, nil)
+	s.crossModelState.EXPECT().GetMacaroon(scopeTag).Return(mac, nil)
+
+	s.remoteClient.EXPECT().GetRemoteSecretContentInfo(uri, 0, true, false, "token", 0, macaroon.Slice{mac}).Return(
 		&secrets.ContentParams{
 			ValueRef: &coresecrets.ValueRef{
 				BackendID:  "backend-id",

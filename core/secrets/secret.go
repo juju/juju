@@ -105,6 +105,12 @@ func (u *URI) WithSource(uuid string) *URI {
 	return u
 }
 
+// IsLocal returns true if this URI is local
+// to the specified uuid.
+func (u *URI) IsLocal(sourceUUID string) bool {
+	return u.SourceUUID == "" || u.SourceUUID == sourceUUID
+}
+
 // Name generates the secret name.
 func (u URI) Name(revision int) string {
 	return fmt.Sprintf("%s-%d", u.ID, revision)
@@ -121,7 +127,6 @@ func (u *URI) String() string {
 	if u.SourceUUID == "" {
 		urlValue := url.URL{
 			Scheme: SecretScheme,
-			Host:   u.SourceUUID,
 			Opaque: str,
 		}
 		return urlValue.String()

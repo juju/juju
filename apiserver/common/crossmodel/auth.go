@@ -39,6 +39,14 @@ const (
 	localOfferPermissionExpiryTime = 3 * time.Minute
 )
 
+// RelationInfoFromMacaroons returns any relation and offer in the macaroons' declared caveats.
+func RelationInfoFromMacaroons(mac macaroon.Slice) (string, string, bool) {
+	declared := checkers.InferDeclared(coremacaroon.MacaroonNamespace, mac)
+	relKey, ok1 := declared[relationKey]
+	offerUUID, ok2 := declared[offeruuidKey]
+	return relKey, offerUUID, ok1 && ok2
+}
+
 // CrossModelAuthorizer authorises any cmr operation presented to it.
 type CrossModelAuthorizer struct{}
 

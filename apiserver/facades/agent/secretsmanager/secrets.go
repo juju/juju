@@ -11,11 +11,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	"gopkg.in/macaroon.v2"
 
 	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/leadership"
+	corelogger "github.com/juju/juju/core/logger"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets"
@@ -24,7 +26,7 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.secretsmanager")
+var logger = loggo.GetLoggerWithLabels("juju.apiserver.secretsmanager", corelogger.SECRETS)
 
 // For testing.
 var (
@@ -33,7 +35,8 @@ var (
 
 // CrossModelSecretsClient gets secret content from a cross model controller.
 type CrossModelSecretsClient interface {
-	GetRemoteSecretContentInfo(uri *coresecrets.URI, revision int, latest bool, appToken string, unitId int) (*secrets.ContentParams, *secretsprovider.ModelBackendConfig, int, bool, error)
+	GetRemoteSecretContentInfo(uri *coresecrets.URI, revision int, refresh, peek bool, appToken string, unitId int, macs macaroon.Slice) (*secrets.ContentParams, *secretsprovider.ModelBackendConfig, int, bool, error)
+	GetSecretAccessScope(uri *coresecrets.URI, appToken string, unitId int) (string, error)
 }
 
 // SecretsManagerAPI is the implementation for the SecretsManager facade.
@@ -482,7 +485,25 @@ func (s *SecretsManagerAPI) getRemoteSecretContent(uri *coresecrets.URI, refresh
 	refresh = refresh ||
 		err != nil // Not found, so need to create one.
 
-	content, backend, latestRevision, draining, err := extClient.GetRemoteSecretContentInfo(uri, wantRevision, refresh || peek, token, unitId)
+	scopeToken, err := extClient.GetSecretAccessScope(uri, token, unitId)
+	if err != nil {
+		return nil, nil, false, errors.Trace(err)
+	}
+	logger.Debugf("secret %q scope token for %v: %s", uri.String(), token, scopeToken)
+
+	scopeEntity, err := s.crossModelState.GetRemoteEntity(scopeToken)
+	if err != nil {
+		return nil, nil, false, errors.Annotatef(err, "getting remote entity for %q", scopeToken)
+	}
+	logger.Debugf("secret %q scope for %v: %s", uri.String(), scopeToken, scopeEntity)
+
+	mac, err := s.crossModelState.GetMacaroon(scopeEntity)
+	if err != nil {
+		return nil, nil, false, errors.Annotatef(err, "getting remote mac for %q", scopeEntity)
+	}
+
+	macs := macaroon.Slice{mac}
+	content, backend, latestRevision, draining, err := extClient.GetRemoteSecretContentInfo(uri, wantRevision, refresh, peek, token, unitId, macs)
 	if err != nil {
 		return nil, nil, false, errors.Trace(err)
 	}
@@ -499,7 +520,7 @@ func (s *SecretsManagerAPI) getRemoteSecretContent(uri *coresecrets.URI, refresh
 			return nil, nil, false, errors.Trace(err)
 		}
 	}
-	return content, backend, draining, errors.Trace(err)
+	return content, backend, draining, nil
 }
 
 // GetSecretRevisionContentInfo returns the secret values for the specified secret revisions.
@@ -638,7 +659,7 @@ func (s *SecretsManagerAPI) getSecretContent(arg params.GetSecretContentArg) (
 	}
 
 	// For local secrets, check those which may be owned by the caller.
-	if uri == nil || uri.SourceUUID == "" || uri.SourceUUID == s.modelUUID {
+	if uri == nil || uri.IsLocal(s.modelUUID) {
 		// Owner units should always have the URI because we resolved the label to URI on uniter side already.
 		md, err := s.getAppOwnedOrUnitOwnedSecretMetadata(uri, arg.Label)
 		if err != nil && !errors.Is(err, errors.NotFound) {
@@ -669,9 +690,13 @@ func (s *SecretsManagerAPI) getSecretContent(arg params.GetSecretContentArg) (
 		if errors.Is(err, errors.NotFound) {
 			return nil, nil, false, errors.NotFoundf("consumer label %q", arg.Label)
 		}
+		if err != nil {
+			return nil, nil, false, errors.Trace(err)
+		}
 	}
+	logger.Debugf("getting secret content for: %s", uri)
 
-	if uri.SourceUUID != "" && uri.SourceUUID != s.modelUUID {
+	if !uri.IsLocal(s.modelUUID) {
 		return s.getRemoteSecretContent(uri, arg.Refresh, arg.Peek, arg.Label, possibleUpdateLabel)
 	}
 
