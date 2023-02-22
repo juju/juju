@@ -33,8 +33,6 @@ type CloudConfig interface {
 	// GetSeries returns the series this CloudConfig was made for.
 	GetSeries() string
 
-	// CloudConfig also contains all the smaller interfaces for config
-	// management:
 	UsersConfig
 	SystemUpdateConfig
 	SystemUpgradeConfig
@@ -291,8 +289,8 @@ type RootUserConfig interface {
 	// This option is set to true (ie. disabled) by default.
 	SetDisableRoot(bool)
 
-	// UnsetDisable unsets the value set with SetDisableRoot, returning it to the
-	// cloudinit-defined default of true.
+	// UnsetDisableRoot unsets the value set with SetDisableRoot,
+	// returning it to the cloudinit-defined default of true.
 	UnsetDisableRoot()
 
 	// DisableRoot returns the value set by SetDisableRoot or false if the
@@ -413,7 +411,7 @@ type HostnameConfig interface {
 // NetworkingConfig is the interface for managing configuration of network
 type NetworkingConfig interface {
 	// AddNetworkConfig adds network config from interfaces to the container.
-	AddNetworkConfig(interfaces corenetwork.InterfaceInfos) error
+	AddNetworkConfig(interfaces corenetwork.InterfaceInfos, matchHWAddr bool) error
 }
 
 // New returns a new Config with no options set.

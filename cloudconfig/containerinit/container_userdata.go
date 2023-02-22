@@ -31,7 +31,7 @@ func WriteUserData(
 	networkConfig *container.NetworkConfig,
 	directory string,
 ) (string, error) {
-	userData, err := CloudInitUserData(instanceConfig, networkConfig)
+	userData, err := CloudInitUserData(instanceConfig, networkConfig, true)
 	if err != nil {
 		logger.Errorf("failed to create user data: %v", err)
 		return "", err
@@ -53,6 +53,7 @@ func WriteCloudInitFile(directory string, userData []byte) (string, error) {
 func CloudInitUserData(
 	instanceConfig *instancecfg.InstanceConfig,
 	networkConfig *container.NetworkConfig,
+	matchHWAddr bool,
 ) ([]byte, error) {
 	cloudConfig, err := cloudinit.New(instanceConfig.Series)
 	if err != nil {
@@ -62,7 +63,7 @@ func CloudInitUserData(
 	if networkConfig != nil {
 		interfaces = networkConfig.Interfaces
 	}
-	err = cloudConfig.AddNetworkConfig(interfaces)
+	err = cloudConfig.AddNetworkConfig(interfaces, matchHWAddr)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

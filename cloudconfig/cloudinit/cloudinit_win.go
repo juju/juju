@@ -122,6 +122,6 @@ func (cfg *windowsCloudConfig) updateProxySettings(PackageManagerProxyConfig) er
 }
 
 // AddNetworkConfig is defined on the NetworkingConfig interface.
-func (cfg *windowsCloudConfig) AddNetworkConfig(interfaces corenetwork.InterfaceInfos) error {
+func (cfg *windowsCloudConfig) AddNetworkConfig(corenetwork.InterfaceInfos, bool) error {
 	return nil
 }

@@ -35,15 +35,15 @@ func (m *MockNetworkingConfig) EXPECT() *MockNetworkingConfigMockRecorder {
 }
 
 // AddNetworkConfig mocks base method.
-func (m *MockNetworkingConfig) AddNetworkConfig(arg0 network.InterfaceInfos) error {
+func (m *MockNetworkingConfig) AddNetworkConfig(arg0 network.InterfaceInfos, arg1 bool) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddNetworkConfig", arg0)
+	ret := m.ctrl.Call(m, "AddNetworkConfig", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AddNetworkConfig indicates an expected call of AddNetworkConfig.
-func (mr *MockNetworkingConfigMockRecorder) AddNetworkConfig(arg0 interface{}) *gomock.Call {
+func (mr *MockNetworkingConfigMockRecorder) AddNetworkConfig(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddNetworkConfig", reflect.TypeOf((*MockNetworkingConfig)(nil).AddNetworkConfig), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddNetworkConfig", reflect.TypeOf((*MockNetworkingConfig)(nil).AddNetworkConfig), arg0, arg1)
 }

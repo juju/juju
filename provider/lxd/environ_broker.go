@@ -209,7 +209,7 @@ func (env *environ) getContainerSpec(
 		if err != nil {
 			return cSpec, errors.Trace(err)
 		}
-		if err := cloudCfg.AddNetworkConfig(info); err != nil {
+		if err := cloudCfg.AddNetworkConfig(info, false); err != nil {
 			return cSpec, errors.Trace(err)
 		}
 

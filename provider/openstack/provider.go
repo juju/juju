@@ -1507,7 +1507,7 @@ func (e *Environ) networksForInstance(
 		}
 	}
 
-	err = cloudCfg.AddNetworkConfig(netInfo)
+	err = cloudCfg.AddNetworkConfig(netInfo, true)
 
 	if err != nil {
 		err1 := e.DeletePorts(subnetNetworks)

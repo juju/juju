@@ -78,7 +78,7 @@ func CloudInitDataExcludingOutputSection(data string) []string {
 func (s *UserDataSuite) TestCloudInitUserDataNoNetworkConfig(c *gc.C) {
 	instanceConfig, err := containertesting.MockMachineConfig("1/lxd/0")
 	c.Assert(err, jc.ErrorIsNil)
-	data, err := containerinit.CloudInitUserData(instanceConfig, nil)
+	data, err := containerinit.CloudInitUserData(instanceConfig, nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, gc.NotNil)
 
@@ -99,7 +99,7 @@ func (s *UserDataSuite) TestCloudInitUserDataSomeNetworkConfig(c *gc.C) {
 		ConfigType:    network.ConfigDHCP,
 	}}
 	netConfig := container.BridgeNetworkConfig(0, nics)
-	data, err := containerinit.CloudInitUserData(instanceConfig, netConfig)
+	data, err := containerinit.CloudInitUserData(instanceConfig, netConfig, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, gc.NotNil)
 

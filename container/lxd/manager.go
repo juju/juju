@@ -247,7 +247,7 @@ func (m *containerManager) getContainerSpec(
 
 	// CloudInitUserData creates our own ENI/netplan.
 	// We need to disable cloud-init networking to make it work.
-	userData, err := containerinit.CloudInitUserData(instanceConfig, networkConfig)
+	userData, err := containerinit.CloudInitUserData(instanceConfig, networkConfig, false)
 	if err != nil {
 		return ContainerSpec{}, errors.Trace(err)
 	}

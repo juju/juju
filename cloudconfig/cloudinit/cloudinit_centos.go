@@ -115,7 +115,7 @@ func (cfg *centOSCloudConfig) PackagePreferences() []packaging.PackagePreference
 	return []packaging.PackagePreferences{}
 }
 
-// Render is defined on the the Renderer interface.
+// RenderYAML is defined on the the Renderer interface.
 func (cfg *centOSCloudConfig) RenderYAML() ([]byte, error) {
 	// Save the fields that we will modify
 	var oldruncmds []string
@@ -258,6 +258,6 @@ func (cfg *centOSCloudConfig) updateProxySettings(PackageManagerProxyConfig) err
 
 // AddNetworkConfig is defined on the NetworkingConfig interface.
 // TODO(wpk) This has to be implemented for CentOS on VSphere to work properly!
-func (cfg *centOSCloudConfig) AddNetworkConfig(interfaces corenetwork.InterfaceInfos) error {
+func (cfg *centOSCloudConfig) AddNetworkConfig(corenetwork.InterfaceInfos, bool) error {
 	return nil
 }

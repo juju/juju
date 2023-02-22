@@ -233,7 +233,7 @@ func (env *sessionEnviron) newRawInstance(
 	}
 	// TODO(wpk) There's no (known) way to tell cloud-init to disable network (using cloudinit.CloudInitNetworkConfigDisabled)
 	// so the network might be double-configured. That should be ok as long as we're using DHCP.
-	err = cloudcfg.AddNetworkConfig(interfaces)
+	err = cloudcfg.AddNetworkConfig(interfaces, true)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}

@@ -955,7 +955,7 @@ func (s *providerUnitTests) TestNetworksForInstanceWithAZ(c *gc.C) {
 		Addresses:     network.NewMachineAddresses([]string{"10.10.10.1"}).AsProviderAddresses(),
 		ConfigType:    network.ConfigDHCP,
 		Origin:        network.OriginProvider,
-	}}).Return(nil)
+	}}, true).Return(nil)
 
 	siParams := environs.StartInstanceParams{
 		AvailabilityZone: "eu-west-az",
