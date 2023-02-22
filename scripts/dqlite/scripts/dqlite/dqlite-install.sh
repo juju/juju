@@ -6,10 +6,10 @@ source "$(dirname $0)/../env.sh"
 
 sha() {
 	case ${BUILD_ARCH} in
-		amd64) echo "c6d93a819647db2d2d69a7e942d864f33d95d2c6476f80e31234d56354a05185" ;;
-		arm64) echo "7a491488dd8a0f4ce3c5f4b44c3a10b5c11eaffdda937033fc9a9ed8d9d0ec49" ;;
-		s390x) echo "448be80e5281aa4f011c1bd3c50253dbf70e3e72da20440c477bc17b16560152" ;;
-		ppc64le) echo "e648377f0eb07eb9edac66e48d55ca7a0ea9e7e437ca5c1cd6bf1cb7d6bbc143" ;;
+		amd64) echo "124a578c8bd63d9288093f4de4aaffa09c034d6641065cd079e446ac91b1b611" ;;
+		arm64) echo "0943427d17dce0dc9d7da7777dd1f6ed8d5cea4d6c9d872411075181b9299d7e" ;;
+		s390x) echo "690240895b765eb78a0a00ebc148361b947b64483e636a76d9d033780d5ef758" ;;
+		ppc64le) echo "4d774403e3a5f80657029f760168f313aeb13dba8dc5787c24a9e96e5d9b96ff" ;;
 		*) { echo "Unsupported arch ${BUILD_ARCH}."; exit 1; } ;;
 	esac
 }
@@ -21,7 +21,7 @@ retrieve() {
 
 	sha=${1}
 
-	filenames=( "${sha}.tar.bz2" "latest-dqlite-deps-${BUILD_ARCH}.tar.bz2" )
+	filenames=( "${sha}.tar.bz2" )
 	for name in "${filenames[@]}"; do
 		echo "Retrieving ${name}"
 		curl --fail -o ${FILE} -s https://dqlite-static-libs.s3.amazonaws.com/${name} && return || {
