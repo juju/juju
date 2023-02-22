@@ -51,6 +51,7 @@ TEST_NAMES="agents \
             credential \
             ck \
             deploy \
+            deploy_aks \
             deploy_caas \
             expose_ec2 \
             hooks \
