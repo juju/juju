@@ -12,6 +12,7 @@ import (
 	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn/v3"
 	gc "gopkg.in/check.v1"
@@ -2084,6 +2085,34 @@ func (s *UnitSuite) TestDestroyAlsoDeletesOwnedSecrets(c *gc.C) {
 	cp.Owner = s.unit.Tag()
 	_, err = store.CreateSecret(uri, cp)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *UnitSuite) TestDestroyAlsoDeletesConsumerInfo(c *gc.C) {
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	_, err := mysql.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	store := state.NewSecrets(s.State)
+	uri := secrets.NewURI()
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   names.NewUnitTag("mysql/0"),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Label:       ptr("label"),
+			Data:        map[string]string{"foo": "bar"},
+		},
+	}
+	_, err = store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.SaveSecretConsumer(uri, s.unit.UnitTag(), &secrets.SecretConsumerMetadata{CurrentRevision: 666})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.unit.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.GetSecretConsumer(uri, s.unit.Tag())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *UnitSuite) TestSetClearResolvedWhenNotAlive(c *gc.C) {
