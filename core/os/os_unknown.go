@@ -2,7 +2,6 @@
 // Licensed under the LGPLv3, see LICENCE file for details.
 
 //go:build !windows && !darwin && !linux
-// +build !windows,!darwin,!linux
 
 package os
 

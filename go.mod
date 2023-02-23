@@ -41,7 +41,6 @@ require (
 	github.com/gorilla/schema v0.0.0-20160426231512-08023a0215e7
 	github.com/gorilla/websocket v1.5.0
 	github.com/gosuri/uitable v0.0.1
-	github.com/hashicorp/raft v1.3.2-0.20210825230038-1a621031eb2b
 	github.com/hashicorp/vault/api v1.7.2
 	github.com/im7mortal/kmutex v1.0.1
 	github.com/juju/ansiterm v1.0.0
@@ -180,7 +179,6 @@ require (
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-hclog v1.2.0 // indirect
 	github.com/hashicorp/go-immutable-radix v1.3.1 // indirect
-	github.com/hashicorp/go-msgpack v0.5.5 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/go-plugin v1.4.3 // indirect
 	github.com/hashicorp/go-retryablehttp v0.6.6 // indirect
@@ -287,5 +285,3 @@ require (
 replace google.golang.org/grpc/naming => google.golang.org/grpc v1.29.1
 
 replace gopkg.in/yaml.v2 => github.com/juju/yaml/v2 v2.0.0
-
-replace github.com/hashicorp/raft-boltdb => github.com/juju/raft-boltdb v0.0.0-20200518034108-40b112c917c5

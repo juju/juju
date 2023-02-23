@@ -11,7 +11,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/hashicorp/raft"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/worker/v3"
@@ -61,11 +60,6 @@ type StructuredHub interface {
 	Subscribe(topic string, handler interface{}) (func(), error)
 }
 
-// Leases provides the methods needed to expose the lease internals.
-type Leases interface {
-	Snapshot() (raft.FSMSnapshot, error)
-}
-
 // Config describes the arguments required to create the introspection worker.
 type Config struct {
 	SocketName         string
@@ -78,7 +72,6 @@ type Config struct {
 	Clock              Clock
 	LocalHub           SimpleHub
 	CentralHub         StructuredHub
-	Leases             Leases
 }
 
 // Validate checks the config values to assert they are valid to create the worker.
@@ -105,7 +98,6 @@ type socketListener struct {
 	machineLock        machinelock.Lock
 	prometheusGatherer prometheus.Gatherer
 	presence           presence.Recorder
-	leases             Leases
 	clock              Clock
 	localHub           SimpleHub
 	centralHub         StructuredHub
@@ -142,7 +134,6 @@ func NewWorker(config Config) (worker.Worker, error) {
 		machineLock:        config.MachineLock,
 		prometheusGatherer: config.PrometheusGatherer,
 		presence:           config.Presence,
-		leases:             config.Leases,
 		clock:              config.Clock,
 		localHub:           config.LocalHub,
 		centralHub:         config.CentralHub,
@@ -232,19 +223,8 @@ func (w *socketListener) RegisterHTTPHandlers(
 	} else {
 		handle("/units", notSupportedHandler{"Units"})
 	}
-	if w.leases != nil {
-		leases := leaseHandler{
-			leases: w.leases,
-			hub:    w.centralHub,
-			clock:  w.clock,
-		}
-		handle("/leases", http.HandlerFunc(leases.list))
-		if w.centralHub != nil {
-			handle("/leases/revoke", http.HandlerFunc(leases.revoke))
-		}
-	} else {
-		handle("/leases", notSupportedHandler{"Leases"})
-	}
+	// TODO(leases) - add metrics
+	handle("/leases", notSupportedHandler{"Leases"})
 }
 
 type notSupportedHandler struct {

@@ -17,13 +17,13 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 
 	"github.com/juju/juju/agent"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/database/app"
 	"github.com/juju/juju/database/client"
 	"github.com/juju/juju/network"
-	"github.com/juju/loggo"
 )
 
 const (
