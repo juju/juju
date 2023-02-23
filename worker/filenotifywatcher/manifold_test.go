@@ -1,12 +1,9 @@
 // Copyright 2022 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package changestream
+package filenotifywatcher
 
 import (
-	"database/sql"
-
-	clock "github.com/juju/clock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -32,25 +29,23 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 
 	cfg = s.getConfig()
-	cfg.DBAccessor = ""
-
-	cfg = s.getConfig()
-	cfg.FileNotifyWatcher = ""
+	cfg.NewWatcher = nil
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 
 	cfg = s.getConfig()
-	cfg.NewStream = nil
+	cfg.NewINotifyWatcher = nil
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 }
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
-		DBAccessor:        "dbaccessor",
-		FileNotifyWatcher: "filenotifywatcher",
-		Clock:             s.clock,
-		Logger:            s.logger,
-		NewStream: func(*sql.DB, FileNotifier, clock.Clock, Logger) (DBStream, error) {
-			return s.dbStream, nil
+		Clock:  s.clock,
+		Logger: s.logger,
+		NewWatcher: func(string, ...Option) (FileWatcher, error) {
+			return nil, nil
+		},
+		NewINotifyWatcher: func() (INotifyWatcher, error) {
+			return nil, nil
 		},
 	}
 }

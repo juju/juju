@@ -5,6 +5,7 @@ package testing
 
 import (
 	"database/sql"
+	"fmt"
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -27,18 +28,31 @@ type ControllerSuite struct {
 func (s *ControllerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
+	dir := c.MkDir()
+
+	// Do not be tempted in moving to :memory: mode for this test suite. It will
+	// fail in non-deterministic ways. Unfortunately :memory: mode is not
+	// completely goroutine safe.
 	var err error
-	s.DB, err = sql.Open("sqlite3", ":memory:?_foreign_keys=1")
+	s.DB, err = sql.Open("sqlite3", fmt.Sprintf("file:%s/db.sqlite3?_foreign_keys=1", dir))
 	c.Assert(err, jc.ErrorIsNil)
 
 	tx, err := s.DB.Begin()
 	c.Assert(err, jc.ErrorIsNil)
 
-	for _, stmt := range schema.ControllerDDL() {
+	for idx, stmt := range schema.ControllerDDL() {
+		c.Logf("Executing schema DDL index: %v", idx)
 		_, err := tx.Exec(stmt)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
+	c.Logf("Committing schema DDL")
 	err = tx.Commit()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ControllerSuite) TearDownTest(c *gc.C) {
+	c.Logf("Closing DB")
+	err := s.DB.Close()
 	c.Assert(err, jc.ErrorIsNil)
 }

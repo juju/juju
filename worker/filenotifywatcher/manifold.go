@@ -1,16 +1,15 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package changestream
+package filenotifywatcher
 
 import (
-	"database/sql"
-
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/worker/common"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
+
+	"github.com/juju/juju/worker/common"
 )
 
 // Logger represents the logging methods called.
@@ -23,69 +22,50 @@ type Logger interface {
 	IsTraceEnabled() bool
 }
 
-// StreamFn is an alias function that allows the creation of a DBStream.
-type StreamFn = func(*sql.DB, FileNotifier, clock.Clock, Logger) (DBStream, error)
+// WatcherFn is a function that returns a new Watcher.
+type WatcherFn = func(string, ...Option) (FileWatcher, error)
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will
 // depend.
 type ManifoldConfig struct {
-	DBAccessor        string
-	FileNotifyWatcher string
-
-	Clock     clock.Clock
-	Logger    Logger
-	NewStream StreamFn
+	Clock             clock.Clock
+	Logger            Logger
+	NewWatcher        WatcherFn
+	NewINotifyWatcher func() (INotifyWatcher, error)
 }
 
 func (cfg ManifoldConfig) Validate() error {
-	if cfg.DBAccessor == "" {
-		return errors.NotValidf("empty DBAccessorName")
-	}
-	if cfg.FileNotifyWatcher == "" {
-		return errors.NotValidf("empty FileNotifyWatcherName")
-	}
 	if cfg.Clock == nil {
 		return errors.NotValidf("nil Clock")
 	}
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
-	if cfg.NewStream == nil {
-		return errors.NotValidf("nil NewStream")
+	if cfg.NewWatcher == nil {
+		return errors.NotValidf("nil NewWatcher")
+	}
+	if cfg.NewINotifyWatcher == nil {
+		return errors.NotValidf("nil NewINotifyWatcher")
 	}
 	return nil
 }
 
-// Manifold returns a dependency manifold that runs the changestream
+// Manifold returns a dependency manifold that runs the filenotifywatcher
 // worker, using the resource names defined in the supplied config.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
-		Inputs: []string{
-			config.DBAccessor,
-			config.FileNotifyWatcher,
-		},
-		Output: changeStreamOutput,
+		Inputs: []string{},
+		Output: fileNotifyWatcherOutput,
 		Start: func(context dependency.Context) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
 				return nil, errors.Trace(err)
 			}
 
-			var dbGetter DBGetter
-			if err := context.Get(config.DBAccessor, &dbGetter); err != nil {
-				return nil, errors.Trace(err)
-			}
-
-			var fileNotifyWatcher FileNotifyWatcher
-			if err := context.Get(config.FileNotifyWatcher, &fileNotifyWatcher); err != nil {
-				return nil, errors.Trace(err)
-			}
-
 			cfg := WorkerConfig{
-				DBGetter:          dbGetter,
-				FileNotifyWatcher: fileNotifyWatcher,
 				Clock:             config.Clock,
 				Logger:            config.Logger,
-				NewStream:         config.NewStream,
+				NewWatcher:        config.NewWatcher,
+				NewINotifyWatcher: config.NewINotifyWatcher,
 			}
 
 			w, err := newWorker(cfg)
@@ -97,21 +77,21 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	}
 }
 
-func changeStreamOutput(in worker.Worker, out interface{}) error {
+func fileNotifyWatcherOutput(in worker.Worker, out interface{}) error {
 	if w, ok := in.(*common.CleanupWorker); ok {
 		in = w.Worker
 	}
-	w, ok := in.(*changeStreamWorker)
+	w, ok := in.(*fileNotifyWorker)
 	if !ok {
-		return errors.Errorf("in should be a *changeStreamWorker; got %T", in)
+		return errors.Errorf("in should be a *fileNotifyWorker; got %T", in)
 	}
 
 	switch out := out.(type) {
-	case *ChangeStream:
-		var target ChangeStream = w
+	case *FileNotifyWatcher:
+		var target FileNotifyWatcher = w
 		*out = target
 	default:
-		return errors.Errorf("out should be a *changestream.ChangeStream; got %T", out)
+		return errors.Errorf("out should be a *filenotifywatcher.FileNotifyWatcher; got %T", out)
 	}
 	return nil
 }

@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/database"
-	"gopkg.in/tomb.v2"
+	"github.com/juju/worker/v3/catacomb"
 )
 
 const (
@@ -22,28 +22,35 @@ const (
 
 // Stream defines a worker that will poll the database for change events.
 type Stream struct {
-	db     *sql.DB
-	clock  clock.Clock
-	logger Logger
+	catacomb catacomb.Catacomb
+
+	db           *sql.DB
+	fileNotifier FileNotifier
+	clock        clock.Clock
+	logger       Logger
 
 	changes chan changestream.ChangeEvent
 	lastID  int64
-
-	tomb tomb.Tomb
 }
 
 // NewStream creates a new Stream.
-func NewStream(db *sql.DB, clock clock.Clock, logger Logger) DBStream {
+func NewStream(db *sql.DB, fileNotifier FileNotifier, clock clock.Clock, logger Logger) (DBStream, error) {
 	stream := &Stream{
-		db:      db,
-		clock:   clock,
-		logger:  logger,
-		changes: make(chan changestream.ChangeEvent),
+		db:           db,
+		fileNotifier: fileNotifier,
+		clock:        clock,
+		logger:       logger,
+		changes:      make(chan changestream.ChangeEvent),
 	}
 
-	stream.tomb.Go(stream.loop)
+	if err := catacomb.Invoke(catacomb.Plan{
+		Site: &stream.catacomb,
+		Work: stream.loop,
+	}); err != nil {
+		return nil, errors.Trace(err)
+	}
 
-	return stream
+	return stream, nil
 }
 
 // Changes returns a channel for a given namespace (database).
@@ -57,22 +64,27 @@ func (s *Stream) Changes() <-chan changestream.ChangeEvent {
 	return s.changes
 }
 
-// Kill implements worker.Worker.
-func (s *Stream) Kill() {
-	s.tomb.Kill(nil)
+// Kill is part of the worker.Worker interface.
+func (w *Stream) Kill() {
+	w.catacomb.Kill(nil)
 }
 
-// Wait implements worker.Worker.
-func (s *Stream) Wait() error {
-	return s.tomb.Wait()
+// Wait is part of the worker.Worker interface.
+func (w *Stream) Wait() error {
+	return w.catacomb.Wait()
 }
 
 func (s *Stream) loop() error {
+	fileNotifier, err := s.fileNotifier.Changes()
+	if err != nil {
+		return errors.Annotate(err, "getting file notifier")
+	}
+
 	// TODO (stickupkid): We need to read the last id from the database and
 	// set it here.
 	stmt, err := s.db.Prepare(query)
 	if err != nil {
-		return errors.Annotate(err, "preparing query")
+		return errors.Annotate(err, "preparing query 111")
 	}
 	defer stmt.Close()
 
@@ -81,8 +93,43 @@ func (s *Stream) loop() error {
 
 	for {
 		select {
-		case <-s.tomb.Dying():
-			return tomb.ErrDying
+		case <-s.catacomb.Dying():
+			return s.catacomb.ErrDying()
+
+		case fileCreated, ok := <-fileNotifier:
+			if !ok {
+				fileNotifier, err = s.fileNotifier.Changes()
+				if err != nil {
+					return errors.Annotate(err, "retrying file notifier")
+				}
+				continue
+			}
+
+			// If the file was removed, just continue, we're clearly not in the
+			// middle of a created block.
+			if !fileCreated {
+				continue
+			}
+
+			s.logger.Infof("Change stream has been blocked")
+
+			// Create an inner loop, that will block the outer loop until we
+			// receive a change event from the file notifier.
+		INNER:
+			for {
+				select {
+				case <-s.catacomb.Dying():
+					return s.catacomb.ErrDying()
+				case inner, ok := <-fileNotifier:
+					if !ok || !inner {
+						break INNER
+					}
+					s.logger.Debugf("ignoring file change event")
+				}
+			}
+
+			s.logger.Infof("Change stream has been unblocked")
+
 		case <-timer.Chan():
 			changes, err := s.readChanges(stmt)
 			if err != nil {
@@ -96,6 +143,9 @@ func (s *Stream) loop() error {
 			}
 
 			for _, change := range changes {
+				if s.logger.IsTraceEnabled() {
+					s.logger.Tracef("change event: %v", change)
+				}
 				s.changes <- change
 				s.lastID = change.id
 			}

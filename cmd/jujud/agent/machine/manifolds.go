@@ -57,6 +57,7 @@ import (
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/externalcontrollerupdater"
 	"github.com/juju/juju/worker/fanconfigurer"
+	"github.com/juju/juju/worker/filenotifywatcher"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/hostkeyreporter"
@@ -698,11 +699,19 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewApp:    dbaccessor.NewApp,
 		})),
 
+		fileNotifyWatcherName: ifController(filenotifywatcher.Manifold(filenotifywatcher.ManifoldConfig{
+			Clock:             config.Clock,
+			Logger:            loggo.GetLogger("juju.worker.filenotifywatcher"),
+			NewWatcher:        filenotifywatcher.NewWatcher,
+			NewINotifyWatcher: filenotifywatcher.NewINotifyWatcher,
+		})),
+
 		changeStreamName: ifController(changestream.Manifold(changestream.ManifoldConfig{
-			DBAccessor: dbAccessorName,
-			Clock:      config.Clock,
-			Logger:     loggo.GetLogger("juju.worker.changestream"),
-			NewStream:  changestream.NewStream,
+			DBAccessor:        dbAccessorName,
+			FileNotifyWatcher: fileNotifyWatcherName,
+			Clock:             config.Clock,
+			Logger:            loggo.GetLogger("juju.worker.changestream"),
+			NewStream:         changestream.NewStream,
 		})),
 
 		auditConfigUpdaterName: ifController(auditconfigupdater.Manifold(auditconfigupdater.ManifoldConfig{
@@ -1108,6 +1117,7 @@ const (
 	multiwatcherName              = "multiwatcher"
 	peergrouperName               = "peer-grouper"
 	dbAccessorName                = "db-accessor"
+	fileNotifyWatcherName         = "file-notify-watcher"
 	changeStreamName              = "change-stream"
 	certificateUpdaterName        = "certificate-updater"
 	auditConfigUpdaterName        = "audit-config-updater"
