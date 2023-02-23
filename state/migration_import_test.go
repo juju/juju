@@ -30,7 +30,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/secrets"
@@ -77,18 +76,24 @@ func (s *MigrationImportSuite) TestExisting(c *gc.C) {
 func (s *MigrationImportSuite) importModel(
 	c *gc.C, st *state.State, transform ...func(map[string]interface{}),
 ) (*state.Model, *state.State) {
-	out, err := st.Export(map[string]string{})
+	desc, err := st.Export(map[string]string{})
 	c.Assert(err, jc.ErrorIsNil)
+	return s.importModelDescription(c, desc, transform...)
+}
+
+func (s *MigrationImportSuite) importModelDescription(
+	c *gc.C, desc description.Model, transform ...func(map[string]interface{}),
+) (*state.Model, *state.State) {
 
 	// When working with importing models, it becomes very handy to read the
 	// model in a human-readable format.
 	// yaml.Marshal will do this in a decent manor.
-	//	bytes, _ := yaml.Marshal(out)
+	//	bytes, _ := yaml.Marshal(desc)
 	//	fmt.Println(string(bytes))
 
 	if len(transform) > 0 {
 		var outM map[string]interface{}
-		outYaml, err := description.Serialize(out)
+		outYaml, err := description.Serialize(desc)
 		c.Assert(err, jc.ErrorIsNil)
 		err = yaml.Unmarshal(outYaml, &outM)
 		c.Assert(err, jc.ErrorIsNil)
@@ -99,12 +104,12 @@ func (s *MigrationImportSuite) importModel(
 
 		outYaml, err = yaml.Marshal(outM)
 		c.Assert(err, jc.ErrorIsNil)
-		out, err = description.Deserialize(outYaml)
+		desc, err = description.Deserialize(outYaml)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
 	uuid := utils.MustNewUUID().String()
-	in := newModel(out, uuid, "new")
+	in := newModel(desc, uuid, "new")
 
 	newModel, newSt, err := s.Controller.Import(in)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1578,19 +1583,26 @@ func (s *MigrationImportSuite) TestSpaces(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) TestFirewallRules(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	sshCIDRs := []string{"192.168.1.0/24", "192.0.2.1/24"}
+	sshRule := state.NewMockFirewallRule(ctrl)
+	sshRule.EXPECT().WellKnownService().Return("ssh")
+	sshRule.EXPECT().WhitelistCIDRs().Return(sshCIDRs)
+
 	saasCIDRs := []string{"10.0.0.0/16"}
+	saasRule := state.NewMockFirewallRule(ctrl)
+	saasRule.EXPECT().WellKnownService().Return("juju-application-offer")
+	saasRule.EXPECT().WhitelistCIDRs().Return(saasCIDRs)
 
-	sshRule := state.NewFirewallRule(firewall.SSHRule, sshCIDRs)
-	saasRule := state.NewFirewallRule(firewall.JujuApplicationOfferRule, saasCIDRs)
-
-	firewallRuleService := state.NewFirewallRules(s.State)
-	err := firewallRuleService.Save(sshRule)
+	base, err := s.State.Export(map[string]string{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = firewallRuleService.Save(saasRule)
-	c.Assert(err, jc.ErrorIsNil)
+	uuid := utils.MustNewUUID().String()
+	model := newModel(base, uuid, "new")
+	model.fwRules = []description.FirewallRule{sshRule, saasRule}
 
-	_, newSt := s.importModel(c, s.State)
+	_, newSt := s.importModelDescription(c, model)
 
 	m, err := newSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -3238,14 +3250,16 @@ func (s *MigrationImportSuite) TestDefaultSecretBackend(c *gc.C) {
 // newModel replaces the uuid and name of the config attributes so we
 // can use all the other data to validate imports. An owner and name of the
 // model are unique together in a controller.
-func newModel(m description.Model, uuid, name string) description.Model {
-	return &mockModel{m, uuid, name}
+// Also, optionally overwrite the return value of certain methods
+func newModel(m description.Model, uuid, name string) *mockModel {
+	return &mockModel{Model: m, uuid: uuid, name: name}
 }
 
 type mockModel struct {
 	description.Model
-	uuid string
-	name string
+	uuid    string
+	name    string
+	fwRules []description.FirewallRule
 }
 
 func (m *mockModel) Tag() names.ModelTag {
@@ -3257,6 +3271,13 @@ func (m *mockModel) Config() map[string]interface{} {
 	c["uuid"] = m.uuid
 	c["name"] = m.name
 	return c
+}
+
+func (m *mockModel) FirewallRules() []description.FirewallRule {
+	if m.fwRules == nil {
+		return m.Model.FirewallRules()
+	}
+	return m.fwRules
 }
 
 // swapModel will swap the order of the applications appearing in the

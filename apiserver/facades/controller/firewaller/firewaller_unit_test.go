@@ -5,7 +5,6 @@ package firewaller_test
 
 import (
 	"github.com/golang/mock/gomock"
-	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -16,8 +15,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/firewaller/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/network/firewall"
-	corefirewall "github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -121,23 +118,6 @@ func (s *RemoteFirewallerSuite) TestSetRelationStatus(c *gc.C) {
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.IsNil)
 	c.Assert(db2Relation.status, jc.DeepEquals, status.StatusInfo{Status: status.Suspended, Message: "a message"})
-}
-
-func (s *RemoteFirewallerSuite) TestFirewallRules(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	rule := state.NewFirewallRule(firewall.JujuApplicationOfferRule, []string{"192.168.0.0/16"})
-	s.st.EXPECT().FirewallRule(corefirewall.WellKnownServiceType(params.JujuApplicationOfferRule)).Return(&rule, nil)
-	s.st.EXPECT().FirewallRule(corefirewall.WellKnownServiceType(params.SSHRule)).Return(nil, errors.NotFoundf("firewall rule for %q", params.SSHRule))
-
-	result, err := s.api.FirewallRules(params.KnownServiceArgs{
-		KnownServices: []params.KnownServiceValue{params.JujuApplicationOfferRule, params.SSHRule}},
-	)
-
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Rules, gc.HasLen, 1)
-	c.Assert(result.Rules[0].KnownService, gc.Equals, params.KnownServiceValue("juju-application-offer"))
-	c.Assert(result.Rules[0].WhitelistCIDRS, jc.SameContents, []string{"192.168.0.0/16"})
 }
 
 var _ = gc.Suite(&FirewallerSuite{})
