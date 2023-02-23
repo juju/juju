@@ -84,9 +84,11 @@ type applicationDoc struct {
 	// be relatively straight forward, but very time consuming.
 	// When moving to CharmHub or removing CharmStore from Juju it should be
 	// tackled then.
-	CharmURL             *string      `bson:"charmurl"`
-	Channel              string       `bson:"cs-channel"`
-	CharmOrigin          *CharmOrigin `bson:"charm-origin"`
+	CharmURL    *string      `bson:"charmurl"`
+	Channel     string       `bson:"cs-channel"`
+	CharmOrigin *CharmOrigin `bson:"charm-origin"`
+	// CharmModifiedVersion changes will trigger the upgrade-charm hook
+	// for units independent of charm url changes.
 	CharmModifiedVersion int          `bson:"charmmodifiedversion"`
 	ForceCharm           bool         `bson:"forcecharm"`
 	Life                 Life         `bson:"life"`
@@ -1157,7 +1159,6 @@ func (a *Application) changeCharmOps(
 	channel string,
 	updatedSettings charm.Settings,
 	forceUnits bool,
-	resourceIDs map[string]string,
 	updatedStorageConstraints map[string]StorageConstraints,
 ) ([]txn.Op, error) {
 	// Build the new application config from what can be used of the old one.
@@ -1291,15 +1292,6 @@ func (a *Application) changeCharmOps(
 		return nil, errors.Trace(err)
 	}
 	ops = append(ops, addPeerOps...)
-
-	if len(resourceIDs) > 0 {
-		// Collect pending resource resolution operations.
-		resOps, err := a.resolveResourceOps(resourceIDs)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		ops = append(ops, resOps...)
-	}
 
 	// Update the relation count as well.
 	if len(newPeers) > 0 {
@@ -1492,10 +1484,10 @@ func incCharmModifiedVersionOps(applicationID string) []txn.Op {
 	}}
 }
 
-func (a *Application) resolveResourceOps(resourceIDs map[string]string) ([]txn.Op, error) {
+func (a *Application) resolveResourceOps(pendingResourceIDs map[string]string) ([]txn.Op, error) {
 	// Collect pending resource resolution operations.
 	resources := a.st.Resources().(*resourcePersistence)
-	return resources.resolveApplicationPendingResourcesOps(a.doc.Name, resourceIDs)
+	return resources.resolveApplicationPendingResourcesOps(a.doc.Name, pendingResourceIDs)
 }
 
 // SetCharmConfig contains the parameters for Application.SetCharm.
@@ -1530,9 +1522,9 @@ type SetCharmConfig struct {
 	// profile doesn't validate.
 	Force bool
 
-	// ResourceIDs is a map of resource names to resource IDs to activate during
+	// PendingResourceIDs is a map of resource names to resource IDs to activate during
 	// the upgrade.
-	ResourceIDs map[string]string
+	PendingResourceIDs map[string]string
 
 	// StorageConstraints contains the storage constraints to add or update when
 	// upgrading the charm.
@@ -1674,13 +1666,25 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 				channel,
 				updatedSettings,
 				cfg.ForceUnits,
-				cfg.ResourceIDs,
 				cfg.StorageConstraints,
 			)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 			ops = append(ops, chng...)
+			newCharmModifiedVersion++
+		}
+
+		// Resources can be upgraded independent of a charm upgrade.
+		resourceOps, err := a.resolveResourceOps(cfg.PendingResourceIDs)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, resourceOps...)
+		// Only update newCharmModifiedVersion once. It might have been
+		// incremented in charmCharmOps.
+		if len(resourceOps) > 0 && newCharmModifiedVersion == a.doc.CharmModifiedVersion {
+			ops = append(ops, incCharmModifiedVersionOps(a.doc.DocID)...)
 			newCharmModifiedVersion++
 		}
 

@@ -76,6 +76,14 @@ import (
 	"github.com/juju/juju/version"
 )
 
+func resourceHash(content string) charmresource.Fingerprint {
+	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
+	if err != nil {
+		panic(err)
+	}
+	return fp
+}
+
 // defaultSupportedJujuSeries is used to return canned information about what
 // juju supports in terms of the release cycle
 // see juju/os and documentation https://www.ubuntu.com/about/release-cycle
