@@ -4,6 +4,7 @@
 package testing
 
 import (
+	context "context"
 	io "io"
 	net "net"
 	http "net/http"
@@ -137,6 +138,20 @@ func (m *MockOperation) Wait() error {
 func (mr *MockOperationMockRecorder) Wait() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Wait", reflect.TypeOf((*MockOperation)(nil).Wait))
+}
+
+// WaitContext mocks base method.
+func (m *MockOperation) WaitContext(arg0 context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WaitContext", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// WaitContext indicates an expected call of WaitContext.
+func (mr *MockOperationMockRecorder) WaitContext(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WaitContext", reflect.TypeOf((*MockOperation)(nil).WaitContext), arg0)
 }
 
 // MockRemoteOperation is a mock of RemoteOperation interface.
@@ -1201,6 +1216,36 @@ func (mr *MockInstanceServerMockRecorder) CreateStoragePool(arg0 interface{}) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateStoragePool", reflect.TypeOf((*MockInstanceServer)(nil).CreateStoragePool), arg0)
 }
 
+// CreateStoragePoolBucket mocks base method.
+func (m *MockInstanceServer) CreateStoragePoolBucket(arg0 string, arg1 api.StorageBucketsPost) (*api.StorageBucketKey, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateStoragePoolBucket", arg0, arg1)
+	ret0, _ := ret[0].(*api.StorageBucketKey)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateStoragePoolBucket indicates an expected call of CreateStoragePoolBucket.
+func (mr *MockInstanceServerMockRecorder) CreateStoragePoolBucket(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateStoragePoolBucket", reflect.TypeOf((*MockInstanceServer)(nil).CreateStoragePoolBucket), arg0, arg1)
+}
+
+// CreateStoragePoolBucketKey mocks base method.
+func (m *MockInstanceServer) CreateStoragePoolBucketKey(arg0, arg1 string, arg2 api.StorageBucketKeysPost) (*api.StorageBucketKey, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateStoragePoolBucketKey", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*api.StorageBucketKey)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateStoragePoolBucketKey indicates an expected call of CreateStoragePoolBucketKey.
+func (mr *MockInstanceServerMockRecorder) CreateStoragePoolBucketKey(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateStoragePoolBucketKey", reflect.TypeOf((*MockInstanceServer)(nil).CreateStoragePoolBucketKey), arg0, arg1, arg2)
+}
+
 // CreateStoragePoolVolume mocks base method.
 func (m *MockInstanceServer) CreateStoragePoolVolume(arg0 string, arg1 api.StorageVolumesPost) error {
 	m.ctrl.T.Helper()
@@ -1687,6 +1732,34 @@ func (mr *MockInstanceServerMockRecorder) DeleteStoragePool(arg0 interface{}) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteStoragePool", reflect.TypeOf((*MockInstanceServer)(nil).DeleteStoragePool), arg0)
 }
 
+// DeleteStoragePoolBucket mocks base method.
+func (m *MockInstanceServer) DeleteStoragePoolBucket(arg0, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteStoragePoolBucket", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteStoragePoolBucket indicates an expected call of DeleteStoragePoolBucket.
+func (mr *MockInstanceServerMockRecorder) DeleteStoragePoolBucket(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteStoragePoolBucket", reflect.TypeOf((*MockInstanceServer)(nil).DeleteStoragePoolBucket), arg0, arg1)
+}
+
+// DeleteStoragePoolBucketKey mocks base method.
+func (m *MockInstanceServer) DeleteStoragePoolBucketKey(arg0, arg1, arg2 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteStoragePoolBucketKey", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteStoragePoolBucketKey indicates an expected call of DeleteStoragePoolBucketKey.
+func (mr *MockInstanceServerMockRecorder) DeleteStoragePoolBucketKey(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteStoragePoolBucketKey", reflect.TypeOf((*MockInstanceServer)(nil).DeleteStoragePoolBucketKey), arg0, arg1, arg2)
+}
+
 // DeleteStoragePoolVolume mocks base method.
 func (m *MockInstanceServer) DeleteStoragePoolVolume(arg0, arg1, arg2 string) error {
 	m.ctrl.T.Helper()
@@ -1954,6 +2027,22 @@ func (m *MockInstanceServer) GetClusterMemberNames() ([]string, error) {
 func (mr *MockInstanceServerMockRecorder) GetClusterMemberNames() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClusterMemberNames", reflect.TypeOf((*MockInstanceServer)(nil).GetClusterMemberNames))
+}
+
+// GetClusterMemberState mocks base method.
+func (m *MockInstanceServer) GetClusterMemberState(arg0 string) (*api.ClusterMemberState, string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetClusterMemberState", arg0)
+	ret0, _ := ret[0].(*api.ClusterMemberState)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetClusterMemberState indicates an expected call of GetClusterMemberState.
+func (mr *MockInstanceServerMockRecorder) GetClusterMemberState(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClusterMemberState", reflect.TypeOf((*MockInstanceServer)(nil).GetClusterMemberState), arg0)
 }
 
 // GetClusterMembers mocks base method.
@@ -3592,6 +3681,98 @@ func (mr *MockInstanceServerMockRecorder) GetStoragePool(arg0 interface{}) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStoragePool", reflect.TypeOf((*MockInstanceServer)(nil).GetStoragePool), arg0)
 }
 
+// GetStoragePoolBucket mocks base method.
+func (m *MockInstanceServer) GetStoragePoolBucket(arg0, arg1 string) (*api.StorageBucket, string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStoragePoolBucket", arg0, arg1)
+	ret0, _ := ret[0].(*api.StorageBucket)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetStoragePoolBucket indicates an expected call of GetStoragePoolBucket.
+func (mr *MockInstanceServerMockRecorder) GetStoragePoolBucket(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStoragePoolBucket", reflect.TypeOf((*MockInstanceServer)(nil).GetStoragePoolBucket), arg0, arg1)
+}
+
+// GetStoragePoolBucketKey mocks base method.
+func (m *MockInstanceServer) GetStoragePoolBucketKey(arg0, arg1, arg2 string) (*api.StorageBucketKey, string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStoragePoolBucketKey", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*api.StorageBucketKey)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetStoragePoolBucketKey indicates an expected call of GetStoragePoolBucketKey.
+func (mr *MockInstanceServerMockRecorder) GetStoragePoolBucketKey(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStoragePoolBucketKey", reflect.TypeOf((*MockInstanceServer)(nil).GetStoragePoolBucketKey), arg0, arg1, arg2)
+}
+
+// GetStoragePoolBucketKeyNames mocks base method.
+func (m *MockInstanceServer) GetStoragePoolBucketKeyNames(arg0, arg1 string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStoragePoolBucketKeyNames", arg0, arg1)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetStoragePoolBucketKeyNames indicates an expected call of GetStoragePoolBucketKeyNames.
+func (mr *MockInstanceServerMockRecorder) GetStoragePoolBucketKeyNames(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStoragePoolBucketKeyNames", reflect.TypeOf((*MockInstanceServer)(nil).GetStoragePoolBucketKeyNames), arg0, arg1)
+}
+
+// GetStoragePoolBucketKeys mocks base method.
+func (m *MockInstanceServer) GetStoragePoolBucketKeys(arg0, arg1 string) ([]api.StorageBucketKey, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStoragePoolBucketKeys", arg0, arg1)
+	ret0, _ := ret[0].([]api.StorageBucketKey)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetStoragePoolBucketKeys indicates an expected call of GetStoragePoolBucketKeys.
+func (mr *MockInstanceServerMockRecorder) GetStoragePoolBucketKeys(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStoragePoolBucketKeys", reflect.TypeOf((*MockInstanceServer)(nil).GetStoragePoolBucketKeys), arg0, arg1)
+}
+
+// GetStoragePoolBucketNames mocks base method.
+func (m *MockInstanceServer) GetStoragePoolBucketNames(arg0 string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStoragePoolBucketNames", arg0)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetStoragePoolBucketNames indicates an expected call of GetStoragePoolBucketNames.
+func (mr *MockInstanceServerMockRecorder) GetStoragePoolBucketNames(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStoragePoolBucketNames", reflect.TypeOf((*MockInstanceServer)(nil).GetStoragePoolBucketNames), arg0)
+}
+
+// GetStoragePoolBuckets mocks base method.
+func (m *MockInstanceServer) GetStoragePoolBuckets(arg0 string) ([]api.StorageBucket, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStoragePoolBuckets", arg0)
+	ret0, _ := ret[0].([]api.StorageBucket)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetStoragePoolBuckets indicates an expected call of GetStoragePoolBuckets.
+func (mr *MockInstanceServerMockRecorder) GetStoragePoolBuckets(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStoragePoolBuckets", reflect.TypeOf((*MockInstanceServer)(nil).GetStoragePoolBuckets), arg0)
+}
+
 // GetStoragePoolNames mocks base method.
 func (m *MockInstanceServer) GetStoragePoolNames() ([]string, error) {
 	m.ctrl.T.Helper()
@@ -4763,6 +4944,34 @@ func (m *MockInstanceServer) UpdateStoragePool(arg0 string, arg1 api.StoragePool
 func (mr *MockInstanceServerMockRecorder) UpdateStoragePool(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateStoragePool", reflect.TypeOf((*MockInstanceServer)(nil).UpdateStoragePool), arg0, arg1, arg2)
+}
+
+// UpdateStoragePoolBucket mocks base method.
+func (m *MockInstanceServer) UpdateStoragePoolBucket(arg0, arg1 string, arg2 api.StorageBucketPut, arg3 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateStoragePoolBucket", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateStoragePoolBucket indicates an expected call of UpdateStoragePoolBucket.
+func (mr *MockInstanceServerMockRecorder) UpdateStoragePoolBucket(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateStoragePoolBucket", reflect.TypeOf((*MockInstanceServer)(nil).UpdateStoragePoolBucket), arg0, arg1, arg2, arg3)
+}
+
+// UpdateStoragePoolBucketKey mocks base method.
+func (m *MockInstanceServer) UpdateStoragePoolBucketKey(arg0, arg1, arg2 string, arg3 api.StorageBucketKeyPut, arg4 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateStoragePoolBucketKey", arg0, arg1, arg2, arg3, arg4)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateStoragePoolBucketKey indicates an expected call of UpdateStoragePoolBucketKey.
+func (mr *MockInstanceServerMockRecorder) UpdateStoragePoolBucketKey(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateStoragePoolBucketKey", reflect.TypeOf((*MockInstanceServer)(nil).UpdateStoragePoolBucketKey), arg0, arg1, arg2, arg3, arg4)
 }
 
 // UpdateStoragePoolVolume mocks base method.
