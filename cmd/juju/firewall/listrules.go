@@ -4,13 +4,18 @@
 package firewall
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/juju/cmd/v3"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
-	"github.com/juju/juju/api/client/firewallrules"
+	"github.com/juju/juju/api/client/modelconfig"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -20,6 +25,8 @@ Prints the firewall rules.`[1:]
 var listRulesHelpDetails = `
 Lists the firewall rules which control ingress to well known services
 within a Juju model.
+
+DEPRECATION WARNING: %v
 
 Examples:
     juju firewall-rules
@@ -35,7 +42,7 @@ func NewListFirewallRulesCommand() cmd.Command {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return firewallrules.NewClient(root), nil
+		return modelconfig.NewClient(root), nil
 
 	}
 	return modelcmd.Wrap(cmd)
@@ -54,7 +61,7 @@ func (c *listFirewallRulesCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "firewall-rules",
 		Purpose: listRulesHelpSummary,
-		Doc:     listRulesHelpDetails,
+		Doc:     fmt.Sprintf(listRulesHelpDetails, deprecationWarning),
 		Aliases: []string{"list-firewall-rules"},
 	})
 }
@@ -76,27 +83,31 @@ func (c *listFirewallRulesCommand) Init(args []string) (err error) {
 // ListFirewallRulesAPI defines the API methods that the list firewall rules command uses.
 type ListFirewallRulesAPI interface {
 	Close() error
-	ListFirewallRules() ([]params.FirewallRule, error)
+	ModelGet() (map[string]interface{}, error)
 }
 
 // Run implements cmd.Command.
 func (c *listFirewallRulesCommand) Run(ctx *cmd.Context) error {
+	ctx.Warningf(deprecationWarning + "\n")
+
 	client, err := c.newAPIFunc()
 	if err != nil {
 		return err
 	}
 	defer client.Close()
-	rulesResult, err := client.ListFirewallRules()
+	cfg, err := client.ModelGet()
 	if err != nil {
 		return err
 	}
-
-	rules := make([]firewallRule, len(rulesResult))
-	for i, r := range rulesResult {
-		rules[i] = firewallRule{
-			KnownService:   string(r.KnownService),
-			WhitelistCIDRS: r.WhitelistCIDRS,
-		}
+	sshAllow, ok := cfg[config.SSHAllowListKey].(string)
+	if !ok {
+		sshAllow = "0.0.0.0/0"
 	}
+	splitAllowRules := transform.Slice(strings.Split(sshAllow, ","), strings.TrimSpace)
+
+	rules := []firewallRule{{
+		KnownService:   string(params.SSHRule),
+		WhitelistCIDRS: splitAllowRules,
+	}}
 	return c.out.Write(ctx, rules)
 }

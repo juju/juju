@@ -4,9 +4,12 @@
 package firewall_test
 
 import (
+	"strings"
+
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -30,11 +33,6 @@ func (s *SetRuleSuite) SetUpTest(c *gc.C) {
 func (s *SetRuleSuite) TestInitMissingService(c *gc.C) {
 	_, err := s.runSetRule(c, "--whitelist", "10.0.0.0/8")
 	c.Assert(err, gc.ErrorMatches, "no well known service specified")
-}
-
-func (s *SetRuleSuite) TestInitInvalidWhitelist(c *gc.C) {
-	_, err := s.runSetRule(c, "--whitelist", "foo", "ssh")
-	c.Assert(err, gc.ErrorMatches, `invalid white-list subnet: invalid CIDR address: foo`)
 }
 
 func (s *SetRuleSuite) TestInitMissingWhitelist(c *gc.C) {
@@ -70,13 +68,18 @@ func (s *mockSetRuleAPI) Close() error {
 	return nil
 }
 
-func (s *mockSetRuleAPI) SetFirewallRule(service string, whiteListCidrs []string) error {
+func (s *mockSetRuleAPI) ModelSet(cfg map[string]interface{}) error {
 	if s.err != nil {
 		return s.err
 	}
+	allowList, ok := cfg[config.SSHAllowListKey].(string)
+	if !ok {
+		return errors.New("Cannot get ssh allowlist")
+	}
+
 	s.rule = params.FirewallRule{
-		KnownService:   params.KnownServiceValue(service),
-		WhitelistCIDRS: whiteListCidrs,
+		KnownService:   params.SSHRule,
+		WhitelistCIDRS: strings.Split(allowList, ","),
 	}
 	return nil
 }
