@@ -8,7 +8,6 @@ import (
 
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 )
 
@@ -17,12 +16,6 @@ import (
 
 func TestAll(t *testing.T) {
 	gc.TestingT(t)
-}
-
-func NewClientFromAPIConnection(conn api.Connection) *Client {
-	return &Client{
-		conn: conn,
-	}
 }
 
 func NewClientFromFacadeCaller(facade base.FacadeCaller) *Client {
