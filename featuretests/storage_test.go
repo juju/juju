@@ -642,10 +642,10 @@ func (s *cmdStorageSuite) TestStorageDetachAttach(c *gc.C) {
 	ctx, err := runCommand(c, "storage")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
-Unit             Storage ID  Type   Pool         Size    Status     Message
-                 allecto/2   block  modelscoped  1.0GiB  detaching  
-storage-block/0  data/0      block                       pending    
-storage-block/1  data/1      block                       pending    
+Unit             Storage ID  Type   Pool         Size     Status     Message
+                 allecto/2   block  modelscoped  1.0 GiB  detaching  
+storage-block/0  data/0      block                        pending    
+storage-block/1  data/1      block                        pending    
 `[1:])
 
 	// Attempt to attach the allecto storage to the second unit.
@@ -669,10 +669,10 @@ storage-block/1  data/1      block                       pending
 	ctx, err = runCommand(c, "storage")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
-Unit             Storage ID  Type   Pool         Size    Status     Message
-storage-block/0  data/0      block                       pending    
-storage-block/1  allecto/2   block  modelscoped  1.0GiB  attaching  
-storage-block/1  data/1      block                       pending    
+Unit             Storage ID  Type   Pool         Size     Status     Message
+storage-block/0  data/0      block                        pending    
+storage-block/1  allecto/2   block  modelscoped  1.0 GiB  attaching  
+storage-block/1  data/1      block                        pending    
 `[1:])
 }
 
