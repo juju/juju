@@ -11,11 +11,12 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/core/network/firewall"
 )
 
 type firewallRule struct {
-	KnownService   string   `yaml:"known-service" json:"known-service"`
-	WhitelistCIDRS []string `yaml:"whitelist-subnets,omitempty" json:"whitelist-subnets,omitempty"`
+	KnownService   firewall.WellKnownServiceType `yaml:"known-service" json:"known-service"`
+	WhitelistCIDRS []string                      `yaml:"whitelist-subnets,omitempty" json:"whitelist-subnets,omitempty"`
 }
 
 type firewallRules []firewallRule

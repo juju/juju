@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/migration"
-	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/rpc/params"
@@ -425,15 +424,13 @@ func validateIngressNetworks(backend Backend, networks []string) error {
 	}
 
 	// Check that the required ingress is allowed.
-	rule, err := backend.FirewallRule(firewall.JujuApplicationOfferRule)
-	if err != nil && !errors.IsNotFound(err) {
+	cfg, err := backend.ModelConfig()
+	if err != nil {
 		return errors.Trace(err)
 	}
-	if errors.IsNotFound(err) {
-		return nil
-	}
+
 	var whitelistCIDRs, requestedCIDRs []*net.IPNet
-	if err := parseCIDRs(&whitelistCIDRs, rule.WhitelistCIDRs()); err != nil {
+	if err := parseCIDRs(&whitelistCIDRs, cfg.ApplicationOfferIngressAllowList()); err != nil {
 		return errors.Trace(err)
 	}
 	if err := parseCIDRs(&requestedCIDRs, networks); err != nil {

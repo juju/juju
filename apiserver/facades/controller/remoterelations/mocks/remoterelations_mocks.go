@@ -10,8 +10,8 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	crossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	crossmodel0 "github.com/juju/juju/core/crossmodel"
-	firewall "github.com/juju/juju/core/network/firewall"
 	permission "github.com/juju/juju/core/permission"
+	config "github.com/juju/juju/environs/config"
 	params "github.com/juju/juju/rpc/params"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v4"
@@ -182,21 +182,6 @@ func (mr *MockRemoteRelationsStateMockRecorder) ExportLocalEntity(arg0 interface
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExportLocalEntity", reflect.TypeOf((*MockRemoteRelationsState)(nil).ExportLocalEntity), arg0)
 }
 
-// FirewallRule mocks base method.
-func (m *MockRemoteRelationsState) FirewallRule(arg0 firewall.WellKnownServiceType) (*state.FirewallRule, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FirewallRule", arg0)
-	ret0, _ := ret[0].(*state.FirewallRule)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// FirewallRule indicates an expected call of FirewallRule.
-func (mr *MockRemoteRelationsStateMockRecorder) FirewallRule(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FirewallRule", reflect.TypeOf((*MockRemoteRelationsState)(nil).FirewallRule), arg0)
-}
-
 // GetOfferAccess mocks base method.
 func (m *MockRemoteRelationsState) GetOfferAccess(arg0 string, arg1 names.UserTag) (permission.Access, error) {
 	m.ctrl.T.Helper()
@@ -284,6 +269,21 @@ func (m *MockRemoteRelationsState) KeyRelation(arg0 string) (crossmodel.Relation
 func (mr *MockRemoteRelationsStateMockRecorder) KeyRelation(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "KeyRelation", reflect.TypeOf((*MockRemoteRelationsState)(nil).KeyRelation), arg0)
+}
+
+// ModelConfig mocks base method.
+func (m *MockRemoteRelationsState) ModelConfig() (*config.Config, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ModelConfig")
+	ret0, _ := ret[0].(*config.Config)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ModelConfig indicates an expected call of ModelConfig.
+func (mr *MockRemoteRelationsStateMockRecorder) ModelConfig() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelConfig", reflect.TypeOf((*MockRemoteRelationsState)(nil).ModelConfig))
 }
 
 // ModelTag mocks base method.

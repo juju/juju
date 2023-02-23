@@ -27,5 +27,8 @@ func (s *FirewallRulesSuite) TestFirewallRules(c *gc.C) {
 - known-service: ssh
   whitelist-subnets:
   - 192.168.1.0/16
+- known-service: juju-application-offer
+  whitelist-subnets:
+  - 0.0.0.0/0
 `[1:])
 }

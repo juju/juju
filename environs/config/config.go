@@ -274,6 +274,14 @@ const (
 	// different state.
 	ModeKey = "mode"
 
+	// SSHAllowListKey is a comma separated list of CIDRs to allow ingress from
+	// to the ssh service on machines in this model
+	SSHAllowListKey = "ssh-allowlist"
+
+	// ApplicationOfferIngressAllowListKey is a comma separated list of CIDRs
+	// specifying what ingress can be applied to offers in this model
+	ApplicationOfferIngressAllowListKey = "application-offer-ingress-allowlist"
+
 	//
 	// Deprecated Settings Attributes
 	//
@@ -589,6 +597,10 @@ var defaultConfigValues = map[string]interface{}{
 	MaxActionResultsAge:  DefaultActionResultsAge,
 	MaxActionResultsSize: DefaultActionResultsSize,
 
+	// Model firewall settings
+	SSHAllowListKey:                     "0.0.0.0/0",
+	ApplicationOfferIngressAllowListKey: "0.0.0.0/0",
+
 	// By default the Juju backend is used.
 	SecretBackendKey:       "",
 	SecretBackendConfigKey: "",
@@ -843,6 +855,14 @@ func Validate(cfg, old *Config) error {
 	}
 
 	if err := cfg.validateMode(); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := cfg.validateCIDRs(cfg.SSHAllowList(), true); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := cfg.validateCIDRs(cfg.ApplicationOfferIngressAllowList(), false); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -1505,6 +1525,40 @@ func (c *Config) validateMode() error {
 	return nil
 }
 
+func (c *Config) SSHAllowList() []string {
+	allowList, ok := c.defined[SSHAllowListKey].(string)
+	if !ok {
+		return []string{"0.0.0.0/0"}
+	}
+	if allowList == "" {
+		return []string{}
+	}
+	return strings.Split(allowList, ",")
+}
+
+func (c *Config) ApplicationOfferIngressAllowList() []string {
+	allowList, ok := c.defined[ApplicationOfferIngressAllowListKey].(string)
+	if !ok {
+		return []string{"0.0.0.0/0"}
+	}
+	if allowList == "" {
+		return []string{}
+	}
+	return strings.Split(allowList, ",")
+}
+
+func (c *Config) validateCIDRs(cidrs []string, allowEmpty bool) error {
+	if len(cidrs) == 0 && !allowEmpty {
+		return errors.NotValidf("empty cidrs")
+	}
+	for _, cidr := range cidrs {
+		if _, _, err := net.ParseCIDR(cidr); err != nil {
+			return errors.NotValidf("cidr %q", cidr)
+		}
+	}
+	return nil
+}
+
 // LoggingOutput is a for determining the destination of output for
 // logging.
 func (c *Config) LoggingOutput() ([]string, bool) {
@@ -1756,7 +1810,10 @@ var alwaysOptional = schema.Defaults{
 	StorageDefaultBlockSourceKey:      schema.Omit,
 	StorageDefaultFilesystemSourceKey: schema.Omit,
 
-	"firewall-mode":                 schema.Omit,
+	"firewall-mode":                     schema.Omit,
+	SSHAllowListKey:                     schema.Omit,
+	ApplicationOfferIngressAllowListKey: schema.Omit,
+
 	"logging-config":                schema.Omit,
 	ProvisionerHarvestModeKey:       schema.Omit,
 	NumProvisionWorkersKey:          schema.Omit,
@@ -2277,6 +2334,18 @@ mode the model should run in. So far only one is implemented
 - If 'requires-prompts' is present, clients will ask for confirmation before removing
 potentially valuable resources.
 (default "")`,
+		Type:  environschema.Tstring,
+		Group: environschema.EnvironGroup,
+	},
+	SSHAllowListKey: {
+		Description: `SSH allowlist is a comma-separated list of CIDRs from
+which machines in this model will accept connections to the SSH service`,
+		Type:  environschema.Tstring,
+		Group: environschema.EnvironGroup,
+	},
+	ApplicationOfferIngressAllowListKey: {
+		Description: `Application-offer ingress allowlist is a comma-separated list of
+CIDRs specifying what ingress can be applied to offers in this model.`,
 		Type:  environschema.Tstring,
 		Group: environschema.EnvironGroup,
 	},

@@ -639,6 +639,20 @@ var configTests = []configTest{
 			"charmhub-url": "meshuggah",
 		}),
 		err: `charm-hub url "meshuggah" not valid`,
+	}, {
+		about:       "Invalid ssh-allowlist cidr",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"ssh-allowlist": "blah",
+		}),
+		err: `cidr "blah" not valid`,
+	}, {
+		about:       "Invalid application-offer-allowlist cidr",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"application-offer-ingress-allowlist": "blah",
+		}),
+		err: `cidr "blah" not valid`,
 	},
 }
 
@@ -1238,6 +1252,48 @@ func (s *ConfigSuite) TestMode(c *gc.C) {
 	mode, ok = cfg.Mode()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(mode, gc.DeepEquals, set.NewStrings(config.RequiresPromptsMode))
+}
+
+func (s *ConfigSuite) TestSSHAllowList(c *gc.C) {
+	cfg := newTestConfig(c, testing.Attrs{})
+	allowlist := cfg.SSHAllowList()
+	c.Assert(allowlist, gc.HasLen, 1)
+	c.Assert(allowlist[0], gc.Equals, "0.0.0.0/0")
+
+	cfg = newTestConfig(c, testing.Attrs{
+		config.SSHAllowListKey: "192.168.0.0/24,192.168.2.0/24",
+	})
+	allowlist = cfg.SSHAllowList()
+	c.Assert(allowlist, gc.HasLen, 2)
+	c.Assert(allowlist[0], gc.Equals, "192.168.0.0/24")
+	c.Assert(allowlist[1], gc.Equals, "192.168.2.0/24")
+
+	cfg = newTestConfig(c, testing.Attrs{
+		config.SSHAllowListKey: "",
+	})
+	allowlist = cfg.SSHAllowList()
+	c.Assert(allowlist, gc.HasLen, 0)
+}
+
+func (s *ConfigSuite) TestApplicationOfferAllowList(c *gc.C) {
+	cfg := newTestConfig(c, testing.Attrs{})
+	allowlist := cfg.ApplicationOfferIngressAllowList()
+	c.Assert(allowlist, gc.HasLen, 1)
+	c.Assert(allowlist[0], gc.Equals, "0.0.0.0/0")
+
+	cfg = newTestConfig(c, testing.Attrs{
+		config.ApplicationOfferIngressAllowListKey: "192.168.0.0/24,192.168.2.0/24",
+	})
+	allowlist = cfg.ApplicationOfferIngressAllowList()
+	c.Assert(allowlist, gc.HasLen, 2)
+	c.Assert(allowlist[0], gc.Equals, "192.168.0.0/24")
+	c.Assert(allowlist[1], gc.Equals, "192.168.2.0/24")
+
+	attrs := testing.FakeConfig().Merge(testing.Attrs{
+		config.ApplicationOfferIngressAllowListKey: "",
+	})
+	_, err := config.New(config.UseDefaults, attrs)
+	c.Assert(err, gc.ErrorMatches, "empty cidrs not valid")
 }
 
 func (s *ConfigSuite) TestLoggingOutput(c *gc.C) {

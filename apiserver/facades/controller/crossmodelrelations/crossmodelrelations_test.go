@@ -26,9 +26,9 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
-	corefirewall "github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -361,6 +361,9 @@ func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChangesRejected(c *g
 		relationKey:     "db2:db django:db",
 		relationId:      1,
 	}
+	s.st.modelConfig = coretesting.Attrs{
+		config.ApplicationOfferIngressAllowListKey: "10.1.1.1/8",
+	}
 	mac, err := s.bakery.NewMacaroon(
 		context.TODO(),
 		bakery.LatestVersion,
@@ -371,8 +374,6 @@ func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChangesRejected(c *g
 		}, bakery.Op{"db2:db django:db", "relate"})
 
 	c.Assert(err, jc.ErrorIsNil)
-	rule := state.NewFirewallRule("", []string{"10.1.1.1/8"})
-	s.st.firewallRules[corefirewall.JujuApplicationOfferRule] = &rule
 	results, err := s.api.PublishIngressNetworkChanges(params.IngressNetworksChanges{
 		Changes: []params.IngressNetworksChangeEvent{
 			{

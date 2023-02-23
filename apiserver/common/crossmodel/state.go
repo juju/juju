@@ -8,7 +8,6 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/state"
 )
 
@@ -197,11 +196,6 @@ func (s stateShim) SaveIngressNetworks(relationKey string, cidrs []string) (stat
 func (s stateShim) IngressNetworks(relationKey string) (state.RelationNetworks, error) {
 	api := state.NewRelationIngressNetworks(s.State)
 	return api.Networks(relationKey)
-}
-
-func (s stateShim) FirewallRule(service firewall.WellKnownServiceType) (*state.FirewallRule, error) {
-	api := state.NewFirewallRules(s.State)
-	return api.Rule(service)
 }
 
 type relationShim struct {
