@@ -226,6 +226,8 @@ iface {ethaa_bb_cc_dd_ee_f5} inet6 static
     version: 2
     ethernets:
       any0:
+        match:
+          macaddress: aa:bb:cc:dd:ee:f0
         addresses:
         - 0.1.2.3/24
         gateway4: 0.1.2.1
@@ -234,6 +236,8 @@ iface {ethaa_bb_cc_dd_ee_f5} inet6 static
           addresses: [ns1.invalid, ns2.invalid]
         mtu: 8317
       any1:
+        match:
+          macaddress: aa:bb:cc:dd:ee:f1
         addresses:
         - 0.2.2.4/24
         gateway4: 0.2.2.1
@@ -245,11 +249,19 @@ iface {ethaa_bb_cc_dd_ee_f5} inet6 static
           via: 0.2.2.1
           metric: 50
       any2:
+        match:
+          macaddress: aa:bb:cc:dd:ee:f2
         dhcp4: true
       any3:
+        match:
+          macaddress: aa:bb:cc:dd:ee:f3
         dhcp4: true
-      any4: {}
+      any4:
+        match:
+          macaddress: aa:bb:cc:dd:ee:f4
       any5:
+        match:
+          macaddress: aa:bb:cc:dd:ee:f5
         addresses:
         - 2001:db8::dead:beef/64
         gateway6: 2001:db8::dead:f00
@@ -261,6 +273,8 @@ network:
   version: 2
   ethernets:
     any0:
+      match:
+        macaddress: aa:bb:cc:dd:ee:f0
       addresses:
       - 0.1.2.3/24
       gateway4: 0.1.2.1
@@ -269,6 +283,8 @@ network:
         addresses: [ns1.invalid, ns2.invalid]
       mtu: 8317
     any1:
+      match:
+        macaddress: aa:bb:cc:dd:ee:f1
       addresses:
       - 0.2.2.4/24
       gateway4: 0.2.2.1
@@ -280,11 +296,19 @@ network:
         via: 0.2.2.1
         metric: 50
     any2:
+      match:
+        macaddress: aa:bb:cc:dd:ee:f2
       dhcp4: true
     any3:
+      match:
+        macaddress: aa:bb:cc:dd:ee:f3
       dhcp4: true
-    any4: {}
+    any4:
+      match:
+        macaddress: aa:bb:cc:dd:ee:f4
     any5:
+      match:
+        macaddress: aa:bb:cc:dd:ee:f5
       addresses:
       - 2001:db8::dead:beef/64
       gateway6: 2001:db8::dead:f00
@@ -358,6 +382,8 @@ network:
   version: 2
   ethernets:
     any5:
+      match:
+        macaddress: aa:bb:cc:dd:ee:f5
       addresses:
       - 2001:db8::dead:beef/64
       gateway6: 2001:db8::dead:f00
