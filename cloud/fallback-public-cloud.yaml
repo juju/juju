@@ -23,22 +23,30 @@ clouds:
         endpoint: https://ec2.eu-west-3.amazonaws.com
       eu-central-1:
         endpoint: https://ec2.eu-central-1.amazonaws.com
+      eu-central-2:
+        endpoint: https://ec2.eu-central-2.amazonaws.com
       eu-north-1:
         endpoint: https://ec2.eu-north-1.amazonaws.com
       eu-south-1:
         endpoint: https://ec2.eu-south-1.amazonaws.com
+      eu-south-2:
+        endpoint: https://ec2.eu-south-2.amazonaws.com
       af-south-1:
         endpoint: https://ec2.af-south-1.amazonaws.com
       ap-east-1:
         endpoint: https://ec2.ap-east-1.amazonaws.com
       ap-south-1:
         endpoint: https://ec2.ap-south-1.amazonaws.com
+      ap-south-2:
+        endpoint: https://ec2.ap-south-2.amazonaws.com
       ap-southeast-1:
         endpoint: https://ec2.ap-southeast-1.amazonaws.com
       ap-southeast-2:
         endpoint: https://ec2.ap-southeast-2.amazonaws.com
       ap-southeast-3:
         endpoint: https://ec2.ap-southeast-3.amazonaws.com
+      ap-southeast-4:
+        endpoint: https://ec2.ap-southeast-4.amazonaws.com
       ap-northeast-1:
         endpoint: https://ec2.ap-northeast-1.amazonaws.com
       ap-northeast-2:
@@ -47,6 +55,8 @@ clouds:
         endpoint: https://ec2.ap-northeast-3.amazonaws.com
       me-south-1:
         endpoint: https://ec2.me-south-1.amazonaws.com
+      me-central-1:
+        endpoint: https://ec2.me-central-1.amazonaws.com
       sa-east-1:
         endpoint: https://ec2.sa-east-1.amazonaws.com
   aws-china:
