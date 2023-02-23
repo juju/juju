@@ -144,13 +144,18 @@ type refreshCommand struct {
 	Channel    charm.Channel
 	channelStr string
 
-	// Config is a config file variable, pointing at a YAML file containing
-	// the application config to update.
-	Config cmd.FileVar
+	// ConfigOptions records k=v attributes from command arguments
+	// and/or specified files containing key values.
+	ConfigOptions common.ConfigFlag
 
 	// Storage is a map of storage constraints, keyed on the storage name
 	// defined in charm storage metadata, to add or update during upgrade.
 	Storage map[string]storage.Constraints
+
+	// Trust signifies that the charm should have access to trusted credentials.
+	// That is, hooks run by the charm can access cloud credentials and other
+	// trusted access credentials.
+	Trust bool
 }
 
 const refreshDoc = `
@@ -212,6 +217,10 @@ regardless of potential havoc, so long as the following conditions hold:
 
 The new charm may add new relations and configuration settings.
 
+The new charm may also need to be granted access to trusted credentials.
+Use --trust to grant such access.
+Or use --trust=false to revoke such access.
+
 --switch and --path are mutually exclusive.
 
 --path and --revision are mutually exclusive. The revision of the updated charm
@@ -248,8 +257,9 @@ func (c *refreshCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.IntVar(&c.Revision, "revision", -1, "Explicit revision of current charm")
 	f.Var(stringMap{&c.Resources}, "resource", "Resource to be uploaded to the controller")
 	f.Var(storageFlag{&c.Storage, nil}, "storage", "Charm storage constraints")
-	f.Var(&c.Config, "config", "Path to yaml-formatted application config")
+	f.Var(&c.ConfigOptions, "config", "Either a path to yaml-formatted application config file or a key=value pair ")
 	f.StringVar(&c.BindToSpaces, "bind", "", "Configure application endpoint bindings to spaces")
+	f.BoolVar(&c.Trust, "trust", false, "Allows charm to run hooks that require access credentials")
 }
 
 func (c *refreshCommand) Init(args []string) error {
@@ -438,17 +448,15 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	c.Bindings, bindingsChangelog = mergeBindings(newCharmEndpoints, curBindings, c.Bindings, appDefaultSpace)
 
 	// Finally, upgrade the application.
-	var configYAML []byte
-	if c.Config.Path != "" {
-		configYAML, err = c.Config.Read(ctx)
-		if err != nil {
-			return errors.Trace(err)
-		}
+	appConfig, configYAML, err := utils.ProcessConfig(ctx, c.Filesystem(), &c.ConfigOptions, c.Trust)
+	if err != nil {
+		return errors.Trace(err)
 	}
 	charmCfg := application.SetCharmConfig{
 		ApplicationName:    c.ApplicationName,
 		CharmID:            chID,
-		ConfigSettingsYAML: string(configYAML),
+		ConfigSettings:     appConfig,
+		ConfigSettingsYAML: configYAML,
 		Force:              c.Force,
 		ForceBase:          c.ForceBase,
 		ForceUnits:         c.ForceUnits,

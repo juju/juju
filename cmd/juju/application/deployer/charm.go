@@ -5,8 +5,6 @@ package deployer
 
 import (
 	"fmt"
-	"os"
-	"strconv"
 	"strings"
 
 	"github.com/juju/charm/v10"
@@ -95,48 +93,13 @@ func (d *deployCharm) deploy(
 	}
 
 	// Process the --config args.
-	// We may have a single file arg specified, in which case
-	// it points to a YAML file keyed on the charm name and
-	// containing values for any charm settings.
-	// We may also have key/value pairs representing
-	// charm settings which overrides anything in the YAML file.
-	// If more than one file is specified, that is an error.
-	var configYAML []byte
-	files, err := d.configOptions.AbsoluteFileNames(ctx)
+	appConfig, configYAML, err := utils.ProcessConfig(ctx, d.model.Filesystem(), d.configOptions, d.trust)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if len(files) > 1 {
-		return errors.Errorf("only a single config YAML file can be specified, got %d", len(files))
-	}
-	if len(files) == 1 {
-		configYAML, err = os.ReadFile(files[0])
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-	attr, err := d.configOptions.ReadConfigPairs(ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	appConfig := make(map[string]string)
-	for k, v := range attr {
-		appConfig[k] = v.(string)
-
-		// Handle @ syntax for including file contents as values so we
-		// are consistent to how 'juju config' works
-		if len(appConfig[k]) < 1 || appConfig[k][0] != '@' {
-			continue
-		}
-
-		if appConfig[k], err = utils.ReadValue(ctx, d.model.Filesystem(), appConfig[k][1:]); err != nil {
-			return errors.Trace(err)
-		}
-	}
-
-	// Expand the trust flag into the appConfig
-	if d.trust {
-		appConfig[app.TrustConfigOptionName] = strconv.FormatBool(d.trust)
+	// At deploy time, there's no need to include "trust=false" as missing is the same thing.
+	if !d.trust {
+		delete(appConfig, app.TrustConfigOptionName)
 	}
 
 	bakeryClient, err := d.model.BakeryClient()
@@ -204,7 +167,7 @@ func (d *deployCharm) deploy(
 		Cons:             d.constraints,
 		ApplicationName:  applicationName,
 		NumUnits:         numUnits,
-		ConfigYAML:       string(configYAML),
+		ConfigYAML:       configYAML,
 		Config:           appConfig,
 		Placement:        d.placement,
 		Storage:          d.storage,
