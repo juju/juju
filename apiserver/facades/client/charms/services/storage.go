@@ -6,7 +6,7 @@ package services
 import (
 	"fmt"
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/v3"
@@ -79,7 +79,6 @@ func (s *CharmStorage) Store(charmURL *charm.URL, downloadedCharm charmdownloade
 		Charm:       downloadedCharm.Charm,
 		ID:          charmURL,
 		SHA256:      downloadedCharm.SHA256,
-		Macaroon:    downloadedCharm.Macaroons,
 		Version:     downloadedCharm.CharmVersion,
 	}
 

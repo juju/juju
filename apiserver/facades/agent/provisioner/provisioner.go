@@ -334,6 +334,7 @@ func (api *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerCo
 		cfg[config.ContainerImageMetadataURLKey] = url
 	}
 	cfg[config.ContainerImageStreamKey] = mConfig.ContainerImageStream()
+	cfg[config.ContainerNetworkingMethod] = mConfig.ContainerNetworkingMethod()
 
 	result.ManagerConfig = cfg
 	return result, nil
@@ -648,7 +649,16 @@ func (api *ProvisionerAPI) Constraints(args params.Entities) (params.Constraints
 
 // FindTools returns a List containing all tools matching the given parameters.
 func (api *ProvisionerAPI) FindTools(args params.FindToolsParams) (params.FindToolsResult, error) {
-	return api.toolsFinder.FindTools(args)
+	list, err := api.toolsFinder.FindAgents(common.FindAgentsParams{
+		Number:      args.Number,
+		Arch:        args.Arch,
+		OSType:      args.OSType,
+		AgentStream: args.AgentStream,
+	})
+	return params.FindToolsResult{
+		List:  list,
+		Error: apiservererrors.ServerError(err),
+	}, nil
 }
 
 // SetInstanceInfo sets the provider specific machine id, nonce,

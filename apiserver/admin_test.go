@@ -638,6 +638,7 @@ func (s *loginSuite) TestAnonymousModelLogin(c *gc.C) {
 	c.Assert(result.ModelTag, gc.Equals, s.Model.ModelTag().String())
 	c.Assert(result.Facades, jc.DeepEquals, []params.FacadeVersions{
 		{Name: "CrossModelRelations", Versions: []int{2}},
+		{Name: "CrossModelSecrets", Versions: []int{1}},
 		{Name: "NotifyWatcher", Versions: []int{1}},
 		{Name: "OfferStatusWatcher", Versions: []int{1}},
 		{Name: "RelationStatusWatcher", Versions: []int{1}},
@@ -1493,7 +1494,7 @@ func (s *migrationSuite) TestExportingModel(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 
 	// Modifying commands like destroy machines are not.
-	_, err = machineclient.NewClient(userConn).DestroyMachinesWithParams(false, false, nil, "42")
+	_, err = machineclient.NewClient(userConn).DestroyMachinesWithParams(false, false, false, nil, "42")
 	c.Check(err, gc.ErrorMatches, "model migration in progress")
 }
 

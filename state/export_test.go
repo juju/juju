@@ -10,10 +10,10 @@ import (
 	"strconv"
 	"time" // Only used for time types.
 
-	"github.com/juju/charm/v9"
-	charmrepotesting "github.com/juju/charmrepo/v7/testing"
+	"github.com/juju/charm/v10"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
+	"github.com/juju/description/v4"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v3"
@@ -28,8 +28,6 @@ import (
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/description/v4"
-
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/resources"
@@ -41,6 +39,7 @@ import (
 	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/testcharms"
+	"github.com/juju/juju/testcharms/repo"
 	"github.com/juju/juju/version"
 )
 
@@ -215,6 +214,14 @@ func IncSecretConsumerRefCount(st *State, uri *secrets.URI, inc int) error {
 	return st.db().RunTransaction([]txn.Op{incOp})
 }
 
+func SecretBackendRefCount(st *State, backendID string) (int, error) {
+	refcounts, closer := st.db().GetCollection(globalRefcountsC)
+	defer closer()
+
+	key := secretBackendRefCountKey(backendID)
+	return nsRefcounts.read(refcounts, key)
+}
+
 func AddTestingCharm(c *gc.C, st *State, name string) *Charm {
 	return addCharm(c, st, "quantal", testcharms.Repo.CharmDir(name))
 }
@@ -223,7 +230,7 @@ func AddTestingCharmWithSeries(c *gc.C, st *State, name string, series string) *
 	return addCharm(c, st, series, testcharms.Repo.CharmDir(name))
 }
 
-func getCharmRepo(series string) *charmrepotesting.Repo {
+func getCharmRepo(series string) *repo.CharmRepo {
 	// ALl testing charms for state are under `quantal` except `kubernetes`.
 	if series == "kubernetes" {
 		return testcharms.RepoForSeries(series)
@@ -255,7 +262,7 @@ func AddTestingCharmhubCharmForSeries(c *gc.C, st *State, series, name string) *
 func AddTestingCharmMultiSeries(c *gc.C, st *State, name string) *Charm {
 	ch := testcharms.Repo.CharmDir(name)
 	ident := fmt.Sprintf("%s-%d", ch.Meta().Name, ch.Revision())
-	curl := charm.MustParseURL("cs:" + ident)
+	curl := charm.MustParseURL("ch:" + ident)
 	info := CharmInfo{
 		Charm:       ch,
 		ID:          curl,
@@ -303,10 +310,22 @@ func AddTestingApplicationWithStorage(c *gc.C, st *State, name string, ch *Charm
 	}
 	base, err := coreseries.GetBaseFromSeries(series)
 	c.Assert(err, jc.ErrorIsNil)
-	origin := &CharmOrigin{Platform: &Platform{
-		OS:      base.OS,
-		Channel: base.Channel.String(),
-	}}
+	var source string
+	switch ch.URL().Schema {
+	case "local":
+		source = "local"
+	case "ch":
+		source = "charm-hub"
+	case "cs":
+		source = "charm-store"
+	}
+	origin := &CharmOrigin{
+		Source: source,
+		Platform: &Platform{
+			OS:      base.OS,
+			Channel: base.Channel.String(),
+		},
+	}
 	return addTestingApplication(c, addTestingApplicationParams{
 		st:      st,
 		name:    name,
@@ -351,10 +370,28 @@ func addTestingApplication(c *gc.C, params addTestingApplicationParams) *Applica
 	if origin == nil {
 		base, err := coreseries.GetBaseFromSeries(params.ch.URL().Series)
 		c.Assert(err, jc.ErrorIsNil)
-		origin = &CharmOrigin{Platform: &Platform{
-			OS:      base.OS,
-			Channel: base.Channel.String(),
-		}}
+		var channel *Channel
+		// local charms cannot have a channel
+		if charm.CharmHub.Matches(params.ch.URL().Schema) {
+			channel = &Channel{Risk: "stable"}
+		}
+		var source string
+		switch params.ch.URL().Schema {
+		case "local":
+			source = "local"
+		case "ch":
+			source = "charm-hub"
+		case "cs":
+			source = "charm-store"
+		}
+		origin = &CharmOrigin{
+			Channel: channel,
+			Source:  source,
+			Platform: &Platform{
+				OS:      base.OS,
+				Channel: base.Channel.String(),
+			},
+		}
 	}
 	app, err := params.st.AddApplication(AddApplicationArgs{
 		Name:             params.name,
@@ -369,7 +406,7 @@ func addTestingApplication(c *gc.C, params addTestingApplicationParams) *Applica
 	return app
 }
 
-func addCustomCharmWithManifest(c *gc.C, st *State, repo *charmrepotesting.Repo, name, filename, content, series string, revision int, manifest bool) *Charm {
+func addCustomCharmWithManifest(c *gc.C, st *State, repo *repo.CharmRepo, name, filename, content, series string, revision int, manifest bool) *Charm {
 	path := repo.ClonedDirPath(c.MkDir(), name)
 	if filename != "" {
 		if manifest {
@@ -394,7 +431,7 @@ bases:
 	return addCharm(c, st, series, ch)
 }
 
-func addCustomCharm(c *gc.C, st *State, repo *charmrepotesting.Repo, name, filename, content, series string, revision int) *Charm {
+func addCustomCharm(c *gc.C, st *State, repo *repo.CharmRepo, name, filename, content, series string, revision int) *Charm {
 	return addCustomCharmWithManifest(c, st, repo, name, filename, content, series, revision, false)
 }
 
@@ -1113,6 +1150,16 @@ func GetSecretNextRotateTime(c *gc.C, st *State, id string) time.Time {
 	return doc.NextRotateTime.UTC()
 }
 
+func GetSecretBackendNextRotateInfo(c *gc.C, st *State, id string) (string, time.Time) {
+	secretBackendRotateCollection, closer := st.db().GetCollection(secretBackendsRotateC)
+	defer closer()
+
+	var doc secretBackendRotationDoc
+	err := secretBackendRotateCollection.FindId(id).One(&doc)
+	c.Assert(err, jc.ErrorIsNil)
+	return doc.Name, doc.NextRotateTime.UTC()
+}
+
 // ModelBackendShim is required to live here in the export_test.go file because
 // there is issues placing this in the test files themselves. The strangeness
 // exhibits itself from the fact that `clock() clock.Clock` doesn't type
@@ -1148,7 +1195,7 @@ func (s ModelBackendShim) db() Database {
 	return s.Database
 }
 
-func (s ModelBackendShim) modelUUID() string {
+func (s ModelBackendShim) ModelUUID() string {
 	return ""
 }
 
@@ -1156,7 +1203,7 @@ func (s ModelBackendShim) modelName() (string, error) {
 	return "", nil
 }
 
-func (s ModelBackendShim) isController() bool {
+func (s ModelBackendShim) IsController() bool {
 	return false
 }
 

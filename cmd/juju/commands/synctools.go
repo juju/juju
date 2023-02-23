@@ -6,6 +6,7 @@ package commands
 import (
 	"bytes"
 	"io"
+	"os"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
@@ -14,6 +15,7 @@ import (
 	"github.com/juju/version/v2"
 
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/constants"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/filestorage"
@@ -55,8 +57,8 @@ The online store will, of course, need to be contacted at some point to get
 the software.
 
 Examples:
-    juju sync-agent-binary --debug --version 2.0
-    juju sync-agent-binary --debug --version 2.0 --local-dir=/home/ubuntu/sync-agent-binary
+    juju sync-agent-binary --debug --agent-version 2.0
+    juju sync-agent-binary --debug --agent-version 2.0 --local-dir=/home/ubuntu/sync-agent-binary
 
 See also:
     upgrade-controller
@@ -73,7 +75,7 @@ func (c *syncAgentBinaryCommand) Info() *cmd.Info {
 
 func (c *syncAgentBinaryCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.StringVar(&c.versionStr, "version", "", "Copy a specific major[.minor] version")
+	f.StringVar(&c.versionStr, "agent-version", "", "Copy a specific major[.minor] version")
 	f.BoolVar(&c.dryRun, "dry-run", false, "Don't copy, just print what would be copied")
 	f.BoolVar(&c.public, "public", false, "Tools are for a public cloud, so generate mirrors information")
 	f.StringVar(&c.source, "source", "", "Local source directory")
@@ -83,7 +85,7 @@ func (c *syncAgentBinaryCommand) SetFlags(f *gnuflag.FlagSet) {
 
 func (c *syncAgentBinaryCommand) Init(args []string) error {
 	if c.versionStr == "" {
-		return errors.NewNotValid(nil, "--version is required")
+		return errors.NewNotValid(nil, "--agent-version is required")
 	}
 	var err error
 	if c.targetVersion, err = version.Parse(c.versionStr); err != nil {
@@ -113,6 +115,11 @@ func (c *syncAgentBinaryCommand) Run(ctx *cmd.Context) (resultErr error) {
 	)
 	_ = loggo.RegisterWriter("syncagentbinaries", writer)
 	defer func() { _, _ = loggo.RemoveWriter("syncagentbinaries") }()
+
+	if envMetadataSrc := os.Getenv(constants.EnvJujuMetadataSource); c.source == "" && envMetadataSrc != "" {
+		c.source = envMetadataSrc
+		ctx.Infof("Using local simple stream source directory %q", c.source)
+	}
 
 	sctx := &sync.SyncContext{
 		ChosenVersion: c.targetVersion,

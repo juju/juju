@@ -11,8 +11,8 @@ import (
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v9"
-	charmresource "github.com/juju/charm/v9/resource"
+	"github.com/juju/charm/v10"
+	charmresource "github.com/juju/charm/v10/resource"
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/set"
@@ -21,7 +21,6 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/client/resources"
@@ -29,6 +28,7 @@ import (
 	"github.com/juju/juju/cmd/juju/application/deployer/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/series"
 	jujuseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/testcharms"
@@ -42,7 +42,6 @@ type deployerSuite struct {
 	resolver          *mocks.MockResolver
 	deployerAPI       *mocks.MockDeployerAPI
 	deployStep        *fakeDeployStep
-	macaroonGetter    *mocks.MockMacaroonGetter
 	modelCommand      *mocks.MockModelCommand
 	filesystem        *mocks.MockFilesystem
 	bundle            *mocks.MockBundle
@@ -89,8 +88,7 @@ func (s *deployerSuite) TestGetDeployerLocalCharm(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectFilesystem()
 	s.expectModelGet(c)
-	cfg := s.basicDeployerConfig()
-	cfg.Series = "bionic"
+	cfg := s.basicDeployerConfig(series.MustParseBaseFromString("ubuntu@18.04"))
 	s.expectModelType()
 
 	dir := c.MkDir()
@@ -118,16 +116,6 @@ func (s *deployerSuite) TestGetDeployerLocalCharmError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `no charm was found at "./bad.charm"`)
 }
 
-func (s *deployerSuite) TestGetDeployerCharmStoreCharm(c *gc.C) {
-	ch := charm.MustParseURL("cs:test-charm")
-	s.testGetDeployerRepositoryCharm(c, ch)
-}
-
-func (s *deployerSuite) TestGetDeployerCharmStoreCharmWithRevisionInURL(c *gc.C) {
-	ch := charm.MustParseURL("cs:test-charm-7")
-	s.testGetDeployerRepositoryCharm(c, ch)
-}
-
 func (s *deployerSuite) TestGetDeployerCharmHubCharm(c *gc.C) {
 	ch := charm.MustParseURL("ch:test-charm")
 	s.testGetDeployerRepositoryCharm(c, ch)
@@ -149,18 +137,6 @@ func (s *deployerSuite) testGetDeployerRepositoryCharm(c *gc.C, ch *charm.URL) {
 	deployer, err := factory.GetDeployer(cfg, s.modelConfigGetter, s.resolver)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy charm: %s", ch.String()))
-}
-
-func (s *deployerSuite) TestGetDeployerCharmStoreCharmWithRevision(c *gc.C) {
-	cfg := s.basicDeployerConfig()
-	cfg.Revision = 8
-	ch := charm.MustParseURL("cs:test-charm")
-	s.expectStat(ch.String(), errors.NotFoundf("file"))
-	cfg.CharmOrBundle = ch.String()
-
-	deployer, err := s.testGetDeployerRepositoryCharmWithRevision(c, ch, cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy charm: %s", ch.WithRevision(8).String()))
 }
 
 func (s *deployerSuite) TestGetDeployerCharmHubCharmWithRevision(c *gc.C) {
@@ -197,15 +173,14 @@ func (s *deployerSuite) testGetDeployerRepositoryCharmWithRevision(c *gc.C, ch *
 	return factory.GetDeployer(cfg, s.modelConfigGetter, s.resolver)
 }
 
-func (s *deployerSuite) TestCharmStoreSeriesOverride(c *gc.C) {
+func (s *deployerSuite) TestSeriesOverride(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectFilesystem()
 	s.expectModelType()
 	s.expectResolveBundleURL(errors.NotValidf("not a bundle"), 1)
 
 	cfg := s.basicDeployerConfig()
-	cfg.Series = "bionic" // Override the default series (as if --series was specified)
-	ch := charm.MustParseURL("cs:test-charm")
+	ch := charm.MustParseURL("ch:test-charm")
 	s.expectStat(ch.String(), errors.NotFoundf("file"))
 	cfg.CharmOrBundle = ch.String()
 
@@ -214,17 +189,16 @@ func (s *deployerSuite) TestCharmStoreSeriesOverride(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy charm: %s", ch.String()))
 
-	charmStoreDeployer := deployer.(*repositoryCharm)
-	c.Assert(charmStoreDeployer.id.Origin.Base.OS, gc.Equals, "ubuntu")
-	c.Assert(charmStoreDeployer.id.Origin.Base.Channel.String(), gc.Equals, "18.04/stable")
+	charmDeployer := deployer.(*repositoryCharm)
+	c.Assert(charmDeployer.id.Origin.Base.OS, gc.Equals, "ubuntu")
+	c.Assert(charmDeployer.id.Origin.Base.Channel.String(), gc.Equals, "20.04/stable")
 }
 
 func (s *deployerSuite) TestGetDeployerLocalBundle(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectFilesystem()
 
-	cfg := s.basicDeployerConfig()
-	cfg.Series = "bionic"
+	cfg := s.basicDeployerConfig(series.MustParseBaseFromString("ubuntu@18.04"))
 	cfg.FlagSet = &gnuflag.FlagSet{}
 	s.expectModelType()
 
@@ -250,19 +224,8 @@ func (s *deployerSuite) TestGetDeployerLocalBundle(c *gc.C) {
 	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy local bundle from: %s", bundlePath))
 }
 
-func (s *deployerSuite) TestGetDeployerCharmStoreBundle(c *gc.C) {
-	bundle := charm.MustParseURL("cs:test-bundle")
-	cfg := s.basicDeployerConfig()
-
-	cfg.CharmOrBundle = bundle.String()
-
-	deployer, err := s.testGetDeployerRepositoryBundle(c, cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy bundle: %s", bundle.String()))
-}
-
-func (s *deployerSuite) TestGetDeployerCharmStoreBundleWithChannel(c *gc.C) {
-	bundle := charm.MustParseURL("cs:test-bundle")
+func (s *deployerSuite) TestGetDeployerCharmHubBundleWithChannel(c *gc.C) {
+	bundle := charm.MustParseURL("ch:test-bundle")
 	cfg := s.channelDeployerConfig()
 	cfg.CharmOrBundle = bundle.String()
 
@@ -288,7 +251,7 @@ func (s *deployerSuite) testGetDeployerRepositoryBundle(c *gc.C, cfg DeployerCon
 
 	s.expectResolveBundleURL(nil, 1)
 
-	cfg.Series = "bionic"
+	cfg.Base = series.MustParseBaseFromString("ubuntu@18.04")
 	cfg.FlagSet = &gnuflag.FlagSet{}
 	s.expectStat(cfg.CharmOrBundle, errors.NotFoundf("file"))
 	s.expectModelType()
@@ -304,9 +267,8 @@ func (s *deployerSuite) TestGetDeployerCharmHubBundleWithRevisionURL(c *gc.C) {
 	s.expectFilesystem()
 
 	bundle := charm.MustParseURL("ch:test-bundle-8")
-	cfg := s.basicDeployerConfig()
+	cfg := s.basicDeployerConfig(series.MustParseBaseFromString("ubuntu@18.04"))
 	cfg.CharmOrBundle = bundle.String()
-	cfg.Series = "bionic"
 	cfg.FlagSet = &gnuflag.FlagSet{}
 	s.expectStat(cfg.CharmOrBundle, errors.NotFoundf("file"))
 	s.expectModelType()
@@ -323,10 +285,9 @@ func (s *deployerSuite) TestGetDeployerCharmHubBundleError(c *gc.C) {
 	s.expectResolveBundleURL(nil, 1)
 
 	bundle := charm.MustParseURL("ch:test-bundle")
-	cfg := s.channelDeployerConfig()
+	cfg := s.channelDeployerConfig(series.MustParseBaseFromString("ubuntu@18.04"))
 	cfg.Revision = 42
 	cfg.CharmOrBundle = bundle.String()
-	cfg.Series = "bionic"
 	cfg.FlagSet = &gnuflag.FlagSet{}
 	s.expectStat(cfg.CharmOrBundle, errors.NotFoundf("file"))
 	s.expectModelType()
@@ -347,29 +308,13 @@ func (s *deployerSuite) TestResolveCharmURL(c *gc.C) {
 		path:          "wordpress",
 		url:           &charm.URL{Schema: "ch", Name: "wordpress", Revision: -1},
 	}, {
-		defaultSchema: charm.CharmStore,
-		path:          "cs:wordpress-42",
-		url:           &charm.URL{Schema: "cs", Name: "wordpress", Revision: 42},
-	}, {
 		defaultSchema: charm.CharmHub,
-		path:          "cs:wordpress",
-		url:           &charm.URL{Schema: "cs", Name: "wordpress", Revision: -1},
+		path:          "ch:wordpress",
+		url:           &charm.URL{Schema: "ch", Name: "wordpress", Revision: -1},
 	}, {
 		defaultSchema: charm.CharmHub,
 		path:          "local:wordpress",
 		url:           &charm.URL{Schema: "local", Name: "wordpress", Revision: -1},
-	}, {
-		defaultSchema: charm.CharmHub,
-		path:          "cs:~user/series/name",
-		url:           &charm.URL{Schema: "cs", User: "user", Name: "name", Series: "series", Revision: -1},
-	}, {
-		defaultSchema: charm.CharmHub,
-		path:          "wordpress",
-		url:           &charm.URL{Schema: "ch", Name: "wordpress", Revision: -1},
-	}, {
-		defaultSchema: charm.CharmStore,
-		path:          "wordpress",
-		url:           &charm.URL{Schema: "cs", Name: "wordpress", Revision: -1},
 	}}
 	for i, test := range tests {
 		c.Logf("%d %s", i, test.path)
@@ -467,7 +412,6 @@ func (s *deployerSuite) newDeployerFactory() DeployerFactory {
 		DeployResources: func(
 			string,
 			resources.CharmID,
-			*macaroon.Macaroon,
 			map[string]string,
 			map[string]charmresource.Meta,
 			base.APICallCloser,
@@ -484,16 +428,28 @@ func (s *deployerSuite) newDeployerFactory() DeployerFactory {
 	return NewDeployerFactory(dep)
 }
 
-func (s *deployerSuite) basicDeployerConfig() DeployerConfig {
+func (s *deployerSuite) basicDeployerConfig(bases ...series.Base) DeployerConfig {
+	var base series.Base
+	if len(bases) == 0 {
+		base = series.MustParseBaseFromString("ubuntu@20.04")
+	} else {
+		base = bases[0]
+	}
 	return DeployerConfig{
-		Series:   "focal",
+		Base:     base,
 		Revision: -1,
 	}
 }
 
-func (s *deployerSuite) channelDeployerConfig() DeployerConfig {
+func (s *deployerSuite) channelDeployerConfig(bases ...series.Base) DeployerConfig {
+	var base series.Base
+	if len(bases) == 0 {
+		base = series.MustParseBaseFromString("ubuntu@20.04")
+	} else {
+		base = bases[0]
+	}
 	return DeployerConfig{
-		Series: "focal",
+		Base: base,
 		Channel: charm.Channel{
 			Risk: "edge",
 		},
@@ -507,7 +463,6 @@ func (s *deployerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.resolver = mocks.NewMockResolver(ctrl)
 	s.bundle = mocks.NewMockBundle(ctrl)
 	s.deployerAPI = mocks.NewMockDeployerAPI(ctrl)
-	s.macaroonGetter = mocks.NewMockMacaroonGetter(ctrl)
 	s.modelCommand = mocks.NewMockModelCommand(ctrl)
 	s.filesystem = mocks.NewMockFilesystem(ctrl)
 	s.modelConfigGetter = mocks.NewMockModelConfigGetter(ctrl)
@@ -543,6 +498,7 @@ func (s *deployerSuite) expectModelGet(c *gc.C) {
 		"uuid":            coretesting.ModelTag.Id(),
 		"controller-uuid": coretesting.ControllerTag.Id(),
 		"firewall-mode":   "instance",
+		"secret-backend":  "auto",
 		// While the ca-cert bits aren't entirely minimal, they avoid the need
 		// to set up a fake home.
 		"ca-cert":        coretesting.CACert,
@@ -571,9 +527,6 @@ type fakeDeployStep struct {
 }
 
 func (f *fakeDeployStep) SetFlags(*gnuflag.FlagSet) {}
-
-// SetPlanURL sets the plan URL prefix.
-func (f *fakeDeployStep) SetPlanURL(string) {}
 
 // RunPre runs before the call is made to add the charm to the environment.
 func (f *fakeDeployStep) RunPre(DeployStepAPI, *httpbakery.Client, *cmd.Context, DeploymentInfo) error {

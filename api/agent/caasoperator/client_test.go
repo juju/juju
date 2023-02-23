@@ -78,7 +78,7 @@ func (s *operatorSuite) TestCharm(c *gc.C) {
 		*(result.(*params.ApplicationCharmResults)) = params.ApplicationCharmResults{
 			Results: []params.ApplicationCharmResult{{
 				Result: &params.ApplicationCharm{
-					URL:                  "cs:foo/bar-1",
+					URL:                  "ch:foo/bar-1",
 					ForceUpgrade:         true,
 					SHA256:               "fake-sha256",
 					CharmModifiedVersion: 666,
@@ -93,7 +93,7 @@ func (s *operatorSuite) TestCharm(c *gc.C) {
 	info, err := client.Charm("gitlab")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.URL, gc.NotNil)
-	c.Assert(info.URL.String(), gc.Equals, "cs:foo/bar-1")
+	c.Assert(info.URL.String(), gc.Equals, "ch:foo/bar-1")
 	c.Assert(info.SHA256, gc.Equals, "fake-sha256")
 	c.Assert(info.ForceUpgrade, jc.IsTrue)
 	c.Assert(info.CharmModifiedVersion, gc.Equals, 666)

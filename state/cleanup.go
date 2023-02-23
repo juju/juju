@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
@@ -267,7 +267,7 @@ func (st *State) cleanupResourceBlob(storagePath string) error {
 		return nil
 	}
 
-	storage := statestorage.NewStorage(st.modelUUID(), st.MongoSession())
+	storage := statestorage.NewStorage(st.ModelUUID(), st.MongoSession())
 	err := storage.Remove(storagePath)
 	if errors.IsNotFound(err) {
 		return nil

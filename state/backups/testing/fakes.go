@@ -31,8 +31,6 @@ type FakeBackups struct {
 
 	// IDArg holds the ID that was passed in.
 	IDArg string
-	// PathsArg holds the Paths that was passed in.
-	PathsArg *backups.Paths
 	// DBInfoArg holds the ConnInfo that was passed in.
 	DBInfoArg *backups.DBInfo
 	// MetaArg holds the backup metadata that was passed in.
@@ -51,12 +49,10 @@ var _ backups.Backups = (*FakeBackups)(nil)
 // its associated metadata.
 func (b *FakeBackups) Create(
 	meta *backups.Metadata,
-	paths *backups.Paths,
 	dbInfo *backups.DBInfo,
 ) (string, error) {
 	b.Calls = append(b.Calls, "Create")
 
-	b.PathsArg = paths
 	b.DBInfoArg = dbInfo
 	b.MetaArg = meta
 

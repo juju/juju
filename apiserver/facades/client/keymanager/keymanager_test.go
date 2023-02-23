@@ -7,121 +7,79 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/names/v4"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3/ssh"
 	sshtesting "github.com/juju/utils/v3/ssh/testing"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
-	commontesting "github.com/juju/juju/apiserver/common/testing"
-	"github.com/juju/juju/apiserver/facade/facadetest"
+	"github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/client/keymanager"
+	"github.com/juju/juju/apiserver/facades/client/keymanager/mocks"
 	keymanagertesting "github.com/juju/juju/apiserver/facades/client/keymanager/testing"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing/factory"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type keyManagerSuite struct {
-	jujutesting.JujuConnSuite
+	testing.CleanupSuite
 
-	keymanager *keymanager.KeyManagerAPI
-	resources  *common.Resources
+	model        *mocks.MockModel
+	blockChecker *mocks.MockBlockChecker
+	apiUser      names.UserTag
+	api          *keymanager.KeyManagerAPI
+
 	authorizer apiservertesting.FakeAuthorizer
-
-	commontesting.BlockHelper
 }
 
 var _ = gc.Suite(&keyManagerSuite{})
 
 func (s *keyManagerSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
+	s.PatchValue(&keymanager.RunSSHImportId, keymanagertesting.FakeImport)
+	s.apiUser = names.NewUserTag("admin")
+}
 
+func (s *keyManagerSuite) setup(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.model = mocks.NewMockModel(ctrl)
+	s.model.EXPECT().ModelTag().Return(coretesting.ModelTag).AnyTimes()
+	s.blockChecker = mocks.NewMockBlockChecker(ctrl)
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag: s.AdminUserTag(c),
+		Tag: s.apiUser,
 	}
-	var err error
-	s.keymanager, err = keymanager.NewKeyManagerAPI(facadetest.Context{
-		State_:     s.State,
-		Resources_: s.resources,
-		Auth_:      s.authorizer,
+
+	s.api = keymanager.NewKeyManagerAPI(s.model, s.authorizer, s.blockChecker, coretesting.ControllerTag)
+
+	return ctrl
+}
+
+func (s *keyManagerSuite) setAuthorizedKeys(c *gc.C, keys ...string) {
+	joined := strings.Join(keys, "\n")
+	attrs := coretesting.FakeConfig().Merge(coretesting.Attrs{
+		"authorized-keys": joined,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
-	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
-}
-
-func (s *keyManagerSuite) TestNewKeyManagerAPIAcceptsClient(c *gc.C) {
-	endPoint, err := keymanager.NewKeyManagerAPI(facadetest.Context{
-		State_:     s.State,
-		Resources_: s.resources,
-		Auth_:      s.authorizer,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(endPoint, gc.NotNil)
-}
-
-func (s *keyManagerSuite) TestNewKeyManagerAPIRefusesController(c *gc.C) {
-	s.testNewKeyManagerAPIRefuses(c, names.NewMachineTag("0"), true)
-}
-
-func (s *keyManagerSuite) TestNewKeyManagerAPIRefusesUnit(c *gc.C) {
-	s.testNewKeyManagerAPIRefuses(c, names.NewUnitTag("mysql/0"), false)
-}
-
-func (s *keyManagerSuite) TestNewKeyManagerAPIRefusesMachine(c *gc.C) {
-	s.testNewKeyManagerAPIRefuses(c, names.NewMachineTag("99"), false)
-}
-
-func (s *keyManagerSuite) testNewKeyManagerAPIRefuses(c *gc.C, tag names.Tag, controller bool) {
-	auth := apiservertesting.FakeAuthorizer{
-		Tag:        tag,
-		Controller: controller,
-	}
-	endPoint, err := keymanager.NewKeyManagerAPI(facadetest.Context{
-		State_:     s.State,
-		Resources_: s.resources,
-		Auth_:      auth,
-	})
-	c.Assert(endPoint, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "permission denied")
-}
-
-func (s *keyManagerSuite) setAuthorisedKeys(c *gc.C, keys string) {
-	s.setAuthorisedKeysForModel(c, s.State, keys)
-}
-
-func (s *keyManagerSuite) setAuthorisedKeysForModel(c *gc.C, st *state.State, keys string) {
-	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = m.UpdateModelConfig(map[string]interface{}{"authorized-keys": keys}, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	modelConfig, err := m.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelConfig.AuthorizedKeys(), gc.Equals, keys)
+	s.model.EXPECT().ModelConfig().Return(config.New(config.UseDefaults, attrs)).AnyTimes()
 }
 
 func (s *keyManagerSuite) TestListKeys(c *gc.C) {
+	defer s.setup(c).Finish()
+
 	key1 := sshtesting.ValidKeyOne.Key + " user@host"
 	key2 := sshtesting.ValidKeyTwo.Key
-	s.setAuthorisedKeys(c, strings.Join([]string{key1, key2, "bad key"}, "\n"))
+	s.setAuthorizedKeys(c, key1, key2, "bad key")
 
 	args := params.ListSSHKeys{
-		Entities: params.Entities{[]params.Entity{
-			{Tag: s.AdminUserTag(c).Name()},
+		Entities: params.Entities{Entities: []params.Entity{
+			{Tag: names.NewUserTag("admin").String()},
 			{Tag: "invalid"},
 		}},
 		Mode: ssh.FullKeys,
 	}
-	results, err := s.keymanager.ListKeys(args)
+	results, err := s.api.ListKeys(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.StringsResults{
 		Results: []params.StringsResult{
@@ -132,17 +90,19 @@ func (s *keyManagerSuite) TestListKeys(c *gc.C) {
 }
 
 func (s *keyManagerSuite) TestListKeysHidesJujuInternal(c *gc.C) {
+	defer s.setup(c).Finish()
+
 	key1 := sshtesting.ValidKeyOne.Key + " juju-client-key"
-	key2 := sshtesting.ValidKeyTwo.Key + " juju-system-key"
-	s.setAuthorisedKeys(c, strings.Join([]string{key1, key2}, "\n"))
+	key2 := sshtesting.ValidKeyTwo.Key + " " + config.JujuSystemKey
+	s.setAuthorizedKeys(c, key1, key2)
 
 	args := params.ListSSHKeys{
-		Entities: params.Entities{[]params.Entity{
-			{Tag: s.AdminUserTag(c).Name()},
+		Entities: params.Entities{Entities: []params.Entity{
+			{Tag: names.NewUserTag("admin").String()},
 		}},
 		Mode: ssh.FullKeys,
 	}
-	results, err := s.keymanager.ListKeys(args)
+	results, err := s.api.ListKeys(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.StringsResults{
 		Results: []params.StringsResult{
@@ -152,177 +112,129 @@ func (s *keyManagerSuite) TestListKeysHidesJujuInternal(c *gc.C) {
 }
 
 func (s *keyManagerSuite) TestListJujuSystemKey(c *gc.C) {
-	anAuthoriser := s.authorizer
-	anAuthoriser.Tag = names.NewUserTag("fred")
-	var err error
-	s.keymanager, err = keymanager.NewKeyManagerAPI(facadetest.Context{
-		State_:     s.State,
-		Resources_: s.resources,
-		Auth_:      anAuthoriser,
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	defer s.setup(c).Finish()
+
 	key1 := sshtesting.ValidKeyOne.Key
-	s.setAuthorisedKeys(c, key1)
+	s.setAuthorizedKeys(c, key1)
 
 	args := params.ListSSHKeys{
-		Entities: params.Entities{[]params.Entity{
-			{Tag: "juju-system-key"},
+		Entities: params.Entities{Entities: []params.Entity{
+			{Tag: config.JujuSystemKey},
 		}},
 		Mode: ssh.FullKeys,
 	}
-	results, err := s.keymanager.ListKeys(args)
+	results, err := s.api.ListKeys(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.ErrorMatches, "permission denied")
 }
 
-func (s *keyManagerSuite) assertModelKeys(c *gc.C, expected []string) {
-	s.assertKeysForModel(c, s.State, expected)
-}
-
-func (s *keyManagerSuite) assertKeysForModel(c *gc.C, st *state.State, expected []string) {
-	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	modelConfig, err := m.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	keys := modelConfig.AuthorizedKeys()
-	c.Assert(keys, gc.Equals, strings.Join(expected, "\n"))
-}
-
-func (s *keyManagerSuite) assertAddKeys(c *gc.C, st *state.State, apiUser names.UserTag, ok bool) {
+func (s *keyManagerSuite) assertAddKeys(c *gc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " user@host"
 	key2 := sshtesting.ValidKeyTwo.Key
-	initialKeys := []string{key1, key2, "bad key"}
-	s.setAuthorisedKeysForModel(c, st, strings.Join(initialKeys, "\n"))
-
-	anAuthoriser := s.authorizer
-	anAuthoriser.Tag = apiUser
-	var err error
-	s.keymanager, err = keymanager.NewKeyManagerAPI(facadetest.Context{
-		State_:     st,
-		Resources_: s.resources,
-		Auth_:      anAuthoriser,
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	s.setAuthorizedKeys(c, key1, key2, "bad key")
 
 	newKey := sshtesting.ValidKeyThree.Key + " newuser@host"
+
+	newAttrs := map[string]interface{}{
+		config.AuthorizedKeysKey: strings.Join([]string{key1, key2, "bad key", newKey}, "\n"),
+	}
+	s.model.EXPECT().UpdateModelConfig(newAttrs, nil)
+
 	args := params.ModifyUserSSHKeys{
-		User: s.AdminUserTag(c).Name(),
-		Keys: []string{key2, newKey, "invalid-key"},
+		User: names.NewUserTag("admin").Name(),
+		Keys: []string{key2, newKey, newKey, "invalid-key"},
 	}
-	results, err := s.keymanager.AddKeys(args)
-	if !ok {
-		c.Assert(err, gc.ErrorMatches, "permission denied")
-		c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
-		return
-	}
+	results, err := s.api.AddKeys(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: apiservertesting.ServerError(fmt.Sprintf("duplicate ssh key: %s", key2))},
 			{Error: nil},
+			{Error: apiservertesting.ServerError(fmt.Sprintf("duplicate ssh key: %s", newKey))},
 			{Error: apiservertesting.ServerError("invalid ssh key: invalid-key")},
 		},
 	})
-	s.assertKeysForModel(c, st, append(initialKeys, newKey))
 }
 
 func (s *keyManagerSuite) TestAddKeys(c *gc.C) {
-	s.assertAddKeys(c, s.State, s.AdminUserTag(c), true)
+	defer s.setup(c).Finish()
+	s.blockChecker.EXPECT().ChangeAllowed().Return(nil)
+	s.assertAddKeys(c)
 }
 
 func (s *keyManagerSuite) TestAddKeysSuperUser(c *gc.C) {
-	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "superuser-fred", NoModelUser: true})
-	s.assertAddKeys(c, s.State, user.UserTag(), true)
+	s.apiUser = names.NewUserTag("superuser-fred")
+	defer s.setup(c).Finish()
+	s.blockChecker.EXPECT().ChangeAllowed().Return(nil)
+	s.assertAddKeys(c)
 }
 
 func (s *keyManagerSuite) TestAddKeysModelAdmin(c *gc.C) {
-	otherState := s.Factory.MakeModel(c, nil)
-	defer otherState.Close()
-
-	otherModel, err := otherState.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "admin" + otherModel.ModelTag().String()})
-	s.assertAddKeys(c, otherState, user.UserTag(), true)
+	s.apiUser = names.NewUserTag("admin" + coretesting.ModelTag.String())
+	defer s.setup(c).Finish()
+	s.blockChecker.EXPECT().ChangeAllowed().Return(nil)
+	s.assertAddKeys(c)
 }
 
 func (s *keyManagerSuite) TestAddKeysNonAuthorised(c *gc.C) {
-	user := s.Factory.MakeUser(c, nil)
-	s.assertAddKeys(c, s.State, user.UserTag(), false)
+	s.apiUser = names.NewUserTag("fred")
+	defer s.setup(c).Finish()
+
+	_, err := s.api.AddKeys(params.ModifyUserSSHKeys{})
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
 }
 
 func (s *keyManagerSuite) TestBlockAddKeys(c *gc.C) {
-	key1 := sshtesting.ValidKeyOne.Key + " user@host"
-	key2 := sshtesting.ValidKeyTwo.Key
-	initialKeys := []string{key1, key2, "bad key"}
-	s.setAuthorisedKeys(c, strings.Join(initialKeys, "\n"))
+	defer s.setup(c).Finish()
+	s.blockChecker.EXPECT().ChangeAllowed().Return(errors.OperationBlockedError("TestAddKeys"))
 
-	newKey := sshtesting.ValidKeyThree.Key + " newuser@host"
-	args := params.ModifyUserSSHKeys{
-		User: s.AdminUserTag(c).Name(),
-		Keys: []string{key2, newKey, "invalid-key"},
-	}
+	_, err := s.api.AddKeys(params.ModifyUserSSHKeys{})
 
-	s.BlockAllChanges(c, "TestBlockAddKeys")
-	_, err := s.keymanager.AddKeys(args)
-	// Check that the call is blocked
-	s.AssertBlocked(c, err, "TestBlockAddKeys")
-	s.assertModelKeys(c, initialKeys)
+	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue)
 }
 
 func (s *keyManagerSuite) TestAddJujuSystemKey(c *gc.C) {
-	anAuthoriser := s.authorizer
-	anAuthoriser.Tag = names.NewUserTag("fred")
-	var err error
-	s.keymanager, err = keymanager.NewKeyManagerAPI(facadetest.Context{
-		State_:     s.State,
-		Resources_: s.resources,
-		Auth_:      anAuthoriser,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	key1 := sshtesting.ValidKeyOne.Key
-	s.setAuthorisedKeys(c, key1)
+	defer s.setup(c).Finish()
+	s.blockChecker.EXPECT().ChangeAllowed().Return(nil)
+	s.setAuthorizedKeys(c, sshtesting.ValidKeyOne.Key)
 
-	newKey := sshtesting.ValidKeyThree.Key + " juju-system-key"
+	newAttrs := map[string]interface{}{
+		config.AuthorizedKeysKey: sshtesting.ValidKeyOne.Key,
+	}
+	s.model.EXPECT().UpdateModelConfig(newAttrs, nil)
+
+	newKey := sshtesting.ValidKeyThree.Key + " " + config.JujuSystemKey
 	args := params.ModifyUserSSHKeys{
-		User: "juju-system-key",
+		User: names.NewUserTag("admin").Name(),
 		Keys: []string{newKey},
 	}
-	_, err = s.keymanager.AddKeys(args)
-	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
-	s.assertModelKeys(c, []string{key1})
+	results, err := s.api.AddKeys(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: apiservertesting.ServerError("may not add key with comment juju-system-key: " + newKey)},
+		},
+	})
 }
 
-func (s *keyManagerSuite) assertDeleteKeys(c *gc.C, st *state.State, apiUser names.UserTag, ok bool) {
-	anAuthoriser := s.authorizer
-	anAuthoriser.Tag = apiUser
-	var err error
-	s.keymanager, err = keymanager.NewKeyManagerAPI(facadetest.Context{
-		State_:     st,
-		Resources_: s.resources,
-		Auth_:      anAuthoriser,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
+func (s *keyManagerSuite) assertDeleteKeys(c *gc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " user@host"
 	key2 := sshtesting.ValidKeyTwo.Key
-	initialKeys := []string{key1, key2, "bad key"}
-	s.setAuthorisedKeysForModel(c, st, strings.Join(initialKeys, "\n"))
+	s.setAuthorizedKeys(c, key1, key2, "bad key")
+
+	newAttrs := map[string]interface{}{
+		config.AuthorizedKeysKey: strings.Join([]string{key1, "bad key"}, "\n"),
+	}
+	s.model.EXPECT().UpdateModelConfig(newAttrs, nil)
 
 	args := params.ModifyUserSSHKeys{
-		User: s.AdminUserTag(c).Name(),
+		User: names.NewUserTag("admin").String(),
 		Keys: []string{sshtesting.ValidKeyTwo.Fingerprint, sshtesting.ValidKeyThree.Fingerprint, "invalid-key"},
 	}
-	results, err := s.keymanager.DeleteKeys(args)
-	if !ok {
-		c.Assert(err, gc.ErrorMatches, "permission denied")
-		c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
-		return
-	}
+	results, err := s.api.DeleteKeys(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -331,126 +243,93 @@ func (s *keyManagerSuite) assertDeleteKeys(c *gc.C, st *state.State, apiUser nam
 			{Error: apiservertesting.ServerError("invalid ssh key: invalid-key")},
 		},
 	})
-	s.assertKeysForModel(c, st, []string{key1, "bad key"})
 }
 
 func (s *keyManagerSuite) TestDeleteKeys(c *gc.C) {
-	s.assertDeleteKeys(c, s.State, s.AdminUserTag(c), true)
+	defer s.setup(c).Finish()
+	s.blockChecker.EXPECT().RemoveAllowed().Return(nil)
+	s.assertDeleteKeys(c)
 }
 
 func (s *keyManagerSuite) TestDeleteKeysSuperUser(c *gc.C) {
-	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "superuser-fred", NoModelUser: true})
-	s.assertDeleteKeys(c, s.State, user.UserTag(), true)
+	s.apiUser = names.NewUserTag("superuser-fred")
+	defer s.setup(c).Finish()
+	s.blockChecker.EXPECT().RemoveAllowed().Return(nil)
+	s.assertDeleteKeys(c)
 }
 
 func (s *keyManagerSuite) TestDeleteKeysModelAdmin(c *gc.C) {
-	otherState := s.Factory.MakeModel(c, nil)
-	defer otherState.Close()
-
-	otherModel, err := otherState.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "admin" + otherModel.ModelTag().String()})
-	s.assertDeleteKeys(c, otherState, user.UserTag(), true)
+	s.apiUser = names.NewUserTag("admin" + coretesting.ModelTag.String())
+	defer s.setup(c).Finish()
+	s.blockChecker.EXPECT().RemoveAllowed().Return(nil)
+	s.assertDeleteKeys(c)
 }
 
 func (s *keyManagerSuite) TestDeleteKeysNonAuthorised(c *gc.C) {
-	user := s.Factory.MakeUser(c, nil)
-	s.assertDeleteKeys(c, s.State, user.UserTag(), false)
-}
+	s.apiUser = names.NewUserTag("fred")
+	defer s.setup(c).Finish()
 
-func (s *keyManagerSuite) TestDeleteKeysNotJujuInternal(c *gc.C) {
-	key1 := sshtesting.ValidKeyOne.Key + " juju-client-key"
-	key2 := sshtesting.ValidKeyTwo.Key + " juju-system-key"
-	key3 := sshtesting.ValidKeyThree.Key + " a user key"
-	initialKeys := []string{key1, key2, key3}
-	s.setAuthorisedKeys(c, strings.Join(initialKeys, "\n"))
-
-	args := params.ModifyUserSSHKeys{
-		User: s.AdminUserTag(c).Name(),
-		Keys: []string{"juju-client-key", "juju-system-key"},
-	}
-	results, err := s.keymanager.DeleteKeys(args)
-	c.Check(results, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{Error: apiservertesting.ServerError("may not delete internal key: juju-client-key")},
-			{Error: apiservertesting.ServerError("may not delete internal key: juju-system-key")},
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertModelKeys(c, initialKeys)
+	_, err := s.api.DeleteKeys(params.ModifyUserSSHKeys{})
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
 }
 
 func (s *keyManagerSuite) TestBlockDeleteKeys(c *gc.C) {
-	key1 := sshtesting.ValidKeyOne.Key + " user@host"
-	key2 := sshtesting.ValidKeyTwo.Key
-	initialKeys := []string{key1, key2, "bad key"}
-	s.setAuthorisedKeys(c, strings.Join(initialKeys, "\n"))
+	defer s.setup(c).Finish()
+	s.blockChecker.EXPECT().RemoveAllowed().Return(errors.OperationBlockedError("TestDeleteKeys"))
 
-	args := params.ModifyUserSSHKeys{
-		User: s.AdminUserTag(c).Name(),
-		Keys: []string{sshtesting.ValidKeyTwo.Fingerprint, sshtesting.ValidKeyThree.Fingerprint, "invalid-key"},
-	}
+	_, err := s.api.DeleteKeys(params.ModifyUserSSHKeys{})
 
-	s.BlockAllChanges(c, "TestBlockDeleteKeys")
-	_, err := s.keymanager.DeleteKeys(args)
-	// Check that the call is blocked
-	s.AssertBlocked(c, err, "TestBlockDeleteKeys")
-	s.assertModelKeys(c, initialKeys)
+	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue)
 }
 
-func (s *keyManagerSuite) TestCannotDeleteAllKeys(c *gc.C) {
-	key1 := sshtesting.ValidKeyOne.Key + " user@host"
-	key2 := sshtesting.ValidKeyTwo.Key
-	initialKeys := []string{key1, key2}
-	s.setAuthorisedKeys(c, strings.Join(initialKeys, "\n"))
+func (s *keyManagerSuite) TestDeleteJujuSystemKey(c *gc.C) {
+	defer s.setup(c).Finish()
+	s.blockChecker.EXPECT().RemoveAllowed().Return(nil)
+
+	key1 := sshtesting.ValidKeyOne.Key + " juju-client-key"
+	key2 := sshtesting.ValidKeyTwo.Key + " " + config.JujuSystemKey
+	key3 := sshtesting.ValidKeyThree.Key + " a user key"
+	s.setAuthorizedKeys(c, key1, key2, key3)
+
+	newAttrs := map[string]interface{}{
+		config.AuthorizedKeysKey: strings.Join([]string{key1, key2, key3}, "\n"),
+	}
+	s.model.EXPECT().UpdateModelConfig(newAttrs, nil)
 
 	args := params.ModifyUserSSHKeys{
-		User: s.AdminUserTag(c).Name(),
+		User: names.NewUserTag("admin").Name(),
+		Keys: []string{"juju-client-key", config.JujuSystemKey},
+	}
+	results, err := s.api.DeleteKeys(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: apiservertesting.ServerError("may not delete internal key: juju-client-key")},
+			{Error: apiservertesting.ServerError("may not delete internal key: " + config.JujuSystemKey)},
+		},
+	})
+}
+
+// This should be impossible to do anyway since it's impossible to request
+// to remove the client and system key
+func (s *keyManagerSuite) TestCannotDeleteAllKeys(c *gc.C) {
+	defer s.setup(c).Finish()
+	s.blockChecker.EXPECT().RemoveAllowed().Return(nil)
+
+	key1 := sshtesting.ValidKeyOne.Key + " user@host"
+	key2 := sshtesting.ValidKeyTwo.Key
+	s.setAuthorizedKeys(c, key1, key2)
+
+	args := params.ModifyUserSSHKeys{
+		User: names.NewUserTag("admin").String(),
 		Keys: []string{sshtesting.ValidKeyTwo.Fingerprint, "user@host"},
 	}
-	_, err := s.keymanager.DeleteKeys(args)
+	_, err := s.api.DeleteKeys(args)
 	c.Assert(err, gc.ErrorMatches, "cannot delete all keys")
-	s.assertModelKeys(c, initialKeys)
 }
 
-func (s *keyManagerSuite) assertInvalidUserOperation(c *gc.C, runTestLogic func(args params.ModifyUserSSHKeys) error) {
-	initialKey := sshtesting.ValidKeyOne.Key + " user@host"
-	s.setAuthorisedKeys(c, initialKey)
-
-	// Set up the params.
-	newKey := sshtesting.ValidKeyThree.Key + " newuser@host"
-	args := params.ModifyUserSSHKeys{
-		User: "invalid",
-		Keys: []string{newKey},
-	}
-	// Run the required test code and check the error.
-	err := runTestLogic(args)
-	c.Assert(err, gc.DeepEquals, apiservertesting.ErrUnauthorized)
-
-	// No model changes.
-	s.assertModelKeys(c, []string{initialKey})
-}
-
-func (s *keyManagerSuite) TestAddKeysInvalidUser(c *gc.C) {
-	c.Skip("no user validation done yet")
-	s.assertInvalidUserOperation(c, func(args params.ModifyUserSSHKeys) error {
-		_, err := s.keymanager.AddKeys(args)
-		return err
-	})
-}
-
-func (s *keyManagerSuite) TestDeleteKeysInvalidUser(c *gc.C) {
-	c.Skip("no user validation done yet")
-	s.assertInvalidUserOperation(c, func(args params.ModifyUserSSHKeys) error {
-		_, err := s.keymanager.DeleteKeys(args)
-		return err
-	})
-}
-
-func (s *keyManagerSuite) assertImportKeys(c *gc.C, st *state.State, apiUser names.UserTag, ok bool) {
-	s.PatchValue(&keymanager.RunSSHImportId, keymanagertesting.FakeImport)
-
+func (s *keyManagerSuite) assertImportKeys(c *gc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " user@host"
 	key2 := sshtesting.ValidKeyTwo.Key
 	key3 := sshtesting.ValidKeyThree.Key
@@ -458,11 +337,17 @@ func (s *keyManagerSuite) assertImportKeys(c *gc.C, st *state.State, apiUser nam
 	keymv := strings.Split(sshtesting.ValidKeyMulti, "\n")
 	keymp := strings.Split(sshtesting.PartValidKeyMulti, "\n")
 	keymi := strings.Split(sshtesting.MultiInvalid, "\n")
-	initialKeys := []string{key1, key2, "bad key"}
-	s.setAuthorisedKeysForModel(c, st, strings.Join(initialKeys, "\n"))
+	s.setAuthorizedKeys(c, key1, key2, "bad key")
+
+	newAttrs := map[string]interface{}{
+		config.AuthorizedKeysKey: strings.Join([]string{
+			key1, key2, "bad key", key3, keymv[0], keymv[1], keymp[0], key4,
+		}, "\n"),
+	}
+	s.model.EXPECT().UpdateModelConfig(newAttrs, nil)
 
 	args := params.ModifyUserSSHKeys{
-		User: s.AdminUserTag(c).Name(),
+		User: names.NewUserTag("admin").String(),
 		Keys: []string{
 			"lp:existing",
 			"lp:validuser",
@@ -474,25 +359,9 @@ func (s *keyManagerSuite) assertImportKeys(c *gc.C, st *state.State, apiUser nam
 			"lp:multionedup",
 		},
 	}
+	results, err := s.api.ImportKeys(args)
 
-	anAuthoriser := s.authorizer
-	anAuthoriser.Tag = apiUser
-	var err error
-	s.keymanager, err = keymanager.NewKeyManagerAPI(facadetest.Context{
-		State_:     st,
-		Resources_: s.resources,
-		Auth_:      anAuthoriser,
-	})
 	c.Assert(err, jc.ErrorIsNil)
-
-	results, err := s.keymanager.ImportKeys(args)
-	if !ok {
-		c.Assert(err, gc.ErrorMatches, "permission denied")
-		c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
-		return
-	}
-	c.Assert(err, jc.ErrorIsNil)
-
 	c.Assert(results.Results, gc.HasLen, 8)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -515,50 +384,66 @@ func (s *keyManagerSuite) assertImportKeys(c *gc.C, st *state.State, apiUser nam
 			{Error: apiservertesting.ServerError(fmt.Sprintf("duplicate ssh key: %s", key2))},
 		},
 	})
-	s.assertKeysForModel(c, st, append(initialKeys, key3, keymv[0], keymv[1], keymp[0], key4))
 }
 
 func (s *keyManagerSuite) TestImportKeys(c *gc.C) {
-	s.assertImportKeys(c, s.State, s.AdminUserTag(c), true)
+	defer s.setup(c).Finish()
+	s.blockChecker.EXPECT().ChangeAllowed().Return(nil)
+	s.assertImportKeys(c)
 }
 
 func (s *keyManagerSuite) TestImportKeysSuperUser(c *gc.C) {
-	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "superuser-fred", NoModelUser: true})
-	s.assertImportKeys(c, s.State, user.UserTag(), true)
+	s.apiUser = names.NewUserTag("superuser-fred")
+	defer s.setup(c).Finish()
+	s.blockChecker.EXPECT().ChangeAllowed().Return(nil)
+	s.assertImportKeys(c)
 }
 
 func (s *keyManagerSuite) TestImportKeysModelAdmin(c *gc.C) {
-	otherState := s.Factory.MakeModel(c, nil)
-	defer otherState.Close()
-
-	otherModel, err := otherState.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "admin" + otherModel.ModelTag().String()})
-	s.assertImportKeys(c, otherState, user.UserTag(), true)
+	s.apiUser = names.NewUserTag("admin" + coretesting.ModelTag.String())
+	defer s.setup(c).Finish()
+	s.blockChecker.EXPECT().ChangeAllowed().Return(nil)
+	s.assertImportKeys(c)
 }
 
 func (s *keyManagerSuite) TestImportKeysNonAuthorised(c *gc.C) {
-	user := s.Factory.MakeUser(c, nil)
-	s.assertImportKeys(c, s.State, user.UserTag(), false)
+	s.apiUser = names.NewUserTag("fred")
+	defer s.setup(c).Finish()
+
+	_, err := s.api.ImportKeys(params.ModifyUserSSHKeys{})
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
+}
+
+func (s *keyManagerSuite) TestImportJujuSystemKey(c *gc.C) {
+	defer s.setup(c).Finish()
+	s.blockChecker.EXPECT().ChangeAllowed().Return(nil)
+
+	key1 := sshtesting.ValidKeyOne.Key
+	s.setAuthorizedKeys(c, key1)
+	newAttrs := map[string]interface{}{
+		config.AuthorizedKeysKey: key1,
+	}
+	s.model.EXPECT().UpdateModelConfig(newAttrs, nil)
+
+	args := params.ModifyUserSSHKeys{
+		User: names.NewUserTag("admin").String(),
+		Keys: []string{"lp:systemkey"},
+	}
+	results, err := s.api.ImportKeys(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: apiservertesting.ServerError("may not add key with comment juju-system-key: " + keymanagertesting.SystemKey)},
+		},
+	})
 }
 
 func (s *keyManagerSuite) TestBlockImportKeys(c *gc.C) {
-	s.PatchValue(&keymanager.RunSSHImportId, keymanagertesting.FakeImport)
+	defer s.setup(c).Finish()
+	s.blockChecker.EXPECT().ChangeAllowed().Return(errors.OperationBlockedError("TestImportKeys"))
 
-	key1 := sshtesting.ValidKeyOne.Key + " user@host"
-	key2 := sshtesting.ValidKeyTwo.Key
-	initialKeys := []string{key1, key2, "bad key"}
-	s.setAuthorisedKeys(c, strings.Join(initialKeys, "\n"))
+	_, err := s.api.ImportKeys(params.ModifyUserSSHKeys{})
 
-	args := params.ModifyUserSSHKeys{
-		User: s.AdminUserTag(c).Name(),
-		Keys: []string{"lp:existing", "lp:validuser", "invalid-key"},
-	}
-
-	s.BlockAllChanges(c, "TestBlockImportKeys")
-	_, err := s.keymanager.ImportKeys(args)
-	// Check that the call is blocked
-	s.AssertBlocked(c, err, "TestBlockImportKeys")
-	s.assertModelKeys(c, initialKeys)
+	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue)
 }

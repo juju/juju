@@ -8,7 +8,7 @@ run_block_destroy_model() {
 	ensure "${model_name}" "${file}"
 
 	juju disable-command destroy-model
-	juju destroy-model -y ${model_name} | grep -q 'the operation has been blocked' || true
+	juju destroy-model --no-prompt ${model_name} | grep -q 'the operation has been blocked' || true
 
 	juju enable-command destroy-model
 	destroy_model "${model_name}"
@@ -23,7 +23,7 @@ run_block_remove_object() {
 
 	ensure "${model_name}" "${file}"
 
-	juju deploy ubuntu --series focal
+	juju deploy ubuntu --base ubuntu@20.04
 	juju deploy ntp
 	juju integrate ntp ubuntu
 
@@ -33,7 +33,7 @@ run_block_remove_object() {
 	# are disabled.
 	wait_for "ntp" "$(idle_subordinate_condition "ntp" "ubuntu" 0)"
 
-	juju destroy-model -y ${model_name} | grep -q 'the operation has been blocked' || true
+	juju destroy-model --no-prompt ${model_name} | grep -q 'the operation has been blocked' || true
 	juju remove-application ntp | grep -q 'the operation has been blocked' || true
 	juju remove-relation ntp ubuntu | grep -q 'the operation has been blocked' || true
 	juju remove-unit ubuntu/0 | grep -q 'the operation has been blocked' || true
@@ -56,7 +56,7 @@ run_block_all() {
 
 	ensure "${model_name}" "${file}"
 
-	juju deploy ubuntu --series focal
+	juju deploy ubuntu --base ubuntu@20.04
 	juju expose ubuntu
 
 	juju disable-command all

@@ -40,15 +40,19 @@ func (c *SecretConfig) Validate() error {
 
 // URI represents a reference to a secret.
 type URI struct {
-	ID string
+	SourceUUID string
+	ID         string
 }
 
 const (
-	idSnippet = `[0-9a-z]{20}`
+	idSnippet   = `[0-9a-z]{20}`
+	uuidSnippet = `[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}`
 
 	// SecretScheme is the URL prefix for a secret.
 	SecretScheme = "secret"
 )
+
+var validUUID = regexp.MustCompile(uuidSnippet)
 
 var secretURIParse = regexp.MustCompile(`^` +
 	fmt.Sprintf(`(?P<id>%s)`, idSnippet) +
@@ -65,12 +69,15 @@ func ParseURI(str string) (*URI, error) {
 	} else if u.Scheme != SecretScheme {
 		return nil, errors.NotValidf("secret URI scheme %q", u.Scheme)
 	}
-	spec := fmt.Sprintf("%s%s", u.Host, u.Opaque)
-	if spec == "" {
-		spec = u.Path
+	if u.Host != "" && !validUUID.MatchString(u.Host) {
+		return nil, errors.NotValidf("host controller UUID %q", u.Host)
 	}
 
-	matches := secretURIParse.FindStringSubmatch(spec)
+	idStr := strings.TrimLeft(u.Path, "/")
+	if idStr == "" {
+		idStr = u.Opaque
+	}
+	matches := secretURIParse.FindStringSubmatch(idStr)
 	if matches == nil {
 		return nil, errors.NotValidf("secret URI %q", str)
 	}
@@ -79,7 +86,8 @@ func ParseURI(str string) (*URI, error) {
 		return nil, errors.NotValidf("secret URI %q", str)
 	}
 	result := &URI{
-		ID: id.String(),
+		SourceUUID: u.Host,
+		ID:         id.String(),
 	}
 	return result, nil
 }
@@ -89,6 +97,12 @@ func NewURI() *URI {
 	return &URI{
 		ID: xid.New().String(),
 	}
+}
+
+// WithSource returns a secret URI with the source.
+func (u *URI) WithSource(uuid string) *URI {
+	u.SourceUUID = uuid
+	return u
 }
 
 // Name generates the secret name.
@@ -104,9 +118,18 @@ func (u *URI) String() string {
 	var fullPath []string
 	fullPath = append(fullPath, u.ID)
 	str := strings.Join(fullPath, "/")
+	if u.SourceUUID == "" {
+		urlValue := url.URL{
+			Scheme: SecretScheme,
+			Host:   u.SourceUUID,
+			Opaque: str,
+		}
+		return urlValue.String()
+	}
 	urlValue := url.URL{
 		Scheme: SecretScheme,
-		Opaque: str,
+		Host:   u.SourceUUID,
+		Path:   str,
 	}
 	return urlValue.String()
 }
@@ -145,17 +168,18 @@ type SecretMetadata struct {
 
 // SecretRevisionMetadata holds metadata about a secret revision.
 type SecretRevisionMetadata struct {
-	Revision   int
-	ProviderId *string
-	CreateTime time.Time
-	UpdateTime time.Time
-	ExpireTime *time.Time
+	Revision    int
+	ValueRef    *ValueRef
+	BackendName *string
+	CreateTime  time.Time
+	UpdateTime  time.Time
+	ExpireTime  *time.Time
 }
 
-// SecretOwnerMetadata holds a secret metadata and any provider ids of revisions.
+// SecretOwnerMetadata holds a secret metadata and any backend references of revisions.
 type SecretOwnerMetadata struct {
-	Metadata    SecretMetadata
-	ProviderIds map[int]string
+	Metadata  SecretMetadata
+	Revisions []int
 }
 
 // SecretConsumerMetadata holds metadata about a secret

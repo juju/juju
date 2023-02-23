@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	charmresource "github.com/juju/charm/v9/resource"
+	charmresource "github.com/juju/charm/v10/resource"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -106,7 +106,7 @@ upload-resource   -
 }
 
 func (s *ResourcesCmdSuite) runCharmResourcesCommand(c *gc.C) {
-	charmName := fmt.Sprintf("cs:%s", s.charmName)
+	charmName := fmt.Sprintf("ch:%s", s.charmName)
 	context, err := cmdtesting.RunCommand(c, resource.NewCharmResourcesCommandWithClient(s.client), charmName)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")

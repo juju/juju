@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -196,7 +196,7 @@ func (a *appWorker) loop() error {
 	}
 
 	var appChanges watcher.NotifyChannel
-	var appStateChanges watcher.NotifyChannel
+	var appProvisionChanges watcher.NotifyChannel
 	var replicaChanges watcher.NotifyChannel
 	var lastReportedStatus map[string]status.StatusInfo
 
@@ -245,15 +245,15 @@ func (a *appWorker) loop() error {
 		a.life = appLife
 		switch appLife {
 		case life.Alive:
-			if appStateChanges == nil {
-				appStateWatcher, err := a.facade.WatchApplication(a.name)
+			if appProvisionChanges == nil {
+				appProvisionWatcher, err := a.facade.WatchProvisioningInfo(a.name)
 				if err != nil {
-					return errors.Annotatef(err, "failed to watch facade for changes to application %q", a.name)
+					return errors.Annotatef(err, "failed to watch facade for changes to application provisioning %q", a.name)
 				}
-				if err := a.catacomb.Add(appStateWatcher); err != nil {
+				if err := a.catacomb.Add(appProvisionWatcher); err != nil {
 					return errors.Trace(err)
 				}
-				appStateChanges = appStateWatcher.Changes()
+				appProvisionChanges = appProvisionWatcher.Changes()
 			}
 			err = a.alive(app)
 			if errors.Is(err, errors.NotProvisioned) {
@@ -376,7 +376,7 @@ func (a *appWorker) loop() error {
 			}
 		case <-a.catacomb.Dying():
 			return a.catacomb.ErrDying()
-		case <-appStateChanges:
+		case <-appProvisionChanges:
 			err = handleChange()
 			if err != nil {
 				return errors.Trace(err)

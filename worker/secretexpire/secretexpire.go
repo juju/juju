@@ -177,7 +177,7 @@ func (w *Worker) expire(now time.Time) {
 }
 
 func expiryKey(uri *secrets.URI, revision int) string {
-	return fmt.Sprintf("%s/%d", uri.String(), revision)
+	return fmt.Sprintf("%s/%d", uri.ID, revision)
 }
 
 func (w *Worker) handleSecretRevisionExpiryChanges(changes []watcher.SecretTriggerChange) {
@@ -189,7 +189,7 @@ func (w *Worker) handleSecretRevisionExpiryChanges(changes []watcher.SecretTrigg
 	for _, ch := range changes {
 		// Next trigger time of 0 means the expiry has been deleted.
 		if ch.NextTriggerTime.IsZero() {
-			w.config.Logger.Debugf("secret revision %d no longer expires: %v", ch.URI.String(), ch.Revision)
+			w.config.Logger.Debugf("secret revision %d no longer expires: %v", ch.URI.ID, ch.Revision)
 			delete(w.secretRevisions, expiryKey(ch.URI, ch.Revision))
 			continue
 		}

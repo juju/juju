@@ -81,10 +81,11 @@ func newStorage(suite cleaner, c *gc.C) storage.Storage {
 }
 
 func minimalConfig(c *gc.C) *config.Config {
-	return minimalConfigWithSeries(c, jujuversion.DefaultSupportedLTS())
+	return minimalConfigWithBase(c, jujuversion.DefaultSupportedLTSBase())
 }
 
-func minimalConfigWithSeries(c *gc.C, series string) *config.Config {
+func minimalConfigWithBase(c *gc.C, base coreseries.Base) *config.Config {
+	series, _ := coreseries.GetSeriesFromBase(base)
 	attrs := map[string]interface{}{
 		"name":               "whatever",
 		"type":               "anything, really",
@@ -94,6 +95,7 @@ func minimalConfigWithSeries(c *gc.C, series string) *config.Config {
 		"ca-private-key":     coretesting.CAKey,
 		"authorized-keys":    coretesting.FakeAuthKeys,
 		"default-series":     series,
+		"default-base":       base.String(),
 		"cloudinit-userdata": validCloudInitUserData,
 	}
 	cfg, err := config.New(config.UseDefaults, attrs)
@@ -272,34 +274,6 @@ func (s *BootstrapSuite) TestBootstrapSeriesWithForce(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Arch, gc.Equals, "ppc64el") // based on hardware characteristics
 	c.Check(result.Base.String(), gc.Equals, coreseries.MakeDefaultBase("ubuntu", "16.04").String())
-}
-
-func (s *BootstrapSuite) TestBootstrapSeriesWithForceAndInvalidFallback(c *gc.C) {
-	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
-	s.PatchValue(&config.GetDefaultSupportedLTS, func() string {
-		return ""
-	})
-	// We want an invalid fallback to trigger the not valid bootstrap series.
-	var mocksConfig = minimalConfigWithSeries(c, "")
-	getConfig := func() *config.Config {
-		return mocksConfig
-	}
-
-	env := &mockEnviron{
-		startInstance: fakeStartInstance,
-		config:        getConfig,
-	}
-	ctx := envtesting.BootstrapTODOContext(c)
-	bootstrapSeries := ""
-	availableTools := fakeAvailableTools()
-	_, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
-		ControllerConfig:         coretesting.FakeControllerConfig(),
-		BootstrapSeries:          bootstrapSeries,
-		AvailableTools:           availableTools,
-		SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
-		Force:                    true,
-	})
-	c.Assert(err, gc.ErrorMatches, "bootstrap instance series not valid")
 }
 
 func (s *BootstrapSuite) TestStartInstanceDerivedZone(c *gc.C) {
@@ -634,9 +608,7 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Arch, gc.Equals, "ppc64el") // based on hardware characteristics
-	series, err := coreseries.GetSeriesFromBase(result.Base)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(series, gc.Equals, config.PreferredSeries(mocksConfig))
+	c.Assert(result.Base, gc.Equals, config.PreferredBase(mocksConfig))
 	c.Assert(result.CloudBootstrapFinalizer, gc.NotNil)
 
 	// Check that we make the SSH connection with desired options.
@@ -993,16 +965,29 @@ func (s *FormatHardwareSuite) TestMem(c *gc.C) {
 	s.check(c, &instance.HardwareCharacteristics{Mem: &mem}, "mem=2.6G")
 }
 
+func (s *FormatHardwareSuite) TestVirtType(c *gc.C) {
+	var virtType string
+	s.check(c, &instance.HardwareCharacteristics{VirtType: &virtType}, "")
+	virtType = string(instance.DefaultInstanceType)
+	s.check(c, &instance.HardwareCharacteristics{VirtType: &virtType}, "")
+	virtType = "virtual-machine"
+	s.check(c, &instance.HardwareCharacteristics{VirtType: &virtType}, "virt-type=virtual-machine")
+}
+
 func (s *FormatHardwareSuite) TestAll(c *gc.C) {
-	arch := "ppc64"
-	var cores uint64 = 2
-	var mem uint64 = 123
+	var (
+		arch            = "ppc64"
+		cores    uint64 = 2
+		mem      uint64 = 123
+		virtType        = "virtual-machine"
+	)
 	hw := &instance.HardwareCharacteristics{
 		Arch:     &arch,
 		CpuCores: &cores,
 		Mem:      &mem,
+		VirtType: &virtType,
 	}
-	s.check(c, hw, "arch=ppc64 mem=123M cores=2")
+	s.check(c, hw, "arch=ppc64 mem=123M cores=2 virt-type=virtual-machine")
 }
 
 func fakeAvailableTools() tools.List {

@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/errors"
 	lxd "github.com/lxc/lxd/client"
-	"github.com/lxc/lxd/shared"
 )
 
 type Protocol string
@@ -142,7 +141,7 @@ func connectImageRemote(remote ServerSpec) (lxd.ImageServer, error) {
 }
 
 func connectLocal() (lxd.InstanceServer, error) {
-	client, err := lxd.ConnectLXDUnix(SocketPath(shared.IsUnixSocket), nil)
+	client, err := lxd.ConnectLXDUnix(SocketPath(IsUnixSocket), nil)
 	return client, errors.Trace(err)
 }
 

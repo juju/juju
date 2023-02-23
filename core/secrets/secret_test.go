@@ -4,6 +4,7 @@
 package secrets_test
 
 import (
+	"fmt"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -18,15 +19,16 @@ type SecretURISuite struct{}
 var _ = gc.Suite(&SecretURISuite{})
 
 const (
-	secretID  = "9m4e2mr0ui3e8a215n4g"
-	secretURI = "secret:9m4e2mr0ui3e8a215n4g"
+	secretID        = "9m4e2mr0ui3e8a215n4g"
+	secretSource    = "deadbeef-1bad-500d-9000-4b1d0d06f00d"
+	secretURI       = "secret:9m4e2mr0ui3e8a215n4g"
+	remoteSecretURI = "secret://deadbeef-1bad-500d-9000-4b1d0d06f00d/9m4e2mr0ui3e8a215n4g"
 )
 
 func (s *SecretURISuite) TestParseURI(c *gc.C) {
 	for _, t := range []struct {
 		in       string
 		str      string
-		shortStr string
 		expected *secrets.URI
 		err      string
 	}{
@@ -43,17 +45,22 @@ func (s *SecretURISuite) TestParseURI(c *gc.C) {
 			in:  "secret:a.b#",
 			err: `secret URI "secret:a.b#" not valid`,
 		}, {
-			in:       secretURI,
-			shortStr: secretURI,
+			in: secretURI,
 			expected: &secrets.URI{
 				ID: secretID,
 			},
 		}, {
-			in:       secretID,
-			str:      secretURI,
-			shortStr: secretURI,
+			in:  secretID,
+			str: secretURI,
 			expected: &secrets.URI{
 				ID: secretID,
+			},
+		}, {
+			in:  remoteSecretURI,
+			str: remoteSecretURI,
+			expected: &secrets.URI{
+				ID:         secretID,
+				SourceUUID: secretSource,
 			},
 		},
 	} {
@@ -62,7 +69,6 @@ func (s *SecretURISuite) TestParseURI(c *gc.C) {
 			c.Check(err, gc.ErrorMatches, t.err)
 		} else {
 			c.Check(result, jc.DeepEquals, t.expected)
-			c.Check(result.String(), gc.Equals, t.shortStr)
 			if t.str != "" {
 				c.Check(result.String(), gc.Equals, t.str)
 			} else {
@@ -83,6 +89,18 @@ func (s *SecretURISuite) TestString(c *gc.C) {
 	c.Assert(uri, jc.DeepEquals, expected)
 }
 
+func (s *SecretURISuite) TestStringWithSource(c *gc.C) {
+	expected := &secrets.URI{
+		SourceUUID: secretSource,
+		ID:         secretID,
+	}
+	str := expected.String()
+	c.Assert(str, gc.Equals, fmt.Sprintf("secret://%s/%s", secretSource, secretID))
+	uri, err := secrets.ParseURI(str)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(uri, jc.DeepEquals, expected)
+}
+
 func (s *SecretURISuite) TestName(c *gc.C) {
 	uri := &secrets.URI{ID: secretID}
 	name := uri.Name(666)
@@ -93,6 +111,13 @@ func (s *SecretURISuite) TestNew(c *gc.C) {
 	URI := secrets.NewURI()
 	_, err := xid.FromString(URI.ID)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *SecretURISuite) TestWithSource(c *gc.C) {
+	uri := &secrets.URI{ID: secretID}
+	uri = uri.WithSource(secretSource)
+	c.Assert(uri.SourceUUID, gc.Equals, secretSource)
+	c.Assert(uri.ID, gc.Equals, secretID)
 }
 
 type SecretSuite struct{}

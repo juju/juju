@@ -4,7 +4,7 @@
 package reboot
 
 import (
-	"github.com/juju/charm/v9/hooks"
+	"github.com/juju/charm/v10/hooks"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/model"
@@ -52,7 +52,7 @@ func (r *rebootResolver) NextOp(localState resolver.LocalState, remoteState remo
 
 	// If we performing a series upgrade, suppress start hooks until the
 	// upgrade is complete.
-	if remoteState.UpgradeSeriesStatus != model.UpgradeSeriesNotStarted {
+	if remoteState.UpgradeMachineStatus != model.UpgradeSeriesNotStarted {
 		return nil, resolver.ErrNoOperation
 	}
 

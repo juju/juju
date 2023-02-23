@@ -236,7 +236,7 @@ func (s *MachinemanagerSuite) TestDestroyMachinesWithParamsNoWait(c *gc.C) {
 	defer ctrl.Finish()
 	noWait := 0 * time.Second
 	client, expected := s.clientToTestDestroyMachinesWithParams(c, &noWait, ctrl)
-	results, err := client.DestroyMachinesWithParams(true, true, &noWait, "0", "0/lxd/1")
+	results, err := client.DestroyMachinesWithParams(true, true, false, &noWait, "0", "0/lxd/1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, expected)
 }
@@ -245,7 +245,7 @@ func (s *MachinemanagerSuite) TestDestroyMachinesWithParamsNilWait(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	client, expected := s.clientToTestDestroyMachinesWithParams(c, (*time.Duration)(nil), ctrl)
-	results, err := client.DestroyMachinesWithParams(true, true, (*time.Duration)(nil), "0", "0/lxd/1")
+	results, err := client.DestroyMachinesWithParams(true, true, false, (*time.Duration)(nil), "0", "0/lxd/1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, expected)
 }

@@ -5,7 +5,7 @@ package deployer
 
 import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -19,11 +19,6 @@ type ValidateLXDProfileCharm struct{}
 
 // SetFlags implements DeployStep.
 func (r *ValidateLXDProfileCharm) SetFlags(f *gnuflag.FlagSet) {
-}
-
-// SetPlanURL implements DeployStep.
-func (r *ValidateLXDProfileCharm) SetPlanURL(planURL string) {
-	// noop
 }
 
 // RunPre obtains authorization to deploy this charm. The authorization, if received is not

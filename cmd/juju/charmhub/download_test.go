@@ -10,6 +10,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd/v3/cmdtesting"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -51,7 +52,7 @@ func (s *downloadSuite) TestInitErrorCSSchema(c *gc.C) {
 		charmHubCommand: s.newCharmHubCommand(),
 	}
 	err := command.Init([]string{"cs:test"})
-	c.Assert(err, gc.ErrorMatches, ".* is not a Charmhub charm")
+	c.Assert(errors.Is(err, errors.NotValid), jc.IsTrue)
 }
 
 func (s *downloadSuite) TestInitSuccess(c *gc.C) {
@@ -139,7 +140,7 @@ func (s *downloadSuite) TestRunWithCustomCharmHubURL(c *gc.C) {
 func (s *downloadSuite) TestRunWithUnsupportedSeries(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 
-	s.expectRefreshUnsupportedSeries()
+	s.expectRefreshUnsupportedBase()
 
 	command := &downloadCommand{
 		charmHubCommand: s.newCharmHubCommand(),
@@ -150,13 +151,13 @@ func (s *downloadSuite) TestRunWithUnsupportedSeries(c *gc.C) {
 
 	ctx := commandContextForTest(c)
 	err = command.Run(ctx)
-	c.Assert(err, gc.ErrorMatches, `"test" does not support series "jammy" in channel "stable".  Supported series are: bionic, trusty, xenial.`)
+	c.Assert(err, gc.ErrorMatches, `"test" does not support base "ubuntu@22.04" in channel "stable".  Supported bases are: ubuntu@14.04, ubuntu@16.04, ubuntu@18.04.`)
 }
 
 func (s *downloadSuite) TestRunWithNoStableRelease(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 
-	s.expectRefreshUnsupportedSeries()
+	s.expectRefreshUnsupportedBase()
 
 	command := &downloadCommand{
 		charmHubCommand: s.newCharmHubCommand(),
@@ -233,7 +234,7 @@ func (s *downloadSuite) expectRefresh(charmHubURL string) {
 	})
 }
 
-func (s *downloadSuite) expectRefreshUnsupportedSeries() {
+func (s *downloadSuite) expectRefreshUnsupportedBase() {
 	s.charmHubAPI.EXPECT().Refresh(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, cfg charmhub.RefreshConfig) ([]transport.RefreshResponse, error) {
 		instanceKey := charmhub.ExtractConfigInstanceKey(cfg)
 

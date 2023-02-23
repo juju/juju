@@ -698,10 +698,10 @@ func (suite *maasEnvironSuite) TestWaitForNodeDeploymentError(c *gc.C) {
 	env := suite.makeEnviron(c, nil)
 	err := bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
 		suite.callCtx, bootstrap.BootstrapParams{
-			ControllerConfig:         coretesting.FakeControllerConfig(),
-			AdminSecret:              jujutesting.AdminSecret,
-			CAPrivateKey:             coretesting.CAKey,
-			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+			ControllerConfig:        coretesting.FakeControllerConfig(),
+			AdminSecret:             jujutesting.AdminSecret,
+			CAPrivateKey:            coretesting.CAKey,
+			SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
 			DialOpts: environs.BootstrapDialOpts{
 				Timeout: coretesting.LongWait,
 			},
@@ -722,10 +722,10 @@ func (suite *maasEnvironSuite) TestWaitForNodeDeploymentRetry(c *gc.C) {
 	env := suite.makeEnviron(c, nil)
 	bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
 		suite.callCtx, bootstrap.BootstrapParams{
-			ControllerConfig:         coretesting.FakeControllerConfig(),
-			AdminSecret:              jujutesting.AdminSecret,
-			CAPrivateKey:             coretesting.CAKey,
-			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+			ControllerConfig:        coretesting.FakeControllerConfig(),
+			AdminSecret:             jujutesting.AdminSecret,
+			CAPrivateKey:            coretesting.CAKey,
+			SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
 			DialOpts: environs.BootstrapDialOpts{
 				Timeout: coretesting.LongWait,
 			},
@@ -746,10 +746,10 @@ func (suite *maasEnvironSuite) TestWaitForNodeDeploymentSucceeds(c *gc.C) {
 	env := suite.makeEnviron(c, nil)
 	err := bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
 		suite.callCtx, bootstrap.BootstrapParams{
-			ControllerConfig:         coretesting.FakeControllerConfig(),
-			AdminSecret:              jujutesting.AdminSecret,
-			CAPrivateKey:             coretesting.CAKey,
-			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+			ControllerConfig:        coretesting.FakeControllerConfig(),
+			AdminSecret:             jujutesting.AdminSecret,
+			CAPrivateKey:            coretesting.CAKey,
+			SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
 			DialOpts: environs.BootstrapDialOpts{
 				Timeout: coretesting.LongWait,
 			},
@@ -1132,6 +1132,145 @@ func (suite *maasEnvironSuite) TestAllocateContainerAddressesSingleNic(c *gc.C) 
 		ProviderSubnetId:  "4",
 		VLANTag:           0,
 		ProviderVLANId:    "5002",
+		ProviderAddressId: "480",
+		InterfaceName:     "eth1",
+		InterfaceType:     "ethernet",
+		Addresses: network.ProviderAddresses{
+			network.NewMachineAddress(
+				"192.168.1.127", network.WithCIDR("192.168.1.0/24"), network.WithConfigType(network.ConfigStatic),
+			).AsProviderAddress(network.WithSpaceName("freckles")),
+		},
+		DNSServers: network.NewMachineAddresses([]string{
+			"10.20.19.2",
+			"10.20.19.3",
+		}).AsProviderAddresses(network.WithSpaceName("freckles")),
+		MTU:            1500,
+		GatewayAddress: network.NewMachineAddress("192.168.1.1").AsProviderAddress(network.WithSpaceName("freckles")),
+		Routes: []network.Route{{
+			DestinationCIDR: subnet1.CIDR(),
+			GatewayIP:       "192.168.1.1",
+			Metric:          100,
+		}},
+		Origin: network.OriginProvider,
+	}}
+	c.Assert(result, jc.DeepEquals, expected)
+}
+
+func (suite *maasEnvironSuite) TestAllocateContainerAddressesSingleNicWithNoVLAN(c *gc.C) {
+	vlan1 := fakeVLAN{
+		id:  5001,
+		mtu: 1500,
+	}
+	vlan2 := fakeVLAN{
+		id:  5002,
+		mtu: 1500,
+	}
+	subnet1 := fakeSubnet{
+		id:         3,
+		space:      "default",
+		vlan:       vlan1,
+		gateway:    "10.20.19.2",
+		cidr:       "10.20.19.0/24",
+		dnsServers: []string{"10.20.19.2", "10.20.19.3"},
+	}
+	subnet2 := fakeSubnet{
+		id:         4,
+		space:      "freckles",
+		vlan:       vlan2,
+		gateway:    "192.168.1.1",
+		cidr:       "192.168.1.0/24",
+		dnsServers: []string{"10.20.19.2", "10.20.19.3"},
+	}
+	staticRoute2to1 := fakeStaticRoute{
+		id:          1,
+		source:      subnet2,
+		destination: subnet1,
+		gatewayIP:   "192.168.1.1",
+		metric:      100,
+	}
+
+	interfaces := []gomaasapi.Interface{
+		&fakeInterface{
+			id:         91,
+			name:       "eth0",
+			type_:      "physical",
+			enabled:    true,
+			macAddress: "52:54:00:70:9b:fe",
+			vlan:       vlan1,
+			links: []gomaasapi.Link{
+				&fakeLink{
+					id:        436,
+					subnet:    &subnet1,
+					ipAddress: "10.20.19.103",
+					mode:      "static",
+				},
+			},
+			parents:  []string{},
+			children: []string{"eth0.100", "eth0.250", "eth0.50"},
+		},
+	}
+	deviceInterfaces := []gomaasapi.Interface{
+		&fakeInterface{
+			id:         93,
+			name:       "eth1",
+			type_:      "physical",
+			enabled:    true,
+			macAddress: "53:54:00:70:9b:ff",
+			links: []gomaasapi.Link{
+				&fakeLink{
+					id:        480,
+					subnet:    &subnet2,
+					ipAddress: "192.168.1.127",
+					mode:      "static",
+				},
+			},
+			parents:  []string{},
+			children: []string{"eth0.100", "eth0.250", "eth0.50"},
+		},
+	}
+	var env *maasEnviron
+	device := &fakeDevice{
+		interfaceSet: deviceInterfaces,
+		systemID:     "foo",
+	}
+	controller := &fakeController{
+		Stub: &testing.Stub{},
+		machines: []gomaasapi.Machine{&fakeMachine{
+			Stub:         &testing.Stub{},
+			systemID:     "1",
+			architecture: arch.HostArch(),
+			interfaceSet: interfaces,
+			createDevice: device,
+		}},
+		spaces: []gomaasapi.Space{
+			fakeSpace{
+				name:    "freckles",
+				id:      4567,
+				subnets: []gomaasapi.Subnet{subnet1, subnet2},
+			},
+		},
+		devices:      []gomaasapi.Device{device},
+		staticRoutes: []gomaasapi.StaticRoute{staticRoute2to1},
+	}
+	suite.injectController(controller)
+	suite.setupFakeTools(c)
+	env = suite.makeEnviron(c, nil)
+
+	prepared := network.InterfaceInfos{{
+		MACAddress:    "52:54:00:70:9b:fe",
+		Addresses:     network.ProviderAddresses{network.NewMachineAddress("", network.WithCIDR("10.20.19.0/24")).AsProviderAddress()},
+		InterfaceName: "eth0",
+	}}
+	ignored := names.NewMachineTag("1/lxd/0")
+	result, err := env.AllocateContainerAddresses(suite.callCtx, "1", ignored, prepared)
+	c.Assert(err, jc.ErrorIsNil)
+	expected := network.InterfaceInfos{{
+		DeviceIndex:       0,
+		MACAddress:        "53:54:00:70:9b:ff",
+		ProviderId:        "93",
+		ProviderSubnetId:  "4",
+		VLANTag:           0,
+		ProviderVLANId:    "0",
 		ProviderAddressId: "480",
 		InterfaceName:     "eth1",
 		InterfaceType:     "ethernet",
@@ -2261,10 +2400,10 @@ func (suite *maasEnvironSuite) TestStartInstanceEndToEnd(c *gc.C) {
 	env := suite.makeEnviron(c, controller)
 	err := bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
 		suite.callCtx, bootstrap.BootstrapParams{
-			ControllerConfig:         coretesting.FakeControllerConfig(),
-			AdminSecret:              jujutesting.AdminSecret,
-			CAPrivateKey:             coretesting.CAKey,
-			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+			ControllerConfig:        coretesting.FakeControllerConfig(),
+			AdminSecret:             jujutesting.AdminSecret,
+			CAPrivateKey:            coretesting.CAKey,
+			SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
 			DialOpts: environs.BootstrapDialOpts{
 				Timeout: coretesting.LongWait,
 			},
@@ -2395,8 +2534,8 @@ func (suite *maasEnvironSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
 			CAPrivateKey:     coretesting.CAKey,
 			// Disable auto-uploading by setting the agent version
 			// to something that's not the current version.
-			AgentVersion:             &vers,
-			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+			AgentVersion:            &vers,
+			SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
 			DialOpts: environs.BootstrapDialOpts{
 				Timeout: coretesting.LongWait,
 			},
@@ -2411,10 +2550,10 @@ func (suite *maasEnvironSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {
 	env := suite.makeEnviron(c, controller)
 	err := bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
 		suite.callCtx, bootstrap.BootstrapParams{
-			ControllerConfig:         coretesting.FakeControllerConfig(),
-			AdminSecret:              jujutesting.AdminSecret,
-			CAPrivateKey:             coretesting.CAKey,
-			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+			ControllerConfig:        coretesting.FakeControllerConfig(),
+			AdminSecret:             jujutesting.AdminSecret,
+			CAPrivateKey:            coretesting.CAKey,
+			SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
 			DialOpts: environs.BootstrapDialOpts{
 				Timeout: coretesting.LongWait,
 			},

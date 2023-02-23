@@ -25,30 +25,9 @@ Add image metadata to Juju model.
 Image metadata properties vary between providers. Consequently, some properties
 are optional for this command but they may still be needed by your provider.
 
-This command takes only one positional argument - an image id.
-
-arguments:
-image-id
-   image identifier
-
-options:
--m, --model (= "")
-   juju model to operate in
---region
-   cloud region (= region of current model)
---series (= current model preferred series)
-   image series
---arch (= "amd64")
-   image architectures
---virt-type
-   virtualisation type [provider specific], e.g. hmv
---storage-type
-   root storage type [provider specific], e.g. ebs
---storage-size
-   root storage size [provider specific]
---stream (= "released")
-   image stream
-
+Adding an image for a specific base can be done via --base. --base can be 
+specified using the OS name and the version of the OS, separated by @. For 
+example, --base ubuntu@22.04.
 `
 
 // addImageMetadataCommand stores image metadata in Juju environment.
@@ -58,6 +37,7 @@ type addImageMetadataCommand struct {
 	ImageId         string
 	Region          string
 	Series          string
+	Base            string
 	Version         string
 	Arch            string
 	VirtType        string
@@ -68,6 +48,9 @@ type addImageMetadataCommand struct {
 
 // Init implements Command.Init.
 func (c *addImageMetadataCommand) Init(args []string) (err error) {
+	if c.Base != "" && c.Series != "" {
+		return errors.New("--series and --base cannot be specified together")
+	}
 	if len(args) == 0 {
 		return errors.New("image id must be supplied when adding image metadata")
 	}
@@ -75,7 +58,7 @@ func (c *addImageMetadataCommand) Init(args []string) (err error) {
 		return errors.New("only one image id can be supplied as an argument to this command")
 	}
 	c.ImageId = args[0]
-	return c.validate()
+	return nil
 }
 
 // Info implements Command.Info.
@@ -92,7 +75,8 @@ func (c *addImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.cloudImageMetadataCommandBase.SetFlags(f)
 
 	f.StringVar(&c.Region, "region", "", "image cloud region")
-	f.StringVar(&c.Series, "series", "", "image series")
+	f.StringVar(&c.Series, "series", "", "image series. DEPRECATED, use --base")
+	f.StringVar(&c.Base, "base", "", "image base")
 	f.StringVar(&c.Arch, "arch", "amd64", "image architecture")
 	f.StringVar(&c.VirtType, "virt-type", "", "image metadata virtualisation type")
 	f.StringVar(&c.RootStorageType, "storage-type", "", "image metadata root storage type")
@@ -101,14 +85,34 @@ func (c *addImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 // Run implements Command.Run.
-func (c *addImageMetadataCommand) Run(ctx *cmd.Context) (err error) {
+func (c *addImageMetadataCommand) Run(ctx *cmd.Context) error {
+	var (
+		base series.Base
+		err  error
+	)
+	// Note: we validated that both series and base cannot be specified in
+	// Init(), so it's safe to assume that only one of them is set here.
+	if c.Series != "" {
+		ctx.Warningf("series flag is deprecated, use --base instead")
+		if base, err = series.GetBaseFromSeries(c.Series); err != nil {
+			return errors.Annotatef(err, "attempting to convert %q to a base", c.Series)
+		}
+		c.Base = base.String()
+		c.Series = ""
+	}
+	if c.Base != "" {
+		if base, err = series.ParseBaseFromString(c.Base); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	api, err := getImageMetadataAddAPI(c)
 	if err != nil {
 		return err
 	}
 	defer api.Close()
 
-	m := c.constructMetadataParam()
+	m := c.constructMetadataParam(base)
 	if err := api.Save([]params.CloudImageMetadata{m}); err != nil {
 		return errors.Trace(err)
 	}
@@ -127,23 +131,14 @@ func (c *addImageMetadataCommand) getImageMetadataAddAPI() (MetadataAddAPI, erro
 	return c.NewImageMetadataAPI()
 }
 
-// Init implements Command.Init.
-func (c *addImageMetadataCommand) validate() error {
-	if c.Series != "" {
-		var err error
-		if c.Version, err = series.SeriesVersion(c.Series); err != nil {
-			return errors.Trace(err)
-		}
-	}
-	return nil
-}
-
 // constructMetadataParam returns cloud image metadata as a param.
-func (c *addImageMetadataCommand) constructMetadataParam() params.CloudImageMetadata {
+func (c *addImageMetadataCommand) constructMetadataParam(base series.Base) params.CloudImageMetadata {
 	info := params.CloudImageMetadata{
-		ImageId:         c.ImageId,
-		Region:          c.Region,
-		Version:         c.Version,
+		ImageId: c.ImageId,
+		Region:  c.Region,
+		// TODO (stickupkid): Allow passing the channel risk through to the API
+		// to target an image. Currently limited to track only.
+		Version:         base.Channel.Track,
 		Arch:            c.Arch,
 		VirtType:        c.VirtType,
 		RootStorageType: c.RootStorageType,

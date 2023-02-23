@@ -104,8 +104,7 @@ func (c *removeCommand) NewApplicationOffersAPI(controllerName string) (*applica
 var removeOfferMsg = `
 WARNING! This command will remove offers: %v
 This includes all relations to those offers.
-
-Continue [y/N]? `[1:]
+`[1:]
 
 // Run implements Command.Run.
 func (c *removeCommand) Run(ctx *cmd.Context) error {
@@ -150,7 +149,7 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if !c.assumeYes && c.force {
-		fmt.Fprintf(ctx.Stdout, removeOfferMsg, strings.Join(c.offers, ", "))
+		fmt.Fprintf(ctx.Stderr, removeOfferMsg, strings.Join(c.offers, ", "))
 
 		if err := jujucmd.UserConfirmYes(ctx); err != nil {
 			return errors.Annotate(err, "offer removal")

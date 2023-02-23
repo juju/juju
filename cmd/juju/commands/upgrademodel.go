@@ -32,7 +32,6 @@ import (
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/rpc/params"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/upgrades/upgradevalidation"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -45,21 +44,20 @@ upgrades that software across an entire model, which is, by default, the
 current model.
 A model's agent version can be shown with `[1:] + "`juju model-config agent-\nversion`" + `.
 A version is denoted by: major.minor.patch
-The upgrade candidate will be auto-selected if '--agent-version' is not
-specified:
- - If the server major version matches the client major version, the
- version selected is minor+1. If such a minor version is not available then
- the next patch version is chosen.
- - If the server major version does not match the client major version,
- the version selected is that of the client version.
+
+If '--agent-version' is not specified, then the upgrade candidate is
+selected to be the exact version the controller itself is running.
+
 If the controller is without internet access, the client must first supply
 the software to the controller's cache via the ` + "`juju sync-agent-binary`" + ` command.
 The command will abort if an upgrade is in progress. It will also abort if
 a previous upgrade was not fully completed (e.g.: if one of the
 controllers in a high availability model failed to upgrade).
+
 When looking for an agent to upgrade to Juju will check the currently
 configured agent stream for that model. It's possible to overwrite this for
 the lifetime of this upgrade using --agent-stream
+
 If a failed upgrade has been resolved, '--reset-previous-upgrade' can be
 used to allow the upgrade to proceed.
 Backups are recommended prior to upgrading.
@@ -281,15 +279,6 @@ func (c *upgradeJujuCommand) upgradeWithTargetVersion(
 	// juju upgrade-controller --agent-version 3.x.x
 	chosenVersion = targetVersion
 
-	if targetVersion.Major == 3 {
-		// We enabled model upgrade from 2.9.33 to 3.0 before, but we decide to disable it now.
-		// To prevent a 2.9.33-2.9.35 controller from upgrading to 3.0, we have to do this
-		// check again here to use the newly updated support version matrix.
-		_, _, err := upgradevalidation.UpgradeToAllowed(agentVersion, targetVersion)
-		if err != nil {
-			return chosenVersion, errors.Trace(err)
-		}
-	}
 	_, err = c.notifyControllerUpgrade(ctx, modelUpgrader, targetVersion, dryRun)
 	if err == nil {
 		// All good!

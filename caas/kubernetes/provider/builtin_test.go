@@ -101,14 +101,6 @@ MIIDBDCCAeygAwIBAgIJAPUHbpCysNxyMA0GCSqGSIb3DQEBCwUAMBcxFTATBgNV`[1:],
 	}
 }
 
-func (s *builtinSuite) TestGetLocalMicroK8sConfigNotInstalled(c *gc.C) {
-	s.runner.Call("LookPath", "microk8s").Returns("", errors.NotFoundf("microk8s"))
-	result, err := provider.GetLocalMicroK8sConfig(s.runner, func() (string, error) { return "", nil })
-	c.Assert(err, gc.ErrorMatches, `microk8s not found`)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(result, gc.HasLen, 0)
-}
-
 func (s *builtinSuite) TestGetLocalMicroK8sConfigFileDoesNotExists(c *gc.C) {
 	s.runner.Call("LookPath", "microk8s").Returns("", nil)
 	result, err := provider.GetLocalMicroK8sConfig(s.runner, func() (string, error) { return "non-exist-dir", nil })
@@ -149,13 +141,6 @@ func (s *builtinSuite) TestAttemptMicroK8sCloud(c *gc.C) {
 			Name: "localhost",
 		}},
 	})
-}
-
-func (s *builtinSuite) TestAttemptMicroK8sCloudErrors(c *gc.C) {
-	s.runner.Call("LookPath", "microk8s").Returns("", errors.NotFoundf("microk8s"))
-	k8sCloud, err := provider.AttemptMicroK8sCloud(s.runner, func() (string, error) { return "", nil })
-	c.Assert(err, gc.ErrorMatches, `microk8s not found`)
-	c.Assert(k8sCloud, gc.DeepEquals, cloud.Cloud{})
 }
 
 func (s *builtinSuite) assertDecideKubeConfigDir(c *gc.C, isOfficial bool, clientConfigPath string) {

@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -96,8 +96,8 @@ func (s *applicationSuite) TestDeploy(c *gc.C) {
 	deployArgs := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{
 			{
-				CharmURL:         "cs:trusty/a-charm-1",
-				CharmOrigin:      &params.CharmOrigin{Source: "charm-store"},
+				CharmURL:         "ch:a-charm-1",
+				CharmOrigin:      &params.CharmOrigin{Source: "charm-hub"},
 				ApplicationName:  "applicationA",
 				NumUnits:         1,
 				ConfigYAML:       "configYAML",
@@ -117,10 +117,10 @@ func (s *applicationSuite) TestDeploy(c *gc.C) {
 
 	args := application.DeployArgs{
 		CharmID: application.CharmID{
-			URL: charm.MustParseURL("cs:trusty/a-charm-1"),
+			URL: charm.MustParseURL("ch:a-charm-1"),
 		},
 		CharmOrigin: apicharm.Origin{
-			Source: apicharm.OriginCharmStore,
+			Source: apicharm.OriginCharmHub,
 		},
 		ApplicationName:  "applicationA",
 		NumUnits:         1,
@@ -149,8 +149,8 @@ func (s *applicationSuite) TestDeployAlreadyExists(c *gc.C) {
 	deployArgs := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{
 			{
-				CharmURL:         "cs:trusty/a-charm-1",
-				CharmOrigin:      &params.CharmOrigin{Source: "charm-store"},
+				CharmURL:         "ch:a-charm-1",
+				CharmOrigin:      &params.CharmOrigin{Source: "charm-hub"},
 				ApplicationName:  "applicationA",
 				NumUnits:         1,
 				ConfigYAML:       "configYAML",
@@ -170,10 +170,10 @@ func (s *applicationSuite) TestDeployAlreadyExists(c *gc.C) {
 
 	args := application.DeployArgs{
 		CharmID: application.CharmID{
-			URL: charm.MustParseURL("cs:trusty/a-charm-1"),
+			URL: charm.MustParseURL("ch:a-charm-1"),
 		},
 		CharmOrigin: apicharm.Origin{
-			Source: apicharm.OriginCharmStore,
+			Source: apicharm.OriginCharmHub,
 		},
 		ApplicationName:  "applicationA",
 		NumUnits:         1,
@@ -255,7 +255,7 @@ func (s *applicationSuite) TestApplicationGetCharmURLOrigin(c *gc.C) {
 
 	result := new(params.CharmURLOriginResult)
 	results := params.CharmURLOriginResult{
-		URL:    "cs:curl",
+		URL:    "ch:curl",
 		Origin: params.CharmOrigin{Risk: "edge"},
 	}
 	args := params.ApplicationGet{
@@ -268,7 +268,7 @@ func (s *applicationSuite) TestApplicationGetCharmURLOrigin(c *gc.C) {
 
 	curl, origin, err := client.GetCharmURLOrigin(newBranchName, "application")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(curl, gc.DeepEquals, charm.MustParseURL("cs:curl"))
+	c.Assert(curl, gc.DeepEquals, charm.MustParseURL("ch:curl"))
 	c.Assert(origin, gc.DeepEquals, apicharm.Origin{
 		Risk: "edge",
 	})
@@ -281,11 +281,12 @@ func (s *applicationSuite) TestSetCharm(c *gc.C) {
 	toUint64Ptr := func(v uint64) *uint64 {
 		return &v
 	}
+
 	args := params.ApplicationSetCharm{
 		ApplicationName: "application",
-		CharmURL:        "cs:trusty/application-1",
+		CharmURL:        "ch:application-1",
 		CharmOrigin: &params.CharmOrigin{
-			Source: "charm-store",
+			Source: "charm-hub",
 			Risk:   "edge",
 		},
 		Channel: "edge",
@@ -318,9 +319,9 @@ func (s *applicationSuite) TestSetCharm(c *gc.C) {
 	cfg := application.SetCharmConfig{
 		ApplicationName: "application",
 		CharmID: application.CharmID{
-			URL: charm.MustParseURL("cs:trusty/application-1"),
+			URL: charm.MustParseURL("ch:application-1"),
 			Origin: apicharm.Origin{
-				Source: "charm-store",
+				Source: "charm-hub",
 				Risk:   "edge",
 			},
 		},

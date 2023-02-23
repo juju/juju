@@ -182,29 +182,39 @@ func (c *ControllerAPI) MongoVersion() (params.StringResult, error) {
 // dashboardConnectionInforForCAAS returns a dashboard connection for a Juju
 // dashboard deployed on CAAS.
 func (c *ControllerAPI) dashboardConnectionInfoForCAAS(
-	model *state.Model,
+	m *state.Model,
 	applicationName string,
-) (*params.DashboardConnectionProxy, error) {
-	configGetter := stateenvirons.EnvironConfigGetter{Model: model}
-	environ, err := common.EnvironFuncForModel(model, configGetter)()
+) (*params.Proxy, error) {
+	configGetter := stateenvirons.EnvironConfigGetter{Model: m}
+	environ, err := common.EnvironFuncForModel(m, configGetter)()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	caasBroker, ok := environ.(caas.Broker)
 	if !ok {
-		return nil, errors.New("cannot get cass environ for model")
+		return nil, errors.New("cannot get CAAS environ for model")
 	}
 
-	// TODO: (tlm) We are hardcoding port 80 here because the kubernetes
-	// dashboard charm doesn't have any config that we can look at to work out
-	// what it is. A bug has been raised here: https://github.com/canonical-web-and-design/juju-dashboard-charm/issues/15
-	proxier, err := caasBroker.ProxyToApplication(applicationName, "80")
+	dashboardApp, err := c.state.Application(applicationName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	cfg, err := dashboardApp.CharmConfig(model.GenerationMaster)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	port, ok := cfg["port"]
+	if !ok {
+		return nil, errors.NotFoundf("dashboard port in charm config")
+	}
+
+	proxier, err := caasBroker.ProxyToApplication(applicationName, fmt.Sprint(port))
 	if err != nil {
 		return nil, err
 	}
 
-	return params.NewDashboardConnectionProxy(proxier)
+	return params.NewProxy(proxier)
 }
 
 // dashboardConnectionInforForIAAS returns a dashboard connection for a Juju
@@ -218,6 +228,9 @@ func (c *ControllerAPI) dashboardConnectionInfoForIAAS(
 		return nil, errors.NotFoundf("dashboard address in relation data")
 	}
 
+	// TODO: support cross-model relations
+	// If the dashboard app is in a different model, this will try to look in
+	// the controller model, returning `application "dashboard" not found`
 	dashboardApp, err := c.state.Application(appName)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -231,9 +244,22 @@ func (c *ControllerAPI) dashboardConnectionInfoForIAAS(
 		return nil, errors.NotFoundf("dashboard port in charm config")
 	}
 
+	model, err := c.state.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	modelName := model.Name()
+	ctrCfg, err := c.state.ControllerConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	controllerName := ctrCfg.ControllerName()
+
 	return &params.DashboardConnectionSSHTunnel{
-		Host: fmt.Sprintf("%s", addr),
-		Port: fmt.Sprintf("%d", port),
+		Model:  fmt.Sprintf("%s:%s", controllerName, modelName),
+		Entity: fmt.Sprintf("%s/leader", appName),
+		Host:   fmt.Sprintf("%s", addr),
+		Port:   fmt.Sprintf("%d", port),
 	}, nil
 }
 
@@ -290,7 +316,7 @@ func (c *ControllerAPI) DashboardConnectionInfo() (params.DashboardConnectionInf
 			return rval, err
 		}
 
-		return rval, errors.NotFoundf("no dashboard found")
+		return rval, errors.NotFoundf("dashboard")
 	}
 	conInfo, err := getDashboardInfo()
 

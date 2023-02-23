@@ -112,7 +112,7 @@ func (s *metricsAdderIntegrationSuite) SetUpTest(c *gc.C) {
 
 	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{
 		Name: "metered",
-		URL:  "cs:quantal/metered",
+		URL:  "ch:quantal/metered",
 	})
 	meteredApp := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: meteredCharm,
@@ -133,7 +133,7 @@ func (s *metricsAdderIntegrationSuite) TestAddMetricBatches(c *gc.C) {
 		Tag: s.unitTag.String(),
 		Batch: params.MetricBatch{
 			UUID:     utils.MustNewUUID().String(),
-			CharmURL: "cs:quantal/metered",
+			CharmURL: "ch:quantal/metered",
 			Created:  time.Now(),
 			Metrics:  []params.Metric{{Key: "pings", Value: "5", Time: time.Now().UTC()}},
 		},

@@ -6,13 +6,13 @@ run_network_health() {
 	ensure "network-health" "${file}"
 
 	# Deploy some applications for different series.
-	juju deploy ubuntu ubuntu-focal --series focal
-	juju deploy ubuntu ubuntu-jammy --series jammy
+	juju deploy ubuntu ubuntu-focal --base ubuntu@20.04
+	juju deploy ubuntu ubuntu-jammy --base ubuntu@22.04
 
 	# Now the testing charm for each series.
 
-	juju deploy 'juju-qa-network-health' network-health-focal --series focal
-	juju deploy 'juju-qa-network-health' network-health-jammy --series jammy
+	juju deploy 'juju-qa-network-health' network-health-focal --base ubuntu@20.04
+	juju deploy 'juju-qa-network-health' network-health-jammy --base ubuntu@22.04
 
 	juju integrate network-health-focal ubuntu-focal
 	juju integrate network-health-jammy ubuntu-jammy

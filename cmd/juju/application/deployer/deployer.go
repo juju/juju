@@ -11,8 +11,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/juju/charm/v9"
-	charmresource "github.com/juju/charm/v9/resource"
+	"github.com/juju/charm/v10"
+	charmresource "github.com/juju/charm/v10/resource"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -55,7 +55,7 @@ func NewDeployerFactory(dep DeployerDependencies) DeployerFactory {
 }
 
 // GetDeployer returns the correct deployer to use based on the cfg provided.
-// A ModelConfigGetter and CharmStoreAdaptor needed to find the deployer.
+// A ModelConfigGetter needed to find the deployer.
 func (d *factory) GetDeployer(cfg DeployerConfig, getter ModelConfigGetter, resolver Resolver) (Deployer, error) {
 	d.setConfig(cfg)
 	maybeDeployers := []func() (Deployer, error){
@@ -84,7 +84,7 @@ func (d *factory) setConfig(cfg DeployerConfig) {
 	d.defaultCharmSchema = cfg.DefaultCharmSchema
 	d.bundleOverlayFile = cfg.BundleOverlayFile
 	d.channel = cfg.Channel
-	d.series = cfg.Series
+	d.base = cfg.Base
 	d.force = cfg.Force
 	d.dryRun = cfg.DryRun
 	d.applicationName = cfg.ApplicationName
@@ -146,7 +146,7 @@ type DeployerConfig struct {
 	Placement            []*instance.Placement
 	Resources            map[string]string
 	Revision             int
-	Series               string
+	Base                 series.Base
 	Storage              map[string]storage.Constraints
 	Trust                bool
 	UseExisting          bool
@@ -170,7 +170,7 @@ type factory struct {
 	bundleOverlayFile  []string
 	channel            charm.Channel
 	revision           int
-	series             string
+	base               series.Base
 	force              bool
 	dryRun             bool
 	applicationName    string
@@ -235,7 +235,7 @@ func (d *factory) newDeployCharm() deployCharm {
 		placement:        d.placement,
 		placementSpec:    d.placementSpec,
 		resources:        d.resources,
-		seriesFlag:       d.series,
+		baseFlag:         d.base,
 		steps:            d.steps,
 		storage:          d.storage,
 		trust:            d.trust,
@@ -270,10 +270,7 @@ func (d *factory) maybeReadLocalBundle() (Deployer, error) {
 		return nil, errors.Trace(err)
 	}
 
-	platform, err := utils.DeducePlatform(d.constraints, d.series, d.modelConstraints)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	platform := utils.MakePlatform(d.constraints, d.base, d.modelConstraints)
 	db := d.newDeployBundle(d.defaultCharmSchema, ds)
 	var base series.Base
 	if platform.Channel != "" {
@@ -333,8 +330,17 @@ func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error
 		charmOrBundle = charmOrBundle[6:]
 	}
 
-	var imageStream string
-	seriesName := d.series
+	var (
+		imageStream string
+		seriesName  string
+	)
+	if !d.base.Empty() {
+		var err error
+		seriesName, err = series.GetSeriesFromBase(d.base)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
 
 	ch, err := d.charmReader.ReadCharm(charmOrBundle)
 	if err == nil {
@@ -421,23 +427,13 @@ func (d *factory) maybeReadRepositoryBundle(resolver Resolver) (Deployer, error)
 	if curl.Revision != -1 && charm.CharmHub.Matches(curl.Schema) {
 		return nil, errors.Errorf("cannot specify revision in a charm or bundle name. Please use --revision.")
 	}
-	if charm.CharmStore.Matches(curl.Schema) && d.revision != -1 {
-		if curl.Revision != -1 && curl.Revision != d.revision {
-			return nil, errors.Errorf("two different revisions to deploy: specified %d and %d, please choose one.", curl.Revision, d.revision)
-		}
-		if curl.Revision == -1 {
-			curl = curl.WithRevision(d.revision)
-		}
-	}
-	platform, err := utils.DeducePlatform(d.constraints, d.series, d.modelConstraints)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	urlForOrigin := curl
 	if d.revision != -1 {
 		urlForOrigin = urlForOrigin.WithRevision(d.revision)
 	}
+
+	platform := utils.MakePlatform(d.constraints, d.base, d.modelConstraints)
 	origin, err := utils.DeduceOrigin(urlForOrigin, d.channel, platform)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -502,31 +498,18 @@ func (d *factory) repositoryCharm() (Deployer, error) {
 		return nil, errors.Errorf("specifying a revision requires a channel for future upgrades. Please use --channel")
 	}
 	// To deploy by revision, the revision number must be in the origin for a
-	// charmhub charm and in the url for a charmstore charm.
+	// charmhub charm.
 	if charm.CharmHub.Matches(userRequestedURL.Schema) {
 		if userRequestedURL.Revision != -1 {
 			return nil, errors.Errorf("cannot specify revision in a charm or bundle name. Please use --revision.")
 		}
-		//if d.revision != -1 && d.channel.Empty() {
-		//	return nil, errors.Errorf("specifying a revision requires a channel for future upgrades. Please use --channel")
-		//}
-	} else if charm.CharmStore.Matches(userRequestedURL.Schema) {
-		if userRequestedURL.Revision != -1 && d.revision != -1 && userRequestedURL.Revision != d.revision {
-			return nil, errors.Errorf("two different revisions to deploy: specified %d and %d, please choose one.", userRequestedURL.Revision, d.revision)
-		}
-		if userRequestedURL.Revision == -1 && d.revision != -1 {
-			userRequestedURL = userRequestedURL.WithRevision(d.revision)
-		}
-	}
-	platform, err := utils.DeducePlatform(d.constraints, d.series, d.modelConstraints)
-	if err != nil {
-		return nil, errors.Trace(err)
 	}
 
 	urlForOrigin := userRequestedURL
 	if d.revision != -1 {
 		urlForOrigin = urlForOrigin.WithRevision(d.revision)
 	}
+	platform := utils.MakePlatform(d.constraints, d.base, d.modelConstraints)
 	origin, err := utils.DeduceOrigin(urlForOrigin, d.channel, platform)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -679,7 +662,7 @@ func (d *factory) validateBundleFlags() error {
 func CharmOnlyFlags() []string {
 	charmOnlyFlags := []string{
 		"bind", "config", "constraints", "n", "num-units",
-		"series", "to", "resource", "attach-storage",
+		"series", "base", "to", "resource", "attach-storage",
 	}
 
 	return charmOnlyFlags

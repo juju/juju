@@ -255,11 +255,24 @@ func (c *configCommand) setConfig(client controllerAPI, attrs config.Attrs) erro
 	}
 
 	// Check if any of the `attrs` are not allowed to be set
+	fields, _, err := controller.ConfigSchema.ValidationSchema()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	extraValues := set.NewStrings()
 	values := make(map[string]interface{})
 	for k := range attrs {
 		if controller.AllowedUpdateConfigAttributes.Contains(k) {
-			values[k] = attrs[k]
+			if field, ok := fields[k]; ok {
+				v, err := field.Coerce(attrs[k], []string{k})
+				if err != nil {
+					return err
+				}
+				values[k] = v
+			} else {
+				values[k] = attrs[k]
+			}
 		} else {
 			extraValues.Add(k)
 		}

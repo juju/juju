@@ -655,11 +655,6 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 			VolumeMounts: []core.VolumeMount{
 				{
 					Name:      "charm-data",
-					MountPath: "/var/lib/pebble/default",
-					SubPath:   "containeragent/pebble",
-				},
-				{
-					Name:      "charm-data",
 					MountPath: "/charm/bin",
 					SubPath:   "charm/bin",
 					ReadOnly:  true,
@@ -673,6 +668,11 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 					Name:      "charm-data",
 					MountPath: "/charm/containers",
 					SubPath:   "charm/containers",
+				},
+				{
+					Name:      "charm-data",
+					MountPath: "/var/lib/pebble/default",
+					SubPath:   "containeragent/pebble",
 				},
 				{
 					Name:      "juju-controller-test-agent-conf",
@@ -924,16 +924,16 @@ EOF
 				SubPath:   "var/lib/juju",
 			}, {
 				Name:      "charm-data",
-				MountPath: "/containeragent/pebble",
-				SubPath:   "containeragent/pebble",
-			}, {
-				Name:      "charm-data",
 				MountPath: "/charm/bin",
 				SubPath:   "charm/bin",
 			}, {
 				Name:      "charm-data",
 				MountPath: "/charm/containers",
 				SubPath:   "charm/containers",
+			}, {
+				Name:      "charm-data",
+				MountPath: "/containeragent/pebble",
+				SubPath:   "containeragent/pebble",
 			}, {
 				Name:      "juju-controller-test-agent-conf",
 				MountPath: "/var/lib/juju/template-agent.conf",

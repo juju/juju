@@ -10,8 +10,8 @@ import (
 	"strings"
 	"syscall"
 
-	corecharm "github.com/juju/charm/v9"
-	"github.com/juju/charm/v9/hooks"
+	corecharm "github.com/juju/charm/v10"
+	"github.com/juju/charm/v10/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
@@ -173,13 +173,13 @@ func (s *UniterSuite) TestUniterBootstrap(c *gc.C) {
 			serveCharm{},
 			writeFile{"charm", 0644},
 			createUniter{},
-			waitUniterDead{err: `executing operation "install cs:quantal/wordpress-0" for u/0: .*` + errNotDir},
+			waitUniterDead{err: `executing operation "install ch:quantal/wordpress-0" for u/0: .*` + errNotDir},
 		), ut(
 			"charm cannot be downloaded",
 			createCharm{},
 			// don't serve charm
 			createUniter{},
-			waitUniterDead{err: `preparing operation "install cs:quantal/wordpress-0" for u/0: failed to download charm .* not found`},
+			waitUniterDead{err: `preparing operation "install ch:quantal/wordpress-0" for u/0: failed to download charm .* not found`},
 		),
 	})
 }
@@ -1347,7 +1347,7 @@ func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 
 	// Create the subordinate application.
 	dir := testcharms.Repo.ClonedDir(c.MkDir(), "logging")
-	curl, err := corecharm.ParseURL("cs:quantal/logging")
+	curl, err := corecharm.ParseURL("ch:quantal/logging")
 	c.Assert(err, jc.ErrorIsNil)
 	curl = curl.WithRevision(dir.Revision())
 	step(c, ctx, addCharm{dir, curl})

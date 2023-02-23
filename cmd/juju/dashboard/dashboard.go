@@ -210,24 +210,37 @@ func tunnelSSHRunner(
 	localPort int,
 	sshCommand cmd.Command,
 ) connectionRunner {
+
+	args := []string{}
+	if tunnel.Entity == "" || tunnel.Model == "" {
+		// Backwards compatibility with 3.0.0 controllers that only provide IP address
+		args = append(args, "ubuntu@"+tunnel.Host)
+	} else {
+		args = append(args, "-m", tunnel.Model, tunnel.Entity)
+	}
+	args = append(args, "-N", "-L",
+		fmt.Sprintf("%d:%s:%s", localPort, tunnel.Host, tunnel.Port))
+
 	return func(ctx context.Context, callBack urlCallBack) error {
-		if err := sshCommand.Init([]string{
-			"ubuntu@" + tunnel.Host,
-			"-N",
-			"-L",
-			fmt.Sprintf("%d:%s:%s", localPort, tunnel.Host, tunnel.Port),
-		}); err != nil {
+		f := &gnuflag.FlagSet{}
+		sshCommand.SetFlags(f)
+		err := f.Parse(false, args)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		if err := sshCommand.Init(f.Args()); err != nil {
 			return errors.Trace(err)
 		}
 
 		callBack(fmt.Sprintf("http://localhost:%d", localPort))
 
-		// TODO(tlm)
-		// How we call the embeddedSSHCmd is a little wrong here. We need to
-		// support passing a context onto the sub command so that everything can
-		// shutdown cleanly.
 		// TODO(wallyworld) - extract the core ssh machinery and use directly.
-		cmdCtx, _ := cmd.DefaultContext()
+		defCtx, err := cmd.DefaultContext()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		cmdCtx := defCtx.With(ctx)
 		return sshCommand.Run(cmdCtx)
 	}
 }

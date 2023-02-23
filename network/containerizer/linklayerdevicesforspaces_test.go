@@ -199,15 +199,15 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesWithNoAddress(
 
 	devices, ok := res[network.AlphaSpaceId]
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(devices, gc.HasLen, 2)
+	c.Assert(devices, gc.HasLen, 1)
 	names := make([]string, len(devices))
 	for i, dev := range devices {
 		names[i] = dev.Name()
 	}
-	c.Check(names, gc.DeepEquals, []string{"ens5", "lxdbr0"})
+	c.Check(names, gc.DeepEquals, []string{"ens5"})
 }
 
-func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesUnknownIgnoresLoopAndIncludesKnownBridges(c *gc.C) {
+func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesUnknownIgnoresLoopAndExcludesKnownBridges(c *gc.C) {
 	// TODO(jam): 2016-12-28 arguably we should also be aware of Docker
 	// devices, possibly the better plan is to look at whether there are
 	// routes from the given bridge out into the rest of the world.
@@ -231,7 +231,7 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesUnknownIgnores
 	for i, dev := range devices {
 		names[i] = dev.Name()
 	}
-	c.Check(names, gc.DeepEquals, []string{"br-ens4", "ens3", "lxcbr0", "lxdbr0", "virbr0"})
+	c.Check(names, gc.DeepEquals, []string{"br-ens4", "ens3"})
 }
 
 func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesSortOrder(c *gc.C) {
@@ -253,7 +253,6 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesSortOrder(c *g
 	}
 	c.Check(names, gc.DeepEquals, []string{
 		"br-eth0", "br-eth1", "br-eth1.1", "br-eth1:1", "br-eth10", "br-eth10.2",
-		"eth2", "eth3", "eth20",
 	})
 }
 
@@ -310,8 +309,6 @@ func (s *linkLayerDevForSpacesSuite) expectMachineAddressesDevices() {
 }
 
 func (s *linkLayerDevForSpacesSuite) expectNICAndBridgeWithIP(ctrl *gomock.Controller, dev, parent, spaceID string) {
-	//	s.createNICAndBridgeWithIP(c, s.machine, "eth0", "br-eth0", "10.0.0.20/24")
-
 	s.expectDevice(ctrl, dev, parent, network.EthernetDevice)
 	s.expectBridgeDevice(ctrl, parent)
 
@@ -328,8 +325,6 @@ func (s *linkLayerDevForSpacesSuite) expectNICAndBridgeWithIP(ctrl *gomock.Contr
 }
 
 func (s *linkLayerDevForSpacesSuite) expectNICWithIP(ctrl *gomock.Controller, dev, spaceID string) {
-	// s.createNICWithIP(c, s.machine, "eth0", "10.0.0.20/24")
-
 	s.expectDevice(ctrl, dev, "", network.EthernetDevice)
 
 	subnet := NewMockSubnet(ctrl)
@@ -345,8 +340,6 @@ func (s *linkLayerDevForSpacesSuite) expectNICWithIP(ctrl *gomock.Controller, de
 }
 
 func (s *linkLayerDevForSpacesSuite) expectLoopbackNIC(ctrl *gomock.Controller) {
-	// s.createLoopbackNIC(c, s.machine)
-
 	s.expectDevice(ctrl, "lo", "", network.LoopbackDevice)
 
 	address := NewMockAddress(ctrl)

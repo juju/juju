@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3/arch"
 	lxd "github.com/lxc/lxd/client"
-	"github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
 )
 
@@ -99,9 +98,9 @@ func NewServer(svr lxd.InstanceServer) (*Server, error) {
 		serverCertificate: serverCertificate,
 		hostArch:          hostArch,
 		supportedArches:   supportedArches,
-		networkAPISupport: shared.StringInSlice("network", apiExt),
-		clusterAPISupport: shared.StringInSlice("clustering", apiExt),
-		storageAPISupport: shared.StringInSlice("storage", apiExt),
+		networkAPISupport: inSlice("network", apiExt),
+		clusterAPISupport: inSlice("clustering", apiExt),
+		storageAPISupport: inSlice("storage", apiExt),
 		serverVersion:     info.Environment.ServerVersion,
 		clock:             clock.WallClock,
 	}, nil
@@ -314,4 +313,13 @@ func IsLXDAlreadyExists(err error) bool {
 	}
 
 	return strings.Contains(strings.ToLower(err.Error()), "already exists")
+}
+
+func inSlice[T comparable](key T, list []T) bool {
+	for _, entry := range list {
+		if entry == key {
+			return true
+		}
+	}
+	return false
 }

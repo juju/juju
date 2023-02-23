@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time" // Only used for time types.
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
@@ -1283,8 +1283,8 @@ func (s *UnitSuite) TestSetCharmURLFailures(c *gc.C) {
 	err := s.unit.SetCharmURL(nil)
 	c.Assert(err, gc.ErrorMatches, "cannot set nil charm url")
 
-	err = s.unit.SetCharmURL(charm.MustParseURL("cs:missing/one-1"))
-	c.Assert(err, gc.ErrorMatches, `unknown charm url "cs:missing/one-1"`)
+	err = s.unit.SetCharmURL(charm.MustParseURL("ch:missing/one-1"))
+	c.Assert(err, gc.ErrorMatches, `unknown charm url "ch:missing/one-1"`)
 
 	err = s.unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)

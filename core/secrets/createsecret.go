@@ -21,6 +21,12 @@ var keyRegExp = regexp.MustCompile("^([a-z](?:-?[a-z0-9]){2,})$")
 // SecretData holds secret key values.
 type SecretData map[string]string
 
+const (
+	fileSuffix          = "#file"
+	maxValueSizeBytes   = 5 * 1024
+	maxContentSizeBytes = 64 * 1024
+)
+
 // CreateSecretData creates a secret data bag from a list of arguments.
 // If a key has the #base64 suffix, then the value is already base64 encoded,
 // otherwise the value is base64 encoded as it is added to the data bag.
@@ -39,7 +45,24 @@ func CreateSecretData(args []string) (SecretData, error) {
 		}
 		key := keyVal[0]
 		value := keyVal[1]
-		data[key] = value
+		if !strings.HasSuffix(key, fileSuffix) {
+			data[key] = value
+			continue
+		}
+		key = strings.TrimSuffix(key, fileSuffix)
+		path, err := utils.NormalizePath(value)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		fs, err := os.Stat(path)
+		if err == nil && fs.Size() > maxValueSizeBytes {
+			return nil, errors.Errorf("secret content in file %q too large: %d bytes", path, fs.Size())
+		}
+		content, err := os.ReadFile(value)
+		if err != nil {
+			return nil, errors.Annotatef(err, "reading content for secret key %q", key)
+		}
+		data[key] = string(content)
 	}
 	return encodeBase64(data)
 }
@@ -50,6 +73,10 @@ func ReadSecretData(f string) (SecretData, error) {
 	path, err := utils.NormalizePath(f)
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+	fs, err := os.Stat(path)
+	if err == nil && fs.Size() > maxContentSizeBytes {
+		return nil, errors.Errorf("secret content in file %q too large: %d bytes", path, fs.Size())
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -68,7 +95,12 @@ const base64Suffix = "#base64"
 
 func encodeBase64(in SecretData) (SecretData, error) {
 	out := make(SecretData, len(in))
+	var contentSize int
 	for k, v := range in {
+		if len(v) > maxValueSizeBytes {
+			return nil, errors.Errorf("secret content for key %q too large: %d bytes", k, len(v))
+		}
+		contentSize += len(v)
 		if strings.HasSuffix(k, base64Suffix) {
 			k = strings.TrimSuffix(k, base64Suffix)
 			if !keyRegExp.MatchString(k) {
@@ -81,6 +113,9 @@ func encodeBase64(in SecretData) (SecretData, error) {
 			return nil, errors.NotValidf("key %q", k)
 		}
 		out[k] = base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%v", v)))
+	}
+	if contentSize > maxContentSizeBytes {
+		return nil, errors.Errorf("secret content too large: %d bytes", contentSize)
 	}
 	return out, nil
 }

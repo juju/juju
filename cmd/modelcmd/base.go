@@ -267,6 +267,7 @@ func (c *CommandBase) NewAPIRootWithDialOpts(
 		return nil, errors.New("no controller API addresses; is bootstrap still in progress?")
 	}
 	if proxyerrors.IsProxyConnectError(err) {
+		logger.Debugf("proxy connection error: %v", err)
 		if proxyerrors.ProxyType(err) == k8sproxy.ProxierTypeKey {
 			return nil, errors.New("cannot connect to k8s api server; try running 'juju update-k8s --client <k8s cloud name>'")
 		}

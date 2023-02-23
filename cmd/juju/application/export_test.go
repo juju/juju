@@ -6,7 +6,7 @@ package application
 import (
 	"time"
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/set"
 	gc "gopkg.in/check.v1"
@@ -22,23 +22,18 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/deployer_mock.go github.com/juju/juju/cmd/juju/application/deployer Deployer,DeployerFactory
-
 func NewRefreshCommandForTest(
 	store jujuclient.ClientStore,
 	apiOpen api.OpenFunc,
 	deployResources deployer.DeployResourcesFunc,
-	newCharmStore NewCharmStoreFunc,
 	newCharmResolver NewCharmResolverFunc,
 	newCharmAdder NewCharmAdderFunc,
 	newCharmClient func(base.APICallCloser) utils.CharmClient,
 	newCharmRefreshClient func(base.APICallCloser) CharmRefreshClient,
 	newResourceLister func(base.APICallCloser) (utils.ResourceLister, error),
-	charmStoreURLGetter func(base.APICallCloser) (string, error),
 	newSpacesClient func(base.APICallCloser) SpacesAPI,
 	newModelConfigClient func(base.APICallCloser) ModelConfigClient,
 	newCharmHubClient func(string) (store.DownloadBundleClient, error),
-
 ) cmd.Command {
 	cmd := &refreshCommand{
 		DeployResources:       deployResources,
@@ -46,9 +41,7 @@ func NewRefreshCommandForTest(
 		NewCharmClient:        newCharmClient,
 		NewCharmRefreshClient: newCharmRefreshClient,
 		NewResourceLister:     newResourceLister,
-		CharmStoreURLGetter:   charmStoreURLGetter,
 		NewSpacesClient:       newSpacesClient,
-		NewCharmStore:         newCharmStore,
 		NewCharmResolver:      newCharmResolver,
 		NewRefresherFactory:   refresher.NewRefresherFactory,
 		ModelConfigClient:     newModelConfigClient,
@@ -60,14 +53,12 @@ func NewRefreshCommandForTest(
 }
 
 func NewRefreshCommandForStateTest(
-	newCharmStore NewCharmStoreFunc,
 	newCharmAdder NewCharmAdderFunc,
 	newCharmClient func(base.APICallCloser) utils.CharmClient,
 	deployResources deployer.DeployResourcesFunc,
 	newCharmAPIClient func(conn base.APICallCloser) CharmRefreshClient,
 ) cmd.Command {
 	cmd := newRefreshCommand()
-	cmd.NewCharmStore = newCharmStore
 	cmd.NewCharmAdder = newCharmAdder
 	cmd.NewCharmClient = newCharmClient
 	if newCharmAPIClient != nil {
@@ -115,18 +106,15 @@ func NewAddUnitCommandForTestWithRefresh(api applicationAddUnitAPI, store jujucl
 }
 
 // NewRemoveUnitCommandForTest returns a RemoveUnitCommand with the api provided as specified.
-func NewRemoveUnitCommandForTest(api RemoveApplicationAPI, store jujuclient.ClientStore) modelcmd.ModelCommand {
-	cmd := &removeUnitCommand{api: api}
+func NewRemoveUnitCommandForTest(api RemoveApplicationAPI, modelConfigApi ModelConfigClient, store jujuclient.ClientStore) modelcmd.ModelCommand {
+	cmd := &removeUnitCommand{api: api, modelConfigApi: modelConfigApi}
 	cmd.SetClientStore(store)
 	return modelcmd.Wrap(cmd)
 }
 
-type removeAPIFunc func() (RemoveApplicationAPI, error)
-
 // NewRemoveApplicationCommandForTest returns a RemoveApplicationCommand.
-func NewRemoveApplicationCommandForTest(f removeAPIFunc, store jujuclient.ClientStore) modelcmd.ModelCommand {
-	c := &removeApplicationCommand{}
-	c.newAPIFunc = f
+func NewRemoveApplicationCommandForTest(api RemoveApplicationAPI, modelConfigApi ModelConfigClient, store jujuclient.ClientStore) modelcmd.ModelCommand {
+	c := &removeApplicationCommand{api: api, modelConfigApi: modelConfigApi}
 	c.SetClientStore(store)
 	return modelcmd.Wrap(c)
 }
@@ -157,13 +145,13 @@ func NewConsumeCommandForTest(
 	return modelcmd.Wrap(c)
 }
 
-// NewSetSeriesCommandForTest returns a SetSeriesCommand with the specified api.
-func NewSetSeriesCommandForTest(
-	seriesAPI setSeriesAPI,
+// NewSetApplicationBaseCommandForTest returns a SetSeriesCommand with the specified api.
+func NewSetApplicationBaseCommandForTest(
+	setApplicationBaseAPI setApplicationBaseAPI,
 	store jujuclient.ClientStore,
 ) modelcmd.ModelCommand {
-	cmd := &setSeriesCommand{
-		setSeriesClient: seriesAPI,
+	cmd := &setApplicationBase{
+		apiClient: setApplicationBaseAPI,
 	}
 	cmd.SetClientStore(store)
 	return modelcmd.Wrap(cmd)
@@ -212,9 +200,6 @@ func NewDiffBundleCommandForTest(api base.APICallCloser,
 ) modelcmd.ModelCommand {
 	cmd := &diffBundleCommand{
 		newAPIRootFn: func() (base.APICallCloser, error) {
-			return api, nil
-		},
-		newControllerAPIRootFn: func() (base.APICallCloser, error) {
 			return api, nil
 		},
 		modelConstraintsClientFunc: modelConsFn,

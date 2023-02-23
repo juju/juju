@@ -70,6 +70,7 @@ func (s *cmdApplicationSuite) TestShowApplicationOne(c *gc.C) {
 wordpress:
   charm: wordpress
   base: ubuntu@12.10
+  channel: stable
   constraints:
     arch: amd64
   principal: true
@@ -99,6 +100,7 @@ func (s *cmdApplicationSuite) TestShowApplicationManyYaml(c *gc.C) {
 logging:
   charm: logging
   base: ubuntu@12.10
+  channel: stable
   principal: false
   exposed: false
   remote: false
@@ -111,6 +113,7 @@ logging:
 wordpress:
   charm: wordpress
   base: ubuntu@12.10
+  channel: stable
   constraints:
     arch: amd64
   principal: true
@@ -133,8 +136,8 @@ wordpress:
 func (s *cmdApplicationSuite) TestRemoveApplication(c *gc.C) {
 	s.setupApplications(c)
 
-	ctx, err := cmdtesting.RunCommand(c, application.NewRemoveApplicationCommand(), "wordpress")
+	ctx, err := cmdtesting.RunCommand(c, application.NewRemoveApplicationCommand(), "--no-prompt", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "removing application wordpress\n")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "will remove application wordpress\n")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
 }

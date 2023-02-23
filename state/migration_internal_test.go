@@ -4,7 +4,7 @@
 package state
 
 import (
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/collections/set"
 	gc "gopkg.in/check.v1"
 
@@ -210,6 +210,10 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// running within a unit. This is a new feature that is not
 		// backwards compatible with older controllers.
 		unitStatesC,
+
+		// Secret backends are per controller.
+		secretBackendsC,
+		secretBackendsRotateC,
 	)
 
 	// THIS SET WILL BE REMOVED WHEN MIGRATIONS ARE COMPLETE
@@ -370,6 +374,7 @@ func (s *MigrationSuite) TestInstanceDataFields(c *gc.C) {
 		"CpuPower",
 		"Tags",
 		"AvailZone",
+		"VirtType",
 		"CharmProfiles",
 	)
 	s.AssertExportedFields(c, instanceData{}, migrated.Union(ignored))
@@ -396,7 +401,6 @@ func (s *MigrationSuite) TestApplicationDocFields(c *gc.C) {
 		"Name",
 		"Subordinate",
 		"CharmURL",
-		"Channel",
 		"CharmModifiedVersion",
 		"CharmOrigin",
 		"ForceCharm",
@@ -961,9 +965,10 @@ func (s *MigrationSuite) TestSecretRevisionDocFields(c *gc.C) {
 		"UpdateTime",
 		"ExpireTime",
 		"Obsolete",
-		"ProviderId",
+		"ValueRef",
 		"Data",
 		"OwnerTag",
+		"PendingDelete",
 	)
 	s.AssertExportedFields(c, secretRevisionDoc{}, migrated.Union(ignored))
 }

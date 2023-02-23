@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
@@ -129,11 +129,11 @@ func (s *ListSuite) TestListSummary(c *gc.C) {
 		[]string{"--format", "summary"},
 		`
 Offer       Application     Charm     Connected  Store           URL                                           Endpoint  Interface  Role
-adiff-db2   app-adiff-db2   cs:db2-5  0/2        vendor          vendor:fred@external/model.adiff-db2          log       http       provider
+adiff-db2   app-adiff-db2   ch:db2-5  0/2        vendor          vendor:fred@external/model.adiff-db2          log       http       provider
                                                                                                                mysql     db2        requirer
-hosted-db2  app-hosted-db2  cs:db2-5  0/0        myctrl          myctrl:fred@external/model.hosted-db2         log       http       provider
+hosted-db2  app-hosted-db2  ch:db2-5  0/0        myctrl          myctrl:fred@external/model.hosted-db2         log       http       provider
                                                                                                                mysql     db2        requirer
-zdiff-db2   app-zdiff-db2   cs:db2-5  1/3        differentstore  differentstore:fred@external/model.zdiff-db2  log       http       provider
+zdiff-db2   app-zdiff-db2   ch:db2-5  1/3        differentstore  differentstore:fred@external/model.zdiff-db2  log       http       provider
                                                                                                                mysql     db2        requirer
 `[1:],
 		"",
@@ -262,7 +262,7 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
 hosted-db2:
   application: app-hosted-db2
   store: myctrl
-  charm: cs:db2-5
+  charm: ch:db2-5
   offer-url: myctrl:fred@external/model.hosted-db2
   endpoints:
     mysql:
@@ -299,7 +299,7 @@ func (s *ListSuite) createOfferItem(name, store string, connections []model.Offe
 		ApplicationName: "app-" + name,
 		OfferName:       name,
 		OfferURL:        fmt.Sprintf("%s:%s.%s", store, "fred@external/model", name),
-		CharmURL:        "cs:db2-5",
+		CharmURL:        "ch:db2-5",
 		Endpoints:       s.endpoints,
 		Connections:     connections,
 	}

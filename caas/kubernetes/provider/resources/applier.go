@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -16,6 +17,9 @@ var logger = loggo.GetLogger("juju.kubernetes.provider.resources")
 var (
 	errConflict = errors.New("resource version conflict")
 )
+
+// preferedPatchStrategy is the default patch strategy used by Juju.
+const preferedPatchStrategy = types.StrategicMergePatchType
 
 type applier struct {
 	ops []operation

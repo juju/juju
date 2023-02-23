@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	charmresource "github.com/juju/charm/v9/resource"
+	charmresource "github.com/juju/charm/v10/resource"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -87,7 +87,7 @@ func (s *SvcFormatterSuite) TestFormatSvcResource(c *gc.C) {
 		Username:         r.Username,
 		CombinedRevision: "5",
 		UsedYesNo:        "yes",
-		CombinedOrigin:   "charmstore",
+		CombinedOrigin:   "store",
 	})
 }
 

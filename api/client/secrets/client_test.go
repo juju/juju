@@ -70,6 +70,12 @@ func (s *SecretsSuite) TestListSecrets(c *gc.C) {
 					CreateTime: now,
 					UpdateTime: now.Add(time.Second),
 					ExpireTime: ptr(now.Add(time.Hour)),
+				}, {
+					Revision:    667,
+					CreateTime:  now,
+					UpdateTime:  now.Add(time.Second),
+					ExpireTime:  ptr(now.Add(time.Hour)),
+					BackendName: ptr("some backend"),
 				}},
 				Value: &params.SecretValueResult{Data: data},
 			}},
@@ -99,6 +105,12 @@ func (s *SecretsSuite) TestListSecrets(c *gc.C) {
 			CreateTime: now,
 			UpdateTime: now.Add(time.Second),
 			ExpireTime: ptr(now.Add(time.Hour)),
+		}, {
+			Revision:    667,
+			BackendName: ptr("some backend"),
+			CreateTime:  now,
+			UpdateTime:  now.Add(time.Second),
+			ExpireTime:  ptr(now.Add(time.Hour)),
 		}},
 		Value: secrets.NewSecretValue(data),
 	}})

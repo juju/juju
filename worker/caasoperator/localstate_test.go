@@ -6,7 +6,7 @@ package caasoperator_test
 import (
 	"path/filepath"
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -24,7 +24,7 @@ func (s *LocalStateFileSuite) TestState(c *gc.C) {
 	c.Assert(err, gc.Equals, caasoperator.ErrNoStateFile)
 
 	localSt := caasoperator.LocalState{
-		CharmURL:             charm.MustParseURL("cs:quantal/application-name-123"),
+		CharmURL:             charm.MustParseURL("ch:quantal/application-name-123"),
 		CharmModifiedVersion: 123,
 	}
 	err = file.Write(&localSt)

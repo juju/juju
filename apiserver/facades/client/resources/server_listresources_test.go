@@ -1,16 +1,16 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package resources
+package resources_test
 
 import (
-	charmresource "github.com/juju/charm/v9/resource"
+	charmresource "github.com/juju/charm/v10/resource"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/resources"
+	coreresources "github.com/juju/juju/core/resources"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -21,6 +21,7 @@ type ListResourcesSuite struct {
 }
 
 func (s *ListResourcesSuite) TestOkay(c *gc.C) {
+	defer s.setUpTest(c).Finish()
 	res1, apiRes1 := newResource(c, "spam", "a-user", "spamspamspam")
 	res2, apiRes2 := newResource(c, "eggs", "a-user", "...")
 
@@ -37,15 +38,16 @@ func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 	apiChRes1.Revision++
 	apiChRes2.Revision++
 
-	s.data.ReturnListResources = resources.ApplicationResources{
-		Resources: []resources.Resource{
+	appTag := names.NewApplicationTag("a-application")
+	s.backend.EXPECT().ListResources(appTag.Id()).Return(coreresources.ApplicationResources{
+		Resources: []coreresources.Resource{
 			res1,
 			res2,
 		},
-		UnitResources: []resources.UnitResources{
+		UnitResources: []coreresources.UnitResources{
 			{
 				Tag: tag0,
-				Resources: []resources.Resource{
+				Resources: []coreresources.Resource{
 					res1,
 					res2,
 				},
@@ -58,14 +60,11 @@ func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 			chres1,
 			chres2,
 		},
-	}
+	}, nil)
 
-	facade, err := NewResourcesAPI(s.data, s.newCSFactory())
-	c.Assert(err, jc.ErrorIsNil)
-
-	results, err := facade.ListResources(params.ListResourcesArgs{
+	results, err := s.newFacade(c).ListResources(params.ListResourcesArgs{
 		Entities: []params.Entity{{
-			Tag: "application-a-application",
+			Tag: appTag.String(),
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -79,7 +78,7 @@ func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 			UnitResources: []params.UnitResources{
 				{
 					Entity: params.Entity{
-						Tag: "unit-a-application-0",
+						Tag: tag0.String(),
 					},
 					Resources: []params.Resource{
 						apiRes1,
@@ -90,7 +89,7 @@ func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 					// we should have a listing for every unit, even if they
 					// have no
 					Entity: params.Entity{
-						Tag: "unit-a-application-1",
+						Tag: tag1.String(),
 					},
 				},
 			},
@@ -100,17 +99,16 @@ func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 			},
 		}},
 	})
-	s.stub.CheckCallNames(c, "ListResources")
-	s.stub.CheckCall(c, 0, "ListResources", "a-application")
 }
 
 func (s *ListResourcesSuite) TestEmpty(c *gc.C) {
-	facade, err := NewResourcesAPI(s.data, s.newCSFactory())
-	c.Assert(err, jc.ErrorIsNil)
+	defer s.setUpTest(c).Finish()
+	tag := names.NewApplicationTag("a-application")
+	s.backend.EXPECT().ListResources(tag.Id()).Return(coreresources.ApplicationResources{}, nil)
 
-	results, err := facade.ListResources(params.ListResourcesArgs{
+	results, err := s.newFacade(c).ListResources(params.ListResourcesArgs{
 		Entities: []params.Entity{{
-			Tag: "application-a-application",
+			Tag: tag.String(),
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -118,18 +116,17 @@ func (s *ListResourcesSuite) TestEmpty(c *gc.C) {
 	c.Check(results, jc.DeepEquals, params.ResourcesResults{
 		Results: []params.ResourcesResult{{}},
 	})
-	s.stub.CheckCallNames(c, "ListResources")
 }
 
 func (s *ListResourcesSuite) TestError(c *gc.C) {
+	defer s.setUpTest(c).Finish()
 	failure := errors.New("<failure>")
-	s.stub.SetErrors(failure)
-	facade, err := NewResourcesAPI(s.data, s.newCSFactory())
-	c.Assert(err, jc.ErrorIsNil)
+	tag := names.NewApplicationTag("a-application")
+	s.backend.EXPECT().ListResources(tag.Id()).Return(coreresources.ApplicationResources{}, failure)
 
-	results, err := facade.ListResources(params.ListResourcesArgs{
+	results, err := s.newFacade(c).ListResources(params.ListResourcesArgs{
 		Entities: []params.Entity{{
-			Tag: "application-a-application",
+			Tag: tag.String(),
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -141,5 +138,4 @@ func (s *ListResourcesSuite) TestError(c *gc.C) {
 			}},
 		}},
 	})
-	s.stub.CheckCallNames(c, "ListResources")
 }

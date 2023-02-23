@@ -363,7 +363,7 @@ func (s *cmdControllerSuite) testControllerDestroy(c *gc.C, forceAPI bool) {
 	ops := make(chan dummy.Operation, 1)
 	dummy.Listen(ops)
 
-	s.run(c, "destroy-controller", "kontroll", "-y", "--destroy-all-models", "--debug")
+	s.run(c, "destroy-controller", "kontroll", "--no-prompt", "--destroy-all-models", "--debug")
 	close(stop)
 	<-done
 
@@ -397,7 +397,7 @@ func (s *cmdControllerSuite) TestControllerKill(c *gc.C) {
 	st.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
 	st.Close()
 
-	s.run(c, "kill-controller", "kontroll", "-y")
+	s.run(c, "kill-controller", "kontroll", "--no-prompt")
 
 	store := jujuclient.NewFileClientStore()
 	_, err := store.ControllerByName("kontroll")
@@ -420,7 +420,7 @@ func (s *cmdControllerSuite) TestSystemKillCallsEnvironDestroyOnHostedEnviron(c 
 	_, err := store.ControllerByName("kontroll")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.run(c, "kill-controller", "kontroll", "-y")
+	s.run(c, "kill-controller", "kontroll", "--no-prompt")
 
 	// Ensure that Destroy was called on the hosted environ ...
 	// TODO(fwereade): how do we know it's the hosted environ?

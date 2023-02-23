@@ -5,7 +5,7 @@ package instancemutater_test
 
 import (
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
@@ -380,7 +380,7 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherMachineProvisioned(
 }
 
 func (s *lxdProfileWatcherSuite) updateCharmForMachineLXDProfileWatcher(rev string, profile bool) {
-	curl := "cs:name-me-" + rev
+	curl := "ch:name-me-" + rev
 	if profile {
 		s.charm.EXPECT().LXDProfile().Return(lxdprofile.Profile{
 			Config: map[string]string{"key1": "value1"},

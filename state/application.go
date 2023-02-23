@@ -11,8 +11,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/charm/v9"
-	csparams "github.com/juju/charmrepo/v7/csclient/params"
+	"github.com/juju/charm/v10"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
@@ -82,10 +82,9 @@ type applicationDoc struct {
 	Subordinate bool   `bson:"subordinate"`
 	// CharmURL and channel should be moved to CharmOrigin. Attempting it should
 	// be relatively straight forward, but very time consuming.
-	// When moving to CharmHub or removing CharmStore from Juju it should be
+	// When moving to CharmHub from Juju it should be
 	// tackled then.
 	CharmURL             *string      `bson:"charmurl"`
-	Channel              string       `bson:"cs-channel"`
 	CharmOrigin          CharmOrigin  `bson:"charm-origin"`
 	CharmModifiedVersion int          `bson:"charmmodifiedversion"`
 	ForceCharm           bool         `bson:"forcecharm"`
@@ -740,6 +739,12 @@ func (a *Application) removeOps(asserts bson.D, op *ForcedOperation) ([]txn.Op, 
 		removePodSpecOp(a.ApplicationTag()),
 	)
 
+	openedApplicationPortRanges, err := getOpenedApplicationPortRanges(a.st, a.Name())
+	if op.FatalError(err) {
+		return nil, errors.Trace(err)
+	}
+	ops = append(ops, openedApplicationPortRanges.removeOps()...)
+
 	cancelCleanupOps, err := a.cancelScheduledCleanupOps()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -929,8 +934,9 @@ func (a *Application) setExposed(exposed bool, exposedEndpoints map[string]Expos
 // Charm returns the application's charm and whether units should upgrade to that
 // charm even if they are in an error state.
 func (a *Application) Charm() (*Charm, bool, error) {
-	// We don't worry about the channel since we aren't interacting
-	// with the charm store here.
+	if a.doc.CharmURL == nil {
+		return nil, false, errors.NotFoundf("charm for application %q", a.doc.Name)
+	}
 	curl, err := charm.ParseURL(*a.doc.CharmURL)
 	if err != nil {
 		return nil, false, err
@@ -964,13 +970,6 @@ func (a *Application) CharmModifiedVersion() int {
 // in an error state.
 func (a *Application) CharmURL() (*string, bool) {
 	return a.doc.CharmURL, a.doc.ForceCharm
-}
-
-// Channel identifies the charm store channel from which the application's
-// charm was deployed. It is only needed when interacting with the charm
-// store.
-func (a *Application) Channel() csparams.Channel {
-	return csparams.Channel(a.doc.Channel)
 }
 
 // Endpoints returns the application's currently available relation endpoints.
@@ -1190,7 +1189,6 @@ func (a *Application) IsSidecar() (bool, error) {
 // charm URL to a new value.
 func (a *Application) changeCharmOps(
 	ch *Charm,
-	channel string,
 	updatedSettings charm.Settings,
 	forceUnits bool,
 	resourceIDs map[string]string,
@@ -1296,7 +1294,6 @@ func (a *Application) changeCharmOps(
 			Id: a.doc.DocID,
 			Update: bson.D{{"$set", bson.D{
 				{"charmurl", cURL},
-				{"cs-channel", channel},
 				{"forcecharm", forceUnits},
 			}}},
 		},
@@ -1545,9 +1542,6 @@ type SetCharmConfig struct {
 	// Channel should be move there.
 	CharmOrigin *CharmOrigin
 
-	// Channel is the charm store channel from which charm was pulled.
-	Channel csparams.Channel
-
 	// ConfigSettings is the charm config settings to apply when upgrading
 	// the charm.
 	ConfigSettings charm.Settings
@@ -1635,7 +1629,6 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 	}
 
 	var newCharmModifiedVersion int
-	channel := string(cfg.Channel)
 	acopy := &Application{a.st, a.doc}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		a := acopy
@@ -1669,15 +1662,23 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 		}}
 
 		if *a.doc.CharmURL == cfg.Charm.URL().String() {
+			updates := bson.D{
+				{"forcecharm", cfg.ForceUnits},
+			}
+			// Local charms will not have a channel in their charm origin
+			// TODO: (hml) 2023-02-03
+			// With juju 3.0, SetCharm should always have a CharmOrigin.
+			// Compatibility with the Update application facade method
+			// is no longer necessary.
+			if cfg.CharmOrigin != nil && cfg.CharmOrigin.Channel != nil {
+				updates = append(updates, bson.DocElem{"charm-origin.channel", cfg.CharmOrigin.Channel})
+			}
 			// Charm URL already set; just update the force flag and channel.
 			ops = append(ops, txn.Op{
 				C:      applicationsC,
 				Id:     a.doc.DocID,
 				Assert: txn.DocExists,
-				Update: bson.D{{"$set", bson.D{
-					{"cs-channel", channel},
-					{"forcecharm", cfg.ForceUnits},
-				}}},
+				Update: bson.D{{"$set", updates}},
 			})
 		} else {
 			// Check if the new charm specifies a relation max limit
@@ -1695,7 +1696,6 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 
 			chng, err := a.changeCharmOps(
 				cfg.Charm,
-				channel,
 				updatedSettings,
 				cfg.ForceUnits,
 				cfg.ResourceIDs,
@@ -1708,6 +1708,10 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 			newCharmModifiedVersion++
 		}
 
+		// TODO: (hml) 2023-02-03
+		// With juju 3.0, SetCharm should always have a CharmOrigin.
+		// Compatibility with the Update application facade method
+		// is no longer necessary. Modify checks appropriately.
 		if cfg.CharmOrigin != nil {
 			origin := a.doc.CharmOrigin
 			// If either the charm origin ID or Hash is set before a charm is
@@ -1777,7 +1781,6 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 			// ErrNoOperations on the other hand means there's nothing to update.
 			return nil, errors.Trace(err)
 		}
-
 		return ops, nil
 	}
 
@@ -2762,7 +2765,7 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation
 		return nil, errors.Trace(err)
 	}
 	secretConsumerLabelOps, err := a.st.removeConsumerSecretLabelOps(u.Tag())
-	if err != nil {
+	if op.FatalError(err) {
 		return nil, errors.Trace(err)
 	}
 
@@ -3212,6 +3215,20 @@ func (a *Application) SetConstraints(cons constraints.Value) (err error) {
 	return onAbort(a.st.db().RunTransaction(ops), applicationNotAliveErr)
 }
 
+func assertApplicationAliveOp(docID string) txn.Op {
+	return txn.Op{
+		C:      applicationsC,
+		Id:     docID,
+		Assert: isAliveDoc,
+	}
+}
+
+// OpenedPortRanges returns a ApplicationPortRanges object that can be used to query
+// and/or mutate the port ranges opened by the embedded k8s application.
+func (a *Application) OpenedPortRanges() (ApplicationPortRanges, error) {
+	return getOpenedApplicationPortRanges(a.st, a.Name())
+}
+
 // EndpointBindings returns the mapping for each endpoint name and the space
 // ID it is bound to (or empty if unspecified). When no bindings are stored
 // for the application, defaults are returned.
@@ -3447,7 +3464,7 @@ func (a *Application) UnitStatuses() (map[string]status.StatusInfo, error) {
 	defer closer()
 	// Agent status is u#unit-name
 	// Workload status is u#unit-name#charm
-	selector := fmt.Sprintf("^%s:u#%s/\\d+(#charm)?$", a.st.modelUUID(), a.doc.Name)
+	selector := fmt.Sprintf("^%s:u#%s/\\d+(#charm)?$", a.st.ModelUUID(), a.doc.Name)
 	var docs []statusDocWithID
 	err := col.Find(bson.M{"_id": bson.M{"$regex": selector}}).All(&docs)
 	if err != nil {
@@ -3824,8 +3841,15 @@ func (a *Application) CharmPendingToBeDownloaded() bool {
 	if err != nil {
 		return false
 	}
-
-	return !ch.IsPlaceholder() && !ch.IsUploaded()
+	origin := a.CharmOrigin()
+	if origin == nil {
+		return false
+	}
+	// The charm may be downloaded, but the application's
+	// data may not updated yet. This can happen when multiple
+	// applications share a charm.
+	notReady := origin.Source == "charm-hub" && origin.ID == ""
+	return !ch.IsPlaceholder() && !ch.IsUploaded() || notReady
 }
 
 func appUnitNames(st *State, appName string) ([]string, error) {
@@ -3848,8 +3872,9 @@ func appUnitNames(st *State, appName string) ([]string, error) {
 }
 
 // WatchApplicationsWithPendingCharms returns a watcher that emits the IDs of
-// applications that have a charm origin popoulated and reference a charm that
-// is pending to be downloaded.
+// applications that have a charm origin populated and reference a charm that
+// is pending to be downloaded or the charm origin ID has not been filled in yet
+// for charm-hub charms.
 func (st *State) WatchApplicationsWithPendingCharms() StringsWatcher {
 	return newCollectionWatcher(st, colWCfg{
 		col: applicationsC,
@@ -3860,12 +3885,11 @@ func (st *State) WatchApplicationsWithPendingCharms() StringsWatcher {
 			}
 
 			// We need an application with both a charm URL and
-			// an origin set.trusty
+			// an origin set.
 			app, _ := st.Application(st.localID(sKey))
-			if app == nil || app.CharmOrigin() == nil {
+			if app == nil {
 				return false
 			}
-
 			return app.CharmPendingToBeDownloaded()
 		},
 		// We want to be notified for application documents as soon as

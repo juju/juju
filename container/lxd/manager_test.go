@@ -12,7 +12,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	lxdclient "github.com/lxc/lxd/client"
-	"github.com/lxc/lxd/shared"
 	lxdapi "github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 
@@ -329,7 +328,7 @@ func (s *managerSuite) TestListContainers(c *gc.C) {
 		{Name: "nothing-to-see-here-please", Type: "container"},
 	}
 
-	s.cSvr.EXPECT().GetInstances(lxdapi.InstanceTypeContainer).Return(containers, nil)
+	s.cSvr.EXPECT().GetInstances(lxdapi.InstanceTypeAny).Return(containers, nil)
 
 	result, err := s.manager.ListContainers()
 	c.Assert(err, jc.ErrorIsNil)
@@ -342,7 +341,7 @@ func (s *managerSuite) TestIsInitialized(c *gc.C) {
 	mgr, err := lxd.NewContainerManager(getBaseConfig(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(mgr.IsInitialized(), gc.Equals, lxd.SocketPath(shared.IsUnixSocket) != "")
+	c.Check(mgr.IsInitialized(), gc.Equals, lxd.SocketPath(lxd.IsUnixSocket) != "")
 }
 
 func (s *managerSuite) TestNetworkDevicesFromConfigWithEmptyParentDevice(c *gc.C) {

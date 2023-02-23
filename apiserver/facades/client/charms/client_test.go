@@ -7,14 +7,12 @@ import (
 	"net/url"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v9"
-	csparams "github.com/juju/charmrepo/v7/csclient/params"
+	"github.com/juju/charm/v10"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
@@ -25,7 +23,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/charms/mocks"
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/cache"
 	corecharm "github.com/juju/juju/core/charm"
@@ -37,7 +34,6 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -74,7 +70,6 @@ func (ctx *charmsSuiteContext) LeadershipChecker() (leadership.Checker, error)  
 func (ctx *charmsSuiteContext) LeadershipPinner(string) (leadership.Pinner, error)    { return nil, nil }
 func (ctx *charmsSuiteContext) LeadershipReader(string) (leadership.Reader, error)    { return nil, nil }
 func (ctx *charmsSuiteContext) SingularClaimer() (lease.Claimer, error)               { return nil, nil }
-func (ctx *charmsSuiteContext) Raft() facade.RaftContext                              { return nil }
 func (ctx *charmsSuiteContext) HTTPClient(facade.HTTPClientPurpose) facade.HTTPClient { return nil }
 
 func (s *charmsSuite) SetUpTest(c *gc.C) {
@@ -92,7 +87,7 @@ func (s *charmsSuite) SetUpTest(c *gc.C) {
 
 func (s *charmsSuite) TestMeteredCharmInfo(c *gc.C) {
 	meteredCharm := s.Factory.MakeCharm(
-		c, &factory.CharmParams{Name: "metered", URL: "cs:xenial/metered"})
+		c, &factory.CharmParams{Name: "metered", URL: "ch:amd64/xenial/metered"})
 	info, err := s.api.CharmInfo(params.CharmURL{
 		URL: meteredCharm.String(),
 	})
@@ -146,7 +141,7 @@ func (s *charmsSuite) TestIsMeteredFalse(c *gc.C) {
 }
 
 func (s *charmsSuite) TestIsMeteredTrue(c *gc.C) {
-	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
+	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:amd64/quantal/metered"})
 	metered, err := s.api.IsMetered(params.CharmURL{
 		URL: meteredCharm.String(),
 	})
@@ -174,33 +169,30 @@ var _ = gc.Suite(&charmsMockSuite{})
 func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectResolveWithPreferredChannel(3, nil)
-	s.expectControllerConfig(c)
 	api := s.api(c)
 
-	curl, err := charm.ParseURL("cs:testme")
+	curl, err := charm.ParseURL("ch:testme")
 	c.Assert(err, jc.ErrorIsNil)
-	seriesCurl, err := charm.ParseURL("cs:focal/testme")
+	seriesCurl, err := charm.ParseURL("ch:amd64/focal/testme")
 	c.Assert(err, jc.ErrorIsNil)
 
-	edge := string(csparams.EdgeChannel)
-	stable := string(csparams.StableChannel)
 	edgeOrigin := params.CharmOrigin{
-		Source:       corecharm.CharmStore.String(),
+		Source:       corecharm.CharmHub.String(),
 		Type:         "charm",
-		Risk:         edge,
+		Risk:         "edge",
 		Architecture: "amd64",
 	}
 	stableOrigin := params.CharmOrigin{
-		Source:       corecharm.CharmStore.String(),
+		Source:       corecharm.CharmHub.String(),
 		Type:         "charm",
-		Risk:         stable,
+		Risk:         "stable",
 		Architecture: "amd64",
 	}
 
 	args := params.ResolveCharmsWithChannel{
 		Resolve: []params.ResolveCharmWithChannel{
 			{Reference: curl.String(), Origin: params.CharmOrigin{
-				Source:       corecharm.CharmStore.String(),
+				Source:       corecharm.CharmHub.String(),
 				Architecture: "amd64",
 			}},
 			{Reference: curl.String(), Origin: stableOrigin},
@@ -249,17 +241,15 @@ func (s *charmsMockSuite) TestResolveCharmsUnknownSchema(c *gc.C) {
 func (s *charmsMockSuite) TestResolveCharmNoDefinedSeries(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectResolveWithPreferredChannelNoSeries()
-	s.expectControllerConfig(c)
 	api := s.api(c)
 
-	seriesCurl, err := charm.ParseURL("cs:focal/testme")
+	seriesCurl, err := charm.ParseURL("ch:focal/testme")
 	c.Assert(err, jc.ErrorIsNil)
 
-	edge := string(csparams.EdgeChannel)
 	edgeOrigin := params.CharmOrigin{
-		Source:       corecharm.CharmStore.String(),
+		Source:       corecharm.CharmHub.String(),
 		Type:         "charm",
-		Risk:         edge,
+		Risk:         "edge",
 		Architecture: "amd64",
 	}
 
@@ -295,92 +285,6 @@ func (s *charmsMockSuite) TestAddCharmWithLocalSource(c *gc.C) {
 	}
 	_, err = api.AddCharm(args)
 	c.Assert(err, gc.ErrorMatches, `unknown schema for charm URL "local:testme"`)
-}
-
-func (s *charmsMockSuite) TestAddCharmCharmstore(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	curl, err := charm.ParseURL("cs:testme-8")
-	c.Assert(err, jc.ErrorIsNil)
-
-	requestedOrigin := corecharm.Origin{
-		Source: "charm-store",
-		Channel: &charm.Channel{
-			Risk: "stable",
-		},
-	}
-	resolvedOrigin := corecharm.Origin{
-		Source: "charm-store",
-		Channel: &charm.Channel{
-			Risk: "stable",
-		},
-	}
-
-	s.downloader.EXPECT().DownloadAndStore(curl, requestedOrigin, nil, false).Return(resolvedOrigin, nil)
-
-	api := s.api(c)
-
-	args := params.AddCharmWithOrigin{
-		URL: curl.String(),
-		Origin: params.CharmOrigin{
-			Source: "charm-store",
-			Risk:   "stable",
-		},
-	}
-	obtained, err := api.AddCharm(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained, gc.DeepEquals, params.CharmOriginResult{
-		Origin: params.CharmOrigin{
-			Source: "charm-store",
-			Risk:   "stable",
-		},
-	})
-}
-
-func (s *charmsMockSuite) TestAddCharmCharmstoreWithAuthorization(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	curl, err := charm.ParseURL("cs:testme-8")
-	c.Assert(err, jc.ErrorIsNil)
-
-	requestedOrigin := corecharm.Origin{
-		Source: "charm-store",
-		Channel: &charm.Channel{
-			Risk: "stable",
-		},
-	}
-	resolvedOrigin := corecharm.Origin{
-		Source: "charm-store",
-		Channel: &charm.Channel{
-			Risk: "stable",
-		},
-	}
-
-	mac, err := macaroon.New(nil, []byte("id"), "", macaroon.LatestVersion)
-	c.Assert(err, jc.ErrorIsNil)
-	macaroons := macaroon.Slice{mac}
-
-	s.downloader.EXPECT().DownloadAndStore(curl, requestedOrigin, macaroons, false).Return(resolvedOrigin, nil)
-
-	api := s.api(c)
-
-	args := params.AddCharmWithAuth{
-		URL: curl.String(),
-		Origin: params.CharmOrigin{
-			Source: "charm-store",
-			Risk:   "stable",
-		},
-		Force:              false,
-		CharmStoreMacaroon: mac,
-	}
-	obtained, err := api.AddCharmWithAuthorization(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained, gc.DeepEquals, params.CharmOriginResult{
-		Origin: params.CharmOrigin{
-			Source: "charm-store",
-			Risk:   "stable",
-		},
-	})
 }
 
 func (s *charmsMockSuite) TestAddCharmCharmhub(c *gc.C) {
@@ -483,7 +387,7 @@ func (s *charmsMockSuite) TestQueueAsyncCharmDownloadResolvesAgainOriginForAlrea
 
 	s.state.EXPECT().Charm(curl).Return(nil, nil) // a nil error indicates that the charm doc already exists
 	s.repoFactory.EXPECT().GetCharmRepository(gomock.Any()).Return(s.repository, nil)
-	s.repository.EXPECT().GetDownloadURL(curl, gomock.Any(), nil).Return(resURL, resolvedOrigin, nil)
+	s.repository.EXPECT().GetDownloadURL(curl, gomock.Any()).Return(resURL, resolvedOrigin, nil)
 
 	api := s.api(c)
 
@@ -724,20 +628,18 @@ func (s *charmsMockSuite) expectResolveWithPreferredChannel(times int, err error
 	s.repository.EXPECT().ResolveWithPreferredChannel(
 		gomock.AssignableToTypeOf(&charm.URL{}),
 		gomock.AssignableToTypeOf(corecharm.Origin{}),
-		nil, // no macaroons
 	).DoAndReturn(
 		// Ensure the same curl that is provided, is returned.
-		func(curl *charm.URL, requestedOrigin corecharm.Origin, _ macaroon.Slice) (*charm.URL, corecharm.Origin, []string, error) {
+		func(curl *charm.URL, requestedOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []string, error) {
 			resolvedOrigin := requestedOrigin
 			resolvedOrigin.Type = "charm"
 
-			if requestedOrigin.Channel == nil || csparams.Channel(requestedOrigin.Channel.Risk) == csparams.NoChannel {
+			if requestedOrigin.Channel == nil || requestedOrigin.Channel.Risk == "" {
 				if requestedOrigin.Channel == nil {
 					resolvedOrigin.Channel = new(charm.Channel)
 				}
 
-				// minor attempt at mimicing charmrepo/charmstore.go.bestChannel()
-				resolvedOrigin.Channel.Risk = charm.Risk(csparams.StableChannel)
+				resolvedOrigin.Channel.Risk = "stable"
 			}
 
 			return curl, resolvedOrigin, []string{"bionic", "focal", "xenial"}, err
@@ -749,33 +651,22 @@ func (s *charmsMockSuite) expectResolveWithPreferredChannelNoSeries() {
 	s.repository.EXPECT().ResolveWithPreferredChannel(
 		gomock.AssignableToTypeOf(&charm.URL{}),
 		gomock.AssignableToTypeOf(corecharm.Origin{}),
-		nil, // no macaroons
 	).DoAndReturn(
 		// Ensure the same curl that is provided, is returned.
-		func(curl *charm.URL, requestedOrigin corecharm.Origin, _ macaroon.Slice) (*charm.URL, corecharm.Origin, []string, error) {
+		func(curl *charm.URL, requestedOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []string, error) {
 			resolvedOrigin := requestedOrigin
 			resolvedOrigin.Type = "charm"
 
-			if requestedOrigin.Channel == nil || csparams.Channel(requestedOrigin.Channel.Risk) == csparams.NoChannel {
+			if requestedOrigin.Channel == nil || requestedOrigin.Channel.Risk == "" {
 				if requestedOrigin.Channel == nil {
 					resolvedOrigin.Channel = new(charm.Channel)
 				}
 
-				// minor attempt at mimicing charmrepo/charmstore.go.bestChannel()
-				resolvedOrigin.Channel.Risk = charm.Risk(csparams.StableChannel)
+				resolvedOrigin.Channel.Risk = "stable"
 			}
 
 			return curl, resolvedOrigin, []string{}, nil
 		})
-}
-
-func (s *charmsMockSuite) expectControllerConfig(c *gc.C) {
-	cfg, err := controller.NewConfig("deadbeef-1bad-500d-9000-4b1d0d06f00d", testing.CACert,
-		map[string]interface{}{
-			controller.CharmStoreURL: "http://www.testme.com",
-		})
-	c.Assert(err, jc.ErrorIsNil)
-	s.state.EXPECT().ControllerConfig().Return(cfg, nil).AnyTimes()
 }
 
 func (s *charmsMockSuite) expectMongoSession() {

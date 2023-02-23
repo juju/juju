@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
@@ -143,7 +143,7 @@ func (s *applicationOffers) AllApplicationOffers() (offers []*crossmodel.Applica
 	var docs []applicationOfferDoc
 	err := applicationOffersCollection.Find(bson.D{}).All(&docs)
 	if err != nil {
-		return nil, errors.Errorf("cannot get all application offers")
+		return nil, errors.Annotate(err, "getting application offer documents")
 	}
 	for _, doc := range docs {
 		offer, err := s.makeApplicationOffer(doc)

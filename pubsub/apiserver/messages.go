@@ -50,12 +50,12 @@ type DetailsRequest struct {
 }
 
 // ConnectTopic is the topic name for the published message
-// whenever an agent conntects to the API server.
+// whenever an agent connects to the API server.
 // data: `APIConnection`
 const ConnectTopic = "apiserver.agent-connect"
 
 // DisconnectTopic is the topic name for the published message
-// whenever an agent disconntects to the API server.
+// whenever an agent disconnects to the API server.
 // data: `APIConnection`
 const DisconnectTopic = "apiserver.agent-disconnect"
 

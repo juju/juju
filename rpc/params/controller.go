@@ -6,9 +6,7 @@ package params
 import (
 	"time"
 
-	"github.com/juju/errors"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/proxy"
 )
 
 // DestroyControllerArgs holds the arguments for destroying a controller.
@@ -39,7 +37,7 @@ type DestroyControllerArgs struct {
 	ModelTimeout *time.Duration `json:"model-timeout,omitempty"`
 }
 
-// ModelBlockInfo holds information about an model and its
+// ModelBlockInfo holds information about a model and its
 // current blocks.
 type ModelBlockInfo struct {
 	Name     string   `json:"name"`
@@ -63,17 +61,18 @@ type RemoveBlocksArgs struct {
 
 // ModelStatus holds information about the status of a juju model.
 type ModelStatus struct {
-	ModelTag           string                `json:"model-tag"`
-	Life               life.Value            `json:"life"`
-	Type               string                `json:"type"`
-	HostedMachineCount int                   `json:"hosted-machine-count"`
-	ApplicationCount   int                   `json:"application-count"`
-	UnitCount          int                   `json:"unit-count"`
-	OwnerTag           string                `json:"owner-tag"`
-	Machines           []ModelMachineInfo    `json:"machines,omitempty"`
-	Volumes            []ModelVolumeInfo     `json:"volumes,omitempty"`
-	Filesystems        []ModelFilesystemInfo `json:"filesystems,omitempty"`
-	Error              *Error                `json:"error,omitempty"`
+	ModelTag           string                 `json:"model-tag"`
+	Life               life.Value             `json:"life"`
+	Type               string                 `json:"type"`
+	HostedMachineCount int                    `json:"hosted-machine-count"`
+	ApplicationCount   int                    `json:"application-count"`
+	UnitCount          int                    `json:"unit-count"`
+	OwnerTag           string                 `json:"owner-tag"`
+	Applications       []ModelApplicationInfo `json:"applications,omitempty"`
+	Machines           []ModelMachineInfo     `json:"machines,omitempty"`
+	Volumes            []ModelVolumeInfo      `json:"volumes,omitempty"`
+	Filesystems        []ModelFilesystemInfo  `json:"filesystems,omitempty"`
+	Error              *Error                 `json:"error,omitempty"`
 }
 
 // ModelStatusResults holds status information about a group of models.
@@ -134,40 +133,18 @@ type ControllerVersionResults struct {
 	GitCommit string `json:"git-commit"`
 }
 
-// DashboardConnectionProxy represents a proxy connection to the Juju Dashboard
-type DashboardConnectionProxy struct {
-	Config map[string]interface{} `json:"config"`
-	Type   string                 `json:"type"`
-}
-
 // DashboardConnectionSSHTunnel represents an ssh tunnel connection to the Juju
 // Dashboard
 type DashboardConnectionSSHTunnel struct {
-	Host string `json:"host"`
-	Port string `json:"port"`
+	Model  string `json:"model,omitempty"`
+	Entity string `json:"entity,omitempty"`
+	Host   string `json:"host"`
+	Port   string `json:"port"`
 }
 
-// DashboardConnectionInfo holds the information necassery
+// DashboardConnectionInfo holds the information necessary
 type DashboardConnectionInfo struct {
-	ProxyConnection *DashboardConnectionProxy     `json:"proxy-connection"`
+	ProxyConnection *Proxy                        `json:"proxy-connection"`
 	SSHConnection   *DashboardConnectionSSHTunnel `json:"ssh-connection"`
 	Error           *Error                        `json:"error,omitempty"`
-}
-
-// NewDashboardConnectionProxy constructs a new DashboardConnectionProxy from
-// the supplied proxier.
-func NewDashboardConnectionProxy(proxier proxy.Proxier) (*DashboardConnectionProxy, error) {
-	if proxier == nil {
-		return nil, errors.NotValidf("cannot have nil proxier")
-	}
-
-	config, err := proxier.RawConfig()
-	if err != nil {
-		return nil, errors.Annotatef(err, "getting raw configuration for proxier of type %s", proxier.Type())
-	}
-
-	return &DashboardConnectionProxy{
-		Config: config,
-		Type:   proxier.Type(),
-	}, nil
 }

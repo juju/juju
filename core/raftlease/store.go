@@ -116,13 +116,13 @@ func (s *Store) RevokeLease(key lease.Key, holder string, stop <-chan struct{}) 
 }
 
 // Leases is part of lease.Store.
-func (s *Store) Leases(keys ...lease.Key) map[lease.Key]lease.Info {
-	return s.fsm.Leases(s.config.Clock.Now, keys...)
+func (s *Store) Leases(keys ...lease.Key) (map[lease.Key]lease.Info, error) {
+	return s.fsm.Leases(s.config.Clock.Now, keys...), nil
 }
 
 // LeaseGroup is part of Lease.Store.
-func (s *Store) LeaseGroup(namespace, modelUUID string) map[lease.Key]lease.Info {
-	return s.fsm.LeaseGroup(s.config.Clock.Now, namespace, modelUUID)
+func (s *Store) LeaseGroup(namespace, modelUUID string) (map[lease.Key]lease.Info, error) {
+	return s.fsm.LeaseGroup(s.config.Clock.Now, namespace, modelUUID), nil
 }
 
 // PinLease is part of lease.Store.
@@ -136,8 +136,8 @@ func (s *Store) UnpinLease(key lease.Key, entity string, stop <-chan struct{}) e
 }
 
 // Pinned is part of the Store interface.
-func (s *Store) Pinned() map[lease.Key][]string {
-	return s.fsm.Pinned()
+func (s *Store) Pinned() (map[lease.Key][]string, error) {
+	return s.fsm.Pinned(), nil
 }
 
 func (s *Store) pinOp(operation string, key lease.Key, entity string, stop <-chan struct{}) error {

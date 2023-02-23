@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
@@ -20,7 +20,7 @@ import (
 	coreseries "github.com/juju/juju/core/series"
 )
 
-func convertInfoResponse(info transport.InfoResponse, arch, series string) (InfoResponse, error) {
+func convertInfoResponse(info transport.InfoResponse, arch string, base coreseries.Base) (InfoResponse, error) {
 	ir := InfoResponse{
 		Type:        string(info.Type),
 		ID:          info.ID,
@@ -51,7 +51,7 @@ func convertInfoResponse(info transport.InfoResponse, arch, series string) (Info
 	}
 
 	var err error
-	ir.Tracks, ir.Channels, err = filterChannels(info.ChannelMap, arch, series)
+	ir.Tracks, ir.Channels, err = filterChannels(info.ChannelMap, arch, base)
 	if err != nil {
 		return ir, errors.Trace(err)
 	}
@@ -109,34 +109,32 @@ func convertCharm(info transport.InfoResponse) *Charm {
 	return ch
 }
 
-func includeChannel(p []corecharm.Platform, architecture, series string) bool {
+func includeChannel(p []corecharm.Platform, architecture string, base coreseries.Base) bool {
 	allArch := architecture == ArchAll
-	allSeries := series == SeriesAll
 
 	// If we're searching for everything then we can skip the filtering logic
 	// and return immediately.
-	if allArch && allSeries {
+	if allArch && base.Empty() {
 		return true
 	}
 
 	archSet := channelArches(p)
-	seriesSet := channelSeries(p)
+	basesSet := channelBases(p)
+
+	contains := func(bases []Base, base coreseries.Base) bool {
+		for _, b := range bases {
+			if b.Name == base.OS && b.Channel == base.Channel.Track {
+				return true
+			}
+		}
+		return false
+	}
 
 	if (allArch || archSet.Contains(architecture)) &&
-		(allSeries || seriesSet.Contains(series) || seriesSet.Contains(SeriesAll)) {
+		(base.Empty() || contains(basesSet, base)) {
 		return true
 	}
 	return false
-}
-
-func channelSeries(platforms []corecharm.Platform) set.Strings {
-	series := set.NewStrings()
-	for _, v := range platforms {
-		if s, err := coreseries.GetSeriesFromChannel(v.OS, v.Channel); err == nil {
-			series.Add(s)
-		}
-	}
-	return series
 }
 
 func channelBases(platforms []corecharm.Platform) []Base {
@@ -302,8 +300,8 @@ func formatRelationPart(r map[string]charm.Relation) (map[string]string, bool) {
 
 // filterChannels returns channel map data in a format that facilitates
 // determining track order and open vs closed channels for displaying channel
-// data. The result is filtered on series and arch.
-func filterChannels(channelMap []transport.InfoChannelMap, arch, series string) ([]string, RevisionsMap, error) {
+// data. The result is filtered on base and arch.
+func filterChannels(channelMap []transport.InfoChannelMap, arch string, base coreseries.Base) ([]string, RevisionsMap, error) {
 	var trackList []string
 
 	tracksSeen := set.NewStrings()
@@ -322,7 +320,7 @@ func filterChannels(channelMap []transport.InfoChannelMap, arch, series string) 
 		}
 
 		platforms := convertBasesToPlatforms(cm.Revision.Bases)
-		if !includeChannel(platforms, arch, series) {
+		if !includeChannel(platforms, arch, base) {
 			continue
 		}
 

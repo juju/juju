@@ -10,7 +10,7 @@ import (
 	"sort"
 	"time"
 
-	charmresource "github.com/juju/charm/v9/resource"
+	charmresource "github.com/juju/charm/v10/resource"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -197,6 +197,57 @@ func (a *API) WatchApplications() (params.StringsWatchResult, error) {
 		}, nil
 	}
 	return params.StringsWatchResult{}, watcher.EnsureErr(watch)
+}
+
+// WatchProvisioningInfo provides a watcher for changes that affect the
+// information returned by ProvisioningInfo. This is useful for ensuring the
+// latest application stated is ensured.
+func (a *API) WatchProvisioningInfo(args params.Entities) (params.NotifyWatchResults, error) {
+	var result params.NotifyWatchResults
+	result.Results = make([]params.NotifyWatchResult, len(args.Entities))
+	for i, entity := range args.Entities {
+		appName, err := names.ParseApplicationTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		res, err := a.watchProvisioningInfo(appName)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		result.Results[i].NotifyWatcherId = res.NotifyWatcherId
+	}
+	return result, nil
+}
+
+func (a *API) watchProvisioningInfo(appName names.ApplicationTag) (params.NotifyWatchResult, error) {
+	result := params.NotifyWatchResult{}
+	app, err := a.state.Application(appName.Id())
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	model, err := a.state.Model()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	modelConfigWatcher := model.WatchForModelConfigChanges()
+	appWatcher := app.Watch()
+	controllerConfigWatcher := a.ctrlSt.WatchControllerConfig()
+
+	multiWatcher := common.NewMultiNotifyWatcher(appWatcher, controllerConfigWatcher, modelConfigWatcher)
+
+	if _, ok := <-multiWatcher.Changes(); ok {
+		result.NotifyWatcherId = a.resources.Register(multiWatcher)
+	} else {
+		return result, watcher.EnsureErr(multiWatcher)
+	}
+
+	return result, nil
 }
 
 // ProvisioningInfo returns the info needed to provision a caas application.

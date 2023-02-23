@@ -5,7 +5,7 @@ package deployer
 
 import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
@@ -36,7 +36,7 @@ type Deployer interface {
 	// PrepareAndDeploy finishes preparing to deploy a charm or bundle,
 	// then deploys it.  This is done as one step to accommodate the
 	// call being wrapped by block.ProcessBlockedError.
-	PrepareAndDeploy(*cmd.Context, DeployerAPI, Resolver, store.MacaroonGetter) error
+	PrepareAndDeploy(*cmd.Context, DeployerAPI, Resolver) error
 
 	// String returns a string description of the deployer.
 	String() string
@@ -52,9 +52,6 @@ type DeployStepAPI interface {
 type DeployStep interface {
 	// SetFlags sets flags necessary for the deploy step.
 	SetFlags(*gnuflag.FlagSet)
-
-	// SetPlanURL sets the plan URL prefix.
-	SetPlanURL(planURL string)
 
 	// RunPre runs before the call is made to add the charm to the environment.
 	RunPre(DeployStepAPI, *httpbakery.Client, *cmd.Context, DeploymentInfo) error
@@ -111,9 +108,6 @@ type DeployerAPI interface {
 	CharmDeployAPI
 	ModelAPI
 	OfferAPI
-
-	// PlanURL returns the configured URL prefix for the metering plan API.
-	PlanURL() string
 
 	ListSpaces() ([]apiparams.Space, error)
 	Deploy(application.DeployArgs) error

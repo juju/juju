@@ -66,7 +66,7 @@ func (s *metricsAdderSuite) SetUpTest(c *gc.C) {
 
 	s.meteredCharm = s.Factory.MakeCharm(c, &jujuFactory.CharmParams{
 		Name: "metered",
-		URL:  "cs:quantal/metered",
+		URL:  "ch:amd64/quantal/metered",
 	})
 	s.meteredService = s.Factory.MakeApplication(c, &jujuFactory.ApplicationParams{
 		Charm: s.meteredCharm,

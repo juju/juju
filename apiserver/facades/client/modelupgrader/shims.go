@@ -18,6 +18,7 @@ import (
 // pool.
 type StatePool interface {
 	Get(string) (State, error)
+	ControllerModel() (Model, error)
 	MongoVersion() (string, error)
 }
 
@@ -32,6 +33,11 @@ type State interface {
 	SetModelAgentVersion(newVersion version.Number, stream *string, ignoreAgentVersions bool) error
 	AbortCurrentUpgrade() error
 	ControllerConfig() (controller.Config, error)
+	AllCharmURLs() ([]*string, error)
+}
+
+type SystemState interface {
+	ControllerModel() (Model, error)
 }
 
 // Model defines a point of use interface for the model from state.
@@ -46,6 +52,20 @@ type Model interface {
 
 type statePoolShim struct {
 	*state.StatePool
+}
+
+func (s statePoolShim) ControllerModel() (Model, error) {
+	st, err := s.StatePool.SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return modelShim{
+		Model: model,
+	}, nil
 }
 
 func (s statePoolShim) Get(uuid string) (State, error) {
@@ -110,6 +130,10 @@ func (s stateShim) MongoCurrentStatus() (*replicaset.Status, error) {
 		s.mgosession = s.PooledState.MongoSession()
 	}
 	return replicaset.CurrentStatus(s.mgosession)
+}
+
+func (s stateShim) AllCharmURLs() ([]*string, error) {
+	return s.PooledState.AllCharmURLs()
 }
 
 type modelShim struct {

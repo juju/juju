@@ -114,7 +114,7 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 		displayName = fmt.Sprintf("%s (%s)", c.DisplayName, c.User)
 	}
 	base64RegistrationData, err := generateUserControllerAccessToken(
-		c.ControllerCommandBase,
+		&c.ControllerCommandBase,
 		c.User,
 		secretKey,
 	)

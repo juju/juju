@@ -20,21 +20,9 @@ import (
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
-	"github.com/juju/juju/core/raft/queue"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/syslogger"
 )
-
-// Queue is a blocking queue to guard access and to serialize raft applications,
-// allowing for client side backoff.
-type Queue interface {
-	// Enqueue will add an operation to the queue. As this is a blocking queue, any
-	// additional enqueue operations will block and wait for subsequent operations
-	// to be completed.
-	// The design of this is to ensure that people calling this will have to
-	// correctly handle backing off from enqueueing.
-	Enqueue(queue.InOperation) error
-}
 
 // Config is the configuration required for running an API server worker.
 type Config struct {
@@ -55,7 +43,6 @@ type Config struct {
 	NewServer                         NewServerFunc
 	MetricsCollector                  *apiserver.Collector
 	EmbeddedCommand                   apiserver.ExecEmbeddedCommandFunc
-	RaftOpQueue                       Queue
 	CharmhubHTTPClient                HTTPClient
 }
 
@@ -113,9 +100,6 @@ func (config Config) Validate() error {
 	}
 	if config.MetricsCollector == nil {
 		return errors.NotValidf("nil MetricsCollector")
-	}
-	if config.RaftOpQueue == nil {
-		return errors.NotValidf("nil RaftOpQueue")
 	}
 	if config.CharmhubHTTPClient == nil {
 		return errors.NotValidf("nil CharmhubHTTPClient")
@@ -176,7 +160,6 @@ func NewWorker(config Config) (worker.Worker, error) {
 		GetAuditConfig:                config.GetAuditConfig,
 		LeaseManager:                  config.LeaseManager,
 		ExecEmbeddedCommand:           config.EmbeddedCommand,
-		RaftOpQueue:                   config.RaftOpQueue,
 		SysLogger:                     config.SysLogger,
 		CharmhubHTTPClient:            config.CharmhubHTTPClient,
 	}

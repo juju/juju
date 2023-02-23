@@ -113,7 +113,7 @@ const (
 func (s *ImageMetadataSuite) TestImageMetadataFilesNoEnv(c *gc.C) {
 	ctx, err := runImageMetadata(c, s.store,
 		"-d", s.dir, "-i", "1234", "-r", "region", "-a", "arch", "-u", "endpoint",
-		"-s", "raring", "--virt-type=pv", "--storage=root",
+		"--base", "ubuntu@13.04", "--virt-type=pv", "--storage=root",
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
@@ -128,7 +128,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesNoEnv(c *gc.C) {
 
 func (s *ImageMetadataSuite) TestImageMetadataFilesDefaultArch(c *gc.C) {
 	ctx, err := runImageMetadata(c, s.store,
-		"-d", s.dir, "-i", "1234", "-r", "region", "-u", "endpoint", "-s", "raring",
+		"-d", s.dir, "-i", "1234", "-r", "region", "-u", "endpoint", "--base", "ubuntu@13.04",
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
@@ -207,15 +207,15 @@ type errTestParams struct {
 var errTests = []errTestParams{
 	{
 		// Missing image id
-		args: []string{"-r", "region", "-a", "arch", "-u", "endpoint", "-s", "precise"},
+		args: []string{"-r", "region", "-a", "arch", "-u", "endpoint", "-base", "ubuntu@12.04"},
 	},
 	{
 		// Missing region
-		args: []string{"-i", "1234", "-a", "arch", "-u", "endpoint", "-s", "precise"},
+		args: []string{"-i", "1234", "-a", "arch", "-u", "endpoint", "-base", "ubuntu@12.04"},
 	},
 	{
 		// Missing endpoint
-		args: []string{"-i", "1234", "-u", "endpoint", "-a", "arch", "-s", "precise"},
+		args: []string{"-i", "1234", "-u", "endpoint", "-a", "arch", "-base", "ubuntu@12.04"},
 	},
 }
 

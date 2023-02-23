@@ -63,7 +63,7 @@ func (s *annotationSuite) TestMachineAnnotations(c *gc.C) {
 }
 
 func (s *annotationSuite) TestCharmAnnotations(c *gc.C) {
-	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress", URL: "local:wordpress-1"})
 	s.testSetGetEntitiesAnnotations(c, charm.Tag())
 }
 

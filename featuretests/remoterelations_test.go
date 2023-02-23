@@ -6,7 +6,7 @@ package featuretests
 import (
 	"time"
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3"
 	gc "gopkg.in/check.v1"

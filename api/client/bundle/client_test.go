@@ -22,7 +22,7 @@ func (s *bundleMockSuite) TestGetChanges(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	bundleURL := "cs:bundle-url"
+	bundleURL := "ch:bundle-url"
 	bundleYAML := `applications:
 	ubuntu:
 		charm: ch:ubuntu
@@ -82,7 +82,7 @@ func (s *bundleMockSuite) TestGetChangesReturnsErrors(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	bundleURL := "cs:bundle-url"
+	bundleURL := "ch:bundle-url"
 	bundleYAML := `applications:
 	ubuntu:
 		charm: ch:ubuntu
@@ -114,7 +114,7 @@ func (s *bundleMockSuite) TestGetChangesMapArgs(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	bundleURL := "cs:bundle-url"
+	bundleURL := "ch:bundle-url"
 	bundleYAML := `applications:
 	ubuntu:
 		charm: ch:ubuntu
@@ -170,7 +170,7 @@ func (s *bundleMockSuite) TestGetChangesMapArgsReturnsErrors(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	bundleURL := "cs:bundle-url"
+	bundleURL := "ch:bundle-url"
 	bundleYAML := `applications:
 	ubuntu:
 		charm: ch:ubuntu

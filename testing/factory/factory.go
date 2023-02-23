@@ -10,8 +10,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/juju/charm/v9"
-	charmresource "github.com/juju/charm/v9/resource"
+	"github.com/juju/charm/v10"
+	charmresource "github.com/juju/charm/v10/resource"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
@@ -413,7 +413,7 @@ func (factory *Factory) MakeCharm(c *gc.C, params *CharmParams) *state.Charm {
 		params.Revision = fmt.Sprintf("%d", uniqueInteger())
 	}
 	if params.URL == "" {
-		params.URL = fmt.Sprintf("cs:%s/%s-%s", params.Series, params.Name, params.Revision)
+		params.URL = fmt.Sprintf("ch:amd64/%s/%s-%s", params.Series, params.Name, params.Revision)
 	}
 
 	ch := testcharms.RepoForSeries(params.Series).CharmDir(params.Name)
@@ -494,18 +494,31 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	if params.CharmOrigin == nil {
-		chSeries := params.Charm.URL().Series
+		curl := params.Charm.URL()
+		chSeries := curl.Series
 		// Legacy k8s charms - assume ubuntu focal.
 		if chSeries == "kubernetes" {
 			chSeries = coreseries.LegacyKubernetesSeries()
 		}
 		base, err := coreseries.GetBaseFromSeries(chSeries)
 		c.Assert(err, jc.ErrorIsNil)
-		params.CharmOrigin = &state.CharmOrigin{Platform: &state.Platform{
-			Architecture: params.Charm.URL().Architecture,
-			OS:           base.OS,
-			Channel:      base.Channel.String(),
-		}}
+		var channel *state.Channel
+		var source string
+		// local charms cannot have a channel
+		if charm.CharmHub.Matches(curl.Schema) {
+			channel = &state.Channel{Risk: "stable"}
+			source = "charm-hub"
+		} else if charm.Local.Matches(curl.Schema) {
+			source = "local"
+		}
+		params.CharmOrigin = &state.CharmOrigin{
+			Channel: channel,
+			Source:  source,
+			Platform: &state.Platform{
+				Architecture: params.Charm.URL().Architecture,
+				OS:           base.OS,
+				Channel:      base.Channel.String(),
+			}}
 	}
 
 	rSt := factory.st.Resources()
@@ -678,7 +691,7 @@ func (factory *Factory) MakeMetric(c *gc.C, params *MetricParams) *state.MetricB
 		params = &MetricParams{}
 	}
 	if params.Unit == nil {
-		meteredCharm := factory.MakeCharm(c, &CharmParams{Name: "metered", URL: "cs:quantal/metered"})
+		meteredCharm := factory.MakeCharm(c, &CharmParams{Name: "metered", URL: "ch:quantal/metered"})
 		meteredApplication := factory.MakeApplication(c, &ApplicationParams{Charm: meteredCharm})
 		params.Unit = factory.MakeUnit(c, &UnitParams{Application: meteredApplication, SetCharmURL: true})
 	}

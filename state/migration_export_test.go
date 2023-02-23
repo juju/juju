@@ -10,9 +10,8 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/juju/charm/v9"
-	charmresource "github.com/juju/charm/v9/resource"
-	"github.com/juju/description/v4"
+	"github.com/juju/charm/v10"
+	charmresource "github.com/juju/charm/v10/resource"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -22,6 +21,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/macaroon.v2"
+
+	"github.com/juju/description/v4"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
@@ -2580,7 +2581,7 @@ func (s *MigrationExportSuite) TestRelationWithNoStatus(c *gc.C) {
 	c.Assert(rels[0].Status(), gc.IsNil)
 }
 
-func (s *MigrationExportSuite) TestRemoteRelationSettingsForLocalUnitInCMR(c *gc.C) {
+func (s *MigrationExportSuite) TestRemoteRelationSettingsForUnitsInCMR(c *gc.C) {
 	mac, err := newMacaroon("apimac")
 	c.Assert(err, gc.IsNil)
 
@@ -2626,10 +2627,18 @@ func (s *MigrationExportSuite) TestRemoteRelationSettingsForLocalUnitInCMR(c *gc
 	c.Assert(err, jc.ErrorIsNil)
 
 	wordpress0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: wordpress})
-	ru, err := rel.Unit(wordpress0)
+	localRU, err := rel.Unit(wordpress0)
 	c.Assert(err, jc.ErrorIsNil)
+
 	wordpressSettings := map[string]interface{}{"name": "wordpress/0"}
-	err = ru.EnterScope(wordpressSettings)
+	err = localRU.EnterScope(wordpressSettings)
+	c.Assert(err, jc.ErrorIsNil)
+
+	remoteRU, err := rel.RemoteUnit("gravy-rainbow/0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	gravySettings := map[string]interface{}{"name": "gravy-rainbow/0"}
+	err = remoteRU.EnterScope(gravySettings)
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Export(map[string]string{})
@@ -2641,14 +2650,11 @@ func (s *MigrationExportSuite) TestRemoteRelationSettingsForLocalUnitInCMR(c *gc
 	c.Assert(exRel.Endpoints(), gc.HasLen, 2)
 
 	for _, exEp := range exRel.Endpoints() {
-		// We expect that the relation settings for the local application unit
-		// are recorded against its relation endpoint,
-		// but the remote application has no unit settings.
 		if exEp.ApplicationName() == "wordpress" {
 			c.Check(exEp.Settings(wordpress0.Name()), jc.DeepEquals, wordpressSettings)
 		} else {
 			c.Check(exEp.ApplicationName(), gc.Equals, "gravy-rainbow")
-			c.Check(exEp.AllSettings(), gc.HasLen, 0)
+			c.Check(exEp.Settings("gravy-rainbow/0"), jc.DeepEquals, gravySettings)
 		}
 	}
 }
@@ -2678,7 +2684,10 @@ func (s *MigrationExportSuite) TestSecrets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	md, err = store.UpdateSecret(md.URI, state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
-		ProviderId:  ptr("provider-id"),
+		ValueRef: &secrets.ValueRef{
+			BackendID:  "backend-id",
+			RevisionID: "rev-id",
+		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.GrantSecretAccess(uri, state.SecretAccessParams{
@@ -2719,7 +2728,9 @@ func (s *MigrationExportSuite) TestSecrets(c *gc.C) {
 	c.Assert(revisions, gc.HasLen, 2)
 	c.Assert(revisions[0].Content(), jc.DeepEquals, map[string]string{"foo": "bar"})
 	c.Assert(revisions[0].ExpireTime(), jc.DeepEquals, ptr(expire))
-	c.Assert(revisions[1].ProviderId(), jc.DeepEquals, ptr("provider-id"))
+	c.Assert(revisions[1].ValueRef(), gc.NotNil)
+	c.Assert(revisions[1].ValueRef().BackendID(), jc.DeepEquals, "backend-id")
+	c.Assert(revisions[1].ValueRef().RevisionID(), jc.DeepEquals, "rev-id")
 	consumers := secret.Consumers()
 	c.Assert(consumers, gc.HasLen, 1)
 	info := consumers[0]

@@ -43,9 +43,6 @@ type Application interface {
 	// Service returns the service associated with the application.
 	Service() (*Service, error)
 
-	// Upgrade upgrades the app to the specified version.
-	Upgrade(version.Number) error
-
 	ServiceInterface
 }
 

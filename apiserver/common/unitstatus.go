@@ -6,7 +6,7 @@ package common
 import (
 	"fmt"
 
-	"github.com/juju/charm/v9/hooks"
+	"github.com/juju/charm/v10/hooks"
 
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
@@ -51,7 +51,14 @@ func (c *ModelPresenceContext) UnitStatus(unit UnitStatusGetter) (agent StatusAn
 		// If the unit is in error, it would be bad to throw away
 		// the error information as when the agent reconnects, that
 		// error information would then be lost.
-		if workload.Status.Status != status.Error {
+		// NOTE(nvinuesa): we must also keep the same workload status
+		// and *not* add the "agent lost" message when the workload is
+		// terminated. This happens on k8s sometimes when we remove an
+		// application but the pod is not removed immediately. See:
+		// https://bugs.launchpad.net/juju/+bug/1979292
+		if workload.Status.Status != status.Error &&
+			workload.Status.Status != status.Terminated {
+
 			workload.Status.Status = status.Unknown
 			workload.Status.Message = fmt.Sprintf("agent lost, see 'juju show-status-log %s'", unit.Name())
 		}

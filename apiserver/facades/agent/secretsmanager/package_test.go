@@ -22,23 +22,26 @@ func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretsbackend.go github.com/juju/juju/apiserver/facades/agent/secretsmanager SecretsBackend
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretsstate.go github.com/juju/juju/apiserver/facades/agent/secretsmanager SecretsState
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretsconsumer.go github.com/juju/juju/apiserver/facades/agent/secretsmanager SecretsConsumer
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/crossmodel.go github.com/juju/juju/apiserver/facades/agent/secretsmanager CrossModelState,CrossModelSecretsClient
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretswatcher.go github.com/juju/juju/state StringsWatcher
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secrettriggers.go github.com/juju/juju/apiserver/facades/agent/secretsmanager SecretTriggers
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/leadershipchecker.go github.com/juju/juju/core/leadership Checker,Token
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretsriggerwatcher.go github.com/juju/juju/state SecretsTriggerWatcher
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretsprovider.go github.com/juju/juju/secrets/provider SecretStoreProvider
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretsprovider.go github.com/juju/juju/secrets/provider SecretBackendProvider
 
 func NewTestAPI(
 	authorizer facade.Authorizer,
 	resources facade.Resources,
 	leadership leadership.Checker,
-	backend SecretsBackend,
+	secretsState SecretsState,
 	consumer SecretsConsumer,
 	secretTriggers SecretTriggers,
-	storeConfigGetter commonsecrets.StoreConfigGetter,
-	providerGetter commonsecrets.ProviderInfoGetter,
+	backendConfigGetter commonsecrets.BackendConfigGetter,
+	adminConfigGetter commonsecrets.BackendAdminConfigGetter,
+	remoteClientGetter func(uri *coresecrets.URI) (CrossModelSecretsClient, error),
+	crossModelState CrossModelState,
 	authTag names.Tag,
 	clock clock.Clock,
 ) (*SecretsManagerAPI, error) {
@@ -47,16 +50,18 @@ func NewTestAPI(
 	}
 
 	return &SecretsManagerAPI{
-		authTag:           authTag,
-		modelUUID:         coretesting.ModelTag.Id(),
-		resources:         resources,
-		leadershipChecker: leadership,
-		secretsBackend:    backend,
-		secretsConsumer:   consumer,
-		secretsTriggers:   secretTriggers,
-		storeConfigGetter: storeConfigGetter,
-		providerGetter:    providerGetter,
-		clock:             clock,
+		authTag:             authTag,
+		resources:           resources,
+		leadershipChecker:   leadership,
+		secretsState:        secretsState,
+		secretsConsumer:     consumer,
+		secretsTriggers:     secretTriggers,
+		backendConfigGetter: backendConfigGetter,
+		adminConfigGetter:   adminConfigGetter,
+		remoteClientGetter:  remoteClientGetter,
+		crossModelState:     crossModelState,
+		clock:               clock,
+		modelUUID:           coretesting.ModelTag.Id(),
 	}, nil
 }
 

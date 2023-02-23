@@ -8,12 +8,18 @@ import (
 	"encoding/base64"
 
 	"github.com/juju/errors"
+	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 )
 
-func generateUserControllerAccessToken(command modelcmd.ControllerCommandBase, username string, secretKey []byte) (string, error) {
+// ControllerCommand defines a subset methods of the modelcmd.ControllerCommandBase that the generateUserControllerAccessToken function uses.
+type ControllerCommand interface {
+	ControllerName() (string, error)
+	ClientStore() jujuclient.ClientStore
+}
+
+func generateUserControllerAccessToken(command ControllerCommand, username string, secretKey []byte) (string, error) {
 	controllerName, err := command.ControllerName()
 	if err != nil {
 		return "", errors.Trace(err)
@@ -31,6 +37,16 @@ func generateUserControllerAccessToken(command modelcmd.ControllerCommandBase, u
 		Addrs:          controllerDetails.APIEndpoints,
 		SecretKey:      secretKey,
 		ControllerName: controllerName,
+	}
+	if controllerDetails.Proxy != nil {
+		controllerDetails.Proxy.Proxier.Insecure()
+		proxyConfig, err := yaml.Marshal(controllerDetails.Proxy)
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+		if len(proxyConfig) > 0 {
+			registrationInfo.ProxyConfig = string(proxyConfig)
+		}
 	}
 	registrationData, err := asn1.Marshal(registrationInfo)
 	if err != nil {

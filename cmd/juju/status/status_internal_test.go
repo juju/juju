@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/names/v4"
@@ -483,8 +483,8 @@ var (
 		"exposed": true,
 	})
 	loggingCharm = M{
-		"charm":        "cs:quantal/logging-1",
-		"charm-origin": "charmstore",
+		"charm":        "logging",
+		"charm-origin": "charmhub",
 		"charm-name":   "logging",
 		"charm-rev":    1,
 		"base":         M{"name": "ubuntu", "channel": "12.10"},
@@ -524,7 +524,7 @@ var statusFormats = []outputFormat{
 var machineCons = constraints.MustParse("cores=2 mem=8G root-disk=8G")
 
 var statusTests = []testCase{
-	// Status tests
+	//Status tests
 	test( // 0
 		"bootstrap and starting a single instance",
 
@@ -874,7 +874,7 @@ var statusTests = []testCase{
 		setAddresses{"0", network.NewSpaceAddresses("10.0.0.1")},
 		startAliveMachine{"0", ""},
 		setMachineStatus{"0", status.Started, ""},
-		addCharmStoreCharm{"dummy"},
+		addCharmHubCharm{"dummy"},
 		addApplication{name: "dummy-application", charm: "dummy"},
 		addApplication{name: "exposed-application", charm: "dummy"},
 		expect{
@@ -1412,11 +1412,11 @@ var statusTests = []testCase{
 		startAliveMachine{"1", ""},
 		setMachineStatus{"1", status.Started, ""},
 
-		addCharmStoreCharm{"wordpress"},
+		addCharmHubCharm{"wordpress"},
 		addApplication{name: "wordpress", charm: "wordpress"},
 		addAliveUnit{"wordpress", "1"},
 
-		addCharmStoreCharm{"mysql"},
+		addCharmHubCharm{"mysql"},
 		addApplication{name: "mysql", charm: "mysql"},
 		addAliveUnit{"mysql", "1"},
 
@@ -1523,11 +1523,11 @@ var statusTests = []testCase{
 		startAliveMachine{"1", ""},
 		setMachineStatus{"1", status.Started, ""},
 
-		addCharmStoreCharm{"wordpress"},
+		addCharmHubCharm{"wordpress"},
 		addApplication{name: "wordpress", charm: "wordpress"},
 		addAliveUnit{"wordpress", "1"},
 
-		addCharmStoreCharm{"mysql"},
+		addCharmHubCharm{"mysql"},
 		addApplication{name: "mysql", charm: "mysql"},
 		addAliveUnit{"mysql", "1"},
 
@@ -1623,7 +1623,7 @@ var statusTests = []testCase{
 	),
 	test( // 7
 		"add a dying application",
-		addCharmStoreCharm{"dummy"},
+		addCharmHubCharm{"dummy"},
 		addApplication{name: "dummy-application", charm: "dummy"},
 		addMachine{machineId: "0", job: state.JobHostUnits},
 		addAliveUnit{"dummy-application", "0"},
@@ -1683,7 +1683,7 @@ var statusTests = []testCase{
 	),
 	test( // 8
 		"a unit where the agent is down shows as lost",
-		addCharmStoreCharm{"dummy"},
+		addCharmHubCharm{"dummy"},
 		addApplication{name: "dummy-application", charm: "dummy"},
 		addMachine{machineId: "0", job: state.JobHostUnits},
 		startAliveMachine{"0", ""},
@@ -1751,9 +1751,9 @@ var statusTests = []testCase{
 		setAddresses{"0", network.NewSpaceAddresses("10.0.0.1")},
 		startAliveMachine{"0", ""},
 		setMachineStatus{"0", status.Started, ""},
-		addCharmStoreCharm{"wordpress"},
-		addCharmStoreCharm{"mysql"},
-		addCharmStoreCharm{"varnish"},
+		addCharmHubCharm{"wordpress"},
+		addCharmHubCharm{"mysql"},
+		addCharmHubCharm{"varnish"},
 
 		addApplication{name: "project", charm: "wordpress"},
 		setApplicationExposed{"project", true},
@@ -1879,8 +1879,8 @@ var statusTests = []testCase{
 						},
 					}),
 					"varnish": M{
-						"charm":        "cs:quantal/varnish-1",
-						"charm-origin": "charmstore",
+						"charm":        "varnish",
+						"charm-origin": "charmhub",
 						"charm-name":   "varnish",
 						"charm-rev":    1,
 						"base":         M{"name": "ubuntu", "channel": "12.10"},
@@ -1964,8 +1964,8 @@ var statusTests = []testCase{
 		setAddresses{"0", network.NewSpaceAddresses("10.0.0.1")},
 		startAliveMachine{"0", ""},
 		setMachineStatus{"0", status.Started, ""},
-		addCharmStoreCharm{"riak"},
-		addCharmStoreCharm{"wordpress"},
+		addCharmHubCharm{"riak"},
+		addCharmHubCharm{"wordpress"},
 
 		addApplication{name: "riak", charm: "riak"},
 		setApplicationExposed{"riak", true},
@@ -2008,8 +2008,8 @@ var statusTests = []testCase{
 				},
 				"applications": M{
 					"riak": M{
-						"charm":        "cs:quantal/riak-7",
-						"charm-origin": "charmstore",
+						"charm":        "riak",
+						"charm-origin": "charmhub",
 						"charm-name":   "riak",
 						"charm-rev":    7,
 						"base":         M{"name": "ubuntu", "channel": "12.10"},
@@ -2082,9 +2082,9 @@ var statusTests = []testCase{
 		setAddresses{"0", network.NewSpaceAddresses("10.0.0.1")},
 		startAliveMachine{"0", ""},
 		setMachineStatus{"0", status.Started, ""},
-		addCharmStoreCharm{"wordpress"},
-		addCharmStoreCharm{"mysql"},
-		addCharmStoreCharm{"logging"},
+		addCharmHubCharm{"wordpress"},
+		addCharmHubCharm{"mysql"},
+		addCharmHubCharm{"logging"},
 
 		addApplication{name: "wordpress", charm: "wordpress"},
 		setApplicationExposed{"wordpress", true},
@@ -2471,7 +2471,7 @@ var statusTests = []testCase{
 		setAddresses{"0", network.NewSpaceAddresses("10.0.0.1")},
 		startAliveMachine{"0", ""},
 		setMachineStatus{"0", status.Started, ""},
-		addCharmStoreCharm{"mysql"},
+		addCharmHubCharm{"mysql"},
 		addApplication{name: "mysql", charm: "mysql"},
 		setApplicationExposed{"mysql", true},
 
@@ -2666,7 +2666,7 @@ var statusTests = []testCase{
 		setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
 		startAliveMachine{"1", ""},
 		setMachineStatus{"1", status.Started, ""},
-		addCharmStoreCharm{"mysql"},
+		addCharmHubCharm{"mysql"},
 		addApplication{name: "mysql", charm: "mysql"},
 		setApplicationExposed{"mysql", true},
 		addCharmPlaceholder{"mysql", 23},
@@ -2682,7 +2682,7 @@ var statusTests = []testCase{
 				},
 				"applications": M{
 					"mysql": mysqlCharm(M{
-						"can-upgrade-to": "cs:quantal/mysql-23",
+						"can-upgrade-to": "ch:mysql-23",
 						"exposed":        true,
 						"application-status": M{
 							"current": "waiting",
@@ -2730,12 +2730,12 @@ var statusTests = []testCase{
 		setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
 		startAliveMachine{"1", ""},
 		setMachineStatus{"1", status.Started, ""},
-		addCharmStoreCharm{"mysql"},
+		addCharmHubCharm{"mysql"},
 		addApplication{name: "mysql", charm: "mysql"},
 		setApplicationExposed{"mysql", true},
 		addAliveUnit{"mysql", "1"},
-		setUnitCharmURL{"mysql/0", "cs:quantal/mysql-1"},
-		addCharmStoreCharmWithRevision{addCharmStoreCharm{"mysql"}, "local", 1},
+		setUnitCharmURL{"mysql/0", "ch:mysql-1"},
+		addLocalCharmWithRevision{addLocalCharm{"mysql"}, "local", 1},
 		setApplicationCharm{"mysql", "local:quantal/mysql-1"},
 
 		expect{
@@ -2766,7 +2766,7 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"upgrading-from": "cs:quantal/mysql-1",
+								"upgrading-from": "ch:mysql-1",
 								"public-address": "10.0.1.1",
 							},
 						},
@@ -2796,13 +2796,13 @@ var statusTests = []testCase{
 		setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
 		startAliveMachine{"1", ""},
 		setMachineStatus{"1", status.Started, ""},
-		addCharmStoreCharm{"mysql"},
+		addCharmHubCharm{"mysql"},
 		addApplication{name: "mysql", charm: "mysql"},
 		setApplicationExposed{"mysql", true},
 		addAliveUnit{"mysql", "1"},
-		setUnitCharmURL{"mysql/0", "cs:quantal/mysql-1"},
-		addCharmStoreCharmWithRevision{addCharmStoreCharm{"mysql"}, "cs", 2},
-		setApplicationCharm{"mysql", "cs:quantal/mysql-2"},
+		setUnitCharmURL{"mysql/0", "ch:mysql-1"},
+		addCharmHubCharmWithRevision{addCharmHubCharm{"mysql"}, "ch", 2},
+		setApplicationCharm{"mysql", "ch:mysql-2"},
 		addCharmPlaceholder{"mysql", 23},
 
 		expect{
@@ -2815,9 +2815,9 @@ var statusTests = []testCase{
 				},
 				"applications": M{
 					"mysql": mysqlCharm(M{
-						"charm":          "cs:quantal/mysql-2",
+						"charm":          "mysql",
 						"charm-rev":      2,
-						"can-upgrade-to": "cs:quantal/mysql-23",
+						"can-upgrade-to": "ch:mysql-23",
 						"exposed":        true,
 						"application-status": M{
 							"current": "active",
@@ -2834,7 +2834,7 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"upgrading-from": "cs:quantal/mysql-1",
+								"upgrading-from": "ch:mysql-1",
 								"public-address": "10.0.1.1",
 							},
 						},
@@ -2864,12 +2864,12 @@ var statusTests = []testCase{
 		setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
 		startAliveMachine{"1", ""},
 		setMachineStatus{"1", status.Started, ""},
-		addCharmStoreCharm{"mysql"},
+		addCharmHubCharm{"mysql"},
 		addApplication{name: "mysql", charm: "mysql"},
 		setApplicationExposed{"mysql", true},
 		addAliveUnit{"mysql", "1"},
-		setUnitCharmURL{"mysql/0", "cs:quantal/mysql-1"},
-		addCharmStoreCharmWithRevision{addCharmStoreCharm{"mysql"}, "local", 1},
+		setUnitCharmURL{"mysql/0", "ch:mysql-1"},
+		addLocalCharmWithRevision{addLocalCharm{"mysql"}, "local", 1},
 		setApplicationCharm{"mysql", "local:quantal/mysql-1"},
 		addCharmPlaceholder{"mysql", 23},
 
@@ -2901,7 +2901,7 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"upgrading-from": "cs:quantal/mysql-1",
+								"upgrading-from": "ch:mysql-1",
 								"public-address": "10.0.1.1",
 							},
 						},
@@ -2952,11 +2952,11 @@ var statusTests = []testCase{
 		startAliveMachine{"4", ""},
 		setMachineStatus{"4", status.Started, ""},
 
-		addCharmStoreCharm{"mysql"},
+		addCharmHubCharm{"mysql"},
 		addApplication{name: "mysql", charm: "mysql"},
 		setApplicationExposed{"mysql", true},
 
-		addCharmStoreCharm{"metered"},
+		addCharmHubCharm{"metered"},
 		addApplication{name: "applicationwithmeterstatus", charm: "metered"},
 
 		addAliveUnit{"mysql", "1"},
@@ -3115,7 +3115,7 @@ var statusTests = []testCase{
 		startAliveMachine{"0", ""},
 		setMachineStatus{"0", status.Started, ""},
 
-		addCharmStoreCharm{"mysql"},
+		addCharmHubCharm{"mysql"},
 		addApplication{name: "mysql", charm: "mysql"},
 
 		addMachine{machineId: "1", job: state.JobHostUnits},
@@ -3179,7 +3179,7 @@ var statusTests = []testCase{
 		startAliveMachine{"0", ""},
 		setMachineStatus{"0", status.Started, ""},
 
-		addCharmStoreCharm{"mysql"},
+		addCharmHubCharm{"mysql"},
 		addApplication{name: "mysql", charm: "mysql"},
 
 		addMachine{machineId: "1", job: state.JobHostUnits},
@@ -3352,11 +3352,11 @@ var statusTests = []testCase{
 		startAliveMachine{"1", ""},
 		setMachineStatus{"1", status.Started, ""},
 
-		addCharmStoreCharm{"wordpress"},
+		addCharmHubCharm{"wordpress"},
 		addApplication{name: "wordpress", charm: "wordpress"},
 		addAliveUnit{"wordpress", "1"},
 
-		addCharmStoreCharm{"mysql"},
+		addCharmHubCharm{"mysql"},
 		addRemoteApplication{name: "hosted-mysql", url: "me/model.mysql", charm: "mysql", endpoints: []string{"server"}},
 		relateApplications{"wordpress", "hosted-mysql", ""},
 
@@ -3511,7 +3511,7 @@ var statusTests = []testCase{
 		// in endpoint-bindings for wordpress.
 		addSpace{"myspace1"},
 
-		addCharmStoreCharm{"wordpress"},
+		addCharmHubCharm{"wordpress"},
 		addApplication{name: "wordpress", charm: "wordpress", binding: map[string]string{"db-client": "", "logging-dir": "", "cache": "", "db": "myspace1", "monitoring-port": "", "url": "", "admin-api": "", "foo-bar": ""}},
 		addAliveUnit{"wordpress", "1"},
 
@@ -3607,8 +3607,8 @@ var statusTests = []testCase{
 								"machine": "1",
 							},
 						},
-						"charm":        "cs:quantal/wordpress-3",
-						"charm-origin": "charmstore",
+						"charm":        "wordpress",
+						"charm-origin": "charmhub",
 						"charm-rev":    int(3),
 						"application-status": M{
 							"current": "waiting",
@@ -3647,12 +3647,12 @@ var statusTests = []testCase{
 		startAliveMachine{"1", ""},
 		setMachineStatus{"1", status.Started, ""},
 		setCharmProfiles{"1", []string{"juju-controller-lxd-profile-1"}},
-		addCharmStoreCharm{"lxd-profile"},
+		addCharmHubCharm{"lxd-profile"},
 		addApplication{name: "lxd-profile", charm: "lxd-profile"},
 		setApplicationExposed{"lxd-profile", true},
 		addAliveUnit{"lxd-profile", "1"},
-		setUnitCharmURL{"lxd-profile/0", "cs:quantal/lxd-profile-0"},
-		addCharmStoreCharmWithRevision{addCharmStoreCharm{"lxd-profile"}, "local", 1},
+		setUnitCharmURL{"lxd-profile/0", "ch:lxd-profile-0"},
+		addLocalCharmWithRevision{addLocalCharm{"lxd-profile"}, "local", 1},
 		setApplicationCharm{"lxd-profile", "local:quantal/lxd-profile-1"},
 		addCharmPlaceholder{"lxd-profile", 23},
 		expect{
@@ -3683,7 +3683,7 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"upgrading-from": "cs:quantal/lxd-profile-0",
+								"upgrading-from": "ch:lxd-profile-0",
 								"public-address": "10.0.1.1",
 							},
 						},
@@ -3736,8 +3736,8 @@ var statusTests = []testCase{
 
 func mysqlCharm(extras M) M {
 	charm := M{
-		"charm":        "cs:quantal/mysql-1",
-		"charm-origin": "charmstore",
+		"charm":        "mysql",
+		"charm-origin": "charmhub",
 		"charm-name":   "mysql",
 		"charm-rev":    1,
 		"base":         M{"name": "ubuntu", "channel": "12.10"},
@@ -3748,8 +3748,8 @@ func mysqlCharm(extras M) M {
 
 func lxdProfileCharm(extras M) M {
 	charm := M{
-		"charm":         "cs:quantal/lxd-profile-0",
-		"charm-origin":  "charmstore",
+		"charm":         "lxd-profile",
+		"charm-origin":  "charmhub",
 		"charm-name":    "lxd-profile",
 		"charm-rev":     1,
 		"charm-profile": "juju-controller-lxd-profile-1",
@@ -3761,8 +3761,8 @@ func lxdProfileCharm(extras M) M {
 
 func meteredCharm(extras M) M {
 	charm := M{
-		"charm":        "cs:quantal/metered-1",
-		"charm-origin": "charmstore",
+		"charm":        "metered",
+		"charm-origin": "charmhub",
 		"charm-name":   "metered",
 		"charm-rev":    1,
 		"base":         M{"name": "ubuntu", "channel": "12.10"},
@@ -3773,8 +3773,8 @@ func meteredCharm(extras M) M {
 
 func dummyCharm(extras M) M {
 	charm := M{
-		"charm":        "cs:quantal/dummy-1",
-		"charm-origin": "charmstore",
+		"charm":        "dummy",
+		"charm-origin": "charmhub",
 		"charm-name":   "dummy",
 		"charm-rev":    1,
 		"base":         M{"name": "ubuntu", "channel": "12.10"},
@@ -3785,8 +3785,8 @@ func dummyCharm(extras M) M {
 
 func wordpressCharm(extras M) M {
 	charm := M{
-		"charm":        "cs:quantal/wordpress-3",
-		"charm-origin": "charmstore",
+		"charm":        "wordpress",
+		"charm-origin": "charmhub",
 		"charm-name":   "wordpress",
 		"charm-rev":    3,
 		"base":         M{"name": "ubuntu", "channel": "12.10"},
@@ -4103,36 +4103,12 @@ func (st setUnitTools) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-type addCharmStoreCharm struct {
-	name string
-}
-
-func (ac addCharmStoreCharm) addCharmStep(c *gc.C, ctx *context, scheme string, rev int) {
-	ch := testcharms.Repo.CharmDir(ac.name)
-	name := ch.Meta().Name
-	curl := charm.MustParseURL(fmt.Sprintf("%s:quantal/%s-%d", scheme, name, rev))
-	info := state.CharmInfo{
-		Charm:       ch,
-		ID:          curl,
-		StoragePath: "dummy-path",
-		SHA256:      fmt.Sprintf("%s-%d-sha256", name, rev),
-	}
-	dummy, err := ctx.st.AddCharm(info)
-	c.Assert(err, jc.ErrorIsNil)
-	ctx.charms[ac.name] = dummy
-}
-
-func (ac addCharmStoreCharm) step(c *gc.C, ctx *context) {
-	ch := testcharms.Repo.CharmDir(ac.name)
-	ac.addCharmStep(c, ctx, "cs", ch.Revision())
-}
-
 type addCharmHubCharm struct {
 	name string
 }
 
 func (ac addCharmHubCharm) addCharmStep(c *gc.C, ctx *context, scheme string, rev int) {
-	ch := testcharms.Repo.CharmDir(ac.name)
+	ch := testcharms.Hub.CharmDir(ac.name)
 	name := ch.Meta().Name
 	curl := charm.MustParseURL(fmt.Sprintf("%s:%s-%d", scheme, name, rev))
 	info := state.CharmInfo{
@@ -4151,13 +4127,47 @@ func (ac addCharmHubCharm) step(c *gc.C, ctx *context) {
 	ac.addCharmStep(c, ctx, "ch", ch.Revision())
 }
 
-type addCharmStoreCharmWithRevision struct {
-	addCharmStoreCharm
+type addCharmHubCharmWithRevision struct {
+	addCharmHubCharm
 	scheme string
 	rev    int
 }
 
-func (ac addCharmStoreCharmWithRevision) step(c *gc.C, ctx *context) {
+func (ac addCharmHubCharmWithRevision) step(c *gc.C, ctx *context) {
+	ac.addCharmStep(c, ctx, ac.scheme, ac.rev)
+}
+
+type addLocalCharm struct {
+	name string
+}
+
+func (ac addLocalCharm) addCharmStep(c *gc.C, ctx *context, scheme string, rev int) {
+	ch := testcharms.Repo.CharmDir(ac.name)
+	name := ch.Meta().Name
+	curl := charm.MustParseURL(fmt.Sprintf("%s:quantal/%s-%d", scheme, name, rev))
+	info := state.CharmInfo{
+		Charm:       ch,
+		ID:          curl,
+		StoragePath: "dummy-path",
+		SHA256:      fmt.Sprintf("%s-%d-sha256", name, rev),
+	}
+	dummy, err := ctx.st.AddCharm(info)
+	c.Assert(err, jc.ErrorIsNil)
+	ctx.charms[ac.name] = dummy
+}
+
+func (ac addLocalCharm) step(c *gc.C, ctx *context) {
+	ch := testcharms.Repo.CharmDir(ac.name)
+	ac.addCharmStep(c, ctx, "local", ch.Revision())
+}
+
+type addLocalCharmWithRevision struct {
+	addLocalCharm
+	scheme string
+	rev    int
+}
+
+func (ac addLocalCharmWithRevision) step(c *gc.C, ctx *context) {
 	ac.addCharmStep(c, ctx, ac.scheme, ac.rev)
 }
 
@@ -4304,7 +4314,7 @@ type addCharmPlaceholder struct {
 func (ac addCharmPlaceholder) step(c *gc.C, ctx *context) {
 	ch := testcharms.Repo.CharmDir(ac.name)
 	name := ch.Meta().Name
-	curl := charm.MustParseURL(fmt.Sprintf("cs:quantal/%s-%d", name, ac.rev))
+	curl := charm.MustParseURL(fmt.Sprintf("ch:%s-%d", name, ac.rev))
 	err := ctx.st.AddCharmPlaceholder(curl)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -4916,10 +4926,10 @@ func (s *StatusSuite) TestStatusWithFormatSummary(c *gc.C) {
 		setAddresses{"0", network.NewSpaceAddresses("localhost")},
 		startAliveMachine{"0", "snowflake"},
 		setMachineStatus{"0", status.Started, ""},
-		addCharmStoreCharm{"wordpress"},
-		addCharmStoreCharm{"mysql"},
-		addCharmStoreCharm{"logging"},
-		addCharmStoreCharm{"riak"},
+		addCharmHubCharm{"wordpress"},
+		addCharmHubCharm{"mysql"},
+		addCharmHubCharm{"logging"},
+		addCharmHubCharm{"riak"},
 		addRemoteApplication{name: "hosted-riak", url: "me/model.riak", charm: "riak", endpoints: []string{"endpoint"}},
 		addApplication{name: "wordpress", charm: "wordpress"},
 		setApplicationExposed{"wordpress", true},
@@ -4983,9 +4993,9 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 		setAddresses{"0", network.NewSpaceAddresses("10.0.0.1")},
 		startAliveMachine{"0", "snowflake"},
 		setMachineStatus{"0", status.Started, ""},
-		addCharmStoreCharm{"wordpress"},
-		addCharmStoreCharm{"mysql"},
-		addCharmStoreCharm{"logging"},
+		addCharmHubCharm{"wordpress"},
+		addCharmHubCharm{"mysql"},
+		addCharmHubCharm{"logging"},
 
 		addApplication{name: "wordpress", charm: "wordpress"},
 		setApplicationExposed{"wordpress", true},
@@ -5061,9 +5071,9 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 		startMachineWithHardware{"0", instance.MustParseHardware("availability-zone=us-east-1a")},
 		setMachineStatus{"0", status.Started, ""},
 		addCharmHubCharm{"wordpress"},
-		addCharmStoreCharm{"mysql"},
-		addCharmStoreCharm{"logging"},
-		addCharmStoreCharm{"riak"},
+		addCharmHubCharm{"mysql"},
+		addCharmHubCharm{"logging"},
+		addCharmHubCharm{"riak"},
 		addRemoteApplication{name: "hosted-riak", url: "me/model.riak", charm: "riak", endpoints: []string{"endpoint"}},
 		addApplication{name: "wordpress", charm: "wordpress"},
 		setApplicationExposed{"wordpress", true},
@@ -5541,6 +5551,123 @@ foo/0  waiting   allocating  10.0.0.1  80,1555-1559/TCP
 `[1:])
 }
 
+func (s *StatusSuite) TestFormatTabularTruncateMessage(c *gc.C) {
+	longMessage := "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
+	longMeterStatus := meterStatus{
+		Color:   "blue",
+		Message: longMessage,
+	}
+	longStatusInfo := statusInfoContents{
+		Current: status.Active,
+		Message: longMessage,
+	}
+
+	status := formattedStatus{
+		Model: modelStatus{
+			Name:        "m",
+			Controller:  "c",
+			Cloud:       "localhost",
+			Version:     "3.0.0",
+			Status:      longStatusInfo,
+			MeterStatus: &longMeterStatus,
+		},
+		Applications: map[string]applicationStatus{
+			"foo": {
+				CharmName:    "foo",
+				CharmChannel: "latest/stable",
+				StatusInfo:   longStatusInfo,
+				Units: map[string]unitStatus{
+					"foo/0": {
+						WorkloadStatusInfo: longStatusInfo,
+						JujuStatusInfo:     longStatusInfo,
+						Machine:            "0",
+						PublicAddress:      "10.53.62.100",
+						MeterStatus:        &longMeterStatus,
+						Subordinates: map[string]unitStatus{
+							"foo/1": {
+								WorkloadStatusInfo: longStatusInfo,
+								JujuStatusInfo:     longStatusInfo,
+								Machine:            "0/lxd/0",
+								PublicAddress:      "10.53.62.101",
+								MeterStatus:        &longMeterStatus,
+							},
+						},
+					},
+				},
+			},
+		},
+		RemoteApplications: map[string]remoteApplicationStatus{
+			"bar": {
+				OfferURL:   "model.io/bar",
+				StatusInfo: longStatusInfo,
+			},
+		},
+		Machines: map[string]machineStatus{
+			"0": {
+				Id:      "0",
+				DNSName: "10.53.62.100",
+				Base: &formattedBase{
+					Name:    "ubuntu",
+					Channel: "22.04",
+				},
+				JujuStatus:         longStatusInfo,
+				MachineStatus:      longStatusInfo,
+				ModificationStatus: longStatusInfo,
+				Containers: map[string]machineStatus{
+					"0": {
+						Id:      "0/lxd/0",
+						DNSName: "10.53.62.101",
+						Base: &formattedBase{
+							Name:    "ubuntu",
+							Channel: "22.04",
+						},
+						JujuStatus:         longStatusInfo,
+						MachineStatus:      longStatusInfo,
+						ModificationStatus: longStatusInfo,
+					},
+				},
+			},
+		},
+		Relations: []relationStatus{
+			{
+				Provider:  "foo:cluster",
+				Requirer:  "bar:cluster",
+				Interface: "baz",
+				Message:   longMessage,
+			},
+		},
+	}
+
+	out := &bytes.Buffer{}
+	err := FormatTabular(out, false, status)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out.String(), gc.Equals, `
+Model  Controller  Cloud/Region  Version  Notes
+m      c           localhost     3.0.0    Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna a...
+
+SAAS  Status  Store    URL
+bar   active  unknown  model.io/bar
+
+App  Version  Status  Scale  Charm  Channel        Rev  Exposed  Message
+foo           active    0/1  foo    latest/stable    0  no       Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna a...
+
+Unit     Workload  Agent   Machine  Public address  Ports  Message
+foo/0    active    active  0        10.53.62.100           Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna a...
+  foo/1  active    active  0/lxd/0  10.53.62.101           Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna a...
+
+Entity  Meter status  Message
+model   blue          Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna a...  
+foo/0   blue          Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna a...  
+
+Machine  State   Address       Inst id  Base          AZ  Message
+0        active  10.53.62.100           ubuntu@22.04      Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna a...
+0/lxd/0  active  10.53.62.101           ubuntu@22.04      Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna a...
+
+Relation provider  Requirer     Interface  Type  Message
+foo:cluster        bar:cluster  baz                Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna a...
+`[1:])
+}
+
 func (s *StatusSuite) TestStatusWithNilStatusAPI(c *gc.C) {
 	ctx := s.newContext(c)
 	defer s.resetContext(c, ctx)
@@ -5631,13 +5758,13 @@ func (s *StatusSuite) FilteringTestSetup(c *gc.C) *context {
 		addContainer{"0", "0/lxd/0", state.JobHostUnits},
 
 		// And the "wordpress" charm is available
-		addCharmStoreCharm{"wordpress"},
+		addCharmHubCharm{"wordpress"},
 		addApplication{name: "wordpress", charm: "wordpress"},
 		// And the "mysql" charm is available
-		addCharmStoreCharm{"mysql"},
+		addCharmHubCharm{"mysql"},
 		addApplication{name: "mysql", charm: "mysql"},
 		// And the "logging" charm is available
-		addCharmStoreCharm{"logging"},
+		addCharmHubCharm{"logging"},
 
 		// And a machine is started
 		// And the machine's ID is "1"
@@ -6048,7 +6175,7 @@ var statusTimeTest = test(
 	setAddresses{"0", network.NewSpaceAddresses("10.0.0.1")},
 	startAliveMachine{"0", ""},
 	setMachineStatus{"0", status.Started, ""},
-	addCharmStoreCharm{"dummy"},
+	addCharmHubCharm{"dummy"},
 	addApplication{name: "dummy-application", charm: "dummy"},
 
 	addMachine{machineId: "1", job: state.JobHostUnits},

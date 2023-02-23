@@ -18,7 +18,7 @@ run_deploy_specific_series() {
 
 	ensure "test-deploy-specific-series" "${file}"
 
-	juju deploy postgresql --series focal
+	juju deploy postgresql --base ubuntu@20.04
 	base_name=$(juju status --format=json | jq ".applications.postgresql.base.name")
 	base_channel=$(juju status --format=json | jq ".applications.postgresql.base.channel")
 
@@ -113,7 +113,7 @@ run_deploy_lxd_to_machine() {
 	juju add-machine -n 2 --series=jammy
 
 	charm=./tests/suites/deploy/charms/lxd-profile-alt
-	juju deploy "${charm}" --to 0 --series=jammy
+	juju deploy "${charm}" --to 0 --base ubuntu@22.04
 
 	# Test the case where we wait for the machine to start
 	# before deploying the unit.

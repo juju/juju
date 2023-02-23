@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3"
-	"github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
 
 	"github.com/juju/juju/cloud"
@@ -568,7 +567,7 @@ func (certificateReadWriter) Write(path string, certPEM, keyPEM []byte) error {
 type certificateGenerator struct{}
 
 func (certificateGenerator) Generate(client bool, addHosts bool) (certPEM, keyPEM []byte, err error) {
-	return shared.GenerateMemCert(client, addHosts)
+	return lxd.GenerateMemCert(client, addHosts)
 }
 
 func endpointURL(endpoint string) (*url.URL, error) {

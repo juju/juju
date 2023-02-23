@@ -162,24 +162,23 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode, workerCount i
 		return nil, errors.Annotate(err, "could not retrieve the controller config.")
 	}
 
-	task, err := NewProvisionerTask(
-		controllerCfg.ControllerUUID(),
-		hostTag,
-		p.logger,
-		harvestMode,
-		p.st,
-		p.distributionGroupFinder,
-		p.toolsFinder,
-		machineWatcher,
-		retryWatcher,
-		p.broker,
-		auth,
-		modelCfg.ImageStream(),
-		RetryStrategy{retryDelay: retryStrategyDelay, retryCount: retryStrategyCount},
-		p.callContextFunc,
-		workerCount,
-		nil, // event callback is currently only being used by tests
-	)
+	task, err := NewProvisionerTask(TaskConfig{
+		ControllerUUID:             controllerCfg.ControllerUUID(),
+		HostTag:                    hostTag,
+		Logger:                     p.logger,
+		HarvestMode:                harvestMode,
+		TaskAPI:                    p.st,
+		DistributionGroupFinder:    p.distributionGroupFinder,
+		ToolsFinder:                p.toolsFinder,
+		MachineWatcher:             machineWatcher,
+		RetryWatcher:               retryWatcher,
+		Broker:                     p.broker,
+		Auth:                       auth,
+		ImageStream:                modelCfg.ImageStream(),
+		RetryStartInstanceStrategy: RetryStrategy{retryDelay: retryStrategyDelay, retryCount: retryStrategyCount},
+		CloudCallContextFunc:       p.callContextFunc,
+		NumProvisionWorkers:        workerCount, // event callback is currently only being used by tests
+	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

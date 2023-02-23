@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -109,7 +109,7 @@ func (s *ApplicationSuite) TestSetCharmCharmOrigin(c *gc.C) {
 	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)
 	rev := sch.Revision()
 	origin := &state.CharmOrigin{
-		Source:   "charm-store",
+		Source:   "charm-hub",
 		Revision: &rev,
 		Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -128,12 +128,32 @@ func (s *ApplicationSuite) TestSetCharmCharmOrigin(c *gc.C) {
 	c.Assert(obtainedOrigin, gc.DeepEquals, origin)
 }
 
+func (s *ApplicationSuite) TestSetCharmUpdateChannelURLNoChange(c *gc.C) {
+	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)
+
+	origin := s.mysql.CharmOrigin()
+	origin.Channel = &state.Channel{Risk: "stable"}
+
+	cfg := state.SetCharmConfig{
+		Charm:       sch,
+		CharmOrigin: origin,
+	}
+	err := s.mysql.SetCharm(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.mysql.CharmOrigin().Channel.Risk, gc.DeepEquals, "stable")
+
+	cfg.CharmOrigin.Channel.Risk = "candidate"
+	err = s.mysql.SetCharm(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.mysql.CharmOrigin().Channel.Risk, gc.DeepEquals, "candidate")
+}
+
 func (s *ApplicationSuite) TestSetCharmCharmOriginNoChange(c *gc.C) {
 	// Add a compatible charm.
 	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)
 	rev := sch.Revision()
 	origin := &state.CharmOrigin{
-		Source:   "charm-store",
+		Source:   "charm-hub",
 		Revision: &rev,
 	}
 	cfg := state.SetCharmConfig{
@@ -645,7 +665,7 @@ func (s *ApplicationSuite) TestClientApplicationSetCharmUnsupportedSeries(c *gc.
 		Charm: chDifferentSeries,
 	}
 	err := app.SetCharm(cfg)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "cs:multi-series2-8": only these series are supported: trusty, wily`)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "ch:multi-series2-8": only these series are supported: trusty, wily`)
 }
 
 func (s *ApplicationSuite) TestClientApplicationSetCharmUnsupportedSeriesForce(c *gc.C) {
@@ -663,7 +683,7 @@ func (s *ApplicationSuite) TestClientApplicationSetCharmUnsupportedSeriesForce(c
 	c.Assert(err, jc.ErrorIsNil)
 	ch, _, err = app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch.String(), gc.Equals, "cs:multi-series2-8")
+	c.Assert(ch.String(), gc.Equals, "ch:multi-series2-8")
 }
 
 func (s *ApplicationSuite) TestClientApplicationSetCharmWrongOS(c *gc.C) {
@@ -676,19 +696,7 @@ func (s *ApplicationSuite) TestClientApplicationSetCharmWrongOS(c *gc.C) {
 		ForceBase: true,
 	}
 	err := app.SetCharm(cfg)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "cs:multi-series-centos-1": OS "Ubuntu" not supported by charm`)
-}
-
-func (s *ApplicationSuite) TestSetCharmChangeSeriesWhenMovingFromCharmstoreToCharmhub(c *gc.C) {
-	// Moving from a cs to a ch charm should not prevent us from changing the series.
-	chCharm := state.AddTestingCharmhubCharmForSeries(c, s.State, "quantal", "multi-series")
-	cfg := state.SetCharmConfig{
-		Charm:      chCharm,
-		ForceUnits: true,
-	}
-
-	err := s.mysql.SetCharm(cfg)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("expected SetCharm to work with different series when switching from a charmstore to a charmhub charm"))
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "ch:multi-series-centos-1": OS "Ubuntu" not supported by charm`)
 }
 
 func (s *ApplicationSuite) TestSetCharmPreconditions(c *gc.C) {
@@ -1716,7 +1724,7 @@ func (s *ApplicationSuite) setupCharmForTestUpdateApplicationBase(c *gc.C, name 
 
 	rev := ch.Revision()
 	origin := &state.CharmOrigin{
-		Source:   "charm-store",
+		Source:   "charm-hub",
 		Revision: &rev,
 		Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -1795,7 +1803,7 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesCharmURLChangedSeriesFail(
 	// Trusty is listed in only version 1 of the charm.
 	err := app.UpdateApplicationBase(state.UbuntuBase("22.04"), false)
 	c.Assert(err, gc.ErrorMatches,
-		"updating application series: series \"jammy\" not supported by charm \"cs:multi-series-2\", "+
+		"updating application series: series \"jammy\" not supported by charm \"ch:multi-series-2\", "+
 			"supported series are: focal, bionic")
 }
 
@@ -3083,6 +3091,99 @@ func (s *ApplicationSuite) TestDestroyWithRemovableRelation(c *gc.C) {
 	err = wordpress.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	err = rel.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *ApplicationSuite) TestDestroyWithRemovableApplicationOpenedPortRanges(c *gc.C) {
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	appPortRanges, err := wordpress.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appPortRanges.UniquePortRanges(), gc.HasLen, 0)
+	appPortRanges.Open(allEndpoints, network.MustParsePortRange("3000/tcp"))
+	c.Assert(s.State.ApplyOperation(appPortRanges.Changes()), jc.ErrorIsNil)
+	err = appPortRanges.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appPortRanges.UniquePortRanges(), gc.HasLen, 1)
+
+	// Destroy a application; check application and
+	// openedApplicationportRanges removed.
+	err = wordpress.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = wordpress.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	err = appPortRanges.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *ApplicationSuite) TestOpenedPortRanges(c *gc.C) {
+
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	appPortRanges, err := wordpress.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+
+	flush := func(err string) {
+		if len(err) == 0 {
+			c.Assert(s.State.ApplyOperation(appPortRanges.Changes()), jc.ErrorIsNil)
+		} else {
+			c.Assert(s.State.ApplyOperation(appPortRanges.Changes()), gc.ErrorMatches, err)
+		}
+		c.Assert(appPortRanges.Refresh(), jc.ErrorIsNil)
+	}
+
+	c.Assert(appPortRanges.UniquePortRanges(), gc.HasLen, 0)
+	c.Assert(appPortRanges.Persisted(), jc.IsFalse)
+	appPortRanges.Open(allEndpoints, network.MustParsePortRange("3000/tcp"))
+	appPortRanges.Open("monitoring-port", network.MustParsePortRange("2000/udp"))
+	// All good.
+	flush(``)
+	c.Assert(appPortRanges.Persisted(), jc.IsTrue)
+	c.Assert(appPortRanges.ApplicationName(), jc.DeepEquals, `wordpress`)
+	c.Assert(appPortRanges.UniquePortRanges(), jc.DeepEquals, []network.PortRange{
+		network.MustParsePortRange("3000/tcp"),
+		network.MustParsePortRange("2000/udp"),
+	})
+	c.Assert(appPortRanges.ByEndpoint(), jc.DeepEquals, network.GroupedPortRanges{
+		allEndpoints:      []network.PortRange{network.MustParsePortRange("3000/tcp")},
+		"monitoring-port": []network.PortRange{network.MustParsePortRange("2000/udp")},
+	})
+
+	// Errors for unknown endpoint.
+	appPortRanges.Open("bad-endpoint", network.MustParsePortRange("2000/udp"))
+	flush(`cannot open/close ports: open port range: endpoint "bad-endpoint" for application "wordpress" not found`)
+	c.Assert(appPortRanges.ByEndpoint(), jc.DeepEquals, network.GroupedPortRanges{
+		allEndpoints:      []network.PortRange{network.MustParsePortRange("3000/tcp")},
+		"monitoring-port": []network.PortRange{network.MustParsePortRange("2000/udp")},
+	})
+
+	// No ops for duplicated Open.
+	appPortRanges.Open("monitoring-port", network.MustParsePortRange("2000/udp"))
+	flush(``)
+	c.Assert(appPortRanges.ByEndpoint(), jc.DeepEquals, network.GroupedPortRanges{
+		allEndpoints:      []network.PortRange{network.MustParsePortRange("3000/tcp")},
+		"monitoring-port": []network.PortRange{network.MustParsePortRange("2000/udp")},
+	})
+
+	// Close one port.
+	appPortRanges.Close("monitoring-port", network.MustParsePortRange("2000/udp"))
+	flush(``)
+	c.Assert(appPortRanges.ByEndpoint(), jc.DeepEquals, network.GroupedPortRanges{
+		allEndpoints: []network.PortRange{network.MustParsePortRange("3000/tcp")},
+	})
+
+	// No ops for Close non existing port.
+	appPortRanges.Close("monitoring-port", network.MustParsePortRange("2000/udp"))
+	flush(``)
+	c.Assert(appPortRanges.ByEndpoint(), jc.DeepEquals, network.GroupedPortRanges{
+		allEndpoints: []network.PortRange{network.MustParsePortRange("3000/tcp")},
+	})
+
+	// Destroy a application; check application and
+	// openedApplicationportRanges removed.
+	err = wordpress.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = wordpress.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	err = appPortRanges.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -5361,6 +5462,32 @@ func (s *ApplicationSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {
 		Charm: ch3,
 		CharmOrigin: &state.CharmOrigin{
 			Source: "charm-hub",
+			ID:     "charm-hub-id",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// Simulate a bundle deploying multiple applications from a single
+	// charm. The watcher needs to notify on the secondary applications.
+	appSameCharm, err := s.State.AddApplication(state.AddApplicationArgs{
+		Name:  "mysql-testing",
+		Charm: ch3,
+		CharmOrigin: &state.CharmOrigin{
+			Source: "charm-hub",
+			Platform: &state.Platform{
+				OS:      "ubuntu",
+				Channel: "22.04/stable",
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(appSameCharm.Name())
+	_ = appSameCharm.SetCharm(state.SetCharmConfig{
+		Charm: ch3,
+		CharmOrigin: &state.CharmOrigin{
+			Source: "charm-hub",
+			ID:     "charm-hub-id",
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)

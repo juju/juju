@@ -10,7 +10,6 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	cmd "github.com/juju/cmd/v3"
 	deployer "github.com/juju/juju/cmd/juju/application/deployer"
-	store "github.com/juju/juju/cmd/juju/application/store"
 )
 
 // MockDeployer is a mock of Deployer interface.
@@ -37,17 +36,17 @@ func (m *MockDeployer) EXPECT() *MockDeployerMockRecorder {
 }
 
 // PrepareAndDeploy mocks base method.
-func (m *MockDeployer) PrepareAndDeploy(arg0 *cmd.Context, arg1 deployer.DeployerAPI, arg2 deployer.Resolver, arg3 store.MacaroonGetter) error {
+func (m *MockDeployer) PrepareAndDeploy(arg0 *cmd.Context, arg1 deployer.DeployerAPI, arg2 deployer.Resolver) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PrepareAndDeploy", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "PrepareAndDeploy", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // PrepareAndDeploy indicates an expected call of PrepareAndDeploy.
-func (mr *MockDeployerMockRecorder) PrepareAndDeploy(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+func (mr *MockDeployerMockRecorder) PrepareAndDeploy(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareAndDeploy", reflect.TypeOf((*MockDeployer)(nil).PrepareAndDeploy), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareAndDeploy", reflect.TypeOf((*MockDeployer)(nil).PrepareAndDeploy), arg0, arg1, arg2)
 }
 
 // String mocks base method.

@@ -87,7 +87,7 @@ func FindTools(ss SimplestreamsFetcher, env environs.BootstrapEnviron,
 	logger.Debugf("finding agent binaries in stream: %q", strings.Join(streams, ", "))
 	if minorVersion >= 0 {
 		logger.Debugf("reading agent binaries with major.minor version %d.%d", majorVersion, minorVersion)
-	} else {
+	} else if majorVersion > 0 {
 		logger.Debugf("reading agent binaries with major version %d", majorVersion)
 	}
 	defer convertToolsError(&err)

@@ -29,21 +29,21 @@ jobs:
            - { os: darwin, arch: amd64 }
 
     steps:
-    - name: Checkout
+    - name: "Checkout"
       uses: actions/checkout@v3
 
-    - name: Find required go version
-      id: go-version
-      run: |
-        set -euxo pipefail
-        echo "::set-output name=version::$(grep '^go ' go.mod | awk '{print $2}')"
-
-    - name: Set up Go
+    - name: "Set up Go"
       uses: actions/setup-go@v3
       with:
-        go-version: ${{ steps.go-version.outputs.version }}
-      id: go
-
-    - name: Build
+        go-version-file: 'go.mod'
+        cache: true
+    
+    - name: "Install musl"
+      if: (matrix.os == 'linux')
+      shell: bash
       run: |
-        GOOS=${{ matrix.platform.os }} GOARCH=${{ matrix.platform.arch }} make go-install
+        sudo make MUSL_CROSS_COMPILE=0 MUSL_PLACEMENT=local musl-install
+
+    - name: "Build"
+      run: |
+        GOOS=${{ matrix.platform.os }} GOARCH=${{ matrix.platform.arch }} make go-build

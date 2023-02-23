@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v10"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/bson"
@@ -126,8 +126,8 @@ func (s *uniterSuiteBase) setupState(c *gc.C) {
 	})
 
 	s.wpCharm = s.Factory.MakeCharm(c, &factory.CharmParams{
-		Name: "wordpress",
-		URL:  "cs:quantal/wordpress-3",
+		Name:     "wordpress",
+		Revision: "3",
 	})
 	s.wordpress = s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "wordpress",
@@ -919,9 +919,9 @@ func (s *uniterSuite) TestSetCharmURL(c *gc.C) {
 	c.Assert(charmURL, gc.IsNil)
 
 	args := params.EntitiesCharmURL{Entities: []params.EntityCharmURL{
-		{Tag: "unit-mysql-0", CharmURL: "cs:quantal/application-42"},
+		{Tag: "unit-mysql-0", CharmURL: "ch:amd64/quantal/application-42"},
 		{Tag: "unit-wordpress-0", CharmURL: s.wpCharm.String()},
-		{Tag: "unit-foo-42", CharmURL: "cs:quantal/foo-321"},
+		{Tag: "unit-foo-42", CharmURL: "ch:amd64/quantal/foo-321"},
 	}}
 	result, err := s.uniter.SetCharmURL(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1039,7 +1039,7 @@ func (s *uniterSuite) TestWatchConfigSettingsHash(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 			{
 				StringsWatcherId: "1",
-				Changes:          []string{"af35e298300150f2c357b4a1c40c1109bde305841c6343113b634b9dada22d00"},
+				Changes:          []string{"7579d9a32a0af2e5459c21b9a6ada743db4ed33662f5230d3ca8283518268746"},
 			},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
@@ -1368,7 +1368,7 @@ func (s *uniterSuite) TestWatchSubordinateUnitRelations(c *gc.C) {
 	// The logging charm is subordinate (and the info endpoint is scope=container).
 	loggingCharm := s.Factory.MakeCharm(c, &factory.CharmParams{
 		Name: "logging",
-		URL:  "cs:quantal/logging-1",
+		URL:  "ch:amd64/quantal/logging-1",
 	})
 	loggingApp := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "logging",
@@ -1425,7 +1425,7 @@ func (s *uniterSuite) TestWatchUnitRelationsSubordinateWithGlobalEndpoint(c *gc.
 	// The logging charm is subordinate (and the info endpoint is scope=container).
 	loggingCharm := s.Factory.MakeCharm(c, &factory.CharmParams{
 		Name: "logging",
-		URL:  "cs:quantal/logging-1",
+		URL:  "ch:amd64/quantal/logging-1",
 	})
 	loggingApp := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "logging",
@@ -1434,7 +1434,7 @@ func (s *uniterSuite) TestWatchUnitRelationsSubordinateWithGlobalEndpoint(c *gc.
 
 	uiCharm := s.Factory.MakeCharm(c, &factory.CharmParams{
 		Name: "logging-frontend",
-		URL:  "cs:quantal/logging-frontend-1",
+		URL:  "ch:amd64/quantal/logging-frontend-1",
 	})
 	uiApp := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "logging-frontend",
@@ -1483,7 +1483,7 @@ func (s *uniterSuite) TestWatchUnitRelationsWithSubSubRelation(c *gc.C) {
 	// container).
 	loggingCharm := s.Factory.MakeCharm(c, &factory.CharmParams{
 		Name: "logging",
-		URL:  "cs:quantal/logging-1",
+		URL:  "ch:amd64/quantal/logging-1",
 	})
 	loggingApp := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "logging",
@@ -1491,7 +1491,7 @@ func (s *uniterSuite) TestWatchUnitRelationsWithSubSubRelation(c *gc.C) {
 	})
 	monitoringCharm := s.Factory.MakeCharm(c, &factory.CharmParams{
 		Name: "monitoring",
-		URL:  "cs:quantal/monitoring-1",
+		URL:  "ch:amd64/quantal/monitoring-1",
 	})
 	monitoringApp := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "monitoring",
@@ -2016,7 +2016,7 @@ func (s *uniterSuite) TestEnterScope(c *gc.C) {
 func (s *uniterSuite) TestEnterScopeIgnoredForInvalidPrincipals(c *gc.C) {
 	loggingCharm := s.Factory.MakeCharm(c, &factory.CharmParams{
 		Name: "logging",
-		URL:  "cs:quantal/logging-1",
+		URL:  "ch:amd64/quantal/logging-1",
 	})
 	logging := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "logging",
@@ -3687,6 +3687,39 @@ func (s *uniterSuite) TestGetPodSpec(c *gc.C) {
 	c.Assert(spec, gc.Equals, podSpec)
 }
 
+func (s *uniterSuite) TestOpenedApplicationPortRangesByEndpoint(c *gc.C) {
+	// Verify no ports are opened yet on the machine (or unit).
+	appPortRanges, err := s.wordpress.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appPortRanges.UniquePortRanges(), gc.HasLen, 0)
+
+	// Open some ports using different endpoints.
+	appPortRanges.Open(allEndpoints, network.MustParsePortRange("1000/tcp"))
+	appPortRanges.Open("monitoring-port", network.MustParsePortRange("1111/udp"))
+
+	c.Assert(s.State.ApplyOperation(appPortRanges.Changes()), jc.ErrorIsNil)
+
+	// Get the open port ranges
+	arg := params.Entity{Tag: "application-wordpress"}
+	expectPortRanges := []params.ApplicationOpenedPorts{
+		{
+			Endpoint:   "",
+			PortRanges: []params.PortRange{{FromPort: 1000, ToPort: 1000, Protocol: "tcp"}},
+		},
+		{
+			Endpoint:   "monitoring-port",
+			PortRanges: []params.PortRange{{FromPort: 1111, ToPort: 1111, Protocol: "udp"}},
+		},
+	}
+	result, err := s.uniter.OpenedApplicationPortRangesByEndpoint(arg)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ApplicationOpenedPortsResults{
+		Results: []params.ApplicationOpenedPortsResult{
+			{ApplicationPortRanges: expectPortRanges},
+		},
+	})
+}
+
 type unitMetricBatchesSuite struct {
 	uniterSuiteBase
 	*commontesting.ModelWatcherTest
@@ -3704,7 +3737,7 @@ func (s *unitMetricBatchesSuite) SetUpTest(c *gc.C) {
 
 	s.meteredCharm = s.Factory.MakeCharm(c, &factory.CharmParams{
 		Name: "metered",
-		URL:  "cs:quantal/metered",
+		URL:  "ch:amd64/quantal/metered",
 	})
 	s.meteredApplication = s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: s.meteredCharm,
@@ -3875,7 +3908,7 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 
 	s.wpCharm = s.Factory.MakeCharm(c, &factory.CharmParams{
 		Name: "wordpress-extra-bindings",
-		URL:  "cs:quantal/wordpress-extra-bindings-4",
+		URL:  "ch:amd64/quantal/wordpress-extra-bindings-4",
 	})
 	var err error
 	s.wordpress, err = s.State.AddApplication(state.AddApplicationArgs{
@@ -4740,6 +4773,9 @@ func (s *uniterNetworkInfoSuite) assertCommitHookChangesCAAS(c *gc.C, isRaw bool
 	} else {
 		b.SetPodSpec(gitlab.ApplicationTag(), &podSpec)
 	}
+	b.OpenPortRange("website", network.MustParsePortRange("80/tcp"))
+	b.OpenPortRange("website", network.MustParsePortRange("7337/tcp")) // same port closed below; this should be a no-op
+	b.ClosePortRange("website", network.MustParsePortRange("7337/tcp"))
 	req, _ := b.Build()
 
 	s.State = cm.State()
@@ -4777,6 +4813,13 @@ func (s *uniterNetworkInfoSuite) assertCommitHookChangesCAAS(c *gc.C, isRaw bool
 	c.Assert(err, jc.ErrorIsNil)
 	charmState, _ := unitState.CharmState()
 	c.Assert(charmState, jc.DeepEquals, map[string]string{"charm-key": "charm-value"}, gc.Commentf("state doc not updated"))
+
+	appPortRanges, err := gitlab.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appPortRanges.UniquePortRanges(), jc.DeepEquals, []network.PortRange{{Protocol: "tcp", FromPort: 80, ToPort: 80}})
+	c.Assert(appPortRanges.ByEndpoint(), jc.DeepEquals, network.GroupedPortRanges{
+		"website": {{Protocol: "tcp", FromPort: 80, ToPort: 80}},
+	}, gc.Commentf("unit ports where not opened for the requested endpoint"))
 }
 
 func (s *uniterNetworkInfoSuite) TestCommitHookChangesCAASPodSpec(c *gc.C) {

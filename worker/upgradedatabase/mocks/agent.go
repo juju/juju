@@ -151,20 +151,6 @@ func (mr *MockConfigMockRecorder) AgentLogfileMaxSizeMB() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AgentLogfileMaxSizeMB", reflect.TypeOf((*MockConfig)(nil).AgentLogfileMaxSizeMB))
 }
 
-// BatchRaftFSM mocks base method.
-func (m *MockConfig) BatchRaftFSM() bool {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BatchRaftFSM")
-	ret0, _ := ret[0].(bool)
-	return ret0
-}
-
-// BatchRaftFSM indicates an expected call of BatchRaftFSM.
-func (mr *MockConfigMockRecorder) BatchRaftFSM() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BatchRaftFSM", reflect.TypeOf((*MockConfig)(nil).BatchRaftFSM))
-}
-
 // CACert mocks base method.
 func (m *MockConfig) CACert() string {
 	m.ctrl.T.Helper()
@@ -332,20 +318,6 @@ func (m *MockConfig) MongoMemoryProfile() mongo.MemoryProfile {
 func (mr *MockConfigMockRecorder) MongoMemoryProfile() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MongoMemoryProfile", reflect.TypeOf((*MockConfig)(nil).MongoMemoryProfile))
-}
-
-// NonSyncedWritesToRaftLog mocks base method.
-func (m *MockConfig) NonSyncedWritesToRaftLog() bool {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NonSyncedWritesToRaftLog")
-	ret0, _ := ret[0].(bool)
-	return ret0
-}
-
-// NonSyncedWritesToRaftLog indicates an expected call of NonSyncedWritesToRaftLog.
-func (mr *MockConfigMockRecorder) NonSyncedWritesToRaftLog() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NonSyncedWritesToRaftLog", reflect.TypeOf((*MockConfig)(nil).NonSyncedWritesToRaftLog))
 }
 
 // Nonce mocks base method.
@@ -557,20 +529,6 @@ func (mr *MockConfigSetterMockRecorder) AgentLogfileMaxSizeMB() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AgentLogfileMaxSizeMB", reflect.TypeOf((*MockConfigSetter)(nil).AgentLogfileMaxSizeMB))
 }
 
-// BatchRaftFSM mocks base method.
-func (m *MockConfigSetter) BatchRaftFSM() bool {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BatchRaftFSM")
-	ret0, _ := ret[0].(bool)
-	return ret0
-}
-
-// BatchRaftFSM indicates an expected call of BatchRaftFSM.
-func (mr *MockConfigSetterMockRecorder) BatchRaftFSM() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BatchRaftFSM", reflect.TypeOf((*MockConfigSetter)(nil).BatchRaftFSM))
-}
-
 // CACert mocks base method.
 func (m *MockConfigSetter) CACert() string {
 	m.ctrl.T.Helper()
@@ -754,20 +712,6 @@ func (mr *MockConfigSetterMockRecorder) MongoMemoryProfile() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MongoMemoryProfile", reflect.TypeOf((*MockConfigSetter)(nil).MongoMemoryProfile))
 }
 
-// NonSyncedWritesToRaftLog mocks base method.
-func (m *MockConfigSetter) NonSyncedWritesToRaftLog() bool {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NonSyncedWritesToRaftLog")
-	ret0, _ := ret[0].(bool)
-	return ret0
-}
-
-// NonSyncedWritesToRaftLog indicates an expected call of NonSyncedWritesToRaftLog.
-func (mr *MockConfigSetterMockRecorder) NonSyncedWritesToRaftLog() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NonSyncedWritesToRaftLog", reflect.TypeOf((*MockConfigSetter)(nil).NonSyncedWritesToRaftLog))
-}
-
 // Nonce mocks base method.
 func (m *MockConfigSetter) Nonce() string {
 	m.ctrl.T.Helper()
@@ -808,18 +752,6 @@ func (m *MockConfigSetter) SetAPIHostPorts(arg0 []network.HostPorts) error {
 func (mr *MockConfigSetterMockRecorder) SetAPIHostPorts(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAPIHostPorts", reflect.TypeOf((*MockConfigSetter)(nil).SetAPIHostPorts), arg0)
-}
-
-// SetBatchRaftFSM mocks base method.
-func (m *MockConfigSetter) SetBatchRaftFSM(arg0 bool) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SetBatchRaftFSM", arg0)
-}
-
-// SetBatchRaftFSM indicates an expected call of SetBatchRaftFSM.
-func (mr *MockConfigSetterMockRecorder) SetBatchRaftFSM(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetBatchRaftFSM", reflect.TypeOf((*MockConfigSetter)(nil).SetBatchRaftFSM), arg0)
 }
 
 // SetCACert mocks base method.
@@ -880,18 +812,6 @@ func (m *MockConfigSetter) SetMongoMemoryProfile(arg0 mongo.MemoryProfile) {
 func (mr *MockConfigSetterMockRecorder) SetMongoMemoryProfile(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMongoMemoryProfile", reflect.TypeOf((*MockConfigSetter)(nil).SetMongoMemoryProfile), arg0)
-}
-
-// SetNonSyncedWritesToRaftLog mocks base method.
-func (m *MockConfigSetter) SetNonSyncedWritesToRaftLog(arg0 bool) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SetNonSyncedWritesToRaftLog", arg0)
-}
-
-// SetNonSyncedWritesToRaftLog indicates an expected call of SetNonSyncedWritesToRaftLog.
-func (mr *MockConfigSetterMockRecorder) SetNonSyncedWritesToRaftLog(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetNonSyncedWritesToRaftLog", reflect.TypeOf((*MockConfigSetter)(nil).SetNonSyncedWritesToRaftLog), arg0)
 }
 
 // SetOldPassword mocks base method.
