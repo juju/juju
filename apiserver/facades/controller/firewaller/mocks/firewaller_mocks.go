@@ -11,7 +11,6 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	firewall "github.com/juju/juju/apiserver/common/firewall"
 	network "github.com/juju/juju/core/network"
-	firewall0 "github.com/juju/juju/core/network/firewall"
 	config "github.com/juju/juju/environs/config"
 	params "github.com/juju/juju/rpc/params"
 	state "github.com/juju/juju/state"
@@ -85,21 +84,6 @@ func (m *MockState) FindEntity(arg0 names.Tag) (state.Entity, error) {
 func (mr *MockStateMockRecorder) FindEntity(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindEntity", reflect.TypeOf((*MockState)(nil).FindEntity), arg0)
-}
-
-// FirewallRule mocks base method.
-func (m *MockState) FirewallRule(arg0 firewall0.WellKnownServiceType) (*state.FirewallRule, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FirewallRule", arg0)
-	ret0, _ := ret[0].(*state.FirewallRule)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// FirewallRule indicates an expected call of FirewallRule.
-func (mr *MockStateMockRecorder) FirewallRule(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FirewallRule", reflect.TypeOf((*MockState)(nil).FirewallRule), arg0)
 }
 
 // GetMacaroon mocks base method.

@@ -17,7 +17,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/network"
-	corefirewall "github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -347,25 +346,6 @@ func (f *FirewallerAPI) SetRelationsStatus(args params.SetStatus) (params.ErrorR
 			Message: entity.Info,
 		})
 		result.Results[i].Error = apiservererrors.ServerError(err)
-	}
-	return result, nil
-}
-
-// FirewallRules returns the firewall rules for the specified well known service types.
-func (f *FirewallerAPI) FirewallRules(args params.KnownServiceArgs) (params.ListFirewallRulesResults, error) {
-	var result params.ListFirewallRulesResults
-	for _, knownService := range args.KnownServices {
-		rule, err := f.st.FirewallRule(corefirewall.WellKnownServiceType(knownService))
-		if err != nil && !errors.IsNotFound(err) {
-			return result, apiservererrors.ServerError(err)
-		}
-		if err != nil {
-			continue
-		}
-		result.Rules = append(result.Rules, params.FirewallRule{
-			KnownService:   knownService,
-			WhitelistCIDRS: rule.WhitelistCIDRs(),
-		})
 	}
 	return result, nil
 }

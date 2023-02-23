@@ -29,7 +29,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/secrets"
@@ -1552,37 +1551,6 @@ func (s *MigrationImportSuite) TestSpaces(c *gc.C) {
 	imported, err = newSt.SpaceByName(spaceNoID.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(imported.Id(), gc.Not(gc.Equals), "")
-}
-
-func (s *MigrationImportSuite) TestFirewallRules(c *gc.C) {
-	serviceType := firewall.WellKnownServiceType("ssh")
-	cidr0 := []string{"192.0.2.1/24"}
-	cidr1 := []string{"192.168.2.1/16"}
-
-	fwRule0 := state.NewFirewallRule(serviceType, cidr0)
-	fwRule1 := state.NewFirewallRule(serviceType, cidr1)
-
-	firewallRuleService := state.NewFirewallRules(s.State)
-	err := firewallRuleService.Save(fwRule0)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = firewallRuleService.Save(fwRule1)
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, newSt := s.importModel(c, s.State, func(map[string]interface{}) {
-		err := firewallRuleService.Remove(serviceType)
-		c.Assert(err, jc.ErrorIsNil)
-	})
-
-	firewallRuleService = state.NewFirewallRules(newSt)
-	rules, err := firewallRuleService.AllRules()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rules, gc.HasLen, 1)
-
-	rule, err := firewallRuleService.Rule(serviceType)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rule.WhitelistCIDRs(), gc.DeepEquals, fwRule1.WhitelistCIDRs())
-	c.Assert(rule.WellKnownService(), gc.Equals, fwRule1.WellKnownService())
 }
 
 func (s *MigrationImportSuite) TestDestroyEmptyModel(c *gc.C) {

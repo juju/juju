@@ -192,9 +192,6 @@ func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err
 	if err := restore.remoteApplications(); err != nil {
 		return nil, nil, errors.Annotate(err, "remoteapplications")
 	}
-	if err := restore.firewallRules(); err != nil {
-		return nil, nil, errors.Annotate(err, "firewallrules")
-	}
 	if err := restore.relations(); err != nil {
 		return nil, nil, errors.Annotate(err, "relations")
 	}
@@ -1582,35 +1579,6 @@ func (i *importer) remoteApplications() error {
 	}
 	i.logger.Debugf("importing remote applications succeeded")
 	return nil
-}
-
-func (i *importer) firewallRules() error {
-	i.logger.Debugf("importing firewall rules")
-	migration := &ImportStateMigration{
-		src: i.model,
-		dst: i.st.db(),
-	}
-	migration.Add(func() error {
-		m := ImportFirewallRules{}
-		return m.Execute(stateModelNamspaceShim{
-			Model: migration.src,
-			st:    i.st,
-		}, migration.dst)
-	})
-	if err := migration.Run(); err != nil {
-		return errors.Trace(err)
-	}
-	i.logger.Debugf("importing firewall rules succeeded")
-	return nil
-}
-
-// makeStatusDoc assumes status is non-nil.
-func (i *importer) makeFirewallRuleDoc(firewallRule description.FirewallRule) *firewallRulesDoc {
-	return &firewallRulesDoc{
-		Id:               firewallRule.ID(),
-		WellKnownService: firewallRule.WellKnownService(),
-		WhitelistCIDRS:   firewallRule.WhitelistCIDRs(),
-	}
 }
 
 func (i *importer) makeRemoteApplicationDoc(app description.RemoteApplication) *remoteApplicationDoc {

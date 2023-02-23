@@ -21796,142 +21796,6 @@
         }
     },
     {
-        "Name": "FirewallRules",
-        "Description": "API provides the firewallrules facade APIs for v1.",
-        "Version": 1,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
-            "model-user"
-        ],
-        "Schema": {
-            "type": "object",
-            "properties": {
-                "ListFirewallRules": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/ListFirewallRulesResults"
-                        }
-                    },
-                    "description": "ListFirewallRules returns all the firewall rules."
-                },
-                "SetFirewallRules": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/FirewallRuleArgs"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ErrorResults"
-                        }
-                    },
-                    "description": "SetFirewallRules creates or updates the specified firewall rules."
-                }
-            },
-            "definitions": {
-                "Error": {
-                    "type": "object",
-                    "properties": {
-                        "code": {
-                            "type": "string"
-                        },
-                        "info": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        },
-                        "message": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "message",
-                        "code"
-                    ]
-                },
-                "ErrorResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "additionalProperties": false
-                },
-                "ErrorResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/ErrorResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
-                    ]
-                },
-                "FirewallRule": {
-                    "type": "object",
-                    "properties": {
-                        "known-service": {
-                            "type": "string"
-                        },
-                        "whitelist-cidrs": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "known-service"
-                    ]
-                },
-                "FirewallRuleArgs": {
-                    "type": "object",
-                    "properties": {
-                        "args": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/FirewallRule"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "args"
-                    ]
-                },
-                "ListFirewallRulesResults": {
-                    "type": "object",
-                    "properties": {
-                        "Rules": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/FirewallRule"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "Rules"
-                    ]
-                }
-            }
-        }
-    },
-    {
         "Name": "Firewaller",
         "Description": "FirewallerAPI provides access to the Firewaller API facade.",
         "Version": 7,
@@ -21988,18 +21852,6 @@
                         }
                     },
                     "description": "ControllerConfig returns the controller's configuration."
-                },
-                "FirewallRules": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/KnownServiceArgs"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ListFirewallRulesResults"
-                        }
-                    },
-                    "description": "FirewallRules returns the firewall rules for the specified well known service types."
                 },
                 "GetAssignedMachine": {
                     "type": "object",
@@ -22584,39 +22436,6 @@
                         "overlay"
                     ]
                 },
-                "FirewallRule": {
-                    "type": "object",
-                    "properties": {
-                        "known-service": {
-                            "type": "string"
-                        },
-                        "whitelist-cidrs": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "known-service"
-                    ]
-                },
-                "KnownServiceArgs": {
-                    "type": "object",
-                    "properties": {
-                        "known-services": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "known-services"
-                    ]
-                },
                 "LifeResult": {
                     "type": "object",
                     "properties": {
@@ -22645,21 +22464,6 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
-                    ]
-                },
-                "ListFirewallRulesResults": {
-                    "type": "object",
-                    "properties": {
-                        "Rules": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/FirewallRule"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "Rules"
                     ]
                 },
                 "Macaroon": {

@@ -511,13 +511,6 @@ func allCollections() CollectionSchema {
 		// relationNetworksC holds required ingress or egress cidrs for remote relations.
 		relationNetworksC: {},
 
-		// firewallRulesC holds firewall rules for defined service types.
-		firewallRulesC: {
-			indexes: []mgo.Index{{
-				Key: []string{"model-uuid"},
-			}},
-		},
-
 		// podSpecsC holds the CAAS pod specifications,
 		// for applications.
 		podSpecsC: {},
@@ -665,7 +658,6 @@ const (
 	remoteEntitiesC      = "remoteEntities"
 	externalControllersC = "externalControllers"
 	relationNetworksC    = "relationNetworks"
-	firewallRulesC       = "firewallRules"
 
 	// Secrets
 	secretMetadataC    = "secretMetadata"

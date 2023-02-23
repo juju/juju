@@ -183,7 +183,7 @@ type StateDocumentFactory interface {
 }
 
 // stateDocumentFactoryShim is required to allow the new vertical boundary
-// around importing a remoteApplication and firewallRules, from being accessed
+// around importing a remoteApplication, from being accessed
 // by the existing state package code.
 // That way we can keep the importing code clean from the proliferation of state
 // code in the juju code base.
@@ -206,51 +206,6 @@ func (s stateDocumentFactoryShim) MakeStatusDoc(status description.Status) statu
 
 func (s stateDocumentFactoryShim) MakeStatusOp(globalKey string, doc statusDoc) txn.Op {
 	return createStatusOp(s.importer.st, globalKey, doc)
-}
-
-// FirewallRulesDescription defines an in-place usage for reading firewall
-// rules.
-type FirewallRulesDescription interface {
-	FirewallRules() []description.FirewallRule
-}
-
-// FirewallRulesInput describes the input used for migrating firewall rules.
-type FirewallRulesInput interface {
-	FirewallRulesDescription
-}
-
-// ImportFirewallRules describes a way to import firewallRules from a
-// description.
-type ImportFirewallRules struct{}
-
-// Execute the import on the firewall rules description, carefully modelling
-// the dependencies we have.
-func (rules ImportFirewallRules) Execute(src FirewallRulesInput, runner TransactionRunner) error {
-	firewallRules := src.FirewallRules()
-	if len(firewallRules) == 0 {
-		return nil
-	}
-
-	ops := make([]txn.Op, len(firewallRules))
-	for i, rule := range firewallRules {
-		serviceType := rule.WellKnownService()
-		doc := firewallRulesDoc{
-			Id:               serviceType,
-			WellKnownService: serviceType,
-			WhitelistCIDRS:   rule.WhitelistCIDRs(),
-		}
-		ops[i] = txn.Op{
-			C:      firewallRulesC,
-			Id:     doc.Id,
-			Assert: txn.DocMissing,
-			Insert: doc,
-		}
-	}
-
-	if err := runner.RunTransaction(ops); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
 }
 
 // RemoteApplicationsDescription defines an in-place usage for reading remote
