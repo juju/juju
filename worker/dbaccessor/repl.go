@@ -20,6 +20,7 @@ import (
 	"github.com/juju/utils/v3"
 	"github.com/mattn/go-sqlite3"
 
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/database/driver"
 )
 
@@ -43,7 +44,7 @@ type replCmdDef struct {
 
 type sqlREPL struct {
 	connListener   net.Listener
-	dbGetter       DBGetter
+	dbGetter       database.DBGetter
 	retryableError func(error) bool
 	clock          clock.Clock
 	logger         Logger
@@ -55,7 +56,9 @@ type sqlREPL struct {
 	commands map[string]replCmdDef
 }
 
-func newREPL(pathToSocket string, dbGetter DBGetter, retryableError func(error) bool, clock clock.Clock, logger Logger) (REPL, error) {
+func newREPL(
+	pathToSocket string, dbGetter database.DBGetter, retryableError func(error) bool, clock clock.Clock, logger Logger,
+) (REPL, error) {
 	l, err := net.Listen("unix", pathToSocket)
 	if err != nil {
 		return nil, errors.Annotate(err, "creating UNIX socket for REPL sessions")

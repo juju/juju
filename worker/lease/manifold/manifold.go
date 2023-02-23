@@ -19,9 +19,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/core/database"
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/worker/common"
-	"github.com/juju/juju/worker/dbaccessor"
 	"github.com/juju/juju/worker/lease"
 )
 
@@ -92,7 +92,7 @@ func (s *manifoldState) start(context dependency.Context) (worker.Worker, error)
 		return nil, errors.Trace(err)
 	}
 
-	var dbGetter dbaccessor.DBGetter
+	var dbGetter database.DBGetter
 	if err := context.Get(s.config.DBAccessorName, &dbGetter); err != nil {
 		return nil, errors.Trace(err)
 	}

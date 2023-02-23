@@ -13,6 +13,7 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/database/app"
 	"github.com/juju/juju/testing"
 )
@@ -47,7 +48,7 @@ func (s *workerSuite) TestGetControllerDBSuccessNotExistingNode(c *gc.C) {
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
 
-	getter, ok := w.(DBGetter)
+	getter, ok := w.(database.DBGetter)
 	c.Assert(ok, jc.IsTrue, gc.Commentf("worker does not implement DBGetter"))
 
 	_, err := getter.GetDB("controller")

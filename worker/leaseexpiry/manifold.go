@@ -6,9 +6,10 @@ package leaseexpiry
 import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/worker/dbaccessor"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
+
+	"github.com/juju/juju/core/database"
 )
 
 // Logger represents the methods used by the worker to log details.
@@ -56,7 +57,7 @@ func (c ManifoldConfig) start(ctx dependency.Context) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 
-	var dbGetter dbaccessor.DBGetter
+	var dbGetter database.DBGetter
 	if err := ctx.Get(c.DBAccessorName, &dbGetter); err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -11,6 +11,7 @@ import (
 	"github.com/juju/worker/v3/dependency"
 
 	coreagent "github.com/juju/juju/agent"
+	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/database"
 	"github.com/juju/juju/database/app"
 	"github.com/juju/juju/worker/common"
@@ -98,8 +99,8 @@ func dbAccessorOutput(in worker.Worker, out interface{}) error {
 	}
 
 	switch out := out.(type) {
-	case *DBGetter:
-		var target DBGetter = w
+	case *coredatabase.DBGetter:
+		var target coredatabase.DBGetter = w
 		*out = target
 	default:
 		return errors.Errorf("expected output of *dbaccessor.DBGetter, got %T", out)
