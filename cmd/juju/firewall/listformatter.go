@@ -11,11 +11,12 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/core/network/firewall"
 )
 
 type firewallRule struct {
-	KnownService   string   `yaml:"known-service" json:"known-service"`
-	WhitelistCIDRS []string `yaml:"whitelist-subnets,omitempty" json:"whitelist-subnets,omitempty"`
+	KnownService   firewall.WellKnownServiceType `yaml:"known-service" json:"known-service"`
+	WhitelistCIDRS []string                      `yaml:"allowlist-subnets,omitempty" json:"allowlist-subnets,omitempty"`
 }
 
 type firewallRules []firewallRule
@@ -42,7 +43,7 @@ func formatFirewallRulesTabular(writer io.Writer, rules firewallRules) {
 
 	sort.Sort(rules)
 
-	w.Println("Service", "Whitelist subnets")
+	w.Println("Service", "Allowlist subnets")
 	for _, rule := range rules {
 		w.Println(rule.KnownService, strings.Join(rule.WhitelistCIDRS, ","))
 	}

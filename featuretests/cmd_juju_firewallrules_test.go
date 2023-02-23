@@ -19,13 +19,17 @@ type FirewallRulesSuite struct {
 }
 
 func (s *FirewallRulesSuite) TestFirewallRules(c *gc.C) {
-	_, err := cmdtesting.RunCommand(c, firewall.NewSetFirewallRuleCommand(), "ssh", "--whitelist", "192.168.1.0/16")
+	_, err := cmdtesting.RunCommand(c, firewall.NewSetFirewallRuleCommand(), "ssh", "--allowlist", "192.168.1.0/16")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx, err := cmdtesting.RunCommand(c, firewall.NewListFirewallRulesCommand(), "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, `
 - known-service: ssh
-  whitelist-subnets:
+  allowlist-subnets:
   - 192.168.1.0/16
+- known-service: juju-application-offer
+  allowlist-subnets:
+  - 0.0.0.0/0
+  - ::/0
 `[1:])
 }

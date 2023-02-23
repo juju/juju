@@ -24,10 +24,10 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelrelations"
 	"github.com/juju/juju/core/crossmodel"
 	coremacaroon "github.com/juju/juju/core/macaroon"
-	corefirewall "github.com/juju/juju/core/network/firewall"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -47,6 +47,7 @@ func (st *mockStatePool) Get(modelUUID string) (commoncrossmodel.Backend, func()
 type mockState struct {
 	testing.Stub
 	crossmodelrelations.CrossModelRelationsState
+	modelConfig           coretesting.Attrs
 	relations             map[string]*mockRelation
 	remoteApplications    map[string]*mockRemoteApplication
 	applications          map[string]*mockApplication
@@ -55,7 +56,6 @@ type mockState struct {
 	offerConnections      map[int]*mockOfferConnection
 	offerConnectionsByKey map[string]*mockOfferConnection
 	remoteEntities        map[names.Tag]string
-	firewallRules         map[corefirewall.WellKnownServiceType]*state.FirewallRule
 	ingressNetworks       map[string][]string
 	secrets               map[string]coresecrets.SecretMetadata
 	migrationActive       bool
@@ -63,6 +63,7 @@ type mockState struct {
 
 func newMockState() *mockState {
 	return &mockState{
+		modelConfig:           make(coretesting.Attrs),
 		relations:             make(map[string]*mockRelation),
 		remoteApplications:    make(map[string]*mockRemoteApplication),
 		applications:          make(map[string]*mockApplication),
@@ -71,7 +72,6 @@ func newMockState() *mockState {
 		offerNames:            make(map[string]string),
 		offerConnections:      make(map[int]*mockOfferConnection),
 		offerConnectionsByKey: make(map[string]*mockOfferConnection),
-		firewallRules:         make(map[corefirewall.WellKnownServiceType]*state.FirewallRule),
 		ingressNetworks:       make(map[string][]string),
 		secrets:               make(map[string]coresecrets.SecretMetadata),
 	}
@@ -100,6 +100,11 @@ func (st *mockState) ModelUUID() string {
 
 func (st *mockState) Model() (crossmodelrelations.Model, error) {
 	return &mockModel{}, nil
+}
+
+func (st *mockState) ModelConfig() (*config.Config, error) {
+	attrs := coretesting.FakeConfig().Merge(st.modelConfig)
+	return config.New(config.NoDefaults, attrs)
 }
 
 func (st *mockState) ApplyOperation(state.ModelOperation) error {
@@ -136,13 +141,6 @@ func (st *mockState) AddOfferConnection(arg state.AddOfferConnectionParams) (cro
 	st.offerConnections[arg.RelationId] = oc
 	st.offerConnectionsByKey[arg.RelationKey] = oc
 	return oc, nil
-}
-
-func (st *mockState) FirewallRule(service corefirewall.WellKnownServiceType) (*state.FirewallRule, error) {
-	if r, ok := st.firewallRules[service]; ok {
-		return r, nil
-	}
-	return nil, errors.NotFoundf("firewall rule for %v", service)
 }
 
 func (st *mockState) SaveIngressNetworks(relationKey string, cidrs []string) (state.RelationNetworks, error) {

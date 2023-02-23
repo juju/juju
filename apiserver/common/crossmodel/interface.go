@@ -12,10 +12,10 @@ import (
 
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/permission"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 )
 
@@ -26,6 +26,9 @@ type Backend interface {
 
 	// ModelTag the tag of the model on which we are operating.
 	ModelTag() names.ModelTag
+
+	// ModelConfig returns the complete config for the model
+	ModelConfig() (*config.Config, error)
 
 	// AllModelUUIDs returns the UUIDs of all models in the controller.
 	AllModelUUIDs() ([]string, error)
@@ -94,9 +97,6 @@ type Backend interface {
 	// WatchOffer returns a watcher that notifies of changes to the
 	// lifecycle of the offer.
 	WatchOffer(offerName string) state.NotifyWatcher
-
-	// FirewallRule returns the firewall rule for the specified service.
-	FirewallRule(service firewall.WellKnownServiceType) (*state.FirewallRule, error)
 
 	// ApplyOperation applies a model operation to the state.
 	ApplyOperation(op state.ModelOperation) error
