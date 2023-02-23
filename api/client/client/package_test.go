@@ -11,9 +11,6 @@ import (
 	"github.com/juju/juju/api/base"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/connection_mock.go github.com/juju/juju/api Connection
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/stream_mock.go github.com/juju/juju/api/base Stream
-
 func TestAll(t *testing.T) {
 	gc.TestingT(t)
 }
