@@ -81,7 +81,7 @@ type cloudConfig struct {
 	// update_hostname
 	attrs map[string]interface{}
 
-	// omitNetplanMatchStanza if true, causes Netplan to be rendered without
+	// omitNetplanHWAddrMatch if true, causes Netplan to be rendered without
 	// a stanza that matches by MAC address in order to apply configuration to
 	// a device.
 	// This will be recruited for LXD, where we have observed 22.04 containers

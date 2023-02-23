@@ -5,6 +5,7 @@ package kvm
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -176,18 +177,32 @@ func (manager *containerManager) CreateContainer(
 	hc = &instance.HardwareCharacteristics{AvailabilityZone: &manager.availabilityZone}
 
 	// Create the cloud-init.
+	cloudConfig, err := cloudinit.New(instanceConfig.Series)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	logger.Tracef("write cloud-init")
+	userData, err := containerinit.CloudInitUserData(cloudConfig, instanceConfig, networkConfig)
+	if err != nil {
+		logger.Infof("machine config api %#v", *instanceConfig.APIInfo)
+		err = errors.Annotate(err, "failed to write generate data")
+		logger.Errorf(err.Error())
+		return nil, nil, errors.Trace(err)
+	}
+
 	directory, err := container.NewDirectory(name)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "failed to create container directory")
 	}
-	logger.Tracef("write cloud-init")
-	userDataFilename, err := containerinit.WriteUserData(instanceConfig, networkConfig, directory)
-	if err != nil {
-		logger.Infof("machine config api %#v", *instanceConfig.APIInfo)
-		err = errors.Annotate(err, "failed to write user data")
-		logger.Infof(err.Error())
-		return nil, nil, err
+
+	userDataFilename := filepath.Join(directory, "cloud-init")
+	if err := os.WriteFile(userDataFilename, userData, 0644); err != nil {
+		err = errors.Annotate(err, "failed to write generate data")
+		logger.Errorf(err.Error())
+		return nil, nil, errors.Trace(err)
 	}
+
 	// Create the container.
 	startParams := ParseConstraintsToStartParams(cons)
 	startParams.Arch = arch.HostArch()

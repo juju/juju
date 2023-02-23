@@ -245,9 +245,14 @@ func (m *containerManager) getContainerSpec(
 		networkConfig.Interfaces = interfaces
 	}
 
+	cloudConfig, err := cloudinit.New(instanceConfig.Series, cloudinit.WithDisableNetplanMACMatch)
+	if err != nil {
+		return ContainerSpec{}, errors.Trace(err)
+	}
+
 	// CloudInitUserData creates our own ENI/netplan.
 	// We need to disable cloud-init networking to make it work.
-	userData, err := containerinit.CloudInitUserData(instanceConfig, networkConfig)
+	userData, err := containerinit.CloudInitUserData(cloudConfig, instanceConfig, networkConfig)
 	if err != nil {
 		return ContainerSpec{}, errors.Trace(err)
 	}
