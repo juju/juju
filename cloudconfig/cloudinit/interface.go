@@ -416,71 +416,64 @@ type NetworkingConfig interface {
 	AddNetworkConfig(interfaces corenetwork.InterfaceInfos) error
 }
 
+func WithDisableNetplanMACMatch(cfg *cloudConfig) {
+	cfg.omitNetplanHWAddrMatch = true
+}
+
 // New returns a new Config with no options set.
-func New(ser string) (CloudConfig, error) {
-	seriesos, err := series.GetOSFromSeries(ser)
+func New(ser string, opts ...func(*cloudConfig)) (CloudConfig, error) {
+	seriesOS, err := series.GetOSFromSeries(ser)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	switch seriesos {
+
+	cfg := &cloudConfig{
+		series: ser,
+		attrs:  make(map[string]interface{}),
+	}
+	for _, opt := range opts {
+		opt(cfg)
+	}
+
+	renderer := func(name string) shell.Renderer { r, _ := shell.NewRenderer(name); return r }
+
+	switch seriesOS {
 	case os.Windows:
-		renderer, _ := shell.NewRenderer("powershell")
-		return &windowsCloudConfig{
-			&cloudConfig{
-				series:   ser,
-				renderer: renderer,
-				attrs:    make(map[string]interface{}),
-			},
-		}, nil
+		cfg.renderer = renderer("powershell")
+		return &windowsCloudConfig{cfg}, nil
 	case os.Ubuntu:
-		renderer, _ := shell.NewRenderer("bash")
-		return &ubuntuCloudConfig{
-			&cloudConfig{
-				series: ser,
-				paccmder: map[jujupackaging.PackageManagerName]commands.PackageCommander{
-					jujupackaging.AptPackageManager:  commands.NewAptPackageCommander(),
-					jujupackaging.SnapPackageManager: commands.NewSnapPackageCommander(),
-				},
-				pacconfer: map[jujupackaging.PackageManagerName]config.PackagingConfigurer{
-					jujupackaging.AptPackageManager: config.NewAptPackagingConfigurer(ser),
-				},
-				renderer: renderer,
-				attrs:    make(map[string]interface{}),
-			},
-		}, nil
+		cfg.renderer = renderer("bash")
+		cfg.paccmder = map[jujupackaging.PackageManagerName]commands.PackageCommander{
+			jujupackaging.AptPackageManager:  commands.NewAptPackageCommander(),
+			jujupackaging.SnapPackageManager: commands.NewSnapPackageCommander(),
+		}
+		cfg.pacconfer = map[jujupackaging.PackageManagerName]config.PackagingConfigurer{
+			jujupackaging.AptPackageManager: config.NewAptPackagingConfigurer(ser),
+		}
+		return &ubuntuCloudConfig{cfg}, nil
 	case os.CentOS:
-		renderer, _ := shell.NewRenderer("bash")
+		cfg.renderer = renderer("bash")
+		cfg.paccmder = map[jujupackaging.PackageManagerName]commands.PackageCommander{
+			jujupackaging.YumPackageManager: commands.NewYumPackageCommander(),
+		}
+		cfg.pacconfer = map[jujupackaging.PackageManagerName]config.PackagingConfigurer{
+			jujupackaging.YumPackageManager: config.NewYumPackagingConfigurer(ser),
+		}
 		return &centOSCloudConfig{
-			cloudConfig: &cloudConfig{
-				series: ser,
-				paccmder: map[jujupackaging.PackageManagerName]commands.PackageCommander{
-					jujupackaging.YumPackageManager: commands.NewYumPackageCommander(),
-				},
-				pacconfer: map[jujupackaging.PackageManagerName]config.PackagingConfigurer{
-					jujupackaging.YumPackageManager: config.NewYumPackagingConfigurer(ser),
-				},
-				renderer: renderer,
-				attrs:    make(map[string]interface{}),
-			},
-			helper: centOSHelper{},
+			cloudConfig: cfg,
+			helper:      centOSHelper{},
 		}, nil
 	case os.OpenSUSE:
-		renderer, _ := shell.NewRenderer("bash")
+		cfg.renderer = renderer("bash")
+		cfg.paccmder = map[jujupackaging.PackageManagerName]commands.PackageCommander{
+			jujupackaging.ZypperPackageManager: commands.NewZypperPackageCommander(),
+		}
+		cfg.pacconfer = map[jujupackaging.PackageManagerName]config.PackagingConfigurer{
+			jujupackaging.ZypperPackageManager: config.NewZypperPackagingConfigurer(ser),
+		}
 		return &centOSCloudConfig{
-			cloudConfig: &cloudConfig{
-				series: ser,
-				paccmder: map[jujupackaging.PackageManagerName]commands.PackageCommander{
-					jujupackaging.ZypperPackageManager: commands.NewZypperPackageCommander(),
-				},
-				pacconfer: map[jujupackaging.PackageManagerName]config.PackagingConfigurer{
-					jujupackaging.ZypperPackageManager: config.NewZypperPackagingConfigurer(ser),
-				},
-				renderer: renderer,
-				attrs:    make(map[string]interface{}),
-			},
-			helper: openSUSEHelper{
-				paccmder: commands.NewZypperPackageCommander(),
-			},
+			cloudConfig: cfg,
+			helper:      openSUSEHelper{paccmder: commands.NewZypperPackageCommander()},
 		}, nil
 	default:
 		return nil, errors.NotFoundf("cloudconfig for series %q", ser)

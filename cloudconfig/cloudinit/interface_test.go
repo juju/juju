@@ -4,6 +4,21 @@
 
 package cloudinit
 
+import (
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
+)
+
 var _ CloudConfig = (*ubuntuCloudConfig)(nil)
 var _ CloudConfig = (*centOSCloudConfig)(nil)
 var _ CloudConfig = (*windowsCloudConfig)(nil)
+
+type InterfaceSuite struct{}
+
+var _ = gc.Suite(InterfaceSuite{})
+
+func (HelperSuite) TestNewCloudConfigWithoutMACMatch(c *gc.C) {
+	cfg, err := New("jammy", WithDisableNetplanMACMatch)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cfg.(*ubuntuCloudConfig).omitNetplanHWAddrMatch, jc.IsTrue)
+}
