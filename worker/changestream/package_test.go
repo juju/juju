@@ -72,7 +72,7 @@ func (s *baseSuite) setupTimer() chan time.Time {
 func (s *baseSuite) expectTick(ch chan time.Time, ticks int) <-chan struct{} {
 	done := make(chan struct{})
 	go func() {
-		close(done)
+		defer close(done)
 
 		for i := 0; i < ticks; i++ {
 			ch <- time.Now()

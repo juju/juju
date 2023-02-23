@@ -52,13 +52,13 @@ func (s *streamSuite) TestNoData(c *gc.C) {
 	changes := stream.Changes()
 	c.Assert(changes, gc.HasLen, 0)
 
-	workertest.CleanKill(c, stream)
-
 	select {
 	case <-done:
 	case <-time.After(testing.ShortWait):
 		c.Fatal("timed out waiting for timer to fire")
 	}
+
+	workertest.CleanKill(c, stream)
 }
 
 func (s *streamSuite) TestOneChange(c *gc.C) {
@@ -443,7 +443,7 @@ func (s *streamSuite) TestOneChangeIsBlockedByFile(c *gc.C) {
 	timeTick := s.setupTimer()
 	changes := stream.Changes()
 
-	assertChange := func(expected func(<-chan changestream.ChangeEvent, string) string) string {
+	assertChange := func(expected func(<-chan changestream.ChangeEvent, string) (string, bool)) string {
 		done := s.expectTick(timeTick, 1)
 
 		change := change{
@@ -452,15 +452,20 @@ func (s *streamSuite) TestOneChangeIsBlockedByFile(c *gc.C) {
 		}
 		s.insertChange(c, change)
 
+		uuid, witnessTick := expected(changes, change.uuid)
+		if !witnessTick {
+			return uuid
+		}
+
 		select {
 		case <-done:
 		case <-time.After(testing.LongWait):
 			c.Fatal("timed out waiting for timer to fire")
 		}
 
-		return expected(changes, change.uuid)
+		return uuid
 	}
-	expectOneChange := func(changes <-chan changestream.ChangeEvent, uuid string) string {
+	expectOneChange := func(changes <-chan changestream.ChangeEvent, uuid string) (string, bool) {
 		var results []changestream.ChangeEvent
 		select {
 		case change := <-changes:
@@ -473,15 +478,15 @@ func (s *streamSuite) TestOneChangeIsBlockedByFile(c *gc.C) {
 		c.Assert(results[0].Namespace(), gc.Equals, "foo")
 		c.Assert(results[0].ChangedUUID(), gc.Equals, uuid)
 
-		return uuid
+		return uuid, true
 	}
-	expectNoChange := func(changes <-chan changestream.ChangeEvent, uuid string) string {
+	expectNoChange := func(changes <-chan changestream.ChangeEvent, uuid string) (string, bool) {
 		select {
 		case <-changes:
 			c.Fatal("timed out waiting for change")
 		case <-time.After(time.Second):
 		}
-		return uuid
+		return uuid, false
 	}
 	expectNotify := func(block bool) {
 		notified := make(chan bool)
