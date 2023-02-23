@@ -2114,8 +2114,8 @@ ap-southeast-4
 ap-northeast-1
 ap-northeast-2
 ap-northeast-3
-me-central-1
 me-south-1
+me-central-1
 sa-east-1
 `[1:])
 }
