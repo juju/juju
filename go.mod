@@ -30,7 +30,7 @@ require (
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
 	github.com/coreos/go-systemd/v22 v22.3.2
 	github.com/docker/distribution v2.7.1+incompatible
-	github.com/dustin/go-humanize v1.0.0
+	github.com/dustin/go-humanize v1.0.1
 	github.com/go-goose/goose/v5 v5.0.0-20220707165353-781664254fe4
 	github.com/go-logr/logr v1.2.2
 	github.com/go-macaroon-bakery/macaroon-bakery/v3 v3.0.1
@@ -287,7 +287,5 @@ require (
 replace google.golang.org/grpc/naming => google.golang.org/grpc v1.29.1
 
 replace gopkg.in/yaml.v2 => github.com/juju/yaml/v2 v2.0.0
-
-replace github.com/dustin/go-humanize v1.0.0 => github.com/dustin/go-humanize v0.0.0-20141228071148-145fabdb1ab7
 
 replace github.com/hashicorp/raft-boltdb => github.com/juju/raft-boltdb v0.0.0-20200518034108-40b112c917c5
