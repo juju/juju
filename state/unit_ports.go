@@ -54,11 +54,6 @@ func (p *unitPortRanges) UnitName() string {
 	return p.unitName
 }
 
-// UnitName returns the machine ID where this unit is deployed to.
-func (p *unitPortRanges) MachineID() string {
-	return p.machinePortRanges.MachineID()
-}
-
 // ForEndpoint returns a list of port ranges that the unit has opened for the
 // specified endpoint.
 func (p *unitPortRanges) ForEndpoint(endpointName string) []network.PortRange {
