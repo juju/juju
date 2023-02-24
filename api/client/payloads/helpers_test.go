@@ -6,7 +6,6 @@ package payloads
 import (
 	"github.com/juju/charm/v10"
 	"github.com/juju/names/v4"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -15,7 +14,6 @@ import (
 )
 
 type helpersSuite struct {
-	testing.IsolationSuite
 }
 
 var _ = gc.Suite(&helpersSuite{})

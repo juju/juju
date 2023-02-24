@@ -4,63 +4,145 @@
 package keymanager_test
 
 import (
-	"strings"
-
-	"github.com/juju/errors"
+	"github.com/golang/mock/gomock"
+	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3/ssh"
 	sshtesting "github.com/juju/utils/v3/ssh/testing"
 	gc "gopkg.in/check.v1"
 
+	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/keymanager"
-	keymanagerserver "github.com/juju/juju/apiserver/facades/client/keymanager"
-	keymanagertesting "github.com/juju/juju/apiserver/facades/client/keymanager/testing"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
 )
 
 type keymanagerSuite struct {
-	jujutesting.JujuConnSuite
-
-	keymanager *keymanager.Client
 }
 
 var _ = gc.Suite(&keymanagerSuite{})
 
-func (s *keymanagerSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	s.keymanager = keymanager.NewClient(s.APIState)
-	c.Assert(s.keymanager, gc.NotNil)
-
-}
-
-func (s *keymanagerSuite) setAuthorisedKeys(c *gc.C, keys string) {
-	err := s.Model.UpdateModelConfig(map[string]interface{}{"authorized-keys": keys}, nil)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *keymanagerSuite) TestListKeys(c *gc.C) {
-	key1 := sshtesting.ValidKeyOne.Key + " user@host"
-	key2 := sshtesting.ValidKeyTwo.Key
-	s.setAuthorisedKeys(c, strings.Join([]string{key1, key2}, "\n"))
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
-	keyResults, err := s.keymanager.ListKeys(ssh.Fingerprints, s.AdminUserTag(c).Name())
+	tag, _ := names.ParseUserTag("owner")
+	args := params.ListSSHKeys{
+		Entities: params.Entities{
+			Entities: []params.Entity{{tag.Name()}},
+		},
+		Mode: ssh.Fingerprints,
+	}
+	result := new(params.StringsResults)
+	results := params.StringsResults{
+		Results: []params.StringsResult{
+			{Result: []string{sshtesting.ValidKeyOne.Fingerprint + " (user@host)", sshtesting.ValidKeyTwo.Fingerprint}},
+		},
+	}
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("ListKeys", args, result).SetArg(2, results).Return(nil)
+
+	client := keymanager.NewClientFromCaller(mockFacadeCaller)
+	keyResults, err := client.ListKeys(ssh.Fingerprints, tag.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(keyResults), gc.Equals, 1)
-	result := keyResults[0]
-	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.Result, gc.DeepEquals,
+	res := keyResults[0]
+	c.Assert(res.Error, gc.IsNil)
+	c.Assert(res.Result, gc.DeepEquals,
 		[]string{sshtesting.ValidKeyOne.Fingerprint + " (user@host)", sshtesting.ValidKeyTwo.Fingerprint})
 }
 
-func (s *keymanagerSuite) TestListKeysErrors(c *gc.C) {
-	c.Skip("the user name isn't checked for existence yet")
-	keyResults, err := s.keymanager.ListKeys(ssh.Fingerprints, "invalid")
+func (s *keymanagerSuite) TestAddKeys(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	newKeys := []string{sshtesting.ValidKeyTwo.Key, sshtesting.ValidKeyThree.Key, "invalid"}
+	tag, _ := names.ParseUserTag("owner")
+	args := params.ModifyUserSSHKeys{
+		Keys: newKeys,
+		User: tag.Name(),
+	}
+	result := new(params.ErrorResults)
+	results := params.ErrorResults{
+		Results: []params.ErrorResult{
+			{},
+			{},
+			{Error: clientError("invalid ssh key: invalid")},
+		},
+	}
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("AddKeys", args, result).SetArg(2, results).Return(nil)
+
+	client := keymanager.NewClientFromCaller(mockFacadeCaller)
+	errResults, err := client.AddKeys(tag.Name(), newKeys...)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(keyResults), gc.Equals, 1)
-	result := keyResults[0]
-	c.Assert(result.Error, gc.ErrorMatches, `permission denied`)
+	c.Assert(errResults, gc.DeepEquals, []params.ErrorResult{
+		{Error: nil},
+		{Error: nil},
+		{Error: clientError("invalid ssh key: invalid")},
+	})
+}
+
+func (s *keymanagerSuite) TestDeleteKeys(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	tag, _ := names.ParseUserTag("owner")
+	args := params.ModifyUserSSHKeys{
+		Keys: []string{sshtesting.ValidKeyTwo.Fingerprint, "user@host", "missing"},
+		User: tag.Name(),
+	}
+	result := new(params.ErrorResults)
+	results := params.ErrorResults{
+		Results: []params.ErrorResult{
+			{},
+			{},
+			{Error: clientError("invalid ssh key: missing")},
+		},
+	}
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("DeleteKeys", args, result).SetArg(2, results).Return(nil)
+
+	client := keymanager.NewClientFromCaller(mockFacadeCaller)
+	errResults, err := client.DeleteKeys(tag.Name(), sshtesting.ValidKeyTwo.Fingerprint, "user@host", "missing")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(errResults, gc.DeepEquals, []params.ErrorResult{
+		{Error: nil},
+		{Error: nil},
+		{Error: clientError("invalid ssh key: missing")},
+	})
+}
+
+func (s *keymanagerSuite) TestImportKeys(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	tag, _ := names.ParseUserTag("owner")
+	keyIds := []string{"lp:validuser", "invalid-key"}
+	args := params.ModifyUserSSHKeys{
+		Keys: keyIds,
+		User: tag.Name(),
+	}
+	result := new(params.ErrorResults)
+	results := params.ErrorResults{
+		Results: []params.ErrorResult{
+			{},
+			{Error: clientError("invalid ssh key id: invalid-key")},
+		},
+	}
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("ImportKeys", args, result).SetArg(2, results).Return(nil)
+
+	client := keymanager.NewClientFromCaller(mockFacadeCaller)
+	errResults, err := client.ImportKeys(tag.Name(), keyIds...)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(errResults, gc.DeepEquals, []params.ErrorResult{
+		{Error: nil},
+		{Error: clientError("invalid ssh key id: invalid-key")},
+	})
 }
 
 func clientError(message string) *params.Error {
@@ -68,113 +150,4 @@ func clientError(message string) *params.Error {
 		Message: message,
 		Code:    "",
 	}
-}
-
-func (s *keymanagerSuite) assertModelKeys(c *gc.C, expected []string) {
-	modelConfig, err := s.Model.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	keys := modelConfig.AuthorizedKeys()
-	c.Assert(keys, gc.Equals, strings.Join(expected, "\n"))
-}
-
-func (s *keymanagerSuite) TestAddKeys(c *gc.C) {
-	key1 := sshtesting.ValidKeyOne.Key + " user@host"
-	s.setAuthorisedKeys(c, key1)
-
-	newKeys := []string{sshtesting.ValidKeyTwo.Key, sshtesting.ValidKeyThree.Key, "invalid"}
-	errResults, err := s.keymanager.AddKeys(s.AdminUserTag(c).Name(), newKeys...)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errResults, gc.DeepEquals, []params.ErrorResult{
-		{Error: nil},
-		{Error: nil},
-		{Error: clientError("invalid ssh key: invalid")},
-	})
-	s.assertModelKeys(c, append([]string{key1}, newKeys[:2]...))
-}
-
-func (s *keymanagerSuite) TestAddSystemKeyForbidden(c *gc.C) {
-	key1 := sshtesting.ValidKeyOne.Key + " user@host"
-	s.setAuthorisedKeys(c, key1)
-
-	newKey := sshtesting.ValidKeyTwo.Key
-	_, err := s.keymanager.AddKeys("juju-system-key", newKey)
-	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
-		Message: "permission denied",
-		Code:    "unauthorized access",
-	})
-	s.assertModelKeys(c, []string{key1})
-}
-
-func (s *keymanagerSuite) TestDeleteKeys(c *gc.C) {
-	key1 := sshtesting.ValidKeyOne.Key + " user@host"
-	key2 := sshtesting.ValidKeyTwo.Key
-	key3 := sshtesting.ValidKeyThree.Key
-	initialKeys := []string{key1, key2, key3, "invalid"}
-	s.setAuthorisedKeys(c, strings.Join(initialKeys, "\n"))
-
-	errResults, err := s.keymanager.DeleteKeys(s.AdminUserTag(c).Name(), sshtesting.ValidKeyTwo.Fingerprint, "user@host", "missing")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errResults, gc.DeepEquals, []params.ErrorResult{
-		{Error: nil},
-		{Error: nil},
-		{Error: clientError("invalid ssh key: missing")},
-	})
-	s.assertModelKeys(c, []string{key3, "invalid"})
-}
-
-func (s *keymanagerSuite) TestImportKeys(c *gc.C) {
-	s.PatchValue(&keymanagerserver.RunSSHImportId, keymanagertesting.FakeImport)
-
-	key1 := sshtesting.ValidKeyOne.Key + " user@host"
-	s.setAuthorisedKeys(c, key1)
-
-	keyIds := []string{"lp:validuser", "invalid-key"}
-	errResults, err := s.keymanager.ImportKeys(s.AdminUserTag(c).Name(), keyIds...)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errResults, gc.DeepEquals, []params.ErrorResult{
-		{Error: nil},
-		{Error: clientError("invalid ssh key id: invalid-key")},
-	})
-	s.assertModelKeys(c, []string{key1, sshtesting.ValidKeyThree.Key})
-}
-
-func (s *keymanagerSuite) assertInvalidUserOperation(c *gc.C, test func(user string, keys []string) error) {
-	key1 := sshtesting.ValidKeyOne.Key + " user@host"
-	s.setAuthorisedKeys(c, key1)
-
-	// Run the required test code and check the error.
-	keys := []string{sshtesting.ValidKeyTwo.Key, sshtesting.ValidKeyThree.Key}
-	err := test("invalid", keys)
-	c.Assert(err, gc.ErrorMatches, `permission denied`)
-
-	// No model changes.
-	s.assertModelKeys(c, []string{key1})
-}
-
-func (s *keymanagerSuite) TestAddKeysInvalidUser(c *gc.C) {
-	c.Skip("no user validation done yet")
-	s.assertInvalidUserOperation(c, func(user string, keys []string) error {
-		_, err := s.keymanager.AddKeys(user, keys...)
-		return err
-	})
-}
-
-func (s *keymanagerSuite) TestDeleteKeysInvalidUser(c *gc.C) {
-	c.Skip("no user validation done yet")
-	s.assertInvalidUserOperation(c, func(user string, keys []string) error {
-		_, err := s.keymanager.DeleteKeys(user, keys...)
-		return err
-	})
-}
-
-func (s *keymanagerSuite) TestImportKeysInvalidUser(c *gc.C) {
-	c.Skip("no user validation done yet")
-	s.assertInvalidUserOperation(c, func(user string, keys []string) error {
-		_, err := s.keymanager.ImportKeys(user, keys...)
-		return err
-	})
-}
-
-func (s *keymanagerSuite) TestExposesBestAPIVersion(c *gc.C) {
-	c.Check(s.keymanager.BestAPIVersion(), gc.Equals, 1)
 }

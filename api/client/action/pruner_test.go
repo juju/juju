@@ -6,10 +6,11 @@ package action_test
 import (
 	"time"
 
+	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	basetesting "github.com/juju/juju/api/base/testing"
+	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/action"
 	"github.com/juju/juju/rpc/params"
 )
@@ -19,25 +20,18 @@ type prunerSuite struct{}
 var _ = gc.Suite(&prunerSuite{})
 
 func (s *prunerSuite) TestPrune(c *gc.C) {
-	var called bool
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, result interface{},
-		) error {
-			c.Assert(request, gc.Equals, "Prune")
-			c.Assert(a, jc.DeepEquals, params.ActionPruneArgs{
-				MaxHistoryTime: time.Hour,
-				MaxHistoryMB:   666,
-			})
-			c.Assert(result, gc.IsNil)
-			called = true
-			return nil
-		},
-	)
-	client := action.NewPruner(apiCaller)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	args := params.ActionPruneArgs{
+		MaxHistoryTime: time.Hour,
+		MaxHistoryMB:   666,
+	}
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("Prune", args, nil).Return(nil)
+
+	client := action.NewPrunerFromCaller(mockFacadeCaller)
 	err := client.Prune(time.Hour, 666)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
 }
