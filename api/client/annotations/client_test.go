@@ -6,6 +6,7 @@ package annotations_test
 import (
 	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
+	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
@@ -47,7 +48,7 @@ func (s *annotationsMockSuite) TestSetEntitiesAnnotation(c *gc.C) {
 		Results: nil,
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("Set", args, result).SetArg(2, results).DoAndReturn(
+	mockFacadeCaller.EXPECT().FacadeCall("Set", annotationsSetMatcher{c, args}, result).SetArg(2, results).DoAndReturn(
 		func(arg0 string, args params.AnnotationsSet, results *params.ErrorResults) []error {
 			for _, aParam := range args.Annotations {
 				// Since sometimes arrays returned on some
@@ -91,4 +92,34 @@ func (s *annotationsMockSuite) TestGetEntitiesAnnotations(c *gc.C) {
 	found, err := annotationsClient.Get([]string{"charm"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found, gc.HasLen, 1)
+}
+
+type annotationsSetMatcher struct {
+	m            *gc.C
+	expectedArgs params.AnnotationsSet
+}
+
+func (c annotationsSetMatcher) Matches(x interface{}) bool {
+	obtainedArgs, ok := x.(params.AnnotationsSet)
+	if !ok {
+		return false
+	}
+	c.m.Assert(obtainedArgs.Annotations, gc.HasLen, len(c.expectedArgs.Annotations))
+
+	for _, obt := range obtainedArgs.Annotations {
+		var found bool
+		for _, exp := range c.expectedArgs.Annotations {
+			if obt.EntityTag == exp.EntityTag {
+				c.m.Assert(obt, jc.DeepEquals, exp)
+				found = true
+				break
+			}
+		}
+		c.m.Assert(found, jc.IsTrue, gc.Commentf("unexpected annotation entity tag %s"))
+	}
+	return true
+}
+
+func (c annotationsSetMatcher) String() string {
+	return pretty.Sprintf("Match the contents of %v", c.expectedArgs)
 }
