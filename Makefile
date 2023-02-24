@@ -215,7 +215,7 @@ define run_cgo_build
 	@@mkdir -p ${BBIN_DIR}
 	@echo "Building ${PACKAGE} for ${OS}/${ARCH}"
 	@env PATH=${MUSL_BIN_PATH}:${PATH} \
-		CC="musl-gcc" \
+		CC="zig cc" \
 		CGO_CFLAGS="-I${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}/include" \
 		CGO_LDFLAGS="-L${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} -luv -lraft -ldqlite -llz4 -lsqlite3" \
 		CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
@@ -245,7 +245,7 @@ endef
 define run_cgo_install
 	@echo "Installing ${PACKAGE}"
 	@env PATH=${MUSL_BIN_PATH}:${PATH} \
-		CC="musl-gcc" \
+		CC="zig cc -target x86_64-linux-musl -D _GNU_SOURCE" \
 		CGO_CFLAGS="-I${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}/include" \
 		CGO_LDFLAGS="-L${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} -luv -lraft -ldqlite -llz4 -lsqlite3" \
 		CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
@@ -280,7 +280,7 @@ jujuc:
 
 .PHONY: jujud
 jujud: PACKAGE = github.com/juju/juju/cmd/jujud
-jujud: musl-install-if-missing dqlite-install-if-missing
+jujud: dqlite-install-if-missing
 ## jujud: Install jujud without updating dependencies
 	${run_cgo_install}
 

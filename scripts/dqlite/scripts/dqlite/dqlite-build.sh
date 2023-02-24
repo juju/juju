@@ -7,7 +7,6 @@ build() {
     MACHINE_TYPE=$(uname -m)
     CUSTOM_CFLAGS=""
     if [ "${MACHINE_TYPE}" = "ppc64le" ]; then
-        MACHINE_TYPE="powerpc64le"
         CUSTOM_CFLAGS="-mlong-double-64"
     fi
     DQLITE_CONFIGURE_FLAGS=
@@ -24,33 +23,25 @@ build() {
     # Setup build env
     sudo apt-get update
     sudo apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install \
-        gcc automake libtool make gettext autopoint pkg-config tclsh tcl libsqlite3-dev wget git
+        automake \
+        libtool \
+        build-essential \
+        gettext \
+        autopoint \
+        pkg-config \
+        tclsh \
+        tcl \
+        libsqlite3-dev \
+        wget \
+        git
 
     mkdir -p "${ARCHIVE_DEPS_PATH}"
     cd "${ARCHIVE_DEPS_PATH}"
 
-    # Checkout and build musl. We will use this to avoid depending
-    # on the hosts libc.
-    #
-    # TODO: investigate zig-gcc as an alternative.
-    wget https://musl.libc.org/releases/musl-1.2.3.tar.gz
-    tar xf musl-1.2.3.tar.gz
-    cd musl-1.2.3
-    ./configure CFLAGS="${CUSTOM_CFLAGS}"
-    sudo make install
+    sudo snap install zig --classic --channel beta
 
-    export PATH=${PATH}:/usr/local/musl/bin
-    export CC=musl-gcc
+    export CC="zig cc -target ${ZIG_TARGET} -D _GNU_SOURCE"
     cd ..
-
-    # Setup symlinks so we can access additional headers that
-    # don't ship with musl but are needed for our builds
-    sudo ln -s /usr/include/${MACHINE_TYPE}-linux-gnu/asm /usr/local/musl/include/asm || true
-    sudo ln -s /usr/include/asm-generic /usr/local/musl/include/asm-generic || true
-    sudo ln -s /usr/include/linux /usr/local/musl/include/linux || true
-
-    # Grab the queue.h file that does not ship with musl
-    sudo wget https://dev.midipix.org/compat/musl-compat/raw/main/f/include/sys/queue.h -O /usr/local/musl/include/sys/queue.h
 
     # Install compile dependencies for statically linking everything:
     # --------------------------------------------------------------
@@ -62,12 +53,18 @@ build() {
     # sqlite3 (required by dqlite)
     # dqlite
 
+    INCLUDE_DIR="${PWD}/include"
+    mkdir -p "${INCLUDE_DIR}/sys"
+
+    # Grab the queue.h file that does not ship with musl
+    wget https://dev.midipix.org/compat/musl-compat/raw/main/f/include/sys/queue.h -O "${INCLUDE_DIR}/sys/queue.h"
+
     # libtirpc
     git clone https://salsa.debian.org/debian/libtirpc.git --depth 1 --branch ${TAG_LIBTIRPC}
     cd libtirpc
     chmod +x autogen.sh
     ./autogen.sh
-    ./configure --disable-shared --disable-gssapi CFLAGS="${CUSTOM_CFLAGS}"
+    ./configure --disable-shared --disable-gssapi CFLAGS="-I${INCLUDE_DIR} ${CUSTOM_CFLAGS}" --target ${ZIG_TARGET} --host ${MACHINE_TYPE}
     make
     cd ../
 
@@ -81,7 +78,7 @@ build() {
             LDFLAGS="-L${PWD}/../libtirpc/src" \
             TIRPC_CFLAGS="-I${PWD}/../libtirpc/tirpc" \
             TIRPC_LIBS="-L${PWD}/../libtirpc/src" \
-            ./configure --disable-shared
+            ./configure --disable-shared --target ${ZIG_TARGET} --host ${MACHINE_TYPE}
     make
     cd ../
 
@@ -109,14 +106,14 @@ build() {
             UV_LIBS="-L${PWD}/../libuv/.libs" \
             LZ4_CFLAGS="-I${PWD}/../lz4/lib" \
             LZ4_LIBS="-L${PWD}/../lz4/lib" \
-            ./configure --disable-shared
+            ./configure --disable-shared --target ${ZIG_TARGET} --host ${MACHINE_TYPE}
     make
     cd ../
 
     # sqlite3
     git clone https://github.com/sqlite/sqlite.git --depth 1 --branch ${TAG_SQLITE}
     cd sqlite
-    ./configure --disable-shared
+    ./configure --disable-shared --target ${ZIG_TARGET} --host ${MACHINE_TYPE}
     make
     cd ../
 
@@ -124,14 +121,14 @@ build() {
     git clone https://github.com/canonical/dqlite.git --depth 1 --branch ${TAG_DQLITE}
     cd dqlite
     autoreconf -i
-    CFLAGS="-I${PWD}/../raft/include -I${PWD}/../sqlite -I${PWD}/../libuv/include -I${PWD}/../lz4/lib -I/usr/local/musl/include -Werror=implicit-function-declaration ${CUSTOM_CFLAGS}" \
+    CFLAGS="-I${PWD}/../raft/include -I${PWD}/../sqlite -I${PWD}/../libuv/include -I${PWD}/../lz4/lib -I/usr/local/musl/include -Wno-unused-but-set-variable -Wno-unused-parameter -Werror=implicit-function-declaration -Wno-all ${CUSTOM_CFLAGS}" \
             LDFLAGS="-L${PWD}/../raft/.libs -L${PWD}/../libuv/.libs -L${PWD}/../lz4/lib -L${PWD}/../libnsl/src" \
             RAFT_CFLAGS="-I${PWD}/../raft/include" \
             RAFT_LIBS="-L${PWD}/../raft/.libs" \
             UV_CFLAGS="-I${PWD}/../libuv/include" \
             UV_LIBS="-L${PWD}/../libuv/.libs" \
             SQLITE_CFLAGS="-I${PWD}/../sqlite" \
-            ./configure --disable-shared ${DQLITE_CONFIGURE_FLAGS}
+            ./configure --disable-shared ${DQLITE_CONFIGURE_FLAGS} --target ${ZIG_TARGET} --host ${MACHINE_TYPE}
     make
     cd ../
 

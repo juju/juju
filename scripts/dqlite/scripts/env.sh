@@ -17,11 +17,22 @@ current_arch() {
 	esac
 }
 
+zig_target() {
+	case $1 in 
+		linux/arm64) echo -n "aarch64-linux-musl" ;;
+		linux/amd64) echo -n "x86_64-linux-musl" ;;
+		linux/ppc64le) echo -n "powerpc64le-linux-musl" ;;
+		linux/s390x) echo -n "s390x-linux-musl" ;;
+		*) echo "Unsupported architecture $(uname -m)" && exit 1 ;;
+	esac
+}
+
 CURRENT_ARCH=$(current_arch)
 
 BUILD_IMAGE=ubuntu:22.04
 BUILD_CONTAINER=lib-build-server
 BUILD_MACHINE=$(uname -m)
+BUILD_OS=$(go env GOOS 2>/dev/null || echo "linux")
 BUILD_ARCH=$(go env GOARCH 2>/dev/null || echo "amd64")
 
 EXTRACTED_DEPS_PATH=${PROJECT_DIR}/_deps
@@ -42,3 +53,5 @@ S3_ARCHIVE_PATH=${S3_BUCKET}/${S3_ARCHIVE_NAME}
 ARCHIVE_DEPS_PATH=${PROJECT_DIR}/_build
 ARCHIVE_NAME=dqlite-deps
 ARCHIVE_PATH=${ARCHIVE_DEPS_PATH}/${ARCHIVE_NAME}.tar.bz2
+
+ZIG_TARGET=$(zig_target "${BUILD_OS}/${BUILD_ARCH}")
