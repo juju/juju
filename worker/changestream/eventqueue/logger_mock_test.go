@@ -33,6 +33,23 @@ func (m *MockLogger) EXPECT() *MockLoggerMockRecorder {
 	return m.recorder
 }
 
+// Infof mocks base method.
+func (m *MockLogger) Infof(arg0 string, arg1 ...interface{}) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	m.ctrl.Call(m, "Infof", varargs...)
+}
+
+// Infof indicates an expected call of Infof.
+func (mr *MockLoggerMockRecorder) Infof(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0}, arg1...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Infof", reflect.TypeOf((*MockLogger)(nil).Infof), varargs...)
+}
+
 // IsTraceEnabled mocks base method.
 func (m *MockLogger) IsTraceEnabled() bool {
 	m.ctrl.T.Helper()

@@ -14,6 +14,7 @@ import (
 
 // Logger represents the logging methods called.
 type Logger interface {
+	Infof(message string, args ...interface{})
 	Tracef(message string, args ...interface{})
 	IsTraceEnabled() bool
 }
@@ -58,6 +59,8 @@ type EventQueue struct {
 	mutex             sync.Mutex
 	subscriptions     map[int]*subscription
 	subscriptionsByNS map[string][]*eventFilter
+
+	actions chan func()
 }
 
 // New creates a new EventQueue that will use the Stream for events.
@@ -67,6 +70,7 @@ func New(stream Stream, logger Logger) *EventQueue {
 		logger:            logger,
 		subscriptions:     make(map[int]*subscription),
 		subscriptionsByNS: make(map[string][]*eventFilter),
+		actions:           make(chan func()),
 	}
 
 	queue.tomb.Go(queue.loop)
@@ -138,6 +142,24 @@ func (s *EventQueue) unsubscribe(subscriptionID int) {
 	}
 
 	delete(s.subscriptions, subscriptionID)
+
+	// Close the subscription channel after a dispatch. If a unsubscription
+	// happens during a dispatch, then it clauses the event queue to potentially
+	// panic. Removal of the subscription from the queue is synchronous, so
+	// the subscription can no longer be used when another dispatch occurs. The
+	// closing of the channel then becomes asynchronous and can be closed during
+	// the next selection.
+	s.tomb.Go(func() error {
+		// Ensure that we give up if the tomb is dying.
+		select {
+		case <-s.tomb.Dying():
+			return tomb.ErrDying
+		case s.actions <- func() {
+			close(sub.changes)
+		}:
+		}
+		return nil
+	})
 }
 
 func (s *EventQueue) loop() error {
@@ -159,9 +181,16 @@ func (s *EventQueue) loop() error {
 		select {
 		case <-s.tomb.Dying():
 			return tomb.ErrDying
+		case action := <-s.actions:
+			action()
+			continue
 		case ch, ok = <-s.stream.Changes():
+			// If the stream is closed, we expect that a new worker will come
+			// again using the change stream worker infrastructure. In this case
+			// just ignore and close out.
 			if !ok {
-				return nil // EOF
+				s.logger.Infof("change stream change channel is closed")
+				return nil
 			}
 		}
 
