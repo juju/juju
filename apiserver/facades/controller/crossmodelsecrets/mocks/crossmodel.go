@@ -34,17 +34,33 @@ func (m *MockCrossModelState) EXPECT() *MockCrossModelStateMockRecorder {
 	return m.recorder
 }
 
-// GetRemoteEntity mocks base method.
-func (m *MockCrossModelState) GetRemoteEntity(arg0 string) (names.Tag, error) {
+// GetConsumerInfo mocks base method.
+func (m *MockCrossModelState) GetConsumerInfo(arg0 string) (names.Tag, string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetRemoteEntity", arg0)
+	ret := m.ctrl.Call(m, "GetConsumerInfo", arg0)
 	ret0, _ := ret[0].(names.Tag)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetConsumerInfo indicates an expected call of GetConsumerInfo.
+func (mr *MockCrossModelStateMockRecorder) GetConsumerInfo(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetConsumerInfo", reflect.TypeOf((*MockCrossModelState)(nil).GetConsumerInfo), arg0)
+}
+
+// GetToken mocks base method.
+func (m *MockCrossModelState) GetToken(arg0 names.Tag) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetToken", arg0)
+	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetRemoteEntity indicates an expected call of GetRemoteEntity.
-func (mr *MockCrossModelStateMockRecorder) GetRemoteEntity(arg0 interface{}) *gomock.Call {
+// GetToken indicates an expected call of GetToken.
+func (mr *MockCrossModelStateMockRecorder) GetToken(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRemoteEntity", reflect.TypeOf((*MockCrossModelState)(nil).GetRemoteEntity), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetToken", reflect.TypeOf((*MockCrossModelState)(nil).GetToken), arg0)
 }

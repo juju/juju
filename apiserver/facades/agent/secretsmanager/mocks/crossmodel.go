@@ -12,6 +12,7 @@ import (
 	secrets0 "github.com/juju/juju/secrets"
 	provider "github.com/juju/juju/secrets/provider"
 	names "github.com/juju/names/v4"
+	macaroon "gopkg.in/macaroon.v2"
 )
 
 // MockCrossModelState is a mock of CrossModelState interface.
@@ -35,6 +36,36 @@ func NewMockCrossModelState(ctrl *gomock.Controller) *MockCrossModelState {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCrossModelState) EXPECT() *MockCrossModelStateMockRecorder {
 	return m.recorder
+}
+
+// GetMacaroon mocks base method.
+func (m *MockCrossModelState) GetMacaroon(arg0 names.Tag) (*macaroon.Macaroon, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMacaroon", arg0)
+	ret0, _ := ret[0].(*macaroon.Macaroon)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMacaroon indicates an expected call of GetMacaroon.
+func (mr *MockCrossModelStateMockRecorder) GetMacaroon(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMacaroon", reflect.TypeOf((*MockCrossModelState)(nil).GetMacaroon), arg0)
+}
+
+// GetRemoteEntity mocks base method.
+func (m *MockCrossModelState) GetRemoteEntity(arg0 string) (names.Tag, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRemoteEntity", arg0)
+	ret0, _ := ret[0].(names.Tag)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRemoteEntity indicates an expected call of GetRemoteEntity.
+func (mr *MockCrossModelStateMockRecorder) GetRemoteEntity(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRemoteEntity", reflect.TypeOf((*MockCrossModelState)(nil).GetRemoteEntity), arg0)
 }
 
 // GetToken mocks base method.
@@ -76,9 +107,9 @@ func (m *MockCrossModelSecretsClient) EXPECT() *MockCrossModelSecretsClientMockR
 }
 
 // GetRemoteSecretContentInfo mocks base method.
-func (m *MockCrossModelSecretsClient) GetRemoteSecretContentInfo(arg0 *secrets.URI, arg1 int, arg2 bool, arg3 string, arg4 int) (*secrets0.ContentParams, *provider.ModelBackendConfig, int, bool, error) {
+func (m *MockCrossModelSecretsClient) GetRemoteSecretContentInfo(arg0 *secrets.URI, arg1 int, arg2, arg3 bool, arg4 string, arg5 int, arg6 macaroon.Slice) (*secrets0.ContentParams, *provider.ModelBackendConfig, int, bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetRemoteSecretContentInfo", arg0, arg1, arg2, arg3, arg4)
+	ret := m.ctrl.Call(m, "GetRemoteSecretContentInfo", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 	ret0, _ := ret[0].(*secrets0.ContentParams)
 	ret1, _ := ret[1].(*provider.ModelBackendConfig)
 	ret2, _ := ret[2].(int)
@@ -88,7 +119,22 @@ func (m *MockCrossModelSecretsClient) GetRemoteSecretContentInfo(arg0 *secrets.U
 }
 
 // GetRemoteSecretContentInfo indicates an expected call of GetRemoteSecretContentInfo.
-func (mr *MockCrossModelSecretsClientMockRecorder) GetRemoteSecretContentInfo(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
+func (mr *MockCrossModelSecretsClientMockRecorder) GetRemoteSecretContentInfo(arg0, arg1, arg2, arg3, arg4, arg5, arg6 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRemoteSecretContentInfo", reflect.TypeOf((*MockCrossModelSecretsClient)(nil).GetRemoteSecretContentInfo), arg0, arg1, arg2, arg3, arg4)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRemoteSecretContentInfo", reflect.TypeOf((*MockCrossModelSecretsClient)(nil).GetRemoteSecretContentInfo), arg0, arg1, arg2, arg3, arg4, arg5, arg6)
+}
+
+// GetSecretAccessScope mocks base method.
+func (m *MockCrossModelSecretsClient) GetSecretAccessScope(arg0 *secrets.URI, arg1 string, arg2 int) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSecretAccessScope", arg0, arg1, arg2)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSecretAccessScope indicates an expected call of GetSecretAccessScope.
+func (mr *MockCrossModelSecretsClientMockRecorder) GetSecretAccessScope(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretAccessScope", reflect.TypeOf((*MockCrossModelSecretsClient)(nil).GetSecretAccessScope), arg0, arg1, arg2)
 }

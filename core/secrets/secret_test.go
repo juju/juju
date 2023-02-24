@@ -120,6 +120,14 @@ func (s *SecretURISuite) TestWithSource(c *gc.C) {
 	c.Assert(uri.ID, gc.Equals, secretID)
 }
 
+func (s *SecretURISuite) TestIsLocal(c *gc.C) {
+	URI := secrets.NewURI()
+	c.Assert(URI.IsLocal("other-uuid"), jc.IsTrue)
+	URI2 := URI.WithSource("some-uuid")
+	c.Assert(URI2.IsLocal("some-uuid"), jc.IsTrue)
+	c.Assert(URI2.IsLocal("other-uuid"), jc.IsFalse)
+}
+
 type SecretSuite struct{}
 
 var _ = gc.Suite(&SecretSuite{})

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/names/v4"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/state"
@@ -43,4 +44,6 @@ type SecretsState interface {
 
 type CrossModelState interface {
 	GetToken(entity names.Tag) (string, error)
+	GetRemoteEntity(token string) (names.Tag, error)
+	GetMacaroon(entity names.Tag) (*macaroon.Macaroon, error)
 }

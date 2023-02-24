@@ -400,6 +400,28 @@ type GetRemoteSecretContentArg struct {
 	// URI is the secret URI.
 	URI string `json:"uri"`
 
-	// Latest is true if the latest revision should be used.
-	Latest bool `json:"latest,omitempty"`
+	// Refresh is true if the latest revision should be used from here on.
+	Refresh bool `json:"refresh,omitempty"`
+
+	// Peek is true if we want the latest revision just this once.
+	Peek bool `json:"peek,omitempty"`
+}
+
+// GetRemoteSecretAccessArgs holds args for fetching info
+// about access to a remote secret.
+type GetRemoteSecretAccessArgs struct {
+	Args []GetRemoteSecretAccessArg `json:"relations"`
+}
+
+// GetRemoteSecretAccessArg holds args for fetching info
+// about access to a remote secret.
+type GetRemoteSecretAccessArg struct {
+	// ApplicationToken is the application token on the remote model.
+	ApplicationToken string `json:"application-token"`
+
+	// UnitId uniquely identifies the remote unit.
+	UnitId int `json:"unit-id"`
+
+	// URI is the secret URI.
+	URI string `json:"uri"`
 }
