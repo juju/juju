@@ -5,6 +5,7 @@ package apiserver
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"net/url"
 	"reflect"
@@ -73,7 +74,9 @@ type apiHandler struct {
 var _ = (*apiHandler)(nil)
 
 // newAPIHandler returns a new apiHandler.
-func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID string, connectionID uint64, serverHost string) (*apiHandler, error) {
+func newAPIHandler(
+	srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID string, connectionID uint64, serverHost string,
+) (*apiHandler, error) {
 	m, err := st.Model()
 	if err != nil {
 		if !errors.IsNotFound(err) {
@@ -600,6 +603,12 @@ func (ctx *facadeContext) HTTPClient(purpose facade.HTTPClientPurpose) facade.HT
 	default:
 		return nil
 	}
+}
+
+// ControllerDB returns a sql.DB reference for the controller database.
+func (ctx *facadeContext) ControllerDB() (*sql.DB, error) {
+	db, err := ctx.r.shared.dbGetter.GetDB("controller")
+	return db, errors.Trace(err)
 }
 
 // adminRoot dispatches API calls to those available to an anonymous connection

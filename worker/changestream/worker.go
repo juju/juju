@@ -12,19 +12,19 @@ import (
 	"github.com/juju/worker/v3/catacomb"
 
 	"github.com/juju/juju/core/changestream"
-	"github.com/juju/juju/worker/dbaccessor"
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/worker/filenotifywatcher"
 )
 
 // DBGetter describes the ability to supply a sql.DB
 // reference for a particular database.
-type DBGetter = dbaccessor.DBGetter
+type DBGetter = database.DBGetter
 
 // FileNotifyWatcher is the interface that the worker uses to interact with the
 // file notify watcher.
 type FileNotifyWatcher = filenotifywatcher.FileNotifyWatcher
 
-// FileNotifyWatcher represents a way to watch for changes in a namespace folder
+// FileNotifier represents a way to watch for changes in a namespace folder
 // directory.
 type FileNotifier interface {
 	// Changes returns a channel if a file was created or deleted.

@@ -22,12 +22,12 @@ import (
 	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/cache"
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/worker/common"
-	"github.com/juju/juju/worker/dbaccessor"
 	"github.com/juju/juju/worker/gate"
 	workerstate "github.com/juju/juju/worker/state"
 	"github.com/juju/juju/worker/syslogger"
@@ -211,7 +211,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
-	var dbGetter dbaccessor.DBGetter
+	var dbGetter database.DBGetter
 	if err := context.Get(config.DBAccessorName, &dbGetter); err != nil {
 		return nil, errors.Trace(err)
 	}

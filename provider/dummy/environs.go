@@ -6,6 +6,7 @@ package dummy
 import (
 	stdcontext "context"
 	"crypto/tls"
+	"database/sql"
 	"fmt"
 	"net"
 	"net/http/httptest"
@@ -1019,6 +1020,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 				},
 				MetricsCollector: apiserver.NewMetricsCollector(),
 				SysLogger:        noopSysLogger{},
+				DBGetter:         stubDBGetter{},
 			})
 			if err != nil {
 				panic(err)
@@ -1051,6 +1053,17 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 type noopSysLogger struct{}
 
 func (noopSysLogger) Log([]corelogger.LogRecord) error { return nil }
+
+type stubDBGetter struct {
+	db *sql.DB
+}
+
+func (s stubDBGetter) GetDB(name string) (*sql.DB, error) {
+	if name != "controller" {
+		return nil, errors.Errorf(`expected a request for "controller" DB; got %q`, name)
+	}
+	return s.db, nil
+}
 
 func leaseManager(controllerUUID string, st *state.State) (*lease.Manager, error) {
 	dummyStore := newLeaseStore(clock.WallClock)

@@ -4,6 +4,8 @@
 package facadetest
 
 import (
+	"database/sql"
+
 	"github.com/juju/clock"
 
 	"github.com/juju/juju/apiserver/facade"
@@ -35,6 +37,8 @@ type Context struct {
 	LeadershipReader_   leadership.Reader
 	SingularClaimer_    lease.Claimer
 	CharmhubHTTPClient_ facade.HTTPClient
+	ControllerDB_       *sql.DB
+
 	// Identity is not part of the facade.Context interface, but is instead
 	// used to make sure that the context objects are the same.
 	Identity string
@@ -148,4 +152,8 @@ func (context Context) HTTPClient(purpose facade.HTTPClientPurpose) facade.HTTPC
 	default:
 		return nil
 	}
+}
+
+func (context Context) ControllerDB() (*sql.DB, error) {
+	return context.ControllerDB_, nil
 }

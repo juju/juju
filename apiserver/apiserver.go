@@ -42,12 +42,11 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/cache"
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
-
 	"github.com/juju/juju/core/resources"
-
 	"github.com/juju/juju/pubsub/apiserver"
 	controllermsg "github.com/juju/juju/pubsub/controller"
 	"github.com/juju/juju/resource"
@@ -201,6 +200,9 @@ type ServerConfig struct {
 
 	// CharmhubHTTPClient is the HTTP client used for Charmhub API requests.
 	CharmhubHTTPClient facade.HTTPClient
+
+	// DBGetter supplies sql.DB references on request, for named databases.
+	DBGetter database.DBGetter
 }
 
 // Validate validates the API server configuration.
@@ -249,6 +251,9 @@ func (c ServerConfig) Validate() error {
 	if c.MetricsCollector == nil {
 		return errors.NotValidf("missing MetricsCollector")
 	}
+	if c.DBGetter == nil {
+		return errors.NotValidf("missing DBGetter")
+	}
 	return nil
 }
 
@@ -271,7 +276,7 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 	// Important note:
 	// Do not manipulate the state within NewServer as the API
 	// server needs to run before mongo upgrades have happened and
-	// any state manipulation may be be relying on features of the
+	// any state manipulation may be relying on features of the
 	// database added by upgrades. Here be dragons.
 	return newServer(cfg)
 }
@@ -298,6 +303,7 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		controllerConfig:    controllerConfig,
 		logger:              loggo.GetLogger("juju.apiserver"),
 		charmhubHTTPClient:  cfg.CharmhubHTTPClient,
+		dbGetter:            cfg.DBGetter,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -559,7 +565,7 @@ type httpRequestRecorderWrapper struct {
 	modelUUID string
 }
 
-// Record an outgoing request which produced an http.Response.
+// Record an outgoing request that produced a http.Response.
 func (w httpRequestRecorderWrapper) Record(method string, url *url.URL, res *http.Response, rtt time.Duration) {
 	// Note: Do not log url.Path as REST queries _can_ include the name of the
 	// entities (charms, architectures, etc).
@@ -570,7 +576,7 @@ func (w httpRequestRecorderWrapper) Record(method string, url *url.URL, res *htt
 	w.collector.TotalRequestsDuration.WithLabelValues(w.modelUUID, url.Host).Observe(rtt.Seconds())
 }
 
-// Record an outgoing request which returned back an error.
+// RecordError records an outgoing request that returned an error.
 func (w httpRequestRecorderWrapper) RecordError(method string, url *url.URL, err error) {
 	// Note: Do not log url.Path as REST queries _can_ include the name of the
 	// entities (charms, architectures, etc).

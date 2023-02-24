@@ -1,10 +1,13 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package apiserver_test
+package apiserver
 
 import (
+	"database/sql"
 	"testing"
+
+	"github.com/juju/errors"
 
 	coretesting "github.com/juju/juju/testing"
 )
@@ -15,4 +18,15 @@ import (
 
 func TestPackage(t *testing.T) {
 	coretesting.MgoTestPackage(t)
+}
+
+type StubDBGetter struct {
+	db *sql.DB
+}
+
+func (s StubDBGetter) GetDB(name string) (*sql.DB, error) {
+	if name != "controller" {
+		return nil, errors.Errorf(`expected a request for "controller" DB; got %q`, name)
+	}
+	return s.db, nil
 }

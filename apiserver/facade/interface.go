@@ -4,6 +4,7 @@
 package facade
 
 import (
+	"database/sql"
 	"net/http"
 	"net/url"
 	"time"
@@ -146,15 +147,18 @@ type Context interface {
 
 	// HTTPClient returns an HTTP client to use for the given purpose.
 	HTTPClient(purpose HTTPClientPurpose) HTTPClient
+
+	// ControllerDB returns a sql.DB reference for the controller database.
+	ControllerDB() (*sql.DB, error)
 }
 
 // RequestRecorder is implemented by types that can record information about
 // successful and unsuccessful http requests.
 type RequestRecorder interface {
-	// Record an outgoing request which produced an http.Response.
+	// Record an outgoing request that produced a http.Response.
 	Record(method string, url *url.URL, res *http.Response, rtt time.Duration)
 
-	// Record an outgoing request which returned back an error.
+	// RecordError records an outgoing request that returned an error.
 	RecordError(method string, url *url.URL, err error)
 }
 

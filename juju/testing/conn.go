@@ -563,31 +563,35 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	apiPort := dummy.APIPort(environ.Provider())
 	s.ControllerConfig["api-port"] = apiPort
 	s.ProviderCallContext = envcontext.NewCloudCallContext(context.Background())
-	err = bootstrap.Bootstrap(modelcmd.BootstrapContext(context.Background(), ctx), environ, s.ProviderCallContext, bootstrap.BootstrapParams{
-		ControllerConfig: s.ControllerConfig,
-		CloudRegion:      "dummy-region",
-		Cloud: cloud.Cloud{
-			Name:             cloudSpec.Name,
-			Type:             cloudSpec.Type,
-			AuthTypes:        []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
-			Endpoint:         cloudSpec.Endpoint,
-			IdentityEndpoint: cloudSpec.IdentityEndpoint,
-			StorageEndpoint:  cloudSpec.StorageEndpoint,
-			Regions: []cloud.Region{
-				{
-					Name:             "dummy-region",
-					Endpoint:         "dummy-endpoint",
-					IdentityEndpoint: "dummy-identity-endpoint",
-					StorageEndpoint:  "dummy-storage-endpoint",
+	err = bootstrap.Bootstrap(
+		modelcmd.BootstrapContext(context.Background(), ctx),
+		environ,
+		s.ProviderCallContext,
+		bootstrap.BootstrapParams{
+			ControllerConfig: s.ControllerConfig,
+			CloudRegion:      "dummy-region",
+			Cloud: cloud.Cloud{
+				Name:             cloudSpec.Name,
+				Type:             cloudSpec.Type,
+				AuthTypes:        []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
+				Endpoint:         cloudSpec.Endpoint,
+				IdentityEndpoint: cloudSpec.IdentityEndpoint,
+				StorageEndpoint:  cloudSpec.StorageEndpoint,
+				Regions: []cloud.Region{
+					{
+						Name:             "dummy-region",
+						Endpoint:         "dummy-endpoint",
+						IdentityEndpoint: "dummy-identity-endpoint",
+						StorageEndpoint:  "dummy-storage-endpoint",
+					},
 				},
 			},
-		},
-		CloudCredential:         cloudSpec.Credential,
-		CloudCredentialName:     "cred",
-		AdminSecret:             AdminSecret,
-		CAPrivateKey:            testing.CAKey,
-		SupportedBootstrapBases: testing.FakeSupportedJujuBases,
-	})
+			CloudCredential:         cloudSpec.Credential,
+			CloudCredentialName:     "cred",
+			AdminSecret:             AdminSecret,
+			CAPrivateKey:            testing.CAKey,
+			SupportedBootstrapBases: testing.FakeSupportedJujuBases,
+		})
 	c.Assert(err, jc.ErrorIsNil)
 
 	getStater := environ.(GetStater)

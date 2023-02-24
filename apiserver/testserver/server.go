@@ -5,12 +5,14 @@ package testserver
 
 import (
 	"crypto/tls"
+	"database/sql"
 	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
 
 	"github.com/juju/clock"
+	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -54,6 +56,7 @@ func DefaultServerConfig(c *gc.C, testclock clock.Clock) apiserver.ServerConfig 
 		MetricsCollector:    apiserver.NewMetricsCollector(),
 		SysLogger:           noopSysLogger{},
 		CharmhubHTTPClient:  &http.Client{},
+		DBGetter:            stubDBGetter{},
 	}
 }
 
@@ -139,4 +142,15 @@ func (s *Server) Stop() error {
 
 type fakeMultiwatcherFactory struct {
 	multiwatcher.Factory
+}
+
+type stubDBGetter struct {
+	db *sql.DB
+}
+
+func (s stubDBGetter) GetDB(name string) (*sql.DB, error) {
+	if name != "controller" {
+		return nil, errors.Errorf(`expected a request for "controller" DB; got %q`, name)
+	}
+	return s.db, nil
 }
