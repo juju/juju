@@ -135,6 +135,19 @@ func (rh *runHook) Execute(state State) (*State, error) {
 		fallthrough
 	case cause == context.ErrReboot:
 		err = ErrNeedsReboot
+	case cause == runner.ErrTerminated:
+		// Queue the hook again so it is re-run.
+		// It is likely the whole process group was terminated as
+		// part of shutdown, but in case not, the unit agent will
+		// treat the hook as pending (not queued) and record a hook error.
+		rh.logger.Warningf("hook %q was terminated", rh.name)
+		step = Queued
+		return stateChange{
+			Kind:     RunHook,
+			Step:     step,
+			Hook:     &rh.info,
+			HookStep: &step,
+		}.apply(state), runner.ErrTerminated
 	case err == nil:
 	default:
 		rh.logger.Errorf("hook %q (via %s) failed: %v", rh.name, handlerType, err)
@@ -158,6 +171,7 @@ func (rh *runHook) Execute(state State) (*State, error) {
 		Kind:            RunHook,
 		Step:            step,
 		Hook:            &rh.info,
+		HookStep:        &step,
 		HasRunStatusSet: hasRunStatusSet,
 	}.apply(state), err
 }

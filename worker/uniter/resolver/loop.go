@@ -4,6 +4,8 @@
 package resolver
 
 import (
+	"time"
+
 	corecharm "github.com/juju/charm/v8"
 	"github.com/juju/charm/v8/hooks"
 	"github.com/juju/errors"
@@ -91,6 +93,16 @@ func Loop(cfg LoopConfig, localState *LocalState) error {
 		rf.RemoteState = cfg.Watcher.Snapshot()
 		rf.LocalState.State = cfg.Executor.State()
 
+		if localState.HookWasShutdown && rf.RemoteState.ContainerRunningStatus != nil {
+			agentShutdown := rf.RemoteState.Shutdown
+			if !agentShutdown {
+				agentShutdown = maybeAgentShutdown(cfg)
+			}
+			if !agentShutdown {
+				cfg.Logger.Warningf("last %q hook was killed, but agent still alive", localState.Hook.Kind)
+			}
+		}
+
 		op, err := cfg.Resolver.NextOp(*rf.LocalState, rf.RemoteState, rf)
 		for err == nil {
 			// Send remote state changes to running operations.
@@ -170,6 +182,46 @@ func Loop(cfg LoopConfig, localState *LocalState) error {
 			return ErrLoopAborted
 		case <-cfg.Watcher.RemoteStateChanged():
 		case <-fire:
+		}
+	}
+}
+
+// maybeAgentShutdown returns true if the agent was killed by a
+// SIGTERM. If not true at the time of calling, it will wait a short
+// time for the status to possibly be updated.
+func maybeAgentShutdown(cfg LoopConfig) bool {
+	fire := make(chan struct{}, 1)
+	remoteStateChanged := make(chan remotestate.Snapshot)
+	done := make(chan struct{})
+	defer close(done)
+	go func() {
+		var rs chan remotestate.Snapshot
+		for {
+			select {
+			case <-cfg.Watcher.RemoteStateChanged():
+				// We consumed a remote state change event
+				// so we need a way to trigger the select below
+				// in case it was a new operation.
+				select {
+				case fire <- struct{}{}:
+				default:
+				}
+				rs = remoteStateChanged
+			case rs <- cfg.Watcher.Snapshot():
+				rs = nil
+			case <-done:
+				return
+			}
+		}
+	}()
+	for {
+		select {
+		case rs := <-remoteStateChanged:
+			if rs.Shutdown {
+				return true
+			}
+		case <-time.After(3 * time.Second):
+			return false
 		}
 	}
 }
