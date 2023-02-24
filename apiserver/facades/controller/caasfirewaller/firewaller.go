@@ -242,7 +242,7 @@ func (f *FacadeSidecar) GetApplicationOpenedPorts(arg params.Entity) (params.App
 		result.Results[0].Error = apiservererrors.ServerError(err)
 		return result, nil
 	}
-	for endpointName, pgs := range openedPortRanges.ByEndpoint() {
+	for endpointName, pgs := range openedPortRanges {
 		result.Results[0].ApplicationPortRanges = append(
 			result.Results[0].ApplicationPortRanges,
 			f.applicationOpenedPortsForEndpoint(endpointName, pgs),

@@ -420,12 +420,12 @@ func (st *State) OpenedMachinePortRangesByEndpoint(machineTag names.MachineTag) 
 
 // OpenedApplicationPortRangesByEndpoint returns all port ranges currently open for the given
 // application, grouped by application endpoint.
-func (st *State) OpenedApplicationPortRangesByEndpoint(appTag names.ApplicationTag) (network.GroupedPortRanges, error) {
+func (st *State) OpenedApplicationPortRangesByEndpoint(unitTag names.UnitTag) (network.GroupedPortRanges, error) {
 	if st.BestAPIVersion() < 18 {
 		// OpenedApplicationPortRangesByEndpoint() was introduced in UniterAPIV18.
 		return nil, errors.NotImplementedf("OpenedApplicationPortRangesByEndpoint() (need V17+)")
 	}
-	arg := params.Entity{Tag: appTag.String()}
+	arg := params.Entity{Tag: unitTag.String()}
 	var result params.ApplicationOpenedPortsResults
 	if err := st.facade.FacadeCall("OpenedApplicationPortRangesByEndpoint", arg, &result); err != nil {
 		return nil, errors.Trace(err)
@@ -435,7 +435,7 @@ func (st *State) OpenedApplicationPortRangesByEndpoint(appTag names.ApplicationT
 	}
 	res := result.Results[0]
 	if res.Error != nil {
-		return nil, errors.Annotatef(res.Error, "unable to fetch opened ports for application %s", appTag)
+		return nil, errors.Annotatef(res.Error, "unable to fetch opened ports for application %s", unitTag)
 	}
 	out := make(network.GroupedPortRanges)
 	for _, pgs := range res.ApplicationPortRanges {

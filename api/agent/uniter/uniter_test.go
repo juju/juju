@@ -91,7 +91,7 @@ func (s *uniterSuite) TestOpenedApplicationPortRangesByEndpoint(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Assert(objType, gc.Equals, "Uniter")
 		c.Assert(request, gc.Equals, "OpenedApplicationPortRangesByEndpoint")
-		c.Assert(arg, gc.DeepEquals, params.Entity{Tag: "application-gitlab"})
+		c.Assert(arg, gc.DeepEquals, params.Entity{Tag: "unit-gitlab-0"})
 		c.Assert(result, gc.FitsTypeOf, &params.ApplicationOpenedPortsResults{})
 		*(result.(*params.ApplicationOpenedPortsResults)) = params.ApplicationOpenedPortsResults{
 			Results: []params.ApplicationOpenedPortsResult{
@@ -114,7 +114,7 @@ func (s *uniterSuite) TestOpenedApplicationPortRangesByEndpoint(c *gc.C) {
 	caller := testing.BestVersionCaller{apiCaller, 18}
 	client := uniter.NewState(caller, names.NewUnitTag("gitlab/0"))
 
-	result, err := client.OpenedApplicationPortRangesByEndpoint(names.NewApplicationTag("gitlab"))
+	result, err := client.OpenedApplicationPortRangesByEndpoint(names.NewUnitTag("gitlab/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, network.GroupedPortRanges{
 		"":       []network.PortRange{network.MustParsePortRange("100-200/tcp")},
@@ -126,12 +126,12 @@ func (s *uniterSuite) TestOpenedApplicationPortRangesByEndpointOldAPINotSupporte
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Assert(objType, gc.Equals, "Uniter")
 		c.Assert(request, gc.Equals, "OpenedApplicationPortRangesByEndpoint")
-		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "application-gitlab"}}})
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-gitlab-0"}}})
 		return nil
 	})
 	caller := testing.BestVersionCaller{apiCaller, 17}
 	client := uniter.NewState(caller, names.NewUnitTag("gitlab/0"))
 
-	_, err := client.OpenedApplicationPortRangesByEndpoint(names.NewApplicationTag("gitlab"))
+	_, err := client.OpenedApplicationPortRangesByEndpoint(names.NewUnitTag("gitlab/0"))
 	c.Assert(err, gc.ErrorMatches, `OpenedApplicationPortRangesByEndpoint\(\) \(need V17\+\) not implemented`)
 }

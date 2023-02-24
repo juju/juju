@@ -131,18 +131,18 @@ func (u *UniterAPI) OpenedApplicationPortRangesByEndpoint(entity params.Entity) 
 		Results: make([]params.ApplicationOpenedPortsResult, 1),
 	}
 
-	appTag, err := names.ParseApplicationTag(entity.Tag)
+	unitTag, err := names.ParseUnitTag(entity.Tag)
 	if err != nil {
 		result.Results[0].Error = apiservererrors.ServerError(err)
 		return result, nil
 	}
 
-	app, err := u.st.Application(appTag.Id())
+	unit, err := u.st.Unit(unitTag.Id())
 	if err != nil {
 		result.Results[0].Error = apiservererrors.ServerError(err)
 		return result, nil
 	}
-	openedPortRanges, err := app.OpenedPortRanges()
+	openedPortRanges, err := unit.OpenedPortRanges()
 	if err != nil {
 		result.Results[0].Error = apiservererrors.ServerError(err)
 		return result, nil
@@ -2639,21 +2639,9 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 	}
 
 	if len(changes.OpenPorts)+len(changes.ClosePorts) > 0 {
-		var pcp PortChangesProcessor
-		if u.m.Type() == state.ModelTypeCAAS {
-			app, err := u.st.Application(appTag.Name)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			pcp, err = app.OpenedPortRanges()
-			if err != nil {
-				return errors.Trace(err)
-			}
-		} else {
-			pcp, err = unit.OpenedPortRanges()
-			if err != nil {
-				return errors.Trace(err)
-			}
+		pcp, err := unit.OpenedPortRanges()
+		if err != nil {
+			return errors.Trace(err)
 		}
 
 		for _, r := range changes.OpenPorts {
