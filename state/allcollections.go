@@ -228,6 +228,8 @@ func allCollections() CollectionSchema {
 		charmsC: {
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid"},
+			}, {
+				Key: []string{"bundlesha256"},
 			}},
 		},
 		applicationsC: {

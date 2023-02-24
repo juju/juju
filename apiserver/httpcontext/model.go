@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/juju/names/v4"
 )
@@ -38,6 +39,37 @@ type QueryModelHandler struct {
 // ServeHTTP is part of the http.Handler interface.
 func (h *QueryModelHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	modelUUID := req.URL.Query().Get(h.Query)
+	validateModelAndServe(h.Handler, modelUUID, w, req)
+}
+
+// BucketModelHandler is an http.Handler that associates requests that
+// it handles with a model UUID extracted from a specified query parameter that
+// must be the objects storage :bucket which is formatted 'model-{modelUUID}'.
+// The model UUID can then be extracted using the RequestModel function
+// in this package.
+type BucketModelHandler struct {
+	http.Handler
+	Query string
+}
+
+// ServeHTTP is part of the http.Handler interface.
+func (h *BucketModelHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	bucketPrefix := "model-"
+	bucket := req.URL.Query().Get(h.Query)
+
+	if !strings.HasPrefix(bucket, bucketPrefix) {
+		http.Error(w,
+			fmt.Sprintf("invalid bucket format %q", bucket),
+			http.StatusBadRequest,
+		)
+		return
+	}
+
+	modelUUID := bucket[len(bucketPrefix):]
+	validateModelAndServe(h.Handler, modelUUID, w, req)
+}
+
+func validateModelAndServe(handler http.Handler, modelUUID string, w http.ResponseWriter, req *http.Request) {
 	if modelUUID != "" {
 		if !names.IsValidModel(modelUUID) {
 			http.Error(w,
@@ -49,7 +81,7 @@ func (h *QueryModelHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) 
 		ctx := context.WithValue(req.Context(), modelKey{}, modelUUID)
 		req = req.WithContext(ctx)
 	}
-	h.Handler.ServeHTTP(w, req)
+	handler.ServeHTTP(w, req)
 }
 
 type modelKey struct{}
