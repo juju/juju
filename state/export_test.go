@@ -1140,6 +1140,11 @@ func MachinePortOps(st *State, m description.Machine) ([]txn.Op, error) {
 	return []txn.Op{resolver.machinePortsOp(m)}, nil
 }
 
+func ApplicationPortOps(st *State, a description.Application) ([]txn.Op, error) {
+	resolver := &importer{st: st}
+	return []txn.Op{resolver.applicationPortsOp(a)}, nil
+}
+
 func GetSecretNextRotateTime(c *gc.C, st *State, id string) time.Time {
 	secretRotateCollection, closer := st.db().GetCollection(secretRotateC)
 	defer closer()

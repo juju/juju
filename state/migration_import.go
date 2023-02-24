@@ -524,7 +524,7 @@ func (i *importer) machine(m description.Machine) error {
 	// 4. gather prereqs and machine op, run ops.
 	ops := append(prereqOps, machineOp)
 
-	// 5. add any ops that we may need to add the opened ports information.
+	// 5. add any ops that we may need to add the opened ports information for the machine.
 	ops = append(ops, i.machinePortsOp(m))
 
 	if err := i.st.db().RunTransaction(ops); err != nil {
@@ -612,6 +612,37 @@ func (i *importer) machinePortsOp(m description.Machine) txn.Op {
 	return txn.Op{
 		C:      openedPortsC,
 		Id:     machineID,
+		Assert: txn.DocMissing,
+		Insert: portRangeDoc,
+	}
+}
+
+func (i *importer) applicationPortsOp(a description.Application) txn.Op {
+	modelUUID := i.st.ModelUUID()
+	appName := a.Name()
+	docID := i.st.docID(applicationGlobalKey(appName))
+
+	portRangeDoc := newApplicationPortRangesDoc(docID, modelUUID, appName)
+	for unitName, unitPorts := range a.OpenedPortRanges().ByUnit() {
+		portRangeDoc.UnitRanges[unitName] = make(network.GroupedPortRanges)
+
+		for endpointName, portRanges := range unitPorts.ByEndpoint() {
+			portRangeList := make([]network.PortRange, len(portRanges))
+			for i, pr := range portRanges {
+				portRangeList[i] = network.PortRange{
+					FromPort: pr.FromPort(),
+					ToPort:   pr.ToPort(),
+					Protocol: pr.Protocol(),
+				}
+			}
+
+			portRangeDoc.UnitRanges[unitName][endpointName] = portRangeList
+		}
+	}
+
+	return txn.Op{
+		C:      openedPortsC,
+		Id:     docID,
 		Assert: txn.DocMissing,
 		Insert: portRangeDoc,
 	}
@@ -947,6 +978,9 @@ func (i *importer) application(a description.Application, ctrlCfg controller.Con
 	})
 
 	ops = append(ops, i.appResourceOps(a)...)
+
+	// add any ops that we may need to add the opened ports information for the application.
+	ops = append(ops, i.applicationPortsOp(a))
 
 	if err := i.st.db().RunTransaction(ops); err != nil {
 		return errors.Trace(err)
