@@ -194,7 +194,6 @@ func (s *uniterSuiteBase) addCAASSidecarApplication(c *gc.C) (*state.State, *sta
 	f := factory.NewFactory(st, s.StatePool)
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "cockroachdb", Series: "focal"})
 
-	// ch := state.AddCustomCharmWithManifest(c, st, "cockroach", "metadata.yaml", charmDef, "focal", 1)
 	return st, f.MakeApplication(c, &factory.ApplicationParams{Name: "cockroachdb", Charm: ch})
 }
 

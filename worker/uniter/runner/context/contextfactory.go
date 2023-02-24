@@ -418,7 +418,7 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 			f.logger.Warningf("cannot get legacy private address for %v: %v", f.unit.Name(), err)
 		}
 	case model.CAAS:
-		if appPortRanges, err = f.state.OpenedApplicationPortRangesByEndpoint(f.unit.ApplicationTag()); err != nil {
+		if appPortRanges, err = f.state.OpenedApplicationPortRangesByEndpoint(f.unit.Tag()); err != nil {
 			return errors.Trace(err)
 		}
 	}

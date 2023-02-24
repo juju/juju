@@ -99,7 +99,7 @@ func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 		return nil, errors.Trace(err)
 	}
 
-	appPortRanges, err := hcParams.State.OpenedApplicationPortRangesByEndpoint(hcParams.Unit.ApplicationTag())
+	appPortRanges, err := hcParams.State.OpenedApplicationPortRangesByEndpoint(hcParams.Unit.Tag())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
