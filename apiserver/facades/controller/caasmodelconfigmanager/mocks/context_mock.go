@@ -5,6 +5,7 @@
 package mocks
 
 import (
+	sql "database/sql"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
@@ -275,6 +276,21 @@ func (m *MockContext) Controller() *cache.Controller {
 func (mr *MockContextMockRecorder) Controller() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Controller", reflect.TypeOf((*MockContext)(nil).Controller))
+}
+
+// ControllerDB mocks base method.
+func (m *MockContext) ControllerDB() (*sql.DB, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ControllerDB")
+	ret0, _ := ret[0].(*sql.DB)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ControllerDB indicates an expected call of ControllerDB.
+func (mr *MockContextMockRecorder) ControllerDB() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerDB", reflect.TypeOf((*MockContext)(nil).ControllerDB))
 }
 
 // Dispose mocks base method.

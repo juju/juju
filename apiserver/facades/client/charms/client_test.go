@@ -4,6 +4,7 @@
 package charms_test
 
 import (
+	"database/sql"
 	"net/url"
 
 	"github.com/golang/mock/gomock"
@@ -71,6 +72,7 @@ func (ctx *charmsSuiteContext) LeadershipPinner(string) (leadership.Pinner, erro
 func (ctx *charmsSuiteContext) LeadershipReader(string) (leadership.Reader, error)    { return nil, nil }
 func (ctx *charmsSuiteContext) SingularClaimer() (lease.Claimer, error)               { return nil, nil }
 func (ctx *charmsSuiteContext) HTTPClient(facade.HTTPClientPurpose) facade.HTTPClient { return nil }
+func (ctx *charmsSuiteContext) ControllerDB() (*sql.DB, error)                        { return nil, nil }
 
 func (s *charmsSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
