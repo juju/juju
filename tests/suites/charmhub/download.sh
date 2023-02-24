@@ -22,7 +22,7 @@ run_charmstore_download() {
 	ensure "test-${name}" "${file}"
 
 	output=$(juju download cs:meshuggah 2>&1 || echo "not found")
-	check_contains "${output}" '"cs:meshuggah" is not a Charmhub charm'
+	check_contains "${output}" 'ERROR charm or bundle name, "cs:meshuggah", is not valid'
 }
 
 run_unknown_download() {
