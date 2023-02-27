@@ -60,6 +60,28 @@ run_refresh_local() {
 	destroy_model "${model_name}"
 }
 
+run_refresh_local_resources() {
+	# Test a plain juju refresh with a local charm
+	echo
+
+	model_name="test-refresh-local-resources"
+	file="${TEST_DIR}/${model_name}.log"
+	charm_name="${TEST_DIR}/juju-qa-test.charm"
+
+	ensure "${model_name}" "${file}"
+
+	juju download juju-qa-test --no-progress - >"${charm_name}"
+	juju deploy "${charm_name}" juju-qa-test --resource foo-file="./tests/suites/resources/foo-file.txt"
+	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
+
+	juju refresh juju-qa-test --path "${charm_name}"
+
+	wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" "1")"
+	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
+
+	destroy_model "${model_name}"
+}
+
 run_refresh_channel() {
 	# Test juju refresh from one channel to another
 	echo
@@ -98,20 +120,13 @@ run_refresh_channel_no_new_revision() {
 
 	juju deploy ubuntu
 	wait_for "ubuntu" "$(idle_condition "ubuntu")"
+	# get revision to ensure it doesn't change
+	cs_revision=$(juju status --format json | jq -S '.applications | .["ubuntu"] | .["charm-rev"]')
 
-	OUT=$(juju refresh ubuntu --channel edge 2>&1 || true)
-	# shellcheck disable=SC2059
-	printf "${OUT}\n"
-
-	if echo "${OUT}" | grep -E -vq "all future refreshes will now use channel"; then
-		# shellcheck disable=SC2046
-		echo $(red "failed refreshing charm: ${OUT}")
-		exit 5
-	fi
-	# shellcheck disable=SC2059
-	printf "${OUT}\n"
+	juju refresh ubuntu --channel edge
 
 	wait_for "ubuntu" "$(charm_channel "ubuntu" "edge")"
+	wait_for "ubuntu" "$(charm_rev "ubuntu" "${cs_revision}")"
 	wait_for "ubuntu" "$(idle_condition "ubuntu")"
 
 	destroy_model "${model_name}"
@@ -130,6 +145,7 @@ test_basic() {
 
 		run "run_refresh_cs"
 		run "run_refresh_local"
+		run "run_refresh_local_resources"
 		run "run_refresh_channel"
 		run "run_refresh_channel_no_new_revision"
 	)
