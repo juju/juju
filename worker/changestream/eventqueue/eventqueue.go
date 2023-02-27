@@ -56,9 +56,10 @@ type EventQueue struct {
 	stream Stream
 	logger Logger
 
-	mutex             sync.Mutex
-	subscriptions     map[int]*subscription
-	subscriptionsByNS map[string][]*eventFilter
+	mutex              sync.Mutex
+	subscriptions      map[int]*subscription
+	subscriptionsByNS  map[string][]*eventFilter
+	subscriptionsCount int
 
 	actions chan func()
 }
@@ -66,11 +67,12 @@ type EventQueue struct {
 // New creates a new EventQueue that will use the Stream for events.
 func New(stream Stream, logger Logger) *EventQueue {
 	queue := &EventQueue{
-		stream:            stream,
-		logger:            logger,
-		subscriptions:     make(map[int]*subscription),
-		subscriptionsByNS: make(map[string][]*eventFilter),
-		actions:           make(chan func()),
+		stream:             stream,
+		logger:             logger,
+		subscriptions:      make(map[int]*subscription),
+		subscriptionsByNS:  make(map[string][]*eventFilter),
+		subscriptionsCount: 0,
+		actions:            make(chan func()),
 	}
 
 	queue.tomb.Go(queue.loop)
@@ -88,12 +90,12 @@ func (s *EventQueue) Subscribe(opts ...changestream.SubscriptionOption) (changes
 	defer s.mutex.Unlock()
 
 	// Create a new subscription and assign a unique ID to it.
-	subID := len(s.subscriptions)
+	s.subscriptionsCount++
 	sub := &subscription{
-		id:           subID,
+		id:           s.subscriptionsCount,
 		changes:      make(chan changestream.ChangeEvent),
 		topics:       make(map[string]struct{}),
-		unsubscriber: func() { s.unsubscribe(subID) },
+		unsubscriber: func() { s.unsubscribe(s.subscriptionsCount) },
 	}
 	s.subscriptions[sub.id] = sub
 
