@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/canonical/pebble/plan"
 	"github.com/juju/charm/v10"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -48,6 +47,7 @@ import (
 	environsbootstrap "github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/service/pebble/plan"
 	"github.com/juju/juju/version"
 )
 
