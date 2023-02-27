@@ -11,6 +11,7 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -23,6 +24,7 @@ import (
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -675,8 +677,9 @@ func (s *RefreshSuite) TestSwitch(c *gc.C) {
 	_, err := s.runRefresh(c, "foo", "--switch=cs:~other/trusty/anotherriak")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.charmClient.CheckCallNames(c, "CharmInfo")
+	s.charmClient.CheckCallNames(c, "CharmInfo", "CharmInfo")
 	s.charmClient.CheckCall(c, 0, "CharmInfo", s.resolvedCharmURL.String())
+	s.charmClient.CheckCall(c, 1, "CharmInfo", s.resolvedCharmURL.String())
 	s.charmAdder.CheckCallNames(c, "AddCharm")
 	origin, _ := utils.DeduceOrigin(s.resolvedCharmURL, charm.Channel{Risk: charm.Stable}, corecharm.Platform{})
 	s.charmAdder.CheckCall(c, 0, "AddCharm", s.resolvedCharmURL, origin, false)
@@ -966,7 +969,7 @@ func (s *RefreshSuite) TestUpgradeResourceRevision(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
-	s.charmClient.CheckCallNames(c, "CharmInfo", "ListCharmResources")
+	s.charmClient.CheckCallNames(c, "CharmInfo", "ListCharmResources", "CharmInfo")
 	s.CheckCall(c, 12, "DeployResources", "foo", resources.CharmID{
 		URL: charm.MustParseURL("cs:quantal/foo-2"),
 		Origin: commoncharm.Origin{
@@ -1008,7 +1011,7 @@ func (s *RefreshSuite) TestUpgradeResourceRevisionSupplied(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
-	s.charmClient.CheckCallNames(c, "CharmInfo", "ListCharmResources")
+	s.charmClient.CheckCallNames(c, "CharmInfo", "ListCharmResources", "CharmInfo")
 	s.CheckCall(c, 12, "DeployResources", "foo", resources.CharmID{
 		URL: charm.MustParseURL("cs:quantal/foo-2"),
 		Origin: commoncharm.Origin{
@@ -1050,7 +1053,7 @@ func (s *RefreshSuite) TestUpgradeResourceNoChange(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
-	s.charmClient.CheckCallNames(c, "CharmInfo", "ListCharmResources")
+	s.charmClient.CheckCallNames(c, "CharmInfo", "ListCharmResources", "CharmInfo")
 	for _, call := range s.Calls() {
 		c.Assert(call.FuncName, gc.Not(gc.Equals), "DeployResources")
 	}
@@ -1211,6 +1214,7 @@ type mockCharmClient struct {
 }
 
 func (m *mockCharmClient) CharmInfo(curl string) (*apicommoncharms.CharmInfo, error) {
+	loggo.GetLogger("heather").Criticalf("\n%s\n", debug.Stack())
 	m.MethodCall(m, "CharmInfo", curl)
 	if err := m.NextErr(); err != nil {
 		return nil, err
