@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	apiwatcher "github.com/juju/juju/api/watcher"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
@@ -435,7 +436,8 @@ func (st *State) OpenedApplicationPortRangesByEndpoint(unitTag names.UnitTag) (n
 	}
 	res := result.Results[0]
 	if res.Error != nil {
-		return nil, errors.Annotatef(res.Error, "unable to fetch opened ports for application %s", unitTag)
+		err := apiservererrors.RestoreError(res.Error)
+		return nil, errors.Annotatef(err, "unable to fetch opened ports for %s", unitTag)
 	}
 	out := make(network.GroupedPortRanges)
 	for _, pgs := range res.ApplicationPortRanges {

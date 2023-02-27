@@ -66,9 +66,8 @@ type applicationPortRanges struct {
 }
 
 // Changes returns a ModelOperation for applying any changes that were made to
-// this port range instance for all machine units.
+// this port range instance.
 func (p *applicationPortRanges) Changes() ModelOperation {
-	logger.Criticalf("applicationPortRanges.Changes() is for testing, use ForUnit().Changes() instead!!!!!!!!!!!!!!!!!!")
 	return newApplicationPortRangesOperation(p, "")
 }
 
@@ -176,7 +175,6 @@ func (p *applicationPortRanges) byEndpointForApplication() network.GroupedPortRa
 			out[endpoint] = append(out[endpoint], prs...)
 		}
 	}
-	logger.Criticalf("byEndpointForApplication => %+v", out)
 	return out
 }
 
@@ -219,7 +217,7 @@ func (p *applicationPortRangesForUnit) Close(endpoint string, portRange network.
 }
 
 // Changes returns a ModelOperation for applying any changes that were made to
-// this port range instance for all machine units.
+// this port range instance.
 func (p *applicationPortRangesForUnit) Changes() ModelOperation {
 	return newApplicationPortRangesOperation(p.apg, p.unitName)
 }
@@ -374,6 +372,9 @@ func (op *applicationPortRangesOperation) addPortRanges(endpointName string, mer
 }
 
 func (op *applicationPortRangesOperation) removePortRange(endpointName string, portRange network.PortRange) bool {
+	if op.updatedUnitPortRanges[op.unitName] == nil || op.updatedUnitPortRanges[op.unitName][endpointName] == nil {
+		return false
+	}
 	var modified bool
 	existingRanges := op.updatedUnitPortRanges[op.unitName][endpointName]
 	for i, v := range existingRanges {
@@ -499,10 +500,10 @@ func removeApplicationPortsForUnitOps(st *State, unit *Unit) ([]txn.Op, error) {
 		return nil, nil
 	}
 	if appPortRanges.doc.UnitRanges == nil || appPortRanges.doc.UnitRanges[unitName] == nil {
-		// No entry for the unit; nothing to do here
+		// No entry for the unit; nothing to do here.
 		return nil, nil
 	}
-	// Drop unit rules and write the doc back if non-empty or remove it if empty
+	// Drop unit rules and write the doc back if non-empty or remove it if empty.
 	delete(appPortRanges.doc.UnitRanges, unitName)
 	if len(appPortRanges.doc.UnitRanges) != 0 {
 		assert := bson.D{{"txn-revno", appPortRanges.doc.TxnRevno}}

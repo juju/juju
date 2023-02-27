@@ -2828,13 +2828,6 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 	return u.st.ApplyOperation(state.ComposeModelOperations(modelOps...))
 }
 
-// PortChangesProcessor defines the interface for processing port changes.
-type PortChangesProcessor interface {
-	Open(endpoint string, portRange network.PortRange)
-	Close(endpoint string, portRange network.PortRange)
-	Changes() state.ModelOperation
-}
-
 // WatchInstanceData is a shim to call the LXDProfileAPIv2 version of this method.
 func (u *UniterAPI) WatchInstanceData(args params.Entities) (params.NotifyWatchResults, error) {
 	return u.lxdProfileAPI.WatchInstanceData(args)

@@ -520,14 +520,15 @@ func (u *backingUnit) updated(ctx *allWatcherContext) error {
 		return errors.Trace(err)
 	}
 	info := &multiwatcher.UnitInfo{
-		ModelUUID:   u.ModelUUID,
-		Name:        u.Name,
-		Application: u.Application,
-		Base:        base.DisplayString(),
-		Life:        life.Value(u.Life.String()),
-		MachineID:   u.MachineId,
-		Principal:   u.Principal,
-		Subordinate: u.Principal != "",
+		ModelUUID:                u.ModelUUID,
+		Name:                     u.Name,
+		Application:              u.Application,
+		Base:                     base.DisplayString(),
+		Life:                     life.Value(u.Life.String()),
+		MachineID:                u.MachineId,
+		Principal:                u.Principal,
+		Subordinate:              u.Principal != "",
+		OpenPortRangesByEndpoint: make(network.GroupedPortRanges),
 	}
 	if u.CharmURL != nil {
 		info.CharmURL = *u.CharmURL
@@ -558,7 +559,9 @@ func (u *backingUnit) updated(ctx *allWatcherContext) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		info.OpenPortRangesByEndpoint = unitPortRangesByEndpoint.Clone()
+		if len(unitPortRangesByEndpoint) > 0 {
+			info.OpenPortRangesByEndpoint = unitPortRangesByEndpoint.Clone()
+		}
 		if modelType == ModelTypeCAAS {
 			containerStatus, err := ctx.getStatus(globalCloudContainerKey(u.Name), "cloud container")
 			if err == nil {
@@ -2002,21 +2005,21 @@ func (ctx *allWatcherContext) loadInstanceData() error {
 }
 
 func (ctx *allWatcherContext) loadOpenedPortRanges() error {
-	openedMachineRangesM, err := getOpenedPortRangesForAllMachines(ctx.state)
+	openedMachineRanges, err := getOpenedPortRangesForAllMachines(ctx.state)
 	if err != nil {
 		return errors.Annotate(err, "cannot read all opened port ranges")
 	}
 	ctx.openPortRangesForMachine = make(map[string]MachinePortRanges)
-	for _, mpr := range openedMachineRangesM {
+	for _, mpr := range openedMachineRanges {
 		ctx.openPortRangesForMachine[mpr.MachineID()] = mpr
 	}
 
-	openedMachineRangesA, err := getOpenedApplicationPortRangesForAllApplications(ctx.state)
+	openedApplicationRanges, err := getOpenedApplicationPortRangesForAllApplications(ctx.state)
 	if err != nil {
 		return errors.Annotate(err, "cannot read all opened port ranges")
 	}
 	ctx.openPortRangesForApplication = make(map[string]ApplicationPortRanges)
-	for _, mpr := range openedMachineRangesA {
+	for _, mpr := range openedApplicationRanges {
 		ctx.openPortRangesForApplication[mpr.ApplicationName()] = mpr
 	}
 
@@ -2208,7 +2211,14 @@ func (ctx *allWatcherContext) getUnitPortRangesByEndpoint(unit *Unit) (network.G
 	appName := unit.ApplicationName()
 	if ctx.openPortRangesForApplication == nil || ctx.openPortRangesForApplication[appName] == nil {
 		unitPortRanges, err := unit.OpenedPortRanges()
-		return unitPortRanges.ByEndpoint(), err
+		if err != nil {
+			if errors.Is(err, errors.NotSupported) {
+				// We support open/close port for CAAS sidecar applications but not operator applications.
+				return make(network.GroupedPortRanges), nil
+			}
+			return nil, errors.Trace(err)
+		}
+		return unitPortRanges.ByEndpoint(), nil
 	}
 	return ctx.openPortRangesForApplication[appName].ForUnit(unit.Name()).ByEndpoint(), nil
 }
