@@ -4,13 +4,13 @@
 package sshclient_test
 
 import (
+	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	apitesting "github.com/juju/juju/api/base/testing"
+	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/sshclient"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
@@ -21,64 +21,79 @@ import (
 )
 
 type FacadeSuite struct {
-	jujutesting.IsolationSuite
 }
 
 var _ = gc.Suite(&FacadeSuite{})
 
 func (s *FacadeSuite) TestAddresses(c *gc.C) {
-	var stub jujutesting.Stub
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		stub.AddCall(objType+"."+request, arg)
-		c.Check(id, gc.Equals, "")
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
-		switch request {
-		case "PublicAddress", "PrivateAddress":
-			*result.(*params.SSHAddressResults) = params.SSHAddressResults{
-				Results: []params.SSHAddressResult{
-					{Address: "1.1.1.1"},
-				},
-			}
-
-		case "AllAddresses":
-			*result.(*params.SSHAddressesResults) = params.SSHAddressesResults{
-				Results: []params.SSHAddressesResult{
-					{Addresses: []string{"1.1.1.1", "2.2.2.2"}},
-				},
-			}
-		}
-
-		return nil
-	})
-
-	facade := sshclient.NewFacade(apiCaller)
-	expectedArg := []interface{}{params.Entities{[]params.Entity{{
+	expectedArg := params.Entities{[]params.Entity{{
 		names.NewUnitTag("foo/0").String(),
-	}}}}
+	}}}
+
+	res := new(params.SSHAddressResults)
+	ress1 := params.SSHAddressResults{
+		Results: []params.SSHAddressResult{
+			{Address: "1.1.1.1"},
+		},
+	}
+
+	res2 := new(params.SSHAddressesResults)
+	ress2 := params.SSHAddressesResults{
+		Results: []params.SSHAddressesResult{
+			{Addresses: []string{"1.1.1.1", "2.2.2.2"}},
+		},
+	}
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("PublicAddress", expectedArg, res).SetArg(2, ress1).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall("PrivateAddress", expectedArg, res).SetArg(2, ress1).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall("AllAddresses", expectedArg, res2).SetArg(2, ress2).Return(nil)
+	facade := sshclient.NewFacadeFromCaller(mockFacadeCaller)
 
 	public, err := facade.PublicAddress("foo/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(public, gc.Equals, "1.1.1.1")
-	stub.CheckCalls(c, []jujutesting.StubCall{{"SSHClient.PublicAddress", expectedArg}})
-	stub.ResetCalls()
 
 	private, err := facade.PrivateAddress("foo/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(private, gc.Equals, "1.1.1.1")
-	stub.CheckCalls(c, []jujutesting.StubCall{{"SSHClient.PrivateAddress", expectedArg}})
-	stub.ResetCalls()
 
 	addrs, err := facade.AllAddresses("foo/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(addrs, gc.DeepEquals, []string{"1.1.1.1", "2.2.2.2"})
-	stub.CheckCalls(c, []jujutesting.StubCall{{"SSHClient.AllAddresses", expectedArg}})
+
 }
 
 func (s *FacadeSuite) TestAddressesError(c *gc.C) {
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		return errors.New("boom")
-	})
-	facade := sshclient.NewFacade(apiCaller)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	expectedArg := params.Entities{[]params.Entity{{
+		names.NewUnitTag("foo/0").String(),
+	}}}
+
+	res := new(params.SSHAddressResults)
+	ress1 := params.SSHAddressResults{
+		Results: []params.SSHAddressResult{
+			{Address: "1.1.1.1"},
+		},
+	}
+
+	res2 := new(params.SSHAddressesResults)
+	ress2 := params.SSHAddressesResults{
+		Results: []params.SSHAddressesResult{
+			{Addresses: []string{"1.1.1.1", "2.2.2.2"}},
+		},
+	}
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("PublicAddress", expectedArg, res).SetArg(2, ress1).Return(errors.New("boom"))
+	mockFacadeCaller.EXPECT().FacadeCall("PrivateAddress", expectedArg, res).SetArg(2, ress1).Return(errors.New("boom"))
+	mockFacadeCaller.EXPECT().FacadeCall("AllAddresses", expectedArg, res2).SetArg(2, ress2).Return(errors.New("boom"))
+	facade := sshclient.NewFacadeFromCaller(mockFacadeCaller)
 
 	public, err := facade.PublicAddress("foo/0")
 	c.Check(public, gc.Equals, "")
@@ -94,23 +109,29 @@ func (s *FacadeSuite) TestAddressesError(c *gc.C) {
 }
 
 func (s *FacadeSuite) TestAddressesTargetError(c *gc.C) {
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		serverError := apiservererrors.ServerError(errors.New("boom"))
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
-		switch request {
-		case "PublicAddress", "PrivateAddress":
-			*result.(*params.SSHAddressResults) = params.SSHAddressResults{
-				Results: []params.SSHAddressResult{{Error: serverError}},
-			}
-		case "AllAddresses":
-			*result.(*params.SSHAddressesResults) = params.SSHAddressesResults{
-				Results: []params.SSHAddressesResult{{Error: serverError}},
-			}
-		}
+	serverError := apiservererrors.ServerError(errors.New("boom"))
+	expectedArg := params.Entities{[]params.Entity{{
+		names.NewUnitTag("foo/0").String(),
+	}}}
 
-		return nil
-	})
-	facade := sshclient.NewFacade(apiCaller)
+	res := new(params.SSHAddressResults)
+	ress1 := params.SSHAddressResults{
+		Results: []params.SSHAddressResult{{Error: serverError}},
+	}
+
+	res2 := new(params.SSHAddressesResults)
+	ress2 := params.SSHAddressesResults{
+		Results: []params.SSHAddressesResult{{Error: serverError}},
+	}
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("PublicAddress", expectedArg, res).SetArg(2, ress1).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall("PrivateAddress", expectedArg, res).SetArg(2, ress1).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall("AllAddresses", expectedArg, res2).SetArg(2, ress2).Return(nil)
+	facade := sshclient.NewFacadeFromCaller(mockFacadeCaller)
 
 	public, err := facade.PublicAddress("foo/0")
 	c.Check(public, gc.Equals, "")
@@ -126,11 +147,21 @@ func (s *FacadeSuite) TestAddressesTargetError(c *gc.C) {
 }
 
 func (s *FacadeSuite) TestAddressesMissingResults(c *gc.C) {
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		return nil
-	})
-	facade := sshclient.NewFacade(apiCaller)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	expectedArg := params.Entities{[]params.Entity{{
+		names.NewUnitTag("foo/0").String(),
+	}}}
+
+	res := new(params.SSHAddressResults)
+	res2 := new(params.SSHAddressesResults)
 	expectedErr := "expected 1 result, got 0"
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("PublicAddress", expectedArg, res).Return(errors.New(expectedErr))
+	mockFacadeCaller.EXPECT().FacadeCall("PrivateAddress", expectedArg, res).Return(errors.New(expectedErr))
+	mockFacadeCaller.EXPECT().FacadeCall("AllAddresses", expectedArg, res2).Return(errors.New(expectedErr))
+	facade := sshclient.NewFacadeFromCaller(mockFacadeCaller)
 
 	public, err := facade.PublicAddress("foo/0")
 	c.Check(public, gc.Equals, "")
@@ -146,26 +177,34 @@ func (s *FacadeSuite) TestAddressesMissingResults(c *gc.C) {
 }
 
 func (s *FacadeSuite) TestAddressesExtraResults(c *gc.C) {
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		switch request {
-		case "PublicAddress", "PrivateAddress":
-			*result.(*params.SSHAddressResults) = params.SSHAddressResults{
-				Results: []params.SSHAddressResult{
-					{Address: "1.1.1.1"},
-					{Address: "2.2.2.2"},
-				},
-			}
-		case "AllAddresses":
-			*result.(*params.SSHAddressesResults) = params.SSHAddressesResults{
-				Results: []params.SSHAddressesResult{
-					{Addresses: []string{"1.1.1.1"}},
-					{Addresses: []string{"2.2.2.2"}},
-				},
-			}
-		}
-		return nil
-	})
-	facade := sshclient.NewFacade(apiCaller)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	expectedArg := params.Entities{[]params.Entity{{
+		names.NewUnitTag("foo/0").String(),
+	}}}
+
+	res := new(params.SSHAddressResults)
+	ress1 := params.SSHAddressResults{
+		Results: []params.SSHAddressResult{
+			{Address: "1.1.1.1"},
+			{Address: "2.2.2.2"},
+		},
+	}
+
+	res2 := new(params.SSHAddressesResults)
+	ress2 := params.SSHAddressesResults{
+		Results: []params.SSHAddressesResult{
+			{Addresses: []string{"1.1.1.1"}},
+			{Addresses: []string{"2.2.2.2"}},
+		},
+	}
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("PublicAddress", expectedArg, res).SetArg(2, ress1).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall("PrivateAddress", expectedArg, res).SetArg(2, ress1).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall("AllAddresses", expectedArg, res2).SetArg(2, ress2).Return(nil)
+	facade := sshclient.NewFacadeFromCaller(mockFacadeCaller)
 	expectedErr := "expected 1 result, got 2"
 
 	public, err := facade.PublicAddress("foo/0")
@@ -182,74 +221,99 @@ func (s *FacadeSuite) TestAddressesExtraResults(c *gc.C) {
 }
 
 func (s *FacadeSuite) TestPublicKeys(c *gc.C) {
-	var stub jujutesting.Stub
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		stub.AddCall(objType+"."+request, arg)
-		c.Check(id, gc.Equals, "")
-		*result.(*params.SSHPublicKeysResults) = params.SSHPublicKeysResults{
-			Results: []params.SSHPublicKeysResult{{PublicKeys: []string{"rsa", "dsa"}}},
-		}
-		return nil
-	})
-	facade := sshclient.NewFacade(apiCaller)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	expectedArg := params.Entities{[]params.Entity{{
+		names.NewUnitTag("foo/0").String(),
+	}}}
+
+	res := new(params.SSHPublicKeysResults)
+	ress := params.SSHPublicKeysResults{
+		Results: []params.SSHPublicKeysResult{{PublicKeys: []string{"rsa", "dsa"}}},
+	}
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("PublicKeys", expectedArg, res).SetArg(2, ress).Return(nil)
+	facade := sshclient.NewFacadeFromCaller(mockFacadeCaller)
+
 	keys, err := facade.PublicKeys("foo/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(keys, gc.DeepEquals, []string{"rsa", "dsa"})
-	stub.CheckCalls(c, []jujutesting.StubCall{{
-		"SSHClient.PublicKeys",
-		[]interface{}{params.Entities{[]params.Entity{{
-			Tag: names.NewUnitTag("foo/0").String(),
-		}}}},
-	}})
 }
 
 func (s *FacadeSuite) TestPublicKeysError(c *gc.C) {
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		return errors.New("boom")
-	})
-	facade := sshclient.NewFacade(apiCaller)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("PublicKeys", gomock.Any(), gomock.Any()).Return(errors.New("boom"))
+	facade := sshclient.NewFacadeFromCaller(mockFacadeCaller)
 	keys, err := facade.PublicKeys("foo/0")
 	c.Check(keys, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "boom")
 }
 
 func (s *FacadeSuite) TestPublicKeysTargetError(c *gc.C) {
-	var stub jujutesting.Stub
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		stub.AddCall(objType+"."+request, arg)
-		c.Check(id, gc.Equals, "")
-		*result.(*params.SSHPublicKeysResults) = params.SSHPublicKeysResults{
-			Results: []params.SSHPublicKeysResult{{Error: apiservererrors.ServerError(errors.New("boom"))}},
-		}
-		return nil
-	})
-	facade := sshclient.NewFacade(apiCaller)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	expectedArg := params.Entities{[]params.Entity{{
+		names.NewUnitTag("foo/0").String(),
+	}}}
+
+	res := new(params.SSHPublicKeysResults)
+	ress := params.SSHPublicKeysResults{
+		Results: []params.SSHPublicKeysResult{{Error: apiservererrors.ServerError(errors.New("boom"))}},
+	}
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("PublicKeys", expectedArg, res).SetArg(2, ress).Return(nil)
+	facade := sshclient.NewFacadeFromCaller(mockFacadeCaller)
 	keys, err := facade.PublicKeys("foo/0")
 	c.Check(keys, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "boom")
 }
 
 func (s *FacadeSuite) TestPublicKeysMissingResults(c *gc.C) {
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		return nil
-	})
-	facade := sshclient.NewFacade(apiCaller)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	expectedArg := params.Entities{[]params.Entity{{
+		names.NewUnitTag("foo/0").String(),
+	}}}
+
+	res := new(params.SSHPublicKeysResults)
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("PublicKeys", expectedArg, res).Return(nil)
+	facade := sshclient.NewFacadeFromCaller(mockFacadeCaller)
+
 	keys, err := facade.PublicKeys("foo/0")
 	c.Check(keys, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "expected 1 result, got 0")
 }
 
 func (s *FacadeSuite) TestPublicKeysExtraResults(c *gc.C) {
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		*result.(*params.SSHPublicKeysResults) = params.SSHPublicKeysResults{
-			Results: []params.SSHPublicKeysResult{
-				{PublicKeys: []string{"rsa"}},
-				{PublicKeys: []string{"rsa"}},
-			},
-		}
-		return nil
-	})
-	facade := sshclient.NewFacade(apiCaller)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	expectedArg := params.Entities{[]params.Entity{{
+		names.NewUnitTag("foo/0").String(),
+	}}}
+
+	res := new(params.SSHPublicKeysResults)
+	ress := params.SSHPublicKeysResults{
+		Results: []params.SSHPublicKeysResult{
+			{PublicKeys: []string{"rsa"}},
+			{PublicKeys: []string{"rsa"}},
+		},
+	}
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("PublicKeys", expectedArg, res).SetArg(2, ress).Return(nil)
+	facade := sshclient.NewFacadeFromCaller(mockFacadeCaller)
+
 	keys, err := facade.PublicKeys("foo/0")
 	c.Check(keys, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "expected 1 result, got 2")
@@ -261,61 +325,65 @@ func (s *FacadeSuite) TestProxy(c *gc.C) {
 }
 
 func checkProxy(c *gc.C, useProxy bool) {
-	var stub jujutesting.Stub
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		stub.AddCall(objType+"."+request, arg)
-		*result.(*params.SSHProxyResult) = params.SSHProxyResult{
-			UseProxy: useProxy,
-		}
-		return nil
-	})
-	facade := sshclient.NewFacade(apiCaller)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	res := new(params.SSHProxyResult)
+	ress := params.SSHProxyResult{
+		UseProxy: useProxy,
+	}
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("Proxy", nil, res).SetArg(2, ress).Return(nil)
+	facade := sshclient.NewFacadeFromCaller(mockFacadeCaller)
+
 	result, err := facade.Proxy()
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(result, gc.Equals, useProxy)
-	stub.CheckCalls(c, []jujutesting.StubCall{{"SSHClient.Proxy", []interface{}{nil}}})
 }
 
 func (s *FacadeSuite) TestProxyError(c *gc.C) {
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		return errors.New("boom")
-	})
-	facade := sshclient.NewFacade(apiCaller)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("Proxy", gomock.Any(), gomock.Any()).Return(errors.New("boom"))
+	facade := sshclient.NewFacadeFromCaller(mockFacadeCaller)
+
 	_, err := facade.Proxy()
 	c.Check(err, gc.ErrorMatches, "boom")
 }
 
 func (s *FacadeSuite) TestModelCredentialForSSH(c *gc.C) {
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "SSHClient")
-		c.Check(request, gc.Equals, "ModelCredentialForSSH")
-		c.Assert(arg, gc.IsNil)
-		c.Assert(result, gc.FitsTypeOf, &params.CloudSpecResult{})
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
-		*(result.(*params.CloudSpecResult)) = params.CloudSpecResult{
-			Result: &params.CloudSpec{
-				Type:             "type",
-				Name:             "name",
-				Region:           "region",
-				Endpoint:         "endpoint",
-				IdentityEndpoint: "identity-endpoint",
-				StorageEndpoint:  "storage-endpoint",
-				Credential: &params.CloudCredential{
-					AuthType: "auth-type",
-					Attributes: map[string]string{
-						k8scloud.CredAttrUsername: "",
-						k8scloud.CredAttrPassword: "",
-						k8scloud.CredAttrToken:    "token",
-					},
+	res := new(params.CloudSpecResult)
+	ress := params.CloudSpecResult{
+		Result: &params.CloudSpec{
+			Type:             "type",
+			Name:             "name",
+			Region:           "region",
+			Endpoint:         "endpoint",
+			IdentityEndpoint: "identity-endpoint",
+			StorageEndpoint:  "storage-endpoint",
+			Credential: &params.CloudCredential{
+				AuthType: "auth-type",
+				Attributes: map[string]string{
+					k8scloud.CredAttrUsername: "",
+					k8scloud.CredAttrPassword: "",
+					k8scloud.CredAttrToken:    "token",
 				},
-				CACertificates: []string{testing.CACert},
-				SkipTLSVerify:  true,
 			},
-		}
-		return nil
-	})
+			CACertificates: []string{testing.CACert},
+			SkipTLSVerify:  true,
+		},
+	}
 
-	facade := sshclient.NewFacade(apiCaller)
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("ModelCredentialForSSH", nil, res).SetArg(2, ress).Return(nil)
+	facade := sshclient.NewFacadeFromCaller(mockFacadeCaller)
+
 	spec, err := facade.ModelCredentialForSSH()
 	c.Assert(err, jc.ErrorIsNil)
 

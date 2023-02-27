@@ -1,11 +1,9 @@
-// Copyright 2020 Canonical Ltd.
+// Copyright 2022 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package spaces
+package subnets
 
-import (
-	"github.com/juju/juju/api/base"
-)
+import "github.com/juju/juju/api/base"
 
 func NewAPIFromCaller(caller base.FacadeCaller) *API {
 	return &API{

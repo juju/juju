@@ -6,24 +6,26 @@ package imagemetadatamanager_test
 import (
 	"regexp"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/base/testing"
+	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/imagemetadatamanager"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type imagemetadataSuite struct {
-	coretesting.BaseSuite
 }
 
 var _ = gc.Suite(&imagemetadataSuite{})
 
 func (s *imagemetadataSuite) TestList(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	// setup data for test
 	imageId := "imageid"
 	stream := "stream"
@@ -39,50 +41,7 @@ func (s *imagemetadataSuite) TestList(c *gc.C) {
 	rootStorageSize := uint64(1024)
 	source := "source"
 
-	called := false
-	apiCaller := testing.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, result interface{},
-		) error {
-			called = true
-			c.Check(objType, gc.Equals, "ImageMetadataManager")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "List")
-
-			args, ok := a.(params.ImageMetadataFilter)
-			c.Assert(ok, jc.IsTrue)
-
-			if results, k := result.(*params.ListCloudImageMetadataResult); k {
-				instances := []params.CloudImageMetadata{
-					{
-						ImageId:         imageId,
-						Stream:          args.Stream,
-						Region:          args.Region,
-						Version:         args.Versions[0],
-						Arch:            args.Arches[0],
-						VirtType:        args.VirtType,
-						RootStorageType: args.RootStorageType,
-						RootStorageSize: &rootStorageSize,
-						Source:          source,
-					},
-				}
-				results.Result = instances
-			}
-
-			return nil
-		})
-	client := imagemetadatamanager.NewClient(apiCaller)
-	found, err := client.List(
-		stream, region,
-		[]series.Base{base}, []string{arch},
-		virtType, rootStorageType,
-	)
-	c.Check(err, jc.ErrorIsNil)
-
-	c.Assert(called, jc.IsTrue)
-	expected := []params.CloudImageMetadata{
+	instances := []params.CloudImageMetadata{
 		{
 			ImageId:         imageId,
 			Stream:          stream,
@@ -95,211 +54,193 @@ func (s *imagemetadataSuite) TestList(c *gc.C) {
 			Source:          source,
 		},
 	}
-	c.Assert(found, jc.DeepEquals, expected)
+
+	args := params.ImageMetadataFilter{
+		Arches:          []string{arch},
+		Stream:          stream,
+		VirtType:        virtType,
+		RootStorageType: rootStorageType,
+		Region:          region,
+		Versions:        []string{"22.04"},
+	}
+	res := new(params.ListCloudImageMetadataResult)
+	ress := params.ListCloudImageMetadataResult{
+		Result: instances,
+	}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("List", args, res).SetArg(2, ress).Return(nil)
+	client := imagemetadatamanager.NewClientFromCaller(mockFacadeCaller)
+	found, err := client.List(
+		stream, region,
+		[]series.Base{base}, []string{arch},
+		virtType, rootStorageType,
+	)
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(found, jc.DeepEquals, instances)
 }
 
 func (s *imagemetadataSuite) TestListFacadeCallError(c *gc.C) {
-	msg := "facade failure"
-	called := false
-	apiCaller := testing.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, result interface{},
-		) error {
-			called = true
-			c.Check(objType, gc.Equals, "ImageMetadataManager")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "List")
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
-			return errors.New(msg)
-		})
-	client := imagemetadatamanager.NewClient(apiCaller)
+	msg := "facade failure"
+	args := params.ImageMetadataFilter{
+		Stream:          "",
+		Region:          "",
+		Arches:          nil,
+		VirtType:        "",
+		RootStorageType: "",
+		Versions:        []string{},
+	}
+	res := new(params.ListCloudImageMetadataResult)
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("List", args, res).Return(errors.New(msg))
+	client := imagemetadatamanager.NewClientFromCaller(mockFacadeCaller)
 	found, err := client.List("", "", nil, nil, "", "")
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 	c.Assert(found, gc.HasLen, 0)
-	c.Assert(called, jc.IsTrue)
 }
 
 func (s *imagemetadataSuite) TestSave(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	m := params.CloudImageMetadata{}
-	called := false
+	args := params.MetadataSaveParams{
+		Metadata: []params.CloudImageMetadataList{
+			{[]params.CloudImageMetadata{m, m}},
+		},
+	}
+	res := new(params.ErrorResults)
+	ress := params.ErrorResults{
+		Results: []params.ErrorResult{{}},
+	}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("Save", args, res).SetArg(2, ress).Return(nil)
+	client := imagemetadatamanager.NewClientFromCaller(mockFacadeCaller)
 
-	apiCaller := testing.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, result interface{},
-		) error {
-			called = true
-			c.Check(objType, gc.Equals, "ImageMetadataManager")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "Save")
-
-			c.Assert(a, gc.FitsTypeOf, params.MetadataSaveParams{})
-			args := a.(params.MetadataSaveParams)
-			c.Assert(args.Metadata, gc.HasLen, 1)
-			c.Assert(args.Metadata, jc.DeepEquals, []params.CloudImageMetadataList{
-				{[]params.CloudImageMetadata{m, m}},
-			})
-
-			c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
-			*(result.(*params.ErrorResults)) = params.ErrorResults{
-				Results: []params.ErrorResult{{}},
-			}
-
-			return nil
-		})
-
-	client := imagemetadatamanager.NewClient(apiCaller)
 	err := client.Save([]params.CloudImageMetadata{m, m})
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
 }
 
 func (s *imagemetadataSuite) TestSaveFacadeCallError(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	m := []params.CloudImageMetadata{{}}
 	msg := "facade failure"
-	apiCaller := testing.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, result interface{},
-		) error {
-			c.Check(objType, gc.Equals, "ImageMetadataManager")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "Save")
-			return errors.New(msg)
-		})
-	client := imagemetadatamanager.NewClient(apiCaller)
+	args := params.MetadataSaveParams{
+		Metadata: []params.CloudImageMetadataList{
+			{m},
+		},
+	}
+	res := new(params.ErrorResults)
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("Save", args, res).Return(errors.New(msg))
+	client := imagemetadatamanager.NewClientFromCaller(mockFacadeCaller)
+
 	err := client.Save(m)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 }
 
 func (s *imagemetadataSuite) TestSaveFacadeCallErrorResult(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	m := []params.CloudImageMetadata{{}}
 	msg := "facade failure"
-	apiCaller := testing.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, result interface{},
-		) error {
-			c.Check(objType, gc.Equals, "ImageMetadataManager")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "Save")
-			*(result.(*params.ErrorResults)) = params.ErrorResults{
-				Results: []params.ErrorResult{
-					{Error: &params.Error{Message: msg}},
-				},
-			}
-			return nil
-		})
-	client := imagemetadatamanager.NewClient(apiCaller)
+	args := params.MetadataSaveParams{
+		Metadata: []params.CloudImageMetadataList{
+			{m},
+		},
+	}
+	res := new(params.ErrorResults)
+	ress := params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: &params.Error{Message: msg}},
+		},
+	}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("Save", args, res).SetArg(2, ress).Return(nil)
+	client := imagemetadatamanager.NewClientFromCaller(mockFacadeCaller)
+
 	err := client.Save(m)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 }
 
 func (s *imagemetadataSuite) TestDelete(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	imageId := "tst12345"
-	called := false
+	args := params.MetadataImageIds{
+		Ids: []string{imageId},
+	}
+	res := new(params.ErrorResults)
+	ress := params.ErrorResults{
+		Results: []params.ErrorResult{{}},
+	}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("Delete", args, res).SetArg(2, ress).Return(nil)
+	client := imagemetadatamanager.NewClientFromCaller(mockFacadeCaller)
 
-	apiCaller := testing.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, result interface{},
-		) error {
-			called = true
-			c.Check(objType, gc.Equals, "ImageMetadataManager")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "Delete")
-
-			c.Assert(a, gc.FitsTypeOf, params.MetadataImageIds{})
-			c.Assert(a.(params.MetadataImageIds).Ids, gc.DeepEquals, []string{imageId})
-
-			results := result.(*params.ErrorResults)
-			results.Results = []params.ErrorResult{{}}
-			return nil
-		})
-
-	client := imagemetadatamanager.NewClient(apiCaller)
 	err := client.Delete(imageId)
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
 }
 
 func (s *imagemetadataSuite) TestDeleteMultipleResult(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	imageId := "tst12345"
-	called := false
+	args := params.MetadataImageIds{
+		Ids: []string{imageId},
+	}
+	res := new(params.ErrorResults)
+	ress := params.ErrorResults{
+		Results: []params.ErrorResult{{}, {}},
+	}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("Delete", args, res).SetArg(2, ress).Return(nil)
+	client := imagemetadatamanager.NewClientFromCaller(mockFacadeCaller)
 
-	apiCaller := testing.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, result interface{},
-		) error {
-			called = true
-			c.Check(objType, gc.Equals, "ImageMetadataManager")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "Delete")
-
-			results := result.(*params.ErrorResults)
-			results.Results = []params.ErrorResult{{}, {}}
-			return nil
-		})
-
-	client := imagemetadatamanager.NewClient(apiCaller)
 	err := client.Delete(imageId)
 	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`expected to find one result for image id "tst12345" but found 2`))
-	c.Assert(called, jc.IsTrue)
 }
 
 func (s *imagemetadataSuite) TestDeleteFailure(c *gc.C) {
-	called := false
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	msg := "save failure"
+	args := params.MetadataImageIds{
+		Ids: []string{"tst12345"},
+	}
+	res := new(params.ErrorResults)
+	ress := params.ErrorResults{
+		Results: []params.ErrorResult{{&params.Error{Message: msg}}},
+	}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("Delete", args, res).SetArg(2, ress).Return(nil)
+	client := imagemetadatamanager.NewClientFromCaller(mockFacadeCaller)
 
-	apiCaller := testing.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, result interface{},
-		) error {
-			called = true
-			c.Check(objType, gc.Equals, "ImageMetadataManager")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "Delete")
-
-			results := result.(*params.ErrorResults)
-			results.Results = []params.ErrorResult{
-				{&params.Error{Message: msg}},
-			}
-			return nil
-		})
-
-	client := imagemetadatamanager.NewClient(apiCaller)
 	err := client.Delete("tst12345")
 	c.Assert(err, gc.ErrorMatches, msg)
-	c.Assert(called, jc.IsTrue)
 }
 
 func (s *imagemetadataSuite) TestDeleteFacadeCallError(c *gc.C) {
-	called := false
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	msg := "facade failure"
-	apiCaller := testing.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, result interface{},
-		) error {
-			called = true
-			c.Check(objType, gc.Equals, "ImageMetadataManager")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "Delete")
-			return errors.New(msg)
-		})
-	client := imagemetadatamanager.NewClient(apiCaller)
+	args := params.MetadataImageIds{
+		Ids: []string{"tst12345"},
+	}
+	res := new(params.ErrorResults)
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("Delete", args, res).Return(errors.New(msg))
+	client := imagemetadatamanager.NewClientFromCaller(mockFacadeCaller)
+
 	err := client.Delete("tst12345")
 	c.Assert(err, gc.ErrorMatches, msg)
-	c.Assert(called, jc.IsTrue)
 }

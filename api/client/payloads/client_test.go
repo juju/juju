@@ -7,7 +7,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v10"
 	"github.com/juju/names/v4"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -18,30 +17,15 @@ import (
 )
 
 type ClientSuite struct {
-	testing.IsolationSuite
-
-	facade    *mocks.MockFacadeCaller
-	apiCaller *mocks.MockAPICallCloser
-	client    *payloads.Client
+	facade *mocks.MockFacadeCaller
+	client *payloads.Client
 }
 
 var _ = gc.Suite(&ClientSuite{})
 
-func (s *ClientSuite) setUpMocks(c *gc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-
-	s.apiCaller = mocks.NewMockAPICallCloser(ctrl)
-	s.apiCaller.EXPECT().BestFacadeVersion(gomock.Any()).Return(3).AnyTimes()
-
-	s.facade = mocks.NewMockFacadeCaller(ctrl)
-	s.facade.EXPECT().RawAPICaller().Return(s.apiCaller).AnyTimes()
-	s.facade.EXPECT().BestAPIVersion().Return(1).AnyTimes()
-	s.client = payloads.NewClientForTest(s.facade)
-	return ctrl
-}
-
 func (s *ClientSuite) TestList(c *gc.C) {
-	defer s.setUpMocks(c).Finish()
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
 	args := &params.PayloadListArgs{
 		Patterns: []string{"a-tag", "a-application/0"},
@@ -59,9 +43,12 @@ func (s *ClientSuite) TestList(c *gc.C) {
 	resultParams := params.PayloadListResults{
 		Results: []params.Payload{payloadResult},
 	}
-	s.facade.EXPECT().FacadeCall("List", args, gomock.Any()).SetArg(2, resultParams).Return(nil)
 
-	results, err := s.client.ListFull("a-tag", "a-application/0")
+	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("List", args, gomock.Any()).SetArg(2, resultParams).Return(nil)
+	client := payloads.NewClientFromCaller(mockFacadeCaller)
+
+	results, err := client.ListFull("a-tag", "a-application/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results, jc.DeepEquals, []corepayloads.FullPayloadInfo{
 		{

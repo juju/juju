@@ -7,12 +7,15 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
+	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v10"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	basetesting "github.com/juju/juju/api/base/testing"
+	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/applicationoffers"
 	apitesting "github.com/juju/juju/api/testing"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -22,12 +25,14 @@ import (
 )
 
 type crossmodelMockSuite struct {
-	testing.BaseSuite
 }
 
 var _ = gc.Suite(&crossmodelMockSuite{})
 
 func (s *crossmodelMockSuite) TestOffer(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	application := "shared"
 	endPointA := "endPointA"
 	endPointB := "endPointB"
@@ -36,40 +41,26 @@ func (s *crossmodelMockSuite) TestOffer(c *gc.C) {
 	owner := "fred"
 
 	msg := "fail"
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, result interface{},
-		) error {
-			c.Check(objType, gc.Equals, "ApplicationOffers")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "Offer")
 
-			args, ok := a.(params.AddApplicationOffers)
-			c.Assert(ok, jc.IsTrue)
-			c.Assert(args.Offers, gc.HasLen, 1)
+	args := params.AddApplicationOffers{
+		Offers: []params.AddApplicationOffer{
+			{
+				ModelTag:               names.NewModelTag("uuid").String(),
+				ApplicationName:        application,
+				ApplicationDescription: desc,
+				Endpoints:              map[string]string{endPointA: endPointA, endPointB: endPointB},
+				OfferName:              offer,
+				OwnerTag:               names.NewUserTag(owner).String(),
+			},
+		},
+	}
 
-			offer := args.Offers[0]
-			c.Assert(offer.ModelTag, gc.Equals, "model-uuid")
-			c.Assert(offer.ApplicationName, gc.Equals, application)
-			c.Assert(offer.Endpoints, jc.DeepEquals, map[string]string{endPointA: endPointA, endPointB: endPointB})
-			c.Assert(offer.OfferName, gc.Equals, offer.OfferName)
-			c.Assert(offer.OwnerTag, gc.Equals, "user-"+owner)
-			c.Assert(offer.ApplicationDescription, gc.Equals, desc)
+	res := new(params.ErrorResults)
+	ress := params.ErrorResults{Results: []params.ErrorResult{{}, {Error: apiservererrors.ServerError(errors.New(msg))}}}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("Offer", args, res).SetArg(2, ress).Return(nil)
+	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
 
-			if results, ok := result.(*params.ErrorResults); ok {
-				all := make([]params.ErrorResult, len(args.Offers))
-				// add one error to make sure it's catered for.
-				all = append(all, params.ErrorResult{
-					Error: apiservererrors.ServerError(errors.New(msg))})
-				results.Results = all
-			}
-
-			return nil
-		})
-
-	client := applicationoffers.NewClient(apiCaller)
 	results, err := client.Offer("uuid", application, []string{endPointA, endPointB}, owner, offer, desc)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 2)
@@ -81,26 +72,37 @@ func (s *crossmodelMockSuite) TestOffer(c *gc.C) {
 }
 
 func (s *crossmodelMockSuite) TestOfferFacadeCallError(c *gc.C) {
-	msg := "facade failure"
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, result interface{},
-		) error {
-			c.Check(objType, gc.Equals, "ApplicationOffers")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "Offer")
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
-			return errors.New(msg)
-		})
-	client := applicationoffers.NewClient(apiCaller)
+	msg := "facade failure"
+	args := params.AddApplicationOffers{
+		Offers: []params.AddApplicationOffer{
+			{
+				ModelTag:               names.NewModelTag("").String(),
+				ApplicationName:        "",
+				ApplicationDescription: "",
+				Endpoints:              map[string]string{},
+				OfferName:              "",
+				OwnerTag:               names.NewUserTag("fred").String(),
+			},
+		},
+	}
+
+	res := new(params.ErrorResults)
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("Offer", args, res).Return(errors.New(msg))
+	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
+
 	results, err := client.Offer("", "", nil, "fred", "", "")
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 	c.Assert(results, gc.IsNil)
 }
 
 func (s *crossmodelMockSuite) TestList(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	offerName := "hosted-db2"
 	url := fmt.Sprintf("fred/model.%s", offerName)
 	endpoints := []params.RemoteEndpoint{{Name: "endPointA"}}
@@ -115,64 +117,52 @@ func (s *crossmodelMockSuite) TestList(c *gc.C) {
 		AllowedConsumers: []string{"allowed"},
 		ConnectedUsers:   []string{"connected"},
 	}
-	called := false
 	since := time.Now()
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, result interface{},
-		) error {
-			c.Check(objType, gc.Equals, "ApplicationOffers")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "ListApplicationOffers")
 
-			called = true
-			args, ok := a.(params.OfferFilters)
-			c.Assert(ok, jc.IsTrue)
-			c.Assert(args.Filters, gc.HasLen, 1)
-			c.Assert(args.Filters[0], jc.DeepEquals, params.OfferFilter{
-				OwnerName:       "fred",
-				ModelName:       "prod",
-				OfferName:       filter.OfferName,
-				ApplicationName: filter.ApplicationName,
-				Endpoints: []params.EndpointFilterAttributes{{
-					Name:      "endPointA",
-					Interface: "http",
-				}},
-				AllowedConsumerTags: []string{"user-allowed"},
-				ConnectedUserTags:   []string{"user-connected"},
-			})
+	args := params.OfferFilters{
+		Filters: []params.OfferFilter{{
+			OwnerName:       "fred",
+			ModelName:       "prod",
+			OfferName:       filter.OfferName,
+			ApplicationName: filter.ApplicationName,
+			Endpoints: []params.EndpointFilterAttributes{{
+				Name:      "endPointA",
+				Interface: "http",
+			}},
+			AllowedConsumerTags: []string{"user-allowed"},
+			ConnectedUserTags:   []string{"user-connected"},
+		}},
+	}
 
-			if results, ok := result.(*params.QueryApplicationOffersResults); ok {
-				offer := params.ApplicationOfferDetails{
-					OfferURL:  url,
-					OfferName: offerName,
-					OfferUUID: offerName + "-uuid",
-					Endpoints: endpoints,
-					Users: []params.OfferUserDetails{
-						{UserName: "fred", DisplayName: "Fred", Access: "consume"},
-					},
-				}
-				results.Results = []params.ApplicationOfferAdminDetails{{
-					ApplicationOfferDetails: offer,
-					ApplicationName:         "db2-app",
-					CharmURL:                "ch:db2-5",
-					Connections: []params.OfferConnection{
-						{SourceModelTag: testing.ModelTag.String(), Username: "fred", RelationId: 3,
-							Endpoint: "db", Status: params.EntityStatus{Status: "joined", Info: "message", Since: &since},
-							IngressSubnets: []string{"10.0.0.0/8"},
-						},
-					},
-				}}
-			}
-			return nil
-		})
+	res := new(params.QueryApplicationOffersResults)
+	offer := params.ApplicationOfferDetails{
+		OfferURL:  url,
+		OfferName: offerName,
+		OfferUUID: offerName + "-uuid",
+		Endpoints: endpoints,
+		Users: []params.OfferUserDetails{
+			{UserName: "fred", DisplayName: "Fred", Access: "consume"},
+		},
+	}
+	ress := params.QueryApplicationOffersResults{
+		Results: []params.ApplicationOfferAdminDetails{{
+			ApplicationOfferDetails: offer,
+			ApplicationName:         "db2-app",
+			CharmURL:                "ch:db2-5",
+			Connections: []params.OfferConnection{
+				{SourceModelTag: testing.ModelTag.String(), Username: "fred", RelationId: 3,
+					Endpoint: "db", Status: params.EntityStatus{Status: "joined", Info: "message", Since: &since},
+					IngressSubnets: []string{"10.0.0.0/8"},
+				},
+			},
+		}},
+	}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("ListApplicationOffers", args, res).SetArg(2, ress).Return(nil)
+	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
 
-	client := applicationoffers.NewClient(apiCaller)
 	results, err := client.ListOffers(filter)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
 	c.Assert(results, jc.DeepEquals, []*jujucrossmodel.ApplicationOfferDetails{{
 		OfferURL:        url,
 		OfferName:       offerName,
@@ -192,55 +182,41 @@ func (s *crossmodelMockSuite) TestList(c *gc.C) {
 }
 
 func (s *crossmodelMockSuite) TestListError(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	msg := "find failure"
-	called := false
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, result interface{},
-		) error {
-			c.Check(objType, gc.Equals, "ApplicationOffers")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "ListApplicationOffers")
-
-			called = true
-			return errors.New(msg)
-		})
-
-	client := applicationoffers.NewClient(apiCaller)
 	filter := jujucrossmodel.ApplicationOfferFilter{
 		OfferName: "foo",
 	}
-	_, err := client.ListOffers(filter)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
-	c.Assert(called, jc.IsTrue)
-}
 
-func (s *crossmodelMockSuite) TestListFacadeCallError(c *gc.C) {
-	msg := "facade failure"
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, result interface{},
-		) error {
-			c.Check(objType, gc.Equals, "ApplicationOffers")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "ListApplicationOffers")
-
-			return errors.New(msg)
-		})
-	client := applicationoffers.NewClient(apiCaller)
-	filter := jujucrossmodel.ApplicationOfferFilter{
-		OfferName: "foo",
+	args := params.OfferFilters{
+		Filters: []params.OfferFilter{{
+			OwnerName:           filter.OwnerName,
+			ModelName:           filter.ModelName,
+			OfferName:           filter.OfferName,
+			ApplicationName:     filter.ApplicationName,
+			Endpoints:           make([]params.EndpointFilterAttributes, len(filter.Endpoints)),
+			AllowedConsumerTags: make([]string, len(filter.AllowedConsumers)),
+			ConnectedUserTags:   make([]string, len(filter.ConnectedUsers)),
+		}},
 	}
+
+	res := new(params.QueryApplicationOffersResults)
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("ListApplicationOffers", args, res).Return(errors.New(msg))
+	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
+
 	results, err := client.ListOffers(filter)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 	c.Assert(results, gc.IsNil)
 }
 
 func (s *crossmodelMockSuite) TestShow(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	url := "fred/model.db2"
 
 	desc := "IBM DB2 Express Server Edition is an entry level database system"
@@ -251,54 +227,40 @@ func (s *crossmodelMockSuite) TestShow(c *gc.C) {
 	offerName := "hosted-db2"
 	access := "consume"
 	since := time.Now()
-	called := false
 
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, result interface{},
-		) error {
-			called = true
+	args := params.OfferURLs{OfferURLs: []string{url}, BakeryVersion: bakery.LatestVersion}
 
-			c.Check(objType, gc.Equals, "ApplicationOffers")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "ApplicationOffers")
+	res := new(params.ApplicationOffersResults)
+	ress := params.ApplicationOffersResults{
+		Results: []params.ApplicationOfferResult{
+			{Result: &params.ApplicationOfferAdminDetails{
+				ApplicationOfferDetails: params.ApplicationOfferDetails{
+					ApplicationDescription: desc,
+					Endpoints:              endpoints,
+					OfferURL:               url,
+					OfferName:              offerName,
+					Users: []params.OfferUserDetails{
+						{UserName: "fred", DisplayName: "Fred", Access: access},
+					},
+				},
+				ApplicationName: "db2-app",
+				CharmURL:        "ch:db2-5",
+				Connections: []params.OfferConnection{
+					{SourceModelTag: testing.ModelTag.String(), Username: "fred", RelationId: 3,
+						Endpoint: "db", Status: params.EntityStatus{Status: "joined", Info: "message", Since: &since},
+						IngressSubnets: []string{"10.0.0.0/8"},
+					},
+				},
+			}},
+		},
+	}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("ApplicationOffers", args, res).SetArg(2, ress).Return(nil)
+	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
 
-			args, ok := a.(params.OfferURLs)
-			c.Assert(ok, jc.IsTrue)
-			c.Assert(args.OfferURLs, gc.DeepEquals, []string{url})
-
-			if offers, ok := result.(*params.ApplicationOffersResults); ok {
-				offers.Results = []params.ApplicationOfferResult{
-					{Result: &params.ApplicationOfferAdminDetails{
-						ApplicationOfferDetails: params.ApplicationOfferDetails{
-							ApplicationDescription: desc,
-							Endpoints:              endpoints,
-							OfferURL:               url,
-							OfferName:              offerName,
-							Users: []params.OfferUserDetails{
-								{UserName: "fred", DisplayName: "Fred", Access: access},
-							},
-						},
-						ApplicationName: "db2-app",
-						CharmURL:        "ch:db2-5",
-						Connections: []params.OfferConnection{
-							{SourceModelTag: testing.ModelTag.String(), Username: "fred", RelationId: 3,
-								Endpoint: "db", Status: params.EntityStatus{Status: "joined", Info: "message", Since: &since},
-								IngressSubnets: []string{"10.0.0.0/8"},
-							},
-						},
-					}},
-				}
-			}
-			return nil
-		})
-	client := applicationoffers.NewClient(apiCaller)
 	results, err := client.ApplicationOffer(url)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(called, jc.IsTrue)
 	c.Assert(results, jc.DeepEquals, &jujucrossmodel.ApplicationOfferDetails{
 		OfferURL:  url,
 		OfferName: offerName,
@@ -321,42 +283,33 @@ func (s *crossmodelMockSuite) TestShow(c *gc.C) {
 }
 
 func (s *crossmodelMockSuite) TestShowURLError(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	url := "fred/model.db2"
 	msg := "facade failure"
 
-	called := false
+	args := params.OfferURLs{OfferURLs: []string{url}, BakeryVersion: bakery.LatestVersion}
 
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, result interface{},
-		) error {
-			called = true
+	res := new(params.ApplicationOffersResults)
+	ress := params.ApplicationOffersResults{
+		Results: []params.ApplicationOfferResult{
+			{Error: apiservererrors.ServerError(errors.New(msg))}},
+	}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("ApplicationOffers", args, res).SetArg(2, ress).Return(nil)
+	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
 
-			c.Check(objType, gc.Equals, "ApplicationOffers")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "ApplicationOffers")
-
-			args, ok := a.(params.OfferURLs)
-			c.Assert(ok, jc.IsTrue)
-			c.Assert(args.OfferURLs, gc.DeepEquals, []string{url})
-
-			if points, ok := result.(*params.ApplicationOffersResults); ok {
-				points.Results = []params.ApplicationOfferResult{
-					{Error: apiservererrors.ServerError(errors.New(msg))}}
-			}
-			return nil
-		})
-	client := applicationoffers.NewClient(apiCaller)
 	found, err := client.ApplicationOffer(url)
 
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 	c.Assert(found, gc.IsNil)
-	c.Assert(called, jc.IsTrue)
 }
 
 func (s *crossmodelMockSuite) TestShowMultiple(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	url := "fred/model.db2"
 
 	desc := "IBM DB2 Express Server Edition is an entry level database system"
@@ -365,97 +318,58 @@ func (s *crossmodelMockSuite) TestShowMultiple(c *gc.C) {
 		{Name: "log", Interface: "http", Role: charm.RoleRequirer},
 	}
 	offerName := "hosted-db2"
-	called := false
+	args := params.OfferURLs{OfferURLs: []string{url}, BakeryVersion: bakery.LatestVersion}
 
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, result interface{},
-		) error {
-			called = true
+	res := new(params.ApplicationOffersResults)
+	ress := params.ApplicationOffersResults{
+		Results: []params.ApplicationOfferResult{
+			{Result: &params.ApplicationOfferAdminDetails{
+				ApplicationOfferDetails: params.ApplicationOfferDetails{
+					ApplicationDescription: desc,
+					Endpoints:              endpoints,
+					OfferURL:               url,
+					OfferName:              offerName,
+				},
+			}},
+			{Result: &params.ApplicationOfferAdminDetails{
+				ApplicationOfferDetails: params.ApplicationOfferDetails{
+					ApplicationDescription: desc,
+					Endpoints:              endpoints,
+					OfferURL:               url,
+					OfferName:              offerName,
+				},
+			}}},
+	}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("ApplicationOffers", args, res).SetArg(2, ress).Return(nil)
+	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
 
-			c.Check(objType, gc.Equals, "ApplicationOffers")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "ApplicationOffers")
-
-			args, ok := a.(params.OfferURLs)
-			c.Assert(ok, jc.IsTrue)
-			c.Assert(args.OfferURLs, gc.DeepEquals, []string{url})
-
-			if offers, ok := result.(*params.ApplicationOffersResults); ok {
-				offers.Results = []params.ApplicationOfferResult{
-					{Result: &params.ApplicationOfferAdminDetails{
-						ApplicationOfferDetails: params.ApplicationOfferDetails{
-							ApplicationDescription: desc,
-							Endpoints:              endpoints,
-							OfferURL:               url,
-							OfferName:              offerName,
-						},
-					}},
-					{Result: &params.ApplicationOfferAdminDetails{
-						ApplicationOfferDetails: params.ApplicationOfferDetails{
-							ApplicationDescription: desc,
-							Endpoints:              endpoints,
-							OfferURL:               url,
-							OfferName:              offerName,
-						},
-					}}}
-			}
-			return nil
-		})
-	client := applicationoffers.NewClient(apiCaller)
 	found, err := client.ApplicationOffer(url)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`expected to find one result for url %q but found 2`, url))
 	c.Assert(found, gc.IsNil)
-
-	c.Assert(called, jc.IsTrue)
-}
-
-func (s *crossmodelMockSuite) TestShowNonLocal(c *gc.C) {
-	url := "jaas:fred/model.db2"
-	msg := "query for non-local application offers not supported"
-
-	called := false
-
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, result interface{},
-		) error {
-			called = true
-			return nil
-		})
-	client := applicationoffers.NewClient(apiCaller)
-	found, err := client.ApplicationOffer(url)
-
-	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
-	c.Assert(found, gc.IsNil)
-	c.Assert(called, jc.IsFalse)
 }
 
 func (s *crossmodelMockSuite) TestShowFacadeCallError(c *gc.C) {
-	msg := "facade failure"
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, result interface{},
-		) error {
-			c.Check(objType, gc.Equals, "ApplicationOffers")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "ApplicationOffers")
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
-			return errors.New(msg)
-		})
-	client := applicationoffers.NewClient(apiCaller)
+	msg := "facade failure"
+	args := params.OfferURLs{OfferURLs: []string{"fred/model.db2"}, BakeryVersion: bakery.LatestVersion}
+
+	res := new(params.ApplicationOffersResults)
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("ApplicationOffers", args, res).Return(errors.New(msg))
+	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
+
 	found, err := client.ApplicationOffer("fred/model.db2")
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 	c.Assert(found, gc.IsNil)
 }
 
 func (s *crossmodelMockSuite) TestFind(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	offerName := "hosted-db2"
 	ownerName := "owner"
 	modelName := "model"
@@ -470,52 +384,39 @@ func (s *crossmodelMockSuite) TestFind(c *gc.C) {
 		Endpoints: relations,
 	}
 
-	called := false
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, result interface{},
-		) error {
-			c.Check(objType, gc.Equals, "ApplicationOffers")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "FindApplicationOffers")
+	args := params.OfferFilters{
+		Filters: []params.OfferFilter{{
+			OwnerName:       filter.OwnerName,
+			ModelName:       filter.ModelName,
+			OfferName:       filter.OfferName,
+			ApplicationName: filter.ApplicationName,
+			Endpoints: []params.EndpointFilterAttributes{{
+				Name:      "endPointA",
+				Interface: "http",
+			}},
+		}},
+	}
 
-			called = true
-			args, ok := a.(params.OfferFilters)
-			c.Assert(ok, jc.IsTrue)
-			c.Assert(args.Filters, gc.HasLen, 1)
-			c.Assert(args.Filters[0], jc.DeepEquals, params.OfferFilter{
-				OwnerName:       filter.OwnerName,
-				ModelName:       filter.ModelName,
-				OfferName:       filter.OfferName,
-				ApplicationName: filter.ApplicationName,
-				Endpoints: []params.EndpointFilterAttributes{{
-					Name:      "endPointA",
-					Interface: "http",
-				}},
-			})
+	res := new(params.QueryApplicationOffersResults)
+	offer := params.ApplicationOfferDetails{
+		OfferURL:  url,
+		OfferName: offerName,
+		Endpoints: endpoints,
+		Users: []params.OfferUserDetails{
+			{UserName: "fred", DisplayName: "Fred", Access: "consume"},
+		},
+	}
+	ress := params.QueryApplicationOffersResults{
+		Results: []params.ApplicationOfferAdminDetails{{
+			ApplicationOfferDetails: offer,
+		}},
+	}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("FindApplicationOffers", args, res).SetArg(2, ress).Return(nil)
+	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
 
-			if results, ok := result.(*params.QueryApplicationOffersResults); ok {
-				offer := params.ApplicationOfferDetails{
-					OfferURL:  url,
-					OfferName: offerName,
-					Endpoints: endpoints,
-					Users: []params.OfferUserDetails{
-						{UserName: "fred", DisplayName: "Fred", Access: "consume"},
-					},
-				}
-				results.Results = []params.ApplicationOfferAdminDetails{{
-					ApplicationOfferDetails: offer,
-				}}
-			}
-			return nil
-		})
-
-	client := applicationoffers.NewClient(apiCaller)
 	results, err := client.FindApplicationOffers(filter)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
 	c.Assert(results, jc.DeepEquals, []*jujucrossmodel.ApplicationOfferDetails{{
 		OfferURL:  url,
 		OfferName: offerName,
@@ -527,71 +428,46 @@ func (s *crossmodelMockSuite) TestFind(c *gc.C) {
 }
 
 func (s *crossmodelMockSuite) TestFindNoFilter(c *gc.C) {
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, result interface{},
-		) error {
-			c.Fail()
-			return nil
-		})
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
-	client := applicationoffers.NewClient(apiCaller)
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
 	_, err := client.FindApplicationOffers()
 	c.Assert(err, gc.ErrorMatches, "at least one filter must be specified")
 }
 
 func (s *crossmodelMockSuite) TestFindError(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	msg := "find failure"
-	called := false
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, result interface{},
-		) error {
-			c.Check(objType, gc.Equals, "ApplicationOffers")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "FindApplicationOffers")
-
-			called = true
-			return errors.New(msg)
-		})
-
-	client := applicationoffers.NewClient(apiCaller)
 	filter := jujucrossmodel.ApplicationOfferFilter{
 		OfferName: "foo",
 	}
+	args := params.OfferFilters{
+		Filters: []params.OfferFilter{{
+			OwnerName:       filter.OwnerName,
+			ModelName:       filter.ModelName,
+			OfferName:       filter.OfferName,
+			ApplicationName: filter.ApplicationName,
+			Endpoints:       []params.EndpointFilterAttributes{},
+		}},
+	}
+
+	res := new(params.QueryApplicationOffersResults)
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("FindApplicationOffers", args, res).Return(errors.New(msg))
+	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
+
 	_, err := client.FindApplicationOffers(filter)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
-	c.Assert(called, jc.IsTrue)
-}
-
-func (s *crossmodelMockSuite) TestFindFacadeCallError(c *gc.C) {
-	msg := "facade failure"
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, result interface{},
-		) error {
-			c.Check(objType, gc.Equals, "ApplicationOffers")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "FindApplicationOffers")
-
-			return errors.New(msg)
-		})
-	client := applicationoffers.NewClient(apiCaller)
-	filter := jujucrossmodel.ApplicationOfferFilter{
-		OfferName: "foo",
-	}
-	results, err := client.FindApplicationOffers(filter)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
-	c.Assert(results, gc.IsNil)
 }
 
 func (s *crossmodelMockSuite) TestGetConsumeDetails(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	offer := params.ApplicationOfferDetails{
 		SourceModelTag:         "source model",
 		OfferName:              "an offer",
@@ -604,41 +480,33 @@ func (s *crossmodelMockSuite) TestGetConsumeDetails(c *gc.C) {
 	}
 	mac, err := apitesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
-	var called bool
-	apiCaller := basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string,
-				version int,
-				id, request string,
-				a, result interface{},
-			) error {
-				called = true
-				c.Assert(request, gc.Equals, "GetConsumeDetails")
-				args, ok := a.(params.ConsumeOfferDetailsArg)
-				c.Assert(ok, jc.IsTrue)
-				c.Assert(args.UserTag, gc.Equals, "")
-				c.Assert(args.OfferURLs, jc.DeepEquals, params.OfferURLs{
-					OfferURLs:     []string{"me/prod.app"},
-					BakeryVersion: 3,
-				})
-				if results, ok := result.(*params.ConsumeOfferDetailsResults); ok {
-					result := params.ConsumeOfferDetailsResult{
-						ConsumeOfferDetails: params.ConsumeOfferDetails{
-							Offer:          &offer,
-							Macaroon:       mac,
-							ControllerInfo: controllerInfo,
-						},
-					}
-					results.Results = []params.ConsumeOfferDetailsResult{result}
-				}
-				return nil
-			}),
-		BestVersion: 3,
+
+	args := params.ConsumeOfferDetailsArg{
+		OfferURLs: params.OfferURLs{
+			OfferURLs:     []string{"me/prod.app"},
+			BakeryVersion: 3,
+		},
+		UserTag: "",
 	}
-	client := applicationoffers.NewClient(apiCaller)
+
+	res := new(params.ConsumeOfferDetailsResults)
+	ress := params.ConsumeOfferDetailsResults{
+		Results: []params.ConsumeOfferDetailsResult{
+			{
+				ConsumeOfferDetails: params.ConsumeOfferDetails{
+					Offer:          &offer,
+					Macaroon:       mac,
+					ControllerInfo: controllerInfo,
+				},
+			},
+		},
+	}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("GetConsumeDetails", args, res).SetArg(2, ress).Return(nil)
+	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
+
 	details, err := client.GetConsumeDetails("me/prod.app")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
 	c.Assert(details, jc.DeepEquals, params.ConsumeOfferDetails{
 		Offer:          &offer,
 		Macaroon:       mac,
@@ -647,46 +515,34 @@ func (s *crossmodelMockSuite) TestGetConsumeDetails(c *gc.C) {
 }
 
 func (s *crossmodelMockSuite) TestGetConsumeDetailsBadURL(c *gc.C) {
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, result interface{},
-		) error {
-			return errors.New("should not be called")
-		})
-	client := applicationoffers.NewClient(apiCaller)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
 	_, err := client.GetConsumeDetails("badurl")
 	c.Assert(err, gc.ErrorMatches, "application offer URL is missing application")
 }
 
 func (s *crossmodelMockSuite) TestDestroyOffers(c *gc.C) {
-	var called bool
-	apiCaller := basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string,
-				version int,
-				id, request string,
-				a, result interface{},
-			) error {
-				called = true
-				c.Assert(request, gc.Equals, "DestroyOffers")
-				args, ok := a.(params.DestroyApplicationOffers)
-				c.Assert(ok, jc.IsTrue)
-				c.Assert(args.Force, jc.IsTrue)
-				c.Assert(args.OfferURLs, jc.DeepEquals, []string{"me/prod.app"})
-				if results, ok := result.(*params.ErrorResults); ok {
-					results.Results = []params.ErrorResult{{
-						Error: &params.Error{Message: "fail"},
-					}}
-				}
-				return nil
-			},
-		),
-		BestVersion: 2,
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	args := params.DestroyApplicationOffers{
+		Force:     true,
+		OfferURLs: []string{"me/prod.app"},
 	}
-	client := applicationoffers.NewClient(apiCaller)
+
+	res := new(params.ErrorResults)
+	ress := params.ErrorResults{
+		Results: []params.ErrorResult{{
+			Error: &params.Error{Message: "fail"},
+		}},
+	}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("DestroyOffers", args, res).SetArg(2, ress).Return(nil)
+	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
+
 	err := client.DestroyOffers(true, "me/prod.app")
 	c.Assert(err, gc.ErrorMatches, "fail")
-	c.Assert(called, jc.IsTrue)
 }

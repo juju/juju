@@ -4,136 +4,113 @@
 package block_test
 
 import (
+	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	basetesting "github.com/juju/juju/api/base/testing"
+	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/block"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type blockMockSuite struct {
-	coretesting.BaseSuite
-	blockClient *block.Client
 }
 
 var _ = gc.Suite(&blockMockSuite{})
 
 func (s *blockMockSuite) TestSwitchBlockOn(c *gc.C) {
-	called := false
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	blockType := state.DestroyBlock.String()
 	msg := "for test switch block on"
 
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, response interface{},
-		) error {
-			called = true
-			c.Check(objType, gc.Equals, "Block")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "SwitchBlockOn")
+	args := params.BlockSwitchParams{
+		Type:    blockType,
+		Message: msg,
+	}
+	result := new(params.ErrorResult)
+	results := params.ErrorResult{Error: nil}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("SwitchBlockOn", args, result).SetArg(2, results).Return(nil)
 
-			args, ok := a.(params.BlockSwitchParams)
-			c.Assert(ok, jc.IsTrue)
-			c.Assert(args.Message, gc.DeepEquals, msg)
-			c.Assert(args.Type, gc.DeepEquals, blockType)
-
-			_, ok = response.(*params.ErrorResult)
-			c.Assert(ok, jc.IsTrue)
-
-			return nil
-		})
-	blockClient := block.NewClient(apiCaller)
+	blockClient := block.NewClientFromCaller(mockFacadeCaller)
 	err := blockClient.SwitchBlockOn(blockType, msg)
-	c.Assert(called, jc.IsTrue)
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *blockMockSuite) TestSwitchBlockOnError(c *gc.C) {
-	called := false
-	errmsg := "test error"
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, response interface{},
-		) error {
-			called = true
-			result, ok := response.(*params.ErrorResult)
-			c.Assert(ok, jc.IsTrue)
-			result.Error = apiservererrors.ServerError(errors.New(errmsg))
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
-			return nil
-		})
-	blockClient := block.NewClient(apiCaller)
+	errmsg := "test error"
+
+	args := params.BlockSwitchParams{
+		Type:    "",
+		Message: "",
+	}
+	result := new(params.ErrorResult)
+	results := params.ErrorResult{
+		Error: apiservererrors.ServerError(errors.New(errmsg)),
+	}
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("SwitchBlockOn", args, result).SetArg(2, results).Return(nil)
+
+	blockClient := block.NewClientFromCaller(mockFacadeCaller)
 	err := blockClient.SwitchBlockOn("", "")
-	c.Assert(called, jc.IsTrue)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, errmsg)
 }
 
 func (s *blockMockSuite) TestSwitchBlockOff(c *gc.C) {
-	called := false
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	blockType := state.DestroyBlock.String()
 
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, response interface{},
-		) error {
-			called = true
-			c.Check(objType, gc.Equals, "Block")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "SwitchBlockOff")
+	args := params.BlockSwitchParams{
+		Type:    blockType,
+		Message: "",
+	}
+	result := new(params.ErrorResult)
+	results := params.ErrorResult{Error: nil}
 
-			args, ok := a.(params.BlockSwitchParams)
-			c.Assert(ok, jc.IsTrue)
-			// message is never sent, so this argument should
-			// always be empty string.
-			c.Assert(args.Message, gc.DeepEquals, "")
-			c.Assert(args.Type, gc.DeepEquals, blockType)
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("SwitchBlockOff", args, result).SetArg(2, results).Return(nil)
 
-			_, ok = response.(*params.ErrorResult)
-			c.Assert(ok, jc.IsTrue)
-
-			return nil
-		})
-	blockClient := block.NewClient(apiCaller)
+	blockClient := block.NewClientFromCaller(mockFacadeCaller)
 	err := blockClient.SwitchBlockOff(blockType)
-	c.Assert(called, jc.IsTrue)
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *blockMockSuite) TestSwitchBlockOffError(c *gc.C) {
-	called := false
-	errmsg := "test error"
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, response interface{},
-		) error {
-			called = true
-			result, ok := response.(*params.ErrorResult)
-			c.Assert(ok, jc.IsTrue)
-			result.Error = apiservererrors.ServerError(errors.New(errmsg))
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
-			return nil
-		})
-	blockClient := block.NewClient(apiCaller)
+	errmsg := "test error"
+
+	args := params.BlockSwitchParams{
+		Type: "",
+	}
+	result := new(params.ErrorResult)
+	results := params.ErrorResult{
+		Error: apiservererrors.ServerError(errors.New(errmsg)),
+	}
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("SwitchBlockOff", args, result).SetArg(2, results).Return(nil)
+
+	blockClient := block.NewClientFromCaller(mockFacadeCaller)
 	err := blockClient.SwitchBlockOff("")
-	c.Assert(called, jc.IsTrue)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, errmsg)
 }
 
 func (s *blockMockSuite) TestList(c *gc.C) {
-	var called bool
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	one := params.BlockResult{
 		Result: params.Block{
 			Id:      "-42",
@@ -146,25 +123,15 @@ func (s *blockMockSuite) TestList(c *gc.C) {
 	two := params.BlockResult{
 		Error: apiservererrors.ServerError(errors.New(errmsg)),
 	}
-	apiCaller := basetesting.APICallerFunc(
-		func(
-			objType string,
-			version int,
-			id, request string,
-			a, response interface{}) error {
-			called = true
-			c.Check(objType, gc.Equals, "Block")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "List")
-			c.Assert(a, gc.IsNil)
 
-			result := response.(*params.BlockResults)
-			result.Results = []params.BlockResult{one, two}
-			return nil
-		})
-	blockClient := block.NewClient(apiCaller)
+	result := new(params.BlockResults)
+	results := params.BlockResults{
+		Results: []params.BlockResult{one, two},
+	}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("List", nil, result).SetArg(2, results).Return(nil)
+	blockClient := block.NewClientFromCaller(mockFacadeCaller)
 	found, err := blockClient.List()
-	c.Assert(called, jc.IsTrue)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, errmsg)
 	c.Assert(found, gc.HasLen, 1)
 }

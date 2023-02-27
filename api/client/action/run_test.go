@@ -6,10 +6,11 @@ package action_test
 import (
 	"time"
 
+	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	basetesting "github.com/juju/juju/api/base/testing"
+	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/action"
 	"github.com/juju/juju/rpc/params"
 )
@@ -19,33 +20,26 @@ type runSuite struct{}
 var _ = gc.Suite(&runSuite{})
 
 func (s *actionSuite) TestRunOnAllMachines(c *gc.C) {
-	apiCaller := basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string,
-				version int,
-				id, request string,
-				a, result interface{},
-			) error {
-				c.Assert(request, gc.Equals, "RunOnAllMachines")
-				c.Assert(a, jc.DeepEquals, params.RunParams{
-					Commands: "pwd", Timeout: time.Millisecond})
-				c.Assert(result, gc.FitsTypeOf, &params.EnqueuedActions{})
-				*(result.(*params.EnqueuedActions)) = params.EnqueuedActions{
-					OperationTag: "operation-1",
-					Actions: []params.ActionResult{{
-						Action: &params.Action{
-							Name:     "an action",
-							Tag:      "action-1",
-							Receiver: "machine-0",
-						},
-					}},
-				}
-				return nil
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	args := params.RunParams{
+		Commands: "pwd", Timeout: time.Millisecond}
+	res := new(params.EnqueuedActions)
+	ress := params.EnqueuedActions{
+		OperationTag: "operation-1",
+		Actions: []params.ActionResult{{
+			Action: &params.Action{
+				Name:     "an action",
+				Tag:      "action-1",
+				Receiver: "machine-0",
 			},
-		),
-		BestVersion: 6,
+		}},
 	}
-	client := action.NewClient(apiCaller)
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("RunOnAllMachines", args, res).SetArg(2, ress).Return(nil)
+	client := action.NewClientFromCaller(mockFacadeCaller)
+
 	result, err := client.RunOnAllMachines("pwd", time.Millisecond)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, action.EnqueuedActions{
@@ -60,36 +54,29 @@ func (s *actionSuite) TestRunOnAllMachines(c *gc.C) {
 }
 
 func (s *actionSuite) TestRun(c *gc.C) {
-	apiCaller := basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string,
-				version int,
-				id, request string,
-				a, result interface{},
-			) error {
-				c.Assert(request, gc.Equals, "Run")
-				c.Assert(a, jc.DeepEquals, params.RunParams{
-					Commands: "pwd",
-					Timeout:  time.Millisecond,
-					Machines: []string{"0"},
-				})
-				c.Assert(result, gc.FitsTypeOf, &params.EnqueuedActions{})
-				*(result.(*params.EnqueuedActions)) = params.EnqueuedActions{
-					OperationTag: "operation-1",
-					Actions: []params.ActionResult{{
-						Action: &params.Action{
-							Name:     "an action",
-							Tag:      "action-1",
-							Receiver: "machine-0",
-						},
-					}},
-				}
-				return nil
-			},
-		),
-		BestVersion: 6,
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	args := params.RunParams{
+		Commands: "pwd",
+		Timeout:  time.Millisecond,
+		Machines: []string{"0"},
 	}
-	client := action.NewClient(apiCaller)
+	res := new(params.EnqueuedActions)
+	ress := params.EnqueuedActions{
+		OperationTag: "operation-1",
+		Actions: []params.ActionResult{{
+			Action: &params.Action{
+				Name:     "an action",
+				Tag:      "action-1",
+				Receiver: "machine-0",
+			},
+		}},
+	}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("Run", args, res).SetArg(2, ress).Return(nil)
+	client := action.NewClientFromCaller(mockFacadeCaller)
+
 	result, err := client.Run(action.RunParams{
 		Commands: "pwd",
 		Timeout:  time.Millisecond,

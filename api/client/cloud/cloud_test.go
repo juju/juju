@@ -5,14 +5,17 @@ package cloud_test
 
 import (
 	"fmt"
+	"reflect"
+	"sort"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 
-	basetesting "github.com/juju/juju/api/base/testing"
+	basemocks "github.com/juju/juju/api/base/mocks"
 	cloudapi "github.com/juju/juju/api/client/cloud"
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -22,46 +25,34 @@ import (
 )
 
 type cloudSuite struct {
-	gitjujutesting.IsolationSuite
-
-	called bool
 }
 
 var _ = gc.Suite(&cloudSuite{})
 
 func (s *cloudSuite) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
-	s.called = false
 }
 
 func (s *cloudSuite) TestCloud(c *gc.C) {
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, result interface{},
-		) error {
-			c.Check(objType, gc.Equals, "Cloud")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "Cloud")
-			c.Check(a, jc.DeepEquals, params.Entities{
-				Entities: []params.Entity{{Tag: "cloud-foo"}},
-			})
-			c.Assert(result, gc.FitsTypeOf, &params.CloudResults{})
-			results := result.(*params.CloudResults)
-			results.Results = append(results.Results, params.CloudResult{
-				Cloud: &params.Cloud{
-					Type:      "dummy",
-					AuthTypes: []string{"empty", "userpass"},
-					Regions:   []params.CloudRegion{{Name: "nether", Endpoint: "endpoint"}},
-				},
-			})
-			s.called = true
-			return nil
-		},
-	)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
-	client := cloudapi.NewClient(apiCaller)
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: "cloud-foo"}},
+	}
+	res := new(params.CloudResults)
+	results := params.CloudResults{
+		Results: []params.CloudResult{{
+			Cloud: &params.Cloud{
+				Type:      "dummy",
+				AuthTypes: []string{"empty", "userpass"},
+				Regions:   []params.CloudRegion{{Name: "nether", Endpoint: "endpoint"}},
+			}},
+		},
+	}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("Cloud", args, res).SetArg(2, results).Return(nil)
+	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
+
 	result, err := client.Cloud(names.NewCloudTag("foo"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, cloud.Cloud{
@@ -70,63 +61,56 @@ func (s *cloudSuite) TestCloud(c *gc.C) {
 		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
 		Regions:   []cloud.Region{{Name: "nether", Endpoint: "endpoint"}},
 	})
-	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestCloudInfo(c *gc.C) {
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, result interface{},
-		) error {
-			c.Check(objType, gc.Equals, "Cloud")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "CloudInfo")
-			c.Check(a, jc.DeepEquals, params.Entities{
-				Entities: []params.Entity{
-					{Tag: "cloud-foo"}, {Tag: "cloud-bar"},
-				},
-			})
-			c.Assert(result, gc.FitsTypeOf, &params.CloudInfoResults{})
-			results := result.(*params.CloudInfoResults)
-			results.Results = []params.CloudInfoResult{{
-				Result: &params.CloudInfo{
-					CloudDetails: params.CloudDetails{
-						Type:      "dummy",
-						AuthTypes: []string{"empty", "userpass"},
-						Regions:   []params.CloudRegion{{Name: "nether", Endpoint: "endpoint"}},
-					},
-					Users: []params.CloudUserInfo{{
-						UserName:    "fred",
-						DisplayName: "Fred",
-						Access:      "admin",
-					}, {
-						UserName:    "bob",
-						DisplayName: "Bob",
-						Access:      "add-model",
-					}},
-				},
-			}, {
-				Result: &params.CloudInfo{
-					CloudDetails: params.CloudDetails{
-						Type:      "dummy",
-						AuthTypes: []string{"empty", "userpass"},
-						Regions:   []params.CloudRegion{{Name: "nether", Endpoint: "endpoint"}},
-					},
-					Users: []params.CloudUserInfo{{
-						UserName:    "mary",
-						DisplayName: "Mary",
-						Access:      "admin",
-					}},
-				},
-			}}
-			s.called = true
-			return nil
-		},
-	)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
-	client := cloudapi.NewClient(apiCaller)
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: "cloud-foo"}, {Tag: "cloud-bar"},
+		},
+	}
+	res := new(params.CloudInfoResults)
+	results := params.CloudInfoResults{
+		Results: []params.CloudInfoResult{{
+			Result: &params.CloudInfo{
+				CloudDetails: params.CloudDetails{
+					Type:      "dummy",
+					AuthTypes: []string{"empty", "userpass"},
+					Regions:   []params.CloudRegion{{Name: "nether", Endpoint: "endpoint"}},
+				},
+				Users: []params.CloudUserInfo{{
+					UserName:    "fred",
+					DisplayName: "Fred",
+					Access:      "admin",
+				}, {
+					UserName:    "bob",
+					DisplayName: "Bob",
+					Access:      "add-model",
+				}},
+			},
+		}, {
+			Result: &params.CloudInfo{
+				CloudDetails: params.CloudDetails{
+					Type:      "dummy",
+					AuthTypes: []string{"empty", "userpass"},
+					Regions:   []params.CloudRegion{{Name: "nether", Endpoint: "endpoint"}},
+				},
+				Users: []params.CloudUserInfo{{
+					UserName:    "mary",
+					DisplayName: "Mary",
+					Access:      "admin",
+				}},
+			},
+		}},
+	}
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("CloudInfo", args, res).SetArg(2, results).Return(nil)
+	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
+
 	result, err := client.CloudInfo([]names.CloudTag{
 		names.NewCloudTag("foo"),
 		names.NewCloudTag("bar"),
@@ -163,38 +147,28 @@ func (s *cloudSuite) TestCloudInfo(c *gc.C) {
 			},
 		},
 	}})
-	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestClouds(c *gc.C) {
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, result_ interface{},
-		) error {
-			c.Check(objType, gc.Equals, "Cloud")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "Clouds")
-			c.Check(a, gc.IsNil)
-			c.Assert(result_, gc.FitsTypeOf, &params.CloudsResult{})
-			result := result_.(*params.CloudsResult)
-			result.Clouds = map[string]params.Cloud{
-				"cloud-foo": {
-					Type: "bar",
-				},
-				"cloud-baz": {
-					Type:      "qux",
-					AuthTypes: []string{"empty", "userpass"},
-					Regions:   []params.CloudRegion{{Name: "nether", Endpoint: "endpoint"}},
-				},
-			}
-			s.called = true
-			return nil
-		},
-	)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
-	client := cloudapi.NewClient(apiCaller)
+	res := new(params.CloudsResult)
+	results := params.CloudsResult{
+		Clouds: map[string]params.Cloud{
+			"cloud-foo": {
+				Type: "bar",
+			},
+			"cloud-baz": {
+				Type:      "qux",
+				AuthTypes: []string{"empty", "userpass"},
+				Regions:   []params.CloudRegion{{Name: "nether", Endpoint: "endpoint"}},
+			},
+		}}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("Clouds", nil, res).SetArg(2, results).Return(nil)
+	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
+
 	clouds, err := client.Clouds()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(clouds, jc.DeepEquals, map[names.CloudTag]cloud.Cloud{
@@ -209,196 +183,164 @@ func (s *cloudSuite) TestClouds(c *gc.C) {
 			Regions:   []cloud.Region{{Name: "nether", Endpoint: "endpoint"}},
 		},
 	})
-	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestUserCredentials(c *gc.C) {
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, result interface{},
-		) error {
-			c.Check(objType, gc.Equals, "Cloud")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "UserCredentials")
-			c.Assert(result, gc.FitsTypeOf, &params.StringsResults{})
-			c.Assert(a, jc.DeepEquals, params.UserClouds{UserClouds: []params.UserCloud{{
-				UserTag:  "user-bob",
-				CloudTag: "cloud-foo",
-			}}})
-			*result.(*params.StringsResults) = params.StringsResults{
-				Results: []params.StringsResult{{
-					Result: []string{
-						"cloudcred-foo_bob_one",
-						"cloudcred-foo_bob_two",
-					},
-				}},
-			}
-			s.called = true
-			return nil
-		},
-	)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
-	client := cloudapi.NewClient(apiCaller)
+	args := params.UserClouds{UserClouds: []params.UserCloud{{
+		UserTag:  "user-bob",
+		CloudTag: "cloud-foo",
+	}}}
+	res := new(params.StringsResults)
+	results := params.StringsResults{
+		Results: []params.StringsResult{{
+			Result: []string{
+				"cloudcred-foo_bob_one",
+				"cloudcred-foo_bob_two",
+			},
+		}},
+	}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("UserCredentials", args, res).SetArg(2, results).Return(nil)
+	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
+
 	result, err := client.UserCredentials(names.NewUserTag("bob"), names.NewCloudTag("foo"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.SameContents, []names.CloudCredentialTag{
 		names.NewCloudCredentialTag("foo/bob/one"),
 		names.NewCloudCredentialTag("foo/bob/two"),
 	})
-	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestUpdateCredential(c *gc.C) {
-	apiCaller := basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string,
-				version int,
-				id, request string,
-				a, result interface{},
-			) error {
-				c.Check(objType, gc.Equals, "Cloud")
-				c.Check(id, gc.Equals, "")
-				c.Check(request, gc.Equals, "UpdateCredentialsCheckModels")
-				c.Assert(result, gc.FitsTypeOf, &params.UpdateCredentialResults{})
-				c.Assert(a, jc.DeepEquals, params.UpdateCredentialArgs{
-					Credentials: []params.TaggedCredential{{
-						Tag: "cloudcred-foo_bob_bar",
-						Credential: params.CloudCredential{
-							AuthType: "userpass",
-							Attributes: map[string]string{
-								"username": "admin",
-								"password": "adm1n",
-							},
-						},
-					}}})
-				*result.(*params.UpdateCredentialResults) = params.UpdateCredentialResults{
-					Results: []params.UpdateCredentialResult{{}},
-				}
-				s.called = true
-				return nil
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	args := params.UpdateCredentialArgs{
+		Credentials: []params.TaggedCredential{{
+			Tag: "cloudcred-foo_bob_bar",
+			Credential: params.CloudCredential{
+				AuthType: "userpass",
+				Attributes: map[string]string{
+					"username": "admin",
+					"password": "adm1n",
+				},
 			},
-		),
-		BestVersion: 3,
+		}}}
+	res := new(params.UpdateCredentialResults)
+	results := params.UpdateCredentialResults{
+		Results: []params.UpdateCredentialResult{{}},
 	}
-	client := cloudapi.NewClient(apiCaller)
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("UpdateCredentialsCheckModels", args, res).SetArg(2, results).Return(nil)
+	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
+
 	result, err := client.UpdateCredentialsCheckModels(testCredentialTag, testCredential)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.IsNil)
-	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestUpdateCredentialError(c *gc.C) {
-	apiCaller := basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string,
-				version int,
-				id, request string,
-				a, result interface{},
-			) error {
-				c.Check(request, gc.Equals, "UpdateCredentialsCheckModels")
-				*result.(*params.UpdateCredentialResults) = params.UpdateCredentialResults{
-					Results: []params.UpdateCredentialResult{
-						{CredentialTag: "cloudcred-foo_bob_bar",
-							Error: apiservererrors.ServerError(errors.New("validation failure")),
-						},
-					},
-				}
-				s.called = true
-				return nil
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	args := params.UpdateCredentialArgs{
+		Credentials: []params.TaggedCredential{{
+			Tag: "cloudcred-foo_bob_bar",
+			Credential: params.CloudCredential{
+				AuthType: "userpass",
+				Attributes: map[string]string{
+					"username": "admin",
+					"password": "adm1n",
+				},
 			},
-		),
-		BestVersion: 3,
+		}}}
+	res := new(params.UpdateCredentialResults)
+	results := params.UpdateCredentialResults{
+		Results: []params.UpdateCredentialResult{
+			{
+				CredentialTag: "cloudcred-foo_bob_bar",
+				Error:         apiservererrors.ServerError(errors.New("validation failure")),
+			},
+		},
 	}
-	client := cloudapi.NewClient(apiCaller)
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("UpdateCredentialsCheckModels", args, res).SetArg(2, results).Return(nil)
+	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
+
 	errs, err := client.UpdateCredentialsCheckModels(testCredentialTag, testCredential)
 	c.Assert(err, gc.ErrorMatches, "validation failure")
 	c.Assert(errs, gc.IsNil)
-	c.Assert(s.called, jc.IsTrue)
-}
-
-func (s *cloudSuite) TestUpdateCredentialCallError(c *gc.C) {
-	apiCaller := basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string,
-				version int,
-				id, request string,
-				a, result interface{},
-			) error {
-				c.Check(request, gc.Equals, "UpdateCredentialsCheckModels")
-				s.called = true
-				return errors.New("scary but true")
-			},
-		),
-		BestVersion: 3,
-	}
-	client := cloudapi.NewClient(apiCaller)
-	result, err := client.UpdateCredentialsCheckModels(testCredentialTag, testCredential)
-	c.Assert(err, gc.ErrorMatches, "scary but true")
-	c.Assert(result, gc.IsNil)
-	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestUpdateCredentialManyResults(c *gc.C) {
-	apiCaller := basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string,
-				version int,
-				id, request string,
-				a, result interface{},
-			) error {
-				c.Check(request, gc.Equals, "UpdateCredentialsCheckModels")
-				*result.(*params.UpdateCredentialResults) = params.UpdateCredentialResults{
-					Results: []params.UpdateCredentialResult{
-						{},
-						{},
-					}}
-				s.called = true
-				return nil
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	args := params.UpdateCredentialArgs{
+		Credentials: []params.TaggedCredential{{
+			Tag: "cloudcred-foo_bob_bar",
+			Credential: params.CloudCredential{
+				AuthType: "userpass",
+				Attributes: map[string]string{
+					"username": "admin",
+					"password": "adm1n",
+				},
 			},
-		),
-		BestVersion: 3,
-	}
-	client := cloudapi.NewClient(apiCaller)
+		}}}
+	res := new(params.UpdateCredentialResults)
+	results := params.UpdateCredentialResults{
+		Results: []params.UpdateCredentialResult{
+			{},
+			{},
+		}}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("UpdateCredentialsCheckModels", args, res).SetArg(2, results).Return(nil)
+	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
+
 	result, err := client.UpdateCredentialsCheckModels(testCredentialTag, testCredential)
 	c.Assert(err, gc.ErrorMatches, `expected 1 result got 2 when updating credentials`)
 	c.Assert(result, gc.IsNil)
-	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestUpdateCredentialModelErrors(c *gc.C) {
-	apiCaller := basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string,
-				version int,
-				id, request string,
-				a, result interface{},
-			) error {
-				c.Check(request, gc.Equals, "UpdateCredentialsCheckModels")
-				*result.(*params.UpdateCredentialResults) = params.UpdateCredentialResults{
-					Results: []params.UpdateCredentialResult{
-						{
-							CredentialTag: testCredentialTag.String(),
-							Models: []params.UpdateCredentialModelResult{
-								{
-									ModelUUID: coretesting.ModelTag.Id(),
-									ModelName: "test-model",
-									Errors: []params.ErrorResult{
-										{apiservererrors.ServerError(errors.New("validation failure one"))},
-										{apiservererrors.ServerError(errors.New("validation failure two"))},
-									},
-								},
-							},
-						},
-					}}
-				s.called = true
-				return nil
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	args := params.UpdateCredentialArgs{
+		Credentials: []params.TaggedCredential{{
+			Tag: "cloudcred-foo_bob_bar",
+			Credential: params.CloudCredential{
+				AuthType: "userpass",
+				Attributes: map[string]string{
+					"username": "admin",
+					"password": "adm1n",
+				},
 			},
-		),
-		BestVersion: 3,
-	}
-	client := cloudapi.NewClient(apiCaller)
+		}}}
+	res := new(params.UpdateCredentialResults)
+	results := params.UpdateCredentialResults{
+		Results: []params.UpdateCredentialResult{
+			{
+				CredentialTag: testCredentialTag.String(),
+				Models: []params.UpdateCredentialModelResult{
+					{
+						ModelUUID: coretesting.ModelTag.Id(),
+						ModelName: "test-model",
+						Errors: []params.ErrorResult{
+							{apiservererrors.ServerError(errors.New("validation failure one"))},
+							{apiservererrors.ServerError(errors.New("validation failure two"))},
+						},
+					},
+				},
+			},
+		}}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("UpdateCredentialsCheckModels", args, res).SetArg(2, results).Return(nil)
+	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
+
 	errs, err := client.UpdateCredentialsCheckModels(testCredentialTag, testCredential)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs, gc.DeepEquals, []params.UpdateCredentialModelResult{
@@ -411,7 +353,6 @@ func (s *cloudSuite) TestUpdateCredentialModelErrors(c *gc.C) {
 			},
 		},
 	})
-	c.Assert(s.called, jc.IsTrue)
 }
 
 var (
@@ -423,77 +364,56 @@ var (
 )
 
 func (s *cloudSuite) TestRevokeCredential(c *gc.C) {
-	apiCallerF := basetesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, result interface{},
-		) error {
-			c.Check(objType, gc.Equals, "Cloud")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "RevokeCredentialsCheckModels")
-			c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
-			c.Assert(a, jc.DeepEquals, params.RevokeCredentialArgs{
-				Credentials: []params.RevokeCredentialArg{
-					{Tag: "cloudcred-foo_bob_bar", Force: true},
-				},
-			})
-			*result.(*params.ErrorResults) = params.ErrorResults{
-				Results: []params.ErrorResult{{}},
-			}
-			s.called = true
-			return nil
-		},
-	)
-	apiCaller := basetesting.BestVersionCaller{
-		APICallerFunc: apiCallerF,
-		BestVersion:   3,
-	}
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
-	client := cloudapi.NewClient(apiCaller)
+	args := params.RevokeCredentialArgs{
+		Credentials: []params.RevokeCredentialArg{
+			{Tag: "cloudcred-foo_bob_bar", Force: true},
+		},
+	}
+	res := new(params.ErrorResults)
+	results := params.ErrorResults{
+		Results: []params.ErrorResult{{}},
+	}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("RevokeCredentialsCheckModels", args, res).SetArg(2, results).Return(nil)
+	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
+
 	tag := names.NewCloudCredentialTag("foo/bob/bar")
 	err := client.RevokeCredential(tag, true)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestCredentials(c *gc.C) {
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, result interface{},
-		) error {
-			c.Check(objType, gc.Equals, "Cloud")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "Credential")
-			c.Assert(result, gc.FitsTypeOf, &params.CloudCredentialResults{})
-			c.Assert(a, jc.DeepEquals, params.Entities{Entities: []params.Entity{{
-				Tag: "cloudcred-foo_bob_bar",
-			}}})
-			*result.(*params.CloudCredentialResults) = params.CloudCredentialResults{
-				Results: []params.CloudCredentialResult{
-					{
-						Result: &params.CloudCredential{
-							AuthType:   "userpass",
-							Attributes: map[string]string{"username": "fred"},
-							Redacted:   []string{"password"},
-						},
-					}, {
-						Result: &params.CloudCredential{
-							AuthType:   "userpass",
-							Attributes: map[string]string{"username": "mary"},
-							Redacted:   []string{"password"},
-						},
-					},
-				},
-			}
-			s.called = true
-			return nil
-		},
-	)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
-	client := cloudapi.NewClient(apiCaller)
+	args := params.Entities{Entities: []params.Entity{{
+		Tag: "cloudcred-foo_bob_bar",
+	}}}
+	res := new(params.CloudCredentialResults)
+	results := params.CloudCredentialResults{
+		Results: []params.CloudCredentialResult{
+			{
+				Result: &params.CloudCredential{
+					AuthType:   "userpass",
+					Attributes: map[string]string{"username": "fred"},
+					Redacted:   []string{"password"},
+				},
+			}, {
+				Result: &params.CloudCredential{
+					AuthType:   "userpass",
+					Attributes: map[string]string{"username": "mary"},
+					Redacted:   []string{"password"},
+				},
+			},
+		},
+	}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("Credential", args, res).SetArg(2, results).Return(nil)
+	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
+
 	tag := names.NewCloudCredentialTag("foo/bob/bar")
 	result, err := client.Credentials(tag)
 	c.Assert(err, jc.ErrorIsNil)
@@ -512,27 +432,6 @@ func (s *cloudSuite) TestCredentials(c *gc.C) {
 			},
 		},
 	})
-	c.Assert(s.called, jc.IsTrue)
-}
-
-func (s *cloudSuite) createVersionedAddCloudCall(c *gc.C, v int, expectedArg params.AddCloudArgs) basetesting.BestVersionCaller {
-	return basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string,
-				version int,
-				id, request string,
-				a, result interface{},
-			) error {
-				c.Check(objType, gc.Equals, "Cloud")
-				c.Check(id, gc.Equals, "")
-				c.Check(request, gc.Equals, "AddCloud")
-				c.Check(a, jc.DeepEquals, expectedArg)
-				s.called = true
-				return nil
-			},
-		),
-		BestVersion: v,
-	}
 }
 
 var testCloud = cloud.Cloud{
@@ -543,62 +442,30 @@ var testCloud = cloud.Cloud{
 }
 
 func (s *cloudSuite) TestAddCloudForce(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	force := true
-	apiCaller := s.createVersionedAddCloudCall(c, 6, params.AddCloudArgs{
+	args := params.AddCloudArgs{
 		Name:  "foo",
 		Cloud: common.CloudToParams(testCloud),
 		Force: &force,
-	})
-	client := cloudapi.NewClient(apiCaller)
+	}
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("AddCloud", args, nil).Return(nil)
+	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
+
 	err := client.AddCloud(testCloud, force)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.called, jc.IsTrue)
-}
-
-func (s *cloudSuite) TestUpdateCloud(c *gc.C) {
-
-	updatedCloud := cloud.Cloud{
-		Name:      "foo",
-		Type:      "dummy",
-		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
-		Regions:   []cloud.Region{{Name: "nether", Endpoint: "endpoint"}},
-	}
-
-	apiCaller := basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string,
-				version int,
-				id, request string,
-				a, result interface{},
-			) error {
-				s.called = true
-				c.Check(objType, gc.Equals, "Cloud")
-				c.Check(id, gc.Equals, "")
-				c.Check(request, gc.Equals, "UpdateCloud")
-				c.Assert(a, jc.DeepEquals, params.UpdateCloudArgs{Clouds: []params.AddCloudArgs{{
-					Name:  "foo",
-					Cloud: common.CloudToParams(updatedCloud),
-				}}})
-				c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
-				*result.(*params.ErrorResults) = params.ErrorResults{
-					Results: []params.ErrorResult{{}},
-				}
-				return nil
-			},
-		),
-		BestVersion: 4,
-	}
-
-	client := cloudapi.NewClient(apiCaller)
-	err := client.UpdateCloud(updatedCloud)
-
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestCredentialContentsArgumentCheck(c *gc.C) {
-	apiCaller := basetesting.BestVersionCaller{BestVersion: 2}
-	client := cloudapi.NewClient(apiCaller)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	// Check supplying cloud name without credential name is invalid.
 	result, err := client.CredentialContents("cloud", "", true)
@@ -612,6 +479,9 @@ func (s *cloudSuite) TestCredentialContentsArgumentCheck(c *gc.C) {
 }
 
 func (s *cloudSuite) TestCredentialContentsAll(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	expectedResults := []params.CredentialContentResult{
 		{
 			Result: &params.ControllerCredentialInfo{
@@ -633,256 +503,180 @@ func (s *cloudSuite) TestCredentialContentsAll(c *gc.C) {
 			Error: apiservererrors.ServerError(errors.New("boom")),
 		},
 	}
-	apiCaller := basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string,
-				version int,
-				id, request string,
-				a, result interface{},
-			) error {
-				c.Check(objType, gc.Equals, "Cloud")
-				c.Check(id, gc.Equals, "")
-				c.Check(request, gc.Equals, "CredentialContents")
-				c.Assert(result, gc.FitsTypeOf, &params.CredentialContentResults{})
-				c.Assert(a, jc.DeepEquals, params.CloudCredentialArgs{
-					IncludeSecrets: true,
-				})
-				*result.(*params.CredentialContentResults) = params.CredentialContentResults{
-					Results: expectedResults,
-				}
-				s.called = true
-				return nil
-			},
-		),
-		BestVersion: 2,
-	}
 
-	client := cloudapi.NewClient(apiCaller)
-	results, err := client.CredentialContents("", "", true)
+	args := params.CloudCredentialArgs{
+		IncludeSecrets: true,
+	}
+	res := new(params.CredentialContentResults)
+	results := params.CredentialContentResults{
+		Results: expectedResults,
+	}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("CredentialContents", args, res).SetArg(2, results).Return(nil)
+	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
+
+	ress, err := client.CredentialContents("", "", true)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, expectedResults)
-	c.Assert(s.called, jc.IsTrue)
+	c.Assert(ress, jc.DeepEquals, expectedResults)
 }
 
 func (s *cloudSuite) TestCredentialContentsOne(c *gc.C) {
-	apiCaller := basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string,
-				version int,
-				id, request string,
-				a, result interface{},
-			) error {
-				c.Check(objType, gc.Equals, "Cloud")
-				c.Check(id, gc.Equals, "")
-				c.Check(request, gc.Equals, "CredentialContents")
-				c.Assert(result, gc.FitsTypeOf, &params.CredentialContentResults{})
-				c.Assert(a, jc.DeepEquals, params.CloudCredentialArgs{
-					IncludeSecrets: true,
-					Credentials: []params.CloudCredentialArg{
-						{CloudName: "cloud-name", CredentialName: "credential-name"},
-					},
-				})
-				*result.(*params.CredentialContentResults) = params.CredentialContentResults{
-					Results: []params.CredentialContentResult{
-						{},
-					},
-				}
-				s.called = true
-				return nil
-			},
-		),
-		BestVersion: 2,
-	}
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
-	client := cloudapi.NewClient(apiCaller)
+	args := params.CloudCredentialArgs{
+		IncludeSecrets: true,
+		Credentials: []params.CloudCredentialArg{
+			{CloudName: "cloud-name", CredentialName: "credential-name"},
+		},
+	}
+	res := new(params.CredentialContentResults)
+	ress := params.CredentialContentResults{
+		Results: []params.CredentialContentResult{
+			{},
+		},
+	}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("CredentialContents", args, res).SetArg(2, ress).Return(nil)
+	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
+
 	results, err := client.CredentialContents("cloud-name", "credential-name", true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 1)
-	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestCredentialContentsGotMoreThanBargainedFor(c *gc.C) {
-	apiCaller := basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string,
-				version int,
-				id, request string,
-				a, result interface{},
-			) error {
-				*result.(*params.CredentialContentResults) = params.CredentialContentResults{
-					Results: []params.CredentialContentResult{
-						{},
-						{},
-					},
-				}
-				s.called = true
-				return nil
-			},
-		),
-		BestVersion: 2,
-	}
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
-	client := cloudapi.NewClient(apiCaller)
+	args := params.CloudCredentialArgs{
+		IncludeSecrets: true,
+		Credentials: []params.CloudCredentialArg{
+			{CloudName: "cloud-name", CredentialName: "credential-name"},
+		},
+	}
+	res := new(params.CredentialContentResults)
+	ress := params.CredentialContentResults{
+		Results: []params.CredentialContentResult{
+			{},
+			{},
+		},
+	}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("CredentialContents", args, res).SetArg(2, ress).Return(nil)
+	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
+
 	results, err := client.CredentialContents("cloud-name", "credential-name", true)
 	c.Assert(results, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "expected 1 result for credential \"cloud-name\" on cloud \"credential-name\", got 2")
-	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestCredentialContentsServerError(c *gc.C) {
-	apiCaller := basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string,
-				version int,
-				id, request string,
-				a, result interface{},
-			) error {
-				s.called = true
-				return errors.New("boom")
-			}),
-		BestVersion: 2,
-	}
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
-	client := cloudapi.NewClient(apiCaller)
+	args := params.CloudCredentialArgs{
+		IncludeSecrets: true,
+	}
+	res := new(params.CredentialContentResults)
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("CredentialContents", args, res).Return(errors.New("boom"))
+	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
+
 	results, err := client.CredentialContents("", "", true)
 	c.Assert(results, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "boom")
-	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestRemoveCloud(c *gc.C) {
-	apiCaller := basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string,
-				version int,
-				id, request string,
-				a, result interface{},
-			) error {
-				s.called = true
-				c.Check(objType, gc.Equals, "Cloud")
-				c.Check(id, gc.Equals, "")
-				c.Check(request, gc.Equals, "RemoveClouds")
-				c.Check(a, jc.DeepEquals, params.Entities{
-					Entities: []params.Entity{{Tag: "cloud-foo"}},
-				})
-				c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
-				results := result.(*params.ErrorResults)
-				results.Results = append(results.Results, params.ErrorResult{
-					Error: &params.Error{Message: "FAIL"},
-				})
-				return nil
-			},
-		),
-		BestVersion: 2,
-	}
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
-	client := cloudapi.NewClient(apiCaller)
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: "cloud-foo"}},
+	}
+	res := new(params.ErrorResults)
+	ress := params.ErrorResults{
+		Results: []params.ErrorResult{{
+			Error: &params.Error{Message: "FAIL"},
+		}},
+	}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("RemoveClouds", args, res).SetArg(2, ress).Return(nil)
+	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
+
 	err := client.RemoveCloud("foo")
 	c.Assert(err, gc.ErrorMatches, "FAIL")
-	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestRemoveCloudErrorMapping(c *gc.C) {
-	apiCaller := basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string,
-				version int,
-				id, request string,
-				a, result interface{},
-			) error {
-				s.called = true
-				c.Check(objType, gc.Equals, "Cloud")
-				c.Check(id, gc.Equals, "")
-				c.Check(request, gc.Equals, "RemoveClouds")
-				c.Check(a, jc.DeepEquals, params.Entities{
-					Entities: []params.Entity{{Tag: "cloud-foo"}},
-				})
-				c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
-				results := result.(*params.ErrorResults)
-				results.Results = append(results.Results, params.ErrorResult{
-					Error: &params.Error{
-						Code:    params.CodeNotFound,
-						Message: `cloud "cloud-foo" not found`,
-					},
-				})
-				return nil
-			},
-		),
-		BestVersion: 2,
-	}
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
-	client := cloudapi.NewClient(apiCaller)
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: "cloud-foo"}},
+	}
+	res := new(params.ErrorResults)
+	ress := params.ErrorResults{
+		Results: []params.ErrorResult{{
+			Error: &params.Error{
+				Code:    params.CodeNotFound,
+				Message: `cloud "cloud-foo" not found`,
+			}},
+		},
+	}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("RemoveClouds", args, res).SetArg(2, ress).Return(nil)
+	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
+
 	err := client.RemoveCloud("foo")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound, gc.Commentf("expected client to be map server error into a NotFound error"))
-	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestGrantCloud(c *gc.C) {
-	apiCaller := basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string,
-				version int,
-				id, request string,
-				a, result interface{},
-			) error {
-				s.called = true
-				c.Check(objType, gc.Equals, "Cloud")
-				c.Check(id, gc.Equals, "")
-				c.Check(request, gc.Equals, "ModifyCloudAccess")
-				c.Check(a, jc.DeepEquals, params.ModifyCloudAccessRequest{
-					Changes: []params.ModifyCloudAccess{
-						{UserTag: "user-fred", CloudTag: "cloud-fluffy", Action: "grant", Access: "admin"},
-					},
-				})
-				c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
-				results := result.(*params.ErrorResults)
-				results.Results = append(results.Results, params.ErrorResult{
-					Error: &params.Error{Message: "FAIL"},
-				})
-				return nil
-			},
-		),
-		BestVersion: 3,
-	}
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
-	client := cloudapi.NewClient(apiCaller)
+	args := params.ModifyCloudAccessRequest{
+		Changes: []params.ModifyCloudAccess{
+			{UserTag: "user-fred", CloudTag: "cloud-fluffy", Action: "grant", Access: "admin"},
+		},
+	}
+	res := new(params.ErrorResults)
+	ress := params.ErrorResults{
+		Results: []params.ErrorResult{{
+			Error: &params.Error{Message: "FAIL"}},
+		},
+	}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("ModifyCloudAccess", args, res).SetArg(2, ress).Return(nil)
+	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
+
 	err := client.GrantCloud("fred", "admin", "fluffy")
 	c.Assert(err, gc.ErrorMatches, "FAIL")
-	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestRevokeCloud(c *gc.C) {
-	apiCaller := basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string,
-				version int,
-				id, request string,
-				a, result interface{},
-			) error {
-				s.called = true
-				c.Check(objType, gc.Equals, "Cloud")
-				c.Check(id, gc.Equals, "")
-				c.Check(request, gc.Equals, "ModifyCloudAccess")
-				c.Check(a, jc.DeepEquals, params.ModifyCloudAccessRequest{
-					Changes: []params.ModifyCloudAccess{
-						{UserTag: "user-fred", CloudTag: "cloud-fluffy", Action: "revoke", Access: "admin"},
-					},
-				})
-				c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
-				results := result.(*params.ErrorResults)
-				results.Results = append(results.Results, params.ErrorResult{
-					Error: &params.Error{Message: "FAIL"},
-				})
-				return nil
-			},
-		),
-		BestVersion: 3,
-	}
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
-	client := cloudapi.NewClient(apiCaller)
+	args := params.ModifyCloudAccessRequest{
+		Changes: []params.ModifyCloudAccess{
+			{UserTag: "user-fred", CloudTag: "cloud-fluffy", Action: "revoke", Access: "admin"},
+		},
+	}
+	res := new(params.ErrorResults)
+	ress := params.ErrorResults{
+		Results: []params.ErrorResult{{
+			Error: &params.Error{Message: "FAIL"}},
+		},
+	}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("ModifyCloudAccess", args, res).SetArg(2, ress).Return(nil)
+	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
+
 	err := client.RevokeCloud("fred", "admin", "fluffy")
 	c.Assert(err, gc.ErrorMatches, "FAIL")
-	c.Assert(s.called, jc.IsTrue)
 }
 
 func createCredentials(n int) map[string]cloud.Credential {
@@ -893,217 +687,199 @@ func createCredentials(n int) map[string]cloud.Credential {
 	return result
 }
 
-func (s *cloudSuite) TestUpdateCloudsCredentials(c *gc.C) {
-	apiCaller := basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string,
-				version int,
-				id, request string,
-				a, result interface{},
-			) error {
-				c.Check(objType, gc.Equals, "Cloud")
-				c.Check(id, gc.Equals, "")
-				c.Check(request, gc.Equals, "UpdateCredentialsCheckModels")
-				c.Assert(result, gc.FitsTypeOf, &params.UpdateCredentialResults{})
-				c.Assert(a, jc.DeepEquals, params.UpdateCredentialArgs{
-					Force: true,
-					Credentials: []params.TaggedCredential{{
-						Tag: "cloudcred-foo_bob_bar0",
-						Credential: params.CloudCredential{
-							AuthType: "userpass",
-							Attributes: map[string]string{
-								"username": "admin",
-								"password": "adm1n",
-							},
-						},
-					}}})
-				*result.(*params.UpdateCredentialResults) = params.UpdateCredentialResults{
-					Results: []params.UpdateCredentialResult{{}},
-				}
-				s.called = true
-				return nil
-			},
-		),
-		BestVersion: 3,
+func (s *cloudSuite) TestUpdateCloud(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	updatedCloud := cloud.Cloud{
+		Name:      "foo",
+		Type:      "dummy",
+		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
+		Regions:   []cloud.Region{{Name: "nether", Endpoint: "endpoint"}},
 	}
-	client := cloudapi.NewClient(apiCaller)
+
+	args := params.UpdateCloudArgs{Clouds: []params.AddCloudArgs{{
+		Name:  "foo",
+		Cloud: common.CloudToParams(updatedCloud),
+	}}}
+	res := new(params.ErrorResults)
+	results := params.ErrorResults{
+		Results: []params.ErrorResult{{}},
+	}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("UpdateCloud", args, res).SetArg(2, results).Return(nil)
+	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
+
+	err := client.UpdateCloud(updatedCloud)
+
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *cloudSuite) TestUpdateCloudsCredentials(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	args := params.UpdateCredentialArgs{
+		Force: true,
+		Credentials: []params.TaggedCredential{{
+			Tag: "cloudcred-foo_bob_bar0",
+			Credential: params.CloudCredential{
+				AuthType: "userpass",
+				Attributes: map[string]string{
+					"username": "admin",
+					"password": "adm1n",
+				},
+			},
+		}}}
+	res := new(params.UpdateCredentialResults)
+	results := params.UpdateCredentialResults{
+		Results: []params.UpdateCredentialResult{{}},
+	}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("UpdateCredentialsCheckModels", args, res).SetArg(2, results).Return(nil)
+	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
+
 	result, err := client.UpdateCloudsCredentials(createCredentials(1), true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, []params.UpdateCredentialResult{{}})
-	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestUpdateCloudsCredentialsError(c *gc.C) {
-	apiCaller := basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string,
-				version int,
-				id, request string,
-				a, result interface{},
-			) error {
-				c.Check(request, gc.Equals, "UpdateCredentialsCheckModels")
-				*result.(*params.UpdateCredentialResults) = params.UpdateCredentialResults{
-					Results: []params.UpdateCredentialResult{
-						{CredentialTag: "cloudcred-foo_bob_bar0",
-							Error: apiservererrors.ServerError(errors.New("validation failure")),
-						},
-					},
-				}
-				s.called = true
-				return nil
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	args := params.UpdateCredentialArgs{
+		Force: false,
+		Credentials: []params.TaggedCredential{{
+			Tag: "cloudcred-foo_bob_bar0",
+			Credential: params.CloudCredential{
+				AuthType: "userpass",
+				Attributes: map[string]string{
+					"username": "admin",
+					"password": "adm1n",
+				},
 			},
-		),
-		BestVersion: 3,
+		}}}
+	res := new(params.UpdateCredentialResults)
+	results := params.UpdateCredentialResults{
+		Results: []params.UpdateCredentialResult{
+			{CredentialTag: "cloudcred-foo_bob_bar0",
+				Error: apiservererrors.ServerError(errors.New("validation failure")),
+			},
+		},
 	}
-	client := cloudapi.NewClient(apiCaller)
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("UpdateCredentialsCheckModels", args, res).SetArg(2, results).Return(nil)
+	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
+
 	errs, err := client.UpdateCloudsCredentials(createCredentials(1), false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs, gc.DeepEquals, []params.UpdateCredentialResult{
 		{CredentialTag: "cloudcred-foo_bob_bar0", Error: apiservererrors.ServerError(errors.New("validation failure"))},
 	})
-	c.Assert(s.called, jc.IsTrue)
-}
-
-func (s *cloudSuite) TestUpdateCloudsCredentialsMasksLegacyError(c *gc.C) {
-	apiCaller := basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string,
-				version int,
-				id, request string,
-				a, result interface{},
-			) error {
-				c.Check(request, gc.Equals, "UpdateCredentialsCheckModels")
-				*result.(*params.UpdateCredentialResults) = params.UpdateCredentialResults{
-					Results: []params.UpdateCredentialResult{
-						{CredentialTag: "cloudcred-foo_bob_bar0",
-							Error: apiservererrors.ServerError(errors.New("some models are no longer visible")),
-						},
-					},
-				}
-				s.called = true
-				return nil
-			},
-		),
-		BestVersion: 6,
-	}
-	client := cloudapi.NewClient(apiCaller)
-	errs, err := client.UpdateCloudsCredentials(createCredentials(1), false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errs, gc.DeepEquals, []params.UpdateCredentialResult{
-		{CredentialTag: "cloudcred-foo_bob_bar0"},
-	})
-	c.Assert(s.called, jc.IsTrue)
-}
-
-func (s *cloudSuite) TestUpdateCloudsCredentialsCallError(c *gc.C) {
-	apiCaller := basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string,
-				version int,
-				id, request string,
-				a, result interface{},
-			) error {
-				c.Check(request, gc.Equals, "UpdateCredentialsCheckModels")
-				s.called = true
-				return errors.New("scary but true")
-			},
-		),
-		BestVersion: 3,
-	}
-	client := cloudapi.NewClient(apiCaller)
-	result, err := client.UpdateCloudsCredentials(createCredentials(1), false)
-	c.Assert(err, gc.ErrorMatches, "scary but true")
-	c.Assert(result, gc.IsNil)
-	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestUpdateCloudsCredentialsManyResults(c *gc.C) {
-	apiCaller := basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string,
-				version int,
-				id, request string,
-				a, result interface{},
-			) error {
-				c.Check(request, gc.Equals, "UpdateCredentialsCheckModels")
-				*result.(*params.UpdateCredentialResults) = params.UpdateCredentialResults{
-					Results: []params.UpdateCredentialResult{
-						{},
-						{},
-					}}
-				s.called = true
-				return nil
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	args := params.UpdateCredentialArgs{
+		Force: false,
+		Credentials: []params.TaggedCredential{{
+			Tag: "cloudcred-foo_bob_bar0",
+			Credential: params.CloudCredential{
+				AuthType: "userpass",
+				Attributes: map[string]string{
+					"username": "admin",
+					"password": "adm1n",
+				},
 			},
-		),
-		BestVersion: 3,
-	}
-	client := cloudapi.NewClient(apiCaller)
+		}}}
+	res := new(params.UpdateCredentialResults)
+	results := params.UpdateCredentialResults{
+		Results: []params.UpdateCredentialResult{
+			{},
+			{},
+		}}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("UpdateCredentialsCheckModels", args, res).SetArg(2, results).Return(nil)
+	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
+
 	result, err := client.UpdateCloudsCredentials(createCredentials(1), false)
 	c.Assert(err, gc.ErrorMatches, `expected 1 result got 2 when updating credentials`)
 	c.Assert(result, gc.IsNil)
-	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestUpdateCloudsCredentialsManyMatchingResults(c *gc.C) {
-	apiCaller := basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string,
-				version int,
-				id, request string,
-				a, result interface{},
-			) error {
-				c.Check(request, gc.Equals, "UpdateCredentialsCheckModels")
-				*result.(*params.UpdateCredentialResults) = params.UpdateCredentialResults{
-					Results: []params.UpdateCredentialResult{
-						{},
-						{},
-					}}
-				s.called = true
-				return nil
-			},
-		),
-		BestVersion: 3,
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	args := params.UpdateCredentialArgs{
+		Force: false,
 	}
-	client := cloudapi.NewClient(apiCaller)
 	count := 2
+	for tag, credential := range createCredentials(count) {
+		args.Credentials = append(args.Credentials, params.TaggedCredential{
+			Tag: tag,
+			Credential: params.CloudCredential{
+				AuthType:   string(credential.AuthType()),
+				Attributes: credential.Attributes(),
+			},
+		})
+	}
+
+	res := new(params.UpdateCredentialResults)
+	results := params.UpdateCredentialResults{
+		Results: []params.UpdateCredentialResult{
+			{},
+			{},
+		}}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("UpdateCredentialsCheckModels", cloudCredentialMatcher{args}, res).SetArg(2, results).Return(nil)
+	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
+
 	result, err := client.UpdateCloudsCredentials(createCredentials(count), false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.HasLen, count)
-	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestUpdateCloudsCredentialsModelErrors(c *gc.C) {
-	apiCaller := basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string,
-				version int,
-				id, request string,
-				a, result interface{},
-			) error {
-				c.Check(request, gc.Equals, "UpdateCredentialsCheckModels")
-				*result.(*params.UpdateCredentialResults) = params.UpdateCredentialResults{
-					Results: []params.UpdateCredentialResult{
-						{
-							CredentialTag: testCredentialTag.String(),
-							Models: []params.UpdateCredentialModelResult{
-								{
-									ModelUUID: coretesting.ModelTag.Id(),
-									ModelName: "test-model",
-									Errors: []params.ErrorResult{
-										{apiservererrors.ServerError(errors.New("validation failure one"))},
-										{apiservererrors.ServerError(errors.New("validation failure two"))},
-									},
-								},
-							},
-						},
-					}}
-				s.called = true
-				return nil
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	args := params.UpdateCredentialArgs{
+		Force: false,
+		Credentials: []params.TaggedCredential{{
+			Tag: "cloudcred-foo_bob_bar0",
+			Credential: params.CloudCredential{
+				AuthType: "userpass",
+				Attributes: map[string]string{
+					"username": "admin",
+					"password": "adm1n",
+				},
 			},
-		),
-		BestVersion: 3,
-	}
-	client := cloudapi.NewClient(apiCaller)
+		}}}
+	res := new(params.UpdateCredentialResults)
+	results := params.UpdateCredentialResults{
+		Results: []params.UpdateCredentialResult{
+			{
+				CredentialTag: testCredentialTag.String(),
+				Models: []params.UpdateCredentialModelResult{
+					{
+						ModelUUID: coretesting.ModelTag.Id(),
+						ModelName: "test-model",
+						Errors: []params.ErrorResult{
+							{apiservererrors.ServerError(errors.New("validation failure one"))},
+							{apiservererrors.ServerError(errors.New("validation failure two"))},
+						},
+					},
+				},
+			},
+		}}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("UpdateCredentialsCheckModels", args, res).SetArg(2, results).Return(nil)
+	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
+
 	errs, err := client.UpdateCloudsCredentials(createCredentials(1), false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs, gc.DeepEquals, []params.UpdateCredentialResult{
@@ -1119,44 +895,66 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsModelErrors(c *gc.C) {
 			},
 		},
 	})
-	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestAddCloudsCredentials(c *gc.C) {
-	apiCaller := basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string,
-				version int,
-				id, request string,
-				a, result interface{},
-			) error {
-				c.Check(objType, gc.Equals, "Cloud")
-				c.Check(id, gc.Equals, "")
-				c.Check(request, gc.Equals, "UpdateCredentialsCheckModels")
-				c.Assert(result, gc.FitsTypeOf, &params.UpdateCredentialResults{})
-				c.Assert(a, jc.DeepEquals, params.UpdateCredentialArgs{
-					Credentials: []params.TaggedCredential{{
-						Tag: "cloudcred-foo_bob_bar0",
-						Credential: params.CloudCredential{
-							AuthType: "userpass",
-							Attributes: map[string]string{
-								"username": "admin",
-								"password": "adm1n",
-							},
-						},
-					}}})
-				*result.(*params.UpdateCredentialResults) = params.UpdateCredentialResults{
-					Results: []params.UpdateCredentialResult{{}},
-				}
-				s.called = true
-				return nil
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	args := params.UpdateCredentialArgs{
+		Credentials: []params.TaggedCredential{{
+			Tag: "cloudcred-foo_bob_bar0",
+			Credential: params.CloudCredential{
+				AuthType: "userpass",
+				Attributes: map[string]string{
+					"username": "admin",
+					"password": "adm1n",
+				},
 			},
-		),
-		BestVersion: 3,
+		}}}
+	res := new(params.UpdateCredentialResults)
+	results := params.UpdateCredentialResults{
+		Results: []params.UpdateCredentialResult{{}},
 	}
-	client := cloudapi.NewClient(apiCaller)
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("UpdateCredentialsCheckModels", args, res).SetArg(2, results).Return(nil)
+	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
+
 	result, err := client.AddCloudsCredentials(createCredentials(1))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, []params.UpdateCredentialResult{{}})
-	c.Assert(s.called, jc.IsTrue)
+}
+
+type cloudCredentialMatcher struct {
+	arg params.UpdateCredentialArgs
+}
+
+func (c cloudCredentialMatcher) Matches(x interface{}) bool {
+	cred, ok := x.(params.UpdateCredentialArgs)
+	if !ok {
+		return false
+	}
+	if len(cred.Credentials) != len(c.arg.Credentials) {
+		return false
+	}
+	// sort both input and expected slices the same way to avoid ordering discrepancies when ranging.
+	sort.Slice(cred.Credentials, func(i, j int) bool { return cred.Credentials[i].Tag < cred.Credentials[j].Tag })
+	sort.Slice(c.arg.Credentials, func(i, j int) bool { return c.arg.Credentials[i].Tag < c.arg.Credentials[j].Tag })
+	for idx, taggedCred := range cred.Credentials {
+		if taggedCred.Tag != c.arg.Credentials[idx].Tag {
+			return false
+		}
+		if !reflect.DeepEqual(taggedCred.Credential, c.arg.Credentials[idx].Credential) {
+			return false
+		}
+	}
+
+	if cred.Force != c.arg.Force {
+		return false
+	}
+	return true
+}
+
+func (c cloudCredentialMatcher) String() string {
+	return pretty.Sprint(c.arg)
 }
