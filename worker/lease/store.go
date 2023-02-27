@@ -14,6 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3"
 
+	coredb "github.com/juju/juju/core/db"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/database"
 )
@@ -25,8 +26,8 @@ type StoreLogger interface {
 
 // StoreConfig encapsulates data required to construct a lease store instance.
 type StoreConfig struct {
-	// DB is the SQL database that backs this lease store.
-	DB *sql.DB
+	// TrackedDB is the SQL database that backs this lease store.
+	TrackedDB coredb.TrackedDB
 
 	// Logger is used to emit store-specific diagnostics.
 	Logger StoreLogger
@@ -35,8 +36,8 @@ type StoreConfig struct {
 // Store implements lease.Store using a database
 // supporting SQLite-compatible dialects.
 type Store struct {
-	db     *sql.DB
-	logger StoreLogger
+	trackedDB coredb.TrackedDB
+	logger    StoreLogger
 
 	cache   map[string]*sql.Stmt
 	cacheMu sync.RWMutex
@@ -45,9 +46,9 @@ type Store struct {
 // NewStore returns a reference to a new database-backed lease store.
 func NewStore(cfg StoreConfig) *Store {
 	return &Store{
-		db:     cfg.DB,
-		logger: cfg.Logger,
-		cache:  make(map[string]*sql.Stmt),
+		trackedDB: cfg.TrackedDB,
+		logger:    cfg.Logger,
+		cache:     make(map[string]*sql.Stmt),
 	}
 }
 
@@ -403,7 +404,11 @@ func (s *Store) getPrepared(ctx context.Context, name string, stmt string) (*sql
 	s.cacheMu.Lock()
 	defer s.cacheMu.Unlock()
 
-	prepared, err := s.db.PrepareContext(ctx, stmt)
+	if err := s.trackedDB.Err(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	prepared, err := s.trackedDB.DB().PrepareContext(ctx, stmt)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

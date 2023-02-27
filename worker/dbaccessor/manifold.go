@@ -26,15 +26,22 @@ type Logger interface {
 
 	// Logf is used to proxy Dqlite logs via this logger.
 	Logf(level loggo.Level, msg string, args ...interface{})
+
+	IsTraceEnabled() bool
 }
+
+// FatalErrorChecker defines a type alias to check if an error is fatal or not.
+type FatalErrorChecker = func(error) bool
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will
 // depend.
 type ManifoldConfig struct {
-	AgentName string
-	Clock     clock.Clock
-	Logger    Logger
-	NewApp    func(string, ...app.Option) (DBApp, error)
+	AgentName         string
+	Clock             clock.Clock
+	Logger            Logger
+	NewApp            func(string, ...app.Option) (DBApp, error)
+	NewDBWorker       func(DBApp, string, FatalErrorChecker, clock.Clock, Logger) (TrackedDB, error)
+	FatalErrorChecker FatalErrorChecker
 }
 
 func (cfg ManifoldConfig) Validate() error {
@@ -49,6 +56,12 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.NewApp == nil {
 		return errors.NotValidf("nil NewApp")
+	}
+	if cfg.NewDBWorker == nil {
+		return errors.NotValidf("nil NewDBWorker")
+	}
+	if cfg.FatalErrorChecker == nil {
+		return errors.NotValidf("nil FatalErrorChecker")
 	}
 	return nil
 }
@@ -73,10 +86,12 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			agentConfig := agent.CurrentConfig()
 
 			cfg := WorkerConfig{
-				NodeManager: database.NewNodeManager(agentConfig, config.Logger),
-				Clock:       config.Clock,
-				Logger:      config.Logger,
-				NewApp:      config.NewApp,
+				NodeManager:       database.NewNodeManager(agentConfig, config.Logger),
+				Clock:             config.Clock,
+				Logger:            config.Logger,
+				NewApp:            config.NewApp,
+				NewDBWorker:       config.NewDBWorker,
+				FatalErrorChecker: config.FatalErrorChecker,
 			}
 
 			w, err := newWorker(cfg)
@@ -111,4 +126,15 @@ func dbAccessorOutput(in worker.Worker, out interface{}) error {
 func NewApp(dataDir string, options ...app.Option) (DBApp, error) {
 	dqlite, err := app.New(dataDir, options...)
 	return dqlite, errors.Trace(err)
+}
+
+// IsFatalError implements the FatalErrorChecker for diagnosing if an error
+// is fatal or not. Diagnosing if a db causes the tear down of the worker or
+// the whole db accessor worker.
+func IsFatalError(err error) bool {
+	// TODO (stickupkid): Diagnose and list all potential fatal errors here.
+
+	// By default, if the error is a retryable error, then just mark it as non
+	// fatal.
+	return !isRetryableError(err)
 }

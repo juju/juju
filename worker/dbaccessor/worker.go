@@ -9,16 +9,31 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/retry"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
+	"gopkg.in/tomb.v2"
 
+	coredb "github.com/juju/juju/core/db"
 	"github.com/juju/juju/database/app"
 )
 
-const replSocketFileName = "juju.sock"
+const (
+	// PollInterval is the amount of time to wait between polling the database.
+	PollInterval = time.Second * 30
+)
+
+// TrackedDB defines the union of a TrackedDB and a worker.Worker interface.
+// This is local to the package, allowing for better testing of the underlying
+// trackerDB worker.
+type TrackedDB interface {
+	coredb.TrackedDB
+	worker.Worker
+}
 
 // NodeManager creates Dqlite `App` initialisation arguments and options.
 type NodeManager interface {
@@ -53,16 +68,18 @@ type DBGetter interface {
 	// GetDB returns a sql.DB reference for the dqlite-backed database that
 	// contains the data for the specified namespace.
 	// A NotFound error is returned if the worker is unaware of the requested DB.
-	GetDB(namespace string) (*sql.DB, error)
+	GetDB(namespace string) (coredb.TrackedDB, error)
 }
 
 // WorkerConfig encapsulates the configuration options for the
 // dbaccessor worker.
 type WorkerConfig struct {
-	NodeManager NodeManager
-	Clock       clock.Clock
-	Logger      Logger
-	NewApp      func(string, ...app.Option) (DBApp, error)
+	NodeManager       NodeManager
+	Clock             clock.Clock
+	Logger            Logger
+	NewApp            func(string, ...app.Option) (DBApp, error)
+	NewDBWorker       func(DBApp, string, FatalErrorChecker, clock.Clock, Logger) (TrackedDB, error)
+	FatalErrorChecker FatalErrorChecker
 }
 
 // Validate ensures that the config values are valid.
@@ -78,6 +95,12 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.NewApp == nil {
 		return errors.NotValidf("missing NewApp")
+	}
+	if c.NewDBWorker == nil {
+		return errors.NotValidf("missing NewDBWorker")
+	}
+	if c.FatalErrorChecker == nil {
+		return errors.NotValidf("missing FatalErrorChecker")
 	}
 	return nil
 }
@@ -121,7 +144,7 @@ type dbWorker struct {
 	mu        sync.RWMutex
 	dbApp     DBApp
 	dbReadyCh chan struct{}
-	dbHandles map[string]*sql.DB
+	dbRunner  *worker.Runner
 }
 
 func newWorker(cfg WorkerConfig) (*dbWorker, error) {
@@ -132,13 +155,23 @@ func newWorker(cfg WorkerConfig) (*dbWorker, error) {
 
 	w := &dbWorker{
 		cfg:       cfg,
-		dbHandles: make(map[string]*sql.DB),
 		dbReadyCh: make(chan struct{}),
+		dbRunner: worker.NewRunner(worker.RunnerParams{
+			Clock: cfg.Clock,
+			// TODO (stickupkid): For the initial concept, we don't want to
+			// bring down other workers when one goes down. In the future we
+			// can look into custom errors to allow that.
+			IsFatal:      func(err error) bool { return false },
+			RestartDelay: time.Second * 30,
+		}),
 	}
 
 	if err = catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
 		Work: w.loop,
+		Init: []worker.Worker{
+			w.dbRunner,
+		},
 	}); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -155,7 +188,10 @@ func (w *dbWorker) loop() (err error) {
 			return
 		}
 
-		if hErr := w.dbApp.Handover(context.TODO()); hErr != nil {
+		ctx, cancel := context.WithTimeout(context.TODO(), time.Second*30)
+		defer cancel()
+
+		if hErr := w.dbApp.Handover(ctx); hErr != nil {
 			if err == nil {
 				err = errors.Annotate(err, "gracefully handing over dqlite node responsibilities")
 			} else { // we are exiting with another error; so we just log this.
@@ -206,21 +242,19 @@ func (w *dbWorker) Wait() error {
 // Work out if we need an alternative approach later. We could lazily open and
 // cache, but the access patterns are such that the DBs would all be opened
 // pretty much at once anyway.
-func (w *dbWorker) GetDB(namespace string) (*sql.DB, error) {
+func (w *dbWorker) GetDB(namespace string) (coredb.TrackedDB, error) {
 	select {
 	case <-w.dbReadyCh:
 	case <-w.catacomb.Dying():
 		return nil, w.catacomb.ErrDying()
 	}
 
-	w.mu.Lock()
-	defer w.mu.Unlock()
-
-	if cachedDB := w.dbHandles[namespace]; cachedDB != nil {
-		return cachedDB, nil
+	if e, err := w.dbRunner.Worker(namespace, w.catacomb.Dying()); err == nil {
+		return e.(coredb.TrackedDB), nil
 	}
 
-	return nil, errors.NotFoundf("database for model %q", namespace)
+	trackedDB, err := w.openDatabase(namespace)
+	return trackedDB, errors.Trace(err)
 }
 
 func (w *dbWorker) initializeDqlite() error {
@@ -278,7 +312,9 @@ func (w *dbWorker) initializeDqlite() error {
 		return errors.Annotatef(err, "ensuring Dqlite is ready to process changes")
 	}
 
-	if err := w.openDatabases(); err != nil {
+	// Open up the default controller database. Other database namespaces can
+	// be opened up in a more lazy fashion.
+	if _, err := w.openDatabase("controller"); err != nil {
 		return errors.Annotate(err, "opening initial databases")
 	}
 
@@ -294,14 +330,19 @@ func (w *dbWorker) initializeDqlite() error {
 	return nil
 }
 
-func (w *dbWorker) openDatabases() error {
-	db, err := w.dbApp.Open(context.TODO(), "controller")
-	if err != nil {
-		return errors.Trace(err)
+func (w *dbWorker) openDatabase(namespace string) (coredb.TrackedDB, error) {
+	var trackedDB coredb.TrackedDB
+	if err := w.dbRunner.StartWorker(namespace, func() (worker.Worker, error) {
+		dbWorker, err := w.cfg.NewDBWorker(w.dbApp, namespace, w.cfg.FatalErrorChecker, w.cfg.Clock, w.cfg.Logger)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		trackedDB = dbWorker
+		return dbWorker, nil
+	}); err != nil {
+		return nil, errors.Trace(err)
 	}
-
-	w.dbHandles["controller"] = db
-	return nil
+	return trackedDB, nil
 }
 
 func (w *dbWorker) startREPL(dataDir string) error {
@@ -313,4 +354,169 @@ func (w *dbWorker) startREPL(dataDir string) error {
 		return errors.Trace(err)
 	}
 	return errors.Trace(w.catacomb.Add(repl))
+}
+
+type trackedDBWorker struct {
+	tomb tomb.Tomb
+
+	dbApp     DBApp
+	namespace string
+
+	mutex   sync.Mutex
+	db      *sql.DB
+	err     error
+	isFatal FatalErrorChecker
+
+	clock  clock.Clock
+	logger Logger
+}
+
+// NewTrackedDBWorker creates a new TrackedDBWorker
+func NewTrackedDBWorker(dbApp DBApp, namespace string, isFatal FatalErrorChecker, clock clock.Clock, logger Logger) (TrackedDB, error) {
+	w := &trackedDBWorker{
+		dbApp:     dbApp,
+		namespace: namespace,
+		isFatal:   isFatal,
+		clock:     clock,
+		logger:    logger,
+	}
+
+	if err := w.openDatabase(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	w.tomb.Go(w.loop)
+
+	return w, nil
+}
+
+func (w *trackedDBWorker) openDatabase() error {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+
+	if w.isFatal(w.err) {
+		return errors.Trace(w.err)
+	}
+
+	var err error
+	w.db, err = w.dbApp.Open(context.TODO(), w.namespace)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+// DB returns the underlying sql.DB. If the DB is being opened from the
+// underlying database layer, then this will block.
+func (w *trackedDBWorker) DB() *sql.DB {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+
+	return w.db
+}
+
+// Err will return an blocking errors from the underlying tracking source.
+func (w *trackedDBWorker) Err() error {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+
+	return w.err
+}
+
+// Kill implements worker.Worker
+func (w *trackedDBWorker) Kill() {
+	w.tomb.Kill(nil)
+}
+
+// Wait implements worker.Worker
+func (w *trackedDBWorker) Wait() error {
+	return w.tomb.Wait()
+}
+
+func (w *trackedDBWorker) loop() error {
+	timer := w.clock.NewTimer(PollInterval)
+	defer timer.Stop()
+
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-timer.Chan():
+			err := retry.Call(retry.CallArgs{
+				Func: func() error {
+					return w.verifyDB(w.DB())
+				},
+				IsFatalError: w.isFatal,
+				NotifyFunc: func(err error, attempt int) {
+					w.logger.Debugf("failed to verify DB, attempt %d: %v", attempt, err)
+				},
+				Attempts:    100,
+				Delay:       time.Millisecond * 100,
+				MaxDelay:    time.Second * 10,
+				MaxDuration: time.Minute,
+				Clock:       w.clock,
+				BackoffFunc: retry.ExpBackoff(1*time.Second, 10*time.Second, 2.0, true),
+			})
+
+			if err != nil {
+				// If we get an error, ensure we close the underlying db and
+				// mark the tracked db in an error state.
+				w.mutex.Lock()
+				w.db.Close()
+				w.err = errors.Trace(err)
+				w.mutex.Unlock()
+
+				// As we failed attempting to verify the db, we're in a fatal
+				// state. Collapse the worker and if required, cause the other
+				// workers to follow suite.
+				return err
+			}
+		}
+	}
+}
+
+func (w *trackedDBWorker) verifyDB(db *sql.DB) error {
+	ctx, cancel := context.WithTimeout(context.TODO(), time.Second*10)
+	defer cancel()
+
+	err := w.txn(ctx, db, func(tx *sql.Tx) error {
+		if w.logger.IsTraceEnabled() {
+			w.logger.Tracef("verify db: querying sqlite_schema for number of tables")
+		}
+
+		row := tx.QueryRowContext(ctx, "SELECT COUNT(tbl_name) FROM sqlite_schema;")
+
+		var tableCount int
+		if err := row.Scan(&tableCount); err != nil {
+			return errors.Trace(err)
+		}
+
+		if w.logger.IsTraceEnabled() {
+			w.logger.Tracef("verify db: number of tables within the db", tableCount)
+		}
+
+		return errors.Trace(row.Err())
+	})
+	return errors.Trace(err)
+}
+
+func (w *trackedDBWorker) txn(ctx context.Context, db *sql.DB, fn func(*sql.Tx) error) error {
+	tx, err := db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := fn(tx); err != nil {
+		rErr := tx.Rollback()
+		if w.logger.IsTraceEnabled() {
+			w.logger.Tracef("verify db: failed to rollback txn", rErr)
+		}
+		return errors.Trace(err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }

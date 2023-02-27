@@ -12,15 +12,16 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 
+	coredb "github.com/juju/juju/core/db"
 	"github.com/juju/juju/database"
 )
 
 // Config encapsulates the configuration options for
 // instantiating a new lease expiry worker.
 type Config struct {
-	Clock  clock.Clock
-	Logger Logger
-	DB     *sql.DB
+	Clock     clock.Clock
+	Logger    Logger
+	TrackedDB coredb.TrackedDB
 }
 
 // Validate checks whether the worker configuration settings are valid.
@@ -31,8 +32,8 @@ func (cfg Config) Validate() error {
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
-	if cfg.DB == nil {
-		return errors.NotValidf("nil DB")
+	if cfg.TrackedDB == nil {
+		return errors.NotValidf("nil TrackedDB")
 	}
 
 	return nil
@@ -41,9 +42,9 @@ func (cfg Config) Validate() error {
 type expiryWorker struct {
 	catacomb catacomb.Catacomb
 
-	clock  clock.Clock
-	logger Logger
-	db     *sql.DB
+	clock     clock.Clock
+	logger    Logger
+	trackedDB coredb.TrackedDB
 
 	stmt *sql.Stmt
 }
@@ -58,9 +59,9 @@ func NewWorker(cfg Config) (worker.Worker, error) {
 	}
 
 	w := &expiryWorker{
-		clock:  cfg.Clock,
-		logger: cfg.Logger,
-		db:     cfg.DB,
+		clock:     cfg.Clock,
+		logger:    cfg.Logger,
+		trackedDB: cfg.TrackedDB,
 	}
 
 	// Prepare our single DML statement before considering the worker started.
@@ -73,7 +74,11 @@ DELETE FROM lease WHERE uuid in (
     AND    l.expiry < datetime('now')
 )`[1:]
 
-	if w.stmt, err = w.db.Prepare(q); err != nil {
+	if err := w.trackedDB.Err(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if w.stmt, err = w.trackedDB.DB().Prepare(q); err != nil {
 		return nil, errors.Trace(err)
 	}
 

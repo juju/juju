@@ -10,8 +10,86 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	db "github.com/juju/juju/core/db"
 	app "github.com/juju/juju/database/app"
 )
+
+// MockTrackedDB is a mock of TrackedDB interface.
+type MockTrackedDB struct {
+	ctrl     *gomock.Controller
+	recorder *MockTrackedDBMockRecorder
+}
+
+// MockTrackedDBMockRecorder is the mock recorder for MockTrackedDB.
+type MockTrackedDBMockRecorder struct {
+	mock *MockTrackedDB
+}
+
+// NewMockTrackedDB creates a new mock instance.
+func NewMockTrackedDB(ctrl *gomock.Controller) *MockTrackedDB {
+	mock := &MockTrackedDB{ctrl: ctrl}
+	mock.recorder = &MockTrackedDBMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockTrackedDB) EXPECT() *MockTrackedDBMockRecorder {
+	return m.recorder
+}
+
+// DB mocks base method.
+func (m *MockTrackedDB) DB() *sql.DB {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DB")
+	ret0, _ := ret[0].(*sql.DB)
+	return ret0
+}
+
+// DB indicates an expected call of DB.
+func (mr *MockTrackedDBMockRecorder) DB() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DB", reflect.TypeOf((*MockTrackedDB)(nil).DB))
+}
+
+// Err mocks base method.
+func (m *MockTrackedDB) Err() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Err")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Err indicates an expected call of Err.
+func (mr *MockTrackedDBMockRecorder) Err() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Err", reflect.TypeOf((*MockTrackedDB)(nil).Err))
+}
+
+// Kill mocks base method.
+func (m *MockTrackedDB) Kill() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Kill")
+}
+
+// Kill indicates an expected call of Kill.
+func (mr *MockTrackedDBMockRecorder) Kill() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Kill", reflect.TypeOf((*MockTrackedDB)(nil).Kill))
+}
+
+// Wait mocks base method.
+func (m *MockTrackedDB) Wait() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Wait")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Wait indicates an expected call of Wait.
+func (mr *MockTrackedDBMockRecorder) Wait() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Wait", reflect.TypeOf((*MockTrackedDB)(nil).Wait))
+}
 
 // MockNodeManager is a mock of NodeManager interface.
 type MockNodeManager struct {
@@ -149,10 +227,10 @@ func (m *MockDBGetter) EXPECT() *MockDBGetterMockRecorder {
 }
 
 // GetDB mocks base method.
-func (m *MockDBGetter) GetDB(namespace string) (*sql.DB, error) {
+func (m *MockDBGetter) GetDB(namespace string) (db.TrackedDB, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetDB", namespace)
-	ret0, _ := ret[0].(*sql.DB)
+	ret0, _ := ret[0].(db.TrackedDB)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

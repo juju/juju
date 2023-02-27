@@ -4,10 +4,10 @@
 package dbaccessor
 
 import (
-	"database/sql"
 	"time"
 
 	"github.com/golang/mock/gomock"
+	clock "github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
@@ -29,6 +29,9 @@ func (s *workerSuite) TestGetControllerDBSuccessNotExistingNode(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
+	s.expectClock()
+
+	done := s.expectTrackedDB(c)
 
 	mgrExp := s.nodeManager.EXPECT()
 	mgrExp.EnsureDataDir().Return(c.MkDir(), nil)
@@ -40,7 +43,6 @@ func (s *workerSuite) TestGetControllerDBSuccessNotExistingNode(c *gc.C) {
 	appExp := s.dbApp.EXPECT()
 	appExp.Ready(gomock.Any()).Return(nil)
 	appExp.ID().Return(uint64(666))
-	appExp.Open(gomock.Any(), "controller").Return(&sql.DB{}, nil)
 	appExp.Handover(gomock.Any()).Return(nil)
 	appExp.Close().Return(nil)
 
@@ -53,6 +55,9 @@ func (s *workerSuite) TestGetControllerDBSuccessNotExistingNode(c *gc.C) {
 	_, err := getter.GetDB("controller")
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Close the wait on the tracked DB
+	close(done)
+
 	workertest.CleanKill(c, w)
 }
 
@@ -60,6 +65,9 @@ func (s *workerSuite) TestWorkerStartupExistingNode(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
+	s.expectClock()
+
+	done := s.expectTrackedDB(c)
 
 	mgrExp := s.nodeManager.EXPECT()
 	mgrExp.EnsureDataDir().Return(c.MkDir(), nil)
@@ -77,7 +85,6 @@ func (s *workerSuite) TestWorkerStartupExistingNode(c *gc.C) {
 		close(sync)
 		return uint64(666)
 	})
-	appExp.Open(gomock.Any(), "controller").Return(&sql.DB{}, nil)
 	appExp.Handover(gomock.Any()).Return(nil)
 	appExp.Close().Return(nil)
 
@@ -89,6 +96,9 @@ func (s *workerSuite) TestWorkerStartupExistingNode(c *gc.C) {
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out waiting for synchronisation")
 	}
+
+	// Close the wait on the tracked DB
+	close(done)
 
 	workertest.CleanKill(c, w)
 }
@@ -107,6 +117,10 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 		NewApp: func(string, ...app.Option) (DBApp, error) {
 			return s.dbApp, nil
 		},
+		NewDBWorker: func(DBApp, string, FatalErrorChecker, clock.Clock, Logger) (TrackedDB, error) {
+			return s.trackedDB, nil
+		},
+		FatalErrorChecker: IsFatalError,
 	}
 
 	w, err := newWorker(cfg)

@@ -47,3 +47,4 @@ func (fakeLogger) Infof(_ string, _ ...interface{})         {}
 func (fakeLogger) Debugf(_ string, _ ...interface{})        {}
 func (fakeLogger) Tracef(_ string, _ ...interface{})        {}
 func (fakeLogger) Logf(loggo.Level, string, ...interface{}) {}
+func (fakeLogger) IsTraceEnabled() bool                     { return false }

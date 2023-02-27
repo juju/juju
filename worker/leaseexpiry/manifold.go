@@ -61,15 +61,15 @@ func (c ManifoldConfig) start(ctx dependency.Context) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 
-	db, err := dbGetter.GetDB("controller")
+	trackedDB, err := dbGetter.GetDB("controller")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	w, err := NewWorker(Config{
-		Clock:  clk,
-		Logger: c.Logger,
-		DB:     db,
+		Clock:     clk,
+		Logger:    c.Logger,
+		TrackedDB: trackedDB,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

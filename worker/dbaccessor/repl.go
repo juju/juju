@@ -20,15 +20,18 @@ import (
 	"github.com/juju/utils/v3"
 	"github.com/mattn/go-sqlite3"
 
+	coredb "github.com/juju/juju/core/db"
 	"github.com/juju/juju/database/driver"
 )
+
+const replSocketFileName = "juju.sock"
 
 const readTimeout = 5 * time.Second
 
 type replSession struct {
 	id     string
 	dbName string
-	db     *sql.DB
+	db     coredb.TrackedDB
 
 	// The params for the current command and a writer for encoding the
 	// command result.
@@ -288,7 +291,10 @@ func (r *sqlREPL) handleSQLExecCommand(s *replSession) {
 	// horrible horrible hack that should NEVER EVER see the light of day.
 	// You have been warned!
 	wrappedRes, err := withRetryWithResult(func() (interface{}, error) {
-		return s.db.ExecContext(r.sessionCtx, s.cmdParams)
+		if err := s.db.Err(); err != nil {
+			_, _ = fmt.Fprintf(s.resWriter, "Not connected to a database; %v\n", err)
+		}
+		return s.db.DB().ExecContext(r.sessionCtx, s.cmdParams)
 	}, r.retryableError)
 	if err != nil {
 		r.logger.Errorf("[session: %v] unable to execute query: %v", s.id, err)
@@ -312,7 +318,10 @@ func (r *sqlREPL) handleSQLSelectCommand(s *replSession) {
 	// horrible horrible hack that should NEVER EVER see the light of day.
 	// You have been warned!
 	wrappedRes, err := withRetryWithResult(func() (interface{}, error) {
-		return s.db.QueryContext(r.sessionCtx, s.cmdParams)
+		if err := s.db.Err(); err != nil {
+			_, _ = fmt.Fprintf(s.resWriter, "Not connected to a database; %v\n", err)
+		}
+		return s.db.DB().QueryContext(r.sessionCtx, s.cmdParams)
 	}, r.retryableError)
 	if err != nil {
 		r.logger.Errorf("[session: %v] unable to execute query: %v", s.id, err)

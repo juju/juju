@@ -693,10 +693,12 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		dbAccessorName: ifController(dbaccessor.Manifold(dbaccessor.ManifoldConfig{
-			AgentName: agentName,
-			Clock:     config.Clock,
-			Logger:    loggo.GetLogger("juju.worker.dbaccessor"),
-			NewApp:    dbaccessor.NewApp,
+			AgentName:         agentName,
+			Clock:             config.Clock,
+			Logger:            loggo.GetLogger("juju.worker.dbaccessor"),
+			NewApp:            dbaccessor.NewApp,
+			NewDBWorker:       dbaccessor.NewTrackedDBWorker,
+			FatalErrorChecker: dbaccessor.IsFatalError,
 		})),
 
 		fileNotifyWatcherName: ifController(filenotifywatcher.Manifold(filenotifywatcher.ManifoldConfig{

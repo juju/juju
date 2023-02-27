@@ -12,6 +12,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	gc "gopkg.in/check.v1"
 
+	coredb "github.com/juju/juju/core/db"
 	"github.com/juju/juju/database/schema"
 )
 
@@ -20,7 +21,8 @@ import (
 type ControllerSuite struct {
 	testing.IsolationSuite
 
-	DB *sql.DB
+	DB        *sql.DB
+	TrackedDB coredb.TrackedDB
 }
 
 // SetUpTest creates a new sql.DB reference and ensures that the
@@ -36,6 +38,10 @@ func (s *ControllerSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.DB, err = sql.Open("sqlite3", fmt.Sprintf("file:%s/db.sqlite3?_foreign_keys=1", dir))
 	c.Assert(err, jc.ErrorIsNil)
+
+	s.TrackedDB = &trackedDB{
+		db: s.DB,
+	}
 
 	tx, err := s.DB.Begin()
 	c.Assert(err, jc.ErrorIsNil)
@@ -55,4 +61,16 @@ func (s *ControllerSuite) TearDownTest(c *gc.C) {
 	c.Logf("Closing DB")
 	err := s.DB.Close()
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+type trackedDB struct {
+	db *sql.DB
+}
+
+func (t *trackedDB) DB() *sql.DB {
+	return t.db
+}
+
+func (t *trackedDB) Err() error {
+	return nil
 }
