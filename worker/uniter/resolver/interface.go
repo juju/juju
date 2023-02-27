@@ -101,4 +101,7 @@ type LocalState struct {
 	// OutdatedRemoteCharm is true when an upgrade has happened but the remotestate
 	// needs an update.
 	OutdatedRemoteCharm bool
+
+	// HookWasShutdown is true if the hook exited due to a SIGTERM.
+	HookWasShutdown bool
 }
