@@ -77,3 +77,24 @@ func matchTag(tags []types.Tag, key, value string) bool {
 	}
 	return false
 }
+
+func tagSpecForType(
+	resourceType types.ResourceType,
+	specs []types.TagSpecification,
+) (rval types.TagSpecification) {
+	rval = types.TagSpecification{
+		ResourceType: resourceType,
+	}
+	if specs == nil {
+		return
+	}
+
+	for _, spec := range specs {
+		if spec.ResourceType == resourceType {
+			rval = spec
+			return
+		}
+	}
+
+	return rval
+}

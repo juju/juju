@@ -682,7 +682,7 @@ func (st *State) deleteOne(uri *secrets.URI) (external []secrets.ValueRef, _ err
 		return nil, errors.Annotatef(err, "deleting permissions for %s", uri.String())
 	}
 
-	if err = st.removeSecretConsumer(uri); err != nil {
+	if err = st.removeSecretConsumerInfo(uri); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -1326,7 +1326,7 @@ func (st *State) GetSecretConsumer(uri *secrets.URI, consumer names.Tag) (*secre
 	return md, nil
 }
 
-func (st *State) removeSecretConsumer(uri *secrets.URI) error {
+func (st *State) removeSecretConsumerInfo(uri *secrets.URI) error {
 	secretConsumersCollection, closer := st.db().GetCollection(secretConsumersC)
 	defer closer()
 
@@ -1362,6 +1362,37 @@ func (st *State) removeSecretConsumer(uri *secrets.URI) error {
 	}})
 	if err != nil {
 		return errors.Annotatef(err, "cannot delete consumer info for %s", uri.String())
+	}
+	return nil
+}
+
+func (st *State) removeSecretConsumer(consumer names.Tag) error {
+	secretConsumersCollection, closer := st.db().GetCollection(secretConsumersC)
+	defer closer()
+
+	var docs []secretConsumerDoc
+	err := secretConsumersCollection.Find(
+		bson.D{{"consumer-tag", consumer.String()}},
+	).Select(bson.D{{"_id", 1}, {"label", 1}}).All(&docs)
+	if err != nil && errors.Cause(err) != mgo.ErrNotFound {
+		return errors.Trace(err)
+	}
+	refCountsCollection, closer := st.db().GetCollection(refcountsC)
+	defer closer()
+	for _, doc := range docs {
+		key := secretConsumerLabelKey(consumer, doc.Label)
+		_, err = refCountsCollection.Writeable().RemoveAll(bson.D{{
+			"_id", key,
+		}})
+		if err != nil {
+			return errors.Annotatef(err, "cannot delete consumer label refcounts for %s", key)
+		}
+	}
+
+	_, err = secretConsumersCollection.Writeable().RemoveAll(
+		bson.D{{"consumer-tag", consumer.String()}})
+	if err != nil {
+		return errors.Annotatef(err, "cannot delete consumer info for %s", consumer.String())
 	}
 	return nil
 }

@@ -43,7 +43,7 @@ run_charmhub_info_json() {
 run_charmstore_info() {
 	echo
 	output=$(juju info cs:ubuntu 2>&1 || true)
-	check_contains "$output" 'ERROR "cs:ubuntu" is not a Charm Hub charm'
+	check_contains "$output" 'ERROR charm or bundle name, "cs:ubuntu", is not valid'
 }
 
 test_charmhub_info() {
