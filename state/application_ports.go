@@ -231,15 +231,10 @@ func (op *applicationPortRangesOperation) Build(attempt int) ([]txn.Op, error) {
 		assertApplicationAliveOp(op.apr.st.docID(op.apr.ApplicationName())),
 	}
 
-	portListModified, err := op.mergePendingOpenPortRanges()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	modified, err := op.mergePendingClosePortRanges()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	portListModified = portListModified || modified
+	isPendingOpen := op.updatedPortRanges.MergePendingOpenPortRanges(op.apr.pendingOpenRanges)
+	isPendingClose := op.updatedPortRanges.MergePendingClosePortRanges(op.apr.pendingCloseRanges)
+
+	portListModified := isPendingOpen || isPendingClose
 
 	if !portListModified || (createDoc && len(op.updatedPortRanges) == 0) {
 		return nil, jujutxn.ErrNoOperations
@@ -259,68 +254,6 @@ func (op *applicationPortRangesOperation) Build(attempt int) ([]txn.Op, error) {
 	}
 
 	return ops, nil
-}
-
-func (op *applicationPortRangesOperation) mergePendingOpenPortRanges() (bool, error) {
-	var modified bool
-	for endpointName, pendingRanges := range op.apr.pendingOpenRanges {
-		for _, pendingRange := range pendingRanges {
-			if op.rangeExistsForEndpoint(endpointName, pendingRange) {
-				// Exists, no op for opening.
-				continue
-			}
-			op.updatedPortRanges[endpointName] = append(op.updatedPortRanges[endpointName], pendingRange)
-			modified = true
-		}
-	}
-	return modified, nil
-}
-
-func (op *applicationPortRangesOperation) mergePendingClosePortRanges() (bool, error) {
-	var modified bool
-	for endpointName, pendingRanges := range op.apr.pendingCloseRanges {
-		for _, pendingRange := range pendingRanges {
-			if !op.rangeExistsForEndpoint(endpointName, pendingRange) {
-				// Not exists, no op for closing.
-				continue
-			}
-			modified = op.removePortRange(endpointName, pendingRange)
-		}
-	}
-	return modified, nil
-}
-
-func (op *applicationPortRangesOperation) removePortRange(endpointName string, portRange network.PortRange) bool {
-	var modified bool
-	existingRanges := op.updatedPortRanges[endpointName]
-	for i, v := range existingRanges {
-		if v != portRange {
-			continue
-		}
-		existingRanges = append(existingRanges[:i], existingRanges[i+1:]...)
-		if len(existingRanges) == 0 {
-			delete(op.updatedPortRanges, endpointName)
-		} else {
-			op.updatedPortRanges[endpointName] = existingRanges
-		}
-		modified = true
-	}
-	return modified
-}
-
-func (op *applicationPortRangesOperation) rangeExistsForEndpoint(endpointName string, portRange network.PortRange) bool {
-	// For k8s applications, no endpoint level portrange supported currently.
-	// There is only one endpoint(which is empty string - "").
-	if len(op.updatedPortRanges[endpointName]) == 0 {
-		return false
-	}
-
-	for _, existingRange := range op.updatedPortRanges[endpointName] {
-		if existingRange == portRange {
-			return true
-		}
-	}
-	return false
 }
 
 func (op *applicationPortRangesOperation) getEndpointBindings() (set.Strings, error) {

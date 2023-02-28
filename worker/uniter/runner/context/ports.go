@@ -200,13 +200,30 @@ func (r *portRangeChangeRecorder) checkForConflict(incomingEndpoint string, inco
 // current unit grouped by endpoint.
 func (r *portRangeChangeRecorder) OpenedUnitPortRanges() network.GroupedPortRanges {
 	if len(r.machinePortRanges[r.unitTag]) > 0 {
-		return r.machinePortRanges[r.unitTag]
+		return r.mergeWithPendingChanges(r.machinePortRanges[r.unitTag])
 	}
-	return r.appPortRanges
+	return r.mergeWithPendingChanges(r.appPortRanges)
 }
 
 // PendingChanges returns the set of recorded open/close port range requests
 // (grouped by endpoint name) for the current unit.
 func (r *portRangeChangeRecorder) PendingChanges() (network.GroupedPortRanges, network.GroupedPortRanges) {
 	return r.pendingOpenRanges, r.pendingCloseRanges
+}
+
+// mergeWithPendingChanges takes the input changes and merges them with the
+// pending open and close changes.
+func (r *portRangeChangeRecorder) mergeWithPendingChanges(portRanges network.GroupedPortRanges) network.GroupedPortRanges {
+
+	resultingChanges := make(network.GroupedPortRanges)
+	for group, ranges := range portRanges {
+		resultingChanges[group] = append(resultingChanges[group], ranges...)
+	}
+
+	// Add the pending open changes
+	resultingChanges.MergePendingOpenPortRanges(r.pendingOpenRanges)
+	// Remove the pending close changes
+	resultingChanges.MergePendingClosePortRanges(r.pendingCloseRanges)
+
+	return resultingChanges
 }

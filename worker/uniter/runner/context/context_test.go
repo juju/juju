@@ -861,6 +861,59 @@ func (s *mockHookContextSuite) TestOpenPortRange(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *mockHookContextSuite) TestOpenedPortRanges(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.mockLeadership.EXPECT().IsLeader().Return(true, nil)
+	s.mockUnit.EXPECT().CommitHookChanges(params.CommitHookChangesArgs{
+		Args: []params.CommitHookChangesArg{
+			{
+				Tag: "unit-wordpress-0",
+				OpenPorts: []params.EntityPortRange{
+					{
+						Tag:      "unit-wordpress-0",
+						Endpoint: "",
+						Protocol: "tcp",
+						FromPort: 8080,
+						ToPort:   8080,
+					},
+				},
+			},
+		},
+	}).Return(nil)
+
+	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.CAAS, s.mockLeadership)
+
+	err := hookContext.OpenPortRange("", network.MustParsePortRange("8080/tcp"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	// OpenedPortRanges() should return the pending requests, see
+	// https://bugs.launchpad.net/juju/+bug/2008035
+	openedPorts := hookContext.OpenedPortRanges()
+	expectedOpenPorts := []network.PortRange{
+		// Already present range from NewMockUnitHookContext()
+		{
+			FromPort: 666,
+			ToPort:   888,
+			Protocol: "tcp",
+		},
+		// Newly added but not yet flushed range
+		{
+			FromPort: 8080,
+			ToPort:   8080,
+			Protocol: "tcp",
+		},
+	}
+	c.Assert(openedPorts.UniquePortRanges(), gc.DeepEquals, expectedOpenPorts)
+
+	err = hookContext.Flush("success", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// After Flush() opened ports should remain the same.
+	openedPorts = hookContext.OpenedPortRanges()
+	c.Assert(openedPorts.UniquePortRanges(), gc.DeepEquals, expectedOpenPorts)
+}
+
 func (s *mockHookContextSuite) TestClosePortRange(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
