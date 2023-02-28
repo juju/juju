@@ -136,5 +136,5 @@ func IsFatalError(err error) bool {
 
 	// By default, if the error is a retryable error, then just mark it as non
 	// fatal.
-	return !isRetryableError(err)
+	return !database.IsErrRetryable(err)
 }

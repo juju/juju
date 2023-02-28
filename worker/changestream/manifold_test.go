@@ -4,10 +4,9 @@
 package changestream
 
 import (
-	"database/sql"
-
 	clock "github.com/juju/clock"
 	"github.com/juju/errors"
+	coredb "github.com/juju/juju/core/db"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 )
@@ -49,7 +48,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		FileNotifyWatcher: "filenotifywatcher",
 		Clock:             s.clock,
 		Logger:            s.logger,
-		NewStream: func(*sql.DB, FileNotifier, clock.Clock, Logger) (DBStream, error) {
+		NewStream: func(coredb.TrackedDB, FileNotifier, clock.Clock, Logger) (DBStream, error) {
 			return s.dbStream, nil
 		},
 	}

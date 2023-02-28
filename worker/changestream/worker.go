@@ -143,7 +143,7 @@ func (w *changeStreamWorker) Changes(namespace string) (<-chan changestream.Chan
 		return nil, errors.Annotatef(err, "getting db for namespace %q", namespace)
 	}
 
-	stream, err := w.cfg.NewStream(trackedDB.DB(), fileNotifyWatcher{
+	stream, err := w.cfg.NewStream(trackedDB, fileNotifyWatcher{
 		fileNotifier: w.cfg.FileNotifyWatcher,
 		fileName:     fmt.Sprintf("change-stream-%s", namespace),
 	}, w.cfg.Clock, w.cfg.Logger)

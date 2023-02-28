@@ -29,7 +29,7 @@ type baseSuite struct {
 	logger            *MockLogger
 	dbStream          *MockDBStream
 	fileNotifyWatcher *MockFileNotifyWatcher
-	FileNotifier      *MockFileNotifier
+	fileNotifier      *MockFileNotifier
 }
 
 func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -41,7 +41,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.logger = NewMockLogger(ctrl)
 	s.dbStream = NewMockDBStream(ctrl)
 	s.fileNotifyWatcher = NewMockFileNotifyWatcher(ctrl)
-	s.FileNotifier = NewMockFileNotifier(ctrl)
+	s.fileNotifier = NewMockFileNotifier(ctrl)
 
 	return ctrl
 }
@@ -88,6 +88,6 @@ func (s *baseSuite) expectTimer(ticks int) <-chan struct{} {
 
 func (s *baseSuite) expectFileNotifyWatcher() chan bool {
 	ch := make(chan bool)
-	s.FileNotifier.EXPECT().Changes().Return(ch, nil).MinTimes(1)
+	s.fileNotifier.EXPECT().Changes().Return(ch, nil).MinTimes(1)
 	return ch
 }

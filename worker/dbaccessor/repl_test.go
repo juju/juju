@@ -4,7 +4,7 @@
 package dbaccessor
 
 import (
-	"os"
+	"path/filepath"
 
 	"github.com/juju/loggo"
 
@@ -19,24 +19,12 @@ type REPLSuite struct{}
 var _ = gc.Suite(&REPLSuite{})
 
 func (s *REPLSuite) TestREPL(c *gc.C) {
-	//filePath, done := s.makeTempSocket(c)
-	//defer done()
+	dir := c.MkDir()
+	path := filepath.Join(dir, "socket")
 
-	repl, err := newREPL("/tmp/socket", nil, func(e error) bool {
-		return false
-	}, clock.WallClock, fakeLogger{})
+	repl, err := newREPL(path, nil, clock.WallClock, fakeLogger{})
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CleanKill(c, repl)
-}
-
-func (s *REPLSuite) makeTempSocket(c *gc.C) (string, func()) {
-	file, err := os.CreateTemp("/tmp", "socket")
-	if err != nil {
-		c.Fatal(err)
-	}
-	return file.Name(), func() {
-		_ = os.Remove(file.Name())
-	}
 }
 
 type fakeLogger struct{}

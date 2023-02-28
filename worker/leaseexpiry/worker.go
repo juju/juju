@@ -4,6 +4,7 @@
 package leaseexpiry
 
 import (
+	"context"
 	"database/sql"
 	"time"
 
@@ -13,7 +14,6 @@ import (
 	"github.com/juju/worker/v3/catacomb"
 
 	coredb "github.com/juju/juju/core/db"
-	"github.com/juju/juju/database"
 )
 
 // Config encapsulates the configuration options for
@@ -45,8 +45,6 @@ type expiryWorker struct {
 	clock     clock.Clock
 	logger    Logger
 	trackedDB coredb.TrackedDB
-
-	stmt *sql.Stmt
 }
 
 // NewWorker returns a worker that periodically deletes
@@ -62,24 +60,6 @@ func NewWorker(cfg Config) (worker.Worker, error) {
 		clock:     cfg.Clock,
 		logger:    cfg.Logger,
 		trackedDB: cfg.TrackedDB,
-	}
-
-	// Prepare our single DML statement before considering the worker started.
-	// Pinned leases may not be deleted even if expired.
-	q := `
-DELETE FROM lease WHERE uuid in (
-    SELECT l.uuid 
-    FROM   lease l LEFT JOIN lease_pin p ON l.uuid = p.lease_uuid
-    WHERE  p.uuid IS NULL
-    AND    l.expiry < datetime('now')
-)`[1:]
-
-	if err := w.trackedDB.Err(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	if w.stmt, err = w.trackedDB.DB().Prepare(q); err != nil {
-		return nil, errors.Trace(err)
 	}
 
 	if err = catacomb.Invoke(catacomb.Plan{
@@ -109,30 +89,36 @@ func (w *expiryWorker) loop() error {
 }
 
 func (w *expiryWorker) expireLeases() error {
-	res, err := w.stmt.Exec()
-	if err != nil {
-		// TODO (manadart 2022-12-15): This incarnation of the worker runs on
-		// all controller nodes. Retryable errors are those that occur due to
-		// locking or other contention. We know we will retry very soon,
-		// so just log and indicate success for these cases.
-		// Rethink this if the worker cardinality changes to be singular.
-		if database.IsErrRetryable(err) {
-			w.logger.Debugf("ignoring error during lease expiry: %s", err.Error())
-			return nil
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	// Prepare our single DML statement before considering the worker started.
+	// Pinned leases may not be deleted even if expired.
+	q := `
+DELETE FROM lease WHERE uuid in (
+    SELECT l.uuid 
+    FROM   lease l LEFT JOIN lease_pin p ON l.uuid = p.lease_uuid
+    WHERE  p.uuid IS NULL
+    AND    l.expiry < datetime('now')
+)`[1:]
+
+	err := w.trackedDB.Txn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		res, err := tx.ExecContext(ctx, q)
+		if err != nil {
+			return errors.Trace(err)
 		}
-		return errors.Trace(err)
-	}
 
-	expired, err := res.RowsAffected()
-	if err != nil {
-		return errors.Trace(err)
-	}
+		expired, err := res.RowsAffected()
+		if err != nil {
+			return errors.Trace(err)
+		}
 
-	if expired > 0 {
-		w.logger.Infof("expired %d leases", expired)
-	}
-
-	return nil
+		if expired > 0 {
+			w.logger.Infof("expired %d leases", expired)
+		}
+		return nil
+	})
+	return errors.Trace(err)
 }
 
 // Kill is part of the worker.Worker interface.

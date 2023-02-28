@@ -56,7 +56,6 @@ func (s *bootstrapSuite) TestBootstrapSuccess(c *gc.C) {
 
 	err := BootstrapDqlite(context.TODO(), opt, stubLogger{}, check)
 	c.Assert(err, jc.ErrorIsNil)
-
 }
 
 type testOptFactory struct {

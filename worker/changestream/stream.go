@@ -4,14 +4,16 @@
 package changestream
 
 import (
+	"context"
 	"database/sql"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/changestream"
-	"github.com/juju/juju/database"
 	"github.com/juju/worker/v3/catacomb"
+
+	"github.com/juju/juju/core/changestream"
+	coredb "github.com/juju/juju/core/db"
 )
 
 const (
@@ -24,7 +26,7 @@ const (
 type Stream struct {
 	catacomb catacomb.Catacomb
 
-	db           *sql.DB
+	db           coredb.TrackedDB
 	fileNotifier FileNotifier
 	clock        clock.Clock
 	logger       Logger
@@ -34,7 +36,7 @@ type Stream struct {
 }
 
 // NewStream creates a new Stream.
-func NewStream(db *sql.DB, fileNotifier FileNotifier, clock clock.Clock, logger Logger) (DBStream, error) {
+func NewStream(db coredb.TrackedDB, fileNotifier FileNotifier, clock clock.Clock, logger Logger) (DBStream, error) {
 	stream := &Stream{
 		db:           db,
 		fileNotifier: fileNotifier,
@@ -80,14 +82,6 @@ func (s *Stream) loop() error {
 		return errors.Annotate(err, "getting file notifier")
 	}
 
-	// TODO (stickupkid): We need to read the last id from the database and
-	// set it here.
-	stmt, err := s.db.Prepare(query)
-	if err != nil {
-		return errors.Annotate(err, "preparing query 111")
-	}
-	defer stmt.Close()
-
 	timer := s.clock.NewTimer(PollInterval)
 	defer timer.Stop()
 
@@ -131,14 +125,8 @@ func (s *Stream) loop() error {
 			s.logger.Infof("Change stream has been unblocked")
 
 		case <-timer.Chan():
-			changes, err := s.readChanges(stmt)
+			changes, err := s.readChanges()
 			if err != nil {
-				if errors.Is(err, errRetryable) {
-					// We're retrying, so reset the timer to half the poll time,
-					// to try and get the changes sooner.
-					timer.Reset(PollInterval / 2)
-					continue
-				}
 				return errors.Annotate(err, "reading change")
 			}
 
@@ -193,35 +181,31 @@ func (e changeEvent) ChangedUUID() string {
 	return e.changedUUID
 }
 
-var errRetryable = errors.New("retryable error")
-
-func (s *Stream) readChanges(stmt *sql.Stmt) ([]changeEvent, error) {
-	rows, err := stmt.Query(s.lastID)
-	if err != nil {
-		if database.IsErrRetryable(err) {
-			s.logger.Debugf("ignoring error during reading changes: %s", err.Error())
-			return nil, errRetryable
-		}
-		return nil, errors.Annotate(err, "querying for changes")
-	}
-	defer rows.Close()
-
+func (s *Stream) readChanges() ([]changeEvent, error) {
 	var changes []changeEvent
-	dest := func(i int) []interface{} {
-		changes = append(changes, changeEvent{})
-		return []interface{}{
-			&changes[i].id,
-			&changes[i].changeType,
-			&changes[i].namespace,
-			&changes[i].changedUUID,
-			&changes[i].createdAt,
+	err := s.db.Txn(context.TODO(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, query, s.lastID)
+		if err != nil {
+			return errors.Annotate(err, "querying for changes")
 		}
-	}
-	for i := 0; rows.Next(); i++ {
-		if err := rows.Scan(dest(i)...); err != nil {
-			return nil, errors.Annotate(err, "scanning change")
-		}
-	}
+		defer rows.Close()
 
-	return changes, nil
+		dest := func(i int) []interface{} {
+			changes = append(changes, changeEvent{})
+			return []interface{}{
+				&changes[i].id,
+				&changes[i].changeType,
+				&changes[i].namespace,
+				&changes[i].changedUUID,
+				&changes[i].createdAt,
+			}
+		}
+		for i := 0; rows.Next(); i++ {
+			if err := rows.Scan(dest(i)...); err != nil {
+				return errors.Annotate(err, "scanning change")
+			}
+		}
+		return nil
+	})
+	return changes, errors.Trace(err)
 }

@@ -4,13 +4,13 @@
 package changestream
 
 import (
-	"database/sql"
-
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/worker/common"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
+
+	coredb "github.com/juju/juju/core/db"
+	"github.com/juju/juju/worker/common"
 )
 
 // Logger represents the logging methods called.
@@ -24,7 +24,7 @@ type Logger interface {
 }
 
 // StreamFn is an alias function that allows the creation of a DBStream.
-type StreamFn = func(*sql.DB, FileNotifier, clock.Clock, Logger) (DBStream, error)
+type StreamFn = func(coredb.TrackedDB, FileNotifier, clock.Clock, Logger) (DBStream, error)
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will
 // depend.

@@ -5,6 +5,7 @@
 package manifold_test
 
 import (
+	context "context"
 	sql "database/sql"
 	reflect "reflect"
 
@@ -35,17 +36,17 @@ func (m *MockTrackedDB) EXPECT() *MockTrackedDBMockRecorder {
 }
 
 // DB mocks base method.
-func (m *MockTrackedDB) DB() *sql.DB {
+func (m *MockTrackedDB) DB(arg0 func(*sql.DB) error) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DB")
-	ret0, _ := ret[0].(*sql.DB)
+	ret := m.ctrl.Call(m, "DB", arg0)
+	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DB indicates an expected call of DB.
-func (mr *MockTrackedDBMockRecorder) DB() *gomock.Call {
+func (mr *MockTrackedDBMockRecorder) DB(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DB", reflect.TypeOf((*MockTrackedDB)(nil).DB))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DB", reflect.TypeOf((*MockTrackedDB)(nil).DB), arg0)
 }
 
 // Err mocks base method.
@@ -60,4 +61,18 @@ func (m *MockTrackedDB) Err() error {
 func (mr *MockTrackedDBMockRecorder) Err() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Err", reflect.TypeOf((*MockTrackedDB)(nil).Err))
+}
+
+// Txn mocks base method.
+func (m *MockTrackedDB) Txn(arg0 context.Context, arg1 func(context.Context, *sql.Tx) error) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Txn", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Txn indicates an expected call of Txn.
+func (mr *MockTrackedDBMockRecorder) Txn(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Txn", reflect.TypeOf((*MockTrackedDB)(nil).Txn), arg0, arg1)
 }

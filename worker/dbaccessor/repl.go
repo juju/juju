@@ -8,7 +8,6 @@ import (
 	"database/sql"
 	"fmt"
 	"io"
-	"math/rand"
 	"net"
 	"strings"
 	"sync"
@@ -18,10 +17,8 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3"
-	"github.com/mattn/go-sqlite3"
 
 	coredb "github.com/juju/juju/core/db"
-	"github.com/juju/juju/database/driver"
 )
 
 const replSocketFileName = "juju.sock"
@@ -45,11 +42,10 @@ type replCmdDef struct {
 }
 
 type sqlREPL struct {
-	connListener   net.Listener
-	dbGetter       DBGetter
-	retryableError func(error) bool
-	clock          clock.Clock
-	logger         Logger
+	connListener net.Listener
+	dbGetter     DBGetter
+	clock        clock.Clock
+	logger       Logger
 
 	sessionCtx      context.Context
 	sessionCancelFn func()
@@ -58,7 +54,7 @@ type sqlREPL struct {
 	commands map[string]replCmdDef
 }
 
-func newREPL(pathToSocket string, dbGetter DBGetter, retryableError func(error) bool, clock clock.Clock, logger Logger) (REPL, error) {
+func newREPL(pathToSocket string, dbGetter DBGetter, clock clock.Clock, logger Logger) (REPL, error) {
 	l, err := net.Listen("unix", pathToSocket)
 	if err != nil {
 		return nil, errors.Annotate(err, "creating UNIX socket for REPL sessions")
@@ -71,7 +67,6 @@ func newREPL(pathToSocket string, dbGetter DBGetter, retryableError func(error) 
 	r := &sqlREPL{
 		connListener:    l,
 		dbGetter:        dbGetter,
-		retryableError:  retryableError,
 		clock:           clock,
 		logger:          logger,
 		sessionCtx:      ctx,
@@ -290,19 +285,18 @@ func (r *sqlREPL) handleSQLExecCommand(s *replSession) {
 	// NOTE(achilleasa): passing unfiltered user input to the DB is a
 	// horrible horrible hack that should NEVER EVER see the light of day.
 	// You have been warned!
-	wrappedRes, err := withRetryWithResult(func() (interface{}, error) {
-		if err := s.db.Err(); err != nil {
-			_, _ = fmt.Fprintf(s.resWriter, "Not connected to a database; %v\n", err)
-		}
-		return s.db.DB().ExecContext(r.sessionCtx, s.cmdParams)
-	}, r.retryableError)
+	var res sql.Result
+	err := s.db.DB(func(db *sql.DB) error {
+		var err error
+		res, err = db.ExecContext(r.sessionCtx, s.cmdParams)
+		return errors.Trace(err)
+	})
+
 	if err != nil {
 		r.logger.Errorf("[session: %v] unable to execute query: %v", s.id, err)
 		_, _ = fmt.Fprintf(s.resWriter, "Unable to execute query; check the logs for more details\n")
 		return
 	}
-	res := wrappedRes.(sql.Result)
-
 	lastInsertID, _ := res.LastInsertId()
 	rowsAffected, _ := res.RowsAffected()
 	_, _ = fmt.Fprintf(s.resWriter, "Affected Rows: %d; last insert ID: %v\n", rowsAffected, lastInsertID)
@@ -317,18 +311,17 @@ func (r *sqlREPL) handleSQLSelectCommand(s *replSession) {
 	// NOTE(achilleasa): passing unfiltered user input to the DB is a
 	// horrible horrible hack that should NEVER EVER see the light of day.
 	// You have been warned!
-	wrappedRes, err := withRetryWithResult(func() (interface{}, error) {
-		if err := s.db.Err(); err != nil {
-			_, _ = fmt.Fprintf(s.resWriter, "Not connected to a database; %v\n", err)
-		}
-		return s.db.DB().QueryContext(r.sessionCtx, s.cmdParams)
-	}, r.retryableError)
+	var res *sql.Rows
+	err := s.db.DB(func(db *sql.DB) error {
+		var err error
+		res, err = db.QueryContext(r.sessionCtx, s.cmdParams)
+		return errors.Trace(err)
+	})
 	if err != nil {
 		r.logger.Errorf("[session: %v] unable to execute query: %v", s.id, err)
 		_, _ = fmt.Fprintf(s.resWriter, "Unable to execute query; check the logs for more details\n")
 		return
 	}
-	res := wrappedRes.(*sql.Rows)
 
 	// Render header
 	colMeta, err := res.Columns()
@@ -371,83 +364,4 @@ func (r *sqlREPL) handleSQLSelectCommand(s *replSession) {
 	}
 
 	_, _ = fmt.Fprintf(s.resWriter, "\nTotal rows: %d\n", rowCount)
-}
-
-const (
-	maxDBRetries = 256
-	retryDelay   = time.Millisecond
-)
-
-func withRetry(fn func() error, retryable func(error) bool) error {
-	for attempt := 0; attempt < maxDBRetries; attempt++ {
-		err := fn()
-		if err == nil {
-			return nil // all done
-		}
-
-		// No point in re-trying or logging a no-row error.
-		if errors.Cause(err) == sql.ErrNoRows {
-			return sql.ErrNoRows
-		}
-
-		if !retryable(err) {
-			return err
-		}
-
-		jitter := time.Duration(rand.Float64() + 0.5)
-		time.Sleep(retryDelay * jitter)
-	}
-
-	return errors.Errorf("unable to complete request after %d retries", maxDBRetries)
-}
-
-func withRetryWithResult(fn func() (interface{}, error), retryable func(error) bool) (interface{}, error) {
-	var (
-		res interface{}
-		err error
-	)
-
-	if retryErr := withRetry(func() error {
-		res, err = fn()
-		return err
-	}, retryable); retryErr != nil {
-		return nil, retryErr
-	}
-
-	return res, err
-}
-
-// isRetryableError returns true if the given error might be transient and the
-// interaction can be safely retried.
-func isRetryableError(err error) bool {
-	err = errors.Cause(err)
-	if err == nil {
-		return false
-	}
-
-	if err, ok := err.(driver.Error); ok && err.Code == driver.ErrBusy {
-		return true
-	}
-
-	if err == sqlite3.ErrLocked || err == sqlite3.ErrBusy {
-		return true
-	}
-
-	if strings.Contains(err.Error(), "database is locked") {
-		return true
-	}
-
-	if strings.Contains(err.Error(), "cannot start a transaction within a transaction") {
-		return true
-	}
-
-	if strings.Contains(err.Error(), "bad connection") {
-		return true
-	}
-
-	if strings.Contains(err.Error(), "checkpoint in progress") {
-		return true
-	}
-
-	return false
 }

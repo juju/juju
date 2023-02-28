@@ -4,6 +4,7 @@
 package testing
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 
@@ -67,8 +68,14 @@ type trackedDB struct {
 	db *sql.DB
 }
 
-func (t *trackedDB) DB() *sql.DB {
-	return t.db
+func (t *trackedDB) DB(fn func(*sql.DB) error) error {
+	return fn(t.db)
+}
+
+func (t *trackedDB) Txn(ctx context.Context, fn func(context.Context, *sql.Tx) error) error {
+	return t.DB(func(db *sql.DB) error {
+		return coredb.Txn(ctx, db, fn)
+	})
 }
 
 func (t *trackedDB) Err() error {

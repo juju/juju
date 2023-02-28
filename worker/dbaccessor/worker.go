@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/retry"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 	"gopkg.in/tomb.v2"
@@ -25,6 +24,10 @@ import (
 const (
 	// PollInterval is the amount of time to wait between polling the database.
 	PollInterval = time.Second * 30
+
+	// DefaultVerifyAttempts is the number of attempts to verify the database,
+	// by opening a new database on verification failure.
+	DefaultVerifyAttempts = 3
 )
 
 // TrackedDB defines the union of a TrackedDB and a worker.Worker interface.
@@ -349,7 +352,7 @@ func (w *dbWorker) startREPL(dataDir string) error {
 	socketPath := filepath.Join(dataDir, replSocketFileName)
 	_ = os.Remove(socketPath)
 
-	repl, err := newREPL(socketPath, w, isRetryableError, w.cfg.Clock, w.cfg.Logger)
+	repl, err := newREPL(socketPath, w, w.cfg.Clock, w.cfg.Logger)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -362,7 +365,7 @@ type trackedDBWorker struct {
 	dbApp     DBApp
 	namespace string
 
-	mutex   sync.Mutex
+	mutex   sync.RWMutex
 	db      *sql.DB
 	err     error
 	isFatal FatalErrorChecker
@@ -407,13 +410,31 @@ func (w *trackedDBWorker) openDatabase() error {
 	return nil
 }
 
-// DB returns the underlying sql.DB. If the DB is being opened from the
-// underlying database layer, then this will block.
-func (w *trackedDBWorker) DB() *sql.DB {
-	w.mutex.Lock()
-	defer w.mutex.Unlock()
+// DB closes over a raw *sql.DB. Closing over the DB allows the late
+// realization of the database. Allowing retries of DB acquistion if there
+// is a failure that is non-retryable.
+func (w *trackedDBWorker) DB(fn func(*sql.DB) error) error {
+	w.mutex.RLock()
+	// We have a fatal error, the DB can not be accessed.
+	if w.err != nil {
+		w.mutex.RUnlock()
+		return errors.Trace(w.err)
+	}
+	db := w.db
+	w.mutex.RUnlock()
 
-	return w.db
+	return fn(db)
+}
+
+// Txn closes over a raw *sql.Tx. This allows retry semantics in only one
+// location. For instances where the underlying sql database is busy or if
+// it's a common retryable error that can be handled cleanly in one place.
+func (w *trackedDBWorker) Txn(ctx context.Context, fn func(context.Context, *sql.Tx) error) error {
+	return w.DB(func(db *sql.DB) error {
+		return coredb.Retry(func() error {
+			return coredb.Txn(ctx, db, fn)
+		})
+	})
 }
 
 // Err will return an blocking errors from the underlying tracking source.
@@ -443,23 +464,10 @@ func (w *trackedDBWorker) loop() error {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case <-timer.Chan():
-			err := retry.Call(retry.CallArgs{
-				Func: func() error {
-					return w.verifyDB(w.DB())
-				},
-				IsFatalError: w.isFatal,
-				NotifyFunc: func(err error, attempt int) {
-					w.logger.Debugf("failed to verify DB, attempt %d: %v", attempt, err)
-				},
-				Attempts:    100,
-				Delay:       time.Millisecond * 100,
-				MaxDelay:    time.Second * 10,
-				MaxDuration: time.Minute,
-				Clock:       w.clock,
-				BackoffFunc: retry.ExpBackoff(1*time.Second, 10*time.Second, 2.0, true),
-			})
-
-			if err != nil {
+			// Any retryable errors are handled at the txn level. If we get an
+			// error returning here, we've either exhausted the number of
+			// retries or the error was fatal.
+			if err := w.verifyDB(); err != nil {
 				// If we get an error, ensure we close the underlying db and
 				// mark the tracked db in an error state.
 				w.mutex.Lock()
@@ -470,53 +478,88 @@ func (w *trackedDBWorker) loop() error {
 				// As we failed attempting to verify the db, we're in a fatal
 				// state. Collapse the worker and if required, cause the other
 				// workers to follow suite.
-				return err
+				return errors.Trace(err)
 			}
 		}
 	}
 }
 
-func (w *trackedDBWorker) verifyDB(db *sql.DB) error {
+func (w *trackedDBWorker) verifyDB() error {
+	// Force the timeout to be lower that the DefaultTimeout, so we can spot
+	// issues a lot quicker.
 	ctx, cancel := context.WithTimeout(context.TODO(), time.Second*10)
 	defer cancel()
 
-	err := w.txn(ctx, db, func(tx *sql.Tx) error {
-		if w.logger.IsTraceEnabled() {
-			w.logger.Tracef("verify db: querying sqlite_schema for number of tables")
+	if w.logger.IsTraceEnabled() {
+		w.logger.Tracef("verify db: querying sqlite_schema for number of tables")
+	}
+
+	w.mutex.RLock()
+	db := w.db
+	w.mutex.RUnlock()
+
+	// There are multiple levels of retries here. For good reason. We want to
+	// retry the transaction semantics for retryable errors. Then if that fails
+	// we want to retry if the database is at fault. In that case we want
+	// to open up a new database and try the transaction again.
+	var (
+		err         error
+		substituted bool
+	)
+	for i := 0; i < DefaultVerifyAttempts; i++ {
+		// Verify that we don't have a potential nil database from the retry
+		// semantics.
+		if db == nil {
+			return errors.Errorf("no database found")
 		}
 
-		row := tx.QueryRowContext(ctx, "SELECT COUNT(tbl_name) FROM sqlite_schema;")
+		err = coredb.Retry(func() error {
+			return coredb.Txn(ctx, db, func(ctx context.Context, tx *sql.Tx) error {
+				row := tx.QueryRowContext(ctx, "SELECT COUNT(tbl_name) FROM sqlite_schema")
 
-		var tableCount int
-		if err := row.Scan(&tableCount); err != nil {
+				var tableCount int
+				if err := row.Scan(&tableCount); err != nil {
+					return errors.Trace(err)
+				}
+
+				if w.logger.IsTraceEnabled() {
+					w.logger.Tracef("verify db: number of tables within the db", tableCount)
+				}
+				return errors.Trace(row.Err())
+			})
+		})
+		// We were successful at requesting the schema, so we can bail out
+		// early.
+		if err == nil {
+			// If the database isn't the same one we started with, then force
+			// the new one into the worker.
+			if substituted {
+				w.mutex.Lock()
+				w.db = db
+				w.mutex.Unlock()
+			}
+
+			return nil
+		}
+
+		// We failed to apply the transaction, so just return the error and
+		// cause the worker to crash.
+		if i == DefaultVerifyAttempts-1 {
 			return errors.Trace(err)
 		}
 
-		if w.logger.IsTraceEnabled() {
-			w.logger.Tracef("verify db: number of tables within the db", tableCount)
+		// We got an error that is non-retryable, attempt to open a new database
+		// connection and see if that works.
+		w.logger.Errorf("verify db: unable to query db, attempting to open the database before applying txn")
+
+		// Attempt to open a new database. If there is an error, just crash
+		// the worker, we can't do anything else.
+		db, err = w.dbApp.Open(context.TODO(), w.namespace)
+		if err != nil {
+			return errors.Trace(err)
 		}
 
-		return errors.Trace(row.Err())
-	})
+		substituted = true
+	}
 	return errors.Trace(err)
-}
-
-func (w *trackedDBWorker) txn(ctx context.Context, db *sql.DB, fn func(*sql.Tx) error) error {
-	tx, err := db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if err := fn(tx); err != nil {
-		rErr := tx.Rollback()
-		if w.logger.IsTraceEnabled() {
-			w.logger.Tracef("verify db: failed to rollback txn", rErr)
-		}
-		return errors.Trace(err)
-	}
-
-	if err := tx.Commit(); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
 }
