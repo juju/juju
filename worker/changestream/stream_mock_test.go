@@ -175,10 +175,10 @@ func (m *MockEventQueue) EXPECT() *MockEventQueueMockRecorder {
 }
 
 // Subscribe mocks base method.
-func (m *MockEventQueue) Subscribe(arg0 ...changestream.SubscriptionOption) (changestream.Subscription, error) {
+func (m *MockEventQueue) Subscribe(arg0 func(changestream.ChangeEvent), arg1 ...changestream.SubscriptionOption) (changestream.Subscription, error) {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{}
-	for _, a := range arg0 {
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "Subscribe", varargs...)
@@ -188,9 +188,10 @@ func (m *MockEventQueue) Subscribe(arg0 ...changestream.SubscriptionOption) (cha
 }
 
 // Subscribe indicates an expected call of Subscribe.
-func (mr *MockEventQueueMockRecorder) Subscribe(arg0 ...interface{}) *gomock.Call {
+func (mr *MockEventQueueMockRecorder) Subscribe(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Subscribe", reflect.TypeOf((*MockEventQueue)(nil).Subscribe), arg0...)
+	varargs := append([]interface{}{arg0}, arg1...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Subscribe", reflect.TypeOf((*MockEventQueue)(nil).Subscribe), varargs...)
 }
 
 // MockFileNotifyWatcher is a mock of FileNotifyWatcher interface.

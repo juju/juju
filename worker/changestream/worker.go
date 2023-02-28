@@ -206,8 +206,6 @@ func NewEventQueueWorker(db *sql.DB, fileNotifier FileNotifier, clock clock.Cloc
 
 // eventQueueWorker is a worker that is responsible for managing the lifecycle
 // of both the DBStream and the EventQueue.
-// If one or the other dies, the worker will dies, cause the worker to be
-// restarted.
 type eventQueueWorker struct {
 	catacomb catacomb.Catacomb
 

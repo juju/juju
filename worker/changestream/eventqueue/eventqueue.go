@@ -94,7 +94,8 @@ func (q *EventQueue) Subscribe(handler changestream.Handler, opts ...changestrea
 	}
 	q.subscriptions[sub.id] = sub
 
-	// Register filters to route changes matching the subscription criteria to the newly crated subscription.
+	// Register filters to route changes matching the subscription criteria to
+	// the newly crated subscription.
 	for _, opt := range opts {
 		namespace := opt.Namespace()
 		q.subscriptionsByNS[namespace] = append(q.subscriptionsByNS[namespace], &eventFilter{
