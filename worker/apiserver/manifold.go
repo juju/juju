@@ -253,6 +253,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		EmbeddedCommand:                   execEmbeddedCommand,
 		SysLogger:                         sysLogger,
 		CharmhubHTTPClient:                charmhubHTTPClient,
+		DBGetter:                          dbGetter,
 	})
 	if err != nil {
 		_ = stTracker.Done()
