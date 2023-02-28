@@ -759,8 +759,6 @@ github.com/juju/blobstore/v3 v3.0.2 h1:roZ4YBuZYmWId6y/6ZLQSAMmNlHOclHD8PQAMOQer
 github.com/juju/blobstore/v3 v3.0.2/go.mod h1:NXEgMhrVH5744/zLfSkzsySlDQUpCgzvcNxjJJhICko=
 github.com/juju/charm/v10 v10.0.0 h1:mIVqcCKPQj6PTUeiOXTIoOhn4TnJgJuJfmOySgznQl0=
 github.com/juju/charm/v10 v10.0.0/go.mod h1:cZq3wZblWBLsvBfLVsTfE0iRtoskucckIeFDP+mcafM=
-github.com/juju/charm/v9 v9.0.6 h1:xHTrkS2o7UOtfqTXNEi4SB12Jp05O+CaKCn6fLNNfHc=
-github.com/juju/charm/v9 v9.0.6/go.mod h1:g+nZ75r0IKMHov+UFfI8EAdqIIE2xy4fl9eI33Dyuz8=
 github.com/juju/clock v0.0.0-20190205081909-9c5c9712527c/go.mod h1:nD0vlnrUjcjJhqN5WuCWZyzfd5AHZAC9/ajvbSx69xA=
 github.com/juju/clock v0.0.0-20220202072423-1b0f830854c4/go.mod h1:zDZCPSgCJQINeZtQwHx2/cFk4seaBC8Yiqe8V82xiP0=
 github.com/juju/clock v0.0.0-20220203021603-d9deb868a28a/go.mod h1:GZ/FY8Cqw3KHG6DwRVPUKbSPTAwyrU28xFi5cqZnLsc=
