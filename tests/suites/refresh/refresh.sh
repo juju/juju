@@ -79,6 +79,11 @@ run_refresh_local_resources() {
 	wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" "1")"
 	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
 
+	juju config juju-qa-test foo-file=true
+	# wait for config-changed, the charm will update the status
+	# to include the contents of foo-file.txt
+	wait_for "resource line one: did the resource attach?" "$(workload_status juju-qa-test 0).message"
+
 	destroy_model "${model_name}"
 }
 
