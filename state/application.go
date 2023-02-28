@@ -686,11 +686,16 @@ func (a *Application) removeOps(asserts bson.D, op *ForcedOperation) ([]txn.Op, 
 	}
 	ops = append(ops, removeOfferOps...)
 	// Remove secret permissions.
-	secretPermissionsOps, err := a.st.removeScopedSecretPermissionOps(a.Tag())
+	secretScopedPermissionsOps, err := a.st.removeScopedSecretPermissionOps(a.Tag())
 	if op.FatalError(err) {
 		return nil, errors.Trace(err)
 	}
-	ops = append(ops, secretPermissionsOps...)
+	ops = append(ops, secretScopedPermissionsOps...)
+	secretConsumerPermissionsOps, err := a.st.removeConsumerSecretPermissionOps(a.Tag())
+	if op.FatalError(err) {
+		return nil, errors.Trace(err)
+	}
+	ops = append(ops, secretConsumerPermissionsOps...)
 	secretLabelOps, err := a.st.removeOwnerSecretLabelOps(a.ApplicationTag())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -2760,7 +2765,11 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation
 	if op.FatalError(err) {
 		return nil, errors.Trace(err)
 	}
-	secretPermissionsOps, err := a.st.removeScopedSecretPermissionOps(u.Tag())
+	secretScopedPermissionsOps, err := a.st.removeScopedSecretPermissionOps(u.Tag())
+	if op.FatalError(err) {
+		return nil, errors.Trace(err)
+	}
+	secretConsumerPermissionsOps, err := a.st.removeConsumerSecretPermissionOps(u.Tag())
 	if op.FatalError(err) {
 		return nil, errors.Trace(err)
 	}
@@ -2797,7 +2806,8 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation
 	ops = append(ops, portsOps...)
 	ops = append(ops, resOps...)
 	ops = append(ops, hostOps...)
-	ops = append(ops, secretPermissionsOps...)
+	ops = append(ops, secretScopedPermissionsOps...)
+	ops = append(ops, secretConsumerPermissionsOps...)
 	ops = append(ops, secretOwnerLabelOps...)
 	ops = append(ops, secretConsumerLabelOps...)
 

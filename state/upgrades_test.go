@@ -191,6 +191,157 @@ func (s *upgradesSuite) makeApplication(c *gc.C, uuid, name string, life Life) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *upgradesSuite) TestRemoveOrphanedSecretPermissions(c *gc.C) {
+	model1 := s.makeModel(c, "model-1", coretesting.Attrs{})
+	model2 := s.makeModel(c, "model-2", coretesting.Attrs{})
+	defer func() {
+		_ = model1.Close()
+		_ = model2.Close()
+	}()
+
+	uuid1 := model1.ModelUUID()
+	uuid2 := model2.ModelUUID()
+
+	permissionsColl, closer := s.state.db().GetRawCollection(secretPermissionsC)
+	defer closer()
+
+	appsColl, closer := s.state.db().GetRawCollection(applicationsC)
+	defer closer()
+
+	unitsColl, closer := s.state.db().GetRawCollection(unitsC)
+	defer closer()
+
+	var err error
+	err = appsColl.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid1, "app1"),
+		"name":       "app1",
+		"model-uuid": uuid1,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = appsColl.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid2, "app2"),
+		"name":       "app2",
+		"model-uuid": uuid2,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = unitsColl.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid1, "unit/1"),
+		"name":       "unit/1",
+		"model-uuid": uuid1,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = unitsColl.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid2, "unit/2"),
+		"name":       "unit/2",
+		"model-uuid": uuid2,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	secretID := "4fdg37dgag3jdjej49sj"
+	err = permissionsColl.Insert(bson.M{
+		"model-uuid":  uuid1,
+		"_id":         ensureModelUUID(uuid1, secretID+"#application-app1"),
+		"subject-tag": "application-app1",
+		"scope-tag":   "relation-blah",
+		"role":        "view",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = permissionsColl.Insert(bson.M{
+		"model-uuid":  uuid1,
+		"_id":         ensureModelUUID(uuid1, secretID+"#application-appbad1"),
+		"subject-tag": "application-appbad1",
+		"scope-tag":   "relation-blah",
+		"role":        "view",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = permissionsColl.Insert(bson.M{
+		"model-uuid":  uuid1,
+		"_id":         ensureModelUUID(uuid1, secretID+"#unit-unit-1"),
+		"subject-tag": "unit-unit-1",
+		"scope-tag":   "relation-blah",
+		"role":        "view",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = permissionsColl.Insert(bson.M{
+		"model-uuid":  uuid1,
+		"_id":         ensureModelUUID(uuid1, secretID+"#unit-unitbad-1"),
+		"subject-tag": "unit-unitbad-1",
+		"scope-tag":   "relation-blah",
+		"role":        "view",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = permissionsColl.Insert(bson.M{
+		"model-uuid":  uuid2,
+		"_id":         ensureModelUUID(uuid2, secretID+"#application-app2"),
+		"subject-tag": "application-app2",
+		"scope-tag":   "relation-blah",
+		"role":        "view",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = permissionsColl.Insert(bson.M{
+		"model-uuid":  uuid2,
+		"_id":         ensureModelUUID(uuid2, secretID+"#application-appbad2"),
+		"subject-tag": "application-appbad2",
+		"scope-tag":   "relation-blah",
+		"role":        "view",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = permissionsColl.Insert(bson.M{
+		"model-uuid":  uuid2,
+		"_id":         ensureModelUUID(uuid2, secretID+"#unit-unit-2"),
+		"subject-tag": "unit-unit-2",
+		"scope-tag":   "relation-blah",
+		"role":        "view",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = permissionsColl.Insert(bson.M{
+		"model-uuid":  uuid2,
+		"_id":         ensureModelUUID(uuid2, secretID+"#unit-unitbad-2"),
+		"subject-tag": "unit-unitbad-2",
+		"scope-tag":   "relation-blah",
+		"role":        "view",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := bsonMById{
+		{
+			"_id":         ensureModelUUID(uuid1, secretID+"#application-app1"),
+			"model-uuid":  uuid1,
+			"subject-tag": "application-app1",
+			"scope-tag":   "relation-blah",
+			"role":        "view",
+		},
+		{
+			"_id":         ensureModelUUID(uuid1, secretID+"#unit-unit-1"),
+			"model-uuid":  uuid1,
+			"subject-tag": "unit-unit-1",
+			"scope-tag":   "relation-blah",
+			"role":        "view",
+		},
+		{
+			"_id":         ensureModelUUID(uuid2, secretID+"#application-app2"),
+			"model-uuid":  uuid2,
+			"subject-tag": "application-app2",
+			"scope-tag":   "relation-blah",
+			"role":        "view",
+		},
+		{
+			"_id":         ensureModelUUID(uuid2, secretID+"#unit-unit-2"),
+			"model-uuid":  uuid2,
+			"subject-tag": "unit-unit-2",
+			"scope-tag":   "relation-blah",
+			"role":        "view",
+		},
+	}
+
+	sort.Sort(expected)
+	s.assertUpgradedData(c, RemoveOrphanedSecretPermissions,
+		upgradedData(permissionsColl, expected),
+	)
+}
+
 type docById []bson.M
 
 func (d docById) Len() int           { return len(d) }
