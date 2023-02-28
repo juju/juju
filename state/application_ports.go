@@ -5,6 +5,7 @@ package state
 
 import (
 	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
@@ -43,6 +44,10 @@ type ApplicationPortRanges interface {
 
 	// ForUnit returns the set of port ranges opened by the specified unit.
 	ForUnit(unitName string) UnitPortRanges
+
+	// ByEndpoint returns the list of open port ranges grouped by
+	// application endpoint.
+	ByEndpoint() network.GroupedPortRanges
 
 	// Changes returns a ModelOperation for applying any changes that were
 	// made to this port range instance.
@@ -95,6 +100,17 @@ func (p *applicationPortRanges) ByUnit() map[string]UnitPortRanges {
 		res[unitName] = newApplicationPortRangesForUnit(unitName, p)
 	}
 	return res
+}
+
+// ByEndpoint returns the list of open port ranges grouped by endpoint.
+func (p *applicationPortRanges) ByEndpoint() network.GroupedPortRanges {
+	out := make(network.GroupedPortRanges)
+	for _, gpg := range p.doc.UnitRanges {
+		for endpoint, prs := range gpg {
+			out[endpoint] = append(out[endpoint], prs...)
+		}
+	}
+	return out
 }
 
 // UniquePortRanges returns a slice of unique open PortRanges all units.
@@ -168,16 +184,6 @@ func (p *applicationPortRanges) removeOps() []txn.Op {
 	}}
 }
 
-func (p *applicationPortRanges) byEndpointForApplication() network.GroupedPortRanges {
-	out := make(network.GroupedPortRanges)
-	for _, gpg := range p.doc.UnitRanges {
-		for endpoint, prs := range gpg {
-			out[endpoint] = append(out[endpoint], prs...)
-		}
-	}
-	return out
-}
-
 type applicationPortRangesForUnit struct {
 	unitName string
 
@@ -229,8 +235,7 @@ func (p *applicationPortRangesForUnit) UniquePortRanges() []network.PortRange {
 	return allRanges
 }
 
-// ByEndpoint returns the list of open port ranges grouped by
-// application endpoint.
+// ByEndpoint returns the list of open port ranges grouped by endpoint.
 func (p *applicationPortRangesForUnit) ByEndpoint() network.GroupedPortRanges {
 	return p.apg.doc.UnitRanges[p.unitName]
 }
@@ -560,11 +565,9 @@ func (m *Model) OpenedPortRangesForAllApplications() ([]ApplicationPortRanges, e
 		return nil, errors.Trace(err)
 	}
 
-	results := make([]ApplicationPortRanges, len(mprResults))
-	for i, res := range mprResults {
-		results[i] = res
-	}
-	return results, nil
+	return transform.Slice(mprResults, func(agr *applicationPortRanges) ApplicationPortRanges {
+		return agr
+	}), nil
 }
 
 // getOpenedApplicationPortRangesForAllApplications is used for migration export.

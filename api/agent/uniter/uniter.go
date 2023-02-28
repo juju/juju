@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/charm/v10"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -381,17 +382,7 @@ func (st *State) Model() (*model.Model, error) {
 	}, nil
 }
 
-// OpenedMachinePortRangesByEndpoint returns all port ranges currently open on the given
-// machine, grouped by unit tag and application endpoint.
-func (st *State) OpenedMachinePortRangesByEndpoint(machineTag names.MachineTag) (map[names.UnitTag]network.GroupedPortRanges, error) {
-	var results params.OpenMachinePortRangesByEndpointResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: machineTag.String()}},
-	}
-	err := st.facade.FacadeCall("OpenedMachinePortRangesByEndpoint", args, &results)
-	if err != nil {
-		return nil, err
-	}
+func processOpenPortRangesByEndpointResults(results params.OpenPortRangesByEndpointResults) (map[names.UnitTag]network.GroupedPortRanges, error) {
 	if len(results.Results) != 1 {
 		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
@@ -407,26 +398,51 @@ func (st *State) OpenedMachinePortRangesByEndpoint(machineTag names.MachineTag) 
 			return nil, errors.Trace(err)
 		}
 		portRangeMap[unitTag] = make(network.GroupedPortRanges)
-
 		for _, group := range unitPortRanges {
-			portList := make([]network.PortRange, len(group.PortRanges))
-			for i, pr := range group.PortRanges {
-				portList[i] = pr.NetworkPortRange()
-			}
-			portRangeMap[unitTag][group.Endpoint] = portList
+			portRangeMap[unitTag][group.Endpoint] = transform.Slice(group.PortRanges, func(pr params.PortRange) network.PortRange {
+				return pr.NetworkPortRange()
+			})
 		}
 	}
 	return portRangeMap, nil
 }
 
+// OpenedMachinePortRangesByEndpoint returns all port ranges currently open on the given
+// machine, grouped by unit tag and application endpoint.
+func (st *State) OpenedMachinePortRangesByEndpoint(machineTag names.MachineTag) (map[names.UnitTag]network.GroupedPortRanges, error) {
+	var results params.OpenPortRangesByEndpointResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: machineTag.String()}},
+	}
+	err := st.facade.FacadeCall("OpenedMachinePortRangesByEndpoint", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	return processOpenPortRangesByEndpointResults(results)
+}
+
+// OpenedPortRangesByEndpoint returns all port ranges currently open for the given
+// application, grouped by unit tag and application endpoint.
+func (st *State) OpenedPortRangesByEndpoint() (map[names.UnitTag]network.GroupedPortRanges, error) {
+	if st.BestAPIVersion() < 18 {
+		// OpenedPortRangesByEndpoint() was introduced in UniterAPIV18.
+		return nil, errors.NotImplementedf("OpenedPortRangesByEndpoint() (need V17+)")
+	}
+	var results params.OpenPortRangesByEndpointResults
+	if err := st.facade.FacadeCall("OpenedPortRangesByEndpoint", nil, &results); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return processOpenPortRangesByEndpointResults(results)
+}
+
 // OpenedApplicationPortRangesByEndpoint returns all port ranges currently open for the given
 // application, grouped by application endpoint.
-func (st *State) OpenedApplicationPortRangesByEndpoint(unitTag names.UnitTag) (network.GroupedPortRanges, error) {
+func (st *State) OpenedApplicationPortRangesByEndpoint(appTag names.ApplicationTag) (network.GroupedPortRanges, error) {
 	if st.BestAPIVersion() < 18 {
 		// OpenedApplicationPortRangesByEndpoint() was introduced in UniterAPIV18.
 		return nil, errors.NotImplementedf("OpenedApplicationPortRangesByEndpoint() (need V17+)")
 	}
-	arg := params.Entity{Tag: unitTag.String()}
+	arg := params.Entity{Tag: appTag.String()}
 	var result params.ApplicationOpenedPortsResults
 	if err := st.facade.FacadeCall("OpenedApplicationPortRangesByEndpoint", arg, &result); err != nil {
 		return nil, errors.Trace(err)
@@ -437,7 +453,7 @@ func (st *State) OpenedApplicationPortRangesByEndpoint(unitTag names.UnitTag) (n
 	res := result.Results[0]
 	if res.Error != nil {
 		err := apiservererrors.RestoreError(res.Error)
-		return nil, errors.Annotatef(err, "unable to fetch opened ports for %s", unitTag)
+		return nil, errors.Annotatef(err, "unable to fetch opened ports for %s", appTag)
 	}
 	out := make(network.GroupedPortRanges)
 	for _, pgs := range res.ApplicationPortRanges {

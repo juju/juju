@@ -854,15 +854,15 @@ type ApplicationOpenedPortsResults struct {
 	Results []ApplicationOpenedPortsResult `json:"results"`
 }
 
-// OpenMachinePortRangesByEndpointResults holds the results of a request to the
-// uniter's OpenedMachinePortRangesByEndpoint API.
-type OpenMachinePortRangesByEndpointResults struct {
-	Results []OpenMachinePortRangesByEndpointResult `json:"results"`
+// OpenPortRangesByEndpointResults holds the results of a request to the
+// uniter's OpenedMachinePortRangesByEndpoint and OpenedPortRangesByEndpoint API.
+type OpenPortRangesByEndpointResults struct {
+	Results []OpenPortRangesByEndpointResult `json:"results"`
 }
 
-// OpenMachinePortRangesByEndpointResult holds a single result of a request to
-// the uniter's OpenedMachinePortRangesByEndpoint API.
-type OpenMachinePortRangesByEndpointResult struct {
+// OpenPortRangesByEndpointResult holds a single result of a request to
+// the uniter's OpenedMachinePortRangesByEndpoint and OpenedPortRangesByEndpoint API.
+type OpenPortRangesByEndpointResult struct {
 	Error *Error `json:"error,omitempty"`
 
 	// The set of opened port ranges grouped by unit tag.

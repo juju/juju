@@ -223,6 +223,15 @@ func (s *uniterSuiteBase) setupCAASModel(c *gc.C, isSidecar bool) (*apiuniter.St
 		Application: app,
 		SetCharmURL: true,
 	})
+	if isSidecar {
+		s.authorizer = apiservertesting.FakeAuthorizer{
+			Tag: unit.Tag(),
+		}
+	} else {
+		s.authorizer = apiservertesting.FakeAuthorizer{
+			Tag: app.Tag(),
+		}
+	}
 
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
@@ -244,9 +253,6 @@ func (s *uniterSuiteBase) setupCAASModel(c *gc.C, isSidecar bool) (*apiuniter.St
 	c.Assert(err, jc.ErrorIsNil)
 	s.CleanupSuite.AddCleanup(func(*gc.C) { _ = apiState.Close() })
 
-	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag: app.Tag(),
-	}
 	u, err := apiuniter.NewFromConnection(apiState)
 	c.Assert(err, jc.ErrorIsNil)
 	return u, cm, app, unit
@@ -3288,8 +3294,8 @@ func (s *uniterSuite) TestOpenedMachinePortRangesByEndpoint(c *gc.C) {
 	}
 	result, err := s.uniter.OpenedMachinePortRangesByEndpoint(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.OpenMachinePortRangesByEndpointResults{
-		Results: []params.OpenMachinePortRangesByEndpointResult{
+	c.Assert(result, gc.DeepEquals, params.OpenPortRangesByEndpointResults{
+		Results: []params.OpenPortRangesByEndpointResult{
 			{Error: apiservertesting.ErrUnauthorized},
 			{
 				UnitPortRanges: expectPortRanges,
@@ -3722,7 +3728,7 @@ func (s *uniterSuite) TestOpenedApplicationPortRangesByEndpoint(c *gc.C) {
 	c.Assert(st.ApplyOperation(portRanges.Changes()), jc.ErrorIsNil)
 
 	// Get the open port ranges
-	arg := params.Entity{Tag: "unit-cockroachdb-0"}
+	arg := params.Entity{Tag: "application-cockroachdb"}
 	expectPortRanges := []params.ApplicationOpenedPorts{
 		{
 			Endpoint:   "",
@@ -3741,6 +3747,50 @@ func (s *uniterSuite) TestOpenedApplicationPortRangesByEndpoint(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.ApplicationOpenedPortsResults{
 		Results: []params.ApplicationOpenedPortsResult{
 			{ApplicationPortRanges: expectPortRanges},
+		},
+	})
+}
+
+func (s *uniterSuite) TestOpenedPortRangesByEndpoint(c *gc.C) {
+	_, cm, app, unit := s.setupCAASModel(c, true)
+	st := cm.State()
+
+	appPortRanges, err := app.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appPortRanges.UniquePortRanges(), gc.HasLen, 0)
+
+	portRanges, err := unit.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Open some ports using different endpoints.
+	portRanges.Open(allEndpoints, network.MustParsePortRange("1000/tcp"))
+	portRanges.Open("db", network.MustParsePortRange("1111/udp"))
+
+	c.Assert(st.ApplyOperation(portRanges.Changes()), jc.ErrorIsNil)
+
+	// Get the open port ranges
+	expectPortRanges := []params.OpenUnitPortRangesByEndpoint{
+		{
+			Endpoint:   "",
+			PortRanges: []params.PortRange{{FromPort: 1000, ToPort: 1000, Protocol: "tcp"}},
+		},
+		{
+			Endpoint:   "db",
+			PortRanges: []params.PortRange{{FromPort: 1111, ToPort: 1111, Protocol: "udp"}},
+		},
+	}
+
+	uniterAPI := s.newUniterAPI(c, st, s.authorizer)
+
+	result, err := uniterAPI.OpenedPortRangesByEndpoint()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.OpenPortRangesByEndpointResults{
+		Results: []params.OpenPortRangesByEndpointResult{
+			{
+				UnitPortRanges: map[string][]params.OpenUnitPortRangesByEndpoint{
+					"unit-cockroachdb-0": expectPortRanges,
+				},
+			},
 		},
 	})
 }

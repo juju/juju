@@ -45327,10 +45327,19 @@
                             "$ref": "#/definitions/Entities"
                         },
                         "Result": {
-                            "$ref": "#/definitions/OpenMachinePortRangesByEndpointResults"
+                            "$ref": "#/definitions/OpenPortRangesByEndpointResults"
                         }
                     },
                     "description": "OpenedMachinePortRangesByEndpoint returns the port ranges opened by each\nunit on the provided machines grouped by application endpoint."
+                },
+                "OpenedPortRangesByEndpoint": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/OpenPortRangesByEndpointResults"
+                        }
+                    },
+                    "description": "OpenedPortRangesByEndpoint returns the port ranges opened by each\napplication grouped by application endpoint."
                 },
                 "PrivateAddress": {
                     "type": "object",
@@ -47663,7 +47672,7 @@
                         "results"
                     ]
                 },
-                "OpenMachinePortRangesByEndpointResult": {
+                "OpenPortRangesByEndpointResult": {
                     "type": "object",
                     "properties": {
                         "error": {
@@ -47686,13 +47695,13 @@
                         "unit-port-ranges"
                     ]
                 },
-                "OpenMachinePortRangesByEndpointResults": {
+                "OpenPortRangesByEndpointResults": {
                     "type": "object",
                     "properties": {
                         "results": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/OpenMachinePortRangesByEndpointResult"
+                                "$ref": "#/definitions/OpenPortRangesByEndpointResult"
                             }
                         }
                     },

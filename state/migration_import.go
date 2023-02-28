@@ -6,6 +6,7 @@ package state
 import (
 	"encoding/hex"
 	"fmt"
+	"github.com/juju/collections/transform"
 	"reflect"
 	"strconv"
 	"time"
@@ -627,15 +628,13 @@ func (i *importer) applicationPortsOp(a description.Application) txn.Op {
 		portRangeDoc.UnitRanges[unitName] = make(network.GroupedPortRanges)
 
 		for endpointName, portRanges := range unitPorts.ByEndpoint() {
-			portRangeList := make([]network.PortRange, len(portRanges))
-			for i, pr := range portRanges {
-				portRangeList[i] = network.PortRange{
+			portRangeList := transform.Slice(portRanges, func(pr description.UnitPortRange) network.PortRange {
+				return network.PortRange{
 					FromPort: pr.FromPort(),
 					ToPort:   pr.ToPort(),
 					Protocol: pr.Protocol(),
 				}
-			}
-
+			})
 			portRangeDoc.UnitRanges[unitName][endpointName] = portRangeList
 		}
 	}

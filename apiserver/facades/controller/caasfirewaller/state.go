@@ -53,5 +53,9 @@ func (a *applicationShim) Charm() (charmscommon.Charm, bool, error) {
 }
 
 func (a *applicationShim) OpenedPortRanges() (network.GroupedPortRanges, error) {
-	return a.Application.OpenedPortRanges()
+	pg, err := a.Application.OpenedPortRanges()
+	if err != nil {
+		return nil, err
+	}
+	return pg.ByEndpoint(), nil
 }
