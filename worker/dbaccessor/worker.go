@@ -370,6 +370,10 @@ type trackedDBWorker struct {
 	err     error
 	isFatal FatalErrorChecker
 
+	preparesMutex sync.RWMutex
+	prepares      map[uint64]func(*sql.DB) error
+	preparesIdx   uint64
+
 	clock  clock.Clock
 	logger Logger
 }
@@ -382,32 +386,18 @@ func NewTrackedDBWorker(dbApp DBApp, namespace string, isFatal FatalErrorChecker
 		isFatal:   isFatal,
 		clock:     clock,
 		logger:    logger,
+		prepares:  make(map[uint64]func(*sql.DB) error),
 	}
 
-	if err := w.openDatabase(); err != nil {
+	var err error
+	w.db, err = w.dbApp.Open(context.TODO(), w.namespace)
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	w.tomb.Go(w.loop)
 
 	return w, nil
-}
-
-func (w *trackedDBWorker) openDatabase() error {
-	w.mutex.Lock()
-	defer w.mutex.Unlock()
-
-	if w.isFatal(w.err) {
-		return errors.Trace(w.err)
-	}
-
-	var err error
-	w.db, err = w.dbApp.Open(context.TODO(), w.namespace)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	return nil
 }
 
 // DB closes over a raw *sql.DB. Closing over the DB allows the late
@@ -435,6 +425,27 @@ func (w *trackedDBWorker) Txn(ctx context.Context, fn func(context.Context, *sql
 			return coredb.Txn(ctx, db, fn)
 		})
 	})
+}
+
+// PrepareStmts prepares a given set of statements for a given db instance.
+// If the db is changed this will be recalled. To prevent this, the first
+// result unregisters the statements.
+func (w *trackedDBWorker) PrepareStmts(fn func(*sql.DB) error) (func(), error) {
+	w.preparesMutex.Lock()
+	w.preparesIdx++
+	w.prepares[w.preparesIdx] = fn
+	w.preparesMutex.Unlock()
+
+	if err := w.DB(fn); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return func() {
+		w.preparesMutex.Lock()
+		defer w.preparesMutex.Unlock()
+
+		delete(w.prepares, w.preparesIdx)
+	}, nil
 }
 
 // Err will return an blocking errors from the underlying tracking source.
@@ -537,6 +548,12 @@ func (w *trackedDBWorker) verifyDB() error {
 				w.mutex.Lock()
 				w.db = db
 				w.mutex.Unlock()
+
+				if err := w.runPrepareStmts(); err != nil {
+					// We failed to prepare statements. We know this is a fatal
+					// error, so just crash the worker.
+					return errors.Trace(err)
+				}
 			}
 
 			return nil
@@ -561,5 +578,27 @@ func (w *trackedDBWorker) verifyDB() error {
 
 		substituted = true
 	}
+	return errors.Trace(err)
+}
+
+func (w *trackedDBWorker) runPrepareStmts() error {
+	// Copy the prepared statements to a slice, so any attempts to unregister
+	// whilst preparing won't cause issues.
+	w.preparesMutex.RLock()
+	var prepares []func(*sql.DB) error
+	for _, s := range w.prepares {
+		prepares = append(prepares, s)
+	}
+	w.preparesMutex.RUnlock()
+
+	err := w.DB(func(db *sql.DB) error {
+		// TODO (stickupkid): Implement retry semantics for prepared statements.
+		for _, fn := range prepares {
+			if err := fn(db); err != nil {
+				w.logger.Errorf("unable to prepare statements: %v", err)
+			}
+		}
+		return nil
+	})
 	return errors.Trace(err)
 }

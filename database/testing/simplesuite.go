@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	_ "github.com/mattn/go-sqlite3"
@@ -74,8 +75,21 @@ func (t *trackedDB) DB(fn func(*sql.DB) error) error {
 
 func (t *trackedDB) Txn(ctx context.Context, fn func(context.Context, *sql.Tx) error) error {
 	return t.DB(func(db *sql.DB) error {
+		// TODO (stickupkid): Implement retries for tests?
 		return coredb.Txn(ctx, db, fn)
 	})
+}
+
+func (t *trackedDB) PrepareStmts(fn func(*sql.DB) error) (func(), error) {
+	err := t.DB(func(db *sql.DB) error {
+		return fn(db)
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// TODO (stickupkid): maybe do something here?
+	return func() {}, nil
 }
 
 func (t *trackedDB) Err() error {

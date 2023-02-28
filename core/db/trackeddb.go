@@ -21,6 +21,11 @@ type TrackedDB interface {
 	// it's a common retryable error that can be handled cleanly in one place.
 	Txn(context.Context, func(context.Context, *sql.Tx) error) error
 
+	// PrepareStmts prepares a given set of statements for a given db instance.
+	// If the db is changed this will be recalled. To prevent this, the first
+	// result unregisters the statements.
+	PrepareStmts(func(*sql.DB) error) (func(), error)
+
 	// Err returns an error if the underlying tracked DB is in an error
 	// condition. Depending on the error, determins of the tracked DB can be
 	// requested again, or should be given up and thrown away.
