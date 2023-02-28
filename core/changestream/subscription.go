@@ -21,7 +21,7 @@ type SubscriptionOption struct {
 	filter     func(ChangeEvent) bool
 }
 
-// EntityType returns the entity type that the subscription will be for.
+// Namespace returns the name of the type that the subscription will tied to.
 func (o SubscriptionOption) Namespace() string {
 	return o.namespace
 }

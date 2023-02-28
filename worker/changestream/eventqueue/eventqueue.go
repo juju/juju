@@ -212,9 +212,6 @@ func (q *EventQueue) gatherSubscriptions(ch changestream.ChangeEvent) []*subscri
 	var subs []*subscription
 	for _, subOpt := range q.subscriptionsByNS[ch.Namespace()] {
 		if (ch.Type() & subOpt.changeMask) == 0 {
-			if q.logger.IsTraceEnabled() {
-				q.logger.Tracef("ignoring change: %v", ch)
-			}
 			continue
 		}
 
