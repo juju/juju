@@ -406,7 +406,7 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 	}
 
 	var machPortRanges map[names.UnitTag]network.GroupedPortRanges
-	var appPortRanges network.GroupedPortRanges
+	var appPortRanges map[names.UnitTag]network.GroupedPortRanges
 	switch f.modelType {
 	case model.IAAS:
 		if machPortRanges, err = f.state.OpenedMachinePortRangesByEndpoint(f.machineTag); err != nil {
@@ -418,7 +418,7 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 			f.logger.Warningf("cannot get legacy private address for %v: %v", f.unit.Name(), err)
 		}
 	case model.CAAS:
-		if appPortRanges, err = f.state.OpenedApplicationPortRangesByEndpoint(f.unit.Tag()); err != nil && !errors.Is(err, errors.NotSupported) {
+		if appPortRanges, err = f.state.OpenedPortRangesByEndpoint(); err != nil && !errors.Is(err, errors.NotSupported) {
 			return errors.Trace(err)
 		}
 	}

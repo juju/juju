@@ -135,8 +135,8 @@ func (u *UniterAPI) getOneMachineOpenedPortRanges(canAccess common.AuthFunc, mac
 	return machine.OpenedPortRanges()
 }
 
-// OpenedPortRangesByEndpoint returns the port ranges opened by each
-// application grouped by application endpoint.
+// OpenedPortRangesByEndpoint returns the port ranges opened by the unit
+// grouped by application endpoint.
 func (u *UniterAPI) OpenedPortRangesByEndpoint() (params.OpenPortRangesByEndpointResults, error) {
 	result := params.OpenPortRangesByEndpointResults{
 		Results: make([]params.OpenPortRangesByEndpointResult, 1),
@@ -155,34 +155,27 @@ func (u *UniterAPI) OpenedPortRangesByEndpoint() (params.OpenPortRangesByEndpoin
 		result.Results[0].Error = apiservererrors.ServerError(err)
 		return result, nil
 	}
-	app, err := unit.Application()
-	if err != nil {
-		result.Results[0].Error = apiservererrors.ServerError(err)
-		return result, nil
-	}
-	openedPortRanges, err := app.OpenedPortRanges()
+	openedPortRanges, err := unit.OpenedPortRanges()
 	if err != nil {
 		result.Results[0].Error = apiservererrors.ServerError(err)
 		return result, nil
 	}
 	result.Results[0].UnitPortRanges = make(map[string][]params.OpenUnitPortRangesByEndpoint)
-	for unitName, unitPortRanges := range openedPortRanges.ByUnit() {
-		unitTag := names.NewUnitTag(unitName).String()
-		for endpointName, portRanges := range unitPortRanges.ByEndpoint() {
-			result.Results[0].UnitPortRanges[unitTag] = append(
-				result.Results[0].UnitPortRanges[unitTag],
-				params.OpenUnitPortRangesByEndpoint{
-					Endpoint:   endpointName,
-					PortRanges: transform.Slice(portRanges, params.FromNetworkPortRange),
-				},
-			)
-		}
-
-		// Ensure results are sorted by endpoint name to be consistent.
-		sort.Slice(result.Results[0].UnitPortRanges[unitTag], func(a, b int) bool {
-			return result.Results[0].UnitPortRanges[unitTag][a].Endpoint < result.Results[0].UnitPortRanges[unitTag][b].Endpoint
-		})
+	unitTag := unit.Tag().String()
+	for endpointName, portRanges := range openedPortRanges.ByEndpoint() {
+		result.Results[0].UnitPortRanges[unitTag] = append(
+			result.Results[0].UnitPortRanges[unitTag],
+			params.OpenUnitPortRangesByEndpoint{
+				Endpoint:   endpointName,
+				PortRanges: transform.Slice(portRanges, params.FromNetworkPortRange),
+			},
+		)
 	}
+
+	// Ensure results are sorted by endpoint name to be consistent.
+	sort.Slice(result.Results[0].UnitPortRanges[unitTag], func(a, b int) bool {
+		return result.Results[0].UnitPortRanges[unitTag][a].Endpoint < result.Results[0].UnitPortRanges[unitTag][b].Endpoint
+	})
 	return result, nil
 }
 
