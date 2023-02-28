@@ -105,8 +105,8 @@ run_resource_no_upgrade_after_upload() {
 	destroy_model "test-${name}"
 }
 
-test_refresh_resources() {
-	if [ "$(skip 'test_refresh_resources')" ]; then
+test_upgrade_resources() {
+	if [ "$(skip 'test_upgrade_resources')" ]; then
 		echo "==> TEST SKIPPED: Resource upgrades"
 		return
 	fi

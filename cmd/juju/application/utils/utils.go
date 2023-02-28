@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/api/client/application"
 	"github.com/juju/juju/cmd/modelcmd"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/resources"
 )
@@ -111,7 +112,7 @@ func getCurrentResources(
 // getAvailableRepositoryResources gets the current resources for this
 // charm available in the repository.
 func getAvailableRepositoryResources(newCharmID application.CharmID, repositoryResourceLister CharmClient) (map[string]charmresource.Resource, error) {
-	if repositoryResourceLister == nil {
+	if repositoryResourceLister == nil || !corecharm.CharmHub.Matches(newCharmID.Origin.Source.String()) {
 		// not required for local charms
 		return nil, nil
 	}
