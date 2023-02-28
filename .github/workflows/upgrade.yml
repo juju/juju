@@ -23,7 +23,8 @@ jobs:
   Upgrade:
     name: Upgrade
     runs-on: ubuntu-latest
-    if: github.event.pull_request.draft == false
+    # Disabled until 3.2.0 is released.
+    if: false && github.event.pull_request.draft == false
     strategy:
       fail-fast: false
       matrix:
