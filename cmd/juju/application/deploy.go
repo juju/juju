@@ -628,7 +628,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.UnitCommandBase.SetFlags(f)
 	c.ModelCommandBase.SetFlags(f)
 	f.IntVar(&c.NumUnits, "n", 1, "Number of application units to deploy for principal charms")
-	f.StringVar(&c.channelStr, "channel", "", "Channel to use when deploying a charm or bundle from the charm store, or charm hub")
+	f.StringVar(&c.channelStr, "channel", "", "Channel to use when deploying a charm or bundle from charm hub")
 	f.Var(&c.ConfigOptions, "config", "Either a path to yaml-formatted application config file or a key=value pair ")
 
 	f.BoolVar(&c.Trust, "trust", false, "Allows charm to run hooks that require access credentials")
