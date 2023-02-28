@@ -42,7 +42,6 @@ type IntrospectionConfig struct {
 	Clock              clock.Clock
 	LocalHub           introspection.SimpleHub
 	CentralHub         introspection.StructuredHub
-	LeaseFSM           introspection.Leases
 
 	NewSocketName func(names.Tag) string
 	WorkerFunc    func(config introspection.Config) (worker.Worker, error)
@@ -72,7 +71,7 @@ func StartIntrospection(cfg IntrospectionConfig) error {
 		Clock:              cfg.Clock,
 		LocalHub:           cfg.LocalHub,
 		CentralHub:         cfg.CentralHub,
-		Leases:             cfg.LeaseFSM,
+		// TODO(leases) - add lease introspection
 	})
 	if err != nil {
 		return errors.Trace(err)

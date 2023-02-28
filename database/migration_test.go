@@ -4,9 +4,10 @@
 package database
 
 import (
-	"github.com/juju/juju/database/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/database/testing"
 )
 
 type migrationSuite struct {

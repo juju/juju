@@ -2,7 +2,6 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 //go:build race
-// +build race
 
 package state_test
 

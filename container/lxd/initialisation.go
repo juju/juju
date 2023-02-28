@@ -2,7 +2,6 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 //go:build (go1.3 && ignore) || !linux
-// +build go1.3,ignore !linux
 
 package lxd
 

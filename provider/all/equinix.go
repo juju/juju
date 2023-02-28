@@ -2,7 +2,6 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 //go:build !minimal || provider_equinix
-// +build !minimal provider_equinix
 
 package all
 
