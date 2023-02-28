@@ -448,11 +448,6 @@ func (v *ebsVolumeSource) createVolume(ctx context.ProviderCallContext, p storag
 	if inst.Placement != nil {
 		vol.AvailabilityZone = inst.Placement.AvailabilityZone
 	}
-	resp, err := v.env.ec2Client.CreateVolume(ctx, &vol)
-	if err != nil {
-		return nil, nil, errors.Trace(maybeConvertCredentialError(err, ctx))
-	}
-	volumeId = resp.VolumeId
 
 	// Tag.
 	resourceTags := make(map[string]string)
@@ -460,9 +455,15 @@ func (v *ebsVolumeSource) createVolume(ctx context.ProviderCallContext, p storag
 		resourceTags[k] = v
 	}
 	resourceTags[tagName] = resourceName(p.Tag, v.envName)
-	if err := tagResources(v.env.ec2Client, ctx, resourceTags, *volumeId); err != nil {
-		return nil, nil, errors.Annotate(err, "tagging volume")
+	vol.TagSpecifications = []types.TagSpecification{
+		CreateTagSpecification(types.ResourceTypeVolume, resourceTags),
 	}
+
+	resp, err := v.env.ec2Client.CreateVolume(ctx, &vol)
+	if err != nil {
+		return nil, nil, errors.Trace(maybeConvertCredentialError(err, ctx))
+	}
+	volumeId = resp.VolumeId
 
 	volume := storage.Volume{
 		Tag: p.Tag,
