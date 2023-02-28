@@ -96,7 +96,7 @@ require (
 	github.com/oracle/oci-go-sdk/v47 v47.1.0
 	github.com/packethost/packngo v0.28.1
 	github.com/pkg/sftp v1.13.5
-	github.com/prometheus/client_golang v1.7.1
+	github.com/prometheus/client_golang v1.11.1
 	github.com/prometheus/client_model v0.2.0
 	github.com/rs/xid v1.4.0
 	github.com/vishvananda/netlink v1.2.1-beta.2
@@ -238,7 +238,7 @@ require (
 	github.com/pkg/browser v0.0.0-20210115035449-ce105d075bb4 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pkg/term v1.1.0 // indirect
-	github.com/prometheus/common v0.10.0 // indirect
+	github.com/prometheus/common v0.26.0 // indirect
 	github.com/prometheus/procfs v0.6.0 // indirect
 	github.com/rivo/tview v0.0.0-20220610163003-691f46d6f500 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
