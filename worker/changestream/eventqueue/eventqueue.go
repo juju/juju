@@ -26,7 +26,7 @@ type Stream interface {
 }
 
 type subscription struct {
-	id      int
+	id      uint64
 	changes chan changestream.ChangeEvent
 	topics  map[string]struct{}
 
@@ -45,7 +45,7 @@ func (s *subscription) Changes() <-chan changestream.ChangeEvent {
 }
 
 type eventFilter struct {
-	subscriptionID int
+	subscriptionID uint64
 	changeMask     changestream.ChangeType
 	filter         func(changestream.ChangeEvent) bool
 }
@@ -57,9 +57,9 @@ type EventQueue struct {
 	logger Logger
 
 	mutex              sync.Mutex
-	subscriptions      map[int]*subscription
+	subscriptions      map[uint64]*subscription
 	subscriptionsByNS  map[string][]*eventFilter
-	subscriptionsCount int
+	subscriptionsCount uint64
 
 	actions chan func()
 }
@@ -69,7 +69,7 @@ func New(stream Stream, logger Logger) *EventQueue {
 	queue := &EventQueue{
 		stream:             stream,
 		logger:             logger,
-		subscriptions:      make(map[int]*subscription),
+		subscriptions:      make(map[uint64]*subscription),
 		subscriptionsByNS:  make(map[string][]*eventFilter),
 		subscriptionsCount: 0,
 		actions:            make(chan func()),
@@ -123,7 +123,7 @@ func (q *EventQueue) Wait() error {
 	return q.tomb.Wait()
 }
 
-func (q *EventQueue) unsubscribe(subscriptionID int) {
+func (q *EventQueue) unsubscribe(subscriptionID uint64) {
 	q.mutex.Lock()
 	defer q.mutex.Unlock()
 
@@ -172,7 +172,7 @@ func (q *EventQueue) loop() error {
 		for _, sub := range q.subscriptions {
 			close(sub.changes)
 		}
-		q.subscriptions = make(map[int]*subscription)
+		q.subscriptions = make(map[uint64]*subscription)
 	}()
 
 	for {
