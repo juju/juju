@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 
 	"github.com/mattn/go-isatty"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 
+	app "github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/resources"
@@ -182,4 +184,59 @@ func IsTerminal(w io.Writer) bool {
 	}
 
 	return isatty.IsTerminal(f.Fd())
+}
+
+type configFlag interface {
+	// AbsoluteFileNames returns the absolute path of any file names specified.
+	AbsoluteFileNames(ctx *cmd.Context) ([]string, error)
+
+	// ReadConfigPairs returns just the k=v attributes
+	ReadConfigPairs(ctx *cmd.Context) (map[string]interface{}, error)
+}
+
+// ProcessConfig processes the config defined by the config flag and returns
+// the map of config values and any YAML file content.
+// We may have a single file arg specified, in which case
+// it points to a YAML file keyed on the charm name and
+// containing values for any charm settings.
+// We may also have key/value pairs representing
+// charm settings which overrides anything in the YAML file.
+// If more than one file is specified, that is an error.
+func ProcessConfig(ctx *cmd.Context, filesystem modelcmd.Filesystem, configOptions configFlag, trust bool) (map[string]string, string, error) {
+	var configYAML []byte
+	files, err := configOptions.AbsoluteFileNames(ctx)
+	if err != nil {
+		return nil, "", errors.Trace(err)
+	}
+	if len(files) > 1 {
+		return nil, "", errors.Errorf("only a single config YAML file can be specified, got %d", len(files))
+	}
+	if len(files) == 1 {
+		configYAML, err = os.ReadFile(files[0])
+		if err != nil {
+			return nil, "", errors.Trace(err)
+		}
+	}
+	attr, err := configOptions.ReadConfigPairs(ctx)
+	if err != nil {
+		return nil, "", errors.Trace(err)
+	}
+	appConfig := make(map[string]string)
+	for k, v := range attr {
+		appConfig[k] = v.(string)
+
+		// Handle @ syntax for including file contents as values so we
+		// are consistent to how 'juju config' works
+		if len(appConfig[k]) < 1 || appConfig[k][0] != '@' {
+			continue
+		}
+
+		if appConfig[k], err = ReadValue(ctx, filesystem, appConfig[k][1:]); err != nil {
+			return nil, "", errors.Trace(err)
+		}
+	}
+
+	// Expand the trust flag into the appConfig
+	appConfig[app.TrustConfigOptionName] = strconv.FormatBool(trust)
+	return appConfig, string(configYAML), nil
 }
