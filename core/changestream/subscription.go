@@ -3,15 +3,14 @@
 
 package changestream
 
+// Handler describes a function for handling a new ChangeEvent.
+type Handler = func(ChangeEvent)
+
 // Subscription is an interface that can be used to receive events from the
 // event queue and unsubscribe from the queue.
 type Subscription interface {
 	// Unsubscribe removes the subscription from the event queue.
 	Unsubscribe()
-
-	// Changes returns a channel that will receive events from the event queue
-	// for the subscription.
-	Changes() <-chan ChangeEvent
 }
 
 // SubscriptionOption is an option that can be used to create a subscription.

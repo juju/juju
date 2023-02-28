@@ -4,6 +4,7 @@
 package eventqueue
 
 import (
+	"sync/atomic"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -47,4 +48,26 @@ func (s *baseSuite) expectAnyLogs() {
 func (s *baseSuite) expectChangeEvent(mask changestream.ChangeType, topic string) {
 	s.changeEvent.EXPECT().Type().Return(mask).MinTimes(1)
 	s.changeEvent.EXPECT().Namespace().Return(topic).MinTimes(1)
+}
+
+type waitGroup struct {
+	ch            chan struct{}
+	state, amount uint64
+}
+
+func newWaitGroup(amount uint64) *waitGroup {
+	return &waitGroup{
+		ch:     make(chan struct{}),
+		amount: amount,
+	}
+}
+
+func (w *waitGroup) Done() {
+	if atomic.AddUint64(&w.state, 1) == w.amount {
+		close(w.ch)
+	}
+}
+
+func (w *waitGroup) Wait() <-chan struct{} {
+	return w.ch
 }

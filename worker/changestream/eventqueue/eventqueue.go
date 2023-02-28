@@ -4,6 +4,7 @@
 package eventqueue
 
 import (
+	"math/rand"
 	"sync"
 
 	"github.com/juju/errors"
@@ -27,7 +28,7 @@ type Stream interface {
 
 type subscription struct {
 	id      uint64
-	changes chan changestream.ChangeEvent
+	handler changestream.Handler
 	topics  map[string]struct{}
 
 	unsubscriber func()
@@ -36,12 +37,6 @@ type subscription struct {
 // Unsubscribe removes the subscription from the event queue.
 func (s *subscription) Unsubscribe() {
 	s.unsubscriber()
-}
-
-// Changes returns a channel that will receive events from the event queue
-// for the subscription.
-func (s *subscription) Changes() <-chan changestream.ChangeEvent {
-	return s.changes
 }
 
 type eventFilter struct {
@@ -81,7 +76,7 @@ func New(stream Stream, logger Logger) *EventQueue {
 }
 
 // Subscribe creates a new subscription to the event queue.
-func (q *EventQueue) Subscribe(opts ...changestream.SubscriptionOption) (changestream.Subscription, error) {
+func (q *EventQueue) Subscribe(handler changestream.Handler, opts ...changestream.SubscriptionOption) (changestream.Subscription, error) {
 	if len(opts) == 0 {
 		return nil, errors.Errorf("no subscription options specified")
 	}
@@ -93,7 +88,7 @@ func (q *EventQueue) Subscribe(opts ...changestream.SubscriptionOption) (changes
 	q.subscriptionsCount++
 	sub := &subscription{
 		id:           q.subscriptionsCount,
-		changes:      make(chan changestream.ChangeEvent),
+		handler:      handler,
 		topics:       make(map[string]struct{}),
 		unsubscriber: func() { q.unsubscribe(q.subscriptionsCount) },
 	}
@@ -144,49 +139,14 @@ func (q *EventQueue) unsubscribe(subscriptionID uint64) {
 	}
 
 	delete(q.subscriptions, subscriptionID)
-
-	// Close the subscription channel after a dispatch. If a unsubscription
-	// happens during a dispatch, then it causes the event queue to potentially
-	// panic. Removal of the subscription from the queue is synchronous, so
-	// the subscription can no longer be used when another dispatch occurs. The
-	// closing of the channel then becomes asynchronous and can be closed during
-	// the next selection.
-	q.tomb.Go(func() error {
-		// Ensure that we give up if the tomb is dying.
-		select {
-		case <-q.tomb.Dying():
-			return tomb.ErrDying
-		case q.actions <- func() {
-			close(sub.changes)
-		}:
-		}
-		return nil
-	})
 }
 
 func (q *EventQueue) loop() error {
-	defer func() {
-		q.mutex.Lock()
-		defer q.mutex.Unlock()
-
-		for _, sub := range q.subscriptions {
-			close(sub.changes)
-		}
-		q.subscriptions = make(map[uint64]*subscription)
-	}()
-
 	for {
-		var (
-			ch changestream.ChangeEvent
-			ok bool
-		)
 		select {
 		case <-q.tomb.Dying():
 			return tomb.ErrDying
-		case action := <-q.actions:
-			action()
-			continue
-		case ch, ok = <-q.stream.Changes():
+		case ch, ok := <-q.stream.Changes():
 			// If the stream is closed, we expect that a new worker will come
 			// again using the change stream worker infrastructure. In this case
 			// just ignore and close out.
@@ -194,13 +154,19 @@ func (q *EventQueue) loop() error {
 				q.logger.Infof("change stream change channel is closed")
 				return nil
 			}
-		}
 
-		// The dispatch is done in two stages to avoid holding the lock for the
-		// duration of the dispatch.
-		subs := q.gatherSubscriptions(ch)
-		if err := q.dispatchChange(subs, ch); err != nil {
-			return errors.Trace(err)
+			subs := q.gatherSubscriptions(ch)
+			for _, sub := range subs {
+				// Ensure we check tomb dying as the handling logic is
+				// synchronous and blocking. This is to effectively handle
+				// back pressure on the stream.
+				select {
+				case <-q.tomb.Dying():
+					return tomb.ErrDying
+				default:
+				}
+				sub.handler(ch)
+			}
 		}
 	}
 }
@@ -228,17 +194,10 @@ func (q *EventQueue) gatherSubscriptions(ch changestream.ChangeEvent) []*subscri
 
 		subs = append(subs, q.subscriptions[subOpt.subscriptionID])
 	}
-	return subs
-}
 
-func (q *EventQueue) dispatchChange(subs []*subscription, ch changestream.ChangeEvent) error {
-	for _, sub := range subs {
-		select {
-		case <-q.tomb.Dying():
-			return tomb.ErrDying
-		case sub.changes <- ch:
-			// pushed change.
-		}
-	}
-	return nil
+	// Prevent subscriptions being deterministic in order. Shuffling them,
+	// should then ensure that each subscription isn't tied to another
+	// subscription.
+	rand.Shuffle(len(subs), func(i, j int) { subs[i], subs[j] = subs[j], subs[i] })
+	return subs
 }
