@@ -7,6 +7,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
+	"github.com/juju/names/v4"
+
+	"github.com/juju/juju/mongo"
 )
 
 // Until we add 3.0 upgrade steps, keep static analysis happy.
@@ -93,4 +96,57 @@ func applyToAllModelSettings(st *State, change func(*settingsDoc) (bool, error))
 		return errors.Trace(st.runRawTransaction(ops))
 	}
 	return nil
+}
+
+// RemoveOrphanedSecretPermissions removes secret permission records
+// where the subject has been removed but the permission is left behind.
+func RemoveOrphanedSecretPermissions(pool *StatePool) error {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		permissionsColl, closer := st.db().GetCollection(secretPermissionsC)
+		defer closer()
+
+		unitsColl, closer := st.db().GetCollection(unitsC)
+		defer closer()
+
+		appsColl, closer := st.db().GetCollection(applicationsC)
+		defer closer()
+
+		var permissions []secretPermissionDoc
+		if err := permissionsColl.Find(nil).All(&permissions); err != nil {
+			return errors.Trace(err)
+		}
+		if len(permissions) == 0 {
+			return nil // nothing to do
+		}
+		var ops []txn.Op
+		for _, doc := range permissions {
+			subject, err := names.ParseTag(doc.Subject)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			exists := false
+			var coll mongo.Collection
+			if subject.Kind() == names.UnitTagKind {
+				coll = unitsColl
+			} else if subject.Kind() == names.ApplicationTagKind {
+				coll = appsColl
+			}
+			cnt, err := coll.FindId(ensureModelUUID(st.ModelUUID(), subject.Id())).Count()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			exists = cnt > 0
+			if !exists {
+				ops = append(ops, txn.Op{
+					C:      secretPermissionsC,
+					Id:     doc.DocID,
+					Remove: true,
+				})
+			}
+		}
+		if len(ops) > 0 {
+			return errors.Trace(st.runRawTransaction(ops))
+		}
+		return nil
+	}))
 }
