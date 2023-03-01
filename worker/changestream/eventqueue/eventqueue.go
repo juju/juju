@@ -26,6 +26,8 @@ type Stream interface {
 	Changes() <-chan changestream.ChangeEvent
 }
 
+// subscription represents a subscriber in the event queue. It holds a tomb, so
+// that we can tie the lifecycle of a subscription to the event queue.
 type subscription struct {
 	tomb    tomb.Tomb
 	id      uint64
@@ -34,6 +36,20 @@ type subscription struct {
 	done    <-chan struct{}
 
 	unsubscriber func()
+}
+
+func newSubscription(id uint64, handler changestream.Handler, unsubscriber func()) *subscription {
+	sub := &subscription{
+		id:           id,
+		handler:      handler,
+		topics:       make(map[string]struct{}),
+		unsubscriber: unsubscriber,
+	}
+
+	sub.tomb.Go(sub.loop)
+	sub.done = sub.tomb.Dying()
+
+	return sub
 }
 
 // Unsubscribe removes the subscription from the event queue asynchronously.
@@ -52,10 +68,12 @@ func (s *subscription) Done() <-chan struct{} {
 	return s.done
 }
 
+// Kill implements worker.Worker.
 func (s *subscription) Kill() {
 	s.tomb.Kill(nil)
 }
 
+// Wait implements worker.Worker.
 func (s *subscription) Wait() error {
 	return s.tomb.Wait()
 }
@@ -131,17 +149,10 @@ func New(stream Stream, logger Logger) (*EventQueue, error) {
 // Subscribe creates a new subscription to the event queue. Options can be
 // provided to allow filter during the dispatching phase.
 func (q *EventQueue) Subscribe(handler changestream.Handler, opts ...changestream.SubscriptionOption) (changestream.Subscription, error) {
+	// Get a new subscription count without using any mutexes.
 	subID := atomic.AddUint64(&q.subscriptionsCount, 1)
-	sub := &subscription{
-		id:           subID,
-		handler:      handler,
-		topics:       make(map[string]struct{}),
-		unsubscriber: func() { q.unsubscribe(subID) },
-	}
 
-	sub.tomb.Go(sub.loop)
-	sub.done = sub.tomb.Dying()
-
+	sub := newSubscription(subID, handler, func() { q.unsubscribe(subID) })
 	if err := q.catacomb.Add(sub); err != nil {
 		return nil, errors.Trace(err)
 	}

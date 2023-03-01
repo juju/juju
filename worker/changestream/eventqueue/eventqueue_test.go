@@ -163,6 +163,14 @@ func (s *eventQueueSuite) testMultipleDispatch(c *gc.C, opts ...changestream.Sub
 	}
 
 	workertest.CleanKill(c, queue)
+
+	for _, sub := range subs {
+		select {
+		case <-sub.Done():
+		case <-time.After(testing.ShortWait):
+			c.Fatal("timed out waiting for event")
+		}
+	}
 }
 
 func (s *eventQueueSuite) TestUnsubscribeDuringDispatch(c *gc.C) {

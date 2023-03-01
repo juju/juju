@@ -42,7 +42,8 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 func (s *baseSuite) expectAnyLogs() {
 	s.logger.EXPECT().Infof(gomock.Any()).AnyTimes()
 	s.logger.EXPECT().Tracef(gomock.Any()).AnyTimes()
-	s.logger.EXPECT().IsTraceEnabled().Return(false).AnyTimes()
+	s.logger.EXPECT().Tracef(gomock.Any(), gomock.Any()).AnyTimes()
+	s.logger.EXPECT().IsTraceEnabled().Return(true).AnyTimes()
 }
 
 func (s *baseSuite) expectChangeEvent(mask changestream.ChangeType, topic string) {
