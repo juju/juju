@@ -141,9 +141,14 @@ func (d *factory) GetDeployer(cfg DeployerConfig, getter ModelConfigGetter, reso
 	// Determine the type of deploy we have
 	var dk DeployerKind
 
+	userCharmURL, err := resolveCharmURL(d.charmOrBundle, d.defaultCharmSchema)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	if isLocalSchema(d.charmOrBundle) {
 		// Check if the path is ambiguous
-		_, fileStatErr := d.model.Filesystem().Stat(d.charmOrBundle)
+		_, fileStatErr := d.fileSystem.Stat(d.charmOrBundle)
 		if fileStatErr == nil && !charm.IsValidLocalCharmOrBundlePath(d.charmOrBundle) {
 			return nil, errors.Errorf(""+
 				"The charm or bundle %q is ambiguous.\n"+
@@ -188,12 +193,24 @@ func (d *factory) GetDeployer(cfg DeployerConfig, getter ModelConfigGetter, reso
 			// we return the error.
 			return nil, errors.Annotatef(err, "attempting to deploy %q", charmOrBundle)
 		} else if err != nil {
-			logger.Debugf("cannot interpret as local charm: %v", err)
-			return nil, nil
+			logger.Debugf("cannot interpret as local charm: %v, attempting to deploy pre-deployed charm", err)
+			// If the charm's schema is local, we should definitively attempt
+			// to deploy a charm that's already deployed in the
+			// environment.
+			if userCharmURL.Schema != "local" {
+				return nil, errors.Errorf("cannot interpret as a redeployment of a local charm from the controller")
+			}
+			return &predeployedLocalCharm{
+				deployCharm:  d.newDeployCharm(),
+				userCharmURL: userCharmURL,
+			}, nil
+		} else {
+			// If all above goes well, set the deployer kind to localCharmDeployerType
+			dk = &localCharmDeployerType{seriesName, imageStream, ch, curl}
 		}
 
-		// If all above goes well, set the deployer kind to localCharmDeployerType
-		dk = &localCharmDeployerType{seriesName, imageStream, ch, curl}
+	} else {
+
 	}
 	// Predeployed local charm?
 
