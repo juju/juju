@@ -1,12 +1,12 @@
-// Copyright 2022 Canonical Ltd.
+// Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package upgrades
 
-func stepsFor30() []Step {
+func stepsFor311() []Step {
 	return []Step{}
 }
 
-func stateStepsFor30() []Step {
+func stateStepsFor311() []Step {
 	return []Step{}
 }

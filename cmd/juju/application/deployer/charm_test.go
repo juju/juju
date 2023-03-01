@@ -59,7 +59,7 @@ func (s *charmSuite) SetUpTest(c *gc.C) {
 func (s *charmSuite) TestSimpleCharmDeploy(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.modelCommand.EXPECT().BakeryClient().Return(nil, nil)
-	s.modelCommand.EXPECT().Filesystem().Return(s.filesystem)
+	s.modelCommand.EXPECT().Filesystem().Return(s.filesystem).AnyTimes()
 	s.configFlag.EXPECT().AbsoluteFileNames(gomock.Any()).Return(nil, nil)
 	s.configFlag.EXPECT().ReadConfigPairs(gomock.Any()).Return(nil, nil)
 	s.deployerAPI.EXPECT().Deploy(gomock.Any()).Return(nil)

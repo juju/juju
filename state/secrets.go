@@ -2211,6 +2211,25 @@ func (st *State) removeScopedSecretPermissionOps(scope names.Tag) ([]txn.Op, err
 	return ops, iter.Close()
 }
 
+func (st *State) removeConsumerSecretPermissionOps(consumer names.Tag) ([]txn.Op, error) {
+	secretPermissionsCollection, closer := st.db().GetCollection(secretPermissionsC)
+	defer closer()
+
+	var (
+		doc secretPermissionDoc
+		ops []txn.Op
+	)
+	iter := secretPermissionsCollection.Find(bson.D{{"subject-tag", consumer.String()}}).Select(bson.D{{"_id", 1}}).Iter()
+	for iter.Next(&doc) {
+		ops = append(ops, txn.Op{
+			C:      secretPermissionsC,
+			Id:     doc.DocID,
+			Remove: true,
+		})
+	}
+	return ops, iter.Close()
+}
+
 type secretRotationDoc struct {
 	DocID    string `bson:"_id"`
 	TxnRevno int64  `bson:"txn-revno"`
