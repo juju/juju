@@ -30,7 +30,8 @@ func (s *eventQueueSuite) TestSubscribe(c *gc.C) {
 
 	s.stream.EXPECT().Changes().Return(changes).AnyTimes()
 
-	queue := New(s.stream, s.logger)
+	queue, err := New(s.stream, s.logger)
+	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, queue)
 
 	sub, err := queue.Subscribe(func(changestream.ChangeEvent) {
@@ -52,7 +53,8 @@ func (s *eventQueueSuite) TestDispatch(c *gc.C) {
 
 	s.stream.EXPECT().Changes().Return(changes).MinTimes(1)
 
-	queue := New(s.stream, s.logger)
+	queue, err := New(s.stream, s.logger)
+	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, queue)
 
 	done := make(chan struct{})
@@ -90,6 +92,10 @@ func (s *eventQueueSuite) TestMultipleDispatch(c *gc.C) {
 	s.testMultipleDispatch(c, changestream.Namespace("topic", changestream.Update))
 }
 
+func (s *eventQueueSuite) TestDispatchWithNoOptions(c *gc.C) {
+	s.testMultipleDispatch(c)
+}
+
 func (s *eventQueueSuite) TestMultipleDispatchWithMultipleMasks(c *gc.C) {
 	s.testMultipleDispatch(c, changestream.Namespace("topic", changestream.Create|changestream.Update))
 }
@@ -118,7 +124,8 @@ func (s *eventQueueSuite) testMultipleDispatch(c *gc.C, opts ...changestream.Sub
 
 	s.stream.EXPECT().Changes().Return(changes).MinTimes(1)
 
-	queue := New(s.stream, s.logger)
+	queue, err := New(s.stream, s.logger)
+	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, queue)
 
 	s.expectChangeEvent(changestream.Update, "topic")
@@ -168,14 +175,12 @@ func (s *eventQueueSuite) TestUnsubscribeDuringDispatch(c *gc.C) {
 
 	s.stream.EXPECT().Changes().Return(changes).MinTimes(1)
 
-	queue := New(s.stream, s.logger)
+	queue, err := New(s.stream, s.logger)
+	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, queue)
 
 	done := make(chan struct{})
-	var (
-		sub changestream.Subscription
-		err error
-	)
+	var sub changestream.Subscription
 	sub, err = queue.Subscribe(func(event changestream.ChangeEvent) {
 		defer close(done)
 
@@ -215,7 +220,8 @@ func (s *eventQueueSuite) TestUnsubscribeTwice(c *gc.C) {
 
 	s.stream.EXPECT().Changes().Return(changes).MinTimes(1)
 
-	queue := New(s.stream, s.logger)
+	queue, err := New(s.stream, s.logger)
+	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, queue)
 
 	sub, err := queue.Subscribe(func(event changestream.ChangeEvent) {
@@ -224,6 +230,12 @@ func (s *eventQueueSuite) TestUnsubscribeTwice(c *gc.C) {
 
 	sub.Unsubscribe()
 	sub.Unsubscribe()
+
+	select {
+	case <-sub.Done():
+	case <-time.After(testing.ShortWait):
+		c.Fatal("timed out waiting for event")
+	}
 
 	workertest.CleanKill(c, queue)
 }
@@ -238,7 +250,8 @@ func (s *eventQueueSuite) TestTopicDoesNotMatch(c *gc.C) {
 
 	s.stream.EXPECT().Changes().Return(changes).MinTimes(1)
 
-	queue := New(s.stream, s.logger)
+	queue, err := New(s.stream, s.logger)
+	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, queue)
 
 	done := make(chan struct{})
@@ -280,7 +293,8 @@ func (s *eventQueueSuite) TestTopicMatchesOne(c *gc.C) {
 
 	s.stream.EXPECT().Changes().Return(changes).MinTimes(1)
 
-	queue := New(s.stream, s.logger)
+	queue, err := New(s.stream, s.logger)
+	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, queue)
 
 	sub0, err := queue.Subscribe(func(event changestream.ChangeEvent) {
@@ -317,4 +331,49 @@ func (s *eventQueueSuite) TestTopicMatchesOne(c *gc.C) {
 	sub1.Unsubscribe()
 
 	workertest.CleanKill(c, queue)
+}
+
+func (s *eventQueueSuite) TestSubscriptionDone(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAnyLogs()
+
+	changes := make(chan changestream.ChangeEvent)
+	defer close(changes)
+
+	s.stream.EXPECT().Changes().Return(changes).MinTimes(1)
+
+	queue, err := New(s.stream, s.logger)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, queue)
+
+	done := make(chan struct{})
+	sub, err := queue.Subscribe(func(event changestream.ChangeEvent) {
+		defer close(done)
+	}, changestream.Namespace("topic", changestream.Create))
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.expectChangeEvent(changestream.Create, "topic")
+
+	go func() {
+		select {
+		case changes <- s.changeEvent:
+		case <-time.After(testing.ShortWait):
+			c.Fatal("timed out waiting to enqueue event")
+		}
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(testing.ShortWait):
+		c.Fatal("timed out waiting for event")
+	}
+
+	workertest.CleanKill(c, queue)
+
+	select {
+	case <-sub.Done():
+	case <-time.After(testing.ShortWait):
+		c.Fatal("timed out waiting for event")
+	}
 }

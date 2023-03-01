@@ -184,7 +184,10 @@ func (f fileNotifyWatcher) Changes() (<-chan bool, error) {
 func NewEventQueueWorker(db *sql.DB, fileNotifier FileNotifier, clock clock.Clock, logger Logger) (EventQueueWorker, error) {
 	stream := stream.New(db, fileNotifier, clock, logger)
 
-	eventQueue := eventqueue.New(stream, logger)
+	eventQueue, err := eventqueue.New(stream, logger)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	w := &eventQueueWorker{
 		eventQueue: eventQueue,
