@@ -1041,21 +1041,25 @@ func (api *APIBase) setCharmWithAgentValidation(
 	return api.applicationSetCharm(params, newCharm, origin)
 }
 
-// applicationSetCharm sets the charm for the given for the application.
+// applicationSetCharm sets the charm and updated config
+// for the given application.
 func (api *APIBase) applicationSetCharm(
 	params setCharmParams,
 	newCharm Charm,
 	newOrigin *state.CharmOrigin,
 ) error {
-	var err error
-	var settings charm.Settings
-	if params.ConfigSettingsYAML != "" {
-		settings, err = newCharm.Config().ParseSettingsYAML([]byte(params.ConfigSettingsYAML), params.AppName)
-	} else if len(params.ConfigSettingsStrings) > 0 {
-		settings, err = parseSettingsCompatible(newCharm.Config(), params.ConfigSettingsStrings)
+	model, err := api.backend.Model()
+	if err != nil {
+		return errors.Annotate(err, "retrieving model")
 	}
+	modelType := model.Type()
+
+	appConfig, appSchema, charmSettings, appDefaults, err := parseCharmSettings(modelType, newCharm, params.AppName, params.ConfigSettingsStrings, params.ConfigSettingsYAML, environsconfig.NoDefaults)
 	if err != nil {
 		return errors.Annotate(err, "parsing config settings")
+	}
+	if err := appConfig.Validate(); err != nil {
+		return errors.Annotate(err, "validating config settings")
 	}
 	var stateStorageConstraints map[string]state.StorageConstraints
 	if len(params.StorageConstraints) > 0 {
@@ -1073,11 +1077,6 @@ func (api *APIBase) applicationSetCharm(
 	}
 
 	// Enforce "assumes" requirements if the feature flag is enabled.
-	model, err := api.backend.Model()
-	if err != nil {
-		return errors.Annotate(err, "retrieving model")
-	}
-
 	if err := assertCharmAssumptions(newCharm.Meta().Assumes, model, api.backend.ControllerConfig); err != nil {
 		if !errors.IsNotSupported(err) || !params.Force.Force {
 			return errors.Trace(err)
@@ -1090,13 +1089,15 @@ func (api *APIBase) applicationSetCharm(
 	cfg := state.SetCharmConfig{
 		Charm:              api.stateCharm(newCharm),
 		CharmOrigin:        newOrigin,
-		ConfigSettings:     settings,
 		ForceBase:          force.ForceBase,
 		ForceUnits:         force.ForceUnits,
 		Force:              force.Force,
 		ResourceIDs:        params.ResourceIDs,
 		StorageConstraints: stateStorageConstraints,
 		EndpointBindings:   params.EndpointBindings,
+	}
+	if len(charmSettings) > 0 {
+		cfg.ConfigSettings = charmSettings
 	}
 
 	// Disallow downgrading from a v2 charm to a v1 charm.
@@ -1108,7 +1109,14 @@ func (api *APIBase) applicationSetCharm(
 		return errors.New("cannot downgrade from v2 charm format to v1")
 	}
 
-	return params.Application.SetCharm(cfg)
+	// TODO(wallyworld) - do in a single transaction
+	if err := params.Application.SetCharm(cfg); err != nil {
+		return errors.Annotate(err, "updating charm config")
+	}
+	if attr := appConfig.Attributes(); len(attr) > 0 {
+		return params.Application.UpdateApplicationConfig(attr, nil, appSchema, appDefaults)
+	}
+	return nil
 }
 
 // charmConfigFromYamlConfigValues will parse a yaml produced by juju get and

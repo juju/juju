@@ -3317,9 +3317,23 @@ func (s *ApplicationSuite) TestDestroyAlsoDeletesSecretPermissions(c *gc.C) {
 	_, err := store.CreateSecret(uri, cp)
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Make a relation for the access scope.
+	endpoint1, err := s.mysql.Endpoint("juju-info")
+	c.Assert(err, jc.ErrorIsNil)
+	application2 := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
+			Name: "logging",
+		}),
+	})
+	endpoint2, err := application2.Endpoint("info")
+	c.Assert(err, jc.ErrorIsNil)
+	rel := s.Factory.MakeRelation(c, &factory.RelationParams{
+		Endpoints: []state.Endpoint{endpoint1, endpoint2},
+	})
+
 	err = s.State.GrantSecretAccess(uri, state.SecretAccessParams{
 		LeaderToken: &fakeToken{},
-		Scope:       s.mysql.Tag(),
+		Scope:       rel.Tag(),
 		Subject:     s.mysql.Tag(),
 		Role:        secrets.RoleView,
 	})

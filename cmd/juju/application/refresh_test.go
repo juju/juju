@@ -241,6 +241,7 @@ func (s *RefreshSuite) TestStorageConstraints(c *gc.C) {
 		StorageConstraints: map[string]storage.Constraints{
 			"bar": {Pool: "baz", Count: 1},
 		},
+		ConfigSettings:   map[string]string{"trust": "false"},
 		EndpointBindings: map[string]string{},
 	})
 }
@@ -264,6 +265,49 @@ func (s *RefreshSuite) TestConfigSettings(c *gc.C) {
 			},
 		},
 		ConfigSettingsYAML: "foo:{}",
+		ConfigSettings:     map[string]string{"trust": "false"},
+		EndpointBindings:   map[string]string{},
+	})
+}
+
+func (s *RefreshSuite) TestConfigSettingsWithTrust(c *gc.C) {
+	_, err := s.runRefresh(c, "foo", "--trust", "--config", "foo=bar")
+	c.Assert(err, jc.ErrorIsNil)
+	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
+
+	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
+		ApplicationName: "foo",
+		CharmID: application.CharmID{
+			URL: s.resolvedCharmURL,
+			Origin: commoncharm.Origin{
+				Risk: "stable",
+			},
+		},
+		ConfigSettings:   map[string]string{"trust": "true", "foo": "bar"},
+		EndpointBindings: map[string]string{},
+	})
+}
+
+func (s *RefreshSuite) TestConfigSettingsWithKeyValuesAndFile(c *gc.C) {
+	tempdir := c.MkDir()
+	configFile := filepath.Join(tempdir, "config.yaml")
+	err := os.WriteFile(configFile, []byte("foo:{}"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.runRefresh(c, "foo", "--trust", "--config", "foo=bar", "--config", configFile)
+	c.Assert(err, jc.ErrorIsNil)
+	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
+
+	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
+		ApplicationName: "foo",
+		CharmID: application.CharmID{
+			URL: s.resolvedCharmURL,
+			Origin: commoncharm.Origin{
+				Risk: "stable",
+			},
+		},
+		ConfigSettingsYAML: "foo:{}",
+		ConfigSettings:     map[string]string{"trust": "true", "foo": "bar"},
 		EndpointBindings:   map[string]string{},
 	})
 }
@@ -306,6 +350,7 @@ func (s *RefreshSuite) testUpgradeWithBind(c *gc.C, expectedBindings map[string]
 				Risk: "stable",
 			},
 		},
+		ConfigSettings:   map[string]string{"trust": "false"},
 		EndpointBindings: expectedBindings,
 	})
 }
@@ -550,6 +595,7 @@ func (s *RefreshSuite) TestUpgradeWithChannel(c *gc.C) {
 				Risk: "beta",
 			},
 		},
+		ConfigSettings:   map[string]string{"trust": "false"},
 		EndpointBindings: map[string]string{},
 	})
 }
@@ -572,6 +618,7 @@ func (s *RefreshSuite) TestUpgradeWithChannelNoNewCharmURL(c *gc.C) {
 				Risk: "beta",
 			},
 		},
+		ConfigSettings:   map[string]string{"trust": "false"},
 		EndpointBindings: map[string]string{},
 	})
 }
@@ -596,6 +643,7 @@ func (s *RefreshSuite) TestRefreshShouldRespectDeployedChannelByDefault(c *gc.C)
 				Risk: "beta",
 			},
 		},
+		ConfigSettings:   map[string]string{"trust": "false"},
 		EndpointBindings: map[string]string{},
 	})
 }
@@ -633,6 +681,7 @@ func (s *RefreshSuite) TestSwitch(c *gc.C) {
 				Risk:         "stable",
 			},
 		},
+		ConfigSettings:   map[string]string{"trust": "false"},
 		EndpointBindings: map[string]string{},
 	})
 	var curl *charm.URL
@@ -870,6 +919,7 @@ func (s *RefreshSuite) TestUpgradeSameVersionWithResources(c *gc.C) {
 				Risk: "stable",
 			},
 		},
+		ConfigSettings:   map[string]string{"trust": "false"},
 		EndpointBindings: map[string]string{},
 		ResourceIDs:      map[string]string{"bar": "barId"},
 	})
