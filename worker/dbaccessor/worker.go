@@ -161,10 +161,10 @@ func newWorker(cfg WorkerConfig) (*dbWorker, error) {
 		dbReadyCh: make(chan struct{}),
 		dbRunner: worker.NewRunner(worker.RunnerParams{
 			Clock: cfg.Clock,
-			// TODO (stickupkid): For the initial concept, we don't want to
-			// bring down other workers when one goes down. In the future we
-			// can look into custom errors to allow that.
-			IsFatal:      func(err error) bool { return false },
+			// If a worker goes down, we've attempted multiple retries and in
+			// that case we do want to cause the dbaccessor to go down. This
+			// will then bring up a new dqlite app.
+			IsFatal:      func(err error) bool { return true },
 			RestartDelay: time.Second * 30,
 		}),
 	}

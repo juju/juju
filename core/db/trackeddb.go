@@ -12,7 +12,7 @@ import (
 // knowing if the underlying DB can be reused after an error has occurred.
 type TrackedDB interface {
 	// DB closes over a raw *sql.DB. Closing over the DB allows the late
-	// realization of the database. Allowing retries of DB acquistion if there
+	// realization of the database. Allowing retries of DB acquisition if there
 	// is a failure that is non-retryable.
 	DB(func(*sql.DB) error) error
 
