@@ -265,7 +265,6 @@ type DeployCommand struct {
 	// CharmOrBundle is either a charm URL, a path where a charm can be found,
 	// or a bundle name.
 	CharmOrBundle string
-	DeployerKind  deployer.DeployerType
 
 	// BundleOverlay refers to config files that specify additional bundle
 	// configuration to be merged with the main bundle.
@@ -691,35 +690,6 @@ func (c *DeployCommand) Init(args []string) error {
 		return cmd.CheckEmpty(args[2:])
 	}
 
-	// Determine the type of deploy we have
-	// Local Bundle?
-	_, fileStatErr := c.ModelCommandBase.Filesystem().Stat(c.CharmOrBundle)
-	if fileStatErr == nil && !charm.IsValidLocalCharmOrBundlePath(c.CharmOrBundle) {
-		return errors.Errorf(""+
-			"The charm or bundle %q is ambiguous.\n"+
-			"To deploy a local charm or bundle, run `juju deploy ./%[1]s`.\n"+
-			"To deploy a charm or bundle from CharmHub, run `juju deploy ch:%[1]s`.",
-			c.CharmOrBundle,
-		)
-	}
-
-	if ds, localBundleDataErr := charm.LocalBundleDataSource(c.CharmOrBundle); localBundleDataErr == nil {
-		c.DeployerKind = &deployer.LocalBundleDeployerType{LocalBundleDataSource: ds}
-	} else if !errors.Is(localBundleDataErr, errors.NotFound) {
-		// Only raise if it's not a NotFound.
-		// Otherwise, no need to raise, it's not a bundle,
-		// continue with trying for local charm.
-		return errors.Annotatef(localBundleDataErr, "cannot deploy %v", c.CharmOrBundle)
-	}
-
-	// Local Charm?
-
-	// Predeployed local charm?
-
-	// Repository bundle?
-
-	// Repository charm.
-
 	useExisting, mapping, err := parseMachineMap(c.machineMap)
 	if err != nil {
 		return errors.Annotate(err, "error in --map-machines")
@@ -929,7 +899,6 @@ func (c *DeployCommand) getDeployerFactory(base series.Base, defaultCharmSchema 
 		BundleStorage:      c.BundleStorage,
 		Channel:            c.Channel,
 		CharmOrBundle:      c.CharmOrBundle,
-		DeployerKind:       c.DeployerKind,
 		DefaultCharmSchema: defaultCharmSchema,
 		ConfigOptions:      c.ConfigOptions,
 		Constraints:        c.Constraints,

@@ -37,12 +37,12 @@ import (
 
 var logger = loggo.GetLogger("juju.cmd.juju.application.deployer")
 
-type LocalBundleDeployerType struct {
-	DeployerType
-	LocalBundleDataSource charm.BundleDataSource
+type localBundleDeployerType struct {
+	DeployerKind
+	DataSource charm.BundleDataSource
 }
 
-type DeployerType interface {
+type DeployerKind interface {
 	Read(d factory) (Deployer, error)
 }
 
@@ -66,22 +66,57 @@ func NewDeployerFactory(dep DeployerDependencies) DeployerFactory {
 // GetDeployer returns the correct deployer to use based on the cfg provided.
 // A ModelConfigGetter needed to find the deployer.
 func (d *factory) GetDeployer(cfg DeployerConfig, getter ModelConfigGetter, resolver Resolver) (Deployer, error) {
-	d.setConfig(cfg)
-	maybeDeployers := []func() (Deployer, error){
-		d.maybeReadLocalBundle,
-		func() (Deployer, error) { return d.maybeReadLocalCharm(getter) },
-		d.maybePredeployedLocalCharm,
-		func() (Deployer, error) { return d.maybeReadRepositoryBundle(resolver) },
-		d.repositoryCharm, // This always returns a Deployer
+	// Determine the type of deploy we have
+	var dk DeployerKind
+
+	// Local Bundle
+	_, fileStatErr := d.model.Filesystem().Stat(d.charmOrBundle)
+	if fileStatErr == nil && !charm.IsValidLocalCharmOrBundlePath(d.charmOrBundle) {
+		return nil, errors.Errorf(""+
+			"The charm or bundle %q is ambiguous.\n"+
+			"To deploy a local charm or bundle, run `juju deploy ./%[1]s`.\n"+
+			"To deploy a charm or bundle from CharmHub, run `juju deploy ch:%[1]s`.",
+			d.charmOrBundle,
+		)
 	}
-	for _, d := range maybeDeployers {
-		if deploy, err := d(); err != nil {
-			return nil, errors.Trace(err)
-		} else if deploy != nil {
-			return deploy, nil
+
+	if ds, localBundleDataErr := charm.LocalBundleDataSource(d.charmOrBundle); localBundleDataErr == nil {
+		dk = &localBundleDeployerType{DataSource: ds}
+	} else if !errors.Is(localBundleDataErr, errors.NotFound) {
+		// Only raise if it's not a NotFound.
+		// Otherwise, no need to raise, it's not a bundle,
+		// continue with trying for local charm.s
+		return nil, errors.Annotatef(localBundleDataErr, "cannot deploy %v", d.charmOrBundle)
+	}
+
+	// Local Charm
+
+	// Predeployed local charm?
+
+	// Repository bundle?
+
+	// Repository charm.
+	return dk.Read(*d)
+
+	/*
+		d.setConfig(cfg)
+		maybeDeployers := []func() (Deployer, error){
+			d.maybeReadLocalBundle,
+			func() (Deployer, error) { return d.maybeReadLocalCharm(getter) },
+			d.maybePredeployedLocalCharm,
+			func() (Deployer, error) { return d.maybeReadRepositoryBundle(resolver) },
+			d.repositoryCharm, // This always returns a Deployer
 		}
-	}
-	return nil, errors.NotFoundf("suitable Deployer")
+		for _, d := range maybeDeployers {
+			if deploy, err := d(); err != nil {
+				return nil, errors.Trace(err)
+			} else if deploy != nil {
+				return deploy, nil
+			}
+		}
+		return nil, errors.NotFoundf("suitable Deployer")
+
+	*/
 }
 
 func (d *factory) setConfig(cfg DeployerConfig) {
@@ -140,7 +175,6 @@ type DeployerConfig struct {
 	BundleStorage        map[string]map[string]storage.Constraints
 	Channel              charm.Channel
 	CharmOrBundle        string
-	DeployerKind         DeployerType
 	DefaultCharmSchema   charm.Schema
 	ConfigOptions        common.ConfigFlag
 	ConstraintsStr       string
@@ -256,48 +290,15 @@ func (d *factory) newDeployCharm() deployCharm {
 	}
 }
 
-func (dt *LocalBundleDeployerType) Read(d factory) (Deployer, error) {
+func (dt *localBundleDeployerType) Read(d factory) (Deployer, error) {
 	if err := d.validateBundleFlags(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	platform := utils.MakePlatform(d.constraints, d.base, d.modelConstraints)
-	db := d.newDeployBundle(d.defaultCharmSchema, dt.LocalBundleDataSource)
+	db := d.newDeployBundle(d.defaultCharmSchema, dt.DataSource)
 	var base series.Base
 	var err error
-	if platform.Channel != "" {
-		base, err = series.ParseBase(platform.OS, platform.Channel)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	db.origin = commoncharm.Origin{
-		Source:       commoncharm.OriginLocal,
-		Architecture: platform.Architecture,
-		Base:         base,
-	}
-	return &localBundle{deployBundle: db}, nil
-}
-
-func (d *factory) maybeReadLocalBundle() (Deployer, error) {
-	bundleFile := d.charmOrBundle
-
-	ds, err := charm.LocalBundleDataSource(bundleFile)
-	if errors.Is(err, errors.NotFound) {
-		// Not a local bundle. Return nil, nil to indicate the fallback
-		// pipeline should try the next possibility.
-		return nil, nil
-	}
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot deploy bundle")
-	}
-	if err := d.validateBundleFlags(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	platform := utils.MakePlatform(d.constraints, d.base, d.modelConstraints)
-	db := d.newDeployBundle(d.defaultCharmSchema, ds)
-	var base series.Base
 	if platform.Channel != "" {
 		base, err = series.ParseBase(platform.OS, platform.Channel)
 		if err != nil {
@@ -415,7 +416,7 @@ func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error
 		return nil, errors.Trace(err)
 	} else if errors.Cause(err) == zip.ErrFormat {
 		return nil, errors.Errorf("invalid charm or bundle provided at %q", charmOrBundle)
-	} else if errors.IsNotFound(err) {
+	} else if errors.Is(err, errors.NotFound) {
 		return nil, errors.Wrap(err, errors.NotFoundf("charm or bundle at %q", charmOrBundle))
 	} else if err != nil && err != os.ErrNotExist {
 		// If we get a "not exists" error then we attempt to interpret
