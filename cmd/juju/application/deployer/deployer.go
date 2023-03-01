@@ -52,6 +52,12 @@ type localCharmDeployerType struct {
 	curl        *charm.URL
 }
 
+type repositoryBundleDeployerType struct {
+	bundleURL    *charm.URL
+	bundleOrigin commoncharm.Origin
+	resolver     Resolver
+}
+
 // NewDeployerFactory returns a factory setup with the API and
 // function dependencies required by every deployer.
 func NewDeployerFactory(dep DeployerDependencies) DeployerFactory {
@@ -193,6 +199,7 @@ func (d *factory) GetDeployer(cfg DeployerConfig, getter ModelConfigGetter, reso
 			// we return the error.
 			return nil, errors.Annotatef(err, "attempting to deploy %q", charmOrBundle)
 		} else if err != nil {
+			// Pre-deployed local charm?
 			logger.Debugf("cannot interpret as local charm: %v, attempting to deploy pre-deployed charm", err)
 			// If the charm's schema is local, we should definitively attempt
 			// to deploy a charm that's already deployed in the
@@ -210,13 +217,53 @@ func (d *factory) GetDeployer(cfg DeployerConfig, getter ModelConfigGetter, reso
 		}
 
 	} else {
+		// Repository bundle?
+		// To deploy by revision, the revision number must be in the origin for a
+		// charmhub bundle
+		if userCharmURL.Revision != -1 && charm.CharmHub.Matches(userCharmURL.Schema) {
+			return nil, errors.Errorf("cannot specify revision in a charm or bundle name. Please use --revision.")
+		}
+
+		urlForOrigin := userCharmURL
+		if d.revision != -1 {
+			urlForOrigin = urlForOrigin.WithRevision(d.revision)
+		}
+
+		platform := utils.MakePlatform(d.constraints, d.base, d.modelConstraints)
+		origin, err := utils.DeduceOrigin(urlForOrigin, d.channel, platform)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		// TODO (cderici): check the validity of the comment below
+		// Resolve the bundle URL using the channel supplied via the channel
+		// supplied. All charms within this bundle unless pinned via a channel are
+		// NOT expected to be in the same channel as the bundle channel.
+		// The pinning of a bundle does not flow down to charms as well. Each charm
+		// has it's own channel supplied via a bundle, if no is supplied then the
+		// channel is worked out via the resolving what is available.
+		// See: LP:1677404 and LP:1832873
+		bundleURL, bundleOrigin, bundleResolveErr := resolver.ResolveBundleURL(userCharmURL, origin)
+		if charm.IsUnsupportedSeriesError(errors.Cause(bundleResolveErr)) {
+			return nil, errors.Errorf("%v. Use --force to deploy the charm anyway.", bundleResolveErr)
+		}
+		if bundleResolveErr == nil {
+			if d.revision != -1 && !d.channel.Empty() && charm.CharmHub.Matches(userCharmURL.Schema) {
+				return nil, errors.Errorf("revision and channel are mutually exclusive when deploying a bundle. Please choose one.")
+			}
+			if err := d.validateBundleFlags(); err != nil {
+				return nil, errors.Trace(err)
+			}
+			// Set the deployer kind to repositoryBundleDeployerType
+			dk = &repositoryBundleDeployerType{bundleURL, bundleOrigin, resolver}
+		} else if !errors.Is(err, errors.NotValid) {
+			return nil, errors.Trace(bundleResolveErr)
+		} else {
+			// Repository charm.
+		}
 
 	}
-	// Predeployed local charm?
 
-	// Repository bundle?
-
-	// Repository charm.
 	return dk.Read(*d)
 
 	/*
@@ -477,52 +524,7 @@ func (dk *localCharmDeployerType) Read(d factory) (Deployer, error) {
 	}, err
 }
 
-func (d *factory) maybeReadRepositoryBundle(resolver Resolver) (Deployer, error) {
-	curl, err := resolveCharmURL(d.charmOrBundle, d.defaultCharmSchema)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	// To deploy by revision, the revision number must be in the origin for a
-	// charmhub bundle and in the url for a charmstore bundle.
-	if curl.Revision != -1 && charm.CharmHub.Matches(curl.Schema) {
-		return nil, errors.Errorf("cannot specify revision in a charm or bundle name. Please use --revision.")
-	}
-
-	urlForOrigin := curl
-	if d.revision != -1 {
-		urlForOrigin = urlForOrigin.WithRevision(d.revision)
-	}
-
-	platform := utils.MakePlatform(d.constraints, d.base, d.modelConstraints)
-	origin, err := utils.DeduceOrigin(urlForOrigin, d.channel, platform)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	// Resolve the bundle URL using the channel supplied via the channel
-	// supplied. All charms within this bundle unless pinned via a channel are
-	// NOT expected to be in the same channel as the bundle channel.
-	// The pinning of a bundle does not flow down to charms as well. Each charm
-	// has it's own channel supplied via a bundle, if no is supplied then the
-	// channel is worked out via the resolving what is available.
-	// See: LP:1677404 and LP:1832873
-	bundleURL, bundleOrigin, err := resolver.ResolveBundleURL(curl, origin)
-	if charm.IsUnsupportedSeriesError(errors.Cause(err)) {
-		return nil, errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
-	}
-	if errors.IsNotValid(err) {
-		// The URL resolved alright, but not to a bundle.
-		return nil, nil
-	}
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if d.revision != -1 && !d.channel.Empty() && charm.CharmHub.Matches(curl.Schema) {
-		return nil, errors.Errorf("revision and channel are mutually exclusive when deploying a bundle. Please choose one.")
-	}
-	if err := d.validateBundleFlags(); err != nil {
-		return nil, errors.Trace(err)
-	}
+func (dk *repositoryBundleDeployerType) Read(d factory) (Deployer, error) {
 
 	// Validated, prepare to Deploy
 	// TODO(bundles) - Ideally, we would like to expose a GetBundleDataSource method for the charmstore.
@@ -531,19 +533,19 @@ func (d *factory) maybeReadRepositoryBundle(resolver Resolver) (Deployer, error)
 	// from the charmstore we simply use the existing
 	// charmrepo.v4 API to read the base bundle and
 	// wrap it in a BundleDataSource for use by deployBundle.
-	dir, err := os.MkdirTemp("", bundleURL.Name)
+	dir, err := os.MkdirTemp("", dk.bundleURL.Name)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	bundle, err := resolver.GetBundle(bundleURL, bundleOrigin, filepath.Join(dir, bundleURL.Name))
+	bundle, err := dk.resolver.GetBundle(dk.bundleURL, dk.bundleOrigin, filepath.Join(dir, dk.bundleURL.Name))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	db := d.newDeployBundle(d.defaultCharmSchema, store.NewResolvedBundle(bundle))
-	db.bundleURL = bundleURL
+	db.bundleURL = dk.bundleURL
 	db.bundleOverlayFile = d.bundleOverlayFile
-	db.origin = bundleOrigin
+	db.origin = dk.bundleOrigin
 	return &repositoryBundle{deployBundle: db}, nil
 }
 
