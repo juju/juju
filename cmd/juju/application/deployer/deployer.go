@@ -37,6 +37,15 @@ import (
 
 var logger = loggo.GetLogger("juju.cmd.juju.application.deployer")
 
+type LocalBundleDeployerType struct {
+	DeployerType
+	LocalBundleDataSource charm.BundleDataSource
+}
+
+type DeployerType interface {
+	Read(d factory) (Deployer, error)
+}
+
 // NewDeployerFactory returns a factory setup with the API and
 // function dependencies required by every deployer.
 func NewDeployerFactory(dep DeployerDependencies) DeployerFactory {
@@ -112,6 +121,7 @@ type DeployerDependencies struct {
 	CharmReader          CharmReader
 	NewConsumeDetailsAPI func(url *charm.OfferURL) (ConsumeDetails, error)
 	Steps                []DeployStep
+	DeployKind           DeployerFactory
 }
 
 // DeployerConfig is the data required to choose a deployer and then run
@@ -130,6 +140,7 @@ type DeployerConfig struct {
 	BundleStorage        map[string]map[string]storage.Constraints
 	Channel              charm.Channel
 	CharmOrBundle        string
+	DeployerKind         DeployerType
 	DefaultCharmSchema   charm.Schema
 	ConfigOptions        common.ConfigFlag
 	ConstraintsStr       string
@@ -245,20 +256,34 @@ func (d *factory) newDeployCharm() deployCharm {
 	}
 }
 
-func (d *factory) maybeReadLocalBundle() (Deployer, error) {
-	bundleFile := d.charmOrBundle
-	_, statErr := d.model.Filesystem().Stat(bundleFile)
-	if statErr == nil && !charm.IsValidLocalCharmOrBundlePath(bundleFile) {
-		return nil, errors.Errorf(""+
-			"The charm or bundle %q is ambiguous.\n"+
-			"To deploy a local charm or bundle, run `juju deploy ./%[1]s`.\n"+
-			"To deploy a charm or bundle from CharmHub, run `juju deploy ch:%[1]s`.",
-			bundleFile,
-		)
+func (dt *LocalBundleDeployerType) Read(d factory) (Deployer, error) {
+	if err := d.validateBundleFlags(); err != nil {
+		return nil, errors.Trace(err)
 	}
 
+	platform := utils.MakePlatform(d.constraints, d.base, d.modelConstraints)
+	db := d.newDeployBundle(d.defaultCharmSchema, dt.LocalBundleDataSource)
+	var base series.Base
+	var err error
+	if platform.Channel != "" {
+		base, err = series.ParseBase(platform.OS, platform.Channel)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	db.origin = commoncharm.Origin{
+		Source:       commoncharm.OriginLocal,
+		Architecture: platform.Architecture,
+		Base:         base,
+	}
+	return &localBundle{deployBundle: db}, nil
+}
+
+func (d *factory) maybeReadLocalBundle() (Deployer, error) {
+	bundleFile := d.charmOrBundle
+
 	ds, err := charm.LocalBundleDataSource(bundleFile)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		// Not a local bundle. Return nil, nil to indicate the fallback
 		// pipeline should try the next possibility.
 		return nil, nil
