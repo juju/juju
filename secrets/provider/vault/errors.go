@@ -34,6 +34,15 @@ func isAlreadyExists(err error, message string) bool {
 	return false
 }
 
+func isMountNotFound(err error) bool {
+	var apiErr *api.ResponseError
+	if errors.As(err, &apiErr) {
+		errMessage := strings.Join(apiErr.Errors, ",")
+		return apiErr.StatusCode == http.StatusBadRequest && strings.Contains(errMessage, "no matching mount")
+	}
+	return false
+}
+
 func maybePermissionDenied(err error) error {
 	var apiErr *api.ResponseError
 	if errors.As(err, &apiErr) {

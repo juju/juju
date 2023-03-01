@@ -38,9 +38,18 @@ func (p vaultProvider) Type() string {
 	return BackendType
 }
 
+func modelPathPrefix(name, modelUUID string) string {
+	if name == "" || modelUUID == "" {
+		return ""
+	}
+	suffix := modelUUID[len(modelUUID)-6:]
+	return name + "-" + suffix
+}
+
 // Initialise sets up a kv store mounted on the model uuid.
 func (p vaultProvider) Initialise(cfg *provider.ModelBackendConfig) error {
-	client, err := p.newBackend(cfg.ModelUUID, &cfg.BackendConfig)
+	logger.Criticalf("INIT")
+	client, err := p.newBackendNoMount(&cfg.BackendConfig)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -53,21 +62,32 @@ func (p vaultProvider) Initialise(cfg *provider.ModelBackendConfig) error {
 	}
 	logger.Debugf("kv mounts: %v", mounts)
 	modelUUID := cfg.ModelUUID
-	if _, ok := mounts[modelUUID]; !ok {
-		err = sys.MountWithContext(ctx, modelUUID, &api.MountInput{
-			Type:    "kv",
-			Options: map[string]string{"version": "1"},
-		})
-		if !isAlreadyExists(err, "path is already in use") {
+	mountPath := modelPathPrefix(cfg.ModelName, modelUUID)
+	if _, ok := mounts[mountPath+"/"]; ok {
+		return nil
+	}
+
+	// Rename any legacy mounts which use the model uuid.
+	if _, ok := mounts[modelUUID+"/"]; ok {
+		err = sys.RemountWithContext(ctx, modelUUID, mountPath)
+		if err != nil && !isMountNotFound(err) {
 			return errors.Trace(err)
 		}
+	}
+	err = sys.MountWithContext(ctx, mountPath, &api.MountInput{
+		Type:    "kv",
+		Options: map[string]string{"version": "1"},
+	})
+	if !isAlreadyExists(err, "path is already in use") {
+		return errors.Trace(err)
 	}
 	return nil
 }
 
 // CleanupModel deletes all secrets and policies associated with the model.
 func (p vaultProvider) CleanupModel(cfg *provider.ModelBackendConfig) error {
-	k, err := p.newBackend(cfg.ModelUUID, &cfg.BackendConfig)
+	modelPath := modelPathPrefix(cfg.ModelName, cfg.ModelUUID)
+	k, err := p.newBackend(modelPath, &cfg.BackendConfig)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -80,7 +100,8 @@ func (p vaultProvider) CleanupModel(cfg *provider.ModelBackendConfig) error {
 		return errors.Trace(err)
 	}
 	for _, p := range policies {
-		if strings.HasPrefix(p, "model-"+k.modelUUID) {
+		// TODO(juju4) - remove legacy mount point
+		if strings.HasPrefix(p, modelPath) || strings.HasPrefix(p, "model-"+cfg.ModelUUID) {
 			if err := sys.DeletePolicyWithContext(ctx, p); err != nil {
 				if isNotFound(err) {
 					continue
@@ -91,7 +112,7 @@ func (p vaultProvider) CleanupModel(cfg *provider.ModelBackendConfig) error {
 	}
 
 	// Now remove any secrets.
-	s, err := k.client.Logical().ListWithContext(ctx, k.modelUUID)
+	s, err := k.client.Logical().ListWithContext(ctx, k.mountPath)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -103,17 +124,18 @@ func (p vaultProvider) CleanupModel(cfg *provider.ModelBackendConfig) error {
 		return nil
 	}
 	for _, id := range keys {
-		err = k.client.KVv1(k.modelUUID).Delete(ctx, fmt.Sprintf("%s", id))
+		err = k.client.KVv1(k.mountPath).Delete(ctx, fmt.Sprintf("%s", id))
 		if err != nil && !isNotFound(err) {
 			return errors.Annotatef(err, "deleting secret %q", id)
 		}
 	}
-	return sys.UnmountWithContext(ctx, k.modelUUID)
+	return sys.UnmountWithContext(ctx, k.mountPath)
 }
 
 // CleanupSecrets removes policies associated with the removed secrets.
 func (p vaultProvider) CleanupSecrets(cfg *provider.ModelBackendConfig, tag names.Tag, removed provider.SecretRevisions) error {
-	client, err := p.newBackend(cfg.ModelUUID, &cfg.BackendConfig)
+	modelPath := modelPathPrefix(cfg.ModelName, cfg.ModelUUID)
+	client, err := p.newBackend(modelPath, &cfg.BackendConfig)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -121,6 +143,10 @@ func (p vaultProvider) CleanupSecrets(cfg *provider.ModelBackendConfig, tag name
 
 	isRelevantPolicy := func(p string) bool {
 		for id := range removed {
+			if strings.HasPrefix(p, fmt.Sprintf("%s-%s-", modelPath, id)) {
+				return true
+			}
+			// TODO(juju4) - remove legacy mount point
 			if strings.HasPrefix(p, fmt.Sprintf("model-%s-%s-", cfg.ModelUUID, id)) {
 				return true
 			}
@@ -154,39 +180,39 @@ func (p vaultProvider) RestrictedConfig(
 ) (*provider.BackendConfig, error) {
 	adminUser := tag == nil
 	// Get an admin backend client so we can set up the policies.
-	backend, err := p.newBackend(adminCfg.ModelUUID, &adminCfg.BackendConfig)
+	mountPath := modelPathPrefix(adminCfg.ModelName, adminCfg.ModelUUID)
+	backend, err := p.newBackend(mountPath, &adminCfg.BackendConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	sys := backend.client.Sys()
 
 	ctx := context.Background()
-	modelUUID := adminCfg.ModelUUID
 	var policies []string
 	if adminUser {
 		// For admin users, all secrets for the model can be read.
-		rule := fmt.Sprintf(`path "%s/*" {capabilities = ["read"]}`, modelUUID)
-		policyName := fmt.Sprintf("model-%s-read", modelUUID)
+		rule := fmt.Sprintf(`path "%s/*" {capabilities = ["read"]}`, mountPath)
+		policyName := mountPath + "-read"
 		err = sys.PutPolicyWithContext(ctx, policyName, rule)
 		if err != nil {
-			return nil, errors.Annotatef(err, "creating read policy for model %q", modelUUID)
+			return nil, errors.Annotatef(err, "creating read policy for model %q", mountPath)
 		}
 		policies = append(policies, policyName)
 	} else {
 		// Agents can create new secrets in the model.
-		rule := fmt.Sprintf(`path "%s/*" {capabilities = ["create"]}`, modelUUID)
-		policyName := fmt.Sprintf("model-%s-create", modelUUID)
+		rule := fmt.Sprintf(`path "%s/*" {capabilities = ["create"]}`, mountPath)
+		policyName := mountPath + "-create"
 		err = sys.PutPolicyWithContext(ctx, policyName, rule)
 		if err != nil {
-			return nil, errors.Annotatef(err, "creating create policy for model %q", modelUUID)
+			return nil, errors.Annotatef(err, "creating create policy for model %q", mountPath)
 		}
 		policies = append(policies, policyName)
 	}
 	// Any secrets owned by the agent can be updated/deleted etc.
 	logger.Debugf("owned secrets: %#v", owned)
 	for id := range owned {
-		rule := fmt.Sprintf(`path "%s/%s-*" {capabilities = ["create", "read", "update", "delete", "list"]}`, modelUUID, id)
-		policyName := fmt.Sprintf("model-%s-%s-owner", modelUUID, id)
+		rule := fmt.Sprintf(`path "%s/%s-*" {capabilities = ["create", "read", "update", "delete", "list"]}`, mountPath, id)
+		policyName := fmt.Sprintf("%s-%s-owner", mountPath, id)
 		err = sys.PutPolicyWithContext(ctx, policyName, rule)
 		if err != nil {
 			return nil, errors.Annotatef(err, "creating owner policy for %q", id)
@@ -197,8 +223,8 @@ func (p vaultProvider) RestrictedConfig(
 	// Any secrets consumed by the agent can be read etc.
 	logger.Debugf("consumed secrets: %#v", read)
 	for id := range read {
-		rule := fmt.Sprintf(`path "%s/%s-*" {capabilities = ["read"]}`, modelUUID, id)
-		policyName := fmt.Sprintf("model-%s-%s-read", modelUUID, id)
+		rule := fmt.Sprintf(`path "%s/%s-*" {capabilities = ["read"]}`, mountPath, id)
+		policyName := fmt.Sprintf("%s-%s-read", mountPath, id)
 		err = sys.PutPolicyWithContext(ctx, policyName, rule)
 		if err != nil {
 			return nil, errors.Annotatef(err, "creating read policy for %q", id)
@@ -224,10 +250,19 @@ var NewVaultClient = vault.NewClient
 
 // NewBackend returns a vault backed secrets backend client.
 func (p vaultProvider) NewBackend(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
-	return p.newBackend(cfg.ModelUUID, &cfg.BackendConfig)
+	return p.newBackend(modelPathPrefix(cfg.ModelName, cfg.ModelUUID), &cfg.BackendConfig)
 }
 
-func (p vaultProvider) newBackend(modelUUID string, cfg *provider.BackendConfig) (*vaultBackend, error) {
+func (p vaultProvider) newBackend(modelPathPrefix string, cfg *provider.BackendConfig) (*vaultBackend, error) {
+	backend, err := p.newBackendNoMount(cfg)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	backend.mountPath = modelPathPrefix
+	return backend, nil
+}
+
+func (p vaultProvider) newBackendNoMount(cfg *provider.BackendConfig) (*vaultBackend, error) {
 	validCfg, err := newConfig(cfg.Config)
 	if err != nil {
 		return nil, errors.Annotatef(err, "invalid vault config")
@@ -276,7 +311,7 @@ func (p vaultProvider) newBackend(modelUUID string, cfg *provider.BackendConfig)
 	if ns := validCfg.namespace(); ns != "" {
 		c.SetNamespace(ns)
 	}
-	return &vaultBackend{modelUUID: modelUUID, client: c}, nil
+	return &vaultBackend{client: c}, nil
 }
 
 // RefreshAuth implements SupportAuthRefresh.
@@ -285,7 +320,7 @@ func (p vaultProvider) RefreshAuth(adminCfg *provider.ModelBackendConfig, validF
 		err = maybePermissionDenied(err)
 	}()
 
-	backend, err := p.newBackend(adminCfg.ModelUUID, &adminCfg.BackendConfig)
+	backend, err := p.newBackendNoMount(&adminCfg.BackendConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
