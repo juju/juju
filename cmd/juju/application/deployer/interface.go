@@ -6,6 +6,7 @@ package deployer
 import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/charm/v9"
+	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
@@ -82,6 +83,7 @@ type MeteredDeployAPI interface {
 // command needs for charms.
 type CharmDeployAPI interface {
 	CharmInfo(string) (*apicharms.CharmInfo, error)
+	ListCharmResources(curl *charm.URL, origin commoncharm.Origin) ([]charmresource.Resource, error)
 }
 
 // OfferAPI represents the methods of the API the deploy command needs
