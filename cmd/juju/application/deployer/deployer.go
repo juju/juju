@@ -37,13 +37,19 @@ import (
 
 var logger = loggo.GetLogger("juju.cmd.juju.application.deployer")
 
+type DeployerKind interface {
+	Read(d factory) (Deployer, error)
+}
+
 type localBundleDeployerType struct {
-	DeployerKind
 	DataSource charm.BundleDataSource
 }
 
-type DeployerKind interface {
-	Read(d factory) (Deployer, error)
+type localCharmDeployerType struct {
+	seriesName  string
+	imageStream string
+	ch          charm.Charm
+	curl        *charm.URL
 }
 
 // NewDeployerFactory returns a factory setup with the API and
@@ -63,34 +69,132 @@ func NewDeployerFactory(dep DeployerDependencies) DeployerFactory {
 	return d
 }
 
+func (d *factory) determineSeriesForLocalCharm(charmOrBundle string, getter ModelConfigGetter) (string, string, error) {
+	// TODO (cderici): check the validity of the comments belowe
+	// NOTE: Here we select the series using the algorithm defined by
+	// `seriesSelector.charmSeries`. This serves to override the algorithm found
+	// in `charmrepo.NewCharmAtPath` which is outdated (but must still be
+	// called since the code is coupled with path interpretation logic which
+	// cannot easily be factored out).
+
+	// NOTE: Reading the charm here is only meant to aid in inferring the
+	// correct series, if this fails we fall back to the argument series. If
+	// reading the charm fails here it will also fail below (the charm is read
+	// again below) where it is handled properly. This is just an expedient to
+	// get the correct series. A proper refactoring of the charmrepo package is
+	// needed for a more elegant fix.
+	var (
+		imageStream string
+		seriesName  string
+	)
+	if !d.base.Empty() {
+		var err error
+		seriesName, err = series.GetSeriesFromBase(d.base)
+		if err != nil {
+			return "", "", errors.Trace(err)
+		}
+	}
+
+	ch, err := d.charmReader.ReadCharm(charmOrBundle)
+	if err == nil {
+		modelCfg, err := getModelConfig(getter)
+		if err != nil {
+			return "", "", errors.Trace(err)
+		}
+
+		imageStream = modelCfg.ImageStream()
+		workloadSeries, err := SupportedJujuSeries(d.clock.Now(), seriesName, imageStream)
+		if err != nil {
+			return "", "", errors.Trace(err)
+		}
+
+		supportedSeries, err := corecharm.ComputedSeries(ch)
+		if err != nil {
+			return "", "", errors.Trace(err)
+		}
+		seriesSelector := corecharm.SeriesSelector{
+			SeriesFlag:          seriesName,
+			SupportedSeries:     supportedSeries,
+			SupportedJujuSeries: workloadSeries,
+			Force:               d.force,
+			Conf:                modelCfg,
+			FromBundle:          false,
+		}
+
+		if len(supportedSeries) == 0 {
+			logger.Warningf("%s does not declare supported series in metadata.yml", ch.Meta().Name)
+		}
+
+		seriesName, err = seriesSelector.CharmSeries()
+		if err = charmValidationError(ch.Meta().Name, errors.Trace(err)); err != nil {
+			return "", "", errors.Trace(err)
+		}
+	}
+	return seriesName, imageStream, nil
+}
+
 // GetDeployer returns the correct deployer to use based on the cfg provided.
 // A ModelConfigGetter needed to find the deployer.
 func (d *factory) GetDeployer(cfg DeployerConfig, getter ModelConfigGetter, resolver Resolver) (Deployer, error) {
+	d.setConfig(cfg)
+
 	// Determine the type of deploy we have
 	var dk DeployerKind
 
-	// Local Bundle
-	_, fileStatErr := d.model.Filesystem().Stat(d.charmOrBundle)
-	if fileStatErr == nil && !charm.IsValidLocalCharmOrBundlePath(d.charmOrBundle) {
-		return nil, errors.Errorf(""+
-			"The charm or bundle %q is ambiguous.\n"+
-			"To deploy a local charm or bundle, run `juju deploy ./%[1]s`.\n"+
-			"To deploy a charm or bundle from CharmHub, run `juju deploy ch:%[1]s`.",
-			d.charmOrBundle,
-		)
+	if isLocalSchema(d.charmOrBundle) {
+		// Check if the path is ambiguous
+		_, fileStatErr := d.model.Filesystem().Stat(d.charmOrBundle)
+		if fileStatErr == nil && !charm.IsValidLocalCharmOrBundlePath(d.charmOrBundle) {
+			return nil, errors.Errorf(""+
+				"The charm or bundle %q is ambiguous.\n"+
+				"To deploy a local charm or bundle, run `juju deploy ./%[1]s`.\n"+
+				"To deploy a charm or bundle from CharmHub, run `juju deploy ch:%[1]s`.",
+				d.charmOrBundle,
+			)
+		}
+		// Check Local Bundle
+		if ds, localBundleDataErr := charm.LocalBundleDataSource(d.charmOrBundle); localBundleDataErr == nil {
+			// Set the deployer kind to localBundleDeployerType
+			dk = &localBundleDeployerType{DataSource: ds}
+		} else if !errors.Is(localBundleDataErr, errors.NotFound) {
+			// Only raise if it's not a NotFound.
+			// Otherwise, no need to raise, it's not a bundle,
+			// continue with trying for local charm.s
+			return nil, errors.Annotatef(localBundleDataErr, "cannot deploy %v", d.charmOrBundle)
+		}
+
+		// Check Local Charm
+		charmOrBundle := d.charmOrBundle[6:]
+		seriesName, imageStream, seriesErr := d.determineSeriesForLocalCharm(charmOrBundle, getter)
+		if seriesErr != nil {
+			return nil, errors.Trace(seriesErr)
+		}
+		// Charm may have been supplied via a path reference.
+		ch, curl, err := corecharm.NewCharmAtPathForceSeries(charmOrBundle, seriesName, d.force)
+		// We check for several types of known error which indicate
+		// that the supplied reference was indeed a path but there was
+		// an issue reading the charm located there.
+		if corecharm.IsMissingSeriesError(err) {
+			return nil, err
+		} else if corecharm.IsUnsupportedSeriesError(err) {
+			return nil, errors.Trace(err)
+		} else if errors.Cause(err) == zip.ErrFormat {
+			return nil, errors.Errorf("invalid charm or bundle provided at %q", charmOrBundle)
+		} else if errors.Is(err, errors.NotFound) {
+			return nil, errors.Wrap(err, errors.NotFoundf("charm or bundle at %q", charmOrBundle))
+		} else if err != nil && err != os.ErrNotExist {
+			// If we get a "not exists" error then we attempt to interpret
+			// the supplied charm reference as a URL elsewhere, otherwise
+			// we return the error.
+			return nil, errors.Annotatef(err, "attempting to deploy %q", charmOrBundle)
+		} else if err != nil {
+			logger.Debugf("cannot interpret as local charm: %v", err)
+			return nil, nil
+		}
+
+		// If all above goes well, set the deployer kind to localCharmDeployerType
+		dk = &localCharmDeployerType{seriesName, imageStream, ch, curl}
 	}
-
-	if ds, localBundleDataErr := charm.LocalBundleDataSource(d.charmOrBundle); localBundleDataErr == nil {
-		dk = &localBundleDeployerType{DataSource: ds}
-	} else if !errors.Is(localBundleDataErr, errors.NotFound) {
-		// Only raise if it's not a NotFound.
-		// Otherwise, no need to raise, it's not a bundle,
-		// continue with trying for local charm.s
-		return nil, errors.Annotatef(localBundleDataErr, "cannot deploy %v", d.charmOrBundle)
-	}
-
-	// Local Charm
-
 	// Predeployed local charm?
 
 	// Repository bundle?
@@ -101,7 +205,7 @@ func (d *factory) GetDeployer(cfg DeployerConfig, getter ModelConfigGetter, reso
 	/*
 		d.setConfig(cfg)
 		maybeDeployers := []func() (Deployer, error){
-			d.maybeReadLocalBundle,
+
 			func() (Deployer, error) { return d.maybeReadLocalCharm(getter) },
 			d.maybePredeployedLocalCharm,
 			func() (Deployer, error) { return d.maybeReadRepositoryBundle(resolver) },
@@ -338,109 +442,21 @@ func (d *factory) newDeployBundle(_ charm.Schema, ds charm.BundleDataSource) dep
 	}
 }
 
-func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error) {
-	// NOTE: Here we select the series using the algorithm defined by
-	// `seriesSelector.charmSeries`. This serves to override the algorithm found
-	// in `charmrepo.NewCharmAtPath` which is outdated (but must still be
-	// called since the code is coupled with path interpretation logic which
-	// cannot easily be factored out).
-
-	// NOTE: Reading the charm here is only meant to aid in inferring the
-	// correct series, if this fails we fall back to the argument series. If
-	// reading the charm fails here it will also fail below (the charm is read
-	// again below) where it is handled properly. This is just an expedient to
-	// get the correct series. A proper refactoring of the charmrepo package is
-	// needed for a more elegant fix.
-	charmOrBundle := d.charmOrBundle
-	if isLocalSchema(charmOrBundle) {
-		charmOrBundle = charmOrBundle[6:]
-	}
-
-	var (
-		imageStream string
-		seriesName  string
-	)
-	if !d.base.Empty() {
-		var err error
-		seriesName, err = series.GetSeriesFromBase(d.base)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-
-	ch, err := d.charmReader.ReadCharm(charmOrBundle)
-	if err == nil {
-		modelCfg, err := getModelConfig(getter)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		imageStream = modelCfg.ImageStream()
-		workloadSeries, err := SupportedJujuSeries(d.clock.Now(), seriesName, imageStream)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		supportedSeries, err := corecharm.ComputedSeries(ch)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		seriesSelector := corecharm.SeriesSelector{
-			SeriesFlag:          seriesName,
-			SupportedSeries:     supportedSeries,
-			SupportedJujuSeries: workloadSeries,
-			Force:               d.force,
-			Conf:                modelCfg,
-			FromBundle:          false,
-			Logger:              logger,
-		}
-
-		if len(supportedSeries) == 0 {
-			logger.Warningf("%s does not declare supported series in metadata.yml", ch.Meta().Name)
-		}
-
-		seriesName, err = seriesSelector.CharmSeries()
-		if err = charmValidationError(ch.Meta().Name, errors.Trace(err)); err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-
-	// Charm may have been supplied via a path reference.
-	ch, curl, err := corecharm.NewCharmAtPathForceSeries(charmOrBundle, seriesName, d.force)
-	// We check for several types of known error which indicate
-	// that the supplied reference was indeed a path but there was
-	// an issue reading the charm located there.
-	if corecharm.IsMissingSeriesError(err) {
-		return nil, err
-	} else if corecharm.IsUnsupportedSeriesError(err) {
-		return nil, errors.Trace(err)
-	} else if errors.Cause(err) == zip.ErrFormat {
-		return nil, errors.Errorf("invalid charm or bundle provided at %q", charmOrBundle)
-	} else if errors.Is(err, errors.NotFound) {
-		return nil, errors.Wrap(err, errors.NotFoundf("charm or bundle at %q", charmOrBundle))
-	} else if err != nil && err != os.ErrNotExist {
-		// If we get a "not exists" error then we attempt to interpret
-		// the supplied charm reference as a URL elsewhere, otherwise
-		// we return the error.
-		return nil, errors.Annotatef(err, "attempting to deploy %q", charmOrBundle)
-	} else if err != nil {
-		logger.Debugf("cannot interpret as local charm: %v", err)
-		return nil, nil
-	}
-
+func (dk *localCharmDeployerType) Read(d factory) (Deployer, error) {
 	// Avoid deploying charm if the charm series is not correct for the
 	// available image streams.
-	if err := d.validateCharmSeriesWithName(seriesName, curl.Name, imageStream); err != nil {
+	var err error
+	if err = d.validateCharmSeriesWithName(dk.seriesName, dk.curl.Name, dk.imageStream); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := d.validateResourcesNeededForLocalDeploy(ch.Meta()); err != nil {
+	if err := d.validateResourcesNeededForLocalDeploy(dk.ch.Meta()); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	return &localCharm{
 		deployCharm: d.newDeployCharm(),
-		curl:        curl,
-		ch:          ch,
+		curl:        dk.curl,
+		ch:          dk.ch,
 	}, err
 }
 
