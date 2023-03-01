@@ -14,8 +14,7 @@ import (
 	databasetesting "github.com/juju/juju/database/testing"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -source worker.go -package dbaccessor -destination package_mock_test.go github.com/juju/juju/worker/dbaccessor Logger,DBApp,NodeManager,TrackedDB
-//go:generate go run github.com/golang/mock/mockgen -package dbaccessor -destination logger_mock_test.go github.com/juju/juju/worker/dbaccessor Logger
+//go:generate go run github.com/golang/mock/mockgen -package dbaccessor -destination package_mock_test.go github.com/juju/juju/worker/dbaccessor Logger,DBApp,NodeManager,TrackedDB,Hub
 //go:generate go run github.com/golang/mock/mockgen -package dbaccessor -destination clock_mock_test.go github.com/juju/clock Clock,Timer
 
 func TestPackage(t *testing.T) {
@@ -26,6 +25,7 @@ type baseSuite struct {
 	jujutesting.IsolationSuite
 
 	clock     *MockClock
+	hub       *MockHub
 	timer     *MockTimer
 	logger    *MockLogger
 	dbApp     *MockDBApp
@@ -38,6 +38,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.clock = NewMockClock(ctrl)
 	s.timer = NewMockTimer(ctrl)
 	s.logger = NewMockLogger(ctrl)
+	s.hub = NewMockHub(ctrl)
 	s.dbApp = NewMockDBApp(ctrl)
 	s.trackedDB = NewMockTrackedDB(ctrl)
 
