@@ -70,7 +70,7 @@ func newManifoldConfig() leaseexpiry.ManifoldConfig {
 func (s *manifoldSuite) newStubContext() *dt.Context {
 	return dt.StubContext(nil, map[string]interface{}{
 		"clock-name":       clock.WallClock,
-		"db-accessor-name": stubDBGetter{trackedDB: s.TrackedDB},
+		"db-accessor-name": stubDBGetter{trackedDB: s.TrackedDB()},
 	})
 }
 

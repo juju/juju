@@ -29,7 +29,7 @@ func (s *workerSuite) TestConfigValidate(c *gc.C) {
 	validCfg := leaseexpiry.Config{
 		Clock:     clock.WallClock,
 		Logger:    leaseexpiry.StubLogger{},
-		TrackedDB: s.TrackedDB,
+		TrackedDB: s.TrackedDB(),
 	}
 
 	cfg := validCfg
@@ -69,7 +69,7 @@ func (s *workerSuite) TestWorkerDeletesExpiredLeases(c *gc.C) {
 INSERT INTO lease (uuid, lease_type_id, model_uuid, name, holder, start, expiry)
 VALUES (?, 1, 'some-model-uuid', ?, ?, datetime('now'), datetime('now', ?))`[1:]
 
-	stmt, err := s.DB.Prepare(q)
+	stmt, err := s.DB().Prepare(q)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = stmt.Exec(utils.MustNewUUID().String(), "postgresql", "postgresql/0", "+2 minutes")
@@ -81,7 +81,7 @@ VALUES (?, 1, 'some-model-uuid', ?, ?, datetime('now'), datetime('now', ?))`[1:]
 	w, err = leaseexpiry.NewWorker(leaseexpiry.Config{
 		Clock:     clk,
 		Logger:    leaseexpiry.StubLogger{},
-		TrackedDB: s.TrackedDB,
+		TrackedDB: s.TrackedDB(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -89,7 +89,7 @@ VALUES (?, 1, 'some-model-uuid', ?, ?, datetime('now'), datetime('now', ?))`[1:]
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Only the postgresql lease (expiring in the future) should remain.
-	row := s.DB.QueryRow("SELECT name FROM LEASE")
+	row := s.DB().QueryRow("SELECT name FROM LEASE")
 	var name string
 	err = row.Scan(&name)
 	c.Assert(err, jc.ErrorIsNil)

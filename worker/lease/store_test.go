@@ -28,7 +28,7 @@ func (s *storeSuite) SetUpTest(c *gc.C) {
 	s.ControllerSuite.SetUpTest(c)
 
 	s.store = lease.NewStore(lease.StoreConfig{
-		TrackedDB: s.TrackedDB,
+		TrackedDB: s.TrackedDB(),
 		Logger:    lease.StubLogger{},
 	})
 

@@ -18,6 +18,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	coredb "github.com/juju/juju/core/db"
+	"github.com/juju/juju/database"
 	"github.com/juju/juju/database/app"
 )
 
@@ -421,8 +422,8 @@ func (w *trackedDBWorker) DB(fn func(*sql.DB) error) error {
 // it's a common retryable error that can be handled cleanly in one place.
 func (w *trackedDBWorker) Txn(ctx context.Context, fn func(context.Context, *sql.Tx) error) error {
 	return w.DB(func(db *sql.DB) error {
-		return coredb.Retry(func() error {
-			return coredb.Txn(ctx, db, fn)
+		return database.Retry(ctx, func() error {
+			return database.Txn(ctx, db, fn)
 		})
 	})
 }
@@ -524,8 +525,8 @@ func (w *trackedDBWorker) verifyDB() error {
 			return errors.Errorf("no database found")
 		}
 
-		err = coredb.Retry(func() error {
-			return coredb.Txn(ctx, db, func(ctx context.Context, tx *sql.Tx) error {
+		err = database.Retry(ctx, func() error {
+			return database.Txn(ctx, db, func(ctx context.Context, tx *sql.Tx) error {
 				row := tx.QueryRowContext(ctx, "SELECT COUNT(tbl_name) FROM sqlite_schema")
 
 				var tableCount int

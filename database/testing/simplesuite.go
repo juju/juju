@@ -4,11 +4,9 @@
 package testing
 
 import (
-	"context"
 	"database/sql"
 	"fmt"
 
-	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	_ "github.com/mattn/go-sqlite3"
@@ -23,8 +21,8 @@ import (
 type ControllerSuite struct {
 	testing.IsolationSuite
 
-	DB        *sql.DB
-	TrackedDB coredb.TrackedDB
+	db        *sql.DB
+	trackedDB coredb.TrackedDB
 }
 
 // SetUpTest creates a new sql.DB reference and ensures that the
@@ -38,14 +36,14 @@ func (s *ControllerSuite) SetUpTest(c *gc.C) {
 	// fail in non-deterministic ways. Unfortunately :memory: mode is not
 	// completely goroutine safe.
 	var err error
-	s.DB, err = sql.Open("sqlite3", fmt.Sprintf("file:%s/db.sqlite3?_foreign_keys=1", dir))
+	s.db, err = sql.Open("sqlite3", fmt.Sprintf("file:%s/db.sqlite3?_foreign_keys=1", dir))
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.TrackedDB = &trackedDB{
-		db: s.DB,
+	s.trackedDB = &trackedDB{
+		db: s.db,
 	}
 
-	tx, err := s.DB.Begin()
+	tx, err := s.db.Begin()
 	c.Assert(err, jc.ErrorIsNil)
 
 	for idx, stmt := range schema.ControllerDDL() {
@@ -61,37 +59,18 @@ func (s *ControllerSuite) SetUpTest(c *gc.C) {
 
 func (s *ControllerSuite) TearDownTest(c *gc.C) {
 	c.Logf("Closing DB")
-	err := s.DB.Close()
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-type trackedDB struct {
-	db *sql.DB
-}
-
-func (t *trackedDB) DB(fn func(*sql.DB) error) error {
-	return fn(t.db)
-}
-
-func (t *trackedDB) Txn(ctx context.Context, fn func(context.Context, *sql.Tx) error) error {
-	return t.DB(func(db *sql.DB) error {
-		// TODO (stickupkid): Implement retries for tests?
-		return coredb.Txn(ctx, db, fn)
-	})
-}
-
-func (t *trackedDB) PrepareStmts(fn func(*sql.DB) error) (func(), error) {
-	err := t.DB(func(db *sql.DB) error {
-		return fn(db)
-	})
-	if err != nil {
-		return nil, errors.Trace(err)
+	if s.db != nil {
+		err := s.db.Close()
+		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	// TODO (stickupkid): maybe do something here?
-	return func() {}, nil
+	s.IsolationSuite.TearDownTest(c)
 }
 
-func (t *trackedDB) Err() error {
-	return nil
+func (s *ControllerSuite) DB() *sql.DB {
+	return s.db
+}
+
+func (s *ControllerSuite) TrackedDB() coredb.TrackedDB {
+	return s.trackedDB
 }

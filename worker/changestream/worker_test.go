@@ -27,7 +27,7 @@ func (s *workerSuite) TestChanges(c *gc.C) {
 	changes := make(chan changestream.ChangeEvent)
 	defer close(changes)
 
-	s.dbGetter.EXPECT().GetDB("controller").Return(s.TrackedDB, nil)
+	s.dbGetter.EXPECT().GetDB("controller").Return(s.TrackedDB(), nil)
 	s.dbStream.EXPECT().Changes().Return(changes)
 	s.dbStream.EXPECT().Wait().Return(nil).MinTimes(1)
 	s.dbStream.EXPECT().Kill().AnyTimes()

@@ -282,11 +282,17 @@ func (r *sqlREPL) handleSQLExecCommand(s *replSession) {
 		return
 	}
 
+	raw, ok := s.db.(coredb.TrackedRawDB)
+	if !ok {
+		_, _ = fmt.Fprintf(s.resWriter, "Unable to execute query; the DB does not support raw queries\n")
+		return
+	}
+
 	// NOTE(achilleasa): passing unfiltered user input to the DB is a
 	// horrible horrible hack that should NEVER EVER see the light of day.
 	// You have been warned!
 	var res sql.Result
-	err := s.db.DB(func(db *sql.DB) error {
+	err := raw.DB(func(db *sql.DB) error {
 		var err error
 		res, err = db.ExecContext(r.sessionCtx, s.cmdParams)
 		return errors.Trace(err)
@@ -308,11 +314,17 @@ func (r *sqlREPL) handleSQLSelectCommand(s *replSession) {
 		return
 	}
 
+	raw, ok := s.db.(coredb.TrackedRawDB)
+	if !ok {
+		_, _ = fmt.Fprintf(s.resWriter, "Unable to execute query; the DB does not support raw queries\n")
+		return
+	}
+
 	// NOTE(achilleasa): passing unfiltered user input to the DB is a
 	// horrible horrible hack that should NEVER EVER see the light of day.
 	// You have been warned!
 	var res *sql.Rows
-	err := s.db.DB(func(db *sql.DB) error {
+	err := raw.DB(func(db *sql.DB) error {
 		var err error
 		res, err = db.QueryContext(r.sessionCtx, s.cmdParams)
 		return errors.Trace(err)

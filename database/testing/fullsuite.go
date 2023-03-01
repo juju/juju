@@ -16,6 +16,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	coredb "github.com/juju/juju/core/db"
 	"github.com/juju/juju/database/app"
 )
 
@@ -23,8 +24,9 @@ import (
 type DBSuite struct {
 	testing.IsolationSuite
 
-	dqlite *app.App
-	db     *sql.DB
+	dqlite    *app.App
+	db        *sql.DB
+	trackedDB coredb.TrackedDB
 }
 
 // SetUpSuite creates a new Dqlite application and waits for it to be ready.
@@ -60,6 +62,10 @@ func (s *DBSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.db, err = s.dqlite.Open(context.TODO(), strconv.Itoa(rand.Intn(10)))
 	c.Assert(err, jc.ErrorIsNil)
+
+	s.trackedDB = &trackedDB{
+		db: s.db,
+	}
 }
 
 // TearDownTest closes the database opened in SetUpTest.
@@ -75,6 +81,10 @@ func (s *DBSuite) TearDownTest(c *gc.C) {
 
 func (s *DBSuite) DB() *sql.DB {
 	return s.db
+}
+
+func (s *DBSuite) TrackedDB() coredb.TrackedDB {
+	return s.trackedDB
 }
 
 // FindTCPPort finds an unused TCP port and returns it.
