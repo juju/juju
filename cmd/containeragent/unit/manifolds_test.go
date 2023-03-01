@@ -38,6 +38,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"agent",
 		"api-config-watcher",
 		"api-caller",
+		"s3-caller",
 		"uniter",
 		"log-sender",
 
@@ -80,6 +81,7 @@ func (s *ManifoldsSuite) TestManifoldNamesColocatedController(c *gc.C) {
 		"agent",
 		"api-config-watcher",
 		"api-caller",
+		"s3-caller",
 		"caas-prober",
 		"probe-http-server",
 		"uniter",
@@ -116,6 +118,7 @@ func (*ManifoldsSuite) TestMigrationGuards(c *gc.C) {
 		"agent",
 		"api-config-watcher",
 		"api-caller",
+		"s3-caller",
 		"caas-prober",
 		"probe-http-server",
 		"log-sender",
@@ -169,6 +172,11 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 	"agent":              {},
 	"api-config-watcher": {"agent"},
 	"api-caller":         {"agent", "api-config-watcher"},
+	"s3-caller": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+	},
 	"uniter": {
 		"agent",
 		"api-caller",
