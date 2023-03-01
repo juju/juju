@@ -382,13 +382,14 @@ func (st *State) Model() (*model.Model, error) {
 	}, nil
 }
 
-func processOpenPortRangesByEndpointResults(results params.OpenPortRangesByEndpointResults) (map[names.UnitTag]network.GroupedPortRanges, error) {
+func processOpenPortRangesByEndpointResults(results params.OpenPortRangesByEndpointResults, tag names.Tag) (map[names.UnitTag]network.GroupedPortRanges, error) {
 	if len(results.Results) != 1 {
 		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
-		return nil, result.Error
+		err := apiservererrors.RestoreError(result.Error)
+		return nil, errors.Annotatef(err, "unable to fetch opened ports for %s", tag)
 	}
 
 	portRangeMap := make(map[names.UnitTag]network.GroupedPortRanges)
@@ -418,11 +419,10 @@ func (st *State) OpenedMachinePortRangesByEndpoint(machineTag names.MachineTag) 
 	if err != nil {
 		return nil, err
 	}
-	return processOpenPortRangesByEndpointResults(results)
+	return processOpenPortRangesByEndpointResults(results, machineTag)
 }
 
-// OpenedPortRangesByEndpoint returns all port ranges currently open for the given
-// application, grouped by unit tag and application endpoint.
+// OpenedPortRangesByEndpoint returns all port ranges currently opened grouped by unit tag and application endpoint.
 func (st *State) OpenedPortRangesByEndpoint() (map[names.UnitTag]network.GroupedPortRanges, error) {
 	if st.BestAPIVersion() < 18 {
 		// OpenedPortRangesByEndpoint() was introduced in UniterAPIV18.
@@ -432,7 +432,7 @@ func (st *State) OpenedPortRangesByEndpoint() (map[names.UnitTag]network.Grouped
 	if err := st.facade.FacadeCall("OpenedPortRangesByEndpoint", nil, &results); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return processOpenPortRangesByEndpointResults(results)
+	return processOpenPortRangesByEndpointResults(results, st.unitTag)
 }
 
 // OpenedApplicationPortRangesByEndpoint returns all port ranges currently open for the given

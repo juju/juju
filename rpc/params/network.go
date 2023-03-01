@@ -842,14 +842,14 @@ type ApplicationOpenedPorts struct {
 }
 
 // ApplicationOpenedPortsResult holds a single result of the
-// CAASFirewallerEmbedded.GetApplicationOpenedPorts() API calls.
+// CAASFirewallerEmbedded.GetOpenedPorts() API calls.
 type ApplicationOpenedPortsResult struct {
 	Error                 *Error                   `json:"error,omitempty"`
 	ApplicationPortRanges []ApplicationOpenedPorts `json:"application-port-ranges"`
 }
 
 // ApplicationOpenedPortsResults holds all the results of the
-// CAASFirewallerEmbedded.GetApplicationOpenedPorts() API calls.
+// CAASFirewallerEmbedded.GetOpenedPorts() API calls.
 type ApplicationOpenedPortsResults struct {
 	Results []ApplicationOpenedPortsResult `json:"results"`
 }

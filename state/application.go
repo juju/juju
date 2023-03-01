@@ -750,11 +750,11 @@ func (a *Application) removeOps(asserts bson.D, op *ForcedOperation) ([]txn.Op, 
 		removePodSpecOp(a.ApplicationTag()),
 	)
 
-	openedApplicationPortRanges, err := getOpenedApplicationPortRangesForApplication(a.st, a.Name())
+	apr, err := getApplicationPortRanges(a.st, a.Name())
 	if op.FatalError(err) {
 		return nil, errors.Trace(err)
 	}
-	ops = append(ops, openedApplicationPortRanges.removeOps()...)
+	ops = append(ops, apr.removeOps()...)
 
 	cancelCleanupOps, err := a.cancelScheduledCleanupOps()
 	if err != nil {
@@ -3249,7 +3249,7 @@ func assertApplicationAliveOp(docID string) txn.Op {
 // OpenedPortRanges returns a ApplicationPortRanges object that can be used to query
 // and/or mutate the port ranges opened by the embedded k8s application.
 func (a *Application) OpenedPortRanges() (ApplicationPortRanges, error) {
-	apr, err := getOpenedApplicationPortRangesForApplication(a.st, a.Name())
+	apr, err := getApplicationPortRanges(a.st, a.Name())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

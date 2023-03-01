@@ -150,7 +150,7 @@ func (s *firewallerSidecarSuite) TestGetApplicationOpenedPorts(c *gc.C) {
 		},
 	}
 
-	results, err := s.facade.GetApplicationOpenedPorts(params.Entity{
+	results, err := s.facade.GetOpenedPorts(params.Entity{
 		Tag: "application-gitlab",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -183,7 +183,7 @@ type facadeCommon interface {
 type facadeSidecar interface {
 	facadeCommon
 	WatchOpenedPorts(args params.Entities) (params.StringsWatchResults, error)
-	GetApplicationOpenedPorts(arg params.Entity) (params.ApplicationOpenedPortsResults, error)
+	GetOpenedPorts(arg params.Entity) (params.ApplicationOpenedPortsResults, error)
 }
 
 func (s *firewallerBaseSuite) SetUpTest(c *gc.C) {

@@ -220,8 +220,8 @@ func (f *FacadeSidecar) watchOneModelOpenedPorts(tag names.Tag) (string, []strin
 	return "", nil, watcher.EnsureErr(watch)
 }
 
-// GetApplicationOpenedPorts returns all the opened ports for each given application tag.
-func (f *FacadeSidecar) GetApplicationOpenedPorts(arg params.Entity) (params.ApplicationOpenedPortsResults, error) {
+// GetOpenedPorts returns all the opened ports for each given application tag.
+func (f *FacadeSidecar) GetOpenedPorts(arg params.Entity) (params.ApplicationOpenedPortsResults, error) {
 	result := params.ApplicationOpenedPortsResults{
 		Results: make([]params.ApplicationOpenedPortsResult, 1),
 	}

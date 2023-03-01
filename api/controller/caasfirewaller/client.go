@@ -87,13 +87,13 @@ func (c *ClientSidecar) WatchOpenedPorts() (watcher.StringsWatcher, error) {
 	return w, nil
 }
 
-// GetApplicationOpenedPorts returns all the opened ports for each given application.
-func (c *ClientSidecar) GetApplicationOpenedPorts(appName string) (network.GroupedPortRanges, error) {
+// GetOpenedPorts returns all the opened ports for each given application.
+func (c *ClientSidecar) GetOpenedPorts(appName string) (network.GroupedPortRanges, error) {
 	arg := params.Entity{
 		Tag: names.NewApplicationTag(appName).String(),
 	}
 	var result params.ApplicationOpenedPortsResults
-	if err := c.facade.FacadeCall("GetApplicationOpenedPorts", arg, &result); err != nil {
+	if err := c.facade.FacadeCall("GetOpenedPorts", arg, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if len(result.Results) != 1 {

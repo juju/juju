@@ -33,29 +33,7 @@ func newApplicationPortRangesDoc(docID, modelUUID, appName string) applicationPo
 	}
 }
 
-// ApplicationPortRanges is implemented by types that can query and/or
-// manipulate the set of port ranges opened by one or more units that owned by an application.
-type ApplicationPortRanges interface {
-	// ApplicationName returns the name of the application.
-	ApplicationName() string
-
-	// ByUnit returns the set of port ranges opened by each unit grouped by unit name.
-	ByUnit() map[string]UnitPortRanges
-
-	// ForUnit returns the set of port ranges opened by the specified unit.
-	ForUnit(unitName string) UnitPortRanges
-
-	// ByEndpoint returns the list of open port ranges grouped by
-	// application endpoint.
-	ByEndpoint() network.GroupedPortRanges
-
-	// Changes returns a ModelOperation for applying any changes that were
-	// made to this port range instance.
-	Changes() ModelOperation
-
-	// UniquePortRanges returns a slice of unique open PortRanges all units.
-	UniquePortRanges() []network.PortRange
-}
+var _ ApplicationPortRanges = (*applicationPortRanges)(nil)
 
 type applicationPortRanges struct {
 	st  *State
@@ -84,7 +62,7 @@ func (p *applicationPortRanges) Persisted() bool {
 
 // ForUnit returns the set of port ranges opened by the specified unit.
 func (p *applicationPortRanges) ForUnit(unitName string) UnitPortRanges {
-	return &applicationPortRangesForUnit{
+	return &unitPortRanges{
 		unitName: unitName,
 		apg:      p,
 	}
@@ -97,7 +75,7 @@ func (p *applicationPortRanges) ByUnit() map[string]UnitPortRanges {
 	}
 	res := make(map[string]UnitPortRanges)
 	for unitName := range p.doc.UnitRanges {
-		res[unitName] = newApplicationPortRangesForUnit(unitName, p)
+		res[unitName] = newUnitPortRanges(unitName, p)
 	}
 	return res
 }
@@ -115,13 +93,11 @@ func (p *applicationPortRanges) ByEndpoint() network.GroupedPortRanges {
 
 // UniquePortRanges returns a slice of unique open PortRanges all units.
 func (p *applicationPortRanges) UniquePortRanges() []network.PortRange {
-	var allRanges []network.PortRange
+	allRanges := make(network.GroupedPortRanges)
 	for _, unitRanges := range p.ByUnit() {
-		allRanges = append(allRanges, unitRanges.UniquePortRanges()...)
+		allRanges[""] = append(allRanges[""], unitRanges.UniquePortRanges()...)
 	}
-
-	network.SortPortRanges(allRanges)
-	return allRanges
+	return allRanges.UniquePortRanges()
 }
 
 func (p *applicationPortRanges) clearPendingRecords() {
@@ -184,27 +160,28 @@ func (p *applicationPortRanges) removeOps() []txn.Op {
 	}}
 }
 
-type applicationPortRangesForUnit struct {
-	unitName string
+var _ UnitPortRanges = (*unitPortRanges)(nil)
 
-	apg *applicationPortRanges
+type unitPortRanges struct {
+	unitName string
+	apg      *applicationPortRanges
 }
 
-func newApplicationPortRangesForUnit(unitName string, apg *applicationPortRanges) UnitPortRanges {
-	return &applicationPortRangesForUnit{
+func newUnitPortRanges(unitName string, apg *applicationPortRanges) UnitPortRanges {
+	return &unitPortRanges{
 		unitName: unitName,
 		apg:      apg,
 	}
 }
 
 // UnitName returns the unit name associated with this set of ports.
-func (p *applicationPortRangesForUnit) UnitName() string {
+func (p *unitPortRanges) UnitName() string {
 	return p.unitName
 }
 
 // Open records a request for opening a particular port range for the specified
 // endpoint.
-func (p *applicationPortRangesForUnit) Open(endpoint string, portRange network.PortRange) {
+func (p *unitPortRanges) Open(endpoint string, portRange network.PortRange) {
 	if p.apg.pendingOpenRanges == nil {
 		p.apg.pendingOpenRanges = make(network.GroupedPortRanges)
 	}
@@ -214,7 +191,7 @@ func (p *applicationPortRangesForUnit) Open(endpoint string, portRange network.P
 
 // Close records a request for closing a particular port range for the
 // specified endpoint.
-func (p *applicationPortRangesForUnit) Close(endpoint string, portRange network.PortRange) {
+func (p *unitPortRanges) Close(endpoint string, portRange network.PortRange) {
 	if p.apg.pendingCloseRanges == nil {
 		p.apg.pendingCloseRanges = make(network.GroupedPortRanges)
 	}
@@ -224,25 +201,25 @@ func (p *applicationPortRangesForUnit) Close(endpoint string, portRange network.
 
 // Changes returns a ModelOperation for applying any changes that were made to
 // this port range instance.
-func (p *applicationPortRangesForUnit) Changes() ModelOperation {
+func (p *unitPortRanges) Changes() ModelOperation {
 	return newApplicationPortRangesOperation(p.apg, p.unitName)
 }
 
 // UniquePortRanges returns a slice of unique open PortRanges for the unit.
-func (p *applicationPortRangesForUnit) UniquePortRanges() []network.PortRange {
+func (p *unitPortRanges) UniquePortRanges() []network.PortRange {
 	allRanges := p.apg.doc.UnitRanges[p.unitName].UniquePortRanges()
 	network.SortPortRanges(allRanges)
 	return allRanges
 }
 
 // ByEndpoint returns the list of open port ranges grouped by endpoint.
-func (p *applicationPortRangesForUnit) ByEndpoint() network.GroupedPortRanges {
+func (p *unitPortRanges) ByEndpoint() network.GroupedPortRanges {
 	return p.apg.doc.UnitRanges[p.unitName]
 }
 
 // ForEndpoint returns a list of port ranges that the unit has opened for the
 // specified endpoint.
-func (p *applicationPortRangesForUnit) ForEndpoint(endpointName string) []network.PortRange {
+func (p *unitPortRanges) ForEndpoint(endpointName string) []network.PortRange {
 	unitPortRange := p.apg.doc.UnitRanges[p.unitName]
 	if len(unitPortRange) == 0 || len(unitPortRange[endpointName]) == 0 {
 		return nil
@@ -497,7 +474,7 @@ func updateAppPortRangesDocOps(
 
 func removeApplicationPortsForUnitOps(st *State, unit *Unit) ([]txn.Op, error) {
 	unitName := unit.Name()
-	appPortRanges, err := getOpenedApplicationPortRangesForApplication(st, unit.ApplicationName())
+	appPortRanges, err := getApplicationPortRanges(st, unit.ApplicationName())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -517,11 +494,11 @@ func removeApplicationPortsForUnitOps(st *State, unit *Unit) ([]txn.Op, error) {
 	return appPortRanges.removeOps(), nil
 }
 
-// getOpenedApplicationPortRangesForApplication attempts to retrieve the set of opened ports for
+// getApplicationPortRanges attempts to retrieve the set of opened ports for
 // a particular embedded k8s application. If the underlying document does not exist, a blank
-// applicationPortRangesForUnit instance with the docExists flag set to false will be
+// applicationPortRanges instance with the docExists flag set to false will be
 // returned instead.
-func getOpenedApplicationPortRangesForApplication(st *State, appName string) (*applicationPortRanges, error) {
+func getApplicationPortRanges(st *State, appName string) (*applicationPortRanges, error) {
 	openedPorts, closer := st.db().GetCollection(openedPortsC)
 	defer closer()
 
@@ -547,14 +524,14 @@ func getOpenedApplicationPortRangesForApplication(st *State, appName string) (*a
 
 // getOpenedApplicationPortRanges attempts to retrieve the set of opened ports for
 // a particular embedded k8s unit. If the underlying document does not exist, a blank
-// applicationPortRangesForUnit instance with the docExists flag set to false will be
+// unitPortRanges instance with the docExists flag set to false will be
 // returned instead.
-func getOpenedApplicationPortRangesForUnit(st *State, appName, unitName string) (*applicationPortRangesForUnit, error) {
-	apg, err := getOpenedApplicationPortRangesForApplication(st, appName)
+func getUnitPortRanges(st *State, appName, unitName string) (*unitPortRanges, error) {
+	apg, err := getApplicationPortRanges(st, appName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &applicationPortRangesForUnit{unitName: unitName, apg: apg}, nil
+	return &unitPortRanges{unitName: unitName, apg: apg}, nil
 }
 
 // OpenedPortRangesForAllApplications returns a slice of opened port ranges for all

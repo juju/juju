@@ -68,19 +68,19 @@ func (mr *MockClientMockRecorder) ApplicationConfig(arg0 interface{}) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationConfig", reflect.TypeOf((*MockClient)(nil).ApplicationConfig), arg0)
 }
 
-// GetApplicationOpenedPorts mocks base method.
-func (m *MockClient) GetApplicationOpenedPorts(arg0 string) (network.GroupedPortRanges, error) {
+// GetOpenedPorts mocks base method.
+func (m *MockClient) GetOpenedPorts(arg0 string) (network.GroupedPortRanges, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetApplicationOpenedPorts", arg0)
+	ret := m.ctrl.Call(m, "GetOpenedPorts", arg0)
 	ret0, _ := ret[0].(network.GroupedPortRanges)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetApplicationOpenedPorts indicates an expected call of GetApplicationOpenedPorts.
-func (mr *MockClientMockRecorder) GetApplicationOpenedPorts(arg0 interface{}) *gomock.Call {
+// GetOpenedPorts indicates an expected call of GetOpenedPorts.
+func (mr *MockClientMockRecorder) GetOpenedPorts(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationOpenedPorts", reflect.TypeOf((*MockClient)(nil).GetApplicationOpenedPorts), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOpenedPorts", reflect.TypeOf((*MockClient)(nil).GetOpenedPorts), arg0)
 }
 
 // IsExposed mocks base method.
@@ -211,19 +211,19 @@ func (mr *MockCAASFirewallerAPIMockRecorder) ApplicationConfig(arg0 interface{})
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationConfig", reflect.TypeOf((*MockCAASFirewallerAPI)(nil).ApplicationConfig), arg0)
 }
 
-// GetApplicationOpenedPorts mocks base method.
-func (m *MockCAASFirewallerAPI) GetApplicationOpenedPorts(arg0 string) (network.GroupedPortRanges, error) {
+// GetOpenedPorts mocks base method.
+func (m *MockCAASFirewallerAPI) GetOpenedPorts(arg0 string) (network.GroupedPortRanges, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetApplicationOpenedPorts", arg0)
+	ret := m.ctrl.Call(m, "GetOpenedPorts", arg0)
 	ret0, _ := ret[0].(network.GroupedPortRanges)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetApplicationOpenedPorts indicates an expected call of GetApplicationOpenedPorts.
-func (mr *MockCAASFirewallerAPIMockRecorder) GetApplicationOpenedPorts(arg0 interface{}) *gomock.Call {
+// GetOpenedPorts indicates an expected call of GetOpenedPorts.
+func (mr *MockCAASFirewallerAPIMockRecorder) GetOpenedPorts(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationOpenedPorts", reflect.TypeOf((*MockCAASFirewallerAPI)(nil).GetApplicationOpenedPorts), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOpenedPorts", reflect.TypeOf((*MockCAASFirewallerAPI)(nil).GetOpenedPorts), arg0)
 }
 
 // IsExposed mocks base method.

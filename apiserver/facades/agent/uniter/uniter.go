@@ -135,8 +135,7 @@ func (u *UniterAPI) getOneMachineOpenedPortRanges(canAccess common.AuthFunc, mac
 	return machine.OpenedPortRanges()
 }
 
-// OpenedPortRangesByEndpoint returns the port ranges opened by the unit
-// grouped by application endpoint.
+// OpenedPortRangesByEndpoint returns the port ranges opened by the unit.
 func (u *UniterAPI) OpenedPortRangesByEndpoint() (params.OpenPortRangesByEndpointResults, error) {
 	result := params.OpenPortRangesByEndpointResults{
 		Results: make([]params.OpenPortRangesByEndpointResult, 1),
@@ -179,8 +178,7 @@ func (u *UniterAPI) OpenedPortRangesByEndpoint() (params.OpenPortRangesByEndpoin
 	return result, nil
 }
 
-// OpenedApplicationPortRangesByEndpoint returns the port ranges opened by each
-// application grouped by application endpoint.
+// OpenedApplicationPortRangesByEndpoint returns the port ranges opened by each application.
 func (u *UniterAPI) OpenedApplicationPortRangesByEndpoint(entity params.Entity) (params.ApplicationOpenedPortsResults, error) {
 	result := params.ApplicationOpenedPortsResults{
 		Results: make([]params.ApplicationOpenedPortsResult, 1),
