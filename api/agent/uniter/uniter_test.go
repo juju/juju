@@ -90,7 +90,7 @@ func (s *uniterSuite) TestOpenedMachinePortRangesByEndpoint(c *gc.C) {
 func (s *uniterSuite) TestOpenedPortRangesByEndpoint(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "OpenedApplicationPortRangesByEndpoint")
+		c.Assert(request, gc.Equals, "OpenedPortRangesByEndpoint")
 		c.Assert(arg, gc.IsNil)
 		c.Assert(result, gc.FitsTypeOf, &params.OpenPortRangesByEndpointResults{})
 		*(result.(*params.OpenPortRangesByEndpointResults)) = params.OpenPortRangesByEndpointResults{
@@ -181,5 +181,19 @@ func (s *uniterSuite) TestOpenedApplicationPortRangesByEndpointOldAPINotSupporte
 	client := uniter.NewState(caller, names.NewUnitTag("gitlab/0"))
 
 	_, err := client.OpenedApplicationPortRangesByEndpoint(names.NewApplicationTag("gitlab"))
-	c.Assert(err, gc.ErrorMatches, `OpenedApplicationPortRangesByEndpoint\(\) \(need V17\+\) not implemented`)
+	c.Assert(err, gc.ErrorMatches, `OpenedApplicationPortRangesByEndpoint\(\) \(need V18\+\) not implemented`)
+}
+
+func (s *uniterSuite) TestOpenedPortRangesByEndpointOldAPINotSupported(c *gc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "OpenedPortRangesByEndpoint")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-gitlab-0"}}})
+		return nil
+	})
+	caller := testing.BestVersionCaller{apiCaller, 17}
+	client := uniter.NewState(caller, names.NewUnitTag("gitlab/0"))
+
+	_, err := client.OpenedPortRangesByEndpoint()
+	c.Assert(err, gc.ErrorMatches, `OpenedPortRangesByEndpoint\(\) \(need V18\+\) not implemented`)
 }

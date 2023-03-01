@@ -49,6 +49,20 @@ func (mr *MockApplicationPortRangesMockRecorder) ApplicationName() *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationName", reflect.TypeOf((*MockApplicationPortRanges)(nil).ApplicationName))
 }
 
+// ByEndpoint mocks base method.
+func (m *MockApplicationPortRanges) ByEndpoint() network.GroupedPortRanges {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ByEndpoint")
+	ret0, _ := ret[0].(network.GroupedPortRanges)
+	return ret0
+}
+
+// ByEndpoint indicates an expected call of ByEndpoint.
+func (mr *MockApplicationPortRangesMockRecorder) ByEndpoint() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ByEndpoint", reflect.TypeOf((*MockApplicationPortRanges)(nil).ByEndpoint))
+}
+
 // ByUnit mocks base method.
 func (m *MockApplicationPortRanges) ByUnit() map[string]state.UnitPortRanges {
 	m.ctrl.T.Helper()

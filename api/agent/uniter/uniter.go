@@ -426,7 +426,7 @@ func (st *State) OpenedMachinePortRangesByEndpoint(machineTag names.MachineTag) 
 func (st *State) OpenedPortRangesByEndpoint() (map[names.UnitTag]network.GroupedPortRanges, error) {
 	if st.BestAPIVersion() < 18 {
 		// OpenedPortRangesByEndpoint() was introduced in UniterAPIV18.
-		return nil, errors.NotImplementedf("OpenedPortRangesByEndpoint() (need V17+)")
+		return nil, errors.NotImplementedf("OpenedPortRangesByEndpoint() (need V18+)")
 	}
 	var results params.OpenPortRangesByEndpointResults
 	if err := st.facade.FacadeCall("OpenedPortRangesByEndpoint", nil, &results); err != nil {
@@ -440,7 +440,7 @@ func (st *State) OpenedPortRangesByEndpoint() (map[names.UnitTag]network.Grouped
 func (st *State) OpenedApplicationPortRangesByEndpoint(appTag names.ApplicationTag) (network.GroupedPortRanges, error) {
 	if st.BestAPIVersion() < 18 {
 		// OpenedApplicationPortRangesByEndpoint() was introduced in UniterAPIV18.
-		return nil, errors.NotImplementedf("OpenedApplicationPortRangesByEndpoint() (need V17+)")
+		return nil, errors.NotImplementedf("OpenedApplicationPortRangesByEndpoint() (need V18+)")
 	}
 	arg := params.Entity{Tag: appTag.String()}
 	var result params.ApplicationOpenedPortsResults

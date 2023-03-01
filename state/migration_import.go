@@ -6,13 +6,13 @@ package state
 import (
 	"encoding/hex"
 	"fmt"
-	"github.com/juju/collections/transform"
 	"reflect"
 	"strconv"
 	"time"
 
 	"github.com/juju/charm/v10"
 	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
 	"github.com/juju/description/v4"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"

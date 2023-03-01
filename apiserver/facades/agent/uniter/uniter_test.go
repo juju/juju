@@ -2773,18 +2773,19 @@ func (s *uniterSuite) TestReadRemoteApplicationSettingsForPeerRelation(c *gc.C) 
 	})
 }
 
-func (s *uniterSuite) TestReadRemoteSettingsForCAASApplicationInPeerRelation(c *gc.C) {
-	_, cm, app, unit := s.setupCAASModel(c, false)
+func (s *uniterSuite) assertReadRemoteSettingsForCAASApplicationInPeerRelation(c *gc.C, isSidecar bool) {
+	_, cm, app, unit := s.setupCAASModel(c, isSidecar)
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
-	unit2, err := app.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
 	ep, err := app.Endpoint("ring")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := cm.State().EndpointsRelation(ep)
 	c.Assert(err, jc.ErrorIsNil)
 
-	relUnit, err := rel.Unit(unit)
+	unit2, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	relUnit, err := rel.Unit(unit2)
 	c.Assert(err, jc.ErrorIsNil)
 	err = relUnit.EnterScope(map[string]interface{}{
 		"black midi": "ducter",
@@ -2792,11 +2793,10 @@ func (s *uniterSuite) TestReadRemoteSettingsForCAASApplicationInPeerRelation(c *
 	c.Assert(err, jc.ErrorIsNil)
 
 	uniterAPI := s.newUniterAPI(c, cm.State(), s.authorizer)
-
 	args := params.RelationUnitPairs{RelationUnitPairs: []params.RelationUnitPair{{
 		Relation:   rel.Tag().String(),
-		LocalUnit:  unit2.Tag().String(),
-		RemoteUnit: unit.Tag().String(),
+		LocalUnit:  unit.Tag().String(),
+		RemoteUnit: unit2.Tag().String(),
 	}}}
 	result, err := uniterAPI.ReadRemoteSettings(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2807,6 +2807,14 @@ func (s *uniterSuite) TestReadRemoteSettingsForCAASApplicationInPeerRelation(c *
 			}},
 		},
 	})
+}
+
+func (s *uniterSuite) TestReadRemoteSettingsForCAASApplicationInPeerRelationOperator(c *gc.C) {
+	s.assertReadRemoteSettingsForCAASApplicationInPeerRelation(c, false)
+}
+
+func (s *uniterSuite) TestReadRemoteSettingsForCAASApplicationInPeerRelationSidecar(c *gc.C) {
+	s.assertReadRemoteSettingsForCAASApplicationInPeerRelation(c, true)
 }
 
 func (s *uniterSuite) TestWatchRelationUnits(c *gc.C) {
