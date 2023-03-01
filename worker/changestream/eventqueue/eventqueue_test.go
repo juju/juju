@@ -385,3 +385,52 @@ func (s *eventQueueSuite) TestSubscriptionDone(c *gc.C) {
 		c.Fatal("timed out waiting for event")
 	}
 }
+
+func (s *eventQueueSuite) TestUnsubscribeOfOtherSubscription(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAnyLogs()
+
+	changes := make(chan changestream.ChangeEvent)
+	defer close(changes)
+
+	s.stream.EXPECT().Changes().Return(changes).MinTimes(1)
+
+	queue, err := New(s.stream, s.logger)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, queue)
+
+	var (
+		sub0, sub1 changestream.Subscription
+	)
+
+	sub0, err = queue.Subscribe(func(event changestream.ChangeEvent) {
+		sub1.Unsubscribe()
+	}, changestream.Namespace("topic", changestream.Create))
+	c.Assert(err, jc.ErrorIsNil)
+
+	sub1, err = queue.Subscribe(func(event changestream.ChangeEvent) {
+		sub0.Unsubscribe()
+	}, changestream.Namespace("topic", changestream.Create))
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.expectChangeEvent(changestream.Create, "topic")
+
+	go func() {
+		select {
+		case changes <- s.changeEvent:
+		case <-time.After(testing.ShortWait):
+			c.Fatal("timed out waiting to enqueue event")
+		}
+	}()
+
+	for _, sub := range []changestream.Subscription{sub0, sub1} {
+		select {
+		case <-sub.Done():
+		case <-time.After(testing.ShortWait):
+			c.Fatal("timed out waiting for event")
+		}
+	}
+
+	workertest.CleanKill(c, queue)
+}

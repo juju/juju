@@ -98,7 +98,7 @@ type eventFilter struct {
 	filter         func(changestream.ChangeEvent) bool
 }
 
-// EventQueue defines a event listener and dispatcher for db changes that can
+// EventQueue defines an event listener and dispatcher for db changes that can
 // be multiplexed to subscriptions. The event queue allows consumers to
 // subscribe via callbacks to the event queue. This is a lockless
 // implementation, all subscriptions and changes are serialized in the main
