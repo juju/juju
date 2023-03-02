@@ -11,7 +11,6 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
-	"runtime/debug"
 	"strings"
 	"time"
 
@@ -24,7 +23,6 @@ import (
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -157,6 +155,7 @@ func (s *BaseRefreshSuite) setup(c *gc.C, currentCharmURL, latestCharmURL *charm
 			"": network.AlphaSpaceName,
 		},
 		charmOrigin: commoncharm.Origin{
+			ID:     "testing",
 			Source: schemaToOriginScource(currentCharmURL.Schema),
 			Risk:   "stable",
 		},
@@ -684,6 +683,7 @@ func (s *RefreshSuite) TestRefreshShouldRespectDeployedChannelByDefault(c *gc.C)
 func (s *RefreshSuite) TestUpgradeFailWithoutCharmHubOriginID(c *gc.C) {
 	s.resolvedChannel = csclientparams.BetaChannel
 	s.charmAPIClient.charmOrigin.Source = "charm-hub"
+	s.charmAPIClient.charmOrigin.ID = ""
 	_, err := s.runRefresh(c, "foo", "--channel=beta")
 	c.Assert(err, gc.ErrorMatches, "\"foo\" deploy incomplete, please try refresh again in a little bit.")
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin")
@@ -699,7 +699,6 @@ func (s *RefreshSuite) TestSwitch(c *gc.C) {
 	s.charmAdder.CheckCallNames(c, "AddCharm")
 	origin, _ := utils.DeduceOrigin(s.resolvedCharmURL, charm.Channel{Risk: charm.Stable}, corecharm.Platform{})
 	s.charmAdder.CheckCall(c, 0, "AddCharm", s.resolvedCharmURL, origin, false)
-	c.Logf("AddCharm called with %q", s.resolvedCharmURL.String())
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
 		ApplicationName: "foo",
@@ -713,7 +712,6 @@ func (s *RefreshSuite) TestSwitch(c *gc.C) {
 		},
 		EndpointBindings: map[string]string{},
 	})
-	c.Logf("SetCharm called with %q", s.resolvedCharmURL.String())
 	var curl *charm.URL
 	for _, call := range s.Calls() {
 		if call.FuncName == "ResolveCharm" {
@@ -1006,6 +1004,7 @@ func (s *RefreshCharmHubSuite) TestUpgradeResourceRevision(c *gc.C) {
 	s.CheckCall(c, 12, "DeployResources", "foo", resources.CharmID{
 		URL: s.resolvedCharmURL,
 		Origin: commoncharm.Origin{
+			ID:     "testing",
 			Source: "charm-hub",
 			Risk:   "stable"}},
 		map[string]string(nil),
@@ -1046,6 +1045,7 @@ func (s *RefreshCharmHubSuite) TestUpgradeResourceRevisionSupplied(c *gc.C) {
 	s.CheckCall(c, 12, "DeployResources", "foo", resources.CharmID{
 		URL: s.resolvedCharmURL,
 		Origin: commoncharm.Origin{
+			ID:     "testing",
 			Source: "charm-hub",
 			Risk:   "stable"}},
 		map[string]string{"bar": "3"},
@@ -1241,7 +1241,6 @@ type mockCharmClient struct {
 }
 
 func (m *mockCharmClient) CharmInfo(curl string) (*apicommoncharms.CharmInfo, error) {
-	loggo.GetLogger("heather").Criticalf("\n%s\n", debug.Stack())
 	m.MethodCall(m, "CharmInfo", curl)
 	if err := m.NextErr(); err != nil {
 		return nil, err
