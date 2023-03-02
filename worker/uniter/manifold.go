@@ -101,35 +101,35 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			// Collect all required resources.
 			var agent agent.Agent
 			if err := ctx.Get(config.AgentName, &agent); err != nil {
-				return nil, err
+				return nil, errors.Trace(err)
 			}
 			var apiConn api.Connection
 			if err := ctx.Get(config.APICallerName, &apiConn); err != nil {
 				// TODO(fwereade): absence of an APICaller shouldn't be the end of
 				// the world -- we ought to return a type that can at least run the
 				// leader-deposed hook -- but that's not done yet.
-				return nil, err
+				return nil, errors.Trace(err)
 			}
 			var leadershipTracker leadership.TrackerWorker
 			if err := ctx.Get(config.LeadershipTrackerName, &leadershipTracker); err != nil {
-				return nil, err
+				return nil, errors.Trace(err)
 			}
 			leadershipTrackerFunc := func(_ names.UnitTag) leadership.TrackerWorker {
 				return leadershipTracker
 			}
 			var charmDirGuard fortress.Guard
 			if err := ctx.Get(config.CharmDirName, &charmDirGuard); err != nil {
-				return nil, err
+				return nil, errors.Trace(err)
 			}
 
 			var hookRetryStrategy params.RetryStrategy
 			if err := ctx.Get(config.HookRetryStrategyName, &hookRetryStrategy); err != nil {
-				return nil, err
+				return nil, errors.Trace(err)
 			}
 
 			var s3Caller s3caller.Session
 			if err := ctx.Get(config.S3CallerName, &s3Caller); err != nil {
-				return nil, err
+				return nil, errors.Trace(err)
 			}
 
 			s3Downloader := charms.NewS3CharmDownloader(s3Caller, apiConn)

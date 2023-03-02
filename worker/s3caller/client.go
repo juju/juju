@@ -75,7 +75,7 @@ func (l *awsLogger) Logf(classification logging.Classification, format string, v
 	case logging.Debug:
 		l.logger.Debugf(format, v)
 	default:
-		l.logger.Infof(format, v)
+		l.logger.Tracef(format, v)
 	}
 }
 
