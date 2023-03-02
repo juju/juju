@@ -411,5 +411,5 @@ func (r *charmHubRefresher) Refresh() (*CharmID, error) {
 }
 
 func (r *charmHubRefresher) String() string {
-	return fmt.Sprintf("attempting to refresh charm hub charm %q", r.charmRef)
+	return fmt.Sprintf("attempting to refresh Charmhub charm %q", r.charmRef)
 }

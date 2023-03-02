@@ -393,7 +393,7 @@ func (h *bundleHandler) resolveCharmChannelAndRevision(charmURL string, charmBas
 		return charmChannel, -1, nil
 	}
 	// If the charm URL already contains a revision, return that before
-	// attempting to resolve a revision from any charm store. We can ignore the
+	// attempting to resolve a revision from any charm repository. We can ignore the
 	// error here, as we want to just parse out the charm URL.
 	// Resolution and validation of the charm URL happens further down.
 	if curl, err := charm.ParseURL(charmURL); err == nil {
