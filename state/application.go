@@ -391,7 +391,7 @@ func (op *DestroyApplicationOperation) deleteSecrets() error {
 		return errors.Annotatef(err, "deleting owned secrets for %q", op.app.Name())
 	}
 	// TODO(juju4) - remove
-	if err := op.app.st.removeSecretConsumer(op.app.Tag()); err != nil {
+	if err := op.app.st.RemoveSecretConsumer(op.app.Tag()); err != nil {
 		return errors.Annotatef(err, "deleting secret consumer records for %q", op.app.Name())
 	}
 	return nil

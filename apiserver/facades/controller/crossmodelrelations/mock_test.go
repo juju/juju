@@ -103,6 +103,10 @@ func (st *mockState) ApplyOperation(state.ModelOperation) error {
 	return nil
 }
 
+func (st *mockState) RemoveSecretConsumer(consumer names.Tag) error {
+	return nil
+}
+
 func (st *mockState) AddRelation(eps ...state.Endpoint) (commoncrossmodel.Relation, error) {
 	rel := &mockRelation{
 		id:  len(st.relations),

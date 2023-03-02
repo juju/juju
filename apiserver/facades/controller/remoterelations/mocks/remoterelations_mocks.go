@@ -358,6 +358,20 @@ func (mr *MockRemoteRelationsStateMockRecorder) RemoveRemoteEntity(arg0 interfac
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveRemoteEntity", reflect.TypeOf((*MockRemoteRelationsState)(nil).RemoveRemoteEntity), arg0)
 }
 
+// RemoveSecretConsumer mocks base method.
+func (m *MockRemoteRelationsState) RemoveSecretConsumer(arg0 names.Tag) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveSecretConsumer", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveSecretConsumer indicates an expected call of RemoveSecretConsumer.
+func (mr *MockRemoteRelationsStateMockRecorder) RemoveSecretConsumer(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveSecretConsumer", reflect.TypeOf((*MockRemoteRelationsState)(nil).RemoveSecretConsumer), arg0)
+}
+
 // SaveIngressNetworks mocks base method.
 func (m *MockRemoteRelationsState) SaveIngressNetworks(arg0 string, arg1 []string) (state.RelationNetworks, error) {
 	m.ctrl.T.Helper()

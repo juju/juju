@@ -331,6 +331,9 @@ func (op *DestroyRemoteApplicationOperation) Done(err error) error {
 		}
 		op.AddError(errors.Errorf("force erase saas application %q history proceeded despite encountering ERROR %v", op.app, err))
 	}
+	if err := op.deleteSecretReferences(); err != nil {
+		logger.Errorf("cannot delete secret references for saas application %q: %v", op.app, err)
+	}
 	return nil
 }
 
@@ -341,6 +344,13 @@ func (op *DestroyRemoteApplicationOperation) eraseHistory() error {
 		if op.FatalError(one) {
 			return one
 		}
+	}
+	return nil
+}
+
+func (op *DestroyRemoteApplicationOperation) deleteSecretReferences() error {
+	if err := op.app.st.removeRemoteSecretConsumer(op.app.Name()); err != nil {
+		return errors.Annotatef(err, "deleting secret consumer records for %q", op.app.Name())
 	}
 	return nil
 }
@@ -499,6 +509,12 @@ func (s *RemoteApplication) removeOps(asserts bson.D) ([]txn.Op, error) {
 	}
 	tokenOps := r.removeRemoteEntityOps(s.Tag())
 	ops = append(ops, tokenOps...)
+
+	secretConsumerPermissionsOps, err := s.st.removeConsumerSecretPermissionOps(s.Tag())
+	if err != nil {
+		return nil, errors.Annotatef(err, "deleting secret consumer records for %q", s.Name())
+	}
+	ops = append(ops, secretConsumerPermissionsOps...)
 
 	// If this is the last consumed app off an external controller,
 	// also remove the external controller record.

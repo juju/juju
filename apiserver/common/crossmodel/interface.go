@@ -99,6 +99,9 @@ type Backend interface {
 
 	// ApplyOperation applies a model operation to the state.
 	ApplyOperation(op state.ModelOperation) error
+
+	// RemoveSecretConsumer removes secret references for the specified consumer.
+	RemoveSecretConsumer(consumer names.Tag) error
 }
 
 // Relation provides access a relation in global state.
