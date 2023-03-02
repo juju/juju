@@ -6,10 +6,12 @@ package eventqueue
 import (
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/juju/core/changestream"
 	dbtesting "github.com/juju/juju/database/testing"
+	jujutesting "github.com/juju/juju/testing"
 	gc "gopkg.in/check.v1"
 )
 
@@ -49,6 +51,20 @@ func (s *baseSuite) expectAnyLogs() {
 func (s *baseSuite) expectChangeEvent(mask changestream.ChangeType, topic string) {
 	s.changeEvent.EXPECT().Type().Return(mask).MinTimes(1)
 	s.changeEvent.EXPECT().Namespace().Return(topic).MinTimes(1)
+}
+
+func (s *baseSuite) dispatchEvent(c *gc.C, changes chan<- changestream.ChangeEvent) <-chan struct{} {
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+
+		select {
+		case changes <- s.changeEvent:
+		case <-time.After(jujutesting.ShortWait):
+			c.Fatal("timed out waiting to enqueue event")
+		}
+	}()
+	return done
 }
 
 type waitGroup struct {

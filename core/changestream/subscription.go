@@ -9,16 +9,16 @@ type Handler = func(ChangeEvent)
 // Subscription is an interface that can be used to receive events from the
 // event queue and unsubscribe from the queue.
 type Subscription interface {
-	// Unsubscribe removes the subscription from the event queue asynchronously.
-	// This ensures that all unsubscriptions can be serialized. No unsubscribe will
-	// actually never happen inside a dispatch call. If you attempt to unsubscribe
-	// whilst the dispatch signalling, the unsubscribe will happen after all
-	// dispatches have been called.
+	// Changes returns the channel that the subscription will receive events on.
+	Changes() <-chan ChangeEvent
+
+	// Unsubscribe removes the subscription from the event queue.
 	Unsubscribe()
 
 	// Done provides a way to know from the consumer side if the underlying
-	// subscription has been terminated. This is useful to know if the event queue
-	// has been killed. Ultimately this is tied to the event queue tomb.
+	// subscription has been terminated. This is useful to know if the
+	// event queue has been killed. Ultimately this is tied to the event queue
+	// tomb.
 	Done() <-chan struct{}
 }
 

@@ -44,7 +44,7 @@ type ChangeStream interface {
 type EventQueue interface {
 	// Subscribe returns a new subscription to listen to changes from the
 	// database change log.
-	Subscribe(changestream.Handler, ...changestream.SubscriptionOption) (changestream.Subscription, error)
+	Subscribe(...changestream.SubscriptionOption) (changestream.Subscription, error)
 }
 
 // EventQueueWorker represents a worker for subscribing to events from the

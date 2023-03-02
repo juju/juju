@@ -29,19 +29,21 @@ type Stream interface {
 // subscription represents a subscriber in the event queue. It holds a tomb, so
 // that we can tie the lifecycle of a subscription to the event queue.
 type subscription struct {
-	tomb    tomb.Tomb
-	id      uint64
-	handler changestream.Handler
-	topics  map[string]struct{}
+	tomb tomb.Tomb
+	id   uint64
+
+	topics map[string]struct{}
+
+	changes chan changestream.ChangeEvent
 	done    <-chan struct{}
 
 	unsubscriber func()
 }
 
-func newSubscription(id uint64, handler changestream.Handler, unsubscriber func()) *subscription {
+func newSubscription(id uint64, unsubscriber func()) *subscription {
 	sub := &subscription{
 		id:           id,
-		handler:      handler,
+		changes:      make(chan changestream.ChangeEvent),
 		topics:       make(map[string]struct{}),
 		unsubscriber: unsubscriber,
 	}
@@ -59,6 +61,24 @@ func newSubscription(id uint64, handler changestream.Handler, unsubscriber func(
 // dispatches have been called.
 func (s *subscription) Unsubscribe() {
 	s.unsubscriber()
+}
+
+// Changes returns the channel that the subscription will receive events on.
+func (s *subscription) Changes() <-chan changestream.ChangeEvent {
+	return s.changes
+}
+
+// signal returns the channel that events will be sent on (signalled). It
+// checks that the subscription is not already dying, before passing back the
+// changes channel. This prevents a panic if you attempt to signal a dying
+// subscription.
+func (s *subscription) signal() chan<- changestream.ChangeEvent {
+	select {
+	case <-s.tomb.Dying():
+		return nil
+	default:
+		return s.changes
+	}
 }
 
 // Done provides a way to know from the consumer side if the underlying
@@ -79,12 +99,10 @@ func (s *subscription) Wait() error {
 }
 
 func (s *subscription) loop() error {
-	for {
-		select {
-		case <-s.tomb.Dying():
-			return tomb.ErrDying
-		}
-	}
+	defer close(s.changes)
+
+	<-s.tomb.Dying()
+	return tomb.ErrDying
 }
 
 type subscriptionOpts struct {
@@ -148,33 +166,22 @@ func New(stream Stream, logger Logger) (*EventQueue, error) {
 
 // Subscribe creates a new subscription to the event queue. Options can be
 // provided to allow filter during the dispatching phase.
-func (q *EventQueue) Subscribe(handler changestream.Handler, opts ...changestream.SubscriptionOption) (changestream.Subscription, error) {
+func (q *EventQueue) Subscribe(opts ...changestream.SubscriptionOption) (changestream.Subscription, error) {
 	// Get a new subscription count without using any mutexes.
 	subID := atomic.AddUint64(&q.subscriptionsCount, 1)
 
-	sub := newSubscription(subID, handler, func() { q.unsubscribe(subID) })
+	sub := newSubscription(subID, func() { q.unsubscribe(subID) })
 	if err := q.catacomb.Add(sub); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-
-		select {
-		case <-q.catacomb.Dying():
-			return
-		case q.subscriptionCh <- subscriptionOpts{
-			subscription: sub,
-			opts:         opts,
-		}:
-		}
-	}()
-
 	select {
-	case <-done:
 	case <-q.catacomb.Dying():
 		return nil, q.catacomb.ErrDying()
+	case q.subscriptionCh <- subscriptionOpts{
+		subscription: sub,
+		opts:         opts,
+	}:
 	}
 
 	return sub, nil
@@ -191,19 +198,23 @@ func (q *EventQueue) Wait() error {
 }
 
 func (q *EventQueue) unsubscribe(subscriptionID uint64) {
-	go func() {
-		select {
-		case <-q.catacomb.Dying():
-			return
-		case q.unsubscriptionCh <- subscriptionID:
-		}
-	}()
+	select {
+	case <-q.catacomb.Dying():
+		return
+	case q.unsubscriptionCh <- subscriptionID:
+	}
 }
 
 func (q *EventQueue) loop() error {
 	defer func() {
+		// There isn't a need to close subscriptions directly, as they're tied
+		// to the catacomb via their own tomb.
+
 		q.subscriptions = nil
 		q.subscriptionsByNS = nil
+
+		close(q.subscriptionCh)
+		close(q.unsubscriptionCh)
 	}()
 
 	for {
@@ -211,7 +222,7 @@ func (q *EventQueue) loop() error {
 		case <-q.catacomb.Dying():
 			return q.catacomb.ErrDying()
 
-		case ch, ok := <-q.stream.Changes():
+		case event, ok := <-q.stream.Changes():
 			// If the stream is closed, we expect that a new worker will come
 			// again using the change stream worker infrastructure. In this case
 			// just ignore and close out.
@@ -220,7 +231,7 @@ func (q *EventQueue) loop() error {
 				return nil
 			}
 
-			subs := q.gatherSubscriptions(ch)
+			subs := q.gatherSubscriptions(event)
 			for _, sub := range subs {
 				// Ensure we check tomb dying as the handling logic is
 				// synchronous and blocking. This is to effectively handle
@@ -228,9 +239,8 @@ func (q *EventQueue) loop() error {
 				select {
 				case <-q.catacomb.Dying():
 					return q.catacomb.ErrDying()
-				default:
+				case sub.signal() <- event:
 				}
-				sub.handler(ch)
 			}
 
 		case subOpt := <-q.subscriptionCh:
@@ -291,8 +301,6 @@ func (q *EventQueue) gatherSubscriptions(ch changestream.ChangeEvent) []*subscri
 	}
 
 	for _, subOpt := range q.subscriptionsByNS[ch.Namespace()] {
-		// TODO (stickupkid): If the subscription has already been added, do we
-		// want to recall the filter to ensure consistency?
 		if _, ok := subs[subOpt.subscriptionID]; ok {
 			continue
 		}
