@@ -65,7 +65,7 @@ func (s *utilsResourceSuite) TestGetUpgradeResources(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// switching to charm and all resources provided will be uploaded.
-	s.assertGetUpgradeResources(c, nil, func(
+	s.assertGetUpgradeResources(c, func(
 		newCharmURL *charm.URL,
 		cliResources map[string]string,
 		resourcesInController []resources.ApplicationResources,
@@ -84,7 +84,7 @@ func (s *utilsResourceSuite) TestGetUpgradeResourcesLocalCharm(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// switching to local charm and only upgrade resources provided.
-	s.assertGetUpgradeResources(c, nil, func(
+	s.assertGetUpgradeResources(c, func(
 		newCharmURL *charm.URL,
 		cliResources map[string]string,
 		resourcesInController []resources.ApplicationResources,
@@ -103,7 +103,7 @@ func (s *utilsResourceSuite) TestGetUpgradeResourcesLocalCharmNewResources(c *gc
 	defer s.setupMocks(c).Finish()
 
 	// switching to a local charm, new resources provided will be uploaded.
-	s.assertGetUpgradeResources(c, nil, func(
+	s.assertGetUpgradeResources(c, func(
 		newCharmURL *charm.URL,
 		cliResources map[string]string,
 		resourcesInController []resources.ApplicationResources,
@@ -123,9 +123,10 @@ func (s *utilsResourceSuite) TestGetUpgradeResourcesLocalCharmNewResources(c *gc
 
 func (s *utilsResourceSuite) TestGetUpgradeResourcesCHCharmNewEmptyRes(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+	s.charmClient.EXPECT().ListCharmResources(gomock.AssignableToTypeOf(&charm.URL{}), gomock.AssignableToTypeOf(apicharm.Origin{})).Return(nil, nil)
 
 	// switching to ch charm, new empty resources will be uploaded.
-	s.assertGetUpgradeResources(c, nil, func(
+	s.assertGetUpgradeResources(c, func(
 		newCharmURL *charm.URL,
 		cliResources map[string]string,
 		resourcesInController []resources.ApplicationResources,
@@ -146,7 +147,7 @@ func (s *utilsResourceSuite) TestGetUpgradeResourcesLocalCharmError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// switching to local charm, new empty resources will be error out.
-	s.assertGetUpgradeResources(c, nil, func(
+	s.assertGetUpgradeResources(c, func(
 		newCharmURL *charm.URL,
 		cliResources map[string]string,
 		resourcesInController []resources.ApplicationResources,
@@ -160,76 +161,36 @@ func (s *utilsResourceSuite) TestGetUpgradeResourcesLocalCharmError(c *gc.C) {
 
 func (s *utilsResourceSuite) TestGetUpgradeResourcesNotOriginUpload(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+	s.charmClient.EXPECT().ListCharmResources(gomock.AssignableToTypeOf(&charm.URL{}), gomock.AssignableToTypeOf(apicharm.Origin{})).Return(nil, nil)
 
 	// switching to ch charm, empty resource will be upgraded if the existing resource origin was not OriginUpload.
-	s.assertGetUpgradeResources(c, nil,
-		func(
-			newCharmURL *charm.URL,
-			cliResources map[string]string,
-			resourcesInController []resources.ApplicationResources,
-			resourcesInMetadata map[string]charmresource.Meta,
-		) (map[string]charmresource.Meta, string) {
-			newCharmURL.Schema = charm.CharmHub.String()
-			delete(cliResources, "redis-image")
+	s.assertGetUpgradeResources(c, func(
+		newCharmURL *charm.URL,
+		cliResources map[string]string,
+		resourcesInController []resources.ApplicationResources,
+		resourcesInMetadata map[string]charmresource.Meta,
+	) (map[string]charmresource.Meta, string) {
+		newCharmURL.Schema = charm.CharmHub.String()
+		delete(cliResources, "redis-image")
 
-			redis := resourcesInController[0].Resources[0]
-			redis.Origin = charmresource.OriginStore
-			resourcesInController[0].Resources[0] = redis
+		redis := resourcesInController[0].Resources[0]
+		redis.Origin = charmresource.OriginStore
+		resourcesInController[0].Resources[0] = redis
 
-			return map[string]charmresource.Meta{
-				"redis-image":    {Name: "redis-image", Type: charmresource.TypeContainerImage},
-				"snappass-image": {Name: "snappass-image", Type: charmresource.TypeContainerImage},
-				"test-file":      {Name: "test-file", Type: charmresource.TypeFile, Path: "test.txt"},
-			}, ``
-		})
+		return map[string]charmresource.Meta{
+			"redis-image":    {Name: "redis-image", Type: charmresource.TypeContainerImage},
+			"snappass-image": {Name: "snappass-image", Type: charmresource.TypeContainerImage},
+			"test-file":      {Name: "test-file", Type: charmresource.TypeFile, Path: "test.txt"},
+		}, ``
+	})
 }
 
 func (s *utilsResourceSuite) TestGetUpgradeResourcesOriginUpload(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+	s.charmClient.EXPECT().ListCharmResources(gomock.AssignableToTypeOf(&charm.URL{}), gomock.AssignableToTypeOf(apicharm.Origin{})).Return(nil, nil)
 
 	// switching to ch charm and empty resource will NOT be upgraded if the existing resource origin was OriginUpload.
-	s.assertGetUpgradeResources(c, nil,
-		func(
-			newCharmURL *charm.URL,
-			cliResources map[string]string,
-			resourcesInController []resources.ApplicationResources,
-			resourcesInMetadata map[string]charmresource.Meta,
-		) (map[string]charmresource.Meta, string) {
-			newCharmURL.Schema = charm.CharmHub.String()
-			delete(cliResources, "redis-image")
-
-			redis := resourcesInController[0].Resources[0]
-			redis.Origin = charmresource.OriginUpload
-			resourcesInController[0].Resources[0] = redis
-
-			return map[string]charmresource.Meta{
-				"snappass-image": {Name: "snappass-image", Type: charmresource.TypeContainerImage},
-				"test-file":      {Name: "test-file", Type: charmresource.TypeFile, Path: "test.txt"},
-			}, ``
-		})
-}
-
-func (s *utilsResourceSuite) TestGetUpgradeResourcesRepositoryNoChange(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	redis := charmresource.Resource{}
-	redis.Name = "redis-image"
-	redis.Origin = charmresource.OriginStore
-	redis.Revision = 5
-	snappass := charmresource.Resource{}
-	snappass.Name = "snappass-image"
-	snappass.Origin = charmresource.OriginStore
-	snappass.Revision = 3
-	testfile := charmresource.Resource{}
-	testfile.Name = "test-file"
-	testfile.Origin = charmresource.OriginStore
-	testfile.Revision = 2
-	availableCharmResources := []charmresource.Resource{
-		redis, snappass, testfile,
-	}
-
-	// switching to charm and all resources provided will be uploaded.
-	s.assertGetUpgradeResources(c, availableCharmResources, func(
+	s.assertGetUpgradeResources(c, func(
 		newCharmURL *charm.URL,
 		cliResources map[string]string,
 		resourcesInController []resources.ApplicationResources,
@@ -237,182 +198,23 @@ func (s *utilsResourceSuite) TestGetUpgradeResourcesRepositoryNoChange(c *gc.C) 
 	) (map[string]charmresource.Meta, string) {
 		newCharmURL.Schema = charm.CharmHub.String()
 		delete(cliResources, "redis-image")
-		delete(cliResources, "snappass-image")
-		delete(cliResources, "test-file")
-		redis := resourcesInController[0].Resources[0]
-		redis.Origin = charmresource.OriginStore
-		redis.Revision = 5
-		resourcesInController[0].Resources[0] = redis
-		snappass := resourcesInController[0].Resources[1]
-		snappass.Origin = charmresource.OriginStore
-		snappass.Revision = 3
-		resourcesInController[0].Resources[1] = snappass
-		testfile := resourcesInController[0].Resources[2]
-		testfile.Origin = charmresource.OriginStore
-		testfile.Revision = 2
-		resourcesInController[0].Resources[2] = testfile
-
-		return map[string]charmresource.Meta{}, ``
-	})
-}
-
-func (s *utilsResourceSuite) TestGetUpgradeResourcesRepositoryChange(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	// No resources specified on the CLI - but the repository has new
-	// resource revisions to use.
-
-	redis := charmresource.Resource{}
-	redis.Name = "redis-image"
-	redis.Revision = 7 // This resource has a new revision
-	snappass := charmresource.Resource{}
-	snappass.Name = "snappass-image"
-	snappass.Revision = 3
-	testfile := charmresource.Resource{}
-	testfile.Name = "test-file"
-	testfile.Revision = 2
-	availableCharmResources := []charmresource.Resource{
-		redis, snappass, testfile,
-	}
-
-	// switching to charm and all resources provided will be uploaded.
-	s.assertGetUpgradeResources(c, availableCharmResources, func(
-		newCharmURL *charm.URL,
-		cliResources map[string]string,
-		resourcesInController []resources.ApplicationResources,
-		resourcesInMetadata map[string]charmresource.Meta,
-	) (map[string]charmresource.Meta, string) {
-		newCharmURL.Schema = charm.CharmHub.String()
-		delete(cliResources, "redis-image")
-		delete(cliResources, "snappass-image")
-		delete(cliResources, "test-file")
-		redis := resourcesInController[0].Resources[0]
-		redis.Origin = charmresource.OriginStore
-		redis.Revision = 5
-		resourcesInController[0].Resources[0] = redis
-		snappass := resourcesInController[0].Resources[1]
-		snappass.Origin = charmresource.OriginStore
-		snappass.Revision = 3
-		resourcesInController[0].Resources[1] = snappass
-		testfile := resourcesInController[0].Resources[2]
-		testfile.Origin = charmresource.OriginStore
-		testfile.Revision = 2
-		resourcesInController[0].Resources[2] = testfile
-
-		return map[string]charmresource.Meta{"redis-image": {Name: "redis-image", Type: charmresource.TypeContainerImage}}, ``
-	})
-}
-
-func (s *utilsResourceSuite) TestGetUpgradeResourcesRepositoryCLIRevision(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	// No change in the resource revisions in the repository, but a different
-	// resource revision is specified on the cli.
-
-	redis := charmresource.Resource{}
-	redis.Name = "redis-image"
-	redis.Origin = charmresource.OriginStore
-	redis.Revision = 5
-	snappass := charmresource.Resource{}
-	snappass.Name = "snappass-image"
-	snappass.Origin = charmresource.OriginStore
-	snappass.Revision = 3
-	testfile := charmresource.Resource{}
-	testfile.Name = "test-file"
-	testfile.Origin = charmresource.OriginStore
-	testfile.Revision = 2
-	availableCharmResources := []charmresource.Resource{
-		redis, snappass, testfile,
-	}
-
-	// switching to charm and all resources provided will be uploaded.
-	s.assertGetUpgradeResources(c, availableCharmResources, func(
-		newCharmURL *charm.URL,
-		cliResources map[string]string,
-		resourcesInController []resources.ApplicationResources,
-		resourcesInMetadata map[string]charmresource.Meta,
-	) (map[string]charmresource.Meta, string) {
-		newCharmURL.Schema = charm.CharmHub.String()
-		delete(cliResources, "redis-image")
-		delete(cliResources, "snappass-image")
-
-		cliResources["test-file"] = "42"
 
 		redis := resourcesInController[0].Resources[0]
-		redis.Origin = charmresource.OriginStore
-		redis.Revision = 5
+		redis.Origin = charmresource.OriginUpload
 		resourcesInController[0].Resources[0] = redis
-		snappass := resourcesInController[0].Resources[1]
-		snappass.Origin = charmresource.OriginStore
-		snappass.Revision = 3
-		resourcesInController[0].Resources[1] = snappass
-		testfile := resourcesInController[0].Resources[2]
-		testfile.Origin = charmresource.OriginStore
-		testfile.Revision = 2
-		resourcesInController[0].Resources[2] = testfile
 
-		return map[string]charmresource.Meta{"test-file": {Name: "test-file", Type: charmresource.TypeFile, Path: "test.txt"}}, ``
-	})
-}
-
-func (s *utilsResourceSuite) TestGetUpgradeResourcesRepositoryCLIRevisionAlreadyUsed(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	// No change in the resource revisions in the repository, but a different
-	// resource revision is specified on the cli.
-
-	redis := charmresource.Resource{}
-	redis.Name = "redis-image"
-	redis.Origin = charmresource.OriginStore
-	redis.Revision = 5
-	snappass := charmresource.Resource{}
-	snappass.Name = "snappass-image"
-	snappass.Origin = charmresource.OriginStore
-	snappass.Revision = 3
-	testfile := charmresource.Resource{}
-	testfile.Name = "test-file"
-	testfile.Origin = charmresource.OriginStore
-	testfile.Revision = 2
-	availableCharmResources := []charmresource.Resource{
-		redis, snappass, testfile,
-	}
-
-	// switching to charm and all resources provided will be uploaded.
-	s.assertGetUpgradeResources(c, availableCharmResources, func(
-		newCharmURL *charm.URL,
-		cliResources map[string]string,
-		resourcesInController []resources.ApplicationResources,
-		resourcesInMetadata map[string]charmresource.Meta,
-	) (map[string]charmresource.Meta, string) {
-		newCharmURL.Schema = charm.CharmHub.String()
-		delete(cliResources, "redis-image")
-		delete(cliResources, "snappass-image")
-
-		cliResources["test-file"] = "42"
-
-		redis := resourcesInController[0].Resources[0]
-		redis.Origin = charmresource.OriginStore
-		redis.Revision = 5
-		resourcesInController[0].Resources[0] = redis
-		snappass := resourcesInController[0].Resources[1]
-		snappass.Origin = charmresource.OriginStore
-		snappass.Revision = 3
-		resourcesInController[0].Resources[1] = snappass
-		testfile := resourcesInController[0].Resources[2]
-		testfile.Origin = charmresource.OriginStore
-		testfile.Revision = 42
-		resourcesInController[0].Resources[2] = testfile
-
-		return map[string]charmresource.Meta{}, ``
+		return map[string]charmresource.Meta{
+			"snappass-image": {Name: "snappass-image", Type: charmresource.TypeContainerImage},
+			"test-file":      {Name: "test-file", Type: charmresource.TypeFile, Path: "test.txt"},
+		}, ``
 	})
 }
 
 func (s *utilsResourceSuite) assertGetUpgradeResources(
 	c *gc.C,
-	charmResources []charmresource.Resource,
 	getExpectedMeta func(
 		newCharmURL *charm.URL,
-		cliResources map[string]string,
+		_ map[string]string,
 		resourcesInController []resources.ApplicationResources,
 		resourcesInMetadata map[string]charmresource.Meta,
 	) (map[string]charmresource.Meta, string),
@@ -444,10 +246,9 @@ func (s *utilsResourceSuite) assertGetUpgradeResources(
 
 	expected, errString := getExpectedMeta(newCharmURL, cliResources, resourcesInController, resourcesInMetadata)
 	s.resourceFacade.EXPECT().ListResources([]string{"snappass-test"}).Return(resourcesInController, nil)
-	s.charmClient.EXPECT().ListCharmResources(gomock.AssignableToTypeOf(&charm.URL{}), gomock.AssignableToTypeOf(apicharm.Origin{})).Return(charmResources, nil)
 	charmID := application.CharmID{
 		URL:    newCharmURL,
-		Origin: apicharm.Origin{},
+		Origin: apicharm.Origin{Source: schemaToOriginSource(newCharmURL.Schema)},
 	}
 	filtered, err := utils.GetUpgradeResources(
 		charmID, s.charmClient, s.resourceFacade, "snappass-test", cliResources, resourcesInMetadata,
@@ -458,6 +259,141 @@ func (s *utilsResourceSuite) assertGetUpgradeResources(
 		c.Assert(err, gc.ErrorMatches, errString)
 	}
 	c.Assert(filtered, gc.DeepEquals, expected)
+}
+
+func schemaToOriginSource(schema string) apicharm.OriginSource {
+	switch {
+	case charm.CharmStore.Matches(schema):
+		return apicharm.OriginCharmStore
+	case charm.Local.Matches(schema):
+		return apicharm.OriginLocal
+	}
+	return apicharm.OriginCharmHub
+}
+
+func (s *utilsResourceSuite) TestGetUpgradeResourcesRepositoryNoChange(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectListCharmResources(5, 3, 2)
+	s.expectListResources(5, 3, 2)
+
+	cliResources := map[string]string{}
+
+	filtered, err := utils.GetUpgradeResources(
+		repoCharmID(), s.charmClient, s.resourceFacade, "snappass-test", cliResources, repoResourcesInMetadata,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	expected := map[string]charmresource.Meta{}
+	c.Assert(filtered, gc.DeepEquals, expected)
+}
+
+func (s *utilsResourceSuite) TestGetUpgradeResourcesRepositoryChange(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// No resources specified on the CLI - but the repository has new
+	// resource revisions to use.
+	s.expectListCharmResources(7, 3, 2)
+	s.expectListResources(5, 3, 2)
+
+	cliResources := map[string]string{}
+
+	filtered, err := utils.GetUpgradeResources(
+		repoCharmID(), s.charmClient, s.resourceFacade, "snappass-test", cliResources, repoResourcesInMetadata,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	expected := map[string]charmresource.Meta{"redis-image": {Name: "redis-image", Type: charmresource.TypeContainerImage}}
+	c.Assert(filtered, gc.DeepEquals, expected)
+}
+
+func (s *utilsResourceSuite) TestGetUpgradeResourcesRepositoryCLIRevision(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// No change in the resource revisions in the repository, but a different
+	// resource revision is specified on the cli.
+	s.expectListCharmResources(5, 3, 2)
+	s.expectListResources(5, 3, 2)
+
+	cliResources := map[string]string{"test-file": "42"}
+
+	filtered, err := utils.GetUpgradeResources(
+		repoCharmID(), s.charmClient, s.resourceFacade, "snappass-test", cliResources, repoResourcesInMetadata,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	expected := map[string]charmresource.Meta{"test-file": {Name: "test-file", Type: charmresource.TypeFile, Path: "test.txt"}}
+	c.Assert(filtered, gc.DeepEquals, expected)
+}
+
+func (s *utilsResourceSuite) TestGetUpgradeResourcesRepositoryCLIRevisionAlreadyUsed(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// No change in the resource revisions in the repository, but a different
+	// resource revision is specified on the cli.
+	s.expectListCharmResources(7, 3, 5)
+	s.expectListResources(7, 3, 42)
+
+	cliResources := map[string]string{"test-file": "42"}
+
+	filtered, err := utils.GetUpgradeResources(
+		repoCharmID(), s.charmClient, s.resourceFacade, "snappass-test", cliResources, repoResourcesInMetadata,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	expected := map[string]charmresource.Meta{}
+	c.Assert(filtered, gc.DeepEquals, expected)
+}
+
+func repoCharmID() application.CharmID {
+	newCharmURL := &charm.URL{Schema: "ch", Name: "snappass-test", Revision: 0, Series: "focal"}
+	return application.CharmID{
+		URL: newCharmURL,
+		Origin: apicharm.Origin{
+			Source: "charm-hub",
+		},
+	}
+}
+
+var repoResourcesInMetadata = map[string]charmresource.Meta{
+	"redis-image":    {Name: "redis-image", Type: charmresource.TypeContainerImage},
+	"snappass-image": {Name: "snappass-image", Type: charmresource.TypeContainerImage},
+	"test-file":      {Name: "test-file", Type: charmresource.TypeFile, Path: "test.txt"},
+}
+
+func (s *utilsResourceSuite) expectListCharmResources(redis, snappass, testfile int) {
+	r1 := charmresource.Resource{}
+	r1.Name = "redis-image"
+	r1.Revision = redis // This resource has a new revision
+	r2 := charmresource.Resource{}
+	r2.Name = "snappass-image"
+	r2.Revision = snappass
+	r3 := charmresource.Resource{}
+	r3.Name = "test-file"
+	r3.Revision = testfile
+	availableCharmResources := []charmresource.Resource{
+		r1, r2, r3,
+	}
+	s.charmClient.EXPECT().ListCharmResources(gomock.AssignableToTypeOf(&charm.URL{}), gomock.AssignableToTypeOf(apicharm.Origin{})).Return(availableCharmResources, nil)
+}
+
+func (s *utilsResourceSuite) expectListResources(redis, snappass, testfile int) {
+	r1 := resources.Resource{}
+	r1.Name = "redis-image"
+	r1.Origin = charmresource.OriginStore
+	r1.Revision = redis
+	r2 := resources.Resource{}
+	r2.Name = "snappass-image"
+	r2.Origin = charmresource.OriginStore
+	r2.Revision = snappass
+	r3 := resources.Resource{}
+	r3.Name = "test-file"
+	r3.Origin = charmresource.OriginStore
+	r3.Revision = testfile
+	resourcesInController := []resources.ApplicationResources{
+		{
+			Resources: []resources.Resource{
+				r1, r2, r3,
+			},
+		},
+	}
+	s.resourceFacade.EXPECT().ListResources([]string{"snappass-test"}).Return(resourcesInController, nil)
+
 }
 
 func (s *utilsResourceSuite) setupMocks(c *gc.C) *gomock.Controller {
