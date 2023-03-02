@@ -83,7 +83,7 @@ func Loop(cfg LoopConfig, localState *LocalState) error {
 
 	// If we're restarting the loop, ensure any pending charm upgrade is run
 	// before continuing.
-	err = checkCharmUpgrade(cfg.Logger, cfg.CharmDir, cfg.Watcher.Snapshot(), rf, cfg.Executor)
+	err = checkCharmInstallUpgrade(cfg.Logger, cfg.CharmDir, cfg.Watcher.Snapshot(), rf, cfg.Executor)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -248,7 +248,7 @@ func updateCharmDir(opState operation.State, guard fortress.Guard, abort fortres
 	}
 }
 
-func checkCharmUpgrade(logger Logger, charmDir string, remote remotestate.Snapshot, rf *resolverOpFactory, ex operation.Executor) error {
+func checkCharmInstallUpgrade(logger Logger, charmDir string, remote remotestate.Snapshot, rf *resolverOpFactory, ex operation.Executor) error {
 	// If we restarted due to error with a pending charm upgrade available,
 	// do the upgrade now.  There are cases (lp:1895040) where the error was
 	// caused because not all units were upgraded before relation-created
@@ -259,8 +259,12 @@ func checkCharmUpgrade(logger Logger, charmDir string, remote remotestate.Snapsh
 	local := rf.LocalState
 	local.State = ex.State()
 
-	// If the unit isn't installed, no need to start an upgrade.
-	if !local.State.Installed || remote.CharmURL == "" {
+	opFunc := rf.NewUpgrade
+	if !local.Installed && local.Hook != nil && local.Hook.Kind == hooks.Install && local.Step != operation.Done {
+		// We must have failed to run the install hook, restarted (possibly in a sidecar charm), so need to re-run the install op.
+		opFunc = rf.NewInstall
+	} else if !local.Installed || remote.CharmURL == "" {
+		// If the unit isn't installed, no need to start an upgrade.
 		return nil
 	}
 
@@ -269,12 +273,12 @@ func checkCharmUpgrade(logger Logger, charmDir string, remote remotestate.Snapsh
 	if haveCharmDir {
 		// If the unit is installed and already upgrading and the charm dir
 		// exists no need to start an upgrade.
-		if local.State.Kind == operation.Upgrade || (local.State.Hook != nil && local.State.Hook.Kind == hooks.UpgradeCharm) {
+		if local.Kind == operation.Upgrade || (local.Hook != nil && local.Hook.Kind == hooks.UpgradeCharm) {
 			return nil
 		}
 	}
 
-	if local.State.Started && remote.CharmProfileRequired {
+	if local.Started && remote.CharmProfileRequired {
 		if remote.LXDProfileName == "" {
 			return nil
 		}
@@ -293,7 +297,7 @@ func checkCharmUpgrade(logger Logger, charmDir string, remote remotestate.Snapsh
 	}
 
 	sameCharm := local.CharmURL == remote.CharmURL
-	if haveCharmDir && (!local.State.Started || sameCharm) {
+	if haveCharmDir && (!local.Started || sameCharm) {
 		return nil
 	}
 	if !haveCharmDir {
@@ -303,7 +307,7 @@ func checkCharmUpgrade(logger Logger, charmDir string, remote remotestate.Snapsh
 		logger.Debugf("execute pending upgrade from %s to %s after uniter loop restart", local.CharmURL, remote.CharmURL)
 	}
 
-	op, err := rf.NewUpgrade(remote.CharmURL)
+	op, err := opFunc(remote.CharmURL)
 	if err != nil {
 		return errors.Trace(err)
 	}
