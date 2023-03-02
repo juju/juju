@@ -9,6 +9,7 @@ import (
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/mongo"
 )
 
@@ -143,6 +144,68 @@ func RemoveOrphanedSecretPermissions(pool *StatePool) error {
 					Remove: true,
 				})
 			}
+		}
+		if len(ops) > 0 {
+			return errors.Trace(st.runRawTransaction(ops))
+		}
+		return nil
+	}))
+}
+
+// MigrateApplicationOpenedPortsToUnitScope copies the opened ports for an application for all its units.
+func MigrateApplicationOpenedPortsToUnitScope(pool *StatePool) error {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		apps, err := st.AllApplications()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		var appNames []string
+		for _, app := range apps {
+			appNames = append(appNames, app.Name())
+		}
+		openedPorts, closer := st.db().GetCollection(openedPortsC)
+		defer closer()
+		docs := []applicationPortRangesDoc{}
+		if err = openedPorts.Find(bson.D{{"application-name", bson.D{{"$in", appNames}}}}).All(&docs); err != nil {
+			return errors.Trace(err)
+		}
+
+		var ops []txn.Op
+		for _, doc := range docs {
+			if len(doc.PortRanges) == 0 {
+				continue
+			}
+
+			app, err := st.Application(doc.ApplicationName)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			units, err := app.AllUnits()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if len(units) == 0 {
+				continue
+			}
+
+			if doc.UnitRanges == nil {
+				doc.UnitRanges = make(map[string]network.GroupedPortRanges)
+			}
+			for _, unit := range units {
+				doc.UnitRanges[unit.Name()] = doc.PortRanges.Clone()
+			}
+			doc.PortRanges = nil
+
+			ops = append(ops, txn.Op{
+				C:  openedPortsC,
+				Id: doc.DocID,
+				Update: bson.D{
+					{Name: "$set", Value: bson.D{
+						{Name: "port-ranges", Value: doc.PortRanges},
+						{Name: "unit-port-ranges", Value: doc.UnitRanges},
+					}},
+				},
+			})
 		}
 		if len(ops) > 0 {
 			return errors.Trace(st.runRawTransaction(ops))

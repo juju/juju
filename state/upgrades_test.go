@@ -342,6 +342,80 @@ func (s *upgradesSuite) TestRemoveOrphanedSecretPermissions(c *gc.C) {
 	)
 }
 
+func (s *upgradesSuite) TestMigrateApplicationOpenedPortsToUnitScope(c *gc.C) {
+	model := s.makeModel(c, "model-1", coretesting.Attrs{})
+	defer func() {
+		_ = model.Close()
+	}()
+
+	modelUUID := model.ModelUUID()
+
+	openedPorts, closer := s.state.db().GetRawCollection(openedPortsC)
+	defer closer()
+
+	appsColl, closer := s.state.db().GetRawCollection(applicationsC)
+	defer closer()
+
+	unitsColl, closer := s.state.db().GetRawCollection(unitsC)
+	defer closer()
+
+	var err error
+	err = appsColl.Insert(bson.M{
+		"_id":        ensureModelUUID(modelUUID, "app1"),
+		"name":       "app1",
+		"model-uuid": modelUUID,
+		"life":       Alive,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = unitsColl.Insert(bson.M{
+		"_id":         ensureModelUUID(modelUUID, "unit/0"),
+		"name":        "unit/0",
+		"model-uuid":  modelUUID,
+		"application": "app1",
+		"life":        Alive,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	pg := bson.M{
+		"": []interface{}{
+			bson.M{
+				"fromport": 3000,
+				"toport":   3000,
+				"protocol": "tcp",
+			},
+			bson.M{
+				"fromport": 3001,
+				"toport":   3001,
+				"protocol": "tcp",
+			},
+		},
+	}
+	err = openedPorts.Insert(bson.M{
+		"_id":              ensureModelUUID(modelUUID, "app1"),
+		"model-uuid":       modelUUID,
+		"application-name": "app1",
+		"port-ranges":      pg,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := bsonMById{
+		{
+			"_id":              ensureModelUUID(modelUUID, "app1"),
+			"model-uuid":       modelUUID,
+			"application-name": "app1",
+			"port-ranges":      bson.M{},
+			"unit-port-ranges": bson.M{
+				"unit/0": pg,
+			},
+		},
+	}
+	sort.Sort(expected)
+	s.assertUpgradedData(c, MigrateApplicationOpenedPortsToUnitScope,
+		upgradedData(openedPorts, expected),
+	)
+}
+
 type docById []bson.M
 
 func (d docById) Len() int           { return len(d) }

@@ -17,11 +17,14 @@ import (
 
 // applicationPortRangesDoc represents the state of ports opened for an application.
 type applicationPortRangesDoc struct {
-	DocID           string                               `bson:"_id"`
-	ModelUUID       string                               `bson:"model-uuid"`
-	ApplicationName string                               `bson:"application-name"`
-	UnitRanges      map[string]network.GroupedPortRanges `bson:"unit-port-ranges"`
-	TxnRevno        int64                                `bson:"txn-revno"`
+	DocID           string `bson:"_id"`
+	ModelUUID       string `bson:"model-uuid"`
+	ApplicationName string `bson:"application-name"`
+
+	// PortRanges is the application port ranges that are open for all units.
+	PortRanges network.GroupedPortRanges            `bson:"port-ranges"`
+	UnitRanges map[string]network.GroupedPortRanges `bson:"unit-port-ranges"`
+	TxnRevno   int64                                `bson:"txn-revno"`
 }
 
 func newApplicationPortRangesDoc(docID, modelUUID, appName string) applicationPortRangesDoc {
@@ -51,7 +54,9 @@ type applicationPortRanges struct {
 // Changes returns a ModelOperation for applying any changes that were made to
 // this port range instance.
 func (p *applicationPortRanges) Changes() ModelOperation {
-	return newApplicationPortRangesOperation(p, "")
+	// The application scope opened port range is not implemented yet.
+	// We manage(open/close) ports by units using "unitPortRanges.Open|Close|Changes()".
+	return nil
 }
 
 // Persisted returns true if the underlying document for this instance exists
@@ -289,10 +294,15 @@ func (op *applicationPortRangesOperation) Build(attempt int) ([]txn.Op, error) {
 		assertUnitNotDeadOp(op.apr.st, op.unitName),
 	}
 
-	isPendingOpen := op.updatedPortRanges.MergePendingOpenPortRanges(op.apr.pendingOpenRanges)
-	isPendingClose := op.updatedPortRanges.MergePendingClosePortRanges(op.apr.pendingCloseRanges)
-
-	portListModified := isPendingOpen || isPendingClose
+	portListModified, err := op.mergePendingOpenPortRanges()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	modified, err := op.mergePendingClosePortRanges()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	portListModified = portListModified || modified
 
 	if !portListModified || (createDoc && len(op.updatedUnitPortRanges) == 0) {
 		return nil, jujutxn.ErrNoOperations
