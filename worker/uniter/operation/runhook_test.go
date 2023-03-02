@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
+	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -235,6 +236,10 @@ func (s *RunHookSuite) assertStateMatches(
 	c.Assert(st.Step, gc.Equals, step)
 	c.Assert(st.Hook, gc.NotNil)
 	c.Assert(st.Hook.Kind, gc.Equals, hookKind)
+	if step == operation.Queued {
+		c.Assert(st.HookStep, gc.NotNil)
+		c.Assert(*st.HookStep, gc.Equals, step)
+	}
 }
 
 func (s *RunHookSuite) TestExecuteRequeueRebootError(c *gc.C) {
@@ -283,6 +288,21 @@ func (s *RunHookSuite) TestExecuteOtherError(c *gc.C) {
 	c.Assert(*runnerFactory.MockNewHookRunner.runner.MockRunHook.gotName, gc.Equals, "config-changed")
 	c.Assert(*callbacks.MockNotifyHookFailed.gotName, gc.Equals, "config-changed")
 	c.Assert(*callbacks.MockNotifyHookFailed.gotContext, gc.Equals, runnerFactory.MockNewHookRunner.runner.context)
+	c.Assert(callbacks.MockNotifyHookCompleted.gotName, gc.IsNil)
+}
+
+func (s *RunHookSuite) TestExecuteTerminated(c *gc.C) {
+	runErr := runner.ErrTerminated
+	op, callbacks, runnerFactory := s.getExecuteRunnerTest(c, operation.Factory.NewRunHook, hooks.ConfigChanged, runErr)
+	_, err := op.Prepare(operation.State{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	newState, err := op.Execute(operation.State{})
+	c.Assert(err, gc.Equals, runner.ErrTerminated)
+
+	s.assertStateMatches(c, newState, operation.RunHook, operation.Queued, hooks.ConfigChanged)
+
+	c.Assert(*runnerFactory.MockNewHookRunner.runner.MockRunHook.gotName, gc.Equals, "config-changed")
 	c.Assert(callbacks.MockNotifyHookCompleted.gotName, gc.IsNil)
 }
 
@@ -616,10 +636,12 @@ func (s *RunHookSuite) assertCommitSuccess_RelationBroken_SetStatus(c *gc.C, sus
 
 	newState, err := op.Execute(operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
+	step := operation.Done
 	c.Assert(newState, gc.DeepEquals, &operation.State{
-		Kind: operation.RunHook,
-		Step: operation.Done,
-		Hook: &hook.Info{Kind: hooks.RelationBroken},
+		Kind:     operation.RunHook,
+		Step:     step,
+		Hook:     &hook.Info{Kind: hooks.RelationBroken},
+		HookStep: &step,
 	})
 	if suspended && leader {
 		c.Assert(ctx.relation.status, gc.Equals, relation.Suspended)

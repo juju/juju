@@ -144,9 +144,19 @@ func (s *uniterResolver) NextOp(
 		return op, err
 	}
 
+	// If we are to shut down, we don't want to start running any more queued/pending hooks.
+	if remoteState.Shutdown {
+		logger.Debugf("unit agent is shutting down, will not run pending/queued hooks")
+		return s.nextOp(localState, remoteState, opFactory)
+	}
+
 	switch localState.Kind {
 	case operation.RunHook:
-		switch localState.Step {
+		step := localState.Step
+		if localState.HookStep != nil {
+			step = *localState.HookStep
+		}
+		switch step {
 		case operation.Pending:
 			logger.Infof("awaiting error resolution for %q hook", localState.Hook.Kind)
 			return s.nextOpHookError(localState, remoteState, opFactory)
@@ -177,7 +187,7 @@ func (s *uniterResolver) NextOp(
 			return opFactory.NewSkipHook(*localState.Hook)
 
 		default:
-			return nil, errors.Errorf("unknown operation step %v", localState.Step)
+			return nil, errors.Errorf("unknown hook operation step %v", step)
 		}
 
 	case operation.Continue:

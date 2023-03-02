@@ -90,6 +90,12 @@ type State struct {
 	// upgrade is complete (instead of running an upgrade-charm hook).
 	Hook *hook.Info `yaml:"hook,omitempty"`
 
+	// HookStep records any hook operation's progression. It will only be set
+	// if Hook is also set. If not set, fallback to using just Step.
+	// HookStep is recorded separately to Step so as not to lose the hook
+	// state when initialising the agent and running any upgrade operation.
+	HookStep *Step `yaml:"hook-step,omitempty"`
+
 	// ActionId holds action information relevant to the current operation. If
 	// Kind is Continue, it holds the last action that was executed; if Kind is
 	// RunAction, it holds the running action.
@@ -181,9 +187,17 @@ func (st State) Report() map[string]interface{} {
 	result["stopped"] = st.Stopped
 	result["installed"] = st.Installed
 	result["removed"] = st.Removed
-	result["hook-kind"] = st.Kind
-	result["hook-step"] = st.Step
+	result["operation-kind"] = st.Kind
+	result["operation-step"] = st.Step
 	result["leader"] = st.Leader
+	if st.Hook != nil {
+		hookStep := st.Step
+		if st.HookStep != nil {
+			hookStep = *st.HookStep
+		}
+		result["hook-kind"] = st.Hook.Kind
+		result["hook-step"] = hookStep
+	}
 	return result
 }
 
@@ -198,6 +212,7 @@ type stateChange struct {
 	Kind            Kind
 	Step            Step
 	Hook            *hook.Info
+	HookStep        *Step
 	ActionId        *string
 	CharmURL        string
 	HasRunStatusSet bool
@@ -207,6 +222,7 @@ func (change stateChange) apply(state State) *State {
 	state.Kind = change.Kind
 	state.Step = change.Step
 	state.Hook = change.Hook
+	state.HookStep = change.HookStep
 	state.ActionId = change.ActionId
 	state.CharmURL = change.CharmURL
 	state.StatusSet = state.StatusSet || change.HasRunStatusSet

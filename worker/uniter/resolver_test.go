@@ -256,6 +256,57 @@ func (s *iaasResolverSuite) TestUniterIdlesWhenRemoteStateIsUpgradeSeriesComplet
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
 }
 
+func (s *resolverSuite) TestQueuedHookOnAgentRestart(c *gc.C) {
+	s.resolver = uniter.NewUniterResolver(s.resolverConfig)
+	s.reportHookError = func(hook.Info) error { return errors.New("unexpected") }
+	queued := operation.Queued
+	localState := resolver.LocalState{
+		CharmURL: s.charmURL,
+		State: operation.State{
+			Kind:      operation.RunHook,
+			Step:      operation.Pending,
+			Installed: true,
+			Started:   true,
+			Hook: &hook.Info{
+				Kind: hooks.ConfigChanged,
+			},
+			HookStep: &queued,
+		},
+	}
+	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.String(), gc.Equals, "run config-changed hook")
+	s.stub.CheckNoCalls(c)
+}
+
+func (s *resolverSuite) TestPendingHookOnAgentRestart(c *gc.C) {
+	s.resolverConfig.ShouldRetryHooks = false
+	s.resolver = uniter.NewUniterResolver(s.resolverConfig)
+	hookError := false
+	s.reportHookError = func(hook.Info) error {
+		hookError = true
+		return nil
+	}
+	queued := operation.Pending
+	localState := resolver.LocalState{
+		CharmURL: s.charmURL,
+		State: operation.State{
+			Kind:      operation.RunHook,
+			Step:      operation.Pending,
+			Installed: true,
+			Started:   true,
+			Hook: &hook.Info{
+				Kind: hooks.ConfigChanged,
+			},
+			HookStep: &queued,
+		},
+	}
+	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
+	c.Assert(hookError, jc.IsTrue)
+	s.stub.CheckNoCalls(c)
+}
+
 func (s *resolverSuite) TestHookErrorDoesNotStartRetryTimerIfShouldRetryFalse(c *gc.C) {
 	s.resolverConfig.ShouldRetryHooks = false
 	s.resolver = uniter.NewUniterResolver(s.resolverConfig)
