@@ -76,11 +76,24 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 	}
 	lowercaseName := strings.ToLower(name)
 
-	if _, err := st.User(names.NewUserTag(name)); err != nil && !errors.IsNotFound(err) {
-		if IsDeletedUserError(err) {
-			return nil, errors.Annotate(err, "cannot reuse name")
+	// first check if the user already exists and if he was deleted/disabled
+	retrievedUser, err := st.User(names.NewUserTag(name))
+	// the user already exists and is enabled
+	if err == nil {
+		return nil, errors.AlreadyExists
+	}
+
+	// There was an error and the user was not deleted
+	if err != nil && !IsDeletedUserError(err) {
+		return nil, err
+	}
+
+	// We have a deleted user, update the fields
+	if IsDeletedUserError(err) {
+		if err := retrievedUser.ensureNotDeleted(); err != nil {
+			return nil, errors.Annotate(err, "impossible to reactive the user")
 		}
-		return nil, errors.Trace(err)
+		return retrievedUser, nil
 	}
 
 	dateCreated := st.nowToTheSecond()
@@ -93,6 +106,7 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 			SecretKey:   secretKey,
 			CreatedBy:   creator,
 			DateCreated: dateCreated,
+			Deleted:     false,
 		},
 	}
 
@@ -119,7 +133,7 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 		defaultControllerPermission)
 	ops = append(ops, controllerUserOps...)
 
-	err := st.db().RunTransaction(ops)
+	err = st.db().RunTransaction(ops)
 	if err != nil {
 		if err == txn.ErrAborted {
 			err = errors.Errorf("username unavailable")
