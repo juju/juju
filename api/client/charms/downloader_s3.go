@@ -5,7 +5,6 @@ package charms
 
 import (
 	"context"
-	"fmt"
 	"io"
 
 	"github.com/juju/charm/v10"
@@ -61,7 +60,6 @@ func (s *s3charmOpener) OpenCharm(req downloader.Request) (io.ReadCloser, error)
 	bucket := "model-" + modelTag.Id()
 
 	object := "charms/" + curl.Name + "-" + shortSha256
-	fmt.Printf("bucket %s\n", bucket)
 	return s.s3Session.GetObject(s.ctx, bucket, object)
 }
 

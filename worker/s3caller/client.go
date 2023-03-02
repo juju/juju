@@ -9,8 +9,10 @@ import (
 	"net/http"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/smithy-go/logging"
 	"github.com/juju/errors"
 	"gopkg.in/httprequest.v1"
 
@@ -51,15 +53,30 @@ func (a *awsEndpointResolver) ResolveEndpoint(service, region string) (aws.Endpo
 
 }
 
-type awsHttpClient struct {
-	internalHttpClient *httprequest.Client
+type awsHTTPDoer struct {
+	client *httprequest.Client
 }
 
-func (c *awsHttpClient) Do(req *http.Request) (*http.Response, error) {
+func (c *awsHTTPDoer) Do(req *http.Request) (*http.Response, error) {
 	var res *http.Response
-	err := c.internalHttpClient.Do(context.Background(), req, &res)
+	err := c.client.Do(context.Background(), req, &res)
 
 	return res, err
+}
+
+type awsLogger struct {
+	logger Logger
+}
+
+func (l *awsLogger) Logf(classification logging.Classification, format string, v ...interface{}) {
+	switch classification {
+	case logging.Warn:
+		l.logger.Warningf(format, v)
+	case logging.Debug:
+		l.logger.Debugf(format, v)
+	default:
+		l.logger.Infof(format, v)
+	}
 }
 
 func NewS3Client(apiConn api.Connection, agentConfig agent.Config, logger Logger) (Session, error) {
@@ -70,18 +87,25 @@ func NewS3Client(apiConn api.Connection, agentConfig agent.Config, logger Logger
 		return nil, errors.New("API address not available for S3 client")
 	}
 
-	apiHttpClient, err := apiConn.HTTPClient()
+	apiHTTPClient, err := apiConn.HTTPClient()
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot retrieve http client from the api connection")
 	}
-	awsHttpClient := &awsHttpClient{
-		internalHttpClient: apiHttpClient,
+	awsHTTPDoer := &awsHTTPDoer{
+		client: apiHTTPClient,
+	}
+	awsLogger := &awsLogger{
+		logger: logger,
 	}
 
 	cfg, err := config.LoadDefaultConfig(
 		context.Background(),
-		config.WithHTTPClient(awsHttpClient),
+		config.WithLogger(awsLogger),
+		config.WithHTTPClient(awsHTTPDoer),
 		config.WithEndpointResolver(&awsEndpointResolver{endpoint: currentAPIAddress}),
+		// Standard retryer retries 3 times with 20s backoff time by
+		// default.
+		config.WithRetryer(func() aws.Retryer { return retry.NewStandard() }),
 		// The anonymous credentials are needed by the aws sdk to
 		// perform anonymous s3 access.
 		config.WithCredentialsProvider(aws.AnonymousCredentials{}),
