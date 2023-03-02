@@ -66,7 +66,7 @@ type ModelConstraintsClient interface {
 
 const bundleDiffDoc = `
 Bundle can be a local bundle file or the name of a bundle in
-charm hub. The bundle can also be combined with overlays (in the
+Charmhub. The bundle can also be combined with overlays (in the
 same way as the deploy command) before comparing with the model.
 
 The map-machines option works similarly as for the deploy command, but
@@ -161,7 +161,7 @@ func (c *diffBundleCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.arch, "arch", "", fmt.Sprintf("specify an arch <%s>", c.archArgumentList()))
 	f.StringVar(&c.series, "series", "", "specify a series. DEPRECATED: use --base")
 	f.StringVar(&c.base, "base", "", "specify a base")
-	f.StringVar(&c.channelStr, "channel", "", "Channel to use when getting the bundle from charm hub")
+	f.StringVar(&c.channelStr, "channel", "", "Channel to use when getting the bundle from Charmhub")
 	f.Var(cmd.NewAppendStringsValue(&c.bundleOverlays), "overlay", "Bundles to overlay on the primary bundle, applied in order")
 	f.StringVar(&c.machineMap, "map-machines", "", "Indicates how existing machines correspond to bundle machines")
 	f.BoolVar(&c.annotations, "annotations", false, "Include differences in annotations")
