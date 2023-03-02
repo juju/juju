@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/secrets"
 	"github.com/juju/juju/worker/common/reboot"
 	"github.com/juju/juju/worker/fortress"
+	"github.com/juju/juju/worker/s3caller"
 	"github.com/juju/juju/worker/secretexpire"
 	"github.com/juju/juju/worker/secretrotate"
 	"github.com/juju/juju/worker/uniter/charm"
@@ -51,6 +52,7 @@ type ManifoldConfig struct {
 	AgentName                    string
 	ModelType                    model.ModelType
 	APICallerName                string
+	S3CallerName                 string
 	MachineLock                  machinelock.Lock
 	Clock                        clock.Clock
 	LeadershipTrackerName        string
@@ -87,6 +89,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		Inputs: []string{
 			config.AgentName,
 			config.APICallerName,
+			config.S3CallerName,
 			config.LeadershipTrackerName,
 			config.CharmDirName,
 			config.HookRetryStrategyName,
@@ -98,33 +101,38 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			// Collect all required resources.
 			var agent agent.Agent
 			if err := ctx.Get(config.AgentName, &agent); err != nil {
-				return nil, err
+				return nil, errors.Trace(err)
 			}
 			var apiConn api.Connection
 			if err := ctx.Get(config.APICallerName, &apiConn); err != nil {
 				// TODO(fwereade): absence of an APICaller shouldn't be the end of
 				// the world -- we ought to return a type that can at least run the
 				// leader-deposed hook -- but that's not done yet.
-				return nil, err
+				return nil, errors.Trace(err)
 			}
 			var leadershipTracker leadership.TrackerWorker
 			if err := ctx.Get(config.LeadershipTrackerName, &leadershipTracker); err != nil {
-				return nil, err
+				return nil, errors.Trace(err)
 			}
 			leadershipTrackerFunc := func(_ names.UnitTag) leadership.TrackerWorker {
 				return leadershipTracker
 			}
 			var charmDirGuard fortress.Guard
 			if err := ctx.Get(config.CharmDirName, &charmDirGuard); err != nil {
-				return nil, err
+				return nil, errors.Trace(err)
 			}
 
 			var hookRetryStrategy params.RetryStrategy
 			if err := ctx.Get(config.HookRetryStrategyName, &hookRetryStrategy); err != nil {
-				return nil, err
+				return nil, errors.Trace(err)
 			}
 
-			downloader := charms.NewCharmDownloader(apiConn)
+			var s3Caller s3caller.Session
+			if err := ctx.Get(config.S3CallerName, &s3Caller); err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			s3Downloader := charms.NewS3CharmDownloader(s3Caller, apiConn)
 
 			jujuSecretsAPI := secretsmanager.NewClient(apiConn)
 			secretRotateWatcherFunc := func(unitTag names.UnitTag, isLeader bool, rotateSecrets chan []string) (worker.Worker, error) {
@@ -186,7 +194,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				SecretRotateWatcherFunc:      secretRotateWatcherFunc,
 				SecretExpiryWatcherFunc:      secretExpiryWatcherFunc,
 				DataDir:                      agentConfig.DataDir(),
-				Downloader:                   downloader,
+				Downloader:                   s3Downloader,
 				MachineLock:                  manifoldConfig.MachineLock,
 				CharmDirGuard:                charmDirGuard,
 				UpdateStatusSignal:           NewUpdateStatusTimer(),

@@ -47,6 +47,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"agent",
 		"api-address-updater",
 		"api-caller",
+		"s3-caller",
 		"api-config-watcher",
 		"charm-dir",
 		"hook-retry-strategy",
@@ -77,6 +78,7 @@ func (s *ManifoldsSuite) TestMigrationGuards(c *gc.C) {
 		"machine-lock",
 		"api-config-watcher",
 		"api-caller",
+		"s3-caller",
 		"log-sender",
 		"upgrader",
 		"migration-fortress",
@@ -207,9 +209,16 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 		"api-config-watcher",
 		"migration-fortress"},
 
+	"s3-caller": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+	},
+
 	"uniter": {
 		"agent",
 		"api-caller",
+		"s3-caller",
 		"api-config-watcher",
 		"charm-dir",
 		"hook-retry-strategy",
