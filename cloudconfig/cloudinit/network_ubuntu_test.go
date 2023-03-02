@@ -340,12 +340,12 @@ func (s *NetworkUbuntuSuite) TestGenerateENIConfig(c *gc.C) {
 }
 
 func (s *NetworkUbuntuSuite) TestGenerateNetplan(c *gc.C) {
-	data, err := cloudinit.GenerateNetplan(nil)
+	data, err := cloudinit.GenerateNetplan(nil, true)
 	c.Assert(err, gc.ErrorMatches, "missing container network config")
 	c.Assert(data, gc.Equals, "")
 
 	netConfig := container.BridgeNetworkConfig(0, s.fakeInterfaces)
-	data, err = cloudinit.GenerateNetplan(netConfig.Interfaces)
+	data, err = cloudinit.GenerateNetplan(netConfig.Interfaces, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(data, gc.Equals, s.expectedFullNetplan)
 }
@@ -368,7 +368,7 @@ func (s *NetworkUbuntuSuite) TestGenerateNetplanSkipIPv6LinkLocalDNS(c *gc.C) {
 	}}
 
 	netConfig := container.BridgeNetworkConfig(0, s.fakeInterfaces)
-	data, err := cloudinit.GenerateNetplan(netConfig.Interfaces)
+	data, err := cloudinit.GenerateNetplan(netConfig.Interfaces, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(data, gc.Equals, `
@@ -381,6 +381,29 @@ network:
       addresses:
       - 2001:db8::dead:beef/64
       gateway6: 2001:db8::dead:f00
+`[1:])
+}
+
+func (s *NetworkUbuntuSuite) TestGenerateNetplanWithoutMatchStanza(c *gc.C) {
+	s.fakeInterfaces = corenetwork.InterfaceInfos{{
+		InterfaceName: "any5",
+		ConfigType:    corenetwork.ConfigStatic,
+		MACAddress:    "aa:bb:cc:dd:ee:f5",
+		Addresses: corenetwork.ProviderAddresses{
+			corenetwork.NewMachineAddress("10.0.0.5", corenetwork.WithCIDR("10.0.0.0/8")).AsProviderAddress()},
+	}}
+
+	netConfig := container.BridgeNetworkConfig(0, s.fakeInterfaces)
+	data, err := cloudinit.GenerateNetplan(netConfig.Interfaces, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(data, gc.Equals, `
+network:
+  version: 2
+  ethernets:
+    any5:
+      addresses:
+      - 10.0.0.5/8
 `[1:])
 }
 
