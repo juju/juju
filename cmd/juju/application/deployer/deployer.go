@@ -37,29 +37,41 @@ import (
 
 var logger = loggo.GetLogger("juju.cmd.juju.application.deployer")
 
+// DeployerKind is an interface that provides Read function to get
+// the appropriate deployer from a corresponding type of deployment
 type DeployerKind interface {
 	Read(d factory) (Deployer, error)
 }
 
-type localBundleDeployerType struct {
+// localBundleDeployerKind represents a local bundle deployment
+type localBundleDeployerKind struct {
 	DataSource charm.BundleDataSource
 }
 
-type localPreDeployerType struct {
+// localPreDeployerKind represents a local pre-deployed charm deployment
+type localPreDeployerKind struct {
 	userCharmURL *charm.URL
 }
 
-type localCharmDeployerType struct {
+// localCharmDeployerKind represents a local charm deployment
+type localCharmDeployerKind struct {
 	seriesName  string
 	imageStream string
 	ch          charm.Charm
 	curl        *charm.URL
 }
 
-type repositoryBundleDeployerType struct {
+// repositoryBundleDeployerKind represents a repository bundle deployment
+type repositoryBundleDeployerKind struct {
 	bundleURL    *charm.URL
 	bundleOrigin commoncharm.Origin
 	resolver     Resolver
+}
+
+// repositoryCharmDeployerKind struct represents a repository charm deployment
+type repositoryCharmDeployerKind struct {
+	deployCharm deployCharm
+	charmURL    *charm.URL
 }
 
 // NewDeployerFactory returns a factory setup with the API and
@@ -149,23 +161,27 @@ func (d *factory) GetDeployer(cfg DeployerConfig, getter ModelConfigGetter, reso
 
 		// Go for repository charm (if it's not set by the repoBundleDeployer above)
 		if dk == nil {
-			// Check for when revision is set without a channel for future upgrades
-			if d.revision != -1 && charmHubSchemaCheck && d.channel.Empty() {
-				return nil, errors.Errorf("specifying a revision requires a channel for future upgrades. Please use --channel")
+			var charmErr error
+			dk, charmErr = d.repoCharmDeployer(userCharmURL, origin, charmHubSchemaCheck)
+			if charmErr != nil {
+				return nil, charmErr
 			}
-			deployCharm := d.newDeployCharm()
-			deployCharm.id = application.CharmID{
-				Origin: origin,
-			}
-			return &repositoryCharm{
-				deployCharm:      deployCharm,
-				userRequestedURL: userCharmURL,
-				clock:            d.clock,
-			}, nil
 		}
 	}
 
 	return dk.Read(*d)
+}
+
+func (d *factory) repoCharmDeployer(userCharmURL *charm.URL, origin commoncharm.Origin, charmHubSchemaCheck bool) (DeployerKind, error) {
+	// Check for when revision is set without a channel for future upgrades
+	if d.revision != -1 && charmHubSchemaCheck && d.channel.Empty() {
+		return nil, errors.Errorf("specifying a revision requires a channel for future upgrades. Please use --channel")
+	}
+	deployCharm := d.newDeployCharm()
+	deployCharm.id = application.CharmID{
+		Origin: origin,
+	}
+	return &repositoryCharmDeployerKind{deployCharm, userCharmURL}, nil
 }
 
 func (d *factory) repoBundleDeployer(userCharmURL *charm.URL, origin commoncharm.Origin, resolver Resolver, charmHubSchemaCheck bool) (DeployerKind, error) {
@@ -192,15 +208,15 @@ func (d *factory) repoBundleDeployer(userCharmURL *charm.URL, origin commoncharm
 		if err := d.validateBundleFlags(); err != nil {
 			return nil, errors.Trace(err)
 		}
-		// Set the deployer kind to repositoryBundleDeployerType
-		return &repositoryBundleDeployerType{bundleURL, bundleOrigin, resolver}, nil
+		// Set the deployer kind to repositoryBundleDeployerKind
+		return &repositoryBundleDeployerKind{bundleURL, bundleOrigin, resolver}, nil
 	}
 }
 
 func (d *factory) localBundleDeployer() (DeployerKind, error) {
 	if ds, localBundleDataErr := charm.LocalBundleDataSource(d.charmOrBundle); localBundleDataErr == nil {
-		// Set the deployer kind to localBundleDeployerType
-		return &localBundleDeployerType{DataSource: ds}, nil
+		// Set the deployer kind to localBundleDeployerKind
+		return &localBundleDeployerKind{DataSource: ds}, nil
 	} else if !errors.Is(localBundleDataErr, errors.NotFound) {
 		// Only raise if it's not a NotFound.
 		// Otherwise, no need to raise, it's not a bundle,
@@ -244,7 +260,7 @@ func (d *factory) localCharmDeployer(getter ModelConfigGetter) (DeployerKind, er
 		logger.Debugf("cannot interpret as local charm: %v", err)
 		return nil, nil
 	} else {
-		return &localCharmDeployerType{seriesName, imageStream, ch, curl}, nil
+		return &localCharmDeployerKind{seriesName, imageStream, ch, curl}, nil
 	}
 }
 
@@ -256,10 +272,10 @@ func (d *factory) localPreDeployedCharmDeployer() (DeployerKind, error) {
 	if resolveCharmErr != nil {
 		return nil, errors.Trace(resolveCharmErr)
 	}
-	if userCharmURL.Schema != "local" {
+	if !charm.Local.Matches(userCharmURL.Schema) {
 		return nil, errors.Errorf("cannot interpret as a redeployment of a local charm from the controller")
 	}
-	return &localPreDeployerType{userCharmURL: userCharmURL}, nil
+	return &localPreDeployerKind{userCharmURL: userCharmURL}, nil
 }
 
 func (d *factory) determineSeriesForLocalCharm(charmOrBundle string, getter ModelConfigGetter) (string, string, error) {
@@ -504,7 +520,7 @@ func (d *factory) newDeployCharm() deployCharm {
 	}
 }
 
-func (dt *localBundleDeployerType) Read(d factory) (Deployer, error) {
+func (dt *localBundleDeployerKind) Read(d factory) (Deployer, error) {
 	if err := d.validateBundleFlags(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -552,14 +568,14 @@ func (d *factory) newDeployBundle(_ charm.Schema, ds charm.BundleDataSource) dep
 	}
 }
 
-func (dk *localPreDeployerType) Read(d factory) (Deployer, error) {
+func (dk *localPreDeployerKind) Read(d factory) (Deployer, error) {
 	return &predeployedLocalCharm{
 		deployCharm:  d.newDeployCharm(),
 		userCharmURL: dk.userCharmURL,
 	}, nil
 }
 
-func (dk *localCharmDeployerType) Read(d factory) (Deployer, error) {
+func (dk *localCharmDeployerKind) Read(d factory) (Deployer, error) {
 	// Avoid deploying charm if the charm series is not correct for the
 	// available image streams.
 	var err error
@@ -577,7 +593,16 @@ func (dk *localCharmDeployerType) Read(d factory) (Deployer, error) {
 	}, err
 }
 
-func (dk *repositoryBundleDeployerType) Read(d factory) (Deployer, error) {
+func (dk *repositoryCharmDeployerKind) Read(d factory) (Deployer, error) {
+	return &repositoryCharm{
+		deployCharm:      dk.deployCharm,
+		userRequestedURL: dk.charmURL,
+		clock:            d.clock,
+	}, nil
+
+}
+
+func (dk *repositoryBundleDeployerKind) Read(d factory) (Deployer, error) {
 
 	// Validated, prepare to Deploy
 	// TODO(bundles) - Ideally, we would like to expose a GetBundleDataSource method for the charmstore.
