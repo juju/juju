@@ -105,9 +105,9 @@ class PluginImpl(PluginV2):
         return {f"go/{self.options.go_channel}"}
 
     def get_build_packages(self) -> Set[str]:
-        if self.options.go_cgo_cc == "musl-gcc":
-            return {"musl-tools", "musl-dev"}
-        return {"gcc"}
+        if self.options.go_cgo_cc != "musl-gcc":
+            return {"gcc"}
+        return set()
 
     def get_build_environment(self) -> Dict[str, str]:
         env = {
@@ -117,8 +117,8 @@ class PluginImpl(PluginV2):
 
         if self.options.go_cgo_enabled == "1":
             env.update({
-                "SNAPCRAFT_GO_CGO_CFLAGS": f"-I${{SNAPCRAFT_STAGE}}/include {self.options.go_cgo_cflags}",
-                "SNAPCRAFT_GO_CGO_LDFLAGS": f"-L${{SNAPCRAFT_STAGE}} {self.options.go_cgo_ldflags}",
+                "SNAPCRAFT_GO_CGO_CFLAGS": f"-I${{SNAPCRAFT_STAGE}}/libs/include {self.options.go_cgo_cflags}",
+                "SNAPCRAFT_GO_CGO_LDFLAGS": f"-L${{SNAPCRAFT_STAGE}}/libs {self.options.go_cgo_ldflags}",
                 "SNAPCRAFT_GO_CGO_LDFLAGS_ALLOW": self.options.go_cgo_ldflags_allow,
                 "SNAPCRAFT_GO_LD_LIBRARY_PATH": f"${{SNAPCRAFT_STAGE}} {self.options.go_cgo_ld_library_path}",
             })
@@ -155,6 +155,7 @@ class PluginImpl(PluginV2):
         cmds.append("go mod download")
 
         if self.options.go_cgo_enabled == "1":
+            cmds.append(f'export PATH=/usr/local/musl/bin:$PATH')
             cmds.append(f'export CGO_CFLAGS="${{SNAPCRAFT_GO_CGO_CFLAGS}}"')
             cmds.append(f'export CGO_LDFLAGS="${{SNAPCRAFT_GO_CGO_LDFLAGS}}"')
             cmds.append(f'export CGO_LDFLAGS_ALLOW="${{SNAPCRAFT_GO_CGO_LDFLAGS_ALLOW}}"')
