@@ -204,15 +204,18 @@ func (s *CrossModelSecretsAPI) getSecretContent(arg params.GetRemoteSecretConten
 		return nil, nil, 0, apiservererrors.ErrPerm
 	}
 
-	md, err := secretState.GetSecret(uri)
-	if err != nil {
-		return nil, nil, 0, errors.Trace(err)
-	}
-
-	var wantRevision int
+	var (
+		wantRevision   int
+		latestRevision int
+	)
 	// Use the latest revision as the current one if --peek.
 	if arg.Peek || arg.Refresh {
-		wantRevision = md.LatestRevision
+		var err error
+		latestRevision, err = s.getConsumedRevision(secretState, secretsConsumer, consumer, uri, arg.Refresh)
+		if err != nil {
+			return nil, nil, 0, errors.Trace(err)
+		}
+		wantRevision = latestRevision
 	} else {
 		wantRevision = *arg.Revision
 	}
@@ -220,10 +223,33 @@ func (s *CrossModelSecretsAPI) getSecretContent(arg params.GetRemoteSecretConten
 	val, valueRef, err := secretState.GetSecretValue(uri, wantRevision)
 	content := &secrets.ContentParams{SecretValue: val, ValueRef: valueRef}
 	if err != nil || content.ValueRef == nil {
-		return content, nil, md.LatestRevision, errors.Trace(err)
+		return content, nil, latestRevision, errors.Trace(err)
 	}
 	backend, err := s.getBackend(uri.SourceUUID, content.ValueRef.BackendID)
-	return content, backend, md.LatestRevision, errors.Trace(err)
+	return content, backend, latestRevision, errors.Trace(err)
+}
+
+func (s *CrossModelSecretsAPI) getConsumedRevision(secretsState SecretsState, secretsConsumer SecretsConsumer, consumer names.Tag, uri *coresecrets.URI, refresh bool) (int, error) {
+	consumerInfo, err := secretsConsumer.GetSecretConsumer(uri, consumer)
+	if err != nil && !errors.Is(err, errors.NotFound) {
+		return 0, errors.Trace(err)
+	}
+	if err != nil {
+		consumerInfo = &coresecrets.SecretConsumerMetadata{}
+		refresh = true
+	}
+
+	md, err := secretsState.GetSecret(uri)
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
+	consumerInfo.CurrentRevision = md.LatestRevision
+	if refresh {
+		if err := secretsConsumer.SaveSecretConsumer(uri, consumer, consumerInfo); err != nil {
+			return 0, errors.Trace(err)
+		}
+	}
+	return md.LatestRevision, nil
 }
 
 func (s *CrossModelSecretsAPI) getBackend(modelUUID string, backendID string) (*params.SecretBackendConfigResult, error) {

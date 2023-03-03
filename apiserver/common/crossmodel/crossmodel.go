@@ -104,7 +104,7 @@ func PublishRelationChange(backend Backend, relationTag names.Tag, change params
 		}
 	}
 
-	if err := handleDepartedUnits(change, applicationTag, rel); err != nil {
+	if err := handleDepartedUnits(backend, change, applicationTag, rel); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -143,7 +143,7 @@ func handleSuspendedRelation(change params.RemoteRelationChangeEvent, rel Relati
 	return nil
 }
 
-func handleDepartedUnits(change params.RemoteRelationChangeEvent, applicationTag names.Tag, rel Relation) error {
+func handleDepartedUnits(backend Backend, change params.RemoteRelationChangeEvent, applicationTag names.Tag, rel Relation) error {
 	for _, id := range change.DepartedUnits {
 		unitTag := names.NewUnitTag(fmt.Sprintf("%s/%v", applicationTag.Id(), id))
 		logger.Debugf("unit %v has departed relation %v", unitTag.Id(), rel.Tag().Id())
@@ -153,6 +153,9 @@ func handleDepartedUnits(change params.RemoteRelationChangeEvent, applicationTag
 		}
 		logger.Debugf("%s leaving scope", unitTag.Id())
 		if err := ru.LeaveScope(); err != nil {
+			return errors.Trace(err)
+		}
+		if err := backend.RemoveSecretConsumer(unitTag); err != nil {
 			return errors.Trace(err)
 		}
 	}

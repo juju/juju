@@ -481,9 +481,12 @@ func (s *SecretsManagerAPI) getRemoteSecretContent(uri *coresecrets.URI, refresh
 	var wantRevision int
 	if err == nil {
 		wantRevision = consumerInfo.CurrentRevision
+	} else {
+		// Not found so need to create a new record and populate
+		// with latest revision.
+		refresh = true
+		consumerInfo = &coresecrets.SecretConsumerMetadata{}
 	}
-	refresh = refresh ||
-		err != nil // Not found, so need to create one.
 
 	scopeToken, err := extClient.GetSecretAccessScope(uri, token, unitId)
 	if err != nil {
@@ -508,11 +511,10 @@ func (s *SecretsManagerAPI) getRemoteSecretContent(uri *coresecrets.URI, refresh
 		return nil, nil, false, errors.Trace(err)
 	}
 	if refresh || updateLabel {
-		if consumerInfo == nil {
-			consumerInfo = &coresecrets.SecretConsumerMetadata{}
+		if refresh {
+			consumerInfo.LatestRevision = latestRevision
+			consumerInfo.CurrentRevision = latestRevision
 		}
-		consumerInfo.LatestRevision = latestRevision
-		consumerInfo.CurrentRevision = latestRevision
 		if label != "" {
 			consumerInfo.Label = label
 		}

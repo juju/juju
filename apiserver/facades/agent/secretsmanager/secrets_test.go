@@ -1028,8 +1028,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerNoRe
 
 	s.secretsConsumer.EXPECT().SaveSecretConsumer(uri, consumer, &coresecrets.SecretConsumerMetadata{
 		Label:           "foo",
-		LatestRevision:  666,
-		CurrentRevision: 666,
+		CurrentRevision: 665,
 	})
 
 	results, err := s.facade.GetSecretContentInfo(params.GetSecretContentArgs{

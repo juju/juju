@@ -1366,7 +1366,8 @@ func (st *State) removeSecretConsumerInfo(uri *secrets.URI) error {
 	return nil
 }
 
-func (st *State) removeSecretConsumer(consumer names.Tag) error {
+// RemoveSecretConsumer removes secret references for the specified consumer.
+func (st *State) RemoveSecretConsumer(consumer names.Tag) error {
 	secretConsumersCollection, closer := st.db().GetCollection(secretConsumersC)
 	defer closer()
 
@@ -1393,6 +1394,38 @@ func (st *State) removeSecretConsumer(consumer names.Tag) error {
 		bson.D{{"consumer-tag", consumer.String()}})
 	if err != nil {
 		return errors.Annotatef(err, "cannot delete consumer info for %s", consumer.String())
+	}
+	return nil
+}
+
+// removeRemoteSecretConsumer removes secret consumer info for the specified
+// remote application and also any of its units.
+func (st *State) removeRemoteSecretConsumer(appName string) error {
+	secretConsumersCollection, closer := st.db().GetCollection(secretConsumersC)
+	defer closer()
+
+	match := fmt.Sprintf("(unit|application)-%s(\\/\\d)?", appName)
+	q := bson.D{{"consumer-tag", bson.D{{"$regex", match}}}}
+	iter := secretConsumersCollection.Find(q).Select(bson.D{{"consumer-tag", 1}}).Iter()
+
+	var (
+		doc       secretConsumerDoc
+		consumers []names.Tag
+	)
+	for iter.Next(&doc) {
+		consumer, err := names.ParseTag(doc.ConsumerTag)
+		if err != nil {
+			return errors.NotValidf("secret consumer tag %q", doc.ConsumerTag)
+		}
+		consumers = append(consumers, consumer)
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Annotate(err, "getting secret consumers")
+	}
+	for _, consumer := range consumers {
+		if err := st.RemoveSecretConsumer(consumer); err != nil {
+			return errors.Annotatef(err, "removing secret consumer %q", consumer)
+		}
 	}
 	return nil
 }
