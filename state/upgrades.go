@@ -152,7 +152,7 @@ func RemoveOrphanedSecretPermissions(pool *StatePool) error {
 	}))
 }
 
-// MigrateApplicationOpenedPortsToUnitScope copies the opened ports for an application for all its units.
+// MigrateApplicationOpenedPortsToUnitScope moves the opened ports for an application for all its units.
 func MigrateApplicationOpenedPortsToUnitScope(pool *StatePool) error {
 	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
 		apps, err := st.AllApplications()

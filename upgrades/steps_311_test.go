@@ -26,6 +26,6 @@ func (s *steps311Suite) TestRemoveOrphanedSecretRevisions(c *gc.C) {
 }
 
 func (s *steps311Suite) TestMigrateApplicationOpenedPortsToUnitScope(c *gc.C) {
-	step := findStateStep(c, v311, "copies the opened ports for an application for all its units")
+	step := findStateStep(c, v311, "moves the opened ports for an application for all its units")
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 }

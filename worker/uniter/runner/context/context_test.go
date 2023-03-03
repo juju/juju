@@ -862,7 +862,6 @@ func (s *mockHookContextSuite) TestOpenPortRange(c *gc.C) {
 func (s *mockHookContextSuite) TestOpenedPortRanges(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.mockLeadership.EXPECT().IsLeader().Return(true, nil)
 	s.mockUnit.EXPECT().CommitHookChanges(params.CommitHookChangesArgs{
 		Args: []params.CommitHookChangesArg{
 			{

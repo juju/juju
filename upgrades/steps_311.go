@@ -17,7 +17,7 @@ func stateStepsFor311() []Step {
 			},
 		},
 		&upgradeStep{
-			description: "copies the opened ports for an application for all its units",
+			description: "moves the opened ports for an application for all its units",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
 				return context.State().MigrateApplicationOpenedPortsToUnitScope()
