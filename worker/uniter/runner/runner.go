@@ -14,6 +14,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 	"unicode/utf8"
 
@@ -587,6 +588,11 @@ func (runner *runner) runCharmProcessOnRemote(hook, hookName, charmDir string, e
 	return errors.Trace(err)
 }
 
+const (
+	// ErrTerminated indicate the hook or action exited due to a SIGTERM or SIGKILL signal.
+	ErrTerminated = errors.ConstError("terminated")
+)
+
 // Check still tested
 func (runner *runner) runCharmProcessOnLocal(hook, hookName, charmDir string, env []string) error {
 	ps := exec.Command(hook)
@@ -667,6 +673,12 @@ func (runner *runner) runCharmProcessOnLocal(hook, hookName, charmDir string, en
 		}
 		if err := runner.updateActionResults(resp); err != nil {
 			return errors.Trace(err)
+		}
+	}
+	if exitError, ok := exitErr.(*exec.ExitError); ok && exitError != nil {
+		waitStatus := exitError.ProcessState.Sys().(syscall.WaitStatus)
+		if waitStatus.Signal() == syscall.SIGTERM || waitStatus.Signal() == syscall.SIGKILL {
+			return errors.Trace(ErrTerminated)
 		}
 	}
 

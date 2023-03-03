@@ -220,6 +220,8 @@ iface {ethaa_bb_cc_dd_ee_f5} inet6 static
     version: 2
     ethernets:
       any0:
+        match:
+          macaddress: aa:bb:cc:dd:ee:f0
         addresses:
         - 0.1.2.3/24
         gateway4: 0.1.2.1
@@ -228,6 +230,8 @@ iface {ethaa_bb_cc_dd_ee_f5} inet6 static
           addresses: [ns1.invalid, ns2.invalid]
         mtu: 8317
       any1:
+        match:
+          macaddress: aa:bb:cc:dd:ee:f1
         addresses:
         - 0.2.2.4/24
         gateway4: 0.2.2.1
@@ -239,11 +243,19 @@ iface {ethaa_bb_cc_dd_ee_f5} inet6 static
           via: 0.2.2.1
           metric: 50
       any2:
+        match:
+          macaddress: aa:bb:cc:dd:ee:f2
         dhcp4: true
       any3:
+        match:
+          macaddress: aa:bb:cc:dd:ee:f3
         dhcp4: true
-      any4: {}
+      any4:
+        match:
+          macaddress: aa:bb:cc:dd:ee:f4
       any5:
+        match:
+          macaddress: aa:bb:cc:dd:ee:f5
         addresses:
         - 2001:db8::dead:beef/64
         gateway6: 2001:db8::dead:f00
@@ -255,6 +267,8 @@ network:
   version: 2
   ethernets:
     any0:
+      match:
+        macaddress: aa:bb:cc:dd:ee:f0
       addresses:
       - 0.1.2.3/24
       gateway4: 0.1.2.1
@@ -263,6 +277,8 @@ network:
         addresses: [ns1.invalid, ns2.invalid]
       mtu: 8317
     any1:
+      match:
+        macaddress: aa:bb:cc:dd:ee:f1
       addresses:
       - 0.2.2.4/24
       gateway4: 0.2.2.1
@@ -274,11 +290,19 @@ network:
         via: 0.2.2.1
         metric: 50
     any2:
+      match:
+        macaddress: aa:bb:cc:dd:ee:f2
       dhcp4: true
     any3:
+      match:
+        macaddress: aa:bb:cc:dd:ee:f3
       dhcp4: true
-    any4: {}
+    any4:
+      match:
+        macaddress: aa:bb:cc:dd:ee:f4
     any5:
+      match:
+        macaddress: aa:bb:cc:dd:ee:f5
       addresses:
       - 2001:db8::dead:beef/64
       gateway6: 2001:db8::dead:f00
@@ -316,12 +340,12 @@ func (s *NetworkUbuntuSuite) TestGenerateENIConfig(c *gc.C) {
 }
 
 func (s *NetworkUbuntuSuite) TestGenerateNetplan(c *gc.C) {
-	data, err := cloudinit.GenerateNetplan(nil)
+	data, err := cloudinit.GenerateNetplan(nil, true)
 	c.Assert(err, gc.ErrorMatches, "missing container network config")
 	c.Assert(data, gc.Equals, "")
 
 	netConfig := container.BridgeNetworkConfig(0, s.fakeInterfaces)
-	data, err = cloudinit.GenerateNetplan(netConfig.Interfaces)
+	data, err = cloudinit.GenerateNetplan(netConfig.Interfaces, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(data, gc.Equals, s.expectedFullNetplan)
 }
@@ -344,7 +368,33 @@ func (s *NetworkUbuntuSuite) TestGenerateNetplanSkipIPv6LinkLocalDNS(c *gc.C) {
 	}}
 
 	netConfig := container.BridgeNetworkConfig(0, s.fakeInterfaces)
-	data, err := cloudinit.GenerateNetplan(netConfig.Interfaces)
+	data, err := cloudinit.GenerateNetplan(netConfig.Interfaces, true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(data, gc.Equals, `
+network:
+  version: 2
+  ethernets:
+    any5:
+      match:
+        macaddress: aa:bb:cc:dd:ee:f5
+      addresses:
+      - 2001:db8::dead:beef/64
+      gateway6: 2001:db8::dead:f00
+`[1:])
+}
+
+func (s *NetworkUbuntuSuite) TestGenerateNetplanWithoutMatchStanza(c *gc.C) {
+	s.fakeInterfaces = corenetwork.InterfaceInfos{{
+		InterfaceName: "any5",
+		ConfigType:    corenetwork.ConfigStatic,
+		MACAddress:    "aa:bb:cc:dd:ee:f5",
+		Addresses: corenetwork.ProviderAddresses{
+			corenetwork.NewMachineAddress("10.0.0.5", corenetwork.WithCIDR("10.0.0.0/8")).AsProviderAddress()},
+	}}
+
+	netConfig := container.BridgeNetworkConfig(0, s.fakeInterfaces)
+	data, err := cloudinit.GenerateNetplan(netConfig.Interfaces, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(data, gc.Equals, `
@@ -353,8 +403,7 @@ network:
   ethernets:
     any5:
       addresses:
-      - 2001:db8::dead:beef/64
-      gateway6: 2001:db8::dead:f00
+      - 10.0.0.5/8
 `[1:])
 }
 
