@@ -5,9 +5,6 @@
 package containerinit
 
 import (
-	"os"
-	"path/filepath"
-
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
@@ -18,63 +15,33 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 )
 
-var (
-	logger = loggo.GetLogger("juju.cloudconfig.containerinit")
-)
-
-// WriteUserData generates the cloud-init user-data using the
-// specified machine and network config for a container, and writes
-// the serialized form out to a cloud-init file in the directory
-// specified.
-func WriteUserData(
-	instanceConfig *instancecfg.InstanceConfig,
-	networkConfig *container.NetworkConfig,
-	directory string,
-) (string, error) {
-	userData, err := CloudInitUserData(instanceConfig, networkConfig)
-	if err != nil {
-		logger.Errorf("failed to create user data: %v", err)
-		return "", err
-	}
-	return WriteCloudInitFile(directory, userData)
-}
-
-// WriteCloudInitFile writes the data out to a cloud-init file in the
-// directory specified, and returns the filename.
-func WriteCloudInitFile(directory string, userData []byte) (string, error) {
-	userDataFilename := filepath.Join(directory, "cloud-init")
-	if err := os.WriteFile(userDataFilename, userData, 0644); err != nil {
-		logger.Errorf("failed to write user data: %v", err)
-		return "", err
-	}
-	return userDataFilename, nil
-}
+var logger = loggo.GetLogger("juju.cloudconfig.containerinit")
 
 func CloudInitUserData(
+	cloudConfig cloudinit.CloudConfig,
 	instanceConfig *instancecfg.InstanceConfig,
 	networkConfig *container.NetworkConfig,
 ) ([]byte, error) {
-	cloudConfig, err := cloudinit.New(instanceConfig.Base.OS)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	var interfaces corenetwork.InterfaceInfos
 	if networkConfig != nil {
 		interfaces = networkConfig.Interfaces
 	}
-	err = cloudConfig.AddNetworkConfig(interfaces)
-	if err != nil {
+
+	if err := cloudConfig.AddNetworkConfig(interfaces); err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	udata, err := cloudconfig.NewUserdataConfig(instanceConfig, cloudConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	if err = udata.Configure(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	// Run ifconfig/ip addr to get the addresses of the internal container at least
-	// logged in the host.
+
+	// Run ifconfig/ip addr to get the addresses of the
+	// internal container at least logged in the host.
 	cloudConfig.AddRunCmd("ifconfig || ip addr")
 
 	if instanceConfig.MachineContainerHostname != "" {
@@ -83,8 +50,5 @@ func CloudInitUserData(
 	}
 
 	data, err := cloudConfig.RenderYAML()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return data, nil
+	return data, errors.Trace(err)
 }

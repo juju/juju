@@ -81,6 +81,16 @@ type cloudConfig struct {
 	// update_etc_hosts
 	// update_hostname
 	attrs map[string]interface{}
+
+	// omitNetplanHWAddrMatch if true, causes Netplan to be rendered without
+	// a stanza that matches by MAC address in order to apply configuration to
+	// a device.
+	// This will be recruited for LXD, where we have observed 22.04 containers
+	// being assigned a different MAC to the one configured.
+	// For these cases we fall back to the default match by ID (name).
+	// MAC address matching is still required by KVM where devices are assigned
+	// different names by the kernel to those we configured.
+	omitNetplanHWAddrMatch bool
 }
 
 // getPackagingConfigurer is defined on the AdvancedPackagingConfig interface.

@@ -92,6 +92,7 @@ func (d *deploy) Commit(state State) (*State, error) {
 	if hookInfo := d.interruptedHook(state); hookInfo != nil {
 		change.Hook = hookInfo
 		change.Step = Pending
+		change.HookStep = state.HookStep
 	} else {
 		change.Hook = &hook.Info{Kind: deployHookKinds[d.kind]}
 		change.Step = Queued
@@ -123,6 +124,7 @@ func (d *deploy) getState(state State, step Step) *State {
 		Step:     step,
 		CharmURL: d.charmURL,
 		Hook:     d.interruptedHook(state),
+		HookStep: state.HookStep,
 	}.apply(state)
 }
 

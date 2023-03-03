@@ -569,17 +569,20 @@ func (s *DeploySuite) testCommitInterruptedHook(c *gc.C, newDeploy newDeploy) {
 
 	op, err := newDeploy(factory, "ch:quantal/x-0")
 	c.Assert(err, jc.ErrorIsNil)
+	hookStep := operation.Done
 	newState, err := op.Commit(operation.State{
 		Kind:     operation.Upgrade,
 		Step:     operation.Done,
 		CharmURL: "", // doesn't actually matter here
 		Hook:     &hook.Info{Kind: hooks.ConfigChanged},
+		HookStep: &hookStep,
 	})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(newState, gc.DeepEquals, &operation.State{
-		Kind: operation.RunHook,
-		Step: operation.Pending,
-		Hook: &hook.Info{Kind: hooks.ConfigChanged},
+		Kind:     operation.RunHook,
+		Step:     operation.Pending,
+		Hook:     &hook.Info{Kind: hooks.ConfigChanged},
+		HookStep: &hookStep,
 	})
 }
 

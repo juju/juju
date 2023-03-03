@@ -15,6 +15,7 @@ test_resources() {
 
 	test_basic_resources
 	test_upgrade_resources
+	test_attach_resources
 
 	destroy_controller "test-resources"
 }

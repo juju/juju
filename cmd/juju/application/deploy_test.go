@@ -70,6 +70,14 @@ import (
 
 var defaultBase = series.MustParseBaseFromString("ubuntu@22.04")
 
+func resourceHash(content string) charmresource.Fingerprint {
+	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
+	if err != nil {
+		panic(err)
+	}
+	return fp
+}
+
 type DeploySuiteBase struct {
 	jjtesting.RepoSuite
 	coretesting.CmdBlockHelper

@@ -570,6 +570,9 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				// Loop back around. The resolver can tell that it is in
 				// an error state by inspecting the operation state.
 				err = nil
+			case runner.ErrTerminated:
+				localState.HookWasShutdown = true
+				err = nil
 			case resolver.ErrTerminate:
 				err = u.terminate()
 			case resolver.ErrRestart:
