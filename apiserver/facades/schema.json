@@ -9045,7 +9045,7 @@
                     },
                     "description": "CharmInfo returns information about the requested charm."
                 },
-                "GetApplicationOpenedPorts": {
+                "GetOpenedPorts": {
                     "type": "object",
                     "properties": {
                         "Params": {
@@ -9055,7 +9055,7 @@
                             "$ref": "#/definitions/ApplicationOpenedPortsResults"
                         }
                     },
-                    "description": "GetApplicationOpenedPorts returns all the opened ports for each given application tag."
+                    "description": "GetOpenedPorts returns all the opened ports for each given application tag."
                 },
                 "IsExposed": {
                     "type": "object",
@@ -45318,7 +45318,7 @@
                             "$ref": "#/definitions/ApplicationOpenedPortsResults"
                         }
                     },
-                    "description": "OpenedApplicationPortRangesByEndpoint returns the port ranges opened by each\napplication grouped by application endpoint."
+                    "description": "OpenedApplicationPortRangesByEndpoint returns the port ranges opened by each application."
                 },
                 "OpenedMachinePortRangesByEndpoint": {
                     "type": "object",
@@ -45327,10 +45327,19 @@
                             "$ref": "#/definitions/Entities"
                         },
                         "Result": {
-                            "$ref": "#/definitions/OpenMachinePortRangesByEndpointResults"
+                            "$ref": "#/definitions/OpenPortRangesByEndpointResults"
                         }
                     },
                     "description": "OpenedMachinePortRangesByEndpoint returns the port ranges opened by each\nunit on the provided machines grouped by application endpoint."
+                },
+                "OpenedPortRangesByEndpoint": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/OpenPortRangesByEndpointResults"
+                        }
+                    },
+                    "description": "OpenedPortRangesByEndpoint returns the port ranges opened by the unit."
                 },
                 "PrivateAddress": {
                     "type": "object",
@@ -47663,7 +47672,7 @@
                         "results"
                     ]
                 },
-                "OpenMachinePortRangesByEndpointResult": {
+                "OpenPortRangesByEndpointResult": {
                     "type": "object",
                     "properties": {
                         "error": {
@@ -47686,13 +47695,13 @@
                         "unit-port-ranges"
                     ]
                 },
-                "OpenMachinePortRangesByEndpointResults": {
+                "OpenPortRangesByEndpointResults": {
                     "type": "object",
                     "properties": {
                         "results": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/OpenMachinePortRangesByEndpointResult"
+                                "$ref": "#/definitions/OpenPortRangesByEndpointResult"
                             }
                         }
                     },

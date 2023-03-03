@@ -100,7 +100,7 @@ func (w *applicationWorker) setUp() (err error) {
 	w.portMutator = app
 	w.serviceUpdater = app
 
-	if w.currentPorts, err = w.firewallerAPI.GetApplicationOpenedPorts(w.appName); err != nil {
+	if w.currentPorts, err = w.firewallerAPI.GetOpenedPorts(w.appName); err != nil {
 		return errors.Annotatef(err, "failed to get initial openned ports for application")
 	}
 
@@ -168,7 +168,7 @@ func toServicePorts(in network.GroupedPortRanges) []caas.ServicePort {
 }
 
 func (w *applicationWorker) onPortChanged() error {
-	changedPortRanges, err := w.firewallerAPI.GetApplicationOpenedPorts(w.appName)
+	changedPortRanges, err := w.firewallerAPI.GetOpenedPorts(w.appName)
 	if err != nil {
 		return err
 	}

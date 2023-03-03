@@ -520,14 +520,15 @@ func (u *backingUnit) updated(ctx *allWatcherContext) error {
 		return errors.Trace(err)
 	}
 	info := &multiwatcher.UnitInfo{
-		ModelUUID:   u.ModelUUID,
-		Name:        u.Name,
-		Application: u.Application,
-		Base:        base.DisplayString(),
-		Life:        life.Value(u.Life.String()),
-		MachineID:   u.MachineId,
-		Principal:   u.Principal,
-		Subordinate: u.Principal != "",
+		ModelUUID:                u.ModelUUID,
+		Name:                     u.Name,
+		Application:              u.Application,
+		Base:                     base.DisplayString(),
+		Life:                     life.Value(u.Life.String()),
+		MachineID:                u.MachineId,
+		Principal:                u.Principal,
+		Subordinate:              u.Principal != "",
+		OpenPortRangesByEndpoint: make(network.GroupedPortRanges),
 	}
 	if u.CharmURL != nil {
 		info.CharmURL = *u.CharmURL
@@ -558,7 +559,9 @@ func (u *backingUnit) updated(ctx *allWatcherContext) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		info.OpenPortRangesByEndpoint = unitPortRangesByEndpoint.Clone()
+		if len(unitPortRangesByEndpoint) > 0 {
+			info.OpenPortRangesByEndpoint = unitPortRangesByEndpoint.Clone()
+		}
 		if modelType == ModelTypeCAAS {
 			containerStatus, err := ctx.getStatus(globalCloudContainerKey(u.Name), "cloud container")
 			if err == nil {
@@ -1899,8 +1902,10 @@ type allWatcherContext struct {
 	statuses    map[string]status.StatusInfo
 	instances   map[string]instanceData
 	// A map of the existing MachinePortRanges where the keys are machine IDs.
-	openPortRanges map[string]MachinePortRanges
-	userAccess     map[string]map[string]permission.Access
+	openPortRangesForMachine map[string]MachinePortRanges
+	// A map of the existing ApplicationPortRanges where the keys are application names.
+	openPortRangesForApplication map[string]ApplicationPortRanges
+	userAccess                   map[string]map[string]permission.Access
 }
 
 func (ctx *allWatcherContext) loadSubsidiaryCollections() error {
@@ -2004,10 +2009,18 @@ func (ctx *allWatcherContext) loadOpenedPortRanges() error {
 	if err != nil {
 		return errors.Annotate(err, "cannot read all opened port ranges")
 	}
-
-	ctx.openPortRanges = make(map[string]MachinePortRanges)
+	ctx.openPortRangesForMachine = make(map[string]MachinePortRanges)
 	for _, mpr := range openedMachineRanges {
-		ctx.openPortRanges[mpr.MachineID()] = mpr
+		ctx.openPortRangesForMachine[mpr.MachineID()] = mpr
+	}
+
+	openedApplicationRanges, err := getOpenedApplicationPortRangesForAllApplications(ctx.state)
+	if err != nil {
+		return errors.Annotate(err, "cannot read all opened port ranges")
+	}
+	ctx.openPortRangesForApplication = make(map[string]ApplicationPortRanges)
+	for _, mpr := range openedApplicationRanges {
+		ctx.openPortRangesForApplication[mpr.ApplicationName()] = mpr
 	}
 
 	return nil
@@ -2177,23 +2190,37 @@ func (ctx *allWatcherContext) permissionsForModel(uuid string) (map[string]permi
 }
 
 func (ctx *allWatcherContext) getUnitPortRangesByEndpoint(unit *Unit) (network.GroupedPortRanges, error) {
-	machineID, err := unit.AssignedMachineId()
-	if err != nil {
-		if errors.IsNotAssigned(err) {
-			// Not assigned, so there won't be any ports opened.
-			// Return an empty port map (see Bug #1425435).
-			return make(network.GroupedPortRanges), nil
+	if unit.ShouldBeAssigned() {
+		machineID, err := unit.AssignedMachineId()
+		if err != nil {
+			if errors.IsNotAssigned(err) {
+				// Not assigned, so there won't be any ports opened.
+				// Return an empty port map (see Bug #1425435).
+				return make(network.GroupedPortRanges), nil
+			}
+			return nil, errors.Trace(err)
 		}
-		return nil, errors.Trace(err)
+		// No cached port ranges available; make a direct DB lookup instead.
+		if ctx.openPortRangesForMachine == nil || ctx.openPortRangesForMachine[machineID] == nil {
+			unitPortRanges, err := unit.OpenedPortRanges()
+			return unitPortRanges.ByEndpoint(), err
+		}
+		return ctx.openPortRangesForMachine[machineID].ForUnit(unit.Name()).ByEndpoint(), nil
 	}
 
-	// No cached port ranges available; make a direct DB lookup instead.
-	if ctx.openPortRanges == nil || ctx.openPortRanges[machineID] == nil {
+	appName := unit.ApplicationName()
+	if ctx.openPortRangesForApplication == nil || ctx.openPortRangesForApplication[appName] == nil {
 		unitPortRanges, err := unit.OpenedPortRanges()
-		return unitPortRanges.ByEndpoint(), err
+		if err != nil {
+			if errors.Is(err, errors.NotSupported) {
+				// We support open/close port for CAAS sidecar applications but not operator applications.
+				return make(network.GroupedPortRanges), nil
+			}
+			return nil, errors.Trace(err)
+		}
+		return unitPortRanges.ByEndpoint(), nil
 	}
-
-	return ctx.openPortRanges[machineID].ForUnit(unit.Name()).ByEndpoint(), nil
+	return ctx.openPortRangesForApplication[appName].ForUnit(unit.Name()).ByEndpoint(), nil
 }
 
 // entityIDForGlobalKey returns the entity id for the given global key.

@@ -836,8 +836,6 @@ func (s *mockHookContextSuite) TestOpenPortRange(c *gc.C) {
 
 	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.CAAS, s.mockLeadership)
 
-	s.mockLeadership.EXPECT().IsLeader().Return(true, nil)
-
 	s.mockUnit.EXPECT().CommitHookChanges(params.CommitHookChangesArgs{
 		Args: []params.CommitHookChangesArg{
 			{
@@ -864,7 +862,6 @@ func (s *mockHookContextSuite) TestOpenPortRange(c *gc.C) {
 func (s *mockHookContextSuite) TestOpenedPortRanges(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.mockLeadership.EXPECT().IsLeader().Return(true, nil)
 	s.mockUnit.EXPECT().CommitHookChanges(params.CommitHookChangesArgs{
 		Args: []params.CommitHookChangesArg{
 			{
@@ -919,7 +916,6 @@ func (s *mockHookContextSuite) TestClosePortRange(c *gc.C) {
 
 	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.CAAS, s.mockLeadership)
 
-	s.mockLeadership.EXPECT().IsLeader().Return(true, nil)
 	s.mockUnit.EXPECT().CommitHookChanges(params.CommitHookChangesArgs{
 		Args: []params.CommitHookChangesArg{
 			{
@@ -941,32 +937,6 @@ func (s *mockHookContextSuite) TestClosePortRange(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = hookContext.Flush("success", nil)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *mockHookContextSuite) TestOpenPortRangeFailedForNonLeaderUnit(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.CAAS, s.mockLeadership)
-
-	s.mockLeadership.EXPECT().IsLeader().Return(false, nil)
-
-	err := hookContext.OpenPortRange("", network.MustParsePortRange("8080/tcp"))
-	c.Assert(err, jc.ErrorIsNil)
-	err = hookContext.Flush("success", nil)
-	c.Assert(err, gc.ErrorMatches, `this unit is not the leader`)
-}
-
-func (s *mockHookContextSuite) TestClosePortRangeFailedForNonLeaderUnit(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.CAAS, s.mockLeadership)
-
-	s.mockLeadership.EXPECT().IsLeader().Return(false, nil)
-
-	err := hookContext.ClosePortRange("", network.MustParsePortRange("8080/tcp"))
-	c.Assert(err, jc.ErrorIsNil)
-	err = hookContext.Flush("success", nil)
-	c.Assert(err, gc.ErrorMatches, `this unit is not the leader`)
 }
 
 func (s *mockHookContextSuite) setupMocks(c *gc.C) *gomock.Controller {

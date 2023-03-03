@@ -186,11 +186,22 @@ func (s *uniterSuiteBase) assertInScope(c *gc.C, relUnit *state.RelationUnit, in
 	c.Assert(ok, gc.Equals, inScope)
 }
 
+func (s *uniterSuiteBase) addCAASSidecarApplication(c *gc.C) (*state.State, *state.Application) {
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "caas-model",
+		Type: state.ModelTypeCAAS,
+	})
+	f := factory.NewFactory(st, s.StatePool)
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "cockroachdb", Series: "focal"})
+
+	return st, f.MakeApplication(c, &factory.ApplicationParams{Name: "cockroachdb", Charm: ch})
+}
+
 // TODO (manadart 2020-12-07): This should form the basis of a SetUpTest method
 // in a new suite.
 // If we are testing a CAAS model, it is a waste of resources to do preamble
 // for an IAAS model.
-func (s *uniterSuiteBase) setupCAASModel(c *gc.C) (*apiuniter.State, *state.CAASModel, *state.Application, *state.Unit) {
+func (s *uniterSuiteBase) setupCAASModel(c *gc.C, isSidecar bool) (*apiuniter.State, *state.CAASModel, *state.Application, *state.Unit) {
 	st := s.Factory.MakeCAASModel(c, nil)
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -200,12 +211,27 @@ func (s *uniterSuiteBase) setupCAASModel(c *gc.C) (*apiuniter.State, *state.CAAS
 	c.Assert(err, jc.ErrorIsNil)
 
 	f := factory.NewFactory(st, s.StatePool)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
-	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
+	var app *state.Application
+	if isSidecar {
+		ch := f.MakeCharm(c, &factory.CharmParams{Name: "cockroach", Series: "focal"})
+		app = f.MakeApplication(c, &factory.ApplicationParams{Name: "cockroachdb", Charm: ch})
+	} else {
+		ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
+		app = f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
+	}
 	unit := f.MakeUnit(c, &factory.UnitParams{
 		Application: app,
 		SetCharmURL: true,
 	})
+	if isSidecar {
+		s.authorizer = apiservertesting.FakeAuthorizer{
+			Tag: unit.Tag(),
+		}
+	} else {
+		s.authorizer = apiservertesting.FakeAuthorizer{
+			Tag: app.Tag(),
+		}
+	}
 
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
@@ -227,9 +253,6 @@ func (s *uniterSuiteBase) setupCAASModel(c *gc.C) (*apiuniter.State, *state.CAAS
 	c.Assert(err, jc.ErrorIsNil)
 	s.CleanupSuite.AddCleanup(func(*gc.C) { _ = apiState.Close() })
 
-	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag: app.Tag(),
-	}
 	u, err := apiuniter.NewFromConnection(apiState)
 	c.Assert(err, jc.ErrorIsNil)
 	return u, cm, app, unit
@@ -2750,18 +2773,19 @@ func (s *uniterSuite) TestReadRemoteApplicationSettingsForPeerRelation(c *gc.C) 
 	})
 }
 
-func (s *uniterSuite) TestReadRemoteSettingsForCAASApplicationInPeerRelation(c *gc.C) {
-	_, cm, app, unit := s.setupCAASModel(c)
+func (s *uniterSuite) assertReadRemoteSettingsForCAASApplicationInPeerRelation(c *gc.C, isSidecar bool) {
+	_, cm, app, unit := s.setupCAASModel(c, isSidecar)
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
-	unit2, err := app.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
 	ep, err := app.Endpoint("ring")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := cm.State().EndpointsRelation(ep)
 	c.Assert(err, jc.ErrorIsNil)
 
-	relUnit, err := rel.Unit(unit)
+	unit2, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	relUnit, err := rel.Unit(unit2)
 	c.Assert(err, jc.ErrorIsNil)
 	err = relUnit.EnterScope(map[string]interface{}{
 		"black midi": "ducter",
@@ -2769,11 +2793,10 @@ func (s *uniterSuite) TestReadRemoteSettingsForCAASApplicationInPeerRelation(c *
 	c.Assert(err, jc.ErrorIsNil)
 
 	uniterAPI := s.newUniterAPI(c, cm.State(), s.authorizer)
-
 	args := params.RelationUnitPairs{RelationUnitPairs: []params.RelationUnitPair{{
 		Relation:   rel.Tag().String(),
-		LocalUnit:  unit2.Tag().String(),
-		RemoteUnit: unit.Tag().String(),
+		LocalUnit:  unit.Tag().String(),
+		RemoteUnit: unit2.Tag().String(),
 	}}}
 	result, err := uniterAPI.ReadRemoteSettings(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2784,6 +2807,14 @@ func (s *uniterSuite) TestReadRemoteSettingsForCAASApplicationInPeerRelation(c *
 			}},
 		},
 	})
+}
+
+func (s *uniterSuite) TestReadRemoteSettingsForCAASApplicationInPeerRelationOperator(c *gc.C) {
+	s.assertReadRemoteSettingsForCAASApplicationInPeerRelation(c, false)
+}
+
+func (s *uniterSuite) TestReadRemoteSettingsForCAASApplicationInPeerRelationSidecar(c *gc.C) {
+	s.assertReadRemoteSettingsForCAASApplicationInPeerRelation(c, true)
 }
 
 func (s *uniterSuite) TestWatchRelationUnits(c *gc.C) {
@@ -2959,7 +2990,7 @@ func (s *uniterSuite) TestWatchUnitAddressesHash(c *gc.C) {
 }
 
 func (s *uniterSuite) TestWatchCAASUnitAddressesHash(c *gc.C) {
-	_, cm, _, _ := s.setupCAASModel(c)
+	_, cm, _, _ := s.setupCAASModel(c, false)
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -3271,8 +3302,8 @@ func (s *uniterSuite) TestOpenedMachinePortRangesByEndpoint(c *gc.C) {
 	}
 	result, err := s.uniter.OpenedMachinePortRangesByEndpoint(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.OpenMachinePortRangesByEndpointResults{
-		Results: []params.OpenMachinePortRangesByEndpointResult{
+	c.Assert(result, gc.DeepEquals, params.OpenPortRangesByEndpointResults{
+		Results: []params.OpenPortRangesByEndpointResult{
 			{Error: apiservertesting.ErrUnauthorized},
 			{
 				UnitPortRanges: expectPortRanges,
@@ -3507,7 +3538,7 @@ spec:
 `[1:]
 
 func (s *uniterSuite) TestSetRawK8sSpec(c *gc.C) {
-	u, cm, app, unit := s.setupCAASModel(c)
+	u, cm, app, unit := s.setupCAASModel(c, false)
 
 	s.leadershipChecker.isLeader = true
 
@@ -3538,7 +3569,7 @@ func (s *uniterSuite) TestSetRawK8sSpec(c *gc.C) {
 }
 
 func (s *uniterSuite) TestSetRawK8sSpecNil(c *gc.C) {
-	_, cm, app, unit := s.setupCAASModel(c)
+	_, cm, app, unit := s.setupCAASModel(c, false)
 
 	s.leadershipChecker.isLeader = true
 
@@ -3582,7 +3613,7 @@ func (s *uniterSuite) TestSetRawK8sSpecNil(c *gc.C) {
 }
 
 func (s *uniterSuite) TestGetRawPodSpec(c *gc.C) {
-	u, cm, app, _ := s.setupCAASModel(c)
+	u, cm, app, _ := s.setupCAASModel(c, false)
 
 	modelOp := cm.SetRawK8sSpecOperation(nil, app.ApplicationTag(), &rawK8sSpec)
 	err := cm.State().ApplyOperation(modelOp)
@@ -3607,7 +3638,7 @@ containers:
 `[1:]
 
 func (s *uniterSuite) TestSetPodSpec(c *gc.C) {
-	_, cm, app, unit := s.setupCAASModel(c)
+	_, cm, app, unit := s.setupCAASModel(c, false)
 
 	s.leadershipChecker.isLeader = true
 
@@ -3634,7 +3665,7 @@ func (s *uniterSuite) TestSetPodSpec(c *gc.C) {
 }
 
 func (s *uniterSuite) TestSetPodSpecNil(c *gc.C) {
-	_, cm, app, unit := s.setupCAASModel(c)
+	_, cm, app, unit := s.setupCAASModel(c, false)
 
 	s.leadershipChecker.isLeader = true
 
@@ -3678,7 +3709,7 @@ func (s *uniterSuite) TestSetPodSpecNil(c *gc.C) {
 }
 
 func (s *uniterSuite) TestGetPodSpec(c *gc.C) {
-	u, cm, app, _ := s.setupCAASModel(c)
+	u, cm, app, _ := s.setupCAASModel(c, false)
 
 	err := cm.SetPodSpec(nil, app.ApplicationTag(), &podSpec)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3688,34 +3719,86 @@ func (s *uniterSuite) TestGetPodSpec(c *gc.C) {
 }
 
 func (s *uniterSuite) TestOpenedApplicationPortRangesByEndpoint(c *gc.C) {
-	// Verify no ports are opened yet on the machine (or unit).
-	appPortRanges, err := s.wordpress.OpenedPortRanges()
+	_, cm, app, unit := s.setupCAASModel(c, true)
+	st := cm.State()
+
+	appPortRanges, err := app.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(appPortRanges.UniquePortRanges(), gc.HasLen, 0)
 
-	// Open some ports using different endpoints.
-	appPortRanges.Open(allEndpoints, network.MustParsePortRange("1000/tcp"))
-	appPortRanges.Open("monitoring-port", network.MustParsePortRange("1111/udp"))
+	portRanges, err := unit.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(s.State.ApplyOperation(appPortRanges.Changes()), jc.ErrorIsNil)
+	// Open some ports using different endpoints.
+	portRanges.Open(allEndpoints, network.MustParsePortRange("1000/tcp"))
+	portRanges.Open("db", network.MustParsePortRange("1111/udp"))
+
+	c.Assert(st.ApplyOperation(portRanges.Changes()), jc.ErrorIsNil)
 
 	// Get the open port ranges
-	arg := params.Entity{Tag: "application-wordpress"}
+	arg := params.Entity{Tag: "application-cockroachdb"}
 	expectPortRanges := []params.ApplicationOpenedPorts{
 		{
 			Endpoint:   "",
 			PortRanges: []params.PortRange{{FromPort: 1000, ToPort: 1000, Protocol: "tcp"}},
 		},
 		{
-			Endpoint:   "monitoring-port",
+			Endpoint:   "db",
 			PortRanges: []params.PortRange{{FromPort: 1111, ToPort: 1111, Protocol: "udp"}},
 		},
 	}
-	result, err := s.uniter.OpenedApplicationPortRangesByEndpoint(arg)
+
+	uniterAPI := s.newUniterAPI(c, st, s.authorizer)
+
+	result, err := uniterAPI.OpenedApplicationPortRangesByEndpoint(arg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ApplicationOpenedPortsResults{
 		Results: []params.ApplicationOpenedPortsResult{
 			{ApplicationPortRanges: expectPortRanges},
+		},
+	})
+}
+
+func (s *uniterSuite) TestOpenedPortRangesByEndpoint(c *gc.C) {
+	_, cm, app, unit := s.setupCAASModel(c, true)
+	st := cm.State()
+
+	appPortRanges, err := app.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appPortRanges.UniquePortRanges(), gc.HasLen, 0)
+
+	portRanges, err := unit.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Open some ports using different endpoints.
+	portRanges.Open(allEndpoints, network.MustParsePortRange("1000/tcp"))
+	portRanges.Open("db", network.MustParsePortRange("1111/udp"))
+
+	c.Assert(st.ApplyOperation(portRanges.Changes()), jc.ErrorIsNil)
+
+	// Get the open port ranges
+	expectPortRanges := []params.OpenUnitPortRangesByEndpoint{
+		{
+			Endpoint:   "",
+			PortRanges: []params.PortRange{{FromPort: 1000, ToPort: 1000, Protocol: "tcp"}},
+		},
+		{
+			Endpoint:   "db",
+			PortRanges: []params.PortRange{{FromPort: 1111, ToPort: 1111, Protocol: "udp"}},
+		},
+	}
+
+	uniterAPI := s.newUniterAPI(c, st, s.authorizer)
+
+	result, err := uniterAPI.OpenedPortRangesByEndpoint()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.OpenPortRangesByEndpointResults{
+		Results: []params.OpenPortRangesByEndpointResult{
+			{
+				UnitPortRanges: map[string][]params.OpenUnitPortRangesByEndpoint{
+					"unit-cockroachdb-0": expectPortRanges,
+				},
+			},
 		},
 	})
 }
@@ -4760,8 +4843,45 @@ func (s *uniterSuite) TestCommitHookChangesWithStorage(c *gc.C) {
 	c.Assert(newVolumeAttachments, gc.HasLen, len(oldVolumeAttachments)+1, gc.Commentf("expected an additional instance of block storage to be added"))
 }
 
+func (s *uniterSuite) TestCommitHookChangesWithPortsSidecarApplication(c *gc.C) {
+	_, cm, app, unit := s.setupCAASModel(c, true)
+
+	b := apiuniter.NewCommitHookParamsBuilder(unit.UnitTag())
+	b.UpdateNetworkInfo()
+	b.UpdateCharmState(map[string]string{"charm-key": "charm-value"})
+
+	b.OpenPortRange("db", network.MustParsePortRange("80/tcp"))
+	b.OpenPortRange("db", network.MustParsePortRange("7337/tcp")) // same port closed below; this should be a no-op
+	b.ClosePortRange("db", network.MustParsePortRange("7337/tcp"))
+	req, _ := b.Build()
+
+	s.State = cm.State()
+	s.authorizer = apiservertesting.FakeAuthorizer{Tag: unit.Tag()}
+	uniterAPI, err := uniter.NewUniterAPI(s.facadeContext())
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := uniterAPI.CommitHookChanges(req)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: nil},
+		},
+	})
+
+	appPortRanges, err := app.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appPortRanges.UniquePortRanges(), jc.DeepEquals, []network.PortRange{{Protocol: "tcp", FromPort: 80, ToPort: 80}})
+
+	portRanges, err := unit.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(portRanges.ByEndpoint(), jc.DeepEquals, network.GroupedPortRanges{
+		"db": []network.PortRange{network.MustParsePortRange("80/tcp")},
+	})
+}
+
 func (s *uniterNetworkInfoSuite) assertCommitHookChangesCAAS(c *gc.C, isRaw bool) {
-	_, cm, gitlab, gitlabUnit := s.setupCAASModel(c)
+	_, cm, gitlab, gitlabUnit := s.setupCAASModel(c, false)
 
 	s.leadershipChecker.isLeader = true
 
@@ -4773,9 +4893,7 @@ func (s *uniterNetworkInfoSuite) assertCommitHookChangesCAAS(c *gc.C, isRaw bool
 	} else {
 		b.SetPodSpec(gitlab.ApplicationTag(), &podSpec)
 	}
-	b.OpenPortRange("website", network.MustParsePortRange("80/tcp"))
-	b.OpenPortRange("website", network.MustParsePortRange("7337/tcp")) // same port closed below; this should be a no-op
-	b.ClosePortRange("website", network.MustParsePortRange("7337/tcp"))
+
 	req, _ := b.Build()
 
 	s.State = cm.State()
@@ -4813,13 +4931,6 @@ func (s *uniterNetworkInfoSuite) assertCommitHookChangesCAAS(c *gc.C, isRaw bool
 	c.Assert(err, jc.ErrorIsNil)
 	charmState, _ := unitState.CharmState()
 	c.Assert(charmState, jc.DeepEquals, map[string]string{"charm-key": "charm-value"}, gc.Commentf("state doc not updated"))
-
-	appPortRanges, err := gitlab.OpenedPortRanges()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(appPortRanges.UniquePortRanges(), jc.DeepEquals, []network.PortRange{{Protocol: "tcp", FromPort: 80, ToPort: 80}})
-	c.Assert(appPortRanges.ByEndpoint(), jc.DeepEquals, network.GroupedPortRanges{
-		"website": {{Protocol: "tcp", FromPort: 80, ToPort: 80}},
-	}, gc.Commentf("unit ports where not opened for the requested endpoint"))
 }
 
 func (s *uniterNetworkInfoSuite) TestCommitHookChangesCAASPodSpec(c *gc.C) {
@@ -4831,7 +4942,7 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChangesCAASRawK8sSpec(c *gc.C) {
 }
 
 func (s *uniterNetworkInfoSuite) TestCommitHookChangesCAASNotLeader(c *gc.C) {
-	_, cm, gitlab, gitlabUnit := s.setupCAASModel(c)
+	_, cm, gitlab, gitlabUnit := s.setupCAASModel(c, false)
 
 	s.leadershipChecker.isLeader = false
 
@@ -4856,7 +4967,7 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChangesCAASNotLeader(c *gc.C) {
 }
 
 func (s *uniterNetworkInfoSuite) TestCommitHookChangesCAASNotAllowSetPodSpecAndSetRawK8sSpec(c *gc.C) {
-	_, cm, gitlab, gitlabUnit := s.setupCAASModel(c)
+	_, cm, gitlab, gitlabUnit := s.setupCAASModel(c, false)
 
 	s.leadershipChecker.isLeader = true
 
@@ -4887,7 +4998,7 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChangesCAASNotAllowSetPodSpecAndS
 }
 
 func (s *uniterSuite) TestNetworkInfoCAASModelRelation(c *gc.C) {
-	_, cm, gitlab, gitlabUnit := s.setupCAASModel(c)
+	_, cm, gitlab, gitlabUnit := s.setupCAASModel(c, false)
 
 	st := cm.State()
 	f := factory.NewFactory(st, s.StatePool)
@@ -4943,7 +5054,7 @@ func (s *uniterSuite) TestNetworkInfoCAASModelRelation(c *gc.C) {
 }
 
 func (s *uniterSuite) TestNetworkInfoCAASModelNoRelation(c *gc.C) {
-	_, cm, wp, wpUnit := s.setupCAASModel(c)
+	_, cm, wp, wpUnit := s.setupCAASModel(c, false)
 
 	st := cm.State()
 	f := factory.NewFactory(st, s.StatePool)
@@ -5037,7 +5148,7 @@ func (*fakeBroker) APIVersion() (string, error) {
 }
 
 func (s *cloudSpecUniterSuite) TestCloudAPIVersion(c *gc.C) {
-	_, cm, _, _ := s.setupCAASModel(c)
+	_, cm, _, _ := s.setupCAASModel(c, false)
 
 	uniterAPI := s.newUniterAPI(c, cm.State(), s.authorizer)
 	uniter.SetNewContainerBrokerFunc(uniterAPI, func(stdcontext.Context, environs.OpenParams) (caas.Broker, error) {

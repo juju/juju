@@ -750,11 +750,11 @@ func (a *Application) removeOps(asserts bson.D, op *ForcedOperation) ([]txn.Op, 
 		removePodSpecOp(a.ApplicationTag()),
 	)
 
-	openedApplicationPortRanges, err := getOpenedApplicationPortRanges(a.st, a.Name())
+	apr, err := getApplicationPortRanges(a.st, a.Name())
 	if op.FatalError(err) {
 		return nil, errors.Trace(err)
 	}
-	ops = append(ops, openedApplicationPortRanges.removeOps()...)
+	ops = append(ops, apr.removeOps()...)
 
 	cancelCleanupOps, err := a.cancelScheduledCleanupOps()
 	if err != nil {
@@ -2765,6 +2765,10 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation
 	if op.FatalError(err) {
 		return nil, errors.Trace(err)
 	}
+	appPortsOps, err := removeApplicationPortsForUnitOps(a.st, u)
+	if op.FatalError(err) {
+		return nil, errors.Trace(err)
+	}
 	resOps, err := removeUnitResourcesOps(a.st, u.doc.Name)
 	if op.FatalError(err) {
 		return nil, errors.Trace(err)
@@ -2808,6 +2812,7 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation
 		newCleanupOp(cleanupRemovedUnit, u.doc.Name, op.Force),
 	}
 	ops = append(ops, portsOps...)
+	ops = append(ops, appPortsOps...)
 	ops = append(ops, resOps...)
 	ops = append(ops, hostOps...)
 	ops = append(ops, secretScopedPermissionsOps...)
@@ -3244,7 +3249,11 @@ func assertApplicationAliveOp(docID string) txn.Op {
 // OpenedPortRanges returns a ApplicationPortRanges object that can be used to query
 // and/or mutate the port ranges opened by the embedded k8s application.
 func (a *Application) OpenedPortRanges() (ApplicationPortRanges, error) {
-	return getOpenedApplicationPortRanges(a.st, a.Name())
+	apr, err := getApplicationPortRanges(a.st, a.Name())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return apr, nil
 }
 
 // EndpointBindings returns the mapping for each endpoint name and the space

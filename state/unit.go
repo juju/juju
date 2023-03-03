@@ -120,7 +120,11 @@ func (u *Unit) ContainerInfo() (CloudContainer, error) {
 // ShouldBeAssigned returns whether the unit should be assigned to a machine.
 // IAAS models require units to be assigned.
 func (u *Unit) ShouldBeAssigned() bool {
-	return u.modelType != ModelTypeCAAS
+	return !u.isCaas()
+}
+
+func (u *Unit) isCaas() bool {
+	return u.modelType == ModelTypeCAAS
 }
 
 // IsSidecar returns true when using new CAAS charms in sidecar mode.
@@ -1457,12 +1461,32 @@ func (u *Unit) SetStatus(unitStatus status.StatusInfo) error {
 }
 
 // OpenedPortRanges returns a UnitPortRanges object that can be used to query
+// and/or mutate the port ranges opened by the unit.
+func (u *Unit) OpenedPortRanges() (UnitPortRanges, error) {
+	if u.ShouldBeAssigned() {
+		return u.openedPortRangesForIAAS()
+	}
+	isSidecar, err := u.IsSidecar()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if u.isCaas() && !isSidecar {
+		return nil, errors.NotSupportedf("open/close ports for %q", u.ApplicationName())
+	}
+	return u.openedPortRangesForSidecar()
+}
+
+func (u *Unit) openedPortRangesForSidecar() (UnitPortRanges, error) {
+	return getUnitPortRanges(u.st, u.ApplicationName(), u.Name())
+}
+
+// openedPortRangesForIAAS returns a UnitPortRanges object that can be used to query
 // and/or mutate the port ranges opened by the unit on the machine it is
 // assigned to.
 //
 // Calls to OpenPortRanges will return back an error if the unit is not assigned
 // to a machine.
-func (u *Unit) OpenedPortRanges() (UnitPortRanges, error) {
+func (u *Unit) openedPortRangesForIAAS() (UnitPortRanges, error) {
 	machineID, err := u.AssignedMachineId()
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot retrieve ports for unit %q", u.Name())

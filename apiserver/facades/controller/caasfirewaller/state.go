@@ -8,6 +8,7 @@ import (
 
 	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	"github.com/juju/juju/core/config"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 )
 
@@ -28,7 +29,7 @@ type Application interface {
 	ApplicationConfig() (config.ConfigAttributes, error)
 	Watch() state.NotifyWatcher
 	Charm() (ch charmscommon.Charm, force bool, err error)
-	OpenedPortRanges() (state.ApplicationPortRanges, error)
+	OpenedPortRanges() (network.GroupedPortRanges, error)
 }
 
 type stateShim struct {
@@ -49,4 +50,12 @@ type applicationShim struct {
 
 func (a *applicationShim) Charm() (charmscommon.Charm, bool, error) {
 	return a.Application.Charm()
+}
+
+func (a *applicationShim) OpenedPortRanges() (network.GroupedPortRanges, error) {
+	pg, err := a.Application.OpenedPortRanges()
+	if err != nil {
+		return nil, err
+	}
+	return pg.ByEndpoint(), nil
 }

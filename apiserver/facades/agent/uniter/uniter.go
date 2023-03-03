@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/charm/v10"
 	"github.com/juju/clock"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -82,13 +83,13 @@ type UniterAPI struct {
 
 // OpenedMachinePortRangesByEndpoint returns the port ranges opened by each
 // unit on the provided machines grouped by application endpoint.
-func (u *UniterAPI) OpenedMachinePortRangesByEndpoint(args params.Entities) (params.OpenMachinePortRangesByEndpointResults, error) {
-	result := params.OpenMachinePortRangesByEndpointResults{
-		Results: make([]params.OpenMachinePortRangesByEndpointResult, len(args.Entities)),
+func (u *UniterAPI) OpenedMachinePortRangesByEndpoint(args params.Entities) (params.OpenPortRangesByEndpointResults, error) {
+	result := params.OpenPortRangesByEndpointResults{
+		Results: make([]params.OpenPortRangesByEndpointResult, len(args.Entities)),
 	}
 	canAccess, err := u.accessMachine()
 	if err != nil {
-		return params.OpenMachinePortRangesByEndpointResults{}, err
+		return params.OpenPortRangesByEndpointResults{}, err
 	}
 	for i, entity := range args.Entities {
 		machPortRanges, err := u.getOneMachineOpenedPortRanges(canAccess, entity.Tag)
@@ -101,16 +102,11 @@ func (u *UniterAPI) OpenedMachinePortRangesByEndpoint(args params.Entities) (par
 		for unitName, unitPortRanges := range machPortRanges.ByUnit() {
 			unitTag := names.NewUnitTag(unitName).String()
 			for endpointName, portRanges := range unitPortRanges.ByEndpoint() {
-				mappedPortRanges := make([]params.PortRange, len(portRanges))
-				for i, pr := range portRanges {
-					mappedPortRanges[i] = params.FromNetworkPortRange(pr)
-				}
-
 				result.Results[i].UnitPortRanges[unitTag] = append(
 					result.Results[i].UnitPortRanges[unitTag],
 					params.OpenUnitPortRangesByEndpoint{
 						Endpoint:   endpointName,
-						PortRanges: mappedPortRanges,
+						PortRanges: transform.Slice(portRanges, params.FromNetworkPortRange),
 					},
 				)
 			}
@@ -124,8 +120,65 @@ func (u *UniterAPI) OpenedMachinePortRangesByEndpoint(args params.Entities) (par
 	return result, nil
 }
 
-// OpenedApplicationPortRangesByEndpoint returns the port ranges opened by each
-// application grouped by application endpoint.
+func (u *UniterAPI) getOneMachineOpenedPortRanges(canAccess common.AuthFunc, machineTag string) (state.MachinePortRanges, error) {
+	tag, err := names.ParseMachineTag(machineTag)
+	if err != nil {
+		return nil, apiservererrors.ErrPerm
+	}
+	if !canAccess(tag) {
+		return nil, apiservererrors.ErrPerm
+	}
+	machine, err := u.getMachine(tag)
+	if err != nil {
+		return nil, err
+	}
+	return machine.OpenedPortRanges()
+}
+
+// OpenedPortRangesByEndpoint returns the port ranges opened by the unit.
+func (u *UniterAPI) OpenedPortRangesByEndpoint() (params.OpenPortRangesByEndpointResults, error) {
+	result := params.OpenPortRangesByEndpointResults{
+		Results: make([]params.OpenPortRangesByEndpointResult, 1),
+	}
+
+	authTag := u.auth.GetAuthTag()
+	switch authTag.Kind() {
+	case names.UnitTagKind:
+	default:
+		result.Results[0].Error = apiservererrors.ServerError(errors.NotSupportedf("getting opened port ranges for %q", authTag.Kind()))
+		return result, nil
+	}
+
+	unit, err := u.st.Unit(authTag.Id())
+	if err != nil {
+		result.Results[0].Error = apiservererrors.ServerError(err)
+		return result, nil
+	}
+	openedPortRanges, err := unit.OpenedPortRanges()
+	if err != nil {
+		result.Results[0].Error = apiservererrors.ServerError(err)
+		return result, nil
+	}
+	result.Results[0].UnitPortRanges = make(map[string][]params.OpenUnitPortRangesByEndpoint)
+	unitTag := unit.Tag().String()
+	for endpointName, portRanges := range openedPortRanges.ByEndpoint() {
+		result.Results[0].UnitPortRanges[unitTag] = append(
+			result.Results[0].UnitPortRanges[unitTag],
+			params.OpenUnitPortRangesByEndpoint{
+				Endpoint:   endpointName,
+				PortRanges: transform.Slice(portRanges, params.FromNetworkPortRange),
+			},
+		)
+	}
+
+	// Ensure results are sorted by endpoint name to be consistent.
+	sort.Slice(result.Results[0].UnitPortRanges[unitTag], func(a, b int) bool {
+		return result.Results[0].UnitPortRanges[unitTag][a].Endpoint < result.Results[0].UnitPortRanges[unitTag][b].Endpoint
+	})
+	return result, nil
+}
+
+// OpenedApplicationPortRangesByEndpoint returns the port ranges opened by each application.
 func (u *UniterAPI) OpenedApplicationPortRangesByEndpoint(entity params.Entity) (params.ApplicationOpenedPortsResults, error) {
 	result := params.ApplicationOpenedPortsResults{
 		Results: make([]params.ApplicationOpenedPortsResult, 1),
@@ -169,21 +222,6 @@ func (u *UniterAPI) applicationOpenedPortsForEndpoint(endpointName string, pgs [
 		o.PortRanges[i] = params.FromNetworkPortRange(pg)
 	}
 	return o
-}
-
-func (u *UniterAPI) getOneMachineOpenedPortRanges(canAccess common.AuthFunc, machineTag string) (state.MachinePortRanges, error) {
-	tag, err := names.ParseMachineTag(machineTag)
-	if err != nil {
-		return nil, apiservererrors.ErrPerm
-	}
-	if !canAccess(tag) {
-		return nil, apiservererrors.ErrPerm
-	}
-	machine, err := u.getMachine(tag)
-	if err != nil {
-		return nil, err
-	}
-	return machine.OpenedPortRanges()
 }
 
 // AssignedMachine returns the machine tag for each given unit tag, or
@@ -2639,21 +2677,9 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 	}
 
 	if len(changes.OpenPorts)+len(changes.ClosePorts) > 0 {
-		var pcp PortChangesProcessor
-		if u.m.Type() == state.ModelTypeCAAS {
-			app, err := u.st.Application(appTag.Name)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			pcp, err = app.OpenedPortRanges()
-			if err != nil {
-				return errors.Trace(err)
-			}
-		} else {
-			pcp, err = unit.OpenedPortRanges()
-			if err != nil {
-				return errors.Trace(err)
-			}
+		pcp, err := unit.OpenedPortRanges()
+		if err != nil {
+			return errors.Trace(err)
 		}
 
 		for _, r := range changes.OpenPorts {
@@ -2838,13 +2864,6 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 
 	// Apply all changes in a single transaction.
 	return u.st.ApplyOperation(state.ComposeModelOperations(modelOps...))
-}
-
-// PortChangesProcessor defines the interface for processing port changes.
-type PortChangesProcessor interface {
-	Open(endpoint string, portRange network.PortRange)
-	Close(endpoint string, portRange network.PortRange)
-	Changes() state.ModelOperation
 }
 
 // WatchInstanceData is a shim to call the LXDProfileAPIv2 version of this method.
