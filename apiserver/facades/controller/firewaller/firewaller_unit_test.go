@@ -14,8 +14,10 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/firewaller"
 	"github.com/juju/juju/apiserver/facades/controller/firewaller/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -154,6 +156,80 @@ func (s *FirewallerSuite) setup(c *gc.C) *gomock.Controller {
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 	return ctrl
+}
+
+func (s *FirewallerSuite) TestModelFirewallRules(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	modelAttrs := coretesting.FakeConfig().Merge(map[string]interface{}{
+		config.SSHAllowKey: "192.168.0.0/24,192.168.1.0/24",
+	})
+	s.st.EXPECT().ModelConfig().Return(config.New(config.UseDefaults, modelAttrs))
+	s.st.EXPECT().ControllerConfig().Return(controller.NewConfig(coretesting.ControllerTag.Id(), coretesting.CACert, map[string]interface{}{}))
+	s.st.EXPECT().IsController().Return(false)
+
+	rules, err := s.api.ModelFirewallRules()
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rules, gc.DeepEquals, params.IngressRulesResult{Rules: []params.IngressRule{{
+		PortRange:   params.FromNetworkPortRange(network.MustParsePortRange("22")),
+		SourceCIDRs: []string{"192.168.0.0/24", "192.168.1.0/24"},
+	}}})
+}
+
+func (s *FirewallerSuite) TestModelFirewallRulesController(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	modelAttrs := coretesting.FakeConfig().Merge(map[string]interface{}{
+		config.SSHAllowKey: "192.168.0.0/24,192.168.1.0/24",
+	})
+	s.st.EXPECT().ModelConfig().Return(config.New(config.UseDefaults, modelAttrs))
+
+	ctrlAttrs := map[string]interface{}{
+		controller.APIPort:            17777,
+		controller.AutocertDNSNameKey: "example.com",
+	}
+	s.st.EXPECT().ControllerConfig().Return(controller.NewConfig(coretesting.ControllerTag.Id(), coretesting.CACert, ctrlAttrs))
+	s.st.EXPECT().IsController().Return(true)
+
+	rules, err := s.api.ModelFirewallRules()
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rules, gc.DeepEquals, params.IngressRulesResult{Rules: []params.IngressRule{{
+		PortRange:   params.FromNetworkPortRange(network.MustParsePortRange("22")),
+		SourceCIDRs: []string{"192.168.0.0/24", "192.168.1.0/24"},
+	}, {
+		PortRange:   params.FromNetworkPortRange(network.MustParsePortRange("17777")),
+		SourceCIDRs: []string{"0.0.0.0/0"},
+	}, {
+		PortRange:   params.FromNetworkPortRange(network.MustParsePortRange("80")),
+		SourceCIDRs: []string{"0.0.0.0/0"},
+	}}})
+}
+
+func (s *FirewallerSuite) TestWatchModelFirewallRules(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	ch := make(chan struct{}, 1)
+	// initial event
+	ch <- struct{}{}
+	w := mocks.NewMockNotifyWatcher(ctrl)
+	w.EXPECT().Changes().Return(ch).MinTimes(1)
+	w.EXPECT().Wait().AnyTimes()
+	w.EXPECT().Kill().AnyTimes()
+
+	s.st.EXPECT().WatchForModelConfigChanges().Return(w)
+	s.st.EXPECT().ModelConfig().Return(config.New(config.UseDefaults, coretesting.FakeConfig()))
+
+	result, err := s.api.WatchModelFirewallRules()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.NotifyWatcherId, gc.Equals, "1")
+
+	resource := s.resources.Get("1")
+	c.Assert(resource, gc.NotNil)
+	c.Assert(resource, gc.Implements, new(state.NotifyWatcher))
 }
 
 func (s *FirewallerSuite) TestOpenedMachinePortRanges(c *gc.C) {

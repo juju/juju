@@ -124,23 +124,19 @@ func (*PortRangeSuite) TestValidate(c *gc.C) {
 	}, {
 		"both FromPort and ToPort too large",
 		network.PortRange{88888, 99999, "tcp"},
-		"port range bounds must be between 1 and 65535, got 88888-99999",
+		"port range bounds must be between 0 and 65535, got 88888-99999",
 	}, {
 		"FromPort too large",
 		network.PortRange{88888, 65535, "tcp"},
 		"invalid port range 88888-65535/tcp",
 	}, {
 		"FromPort too small",
-		network.PortRange{0, 80, "tcp"},
-		"port range bounds must be between 1 and 65535, got 0-80",
+		network.PortRange{-1, 80, "tcp"},
+		"port range bounds must be between 0 and 65535, got -1-80",
 	}, {
 		"ToPort too large",
 		network.PortRange{1, 99999, "tcp"},
-		"port range bounds must be between 1 and 65535, got 1-99999",
-	}, {
-		"both ports 0",
-		network.PortRange{0, 0, "tcp"},
-		"port range bounds must be between 1 and 65535, got 0-0",
+		"port range bounds must be between 0 and 65535, got 1-99999",
 	}, {
 		"invalid protocol",
 		network.PortRange{80, 80, "some protocol"},

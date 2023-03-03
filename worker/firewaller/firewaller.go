@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/environs/models"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/worker/common"
 )
@@ -41,6 +42,8 @@ import (
 type FirewallerAPI interface {
 	WatchModelMachines() (watcher.StringsWatcher, error)
 	WatchOpenedPorts() (watcher.StringsWatcher, error)
+	WatchModelFirewallRules() (watcher.NotifyWatcher, error)
+	ModelFirewallRules() (firewall.IngressRules, error)
 	ModelConfig() (*config.Config, error)
 	Machine(tag names.MachineTag) (*firewaller.Machine, error)
 	Unit(tag names.UnitTag) (*firewaller.Unit, error)
@@ -69,9 +72,15 @@ type CrossModelFirewallerFacadeCloser interface {
 }
 
 // EnvironFirewaller defines methods to allow the worker to perform
-// firewall operations (open/close ports) on a Juju cloud environment.
+// firewall operations (open/close ports) on a Juju global firewall.
 type EnvironFirewaller interface {
 	environs.Firewaller
+}
+
+// EnvironModelFirewaller defines methods to allow the worker to
+// perform firewall operations (open/close port) on a Juju model firewall.
+type EnvironModelFirewaller interface {
+	models.ModelFirewaller
 }
 
 // EnvironInstances defines methods to allow the worker to perform
@@ -89,6 +98,7 @@ type Config struct {
 	FirewallerAPI          FirewallerAPI
 	RemoteRelationsApi     *remoterelations.Client
 	EnvironFirewaller      EnvironFirewaller
+	EnvironModelFirewaller EnvironModelFirewaller
 	EnvironInstances       EnvironInstances
 	EnvironIPV6CIDRSupport bool
 
@@ -138,21 +148,24 @@ func (cfg Config) Validate() error {
 // machines and reflects those changes onto the backing environment.
 // Uses Firewaller API V1.
 type Firewaller struct {
-	catacomb           catacomb.Catacomb
-	firewallerApi      FirewallerAPI
-	remoteRelationsApi *remoterelations.Client
-	environFirewaller  EnvironFirewaller
-	environInstances   EnvironInstances
+	catacomb               catacomb.Catacomb
+	firewallerApi          FirewallerAPI
+	remoteRelationsApi     *remoterelations.Client
+	environFirewaller      EnvironFirewaller
+	environModelFirewaller EnvironModelFirewaller
+	environInstances       EnvironInstances
 
 	machinesWatcher      watcher.StringsWatcher
 	portsWatcher         watcher.StringsWatcher
 	subnetWatcher        watcher.StringsWatcher
+	modelFirewallWatcher watcher.NotifyWatcher
 	machineds            map[names.MachineTag]*machineData
 	unitsChange          chan *unitsChange
 	unitds               map[names.UnitTag]*unitData
 	applicationids       map[names.ApplicationTag]*applicationData
 	exposedChange        chan *exposedChange
 	spaceInfos           network.SpaceInfos
+	modelFirewallRules   firewall.IngressRules
 	globalMode           bool
 	globalIngressRuleRef map[string]int // map of rule names to count of occurrences
 
@@ -189,6 +202,7 @@ func NewFirewaller(cfg Config) (worker.Worker, error) {
 		firewallerApi:              cfg.FirewallerAPI,
 		remoteRelationsApi:         cfg.RemoteRelationsApi,
 		environFirewaller:          cfg.EnvironFirewaller,
+		environModelFirewaller:     cfg.EnvironModelFirewaller,
 		environInstances:           cfg.EnvironInstances,
 		envIPV6CIDRSupport:         cfg.EnvironIPV6CIDRSupport,
 		newRemoteFirewallerAPIFunc: cfg.NewCrossModelFacadeFunc,
@@ -270,6 +284,16 @@ func (fw *Firewaller) setUp() error {
 		return errors.Trace(err)
 	}
 
+	if fw.environModelFirewaller != nil {
+		fw.modelFirewallWatcher, err = fw.firewallerApi.WatchModelFirewallRules()
+		if err != nil {
+			return errors.Annotatef(err, "failed to start subnet watcher")
+		}
+		if err := fw.catacomb.Add(fw.modelFirewallWatcher); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	if fw.spaceInfos, err = fw.firewallerApi.AllSpaceInfos(); err != nil {
 		return errors.Trace(err)
 	}
@@ -284,6 +308,12 @@ func (fw *Firewaller) loop() error {
 	}
 	var reconciled bool
 	portsChange := fw.portsWatcher.Changes()
+
+	var modelFirewallChanges watcher.NotifyChannel
+	if fw.modelFirewallWatcher != nil {
+		modelFirewallChanges = fw.modelFirewallWatcher.Changes()
+	}
+
 	for {
 		select {
 		case <-fw.catacomb.Dying():
@@ -336,6 +366,14 @@ func (fw *Firewaller) loop() error {
 			if err := fw.subnetsChanged(); err != nil {
 				return errors.Trace(err)
 			}
+		case _, ok := <-modelFirewallChanges:
+			if !ok {
+				return errors.New("model config watcher closed")
+			}
+			if err := fw.flushModel(); err != nil {
+				return errors.Trace(err)
+			}
+
 		case change := <-fw.localRelationsChange:
 			// We have a notification that the remote (consuming) model
 			// has changed egress networks so need to update the local
@@ -590,13 +628,13 @@ func (fw *Firewaller) reconcileGlobal() error {
 	if len(toOpen) > 0 {
 		fw.logger.Infof("opening global ports %v", toOpen)
 		if err := fw.environFirewaller.OpenPorts(fw.cloudCallContextFunc(ctx), toOpen); err != nil {
-			return err
+			return errors.Annotatef(err, "failed to open global ports %v", toOpen)
 		}
 	}
 	if len(toClose) > 0 {
 		fw.logger.Infof("closing global ports %v", toClose)
 		if err := fw.environFirewaller.ClosePorts(fw.cloudCallContextFunc(ctx), toClose); err != nil {
-			return err
+			return errors.Annotatef(err, "failed to close global ports %v", toClose)
 		}
 	}
 	return nil
@@ -652,7 +690,7 @@ func (fw *Firewaller) reconcileInstances() error {
 				toOpen, machined.tag)
 			if err := fwInstance.OpenPorts(fw.cloudCallContextFunc(ctx), machineId, toOpen); err != nil {
 				// TODO(mue) Add local retry logic.
-				return err
+				return errors.Annotatef(err, "failed to open instance ports %v for %q", toOpen, machined.tag)
 			}
 		}
 		if len(toClose) > 0 {
@@ -660,7 +698,7 @@ func (fw *Firewaller) reconcileInstances() error {
 				toClose, machined.tag)
 			if err := fwInstance.ClosePorts(fw.cloudCallContextFunc(ctx), machineId, toClose); err != nil {
 				// TODO(mue) Add local retry logic.
-				return err
+				return errors.Annotatef(err, "failed to close instance ports %v for %q", toOpen, machined.tag)
 			}
 		}
 	}
@@ -1011,20 +1049,60 @@ func (fw *Firewaller) flushGlobalPorts(rawOpen, rawClose firewall.IngressRules) 
 	// Open and close the ports.
 	if len(toOpen) > 0 {
 		toOpen.Sort()
+		fw.logger.Infof("opening port ranges %v in environment", toOpen)
 		if err := fw.environFirewaller.OpenPorts(fw.cloudCallContextFunc(ctx), toOpen); err != nil {
 			// TODO(mue) Add local retry logic.
-			return err
+			return errors.Annotatef(err, "failed to open port ranges %v in environment", toOpen)
 		}
-		fw.logger.Infof("opened port ranges %v in environment", toOpen)
 	}
 	if len(toClose) > 0 {
 		toClose.Sort()
+		fw.logger.Infof("closing port ranges %v in environment", toClose)
 		if err := fw.environFirewaller.ClosePorts(fw.cloudCallContextFunc(ctx), toClose); err != nil {
 			// TODO(mue) Add local retry logic.
-			return err
+			return errors.Annotatef(err, "failed to close port ranges %v in environment", toOpen)
 		}
-		fw.logger.Infof("closed port ranges %v in environment", toClose)
 	}
+	return nil
+}
+
+func (fw *Firewaller) flushModel() error {
+	if fw.environModelFirewaller == nil {
+		return errors.NotSupportedf("model firewaller")
+	}
+	want, err := fw.firewallerApi.ModelFirewallRules()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	ctx := stdcontext.Background()
+	curr, err := fw.environModelFirewaller.ModelIngressRules(fw.cloudCallContextFunc(ctx))
+	if errors.IsNotFound(err) {
+		fw.logger.Warningf("Model firewall not found so cannot re-write firewall rule %q. Ignoring", want)
+		return nil
+	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	toOpen, toClose := curr.Diff(want)
+	if len(toOpen) > 0 {
+		toOpen.Sort()
+		fw.logger.Infof("opening port ranges %v on model firewall", toOpen)
+		if err := fw.environModelFirewaller.OpenModelPorts(fw.cloudCallContextFunc(ctx), toOpen); err != nil {
+			// TODO(mue) Add local retry logic.
+			return errors.Annotatef(err, "failed to open port ranges %v on model firewall", toOpen)
+		}
+	}
+	if len(toClose) > 0 {
+		toClose.Sort()
+		fw.logger.Infof("closing port ranges %v on model firewall", toClose)
+		if err := fw.environModelFirewaller.CloseModelPorts(fw.cloudCallContextFunc(ctx), toClose); err != nil {
+			// TODO(mue) Add local retry logic.
+			return errors.Annotatef(err, "failed to close port ranges %v on model firewall", toOpen)
+		}
+	}
+
 	return nil
 }
 

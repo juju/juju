@@ -5,7 +5,7 @@ package firewaller_test
 
 import (
 	"fmt"
-	"reflect"
+	"strconv"
 	"sync/atomic"
 	"time"
 
@@ -37,6 +37,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/environs/models"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/rpc/params"
@@ -124,9 +125,7 @@ func (s *firewallerBaseSuite) assertIngressRules(c *gc.C, inst instances.Instanc
 		if err != nil {
 			c.Fatal(err)
 		}
-		got.Sort()
-		expected.Sort()
-		if reflect.DeepEqual(got, expected) {
+		if got.EqualTo(expected) {
 			c.Succeed()
 			return
 		}
@@ -149,9 +148,30 @@ func (s *firewallerBaseSuite) assertEnvironPorts(c *gc.C, expected firewall.Ingr
 		if err != nil {
 			c.Fatal(err)
 		}
-		got.Sort()
-		expected.Sort()
-		if reflect.DeepEqual(got, expected) {
+		if got.EqualTo(expected) {
+			c.Succeed()
+			return
+		}
+		if time.Since(start) > coretesting.LongWait {
+			c.Fatalf("timed out: expected %q; got %q", expected, got)
+		}
+		time.Sleep(coretesting.ShortWait)
+	}
+}
+
+// assertModelIngressRules retrieves the ingress rules from the model firewall
+// and compares them to the expected value
+func (s *firewallerBaseSuite) assertModelIngressRules(c *gc.C, expected firewall.IngressRules) {
+	fwEnv, ok := s.Environ.(models.ModelFirewaller)
+	c.Assert(ok, gc.Equals, true)
+
+	start := time.Now()
+	for {
+		got, err := fwEnv.ModelIngressRules(s.callCtx)
+		if err != nil {
+			c.Fatal(err)
+		}
+		if got.EqualTo(expected) {
 			c.Succeed()
 			return
 		}
@@ -223,12 +243,42 @@ func (s *InstanceModeSuite) newFirewallerWithClockAndIPV6CIDRSupport(c *gc.C, cl
 	fwEnv, ok := s.Environ.(environs.Firewaller)
 	c.Assert(ok, gc.Equals, true)
 
+	modelFwEnv, ok := s.Environ.(models.ModelFirewaller)
+	c.Assert(ok, gc.Equals, true)
+
+	cfg := firewaller.Config{
+		ModelUUID:              s.State.ModelUUID(),
+		Mode:                   config.FwInstance,
+		EnvironFirewaller:      fwEnv,
+		EnvironModelFirewaller: modelFwEnv,
+		EnvironInstances:       s.Environ,
+		EnvironIPV6CIDRSupport: ipv6CIDRSupport,
+		FirewallerAPI:          s.firewaller,
+		RemoteRelationsApi:     s.remoteRelations,
+		NewCrossModelFacadeFunc: func(*api.Info) (firewaller.CrossModelFirewallerFacadeCloser, error) {
+			return s.crossmodelFirewaller, nil
+		},
+		Clock:              s.clock,
+		Logger:             loggo.GetLogger("test"),
+		CredentialAPI:      s.credentialsFacade,
+		WatchMachineNotify: s.watchMachineNotify,
+	}
+	fw, err := firewaller.NewFirewaller(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	return fw
+}
+
+func (s *InstanceModeSuite) newFirewallerWithoutModelFirewaller(c *gc.C) worker.Worker {
+	s.clock = &mockClock{c: c}
+	fwEnv, ok := s.Environ.(environs.Firewaller)
+	c.Assert(ok, gc.Equals, true)
+
 	cfg := firewaller.Config{
 		ModelUUID:              s.State.ModelUUID(),
 		Mode:                   config.FwInstance,
 		EnvironFirewaller:      fwEnv,
 		EnvironInstances:       s.Environ,
-		EnvironIPV6CIDRSupport: ipv6CIDRSupport,
+		EnvironIPV6CIDRSupport: true,
 		FirewallerAPI:          s.firewaller,
 		RemoteRelationsApi:     s.remoteRelations,
 		NewCrossModelFacadeFunc: func(*api.Info) (firewaller.CrossModelFirewallerFacadeCloser, error) {
@@ -249,10 +299,12 @@ func (s *InstanceModeSuite) TestStartStop(c *gc.C) {
 	statetesting.AssertKillAndWait(c, fw)
 }
 
-func (s *InstanceModeSuite) TestNotExposedApplication(c *gc.C) {
-	fw := s.newFirewaller(c)
-	defer statetesting.AssertKillAndWait(c, fw)
+func (s *InstanceModeSuite) TestStartStopWithoutModelFirewaller(c *gc.C) {
+	fw := s.newFirewallerWithoutModelFirewaller(c)
+	statetesting.AssertKillAndWait(c, fw)
+}
 
+func (s *InstanceModeSuite) testNotExposedApplication(c *gc.C, fw worker.Worker) {
 	app := s.AddTestingApplication(c, "wordpress", s.charm)
 	u, m := s.addUnit(c, app)
 	inst := s.startInstance(c, m)
@@ -269,6 +321,18 @@ func (s *InstanceModeSuite) TestNotExposedApplication(c *gc.C) {
 	})
 
 	s.assertIngressRules(c, inst, m.Id(), nil)
+}
+
+func (s *InstanceModeSuite) TestNotExposedApplication(c *gc.C) {
+	fw := s.newFirewaller(c)
+	defer statetesting.AssertKillAndWait(c, fw)
+	s.testNotExposedApplication(c, fw)
+}
+
+func (s *InstanceModeSuite) TestNotExposedApplicationWithoutModelFirewaller(c *gc.C) {
+	fw := s.newFirewallerWithoutModelFirewaller(c)
+	defer statetesting.AssertKillAndWait(c, fw)
+	s.testNotExposedApplication(c, fw)
 }
 
 func (s *InstanceModeSuite) TestExposedApplication(c *gc.C) {
@@ -831,6 +895,47 @@ func (s *InstanceModeSuite) TestStartWithStateOpenPortsBroken(c *gc.C) {
 		fw.Wait()
 		c.Fatal("timed out waiting for firewaller to stop")
 	}
+}
+
+func (s *InstanceModeSuite) TestDefaultModelFirewall(c *gc.C) {
+	fw := s.newFirewaller(c)
+	defer statetesting.AssertKillAndWait(c, fw)
+
+	ctrlCfg, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	apiPort := ctrlCfg.APIPort()
+
+	s.assertModelIngressRules(c, firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("22"), "0.0.0.0/0", "::/0"),
+		firewall.NewIngressRule(network.MustParsePortRange(strconv.Itoa(apiPort)), "0.0.0.0/0"),
+	})
+}
+
+func (s *InstanceModeSuite) TestConfigureModelFirewall(c *gc.C) {
+	fw := s.newFirewaller(c)
+	defer statetesting.AssertKillAndWait(c, fw)
+
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctrlCfg, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	apiPort := ctrlCfg.APIPort()
+
+	s.assertModelIngressRules(c, firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("22"), "0.0.0.0/0", "::/0"),
+		firewall.NewIngressRule(network.MustParsePortRange(strconv.Itoa(apiPort)), "0.0.0.0/0"),
+	})
+
+	err = model.UpdateModelConfig(map[string]interface{}{
+		config.SSHAllowKey: "192.168.0.0/24",
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertModelIngressRules(c, firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("22"), "192.168.0.0/24"),
+		firewall.NewIngressRule(network.MustParsePortRange(strconv.Itoa(apiPort)), "0.0.0.0/0"),
+	})
 }
 
 func (s *InstanceModeSuite) setupRemoteRelationRequirerRoleConsumingSide(
@@ -1641,10 +1746,14 @@ func (s *GlobalModeSuite) newFirewallerWithIPV6CIDRSupport(c *gc.C, supportIPV6C
 	fwEnv, ok := s.Environ.(environs.Firewaller)
 	c.Assert(ok, gc.Equals, true)
 
+	modelFwEnv, ok := s.Environ.(models.ModelFirewaller)
+	c.Assert(ok, gc.Equals, true)
+
 	cfg := firewaller.Config{
 		ModelUUID:              s.State.ModelUUID(),
 		Mode:                   config.FwGlobal,
 		EnvironFirewaller:      fwEnv,
+		EnvironModelFirewaller: modelFwEnv,
 		EnvironInstances:       s.Environ,
 		EnvironIPV6CIDRSupport: supportIPV6CIDRs,
 		FirewallerAPI:          s.firewaller,

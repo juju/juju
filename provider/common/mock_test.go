@@ -4,10 +4,12 @@
 package common_test
 
 import (
+	"fmt"
 	"io"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -35,6 +37,7 @@ type mockEnviron struct {
 	config           configFunc
 	setConfig        setConfigFunc
 	storageProviders jujustorage.StaticProviderRegistry
+	modelRules       firewall.IngressRules
 	environs.Environ // stub out other methods with panics
 }
 
@@ -95,6 +98,19 @@ func (env *mockEnviron) StorageProviderTypes() ([]jujustorage.ProviderType, erro
 
 func (env *mockEnviron) StorageProvider(t jujustorage.ProviderType) (jujustorage.Provider, error) {
 	return env.storageProviders.StorageProvider(t)
+}
+
+func (env *mockEnviron) OpenModelPorts(_ context.ProviderCallContext, rules firewall.IngressRules) error {
+	env.modelRules = append(env.modelRules, rules...)
+	return nil
+}
+
+func (env *mockEnviron) CloseModelPorts(_ context.ProviderCallContext, _ firewall.IngressRules) error {
+	return fmt.Errorf("mock method not implemented")
+}
+
+func (env *mockEnviron) ModelIngressRules(_ context.ProviderCallContext) (firewall.IngressRules, error) {
+	return nil, fmt.Errorf("mock method not implemented")
 }
 
 type availabilityZonesFunc func(context.ProviderCallContext) (network.AvailabilityZones, error)

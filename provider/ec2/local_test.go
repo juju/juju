@@ -49,6 +49,7 @@ import (
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/jujutest"
+	"github.com/juju/juju/environs/models"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/tags"
@@ -1952,8 +1953,9 @@ func (s *localServerSuite) TestAdoptResources(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	env, err := environs.New(s.BootstrapContext.Context(), environs.OpenParams{
-		Cloud:  s.CloudSpec(),
-		Config: cfg,
+		Cloud:          s.CloudSpec(),
+		Config:         cfg,
+		ControllerUUID: coretesting.ControllerTag.Id(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	inst, _ := testing.AssertStartInstance(c, env, s.callCtx, s.ControllerUUID, "0")
@@ -2259,7 +2261,6 @@ func (t *localServerSuite) TestInstanceGroups(c *gc.C) {
 	perms := info[0].IpPermissions
 	c.Assert(perms, gc.HasLen, 5)
 	checkPortAllowed(c, perms, 22) // SSH
-	checkPortAllowed(c, perms, int32(coretesting.FakeControllerConfig().APIPort()))
 	checkSecurityGroupAllowed(c, perms, groups[0])
 
 	// The old machine group should have been reused also.
@@ -2313,39 +2314,6 @@ func (t *localServerSuite) TestInstanceGroups(c *gc.C) {
 		}
 	}
 	c.Assert(instIds, jc.SameContents, idsFromInsts(allInsts))
-}
-
-func (t *localServerSuite) TestInstanceGroupsWithAutocert(c *gc.C) {
-	// Prepare the controller configuration.
-	t.Prepare(c)
-	params := environs.StartInstanceParams{
-		ControllerUUID: t.ControllerUUID,
-	}
-	err := testing.FillInStartInstanceParams(t.Env, "42", true, &params)
-	c.Assert(err, jc.ErrorIsNil)
-	params.InstanceConfig.ControllerConfig["api-port"] = 443
-	params.InstanceConfig.ControllerConfig["autocert-dns-name"] = "example.com"
-
-	// Bootstrap the controller.
-	result, err := t.Env.StartInstance(t.callCtx, params)
-	c.Assert(err, jc.ErrorIsNil)
-	inst := result.Instance
-	defer t.Env.StopInstances(t.callCtx, inst.Id())
-
-	// Get security permissions.
-	group := ec2.JujuGroupName(t.Env)
-	ec2conn := ec2.EnvironEC2Client(t.Env)
-	groupsResp, err := ec2conn.DescribeSecurityGroups(t.callCtx, &awsec2.DescribeSecurityGroupsInput{
-		GroupNames: []string{group},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(groupsResp.SecurityGroups, gc.HasLen, 1)
-	perms := groupsResp.SecurityGroups[0].IpPermissions
-
-	// Check that the expected ports are accessible.
-	checkPortAllowed(c, perms, 22)
-	checkPortAllowed(c, perms, 80)
-	checkPortAllowed(c, perms, 443)
 }
 
 func checkPortAllowed(c *gc.C, perms []types.IpPermission, port int32) {
@@ -2718,6 +2686,79 @@ func (t *localServerSuite) TestGlobalPorts(c *gc.C) {
 
 	_, err = fwInst1.IngressRules(t.ProviderCallContext, "1")
 	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "global" for retrieving ingress rules from instance`)
+}
+
+func (t *localServerSuite) TestModelPorts(c *gc.C) {
+	t.prepareAndBootstrap(c)
+
+	fwModelEnv, ok := t.Env.(models.ModelFirewaller)
+	c.Assert(ok, gc.Equals, true)
+
+	rules, err := fwModelEnv.ModelIngressRules(t.ProviderCallContext)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(
+		rules, jc.DeepEquals,
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("22/tcp"), firewall.AllNetworksIPV4CIDR),
+		},
+	)
+
+	err = fwModelEnv.OpenModelPorts(t.ProviderCallContext,
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("67/udp")),
+			firewall.NewIngressRule(network.MustParsePortRange("45/tcp")),
+			firewall.NewIngressRule(network.MustParsePortRange("100-110/tcp")),
+		})
+	c.Assert(err, jc.ErrorIsNil)
+
+	rules, err = fwModelEnv.ModelIngressRules(t.ProviderCallContext)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(
+		rules, jc.DeepEquals,
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("22/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("45/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("100-110/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("67/udp"), firewall.AllNetworksIPV4CIDR),
+		},
+	)
+
+	// Check closing some ports.
+	err = fwModelEnv.CloseModelPorts(t.ProviderCallContext,
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("45/tcp")),
+			firewall.NewIngressRule(network.MustParsePortRange("67/udp")),
+		})
+	c.Assert(err, jc.ErrorIsNil)
+
+	rules, err = fwModelEnv.ModelIngressRules(t.ProviderCallContext)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(
+		rules, jc.DeepEquals,
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("22/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("100-110/tcp"), firewall.AllNetworksIPV4CIDR),
+		},
+	)
+
+	// Check that we can close ports that aren't there.
+	err = fwModelEnv.CloseModelPorts(t.ProviderCallContext,
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("111/tcp")),
+			firewall.NewIngressRule(network.MustParsePortRange("222/udp")),
+			firewall.NewIngressRule(network.MustParsePortRange("2000-2500/tcp")),
+		})
+	c.Assert(err, jc.ErrorIsNil)
+
+	rules, err = fwModelEnv.ModelIngressRules(t.ProviderCallContext)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(
+		rules, jc.DeepEquals,
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("22/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("100-110/tcp"), firewall.AllNetworksIPV4CIDR),
+		},
+	)
 }
 
 func (t *localServerSuite) TestBootstrapMultiple(c *gc.C) {

@@ -253,6 +253,7 @@ type environState struct {
 	maxAddr        int // maximum allocated address last byte
 	insts          map[instance.Id]*dummyInstance
 	globalRules    firewall.IngressRules
+	modelRules     firewall.IngressRules
 	bootstrapped   bool
 	mux            *apiserverhttp.Mux
 	httpServer     *httptest.Server
@@ -1749,6 +1750,67 @@ func (e *environ) IngressRules(ctx context.ProviderCallContext) (rules firewall.
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
 	for _, r := range estate.globalRules {
+		rules = append(rules, r)
+	}
+	rules.Sort()
+	return
+}
+
+func (e *environ) OpenModelPorts(ctx context.ProviderCallContext, rules firewall.IngressRules) error {
+	estate, err := e.state()
+	if err != nil {
+		return err
+	}
+	estate.mu.Lock()
+	defer estate.mu.Unlock()
+	for _, r := range rules {
+		if len(r.SourceCIDRs) == 0 {
+			r.SourceCIDRs.Add(firewall.AllNetworksIPV4CIDR)
+			r.SourceCIDRs.Add(firewall.AllNetworksIPV6CIDR)
+		}
+		found := false
+		for _, rule := range estate.modelRules {
+			if r.String() == rule.String() {
+				found = true
+			}
+		}
+		if !found {
+			estate.modelRules = append(estate.modelRules, r)
+		}
+	}
+
+	return nil
+}
+
+func (e *environ) CloseModelPorts(ctx context.ProviderCallContext, rules firewall.IngressRules) error {
+	estate, err := e.state()
+	if err != nil {
+		return err
+	}
+	estate.mu.Lock()
+	defer estate.mu.Unlock()
+	for _, r := range rules {
+		for i, rule := range estate.modelRules {
+			if len(r.SourceCIDRs) == 0 {
+				r.SourceCIDRs.Add(firewall.AllNetworksIPV4CIDR)
+				r.SourceCIDRs.Add(firewall.AllNetworksIPV6CIDR)
+			}
+			if r.String() == rule.String() {
+				estate.modelRules = estate.modelRules[:i+copy(estate.modelRules[i:], estate.modelRules[i+1:])]
+			}
+		}
+	}
+	return nil
+}
+
+func (e *environ) ModelIngressRules(ctx context.ProviderCallContext) (rules firewall.IngressRules, err error) {
+	estate, err := e.state()
+	if err != nil {
+		return nil, err
+	}
+	estate.mu.Lock()
+	defer estate.mu.Unlock()
+	for _, r := range estate.modelRules {
 		rules = append(rules, r)
 	}
 	rules.Sort()

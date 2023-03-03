@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/cloudconfig/sshinit"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/series"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
@@ -36,6 +37,7 @@ import (
 	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/environs/models"
 	"github.com/juju/juju/environs/simplestreams"
 	pkissh "github.com/juju/juju/pki/ssh"
 	"github.com/juju/juju/storage"
@@ -309,6 +311,12 @@ func BootstrapInstance(
 		}
 		return nil, nil, nil, errors.Annotatef(err, "cannot start bootstrap instance in availability zone %q", zone)
 	}
+	modelFw, ok := env.(models.ModelFirewaller)
+	if ok {
+		if err := openModelSSH(callCtx, modelFw, env.Config()); err != nil {
+			return nil, nil, nil, errors.Annotate(err, "cannot open SSH")
+		}
+	}
 
 	err = statusCleanup()
 	if err != nil {
@@ -372,6 +380,15 @@ func startInstanceZones(env environs.Environ, ctx envcontext.ProviderCallContext
 		return nil, errors.New("no usable availability zones")
 	}
 	return zones, nil
+}
+
+// openModelSSH opens port 22 on the controller to the configured allow list.
+// This is all that is required for the bootstrap to continue. Further configured
+// rules will be opened by the firewaller, Once it has started
+func openModelSSH(callCtx envcontext.ProviderCallContext, modelFw models.ModelFirewaller, cfg *config.Config) error {
+	return modelFw.OpenModelPorts(callCtx, firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("22"), cfg.SSHAllow()...),
+	})
 }
 
 func formatHardware(hw *instance.HardwareCharacteristics) string {
