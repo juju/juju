@@ -26,6 +26,7 @@ const firewallerFacade = "Firewaller"
 type Client struct {
 	facade base.FacadeCaller
 	*common.ModelWatcher
+	*common.ControllerConfigAPI
 	*cloudspec.CloudSpecAPI
 }
 
@@ -37,9 +38,10 @@ func NewClient(caller base.APICaller) (*Client, error) {
 	}
 	facadeCaller := base.NewFacadeCaller(caller, firewallerFacade)
 	return &Client{
-		facade:       facadeCaller,
-		ModelWatcher: common.NewModelWatcher(facadeCaller),
-		CloudSpecAPI: cloudspec.NewCloudSpecAPI(facadeCaller, modelTag),
+		facade:              facadeCaller,
+		ModelWatcher:        common.NewModelWatcher(facadeCaller),
+		ControllerConfigAPI: common.NewControllerConfig(facadeCaller),
+		CloudSpecAPI:        cloudspec.NewCloudSpecAPI(facadeCaller, modelTag),
 	}, nil
 }
 

@@ -11,11 +11,12 @@ import (
 	"github.com/juju/worker/v3/dependency"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
+	apiagent "github.com/juju/juju/api/agent/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller/remoterelations"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/models"
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/common"
 )
@@ -103,8 +104,8 @@ func (cfg ManifoldConfig) start(context dependency.Context) (worker.Worker, erro
 	if err := context.Get(cfg.AgentName, &agent); err != nil {
 		return nil, errors.Trace(err)
 	}
-	var apiConn api.Connection
-	if err := context.Get(cfg.APICallerName, &apiConn); err != nil {
+	var apiCaller base.APICaller
+	if err := context.Get(cfg.APICallerName, &apiCaller); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -118,6 +119,8 @@ func (cfg ManifoldConfig) start(context dependency.Context) (worker.Worker, erro
 	// nil value, as it won't be used.
 	fwEnv, fwEnvOK := environ.(environs.Firewaller)
 
+	modelFw, _ := environ.(models.ModelFirewaller)
+
 	mode := environ.Config().FirewallMode()
 	if mode == config.FwNone {
 		cfg.Logger.Infof("stopping firewaller (not required)")
@@ -129,12 +132,17 @@ func (cfg ManifoldConfig) start(context dependency.Context) (worker.Worker, erro
 		}
 	}
 
-	firewallerAPI, err := cfg.NewFirewallerFacade(apiConn)
+	firewallerAPI, err := cfg.NewFirewallerFacade(apiCaller)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	credentialAPI, err := cfg.NewCredentialValidatorFacade(apiConn)
+	credentialAPI, err := cfg.NewCredentialValidatorFacade(apiCaller)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	isController, err := apiagent.IsController(apiCaller, agent.CurrentConfig().Tag())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -151,9 +159,11 @@ func (cfg ManifoldConfig) start(context dependency.Context) (worker.Worker, erro
 
 	w, err := cfg.NewFirewallerWorker(Config{
 		ModelUUID:               agent.CurrentConfig().Model().Id(),
-		RemoteRelationsApi:      cfg.NewRemoteRelationsFacade(apiConn),
+		IsController:            isController,
+		RemoteRelationsApi:      cfg.NewRemoteRelationsFacade(apiCaller),
 		FirewallerAPI:           firewallerAPI,
 		EnvironFirewaller:       fwEnv,
+		EnvironModelFirewaller:  modelFw,
 		EnvironInstances:        environ,
 		EnvironIPV6CIDRSupport:  envIPV6CIDRSupport,
 		Mode:                    mode,

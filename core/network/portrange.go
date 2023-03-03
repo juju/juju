@@ -85,8 +85,8 @@ func (p PortRange) Validate() error {
 	}
 	if p.FromPort > p.ToPort {
 		return errors.Errorf("invalid port range %s", p)
-	} else if p.FromPort <= 0 || p.FromPort > 65535 || p.ToPort <= 0 || p.ToPort > 65535 {
-		return errors.Errorf("port range bounds must be between 1 and 65535, got %d-%d", p.FromPort, p.ToPort)
+	} else if p.FromPort < 0 || p.FromPort > 65535 || p.ToPort < 0 || p.ToPort > 65535 {
+		return errors.Errorf("port range bounds must be between 0 and 65535, got %d-%d", p.FromPort, p.ToPort)
 	}
 	return nil
 }

@@ -92,8 +92,9 @@ var _ Client = (*ec2.Client)(nil)
 type environ struct {
 	environs.NoSpaceDiscoveryEnviron
 
-	name  string
-	cloud environscloudspec.CloudSpec
+	name           string
+	cloud          environscloudspec.CloudSpec
+	controllerUUID string
 
 	iamClient     IAMClient
 	iamClientFunc IAMClientFunc
@@ -624,21 +625,10 @@ func (e *environ) StartInstance(
 	if err != nil {
 		return nil, environs.ZoneIndependentError(fmt.Errorf("constructing user data: %w", err))
 	}
-
 	logger.Debugf("ec2 user data; %d bytes", len(userData))
-	apiPorts := make([]int, 0, 2)
-	if args.InstanceConfig.IsController() {
-		apiPorts = append(apiPorts, args.InstanceConfig.ControllerConfig.APIPort())
-		if args.InstanceConfig.ControllerConfig.AutocertDNSName() != "" {
-			// Open port 80 as well as it handles Let's Encrypt HTTP challenge.
-			apiPorts = append(apiPorts, 80)
-		}
-	} else {
-		apiPorts = append(apiPorts, args.InstanceConfig.APIInfo.Ports()[0])
-	}
 
 	_ = callback(status.Allocating, "Setting up groups", nil)
-	groupIDs, err := e.setUpGroups(ctx, args.ControllerUUID, args.InstanceConfig.MachineId, apiPorts)
+	groupIDs, err := e.setUpGroups(ctx, args.ControllerUUID, args.InstanceConfig.MachineId)
 	if err != nil {
 		return nil, annotateWrapError(err, "cannot set up groups")
 	}
@@ -2066,6 +2056,10 @@ func (e *environ) ingressRulesInGroup(ctx context.ProviderCallContext, name stri
 		return nil, err
 	}
 	for _, p := range group.IpPermissions {
+		if len(p.UserIdGroupPairs) == 1 && aws.ToString(p.UserIdGroupPairs[0].GroupId) == aws.ToString(group.GroupId) {
+			// hide internal sec group rules
+			continue
+		}
 		var sourceCIDRs []string
 		for _, r := range p.IpRanges {
 			sourceCIDRs = append(sourceCIDRs, aws.ToString(r.CidrIp))
@@ -2095,7 +2089,11 @@ func (e *environ) OpenPorts(ctx context.ProviderCallContext, rules firewall.Ingr
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return errors.Errorf("invalid firewall mode %q for opening ports on model", e.Config().FirewallMode())
 	}
-	if err := e.openPortsInGroup(ctx, e.globalGroupName(), rules); err != nil {
+	groupName := e.globalGroupName()
+	if _, err := e.ensureGroup(ctx, groupName, false); err != nil {
+		return errors.Trace(err)
+	}
+	if err := e.openPortsInGroup(ctx, groupName, rules); err != nil {
 		return errors.Trace(err)
 	}
 	logger.Infof("opened ports in global group: %v", rules)
@@ -2118,6 +2116,28 @@ func (e *environ) IngressRules(ctx context.ProviderCallContext) (firewall.Ingres
 		return nil, errors.Errorf("invalid firewall mode %q for retrieving ingress rules from model", e.Config().FirewallMode())
 	}
 	return e.ingressRulesInGroup(ctx, e.globalGroupName())
+}
+
+func (e *environ) OpenModelPorts(ctx context.ProviderCallContext, rules firewall.IngressRules) error {
+	groupName := e.jujuGroupName()
+	if _, err := e.ensureGroup(ctx, groupName, true); err != nil {
+		return errors.Trace(err)
+	}
+	if err := e.openPortsInGroup(ctx, groupName, rules); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (e *environ) CloseModelPorts(ctx context.ProviderCallContext, rules firewall.IngressRules) error {
+	if err := e.closePortsInGroup(ctx, e.jujuGroupName(), rules); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (e *environ) ModelIngressRules(ctx context.ProviderCallContext) (firewall.IngressRules, error) {
+	return e.ingressRulesInGroup(ctx, e.jujuGroupName())
 }
 
 func (*environ) Provider() environs.EnvironProvider {
@@ -2396,52 +2416,24 @@ func (e *environ) jujuGroupName() string {
 // other instances that might be running on the same EC2 account.  In
 // addition, a specific machine security group is created for each
 // machine, so that its firewall rules can be configured per machine.
-func (e *environ) setUpGroups(ctx context.ProviderCallContext, controllerUUID, machineId string, apiPorts []int) ([]string, error) {
-	openAccess := types.IpRange{CidrIp: aws.String("0.0.0.0/0")}
-	perms := []types.IpPermission{{
-		IpProtocol: aws.String("tcp"),
-		FromPort:   aws.Int32(22),
-		ToPort:     aws.Int32(22),
-		IpRanges:   []types.IpRange{openAccess},
-	}}
-	for _, apiPort := range apiPorts {
-		perms = append(perms, types.IpPermission{
-			IpProtocol: aws.String("tcp"),
-			FromPort:   aws.Int32(int32(apiPort)),
-			ToPort:     aws.Int32(int32(apiPort)),
-			IpRanges:   []types.IpRange{openAccess},
-		})
-	}
-	perms = append(perms, types.IpPermission{
-		IpProtocol: aws.String("tcp"),
-		FromPort:   aws.Int32(0),
-		ToPort:     aws.Int32(65535),
-	}, types.IpPermission{
-		IpProtocol: aws.String("udp"),
-		FromPort:   aws.Int32(0),
-		ToPort:     aws.Int32(65535),
-	}, types.IpPermission{
-		IpProtocol: aws.String("icmp"),
-		FromPort:   aws.Int32(-1),
-		ToPort:     aws.Int32(-1),
-	})
+func (e *environ) setUpGroups(ctx context.ProviderCallContext, controllerUUID, machineId string) ([]string, error) {
 	// Ensure there's a global group for Juju-related traffic.
-	jujuGroupID, err := e.ensureGroup(ctx, controllerUUID, e.jujuGroupName(), perms)
+	jujuGroup, err := e.ensureGroup(ctx, e.jujuGroupName(), true)
 	if err != nil {
 		return nil, err
 	}
 
-	var machineGroupID string
+	var machineGroup types.SecurityGroup
 	switch e.Config().FirewallMode() {
 	case config.FwInstance:
-		machineGroupID, err = e.ensureGroup(ctx, controllerUUID, e.machineGroupName(machineId), nil)
+		machineGroup, err = e.ensureGroup(ctx, e.machineGroupName(machineId), false)
 	case config.FwGlobal:
-		machineGroupID, err = e.ensureGroup(ctx, controllerUUID, e.globalGroupName(), nil)
+		machineGroup, err = e.ensureGroup(ctx, e.globalGroupName(), false)
 	}
 	if err != nil {
 		return nil, err
 	}
-	return []string{jujuGroupID, machineGroupID}, nil
+	return []string{aws.ToString(jujuGroup.GroupId), aws.ToString(machineGroup.GroupId)}, nil
 }
 
 // securityGroupsByNameOrID calls ec2.SecurityGroups() either with the given
@@ -2499,7 +2491,7 @@ func (e *environ) securityGroupsByNameOrID(ctx stdcontext.Context, groupName str
 // If it exists, its permissions are set to perms.
 // Any entries in perms without SourceIPs will be granted for
 // the named group only.
-func (e *environ) ensureGroup(ctx context.ProviderCallContext, controllerUUID, name string, perms []types.IpPermission) (groupID string, err error) {
+func (e *environ) ensureGroup(ctx context.ProviderCallContext, name string, isModelGroup bool) (types.SecurityGroup, error) {
 	// Due to parallelization of the provisioner, it's possible that we try
 	// to create the model security group a second time before the first time
 	// is complete causing failures.
@@ -2522,131 +2514,68 @@ func (e *environ) ensureGroup(ctx context.ProviderCallContext, controllerUUID, n
 	})
 	if err != nil && ec2ErrCode(err) != "InvalidGroup.Duplicate" {
 		err = errors.Annotatef(maybeConvertCredentialError(err, ctx), "creating security group %q%s", name, inVPCLogSuffix)
-		return "", err
+		return types.SecurityGroup{}, err
 	}
 
-	var have permSet
 	if err == nil {
-		groupID = aws.ToString(groupResp.GroupId)
 		// Tag the created group with the model and controller UUIDs.
 		cfg := e.Config()
 		tags := tags.ResourceTags(
 			names.NewModelTag(cfg.UUID()),
-			names.NewControllerTag(controllerUUID),
+			names.NewControllerTag(e.controllerUUID),
 			cfg,
 		)
 		if err := tagResources(e.ec2Client, ctx, tags, aws.ToString(groupResp.GroupId)); err != nil {
-			return groupID, errors.Annotate(err, "tagging security group")
+			return types.SecurityGroup{}, errors.Annotate(err, "tagging security group")
 		}
 		logger.Debugf("created security group %q with ID %q%s", name, aws.ToString(groupResp.GroupId), inVPCLogSuffix)
-	} else {
-		groups, err := e.securityGroupsByNameOrID(ctx, name)
-		if err != nil {
-			return "", errors.Annotatef(maybeConvertCredentialError(err, ctx), "fetching security group %q%s", name, inVPCLogSuffix)
-		}
-		if len(groups) == 0 {
-			return "", errors.NotFoundf("security group %q%s", name, inVPCLogSuffix)
-		}
-		info := groups[0]
-		// It's possible that the old group has the wrong
-		// description here, but if it does it's probably due
-		// to something deliberately playing games with juju,
-		// so we ignore it.
-		groupID = aws.ToString(info.GroupId)
-		have = newPermSetForGroup(info.IpPermissions, &groupID)
 	}
 
-	want := newPermSetForGroup(perms, &groupID)
-	revoke := make(permSet)
-	for p := range have {
-		if !want[p] {
-			revoke[p] = true
-		}
+	groups, err := e.securityGroupsByNameOrID(ctx, name)
+	if err != nil {
+		return types.SecurityGroup{}, errors.Annotatef(maybeConvertCredentialError(err, ctx), "fetching security group %q%s", name, inVPCLogSuffix)
 	}
-	if len(revoke) > 0 {
-		_, err := e.ec2Client.RevokeSecurityGroupIngress(ctx, &ec2.RevokeSecurityGroupIngressInput{
-			GroupId:       aws.String(groupID),
-			IpPermissions: revoke.ipPerms(),
-		})
-		if err != nil {
-			return "", errors.Annotatef(maybeConvertCredentialError(err, ctx), "revoking security group %q%s", groupID, inVPCLogSuffix)
+	if len(groups) == 0 {
+		return types.SecurityGroup{}, errors.NotFoundf("security group %q%s", name, inVPCLogSuffix)
+	}
+	group := groups[0]
+
+	if isModelGroup {
+		if err := e.ensureInternalRules(ctx, group); err != nil {
+			return types.SecurityGroup{}, errors.Annotate(err, "failed to enable internal model rules")
 		}
 	}
 
-	add := make(permSet)
-	for p := range want {
-		if !have[p] {
-			add[p] = true
-		}
-	}
-	if len(add) > 0 {
+	return group, nil
+}
+
+func (e *environ) ensureInternalRules(ctx context.ProviderCallContext, group types.SecurityGroup) error {
+	perms := []types.IpPermission{{
+		IpProtocol:       aws.String("tcp"),
+		FromPort:         aws.Int32(0),
+		ToPort:           aws.Int32(65535),
+		UserIdGroupPairs: []types.UserIdGroupPair{{GroupId: group.GroupId}},
+	}, {
+		IpProtocol:       aws.String("udp"),
+		FromPort:         aws.Int32(0),
+		ToPort:           aws.Int32(65535),
+		UserIdGroupPairs: []types.UserIdGroupPair{{GroupId: group.GroupId}},
+	}, {
+		IpProtocol:       aws.String("icmp"),
+		FromPort:         aws.Int32(-1),
+		ToPort:           aws.Int32(-1),
+		UserIdGroupPairs: []types.UserIdGroupPair{{GroupId: group.GroupId}},
+	}}
+	for _, perm := range perms {
 		_, err := e.ec2Client.AuthorizeSecurityGroupIngress(ctx, &ec2.AuthorizeSecurityGroupIngressInput{
-			GroupId:       aws.String(groupID),
-			IpPermissions: add.ipPerms(),
+			GroupId:       group.GroupId,
+			IpPermissions: []types.IpPermission{perm},
 		})
-		if err != nil {
-			return "", errors.Annotatef(maybeConvertCredentialError(err, ctx), "authorizing security group %q%s", groupID, inVPCLogSuffix)
+		if err != nil && ec2ErrCode(err) != "InvalidPermission.Duplicate" {
+			return errors.Trace(err)
 		}
 	}
-	return groupID, nil
-}
-
-// permKey represents a permission for a group or an ip address range to access
-// the given range of ports. Only one of groupId or ipAddr should be non-empty.
-type permKey struct {
-	protocol *string
-	fromPort *int32
-	toPort   *int32
-	groupId  *string
-	CidrIp   *string
-}
-
-type permSet map[permKey]bool
-
-// newPermSetForGroup returns a set of all the permissions in the
-// given slice of IPPerms. It ignores the name and owner
-// id in source groups, and any entry with no source ips will
-// be granted for the given group only.
-func newPermSetForGroup(ps []types.IpPermission, groupID *string) permSet {
-	m := make(permSet)
-	for _, p := range ps {
-		k := permKey{
-			protocol: p.IpProtocol,
-			fromPort: p.FromPort,
-			toPort:   p.ToPort,
-		}
-		if len(p.IpRanges) > 0 {
-			for _, ip := range p.IpRanges {
-				k.CidrIp = ip.CidrIp
-				m[k] = true
-			}
-		} else {
-			k.groupId = groupID
-			m[k] = true
-		}
-	}
-	return m
-}
-
-// ipPerms returns m as a slice of permissions usable
-// with the ec2 package.
-func (m permSet) ipPerms() (ps []types.IpPermission) {
-	// We could compact the permissions, but it
-	// hardly seems worth it.
-	for p := range m {
-		ipp := types.IpPermission{
-			IpProtocol: p.protocol,
-			FromPort:   p.fromPort,
-			ToPort:     p.toPort,
-		}
-		if p.CidrIp != nil {
-			ipp.IpRanges = []types.IpRange{{CidrIp: p.CidrIp}}
-		} else {
-			ipp.UserIdGroupPairs = []types.UserIdGroupPair{{GroupId: p.groupId}}
-		}
-		ps = append(ps, ipp)
-	}
-	return
+	return nil
 }
 
 func isZoneOrSubnetConstrainedError(err error) bool {

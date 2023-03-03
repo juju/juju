@@ -5,7 +5,7 @@ package firewaller_test
 
 import (
 	"fmt"
-	"reflect"
+	"strconv"
 	"sync/atomic"
 	"time"
 
@@ -37,6 +37,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/environs/models"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/rpc/params"
@@ -124,9 +125,7 @@ func (s *firewallerBaseSuite) assertIngressRules(c *gc.C, inst instances.Instanc
 		if err != nil {
 			c.Fatal(err)
 		}
-		got.Sort()
-		expected.Sort()
-		if reflect.DeepEqual(got, expected) {
+		if got.EqualTo(expected) {
 			c.Succeed()
 			return
 		}
@@ -149,9 +148,30 @@ func (s *firewallerBaseSuite) assertEnvironPorts(c *gc.C, expected firewall.Ingr
 		if err != nil {
 			c.Fatal(err)
 		}
-		got.Sort()
-		expected.Sort()
-		if reflect.DeepEqual(got, expected) {
+		if got.EqualTo(expected) {
+			c.Succeed()
+			return
+		}
+		if time.Since(start) > coretesting.LongWait {
+			c.Fatalf("timed out: expected %q; got %q", expected, got)
+		}
+		time.Sleep(coretesting.ShortWait)
+	}
+}
+
+// assertModelIngressRules retrieves the ingress rules from the model firewall
+// and compares them to the expected value
+func (s *firewallerBaseSuite) assertModelIngressRules(c *gc.C, expected firewall.IngressRules) {
+	fwEnv, ok := s.Environ.(models.ModelFirewaller)
+	c.Assert(ok, gc.Equals, true)
+
+	start := time.Now()
+	for {
+		got, err := fwEnv.ModelIngressRules(s.callCtx)
+		if err != nil {
+			c.Fatal(err)
+		}
+		if got.EqualTo(expected) {
 			c.Succeed()
 			return
 		}
@@ -210,23 +230,32 @@ func (m *mockClock) After(duration time.Duration) <-chan time.Time {
 }
 
 func (s *InstanceModeSuite) newFirewaller(c *gc.C) worker.Worker {
-	return s.newFirewallerWithClockAndIPV6CIDRSupport(c, &mockClock{c: c}, true)
+	return s.newFirewallerWithClockAndIPV6CIDRSupportAndIsController(c, &mockClock{c: c}, true, false)
+}
+
+func (s *InstanceModeSuite) newFirewallerOnController(c *gc.C) worker.Worker {
+	return s.newFirewallerWithClockAndIPV6CIDRSupportAndIsController(c, &mockClock{c: c}, true, true)
 }
 
 func (s *InstanceModeSuite) newFirewallerWithClock(c *gc.C, clock clock.Clock) worker.Worker {
-	return s.newFirewallerWithClockAndIPV6CIDRSupport(c, clock, true)
+	return s.newFirewallerWithClockAndIPV6CIDRSupportAndIsController(c, clock, true, false)
 }
 
-func (s *InstanceModeSuite) newFirewallerWithClockAndIPV6CIDRSupport(c *gc.C, clock clock.Clock,
-	ipv6CIDRSupport bool) worker.Worker {
+func (s *InstanceModeSuite) newFirewallerWithClockAndIPV6CIDRSupportAndIsController(c *gc.C, clock clock.Clock,
+	ipv6CIDRSupport bool, isController bool) worker.Worker {
 	s.clock = clock
 	fwEnv, ok := s.Environ.(environs.Firewaller)
 	c.Assert(ok, gc.Equals, true)
 
+	modelFwEnv, ok := s.Environ.(models.ModelFirewaller)
+	c.Assert(ok, gc.Equals, true)
+
 	cfg := firewaller.Config{
 		ModelUUID:              s.State.ModelUUID(),
+		IsController:           isController,
 		Mode:                   config.FwInstance,
 		EnvironFirewaller:      fwEnv,
+		EnvironModelFirewaller: modelFwEnv,
 		EnvironInstances:       s.Environ,
 		EnvironIPV6CIDRSupport: ipv6CIDRSupport,
 		FirewallerAPI:          s.firewaller,
@@ -831,6 +860,76 @@ func (s *InstanceModeSuite) TestStartWithStateOpenPortsBroken(c *gc.C) {
 		fw.Wait()
 		c.Fatal("timed out waiting for firewaller to stop")
 	}
+}
+
+func (s *InstanceModeSuite) TestDefaultModelFirewall(c *gc.C) {
+	fw := s.newFirewaller(c)
+	defer statetesting.AssertKillAndWait(c, fw)
+
+	s.assertModelIngressRules(c, firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("22"), "0.0.0.0/0"),
+	})
+}
+
+func (s *InstanceModeSuite) TestDefaultModelFirewallController(c *gc.C) {
+	fw := s.newFirewallerOnController(c)
+	defer statetesting.AssertKillAndWait(c, fw)
+
+	ctrlCfg, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	apiPort := ctrlCfg.APIPort()
+
+	s.assertModelIngressRules(c, firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("22"), "0.0.0.0/0"),
+		firewall.NewIngressRule(network.MustParsePortRange(strconv.Itoa(apiPort)), "0.0.0.0/0"),
+	})
+}
+
+func (s *InstanceModeSuite) TestConfigureModelFirewall(c *gc.C) {
+	fw := s.newFirewaller(c)
+	defer statetesting.AssertKillAndWait(c, fw)
+
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertModelIngressRules(c, firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("22"), "0.0.0.0/0"),
+	})
+
+	err = model.UpdateModelConfig(map[string]interface{}{
+		config.SSHAllowListKey: "192.168.0.0/24",
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertModelIngressRules(c, firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("22"), "192.168.0.0/24"),
+	})
+}
+
+func (s *InstanceModeSuite) TestConfigureModelFirewallController(c *gc.C) {
+	fw := s.newFirewallerOnController(c)
+	defer statetesting.AssertKillAndWait(c, fw)
+
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctrlCfg, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	apiPort := ctrlCfg.APIPort()
+
+	s.assertModelIngressRules(c, firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("22"), "0.0.0.0/0"),
+	})
+
+	err = model.UpdateModelConfig(map[string]interface{}{
+		config.SSHAllowListKey: "192.168.0.0/24",
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertModelIngressRules(c, firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("22"), "192.168.0.0/24"),
+		firewall.NewIngressRule(network.MustParsePortRange(strconv.Itoa(apiPort)), "0.0.0.0/0"),
+	})
 }
 
 func (s *InstanceModeSuite) setupRemoteRelationRequirerRoleConsumingSide(
@@ -1586,7 +1685,7 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceH
 
 func (s *InstanceModeSuite) TestExposeToIPV6CIDRsOnIPV4OnlyProvider(c *gc.C) {
 	supportsIPV6CIDRs := false
-	fw := s.newFirewallerWithClockAndIPV6CIDRSupport(c, &mockClock{c: c}, supportsIPV6CIDRs)
+	fw := s.newFirewallerWithClockAndIPV6CIDRSupportAndIsController(c, &mockClock{c: c}, supportsIPV6CIDRs, false)
 	defer statetesting.AssertKillAndWait(c, fw)
 
 	app := s.AddTestingApplication(c, "wordpress", s.charm)

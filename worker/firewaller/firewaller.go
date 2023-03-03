@@ -7,6 +7,7 @@ import (
 	stdcontext "context"
 	"io"
 	"sort"
+	"strconv"
 	"time"
 
 	"github.com/EvilSuperstars/go-cidrman"
@@ -23,6 +24,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/controller/firewaller"
 	"github.com/juju/juju/api/controller/remoterelations"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
@@ -33,6 +35,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/environs/models"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/worker/common"
 )
@@ -41,7 +44,9 @@ import (
 type FirewallerAPI interface {
 	WatchModelMachines() (watcher.StringsWatcher, error)
 	WatchOpenedPorts() (watcher.StringsWatcher, error)
+	WatchForModelConfigChanges() (watcher.NotifyWatcher, error)
 	ModelConfig() (*config.Config, error)
+	ControllerConfig() (controller.Config, error)
 	Machine(tag names.MachineTag) (*firewaller.Machine, error)
 	Unit(tag names.UnitTag) (*firewaller.Unit, error)
 	Relation(tag names.RelationTag) (*firewaller.Relation, error)
@@ -69,9 +74,15 @@ type CrossModelFirewallerFacadeCloser interface {
 }
 
 // EnvironFirewaller defines methods to allow the worker to perform
-// firewall operations (open/close ports) on a Juju cloud environment.
+// firewall operations (open/close ports) on a Juju global firewall.
 type EnvironFirewaller interface {
 	environs.Firewaller
+}
+
+// EnvironModelFirewaller defines methods to allow the worker to
+// perform firewall operations (open/close port) on a Juju model firewall.
+type EnvironModelFirewaller interface {
+	models.ModelFirewaller
 }
 
 // EnvironInstances defines methods to allow the worker to perform
@@ -85,10 +96,12 @@ type newCrossModelFacadeFunc func(*api.Info) (CrossModelFirewallerFacadeCloser, 
 // Config defines the operation of a Worker.
 type Config struct {
 	ModelUUID              string
+	IsController           bool
 	Mode                   string
 	FirewallerAPI          FirewallerAPI
 	RemoteRelationsApi     *remoterelations.Client
 	EnvironFirewaller      EnvironFirewaller
+	EnvironModelFirewaller EnvironModelFirewaller
 	EnvironInstances       EnvironInstances
 	EnvironIPV6CIDRSupport bool
 
@@ -138,21 +151,24 @@ func (cfg Config) Validate() error {
 // machines and reflects those changes onto the backing environment.
 // Uses Firewaller API V1.
 type Firewaller struct {
-	catacomb           catacomb.Catacomb
-	firewallerApi      FirewallerAPI
-	remoteRelationsApi *remoterelations.Client
-	environFirewaller  EnvironFirewaller
-	environInstances   EnvironInstances
+	catacomb               catacomb.Catacomb
+	firewallerApi          FirewallerAPI
+	remoteRelationsApi     *remoterelations.Client
+	environFirewaller      EnvironFirewaller
+	environModelFirewaller EnvironModelFirewaller
+	environInstances       EnvironInstances
 
 	machinesWatcher      watcher.StringsWatcher
 	portsWatcher         watcher.StringsWatcher
 	subnetWatcher        watcher.StringsWatcher
+	modelConfigWatcher   watcher.NotifyWatcher
 	machineds            map[names.MachineTag]*machineData
 	unitsChange          chan *unitsChange
 	unitds               map[names.UnitTag]*unitData
 	applicationids       map[names.ApplicationTag]*applicationData
 	exposedChange        chan *exposedChange
 	spaceInfos           network.SpaceInfos
+	modelFirewallRules   firewall.IngressRules
 	globalMode           bool
 	globalIngressRuleRef map[string]int // map of rule names to count of occurrences
 
@@ -161,6 +177,7 @@ type Firewaller struct {
 	envIPV6CIDRSupport bool
 
 	modelUUID                  string
+	isController               bool
 	newRemoteFirewallerAPIFunc newCrossModelFacadeFunc
 	remoteRelationsWatcher     watcher.StringsWatcher
 	localRelationsChange       chan *remoteRelationNetworkChange
@@ -189,10 +206,12 @@ func NewFirewaller(cfg Config) (worker.Worker, error) {
 		firewallerApi:              cfg.FirewallerAPI,
 		remoteRelationsApi:         cfg.RemoteRelationsApi,
 		environFirewaller:          cfg.EnvironFirewaller,
+		environModelFirewaller:     cfg.EnvironModelFirewaller,
 		environInstances:           cfg.EnvironInstances,
 		envIPV6CIDRSupport:         cfg.EnvironIPV6CIDRSupport,
 		newRemoteFirewallerAPIFunc: cfg.NewCrossModelFacadeFunc,
 		modelUUID:                  cfg.ModelUUID,
+		isController:               cfg.IsController,
 		machineds:                  make(map[names.MachineTag]*machineData),
 		unitsChange:                make(chan *unitsChange),
 		unitds:                     make(map[names.UnitTag]*unitData),
@@ -270,6 +289,14 @@ func (fw *Firewaller) setUp() error {
 		return errors.Trace(err)
 	}
 
+	fw.modelConfigWatcher, err = fw.firewallerApi.WatchForModelConfigChanges()
+	if err != nil {
+		return errors.Annotatef(err, "failed to start subnet watcher")
+	}
+	if err := fw.catacomb.Add(fw.modelConfigWatcher); err != nil {
+		return errors.Trace(err)
+	}
+
 	if fw.spaceInfos, err = fw.firewallerApi.AllSpaceInfos(); err != nil {
 		return errors.Trace(err)
 	}
@@ -299,7 +326,10 @@ func (fw *Firewaller) loop() error {
 			}
 			if !reconciled {
 				reconciled = true
-				var err error
+				err := fw.flushModel()
+				if err != nil {
+					return errors.Trace(err)
+				}
 				if fw.globalMode {
 					err = fw.reconcileGlobal()
 				} else {
@@ -336,6 +366,14 @@ func (fw *Firewaller) loop() error {
 			if err := fw.subnetsChanged(); err != nil {
 				return errors.Trace(err)
 			}
+		case _, ok := <-fw.modelConfigWatcher.Changes():
+			if !ok {
+				return errors.New("model config watcher closed")
+			}
+			if err := fw.flushModel(); err != nil {
+				return errors.Trace(err)
+			}
+
 		case change := <-fw.localRelationsChange:
 			// We have a notification that the remote (consuming) model
 			// has changed egress networks so need to update the local
@@ -1028,6 +1066,52 @@ func (fw *Firewaller) flushGlobalPorts(rawOpen, rawClose firewall.IngressRules) 
 	return nil
 }
 
+func (fw *Firewaller) flushModel() error {
+	if fw.environModelFirewaller == nil {
+		fw.logger.Debugf("Provider does not support a model firewaller")
+		return nil
+	}
+	want, err := fw.configuredModelFirewall()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if fw.modelFirewallRules.EqualTo(want) {
+		return nil
+	}
+
+	ctx := stdcontext.Background()
+	curr, err := fw.environModelFirewaller.ModelIngressRules(fw.cloudCallContextFunc(ctx))
+	if errors.IsNotFound(err) {
+		fw.logger.Warningf("Model firewall not found so cannot re-write firewall rule %q. Ignoring", want)
+		return nil
+	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	toOpen, toClose := curr.Diff(want)
+	if len(toOpen) > 0 {
+		toOpen.Sort()
+		if err := fw.environModelFirewaller.OpenModelPorts(fw.cloudCallContextFunc(ctx), toOpen); err != nil {
+			// TODO(mue) Add local retry logic.
+			return err
+		}
+		fw.logger.Infof("opened port ranges %v on model firewall", toOpen)
+	}
+	if len(toClose) > 0 {
+		toClose.Sort()
+		if err := fw.environModelFirewaller.CloseModelPorts(fw.cloudCallContextFunc(ctx), toClose); err != nil {
+			// TODO(mue) Add local retry logic.
+			return err
+		}
+		fw.logger.Infof("closed port ranges %v on model firewall", toClose)
+	}
+
+	// Only cache ingress rules if they were successfully set
+	fw.modelFirewallRules = want
+	return nil
+}
+
 // flushInstancePorts opens and closes ports global on the machine.
 func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose firewall.IngressRules) (err error) {
 	defer func() {
@@ -1158,6 +1242,31 @@ func (fw *Firewaller) forgetUnit(unitd *unitData) {
 		delete(fw.applicationids, applicationTag)
 		fw.logger.Debugf("stopped watching %q", applicationTag)
 	}
+}
+
+func (fw *Firewaller) configuredModelFirewall() (firewall.IngressRules, error) {
+	cfg, err := fw.firewallerApi.ModelConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// We don't need to watch controller config because APIPort is immutable
+	ctrlCfg, err := fw.firewallerApi.ControllerConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var rules firewall.IngressRules
+	sshAllowList := cfg.SSHAllowList()
+	if len(sshAllowList) != 0 {
+		rules = append(rules, firewall.NewIngressRule(network.MustParsePortRange("22"), cfg.SSHAllowList()...))
+	}
+	if fw.isController {
+		rules = append(rules, firewall.NewIngressRule(network.MustParsePortRange(strconv.Itoa(ctrlCfg.APIPort())), "0.0.0.0/0"))
+	}
+	if fw.isController && ctrlCfg.AutocertDNSName() != "" {
+		rules = append(rules, firewall.NewIngressRule(network.MustParsePortRange("80"), "0.0.0.0/0"))
+	}
+	return rules, nil
 }
 
 // Kill is part of the worker.Worker interface.

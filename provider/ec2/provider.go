@@ -41,6 +41,7 @@ func (p environProvider) Open(ctx stdcontext.Context, args environs.OpenParams) 
 
 	e := newEnviron()
 	e.name = args.Config.Name()
+	e.controllerUUID = args.ControllerUUID
 
 	if err := e.SetCloudSpec(ctx, args.Cloud); err != nil {
 		return nil, err

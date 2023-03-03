@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -300,6 +301,28 @@ func (s *BootstrapSuite) TestBootstrapSeriesWithForceAndInvalidFallback(c *gc.C)
 		Force:                    true,
 	})
 	c.Assert(err, gc.ErrorMatches, "bootstrap instance series not valid")
+}
+
+func (s *BootstrapSuite) TestBootstrapOpensSSH(c *gc.C) {
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
+
+	env := &mockEnviron{
+		startInstance: fakeStartInstance,
+		config:        fakeMinimalConfig(c),
+	}
+	ctx := envtesting.BootstrapTODOContext(c)
+	bootstrapSeries := "jammy"
+	availableTools := fakeAvailableTools()
+	_, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
+		ControllerConfig:         coretesting.FakeControllerConfig(),
+		BootstrapSeries:          bootstrapSeries,
+		AvailableTools:           availableTools,
+		SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.modelRules, gc.DeepEquals, firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("22"), "0.0.0.0/0"),
+	})
 }
 
 func (s *BootstrapSuite) TestStartInstanceDerivedZone(c *gc.C) {
