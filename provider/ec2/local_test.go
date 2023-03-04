@@ -2319,7 +2319,7 @@ func (t *localServerSuite) TestInstanceGroups(c *gc.C) {
 	// that the unneeded permission that we added earlier
 	// has been deleted).
 	perms := info[0].IpPermissions
-	c.Assert(perms, gc.HasLen, 3)
+	c.Assert(perms, gc.HasLen, 5)
 	checkPortAllowed(c, perms, 22) // SSH
 	checkPortAllowed(c, perms, int32(coretesting.FakeControllerConfig().APIPort()))
 	checkSecurityGroupAllowed(c, perms, groups[0])
