@@ -70,15 +70,307 @@ parts:
     plugin: dump
     source: snap/local
 
-  dqlite:
-    plugin: juju-dqlite
-    source: .
-    organize:
-      juju-dqlite-static-lib-deps/*: .
+  musl:
+    source: https://musl.libc.org/releases/musl-1.2.3.tar.gz
+    source-type: tar
+    plugin: autotools
+    build-packages:
+      - gcc
+      - automake
+      - wget
+    override-build: |
+      set -ex
+
+      CUSTOM_CFLAGS=""
+      MACHINE_TYPE=$(uname -m)
+      if [ "${MACHINE_TYPE}" = "ppc64le" ]; then
+        MACHINE_TYPE="powerpc64le"
+        CUSTOM_CFLAGS="-mlong-double-64"
+      fi
+
+      ./configure CFLAGS="${CUSTOM_CFLAGS}"
+      make install
+
+      ln -s /usr/include/${MACHINE_TYPE}-linux-gnu/asm /usr/local/musl/include/asm
+      ln -s /usr/include/asm-generic /usr/local/musl/include/asm-generic
+      ln -s /usr/include/linux /usr/local/musl/include/linux
+
+  musl-compat:
+    source: https://dev.midipix.org/compat/musl-compat.git
+    source-type: git
+    source-depth: 1
+    plugin: nil
+    override-build: |
+      set -ex
+
+      ln -s $(pwd)/include/sys/queue.h /usr/local/musl/include/sys/queue.h
+
+  libtirpc:
+    after:
+      - musl
+      - musl-compat
+    source: https://salsa.debian.org/debian/libtirpc.git
+    source-tag: upstream/1.3.3
+    source-type: git
+    source-depth: 1
+    plugin: autotools
+    build-packages:
+      - automake
+      - make     
+    override-build: |
+      set -ex
+
+      CUSTOM_CFLAGS=""
+      if [ "$(uname -m)" = "ppc64le" ]; then
+        CUSTOM_CFLAGS="-mlong-double-64"
+      fi
+
+      export PATH=/usr/local/musl/bin:$PATH
+      export CC=musl-gcc
+
+      chmod +x autogen.sh
+      ./autogen.sh
+      ./configure --disable-shared --disable-gssapi CFLAGS="${CUSTOM_CFLAGS}"
+      make
+
+      mkdir -p $SNAPCRAFT_PART_INSTALL/libtirpc
+      cp -r $SNAPCRAFT_PART_BUILD/tirpc $SNAPCRAFT_PART_INSTALL/libtirpc/tirpc
+      cp -r $SNAPCRAFT_PART_BUILD/src $SNAPCRAFT_PART_INSTALL/libtirpc/src
+    stage:
+    - -*.*
+
+  libnsl:
+    after:
+      - libtirpc
+    source: https://github.com/thkukuk/libnsl.git
+    source-tag: v2.0.0
+    source-type: git
+    source-depth: 1
+    plugin: autotools
+    build-packages:
+      - automake
+      - make
+    override-build: |
+      set -ex
+
+      CUSTOM_CFLAGS=""
+      if [ "$(uname -m)" = "ppc64le" ]; then
+        CUSTOM_CFLAGS="-mlong-double-64"
+      fi
+
+      export PATH=/usr/local/musl/bin:$PATH
+      export CC=musl-gcc
+
+      ./autogen.sh
+      autoreconf -i
+      autoconf
+
+      CFLAGS="-I${SNAPCRAFT_STAGE}/libtirpc/tirpc ${CUSTOM_CFLAGS}" \
+            LDFLAGS="-L${SNAPCRAFT_STAGE}/libtirpc/src" \
+            TIRPC_CFLAGS="-I${SNAPCRAFT_STAGE}/libtirpc/tirpc" \
+            TIRPC_LIBS="-L${SNAPCRAFT_STAGE}/libtirpc/src" \
+            ./configure --disable-shared
+
+      mkdir -p $SNAPCRAFT_PART_INSTALL/libnsl
+      cp -r $SNAPCRAFT_PART_BUILD/src $SNAPCRAFT_PART_INSTALL/libnsl/src
+    stage:
+    - -*.*
+
+  libuv:
+    after:
+      - musl
+      - musl-compat
+    source: https://github.com/libuv/libuv.git
+    source-tag: v1.44.2
+    source-type: git
+    source-depth: 1
+    plugin: autotools
+    build-packages:
+      - automake
+      - make
+    override-build: |
+      set -ex
+
+      export PATH=/usr/local/musl/bin:$PATH
+      export CC=musl-gcc
+
+      # For some reason, we need the .so files as well. We should investigate
+      # why that's required for linking.
+
+      ./autogen.sh
+      ./configure 
+      make
+
+      mkdir -p $SNAPCRAFT_PART_INSTALL/libuv
+      cp -r $SNAPCRAFT_PART_BUILD/include $SNAPCRAFT_PART_INSTALL/libuv/include
+      cp -r $SNAPCRAFT_PART_BUILD/.libs $SNAPCRAFT_PART_INSTALL/libuv/.libs
+
+      mkdir -p $SNAPCRAFT_PART_INSTALL/libs
+      cp -r $SNAPCRAFT_PART_BUILD/.libs/* $SNAPCRAFT_PART_INSTALL/libs
+    stage:
+    - -*.*
+
+  libsqlite3:
+    after:
+      - musl
+      - musl-compat
+    source: https://github.com/sqlite/sqlite.git
+    source-tag: version-3.40.0
+    source-type: git
+    source-depth: 1
+    plugin: autotools
+    build-packages:
+      - automake
+      - make
+    override-build: |
+      set -ex
+
+      export PATH=/usr/local/musl/bin:$PATH
+      export CC=musl-gcc
+
+      ./configure --disable-shared
+      make
+
+      mkdir -p $SNAPCRAFT_PART_INSTALL/libsqlite3
+      cp -r $SNAPCRAFT_PART_BUILD/*.* $SNAPCRAFT_PART_INSTALL/libsqlite3
+
+      mkdir -p $SNAPCRAFT_PART_INSTALL/libs
+      cp -r $SNAPCRAFT_PART_BUILD/.libs/*.a $SNAPCRAFT_PART_INSTALL/libs
+
+      mkdir -p $SNAPCRAFT_PART_INSTALL/libs/include
+      cp -r $SNAPCRAFT_PART_BUILD/*.h $SNAPCRAFT_PART_INSTALL/libs/include
+    stage:
+    - -*.*
+
+  liblz4:
+    after:
+      - musl
+      - musl-compat
+    source: https://github.com/lz4/lz4.git
+    source-tag: v1.9.4
+    source-type: git
+    source-depth: 1
+    plugin: make
+    build-packages:
+      - make
+    override-build: |
+      set -ex
+
+      export PATH=/usr/local/musl/bin:$PATH
+      export CC=musl-gcc
+
+      make lib
+
+      mkdir -p $SNAPCRAFT_PART_INSTALL/liblz4
+      cp -r $SNAPCRAFT_PART_BUILD/lib $SNAPCRAFT_PART_INSTALL/liblz4/lib
+
+      mkdir -p $SNAPCRAFT_PART_INSTALL/libs
+      cp -r $SNAPCRAFT_PART_BUILD/lib/*.a $SNAPCRAFT_PART_INSTALL/libs
+      cp -r $SNAPCRAFT_PART_BUILD/lib/*.so* $SNAPCRAFT_PART_INSTALL/libs
+    stage:
+    - -*.*
+
+  libraft:
+    after:
+      - libuv
+      - liblz4
+    source: https://github.com/canonical/raft.git
+    source-tag: v0.17.1
+    source-type: git
+    source-depth: 1
+    plugin: autotools
+    build-packages:
+      - automake
+      - make
+    override-build: |
+      set -ex
+
+      export PATH=/usr/local/musl/bin:$PATH
+      export CC=musl-gcc
+
+      CUSTOM_CFLAGS=""
+      if [ "$(uname -m)" = "ppc64le" ]; then
+        CUSTOM_CFLAGS="-mlong-double-64"
+      fi
+
+      autoreconf -i
+      CFLAGS="-I${SNAPCRAFT_STAGE}/libuv/include -I${SNAPCRAFT_STAGE}/liblz4/lib ${CUSTOM_CFLAGS}" \
+            LDFLAGS="-L${SNAPCRAFT_STAGE}/libuv/.libs -L${SNAPCRAFT_STAGE}/liblz4/lib" \
+            UV_CFLAGS="-I${SNAPCRAFT_STAGE}/libuv/include" \
+            UV_LIBS="-L${SNAPCRAFT_STAGE}/libuv/.libs" \
+            LZ4_CFLAGS="-I${SNAPCRAFT_STAGE}/liblz4/lib" \
+            LZ4_LIBS="-L${SNAPCRAFT_STAGE}/liblz4/lib" \
+            ./configure --disable-shared
+      make
+
+      mkdir -p $SNAPCRAFT_PART_INSTALL/libraft
+      cp -r $SNAPCRAFT_PART_BUILD/include $SNAPCRAFT_PART_INSTALL/libraft/include
+      cp -r $SNAPCRAFT_PART_BUILD/.libs $SNAPCRAFT_PART_INSTALL/libraft/.libs
+
+      mkdir -p $SNAPCRAFT_PART_INSTALL/libs
+      cp -r $SNAPCRAFT_PART_BUILD/.libs/*.a $SNAPCRAFT_PART_INSTALL/libs
+
+      mkdir -p $SNAPCRAFT_PART_INSTALL/libs/include
+      cp -r $SNAPCRAFT_PART_BUILD/include/* $SNAPCRAFT_PART_INSTALL/libs/include
+    stage:
+    - -*.*
+
+  libdqlite:
+    after:
+      - libnsl
+      - libraft
+      - libsqlite3
+    source: https://github.com/canonical/dqlite.git
+    source-tag: v1.14.0
+    source-type: git
+    source-depth: 1
+    plugin: autotools
+    build-packages:
+      - automake
+      - autopoint
+      - gettext
+      - libtool
+      - libsqlite3-dev
+      - make
+      - pkg-config
+      - tcl
+      - tclsh
+    override-build: |
+      set -ex
+
+      export PATH=/usr/local/musl/bin:$PATH
+      export CC=musl-gcc
+
+      CUSTOM_CFLAGS=""
+      if [ "$(uname -m)" = "ppc64le" ]; then
+        CUSTOM_CFLAGS="-mlong-double-64"
+      fi
+
+      autoreconf -i
+      CFLAGS="-I${SNAPCRAFT_STAGE}/libraft/include -I${SNAPCRAFT_STAGE}/libsqlite3 -I${SNAPCRAFT_STAGE}/libuv/include -I${SNAPCRAFT_STAGE}/liblz4/lib -I/usr/local/musl/include -Werror=implicit-function-declaration ${CUSTOM_CFLAGS}" \
+            LDFLAGS="-L${SNAPCRAFT_STAGE}/libraft/.libs -L${SNAPCRAFT_STAGE}/libuv/.libs -L${SNAPCRAFT_STAGE}/liblz4/lib -L${SNAPCRAFT_STAGE}/libnsl/src" \
+            RAFT_CFLAGS="-I${SNAPCRAFT_STAGE}/libraft/include" \
+            RAFT_LIBS="-L${SNAPCRAFT_STAGE}/libraft/.libs" \
+            UV_CFLAGS="-I${SNAPCRAFT_STAGE}/libuv/include" \
+            UV_LIBS="-L${SNAPCRAFT_STAGE}/libuv/.libs" \
+            SQLITE_CFLAGS="-I${SNAPCRAFT_STAGE}/libsqlite3" \
+            ./configure --disable-shared --enable-debug
+      make
+
+      mkdir -p $SNAPCRAFT_PART_INSTALL/libdqlite
+      cp -r $SNAPCRAFT_PART_BUILD/.libs $SNAPCRAFT_PART_INSTALL/libdqlite/.libs
+
+      mkdir -p $SNAPCRAFT_PART_INSTALL/libs
+      cp -r $SNAPCRAFT_PART_BUILD/.libs/*.a $SNAPCRAFT_PART_INSTALL/libs
+
+      mkdir -p $SNAPCRAFT_PART_INSTALL/libs/include
+      cp -r $SNAPCRAFT_PART_BUILD/include/* $SNAPCRAFT_PART_INSTALL/libs/include
+    stage:
+    - -*.*
 
   jujud:
     after:
-      - dqlite
+      - libdqlite
     plugin: juju-go
     go-channel: 1.18/stable
     source: .
@@ -95,14 +387,7 @@ parts:
     go-cgo-cflags: "-I/usr/local/musl/include"
     go-cgo-ldflags: "-luv -lraft -ldqlite -llz4 -lsqlite3"
     go-cgo-ldflags-allow: "(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"
-    override-pull: |
-      snapcraftctl pull
 
-      mkdir -p /usr/local/musl/include
-
-      ln -s /usr/include/$(uname -m)-linux-gnu/asm /usr/local/musl/include/asm || true
-      ln -s /usr/include/asm-generic /usr/local/musl/include/asm-generic || true
-      ln -s /usr/include/linux /usr/local/musl/include/linux || true
 
   juju:
     after:
@@ -162,10 +447,9 @@ parts:
     override-prime: |
       snapcraftctl prime
 
-      rm -rf ${SNAPCRAFT_PRIME}/include || true
-      rm -rf ${SNAPCRAFT_PRIME}/juju-dqlite-static-lib-deps || true
-      rm -rf ${SNAPCRAFT_PRIME}/dqlite.tar.bz2 || true
-      rm -f ${SNAPCRAFT_PRIME}/lib* || true
+      # This forces the removal of the *.a files. We require them for compiling
+      # but not for runtime linking.
+      rm -rf $SNAPCRAFT_PRIME/lib*
 
 hooks:
   connect-plug-peers: {}
