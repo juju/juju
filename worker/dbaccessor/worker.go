@@ -321,10 +321,10 @@ func (w *dbWorker) initializeDqlite() error {
 		return errors.Trace(err)
 	}
 
+	ctx := context.TODO()
+
 	// Ensure Dqlite is ready to accept new changes.
-	if err := w.dbApp.Ready(context.TODO()); err != nil {
-		_ = w.dbApp.Close()
-		w.dbApp = nil
+	if err := w.dbApp.Ready(ctx); err != nil {
 		return errors.Annotatef(err, "ensuring Dqlite is ready to process changes")
 	}
 
