@@ -127,6 +127,7 @@ func (s *deployerSuite) testGetDeployerRepositoryCharm(c *gc.C, ch *charm.URL) {
 	s.expectResolveBundleURL(errors.NotValidf("not a bundle"), 1)
 
 	cfg := s.basicDeployerConfig()
+	s.expectStat(ch.String(), errors.NotFoundf("file"))
 	cfg.CharmOrBundle = ch.String()
 
 	factory := s.newDeployerFactory()
@@ -156,13 +157,13 @@ func (s *deployerSuite) TestGetDeployerCharmHubCharmWithRevisionFail(c *gc.C) {
 
 func (s *deployerSuite) testGetDeployerRepositoryCharmWithRevision(c *gc.C, ch *charm.URL, cfg DeployerConfig) (Deployer, error) {
 	defer s.setupMocks(c).Finish()
-
 	s.expectModelType()
 	// NotValid ensures that maybeReadRepositoryBundle won't find
 	// charmOrBundle is a bundle.
 	s.expectResolveBundleURL(errors.NotValidf("not a bundle"), 1)
 
 	cfg.CharmOrBundle = ch.String()
+	s.expectStat(cfg.CharmOrBundle, errors.NotFoundf("file"))
 
 	factory := s.newDeployerFactory()
 	return factory.GetDeployer(cfg, s.modelConfigGetter, s.resolver)
@@ -175,6 +176,7 @@ func (s *deployerSuite) TestSeriesOverride(c *gc.C) {
 
 	cfg := s.basicDeployerConfig()
 	ch := charm.MustParseURL("ch:test-charm")
+	s.expectStat(ch.String(), errors.NotFoundf("file"))
 	cfg.CharmOrBundle = ch.String()
 
 	factory := s.newDeployerFactory()
@@ -226,7 +228,7 @@ func (s *deployerSuite) TestGetDeployerCharmHubBundleWithChannel(c *gc.C) {
 	s.expectResolveBundleURL(nil, 1)
 	cfg.Base = series.MustParseBaseFromString("ubuntu@18.04")
 	cfg.FlagSet = &gnuflag.FlagSet{}
-
+	s.expectStat(cfg.CharmOrBundle, errors.NotFoundf("file"))
 	s.expectModelType()
 	s.expectGetBundle(nil)
 	s.expectData()
@@ -246,6 +248,7 @@ func (s *deployerSuite) TestGetDeployerCharmHubBundleWithRevision(c *gc.C) {
 	cfg.CharmOrBundle = bundle.String()
 	cfg.Base = series.MustParseBaseFromString("ubuntu@18.04")
 	cfg.FlagSet = &gnuflag.FlagSet{}
+	s.expectStat(cfg.CharmOrBundle, errors.NotFoundf("file"))
 	s.expectModelType()
 	s.expectGetBundle(nil)
 	s.expectData()
@@ -264,6 +267,7 @@ func (s *deployerSuite) TestGetDeployerCharmHubBundleWithRevisionURL(c *gc.C) {
 	cfg := s.basicDeployerConfig(series.MustParseBaseFromString("ubuntu@18.04"))
 	cfg.CharmOrBundle = bundle.String()
 	cfg.FlagSet = &gnuflag.FlagSet{}
+	s.expectStat(cfg.CharmOrBundle, errors.NotFoundf("file"))
 	s.expectModelType()
 
 	factory := s.newDeployerFactory()
@@ -279,6 +283,7 @@ func (s *deployerSuite) TestGetDeployerCharmHubBundleError(c *gc.C) {
 	cfg.Revision = 42
 	cfg.CharmOrBundle = bundle.String()
 	cfg.FlagSet = &gnuflag.FlagSet{}
+	s.expectStat(cfg.CharmOrBundle, errors.NotFoundf("file"))
 	s.expectModelType()
 	s.expectResolveBundleURL(nil, 1)
 
