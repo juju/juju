@@ -35,21 +35,21 @@ type subscription struct {
 	topics map[string]struct{}
 
 	changes chan changestream.ChangeEvent
-	done    <-chan struct{}
+	active  chan struct{}
 
-	unsubscriber func()
+	unsubscribeFn func()
 }
 
-func newSubscription(id uint64, unsubscriber func()) *subscription {
+func newSubscription(id uint64, unsubscribeFn func()) *subscription {
 	sub := &subscription{
-		id:           id,
-		changes:      make(chan changestream.ChangeEvent),
-		topics:       make(map[string]struct{}),
-		unsubscriber: unsubscriber,
+		id:            id,
+		changes:       make(chan changestream.ChangeEvent),
+		topics:        make(map[string]struct{}),
+		active:        make(chan struct{}),
+		unsubscribeFn: unsubscribeFn,
 	}
 
 	sub.tomb.Go(sub.loop)
-	sub.done = sub.tomb.Dying()
 
 	return sub
 }
@@ -60,7 +60,7 @@ func newSubscription(id uint64, unsubscriber func()) *subscription {
 // whilst the dispatch signalling, the unsubscribe will happen after all
 // dispatches have been called.
 func (s *subscription) Unsubscribe() {
-	s.unsubscriber()
+	s.unsubscribeFn()
 }
 
 // Changes returns the channel that the subscription will receive events on.
@@ -68,24 +68,11 @@ func (s *subscription) Changes() <-chan changestream.ChangeEvent {
 	return s.changes
 }
 
-// signal returns the channel that events will be sent on (signalled). It
-// checks that the subscription is not already dying, before passing back the
-// changes channel. This prevents a panic if you attempt to signal a dying
-// subscription.
-func (s *subscription) signal() chan<- changestream.ChangeEvent {
-	select {
-	case <-s.tomb.Dying():
-		return nil
-	default:
-		return s.changes
-	}
-}
-
 // Done provides a way to know from the consumer side if the underlying
 // subscription has been terminated. This is useful to know if the event queue
-// has been killed. Ultimately this is tied to the event queue tomb.
+// has been closed.
 func (s *subscription) Done() <-chan struct{} {
-	return s.done
+	return s.active
 }
 
 // Kill implements worker.Worker.
@@ -101,8 +88,33 @@ func (s *subscription) Wait() error {
 func (s *subscription) loop() error {
 	defer close(s.changes)
 
-	<-s.tomb.Dying()
-	return tomb.ErrDying
+	select {
+	case <-s.tomb.Dying():
+		return tomb.ErrDying
+	case <-s.active:
+		return nil
+	}
+}
+
+// signal returns the channel that events will be sent on (signalled). It
+// checks that the subscription is not already dying, before passing back the
+// changes channel. This prevents a panic if you attempt to signal a dying
+// subscription.
+func (s *subscription) signal() chan<- changestream.ChangeEvent {
+	select {
+	case <-s.tomb.Dying():
+		return nil
+	case <-s.active:
+		return nil
+	default:
+		return s.changes
+	}
+}
+
+// close closes the active channel, which will signal to the consumer that the
+// subscription is no longer active.
+func (s *subscription) close() {
+	close(s.active)
 }
 
 type subscriptionOpts struct {
@@ -207,9 +219,9 @@ func (q *EventQueue) unsubscribe(subscriptionID uint64) {
 
 func (q *EventQueue) loop() error {
 	defer func() {
-		// There isn't a need to close subscriptions directly, as they're tied
-		// to the catacomb via their own tomb.
-
+		for _, sub := range q.subscriptions {
+			sub.close()
+		}
 		q.subscriptions = nil
 		q.subscriptionsByNS = nil
 
@@ -257,7 +269,7 @@ func (q *EventQueue) loop() error {
 			}
 
 			// Register filters to route changes matching the subscription criteria to
-			// the newly crated subscription.
+			// the newly created subscription.
 			for _, opt := range subOpt.opts {
 				namespace := opt.Namespace()
 				q.subscriptionsByNS[namespace] = append(q.subscriptionsByNS[namespace], &eventFilter{
@@ -288,7 +300,7 @@ func (q *EventQueue) loop() error {
 			delete(q.subscriptions, subscriptionID)
 			delete(q.subscriptionsAll, subscriptionID)
 
-			sub.Kill()
+			sub.close()
 		}
 	}
 }
