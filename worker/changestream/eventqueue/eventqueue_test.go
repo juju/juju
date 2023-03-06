@@ -401,6 +401,66 @@ func (s *eventQueueSuite) TestUnsubscribeOfOtherSubscription(c *gc.C) {
 	workertest.CleanKill(c, queue)
 }
 
+func (s *eventQueueSuite) TestUnsubscribeOfOtherSubscriptionInAnotherGoroutine(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAnyLogs()
+
+	changes := make(chan changestream.ChangeEvent)
+	defer close(changes)
+
+	s.stream.EXPECT().Changes().Return(changes).MinTimes(1)
+
+	queue, err := New(s.stream, s.logger)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, queue)
+
+	subs := make([]changestream.Subscription, 2)
+	for i := 0; i < len(subs); i++ {
+
+		sub, err := queue.Subscribe(changestream.Namespace("topic", changestream.Create))
+		c.Assert(err, jc.ErrorIsNil)
+		subs[i] = sub
+	}
+
+	s.expectChangeEvent(changestream.Create, "topic")
+	s.dispatchEvent(c, changes)
+
+	// The subscriptions are guaranteed to be out of order, so we need to just
+	// wait on them all, and then check that they all got the event.
+	wg := newWaitGroup(uint64(len(subs)))
+	for i, sub := range subs {
+		go func(sub changestream.Subscription, i int) {
+			select {
+			case <-sub.Changes():
+				go func() {
+					defer wg.Done()
+
+					subs[len(subs)-1-i].Unsubscribe()
+				}()
+			case <-time.After(testing.ShortWait):
+				c.Fatalf("timed out waiting for sub %d event", i)
+			}
+		}(sub, i)
+	}
+
+	select {
+	case <-wg.Wait():
+	case <-time.After(testing.ShortWait):
+		c.Fatal("timed out waiting for all events")
+	}
+
+	for _, sub := range subs {
+		select {
+		case <-sub.Done():
+		case <-time.After(testing.LongWait):
+			c.Fatal("timed out waiting for event")
+		}
+	}
+
+	workertest.CleanKill(c, queue)
+}
+
 func (s *eventQueueSuite) unsubscribe(c *gc.C, sub changestream.Subscription) {
 	sub.Unsubscribe()
 
