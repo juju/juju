@@ -206,34 +206,7 @@ func newWorker(cfg WorkerConfig) (*dbWorker, error) {
 }
 
 func (w *dbWorker) loop() (err error) {
-	defer func() {
-		w.mu.Lock()
-		defer w.mu.Unlock()
-
-		if w.dbApp == nil {
-			return
-		}
-
-		ctx, cancel := context.WithTimeout(context.TODO(), time.Second*30)
-		defer cancel()
-
-		if hErr := w.dbApp.Handover(ctx); hErr != nil {
-			if err == nil {
-				err = errors.Annotate(err, "gracefully handing over dqlite node responsibilities")
-			} else { // we are exiting with another error; so we just log this.
-				w.cfg.Logger.Errorf("unable to gracefully hand off dqlite node responsibilities: %v", hErr)
-			}
-		}
-
-		if cErr := w.dbApp.Close(); cErr != nil {
-			if err == nil {
-				err = errors.Annotate(cErr, "closing dqlite application instance")
-			} else { // we are exiting with another error; so we just log this.
-				w.cfg.Logger.Errorf("unable to close dqlite application instance: %v", cErr)
-			}
-		}
-		w.dbApp = nil
-	}()
+	defer w.shutdownDqlite()
 
 	if err := w.initializeDqlite(); err != nil {
 		return errors.Trace(err)
@@ -605,4 +578,28 @@ func (w *dbWorker) handleAPIServerChanges(_ string, details apiserver.Details, e
 	case <-w.catacomb.Dying():
 	case w.apiServerChanges <- details:
 	}
+}
+
+// shutdownDqlite makes a best-effort attempt to hand
+// off and shut down the local Dqlite node.
+func (w *dbWorker) shutdownDqlite() {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	if w.dbApp == nil {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.TODO(), time.Second*30)
+	defer cancel()
+
+	if err := w.dbApp.Handover(ctx); err != nil {
+		w.cfg.Logger.Errorf("handing off Dqlite responsibilities: %v", err)
+	}
+
+	if err := w.dbApp.Close(); err != nil {
+		w.cfg.Logger.Errorf("closing Dqlite application: %v", err)
+	}
+
+	w.dbApp = nil
 }
