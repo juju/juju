@@ -100,14 +100,13 @@ func (d *factory) GetDeployer(cfg DeployerConfig, getter ModelConfigGetter, reso
 	// Set the factory config
 	d.setConfig(cfg)
 
-	// return nil, errors.New(fmt.Sprintf("CANER -- %v -- %v", d.charmOrBundle, charm.IsValidLocalCharmOrBundlePath(d.charmOrBundle)))
+	// Check the path and try to catch problems (e.g. ambiguity) and fail early
+	if fileStatErr := d.checkPath(); fileStatErr != nil {
+		return nil, errors.Trace(fileStatErr)
+	}
+
 	if charm.IsValidLocalCharmOrBundlePath(d.charmOrBundle) || isLocalSchema(d.charmOrBundle) {
 		// Local charm or bundle or a pre-deployed local charm
-
-		// Check the path and try to catch problems and fail early
-		if fileStatErr := d.checkPath(); fileStatErr != nil {
-			return nil, errors.Trace(fileStatErr)
-		}
 
 		// Go for local bundle
 		var localBundleErr error
@@ -221,7 +220,7 @@ func (d *factory) localBundleDeployer() (DeployerKind, error) {
 		// Only raise if it's not a NotFound.
 		// Otherwise, no need to raise, it's not a bundle,
 		// continue with trying for local charm.
-		return nil, errors.Annotatef(localBundleDataErr, "cannot deploy %v", d.charmOrBundle)
+		return nil, errors.Annotatef(localBundleDataErr, "cannot deploy bundle")
 	} else {
 		return nil, nil
 	}
@@ -356,6 +355,8 @@ func (d *factory) checkHandleRevision(userCharmURL *charm.URL, charmHubSchemaChe
 
 func (d *factory) checkPath() error {
 	_, fileStatErr := d.fileSystem.Stat(d.charmOrBundle)
+	// Check for path ambiguity where we don't have a valid local path,
+	// but such a path does exist
 	if fileStatErr == nil && !charm.IsValidLocalCharmOrBundlePath(d.charmOrBundle) {
 		return errors.Errorf(""+
 			"The charm or bundle %q is ambiguous.\n"+
@@ -364,6 +365,7 @@ func (d *factory) checkPath() error {
 			d.charmOrBundle,
 		)
 	}
+	// Check in case we do have a valid path, but it doesn't exist
 	if fileStatErr != nil && charm.IsValidLocalCharmOrBundlePath(d.charmOrBundle) && os.IsNotExist(errors.Cause(fileStatErr)) {
 		return errors.Errorf("no charm was found at %q", d.charmOrBundle)
 	}
