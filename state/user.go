@@ -135,13 +135,15 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 
 // updateExistingUser manipulates the values of an existing user in the db.
 // This is particularly useful when reusing existing users that were previously
-// removed from the platform.
+// deleted.
 func (st *State) updateExistingUser(name, displayName, password, creator string, secretKey []byte) (*User, error) {
 
-	update := bson.D{{"$set", bson.D{
+	// update the password
+	updatePassword := bson.D{{"$set", bson.D{
 		{"delete", false},
 		{"displayName", displayName},
 		{"creator", creator},
+		{"dateCreated", st.nowToTheSecond()},
 	}}}
 
 	if password != "" {
@@ -149,26 +151,34 @@ func (st *State) updateExistingUser(name, displayName, password, creator string,
 		if err != nil {
 			return nil, err
 		}
-		update = append(update,
+		updatePassword = append(updatePassword,
 			bson.DocElem{"$set", bson.D{
 				{"passwordhash", utils.UserPasswordHash(password, salt)},
 				{"passwordsalt", salt},
 			}},
 		)
 	}
+	// set the permission to default
+	updateUserAccess := updatePermissionOp(st.ControllerUUID(), userGlobalKey(userAccessID(names.NewUserTag(name))), defaultControllerPermission)
 
-	ops := []txn.Op{{
+	updateUserOps := []txn.Op{{
 		C:      usersC,
 		Id:     strings.ToLower(name),
 		Assert: txn.DocExists,
-		Update: update,
-	}}
-	user := User{st: st}
-	if err := user.st.db().RunTransaction(ops); err != nil {
-		return nil, errors.Annotatef(err, "cannot set password of user %q", user.Name())
-	}
-	return &user, nil
+		Update: updatePassword,
+	}, updateUserAccess}
 
+	if err := st.db().RunTransaction(updateUserOps); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// recreate the user object to return
+	user := User{st: st}
+	if _, err := st.User(names.NewUserTag(name)); err != nil {
+		return nil, errors.Annotatef(err, "problems adding user %s", name)
+	}
+
+	return &user, nil
 }
 
 // RemoveUser marks the user as deleted. This obviates the ability of a user
