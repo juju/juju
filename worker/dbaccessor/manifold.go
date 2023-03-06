@@ -94,6 +94,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			cfg := WorkerConfig{
 				NodeManager: database.NewNodeManager(agentConfig, config.Logger),
 				Clock:       config.Clock,
+				Hub:         config.Hub,
 				Logger:      config.Logger,
 				NewApp:      config.NewApp,
 				NewDBWorker: config.NewDBWorker,

@@ -64,36 +64,17 @@ type NodeManager interface {
 	WithClusterOption() (app.Option, error)
 }
 
-// WorkerConfig encapsulates the configuration options for the
-// dbaccessor worker.
-type WorkerConfig struct {
-	NodeManager NodeManager
-	Clock       clock.Clock
-	Logger      Logger
-	NewApp      func(string, ...app.Option) (DBApp, error)
-	NewDBWorker func(DBApp, string, ...TrackedDBWorkerOption) (TrackedDB, error)
+// DBGetter describes the ability to supply a sql.DB
+// reference for a particular database.
+type DBGetter interface {
+	// GetDB returns a sql.DB reference for the dqlite-backed database that
+	// contains the data for the specified namespace.
+	// A NotFound error is returned if the worker is unaware of the requested DB.
+	GetDB(namespace string) (coredatabase.TrackedDB, error)
 }
 
-// Validate ensures that the config values are valid.
-func (c *WorkerConfig) Validate() error {
-	if c.NodeManager == nil {
-		return errors.NotValidf("missing Dqlite option factory")
-	}
-	if c.Clock == nil {
-		return errors.NotValidf("missing clock")
-	}
-	if c.Logger == nil {
-		return errors.NotValidf("missing logger")
-	}
-	if c.NewApp == nil {
-		return errors.NotValidf("missing NewApp")
-	}
-	if c.NewDBWorker == nil {
-		return errors.NotValidf("missing NewDBWorker")
-	}
-	return nil
-}
-
+// DBApp describes methods of a Dqlite database application,
+// required to run this host as a Dqlite node.
 type DBApp interface {
 	// Open the dqlite database with the given name
 	Open(context.Context, string) (*sql.DB, error)
@@ -135,6 +116,40 @@ func makeDBRequest(namespace string) dbRequest {
 		namespace: namespace,
 		done:      make(chan struct{}),
 	}
+}
+
+// WorkerConfig encapsulates the configuration options for the
+// dbaccessor worker.
+type WorkerConfig struct {
+	NodeManager NodeManager
+	Clock       clock.Clock
+	Hub         Hub
+	Logger      Logger
+	NewApp      func(string, ...app.Option) (DBApp, error)
+	NewDBWorker func(DBApp, string, ...TrackedDBWorkerOption) (TrackedDB, error)
+}
+
+// Validate ensures that the config values are valid.
+func (c *WorkerConfig) Validate() error {
+	if c.NodeManager == nil {
+		return errors.NotValidf("missing NodeManager")
+	}
+	if c.Clock == nil {
+		return errors.NotValidf("missing Clock")
+	}
+	if c.Hub == nil {
+		return errors.NotValidf("missing Hub")
+	}
+	if c.Logger == nil {
+		return errors.NotValidf("missing Logger")
+	}
+	if c.NewApp == nil {
+		return errors.NotValidf("missing NewApp")
+	}
+	if c.NewDBWorker == nil {
+		return errors.NotValidf("missing NewDBWorker")
+	}
+	return nil
 }
 
 type dbWorker struct {

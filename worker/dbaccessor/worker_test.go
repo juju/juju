@@ -119,6 +119,7 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 	cfg := WorkerConfig{
 		NodeManager: s.nodeManager,
 		Clock:       s.clock,
+		Hub:         s.hub,
 		Logger:      s.logger,
 		NewApp: func(string, ...app.Option) (DBApp, error) {
 			return s.dbApp, nil
