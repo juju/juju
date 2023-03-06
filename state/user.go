@@ -77,24 +77,13 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 	}
 	lowercaseName := strings.ToLower(name)
 
-	// first check if the user already exists and if he was deleted/disabled
-	retrievedUser, err := st.User(names.NewUserTag(name))
-	// the user already exists and is enabled
-	if err == nil {
-		return nil, errors.AlreadyExists
-	}
-
-	// There was an error and the user was not deleted
-	if err != nil && !IsDeletedUserError(err) {
-		return nil, err
-	}
-
-	// We have a deleted user, update the fields
-	if IsDeletedUserError(err) {
-		if err := retrievedUser.ensureNotDeleted(); err != nil {
-			return nil, errors.Annotate(err, "impossible to reactive the user")
+	if _, err := st.User(names.NewUserTag(name)); err != nil && !errors.IsNotFound(err) && !IsDeletedUserError(err) {
+		if !IsDeletedUserError(err) {
+			return nil, errors.Annotate(err, "cannot reuse name")
+		} else {
+			return st.updateExistingUser(name, displayName, password, creator, secretKey)
 		}
-		return retrievedUser, nil
+		return nil, errors.Trace(err)
 	}
 
 	dateCreated := st.nowToTheSecond()
@@ -134,7 +123,7 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 		defaultControllerPermission)
 	ops = append(ops, controllerUserOps...)
 
-	err = st.db().RunTransaction(ops)
+	err := st.db().RunTransaction(ops)
 	if err != nil {
 		if err == txn.ErrAborted {
 			err = errors.Errorf("username unavailable")
@@ -142,6 +131,44 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 		return nil, errors.Trace(err)
 	}
 	return user, nil
+}
+
+// updateExistingUser manipulates the values of an existing user in the db.
+// This is particularly useful when reusing existing users that were previously
+// removed from the platform.
+func (st *State) updateExistingUser(name, displayName, password, creator string, secretKey []byte) (*User, error) {
+
+	update := bson.D{{"$set", bson.D{
+		{"delete", false},
+		{"displayName", displayName},
+		{"creator", creator},
+	}}}
+
+	if password != "" {
+		salt, err := utils.RandomSalt()
+		if err != nil {
+			return nil, err
+		}
+		update = append(update,
+			bson.DocElem{"$set", bson.D{
+				{"passwordhash", utils.UserPasswordHash(password, salt)},
+				{"passwordsalt", salt},
+			}},
+		)
+	}
+
+	ops := []txn.Op{{
+		C:      usersC,
+		Id:     strings.ToLower(name),
+		Assert: txn.DocExists,
+		Update: update,
+	}}
+	user := User{st: st}
+	if err := user.st.db().RunTransaction(ops); err != nil {
+		return nil, errors.Annotatef(err, "cannot set password of user %q", user.Name())
+	}
+	return &user, nil
+
 }
 
 // RemoveUser marks the user as deleted. This obviates the ability of a user
