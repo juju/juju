@@ -18,6 +18,7 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/database"
 	"github.com/juju/juju/database/app"
+	"github.com/juju/juju/pubsub/apiserver"
 )
 
 const (
@@ -123,6 +124,9 @@ func makeDBRequest(namespace string) dbRequest {
 type WorkerConfig struct {
 	NodeManager NodeManager
 	Clock       clock.Clock
+
+	// Hub is the pub/sub central hub used to receive notifications
+	// about API server topology changes.
 	Hub         Hub
 	Logger      Logger
 	NewApp      func(string, ...app.Option) (DBApp, error)
@@ -163,6 +167,10 @@ type dbWorker struct {
 	// dbRequests is used to synchronise GetDB
 	// requests into this worker's event loop.
 	dbRequests chan dbRequest
+
+	// apiServerChanges is used to handle incoming changes
+	// to API server details within the worker loop.
+	apiServerChanges chan apiserver.Details
 }
 
 func newWorker(cfg WorkerConfig) (*dbWorker, error) {
@@ -231,6 +239,11 @@ func (w *dbWorker) loop() (err error) {
 		return errors.Trace(err)
 	}
 
+	unsub, err := w.cfg.Hub.Subscribe(apiserver.DetailsTopic, w.handleAPIServerChanges)
+	if err != nil {
+		return errors.Annotate(err, "subscribing to node address request topic")
+	}
+
 	for {
 		select {
 		case req := <-w.dbRequests:
@@ -239,7 +252,10 @@ func (w *dbWorker) loop() (err error) {
 			}
 			close(req.done)
 		case <-w.catacomb.Dying():
+			unsub()
 			return w.catacomb.ErrDying()
+		case apiDetails := <-w.apiServerChanges:
+			w.cfg.Logger.Infof("%v", apiDetails)
 		}
 	}
 }
@@ -574,4 +590,19 @@ func (w *trackedDBWorker) verifyDB(db *sql.DB) (*sql.DB, error) {
 
 func defaultVerifyDBFunc(ctx context.Context, db *sql.DB) error {
 	return db.PingContext(ctx)
+}
+
+func (w *dbWorker) handleAPIServerChanges(_ string, details apiserver.Details, err error) {
+	if err != nil {
+		// This should never happen.
+		w.cfg.Logger.Errorf("pub/sub callback error: %v", err)
+		return
+	}
+
+	w.cfg.Logger.Debugf("new API server details: %#v", details)
+
+	select {
+	case <-w.catacomb.Dying():
+	case w.apiServerChanges <- details:
+	}
 }

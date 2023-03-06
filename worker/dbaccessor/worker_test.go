@@ -11,6 +11,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/juju/juju/pubsub/apiserver"
+
 	"github.com/golang/mock/gomock"
 	"github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
@@ -51,6 +53,7 @@ func (s *workerSuite) TestGetControllerDBSuccessNotExistingNode(c *gc.C) {
 	appExp.Close().Return(nil)
 
 	done := s.expectTrackedDB(c)
+	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -93,6 +96,8 @@ func (s *workerSuite) TestWorkerStartupExistingNode(c *gc.C) {
 	})
 	appExp.Handover(gomock.Any()).Return(nil)
 	appExp.Close().Return(nil)
+
+	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
