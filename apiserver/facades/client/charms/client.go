@@ -260,7 +260,7 @@ func (a *APIv5) AddCharmWithAuthorization(args params.AddCharmWithAuth) (params.
 }
 
 func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.CharmOriginResult, error) {
-	if args.Origin.Source != "charm-hub" {
+	if commoncharm.OriginSource(args.Origin.Source) != commoncharm.OriginCharmHub {
 		return params.CharmOriginResult{}, errors.Errorf("unknown schema for charm URL %q", args.URL)
 	}
 
@@ -272,46 +272,7 @@ func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.Ch
 		return params.CharmOriginResult{}, err
 	}
 
-	// TODO(nvinuesa): we must remove this check because we no longer
-	// support charmstore.
-	// Only the Charmhub API gives us the metadata we need to support async
-	// charm downloads, so don't do it for legacy Charmstore ones.
-	if commoncharm.OriginSource(args.Origin.Source) == commoncharm.OriginCharmHub {
-		actualOrigin, err := a.queueAsyncCharmDownload(args)
-		if err != nil {
-			return params.CharmOriginResult{}, errors.Trace(err)
-		}
-
-		origin, err := convertOrigin(actualOrigin)
-		if err != nil {
-			return params.CharmOriginResult{}, errors.Trace(err)
-		}
-		return params.CharmOriginResult{
-			Origin: origin,
-		}, nil
-	}
-
-	charmURL, err := charm.ParseURL(args.URL)
-	if err != nil {
-		return params.CharmOriginResult{}, err
-	}
-
-	downloader, err := a.newDownloader(services.CharmDownloaderConfig{
-		Logger:             logger,
-		CharmhubHTTPClient: a.charmhubHTTPClient,
-		StorageFactory:     a.newStorage,
-		StateBackend:       a.backendState,
-		ModelBackend:       a.backendModel,
-	})
-	if err != nil {
-		return params.CharmOriginResult{}, errors.Trace(err)
-	}
-
-	requestedOrigin, err := ConvertParamsOrigin(args.Origin)
-	if err != nil {
-		return params.CharmOriginResult{}, apiservererrors.ServerError(err)
-	}
-	actualOrigin, err := downloader.DownloadAndStore(charmURL, requestedOrigin, args.Force)
+	actualOrigin, err := a.queueAsyncCharmDownload(args)
 	if err != nil {
 		return params.CharmOriginResult{}, errors.Trace(err)
 	}
