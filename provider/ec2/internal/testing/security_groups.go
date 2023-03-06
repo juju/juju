@@ -359,8 +359,8 @@ func (srv *Server) parsePerms(in []types.IpPermission) ([]permKey, error) {
 		}
 		for _, r := range inPerm.IpRanges {
 			ec2p.IpRanges = append(ec2p.IpRanges, types.IpRange{CidrIp: r.CidrIp})
-			perms[id1] = ec2p
 		}
+		perms[id1] = ec2p
 	}
 	// Associate each set of source groups with its IPPerm.
 	for k, g := range sourceGroups {
