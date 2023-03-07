@@ -4,9 +4,11 @@ package changestream
 
 import (
 	"database/sql"
+	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/juju/core/changestream"
+	"github.com/juju/errors"
+	"github.com/juju/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
@@ -19,40 +21,117 @@ type workerSuite struct {
 
 var _ = gc.Suite(&workerSuite{})
 
-func (s *workerSuite) TestChanges(c *gc.C) {
+func (s *workerSuite) TestValidateConfig(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cfg := s.getConfig()
+	c.Check(cfg.Validate(), jc.ErrorIsNil)
+
+	cfg.Clock = nil
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+
+	cfg = s.getConfig()
+	cfg.Logger = nil
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+
+	cfg = s.getConfig()
+	cfg.DBGetter = nil
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+
+	cfg = s.getConfig()
+	cfg.FileNotifyWatcher = nil
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+
+	cfg = s.getConfig()
+	cfg.NewEventQueueWorker = nil
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+}
+
+func (s *workerSuite) getConfig() WorkerConfig {
+	return WorkerConfig{
+		DBGetter:          s.dbGetter,
+		FileNotifyWatcher: s.fileNotifyWatcher,
+		Clock:             s.clock,
+		Logger:            s.logger,
+		NewEventQueueWorker: func(*sql.DB, FileNotifier, clock.Clock, Logger) (EventQueueWorker, error) {
+			return nil, nil
+		},
+	}
+}
+
+func (s *workerSuite) TestEventQueue(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
 	s.expectClock()
 
-	changes := make(chan changestream.ChangeEvent)
-	defer close(changes)
-
 	s.dbGetter.EXPECT().GetDB("controller").Return(&sql.DB{}, nil)
-	s.dbStream.EXPECT().Changes().Return(changes)
-	s.dbStream.EXPECT().Wait().Return(nil).MinTimes(1)
-	s.dbStream.EXPECT().Kill().AnyTimes()
+	s.eventQueueWorker.EXPECT().EventQueue().Return(s.eventQueue)
+	s.eventQueueWorker.EXPECT().Kill().AnyTimes()
+	s.eventQueueWorker.EXPECT().Wait().MinTimes(1)
 
-	w := s.newWorker(c)
+	w := s.newWorker(c, 1)
 	defer workertest.DirtyKill(c, w)
 
 	stream, ok := w.(ChangeStream)
 	c.Assert(ok, jc.IsTrue, gc.Commentf("worker does not implement ChangeStream"))
 
-	_, err := stream.Changes("controller")
+	_, err := stream.EventQueue("controller")
 	c.Assert(err, jc.ErrorIsNil)
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
+func (s *workerSuite) TestEventQueueCalledTwice(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAnyLogs()
+	s.expectClock()
+
+	done := make(chan struct{})
+
+	s.dbGetter.EXPECT().GetDB("controller").Return(&sql.DB{}, nil)
+	s.eventQueueWorker.EXPECT().EventQueue().Return(s.eventQueue).Times(2)
+	s.eventQueueWorker.EXPECT().Kill().AnyTimes()
+	s.eventQueueWorker.EXPECT().Wait().DoAndReturn(func() error {
+		select {
+		case <-done:
+		case <-time.After(testing.LongWait):
+			c.Fatal("timed out waiting for Wait to be called")
+		}
+		return nil
+	})
+
+	w := s.newWorker(c, 1)
+	defer workertest.DirtyKill(c, w)
+
+	stream, ok := w.(ChangeStream)
+	c.Assert(ok, jc.IsTrue, gc.Commentf("worker does not implement ChangeStream"))
+
+	// Ensure that the event queue is only created once.
+	_, err := stream.EventQueue("controller")
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = stream.EventQueue("controller")
+	c.Assert(err, jc.ErrorIsNil)
+
+	close(done)
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) newWorker(c *gc.C, attempts int) worker.Worker {
 	cfg := WorkerConfig{
 		DBGetter:          s.dbGetter,
 		FileNotifyWatcher: s.fileNotifyWatcher,
 		Clock:             s.clock,
 		Logger:            s.logger,
-		NewStream: func(*sql.DB, FileNotifier, clock.Clock, Logger) (DBStream, error) {
-			return s.dbStream, nil
+		NewEventQueueWorker: func(*sql.DB, FileNotifier, clock.Clock, Logger) (EventQueueWorker, error) {
+			attempts--
+			if attempts < 0 {
+				c.Fatal("NewEventQueueWorker called too many times")
+			}
+			return s.eventQueueWorker, nil
 		},
 	}
 

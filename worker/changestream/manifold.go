@@ -23,8 +23,9 @@ type Logger interface {
 	IsTraceEnabled() bool
 }
 
-// StreamFn is an alias function that allows the creation of a DBStream.
-type StreamFn = func(*sql.DB, FileNotifier, clock.Clock, Logger) (DBStream, error)
+// EventQueueWorkerFn is an alias function that allows the creation of
+// EventQueueWorker.
+type EventQueueWorkerFn = func(*sql.DB, FileNotifier, clock.Clock, Logger) (EventQueueWorker, error)
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will
 // depend.
@@ -32,9 +33,9 @@ type ManifoldConfig struct {
 	DBAccessor        string
 	FileNotifyWatcher string
 
-	Clock     clock.Clock
-	Logger    Logger
-	NewStream StreamFn
+	Clock               clock.Clock
+	Logger              Logger
+	NewEventQueueWorker EventQueueWorkerFn
 }
 
 func (cfg ManifoldConfig) Validate() error {
@@ -50,8 +51,8 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
-	if cfg.NewStream == nil {
-		return errors.NotValidf("nil NewStream")
+	if cfg.NewEventQueueWorker == nil {
+		return errors.NotValidf("nil NewEventQueueWorker")
 	}
 	return nil
 }
@@ -81,11 +82,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			cfg := WorkerConfig{
-				DBGetter:          dbGetter,
-				FileNotifyWatcher: fileNotifyWatcher,
-				Clock:             config.Clock,
-				Logger:            config.Logger,
-				NewStream:         config.NewStream,
+				DBGetter:            dbGetter,
+				FileNotifyWatcher:   fileNotifyWatcher,
+				Clock:               config.Clock,
+				Logger:              config.Logger,
+				NewEventQueueWorker: config.NewEventQueueWorker,
 			}
 
 			w, err := newWorker(cfg)
