@@ -369,7 +369,7 @@ func (c *repositoryCharm) String() string {
 	return fmt.Sprintf("%s%s%s", str, revision, channel)
 }
 
-// PrepareAndDeploy finishes preparing to deploy a charm store charm,
+// PrepareAndDeploy finishes preparing to deploy a repository charm,
 // then deploys it.
 func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, resolver Resolver) error {
 	userRequestedURL := c.userRequestedURL

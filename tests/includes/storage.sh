@@ -43,7 +43,7 @@ unit_attachment() {
 	echo ".storage[\"$name/$app_index\"] | .attachments | .units | keys[$unit_index]"
 }
 
-# unit_state queries for a storage application's attached unit life status using a combination of the storage application name and applicaiton index together with
+# unit_state queries for a storage application's attached unit life status using a combination of the storage application name and application index together with
 # the storage unit name and storage unit index to filter.
 unit_state() {
 	local app_name app_index unit_name unit_index

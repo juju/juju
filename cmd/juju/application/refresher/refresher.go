@@ -385,7 +385,7 @@ func (r *charmHubRefresher) Allowed(cfg RefresherConfig) (bool, error) {
 func (r *charmHubRefresher) Refresh() (*CharmID, error) {
 	newURL, origin, err := r.ResolveCharm()
 	if errors.Is(err, ErrAlreadyUpToDate) {
-		// The charm itself is uptodate but we may need the
+		// The charm itself is up-to-date but we may need the
 		// URL and origin for updating resources.
 		return &CharmID{
 			URL:    newURL,
@@ -411,5 +411,5 @@ func (r *charmHubRefresher) Refresh() (*CharmID, error) {
 }
 
 func (r *charmHubRefresher) String() string {
-	return fmt.Sprintf("attempting to refresh charm hub charm %q", r.charmRef)
+	return fmt.Sprintf("attempting to refresh Charmhub charm %q", r.charmRef)
 }

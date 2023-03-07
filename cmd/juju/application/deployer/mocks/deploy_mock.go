@@ -12,6 +12,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v10"
+	resource "github.com/juju/charm/v10/resource"
 	cmd "github.com/juju/cmd/v3"
 	api "github.com/juju/juju/api"
 	base "github.com/juju/juju/api/base"
@@ -442,6 +443,21 @@ func (m *MockDeployerAPI) IsMetered(arg0 string) (bool, error) {
 func (mr *MockDeployerAPIMockRecorder) IsMetered(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsMetered", reflect.TypeOf((*MockDeployerAPI)(nil).IsMetered), arg0)
+}
+
+// ListCharmResources mocks base method.
+func (m *MockDeployerAPI) ListCharmResources(arg0 *charm.URL, arg1 charm0.Origin) ([]resource.Resource, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListCharmResources", arg0, arg1)
+	ret0, _ := ret[0].([]resource.Resource)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListCharmResources indicates an expected call of ListCharmResources.
+func (mr *MockDeployerAPIMockRecorder) ListCharmResources(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCharmResources", reflect.TypeOf((*MockDeployerAPI)(nil).ListCharmResources), arg0, arg1)
 }
 
 // ListSpaces mocks base method.

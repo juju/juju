@@ -3095,96 +3095,162 @@ func (s *ApplicationSuite) TestDestroyWithRemovableRelation(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestDestroyWithRemovableApplicationOpenedPortRanges(c *gc.C) {
-	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	appPortRanges, err := wordpress.OpenedPortRanges()
+	st, app := s.addCAASSidecarApplication(c)
+	defer st.Close()
+
+	appPortRanges, err := app.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(appPortRanges.UniquePortRanges(), gc.HasLen, 0)
-	appPortRanges.Open(allEndpoints, network.MustParsePortRange("3000/tcp"))
-	c.Assert(s.State.ApplyOperation(appPortRanges.Changes()), jc.ErrorIsNil)
-	err = appPortRanges.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(appPortRanges.UniquePortRanges(), gc.HasLen, 1)
 
-	// Destroy a application; check application and
-	// openedApplicationportRanges removed.
-	err = wordpress.Destroy()
+	unit0, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = wordpress.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	err = appPortRanges.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	portRangesUnit0, err := unit0.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	portRangesUnit0.Open(allEndpoints, network.MustParsePortRange("3000/tcp"))
+	portRangesUnit0.Open(allEndpoints, network.MustParsePortRange("3001/tcp"))
+	c.Assert(st.ApplyOperation(portRangesUnit0.Changes()), jc.ErrorIsNil)
+
+	portRangesUnit0, err = unit0.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(portRangesUnit0.UniquePortRanges(), gc.HasLen, 2)
+
+	unit1, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	portRangesUnit1, err := unit1.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	portRangesUnit1.Open(allEndpoints, network.MustParsePortRange("3001/tcp"))
+	portRangesUnit1.Open(allEndpoints, network.MustParsePortRange("3002/tcp"))
+	c.Assert(st.ApplyOperation(portRangesUnit1.Changes()), jc.ErrorIsNil)
+
+	portRangesUnit1, err = unit1.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(portRangesUnit1.UniquePortRanges(), gc.HasLen, 2)
+
+	appPortRanges, err = app.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appPortRanges.UniquePortRanges(), gc.HasLen, 3)
+
+	portRangesUnit1.Close(allEndpoints, network.MustParsePortRange("3002/tcp"))
+	c.Assert(st.ApplyOperation(portRangesUnit1.Changes()), jc.ErrorIsNil)
+
+	portRangesUnit1, err = unit1.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(portRangesUnit1.UniquePortRanges(), gc.HasLen, 1)
+
+	appPortRanges, err = app.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appPortRanges.UniquePortRanges(), gc.HasLen, 2)
+
+	portRangesUnit1.Open(allEndpoints, network.MustParsePortRange("3003/tcp"))
+	c.Assert(st.ApplyOperation(portRangesUnit1.Changes()), jc.ErrorIsNil)
+
+	appPortRanges, err = app.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appPortRanges.UniquePortRanges(), gc.HasLen, 3)
+
+	err = unit1.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit1.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+
+	appPortRanges, err = app.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appPortRanges.UniquePortRanges(), gc.HasLen, 2)
+
+	// Remove all units, all opened ports should be removed.
+	err = unit0.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit0.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit1.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit1.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+
+	appPortRanges, err = app.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appPortRanges.UniquePortRanges(), gc.HasLen, 0)
+
+	err = app.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ApplicationSuite) TestOpenedPortRanges(c *gc.C) {
-
-	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	appPortRanges, err := wordpress.OpenedPortRanges()
+	st, app := s.addCAASSidecarApplication(c)
+	defer st.Close()
+	unit, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	portRanges, err := unit.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
 
-	flush := func(err string) {
-		if len(err) == 0 {
-			c.Assert(s.State.ApplyOperation(appPortRanges.Changes()), jc.ErrorIsNil)
+	flush := func(expectedErr string) {
+		if len(expectedErr) == 0 {
+			c.Assert(st.ApplyOperation(portRanges.Changes()), jc.ErrorIsNil)
 		} else {
-			c.Assert(s.State.ApplyOperation(appPortRanges.Changes()), gc.ErrorMatches, err)
+			c.Assert(st.ApplyOperation(portRanges.Changes()), gc.ErrorMatches, expectedErr)
 		}
-		c.Assert(appPortRanges.Refresh(), jc.ErrorIsNil)
+		portRanges, err = unit.OpenedPortRanges()
+		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	c.Assert(appPortRanges.UniquePortRanges(), gc.HasLen, 0)
-	c.Assert(appPortRanges.Persisted(), jc.IsFalse)
-	appPortRanges.Open(allEndpoints, network.MustParsePortRange("3000/tcp"))
-	appPortRanges.Open("monitoring-port", network.MustParsePortRange("2000/udp"))
+	c.Assert(portRanges.UniquePortRanges(), gc.HasLen, 0)
+	portRanges.Open(allEndpoints, network.MustParsePortRange("3000/tcp"))
+	portRanges.Open("data-port", network.MustParsePortRange("2000/udp"))
 	// All good.
 	flush(``)
-	c.Assert(appPortRanges.Persisted(), jc.IsTrue)
-	c.Assert(appPortRanges.ApplicationName(), jc.DeepEquals, `wordpress`)
-	c.Assert(appPortRanges.UniquePortRanges(), jc.DeepEquals, []network.PortRange{
+	c.Assert(portRanges.UnitName(), jc.DeepEquals, `cockroachdb/0`)
+	c.Assert(portRanges.UniquePortRanges(), jc.DeepEquals, []network.PortRange{
 		network.MustParsePortRange("3000/tcp"),
 		network.MustParsePortRange("2000/udp"),
 	})
-	c.Assert(appPortRanges.ByEndpoint(), jc.DeepEquals, network.GroupedPortRanges{
-		allEndpoints:      []network.PortRange{network.MustParsePortRange("3000/tcp")},
-		"monitoring-port": []network.PortRange{network.MustParsePortRange("2000/udp")},
+	c.Assert(portRanges.ByEndpoint(), jc.DeepEquals, network.GroupedPortRanges{
+		allEndpoints: []network.PortRange{network.MustParsePortRange("3000/tcp")},
+		"data-port":  []network.PortRange{network.MustParsePortRange("2000/udp")},
 	})
 
 	// Errors for unknown endpoint.
-	appPortRanges.Open("bad-endpoint", network.MustParsePortRange("2000/udp"))
-	flush(`cannot open/close ports: open port range: endpoint "bad-endpoint" for application "wordpress" not found`)
-	c.Assert(appPortRanges.ByEndpoint(), jc.DeepEquals, network.GroupedPortRanges{
-		allEndpoints:      []network.PortRange{network.MustParsePortRange("3000/tcp")},
-		"monitoring-port": []network.PortRange{network.MustParsePortRange("2000/udp")},
+	portRanges.Open("bad-endpoint", network.MustParsePortRange("2000/udp"))
+	flush(`cannot open/close ports: open port range: endpoint "bad-endpoint" for application "cockroachdb" not found`)
+	c.Assert(portRanges.ByEndpoint(), jc.DeepEquals, network.GroupedPortRanges{
+		allEndpoints: []network.PortRange{network.MustParsePortRange("3000/tcp")},
+		"data-port":  []network.PortRange{network.MustParsePortRange("2000/udp")},
 	})
 
 	// No ops for duplicated Open.
-	appPortRanges.Open("monitoring-port", network.MustParsePortRange("2000/udp"))
+	portRanges.Open("data-port", network.MustParsePortRange("2000/udp"))
 	flush(``)
-	c.Assert(appPortRanges.ByEndpoint(), jc.DeepEquals, network.GroupedPortRanges{
-		allEndpoints:      []network.PortRange{network.MustParsePortRange("3000/tcp")},
-		"monitoring-port": []network.PortRange{network.MustParsePortRange("2000/udp")},
+	c.Assert(portRanges.ByEndpoint(), jc.DeepEquals, network.GroupedPortRanges{
+		allEndpoints: []network.PortRange{network.MustParsePortRange("3000/tcp")},
+		"data-port":  []network.PortRange{network.MustParsePortRange("2000/udp")},
 	})
 
 	// Close one port.
-	appPortRanges.Close("monitoring-port", network.MustParsePortRange("2000/udp"))
+	portRanges.Close("data-port", network.MustParsePortRange("2000/udp"))
 	flush(``)
-	c.Assert(appPortRanges.ByEndpoint(), jc.DeepEquals, network.GroupedPortRanges{
+	c.Assert(portRanges.ByEndpoint(), jc.DeepEquals, network.GroupedPortRanges{
 		allEndpoints: []network.PortRange{network.MustParsePortRange("3000/tcp")},
 	})
 
 	// No ops for Close non existing port.
-	appPortRanges.Close("monitoring-port", network.MustParsePortRange("2000/udp"))
+	portRanges.Close("data-port", network.MustParsePortRange("2000/udp"))
 	flush(``)
-	c.Assert(appPortRanges.ByEndpoint(), jc.DeepEquals, network.GroupedPortRanges{
+	c.Assert(portRanges.ByEndpoint(), jc.DeepEquals, network.GroupedPortRanges{
 		allEndpoints: []network.PortRange{network.MustParsePortRange("3000/tcp")},
 	})
 
-	// Destroy a application; check application and
+	// Destroy the application; check application and
 	// openedApplicationportRanges removed.
-	err = wordpress.Destroy()
+	err = unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = wordpress.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	err = appPortRanges.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	err = unit.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+
+	appPortRanges, err := app.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appPortRanges.UniquePortRanges(), gc.HasLen, 0)
+
+	err = app.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ApplicationSuite) TestDestroyWithReferencedRelation(c *gc.C) {
@@ -5389,11 +5455,20 @@ func (s *ApplicationSuite) TestDeployedMachinesNotAssignedUnit(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestCAASSidecarCharm(c *gc.C) {
+	st, app := s.addCAASSidecarApplication(c)
+	defer st.Close()
+	unit, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	sidecar, err := unit.IsSidecar()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sidecar, jc.IsTrue)
+}
+
+func (s *ApplicationSuite) addCAASSidecarApplication(c *gc.C) (*state.State, *state.Application) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "caas-model",
 		Type: state.ModelTypeCAAS,
 	})
-	defer st.Close()
 	f := factory.NewFactory(st, s.StatePool)
 
 	charmDef := `
@@ -5407,15 +5482,13 @@ resources:
   redis-container-resource:
     name: redis-container
     type: oci-image
+provides:
+  data-port:
+    interface: data
+    scope: container
 `
 	ch := state.AddCustomCharmWithManifest(c, st, "cockroach", "metadata.yaml", charmDef, "focal", 1)
-	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "cockroachdb", Charm: ch})
-
-	unit, err := app.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	sidecar, err := unit.IsSidecar()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sidecar, jc.IsTrue)
+	return st, f.MakeApplication(c, &factory.ApplicationParams{Name: "cockroachdb", Charm: ch})
 }
 
 func (s *ApplicationSuite) TestCAASNonSidecarCharm(c *gc.C) {

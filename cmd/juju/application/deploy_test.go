@@ -70,6 +70,14 @@ import (
 
 var defaultBase = series.MustParseBaseFromString("ubuntu@22.04")
 
+func resourceHash(content string) charmresource.Fingerprint {
+	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
+	if err != nil {
+		panic(err)
+	}
+	return fp
+}
+
 type DeploySuiteBase struct {
 	jjtesting.RepoSuite
 	coretesting.CmdBlockHelper
@@ -79,7 +87,7 @@ type DeploySuiteBase struct {
 }
 
 // deployCommand returns a deploy command that stubs out the
-// charm store and the controller deploy API.
+// charm repository and the controller deploy API.
 func (s *DeploySuiteBase) deployCommand() *DeployCommand {
 	deploy := s.deployCommandForState()
 	deploy.NewDeployAPI = func() (deployer.DeployerAPI, error) {
@@ -95,7 +103,7 @@ func (s *DeploySuiteBase) deployCommand() *DeployCommand {
 }
 
 // deployCommandForState returns a deploy command that stubs out the
-// charm store but writes data to the juju database.
+// charm repository but writes data to the juju database.
 func (s *DeploySuiteBase) deployCommandForState() *DeployCommand {
 	deploy := newDeployCommand()
 	deploy.Steps = nil

@@ -4,7 +4,6 @@
 package caasfirewaller_test
 
 import (
-	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v10"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -117,13 +116,6 @@ func (s *firewallerSidecarSuite) SetUpTest(c *gc.C) {
 	c.Assert(ok, jc.IsTrue)
 }
 
-func (s *firewallerSidecarSuite) getCtrl(c *gc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-	s.appPortRanges = statemocks.NewMockApplicationPortRanges(ctrl)
-	s.st.application.appPortRanges = s.appPortRanges
-	return ctrl
-}
-
 func (s *firewallerSidecarSuite) TestWatchOpenedPorts(c *gc.C) {
 	openPortsChanges := []string{"port1", "port2"}
 	s.openPortsChanges <- openPortsChanges
@@ -141,29 +133,24 @@ func (s *firewallerSidecarSuite) TestWatchOpenedPorts(c *gc.C) {
 }
 
 func (s *firewallerSidecarSuite) TestGetApplicationOpenedPorts(c *gc.C) {
-	ctrl := s.getCtrl(c)
-	defer ctrl.Finish()
-
-	gomock.InOrder(
-		s.appPortRanges.EXPECT().ByEndpoint().Return(network.GroupedPortRanges{
-			"": []network.PortRange{
-				{
-					FromPort: 80,
-					ToPort:   80,
-					Protocol: "tcp",
-				},
+	s.st.application.appPortRanges = network.GroupedPortRanges{
+		"": []network.PortRange{
+			{
+				FromPort: 80,
+				ToPort:   80,
+				Protocol: "tcp",
 			},
-			"endport-1": []network.PortRange{
-				{
-					FromPort: 8888,
-					ToPort:   8888,
-					Protocol: "tcp",
-				},
+		},
+		"endport-1": []network.PortRange{
+			{
+				FromPort: 8888,
+				ToPort:   8888,
+				Protocol: "tcp",
 			},
-		}),
-	)
+		},
+	}
 
-	results, err := s.facade.GetApplicationOpenedPorts(params.Entity{
+	results, err := s.facade.GetOpenedPorts(params.Entity{
 		Tag: "application-gitlab",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -196,7 +183,7 @@ type facadeCommon interface {
 type facadeSidecar interface {
 	facadeCommon
 	WatchOpenedPorts(args params.Entities) (params.StringsWatchResults, error)
-	GetApplicationOpenedPorts(arg params.Entity) (params.ApplicationOpenedPortsResults, error)
+	GetOpenedPorts(arg params.Entity) (params.ApplicationOpenedPortsResults, error)
 }
 
 func (s *firewallerBaseSuite) SetUpTest(c *gc.C) {

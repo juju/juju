@@ -99,7 +99,7 @@ func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 		return nil, errors.Trace(err)
 	}
 
-	appPortRanges, err := hcParams.State.OpenedApplicationPortRangesByEndpoint(hcParams.Unit.ApplicationTag())
+	appPortRanges, err := hcParams.State.OpenedPortRangesByEndpoint()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -127,8 +127,10 @@ func NewMockUnitHookContext(mockUnit *mocks.MockHookUnit, modelType model.ModelT
 		modelType:         modelType,
 		LeadershipContext: leadership,
 		portRangeChanges: newPortRangeChangeRecorder(logger, mockUnit.Tag(), modelType, nil,
-			network.GroupedPortRanges{
-				"": []network.PortRange{network.MustParsePortRange("666-888/tcp")},
+			map[names.UnitTag]network.GroupedPortRanges{
+				mockUnit.Tag(): {
+					"": []network.PortRange{network.MustParsePortRange("666-888/tcp")},
+				},
 			},
 		),
 		secretChanges: newSecretsChangeRecorder(logger),

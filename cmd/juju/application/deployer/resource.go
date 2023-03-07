@@ -32,6 +32,7 @@ func DeployResources(
 	applicationID string,
 	chID resources.CharmID,
 	filesAndRevisions map[string]string,
+	// for refresh, current resources are added here.
 	res map[string]charmresource.Meta,
 	conn base.APICallCloser,
 	filesystem modelcmd.Filesystem,

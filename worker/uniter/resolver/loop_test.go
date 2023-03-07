@@ -389,7 +389,7 @@ func (s *LoopSuite) TestCheckCharmUpgrade(c *gc.C) {
 			CharmURL: "ch:trusty/mysql-2",
 		},
 	}
-	s.testCheckCharmUpgradeCallsRun(c)
+	s.testCheckCharmUpgradeCallsRun(c, "Upgrade")
 }
 
 func (s *LoopSuite) TestCheckCharmUpgradeMissingCharmDir(c *gc.C) {
@@ -407,7 +407,27 @@ func (s *LoopSuite) TestCheckCharmUpgradeMissingCharmDir(c *gc.C) {
 			CharmURL: s.charmURL,
 		},
 	}
-	s.testCheckCharmUpgradeCallsRun(c)
+	s.testCheckCharmUpgradeCallsRun(c, "Upgrade")
+}
+
+func (s *LoopSuite) TestCheckCharmInstallMissingCharmDirInstallHookFail(c *gc.C) {
+	s.executor = &mockOpExecutor{
+		Executor: nil,
+		Stub:     envtesting.Stub{},
+		st: operation.State{
+			Installed: false,
+			Kind:      operation.RunHook,
+			Step:      operation.Pending,
+			Hook:      &hook.Info{Kind: hooks.Install},
+		},
+		run: nil,
+	}
+	s.watcher = &mockRemoteStateWatcher{
+		snapshot: remotestate.Snapshot{
+			CharmURL: s.charmURL,
+		},
+	}
+	s.testCheckCharmUpgradeCallsRun(c, "Install")
 }
 
 func (s *LoopSuite) TestCheckCharmUpgradeLXDProfile(c *gc.C) {
@@ -428,10 +448,10 @@ func (s *LoopSuite) TestCheckCharmUpgradeLXDProfile(c *gc.C) {
 			LXDProfileName:       "juju-test-mysql-2",
 		},
 	}
-	s.testCheckCharmUpgradeCallsRun(c)
+	s.testCheckCharmUpgradeCallsRun(c, "Upgrade")
 }
 
-func (s *LoopSuite) testCheckCharmUpgradeCallsRun(c *gc.C) {
+func (s *LoopSuite) testCheckCharmUpgradeCallsRun(c *gc.C, op string) {
 	s.opFactory = &mockOpFactory{
 		Factory: nil,
 		Stub:    envtesting.Stub{},
@@ -451,6 +471,9 @@ func (s *LoopSuite) testCheckCharmUpgradeCallsRun(c *gc.C) {
 	// Run not called
 	c.Assert(s.executor.Calls(), gc.HasLen, 4)
 	s.executor.CheckCallNames(c, "State", "State", "Run", "State")
+
+	c.Assert(s.opFactory.Calls(), gc.HasLen, 1)
+	s.opFactory.CheckCallNames(c, "New"+op)
 }
 
 func (s *LoopSuite) TestCancelledLockAcquisitionCausesRestart(c *gc.C) {

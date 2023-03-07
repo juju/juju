@@ -8,6 +8,9 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	charm "github.com/juju/charm/v10"
+	resource "github.com/juju/charm/v10/resource"
+	charm0 "github.com/juju/juju/api/common/charm"
 	charms "github.com/juju/juju/api/common/charms"
 )
 
@@ -47,4 +50,19 @@ func (m *MockCharmClient) CharmInfo(arg0 string) (*charms.CharmInfo, error) {
 func (mr *MockCharmClientMockRecorder) CharmInfo(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmInfo", reflect.TypeOf((*MockCharmClient)(nil).CharmInfo), arg0)
+}
+
+// ListCharmResources mocks base method.
+func (m *MockCharmClient) ListCharmResources(arg0 *charm.URL, arg1 charm0.Origin) ([]resource.Resource, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListCharmResources", arg0, arg1)
+	ret0, _ := ret[0].([]resource.Resource)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListCharmResources indicates an expected call of ListCharmResources.
+func (mr *MockCharmClientMockRecorder) ListCharmResources(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCharmResources", reflect.TypeOf((*MockCharmClient)(nil).ListCharmResources), arg0, arg1)
 }

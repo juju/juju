@@ -13,32 +13,10 @@ import (
 	"github.com/juju/juju/core/network"
 )
 
-// MachinePortRanges is implemented by types that can query and/or
-// manipulate the set of port ranges opened by one or more units in a machine.
-type MachinePortRanges interface {
-	// MachineID returns the ID of the machine that this set of port ranges
-	// applies to.
-	MachineID() string
-
-	// ByUnit returns the set of port ranges opened by each unit in a
-	// particular machine subnet grouped by unit name.
-	ByUnit() map[string]UnitPortRanges
-
-	// ForUnit returns the set of port ranges opened by the specified unit
-	// in a particular machine subnet.
-	ForUnit(unitName string) UnitPortRanges
-
-	// Changes returns a ModelOperation for applying any changes that were
-	// made to this port range instance for all machine units.
-	Changes() ModelOperation
-
-	// UniquePortRanges returns a slice of unique open PortRanges for
-	// all units on this machine.
-	UniquePortRanges() []network.PortRange
-}
-
 // machinePortRangesDoc represents the state of ports opened on machines by
 // individual units.
+// machinePortRangesDoc is used for the IaaS application only.
+// We should really consider to use the applicationPortRangesDoc for IaaS as well.
 type machinePortRangesDoc struct {
 	DocID      string                               `bson:"_id"`
 	ModelUUID  string                               `bson:"model-uuid"`
@@ -81,7 +59,7 @@ func (p *machinePortRanges) ByUnit() map[string]UnitPortRanges {
 	}
 	res := make(map[string]UnitPortRanges)
 	for unitName := range p.doc.UnitRanges {
-		res[unitName] = &unitPortRanges{
+		res[unitName] = &unitPortRangesForMachine{
 			unitName:          unitName,
 			machinePortRanges: p,
 		}
@@ -92,7 +70,7 @@ func (p *machinePortRanges) ByUnit() map[string]UnitPortRanges {
 // ForUnit returns the set of port ranges opened by the specified unit
 // in a particular machine subnet.
 func (p *machinePortRanges) ForUnit(unitName string) UnitPortRanges {
-	return &unitPortRanges{
+	return &unitPortRangesForMachine{
 		unitName:          unitName,
 		machinePortRanges: p,
 	}
@@ -255,11 +233,19 @@ func (m *Model) OpenedPortRangesForAllMachines() ([]MachinePortRanges, error) {
 // getOpenedPortRangesForAllMachines returns a slice of machine port ranges for
 // all machines managed by this model.
 func getOpenedPortRangesForAllMachines(st *State) ([]*machinePortRanges, error) {
+	machines, err := st.AllMachines()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var machineIDs []string
+	for _, m := range machines {
+		machineIDs = append(machineIDs, m.Id())
+	}
 	openedPorts, closer := st.db().GetCollection(openedPortsC)
 	defer closer()
 
 	docs := []machinePortRangesDoc{}
-	err := openedPorts.Find(nil).All(&docs)
+	err = openedPorts.Find(bson.D{{"machine-id", bson.D{{"$in", machineIDs}}}}).All(&docs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

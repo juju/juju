@@ -63,6 +63,20 @@ func (mr *MockApplicationPortRangesMockRecorder) ByEndpoint() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ByEndpoint", reflect.TypeOf((*MockApplicationPortRanges)(nil).ByEndpoint))
 }
 
+// ByUnit mocks base method.
+func (m *MockApplicationPortRanges) ByUnit() map[string]state.UnitPortRanges {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ByUnit")
+	ret0, _ := ret[0].(map[string]state.UnitPortRanges)
+	return ret0
+}
+
+// ByUnit indicates an expected call of ByUnit.
+func (mr *MockApplicationPortRangesMockRecorder) ByUnit() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ByUnit", reflect.TypeOf((*MockApplicationPortRanges)(nil).ByUnit))
+}
+
 // Changes mocks base method.
 func (m *MockApplicationPortRanges) Changes() state.ModelOperation {
 	m.ctrl.T.Helper()
@@ -77,70 +91,18 @@ func (mr *MockApplicationPortRangesMockRecorder) Changes() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Changes", reflect.TypeOf((*MockApplicationPortRanges)(nil).Changes))
 }
 
-// Close mocks base method.
-func (m *MockApplicationPortRanges) Close(arg0 string, arg1 network.PortRange) {
+// ForUnit mocks base method.
+func (m *MockApplicationPortRanges) ForUnit(arg0 string) state.UnitPortRanges {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Close", arg0, arg1)
-}
-
-// Close indicates an expected call of Close.
-func (mr *MockApplicationPortRangesMockRecorder) Close(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockApplicationPortRanges)(nil).Close), arg0, arg1)
-}
-
-// Open mocks base method.
-func (m *MockApplicationPortRanges) Open(arg0 string, arg1 network.PortRange) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Open", arg0, arg1)
-}
-
-// Open indicates an expected call of Open.
-func (mr *MockApplicationPortRangesMockRecorder) Open(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Open", reflect.TypeOf((*MockApplicationPortRanges)(nil).Open), arg0, arg1)
-}
-
-// Persisted mocks base method.
-func (m *MockApplicationPortRanges) Persisted() bool {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Persisted")
-	ret0, _ := ret[0].(bool)
+	ret := m.ctrl.Call(m, "ForUnit", arg0)
+	ret0, _ := ret[0].(state.UnitPortRanges)
 	return ret0
 }
 
-// Persisted indicates an expected call of Persisted.
-func (mr *MockApplicationPortRangesMockRecorder) Persisted() *gomock.Call {
+// ForUnit indicates an expected call of ForUnit.
+func (mr *MockApplicationPortRangesMockRecorder) ForUnit(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Persisted", reflect.TypeOf((*MockApplicationPortRanges)(nil).Persisted))
-}
-
-// Refresh mocks base method.
-func (m *MockApplicationPortRanges) Refresh() error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Refresh")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Refresh indicates an expected call of Refresh.
-func (mr *MockApplicationPortRangesMockRecorder) Refresh() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Refresh", reflect.TypeOf((*MockApplicationPortRanges)(nil).Refresh))
-}
-
-// Remove mocks base method.
-func (m *MockApplicationPortRanges) Remove() error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Remove")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Remove indicates an expected call of Remove.
-func (mr *MockApplicationPortRangesMockRecorder) Remove() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remove", reflect.TypeOf((*MockApplicationPortRanges)(nil).Remove))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ForUnit", reflect.TypeOf((*MockApplicationPortRanges)(nil).ForUnit), arg0)
 }
 
 // UniquePortRanges mocks base method.

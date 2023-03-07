@@ -23,6 +23,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/client/application"
+	"github.com/juju/juju/api/client/charms"
 	"github.com/juju/juju/api/client/resources"
 	commoncharm "github.com/juju/juju/api/common/charm"
 	app "github.com/juju/juju/apiserver/facades/client/application"
@@ -393,7 +394,7 @@ func (h *bundleHandler) resolveCharmChannelAndRevision(charmURL string, charmBas
 		return charmChannel, -1, nil
 	}
 	// If the charm URL already contains a revision, return that before
-	// attempting to resolve a revision from any charm store. We can ignore the
+	// attempting to resolve a revision from any charm repository. We can ignore the
 	// error here, as we want to just parse out the charm URL.
 	// Resolution and validation of the charm URL happens further down.
 	if curl, err := charm.ParseURL(charmURL); err == nil {
@@ -1285,7 +1286,7 @@ func (h *bundleHandler) upgradeCharmResources(chID application.CharmID, param bu
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	filtered, err := utils.GetUpgradeResources(chID.URL, resourceLister, param.Application, resMap, meta)
+	filtered, err := utils.GetUpgradeResources(chID, charms.NewClient(h.deployAPI), resourceLister, param.Application, resMap, meta)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
