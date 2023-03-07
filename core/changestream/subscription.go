@@ -3,9 +3,6 @@
 
 package changestream
 
-// Handler describes a function for handling a new ChangeEvent.
-type Handler = func(ChangeEvent)
-
 // Subscription is an interface that can be used to receive events from the
 // event queue and unsubscribe from the queue.
 type Subscription interface {
@@ -17,8 +14,7 @@ type Subscription interface {
 
 	// Done provides a way to know from the consumer side if the underlying
 	// subscription has been terminated. This is useful to know if the
-	// event queue has been killed. Ultimately this is tied to the event queue
-	// tomb.
+	// event queue has been killed.
 	Done() <-chan struct{}
 }
 
@@ -39,7 +35,7 @@ func (o SubscriptionOption) ChangeMask() ChangeType {
 	return o.changeMask
 }
 
-// FilterFn returns the filter function that the subscription will be for.
+// Filter returns the filter function that the subscription will be for.
 func (o SubscriptionOption) Filter() func(ChangeEvent) bool {
 	return o.filter
 }
