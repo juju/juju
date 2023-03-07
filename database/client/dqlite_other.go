@@ -8,20 +8,24 @@ package client
 import (
 	"context"
 	"net"
+
+	"github.com/juju/juju/database/dqlite"
 )
 
-type NodeInfo struct {
-	Address string
+type YamlNodeStore struct {
+	servers []dqlite.NodeInfo
 }
-
-type YamlNodeStore struct{}
 
 func NewYamlNodeStore(_ string) (*YamlNodeStore, error) {
 	return &YamlNodeStore{}, nil
 }
 
-func (s *YamlNodeStore) Get(_ context.Context) ([]NodeInfo, error) {
+func (s *YamlNodeStore) Get(context.Context) ([]dqlite.NodeInfo, error) {
 	return nil, nil
+}
+
+func (s *YamlNodeStore) Set(context.Context, []dqlite.NodeInfo) error {
+	return nil
 }
 
 // LogFunc is a function that can be used for logging.
