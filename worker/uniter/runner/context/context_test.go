@@ -839,8 +839,6 @@ func (s *mockHookContextSuite) TestOpenPortRange(c *gc.C) {
 
 	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.CAAS, s.mockLeadership)
 
-	s.mockLeadership.EXPECT().IsLeader().Return(true, nil)
-
 	s.mockUnit.EXPECT().CommitHookChanges(params.CommitHookChangesArgs{
 		Args: []params.CommitHookChangesArg{
 			{
@@ -864,12 +862,63 @@ func (s *mockHookContextSuite) TestOpenPortRange(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *mockHookContextSuite) TestOpenedPortRanges(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.mockUnit.EXPECT().CommitHookChanges(params.CommitHookChangesArgs{
+		Args: []params.CommitHookChangesArg{
+			{
+				Tag: "unit-wordpress-0",
+				OpenPorts: []params.EntityPortRange{
+					{
+						Tag:      "unit-wordpress-0",
+						Endpoint: "",
+						Protocol: "tcp",
+						FromPort: 8080,
+						ToPort:   8080,
+					},
+				},
+			},
+		},
+	}).Return(nil)
+
+	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.CAAS, s.mockLeadership)
+
+	err := hookContext.OpenPortRange("", network.MustParsePortRange("8080/tcp"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	// OpenedPortRanges() should return the pending requests, see
+	// https://bugs.launchpad.net/juju/+bug/2008035
+	openedPorts := hookContext.OpenedPortRanges()
+	expectedOpenPorts := []network.PortRange{
+		// Already present range from NewMockUnitHookContext()
+		{
+			FromPort: 666,
+			ToPort:   888,
+			Protocol: "tcp",
+		},
+		// Newly added but not yet flushed range
+		{
+			FromPort: 8080,
+			ToPort:   8080,
+			Protocol: "tcp",
+		},
+	}
+	c.Assert(openedPorts.UniquePortRanges(), gc.DeepEquals, expectedOpenPorts)
+
+	err = hookContext.Flush("success", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// After Flush() opened ports should remain the same.
+	openedPorts = hookContext.OpenedPortRanges()
+	c.Assert(openedPorts.UniquePortRanges(), gc.DeepEquals, expectedOpenPorts)
+}
+
 func (s *mockHookContextSuite) TestClosePortRange(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.CAAS, s.mockLeadership)
 
-	s.mockLeadership.EXPECT().IsLeader().Return(true, nil)
 	s.mockUnit.EXPECT().CommitHookChanges(params.CommitHookChangesArgs{
 		Args: []params.CommitHookChangesArg{
 			{
@@ -891,32 +940,6 @@ func (s *mockHookContextSuite) TestClosePortRange(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = hookContext.Flush("success", nil)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *mockHookContextSuite) TestOpenPortRangeFailedForNonLeaderUnit(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.CAAS, s.mockLeadership)
-
-	s.mockLeadership.EXPECT().IsLeader().Return(false, nil)
-
-	err := hookContext.OpenPortRange("", network.MustParsePortRange("8080/tcp"))
-	c.Assert(err, jc.ErrorIsNil)
-	err = hookContext.Flush("success", nil)
-	c.Assert(err, gc.ErrorMatches, `this unit is not the leader`)
-}
-
-func (s *mockHookContextSuite) TestClosePortRangeFailedForNonLeaderUnit(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.CAAS, s.mockLeadership)
-
-	s.mockLeadership.EXPECT().IsLeader().Return(false, nil)
-
-	err := hookContext.ClosePortRange("", network.MustParsePortRange("8080/tcp"))
-	c.Assert(err, jc.ErrorIsNil)
-	err = hookContext.Flush("success", nil)
-	c.Assert(err, gc.ErrorMatches, `this unit is not the leader`)
 }
 
 func (s *mockHookContextSuite) setupMocks(c *gc.C) *gomock.Controller {

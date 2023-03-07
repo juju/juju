@@ -87,12 +87,12 @@ func (s *firewallerSidecarSuite) TestWatchOpenedPorts(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }
 
-func (s *firewallerSidecarSuite) TestGetApplicationOpenedPorts(c *gc.C) {
+func (s *firewallerSidecarSuite) TestGetOpenedPorts(c *gc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, s.objType)
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "GetApplicationOpenedPorts")
+		c.Check(request, gc.Equals, "GetOpenedPorts")
 		c.Check(arg, jc.DeepEquals, params.Entity{Tag: "application-gitlab"})
 		c.Assert(result, gc.FitsTypeOf, &params.ApplicationOpenedPortsResults{})
 		*(result.(*params.ApplicationOpenedPortsResults)) = params.ApplicationOpenedPortsResults{
@@ -114,7 +114,7 @@ func (s *firewallerSidecarSuite) TestGetApplicationOpenedPorts(c *gc.C) {
 	})
 
 	client := caasfirewaller.NewClientSidecar(apiCaller)
-	result, err := client.GetApplicationOpenedPorts("gitlab")
+	result, err := client.GetOpenedPorts("gitlab")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, network.GroupedPortRanges{
 		"": []network.PortRange{

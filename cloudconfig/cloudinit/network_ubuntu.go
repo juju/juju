@@ -138,9 +138,11 @@ func GenerateENITemplate(interfaces corenetwork.InterfaceInfos) (string, error) 
 	return generatedConfig, nil
 }
 
-// GenerateNetplan renders a netplan file for one or more network
-// interfaces, using the given non-empty list of interfaces.
-func GenerateNetplan(interfaces corenetwork.InterfaceInfos) (string, error) {
+// GenerateNetplan renders a netplan file for the input non-empty collection
+// of interfaces.
+// The matchHWAddr argument indicates whether to add a match stanza for the
+// MAC address to each device.
+func GenerateNetplan(interfaces corenetwork.InterfaceInfos, matchHWAddr bool) (string, error) {
 	if len(interfaces) == 0 {
 		return "", errors.Errorf("missing container network config")
 	}
@@ -183,6 +185,11 @@ func GenerateNetplan(interfaces corenetwork.InterfaceInfos) (string, error) {
 		if info.MTU != 0 && info.MTU != 1500 {
 			iface.MTU = info.MTU
 		}
+
+		if matchHWAddr && info.MACAddress != "" {
+			iface.Match = map[string]string{"macaddress": info.MACAddress}
+		}
+
 		for _, route := range info.Routes {
 			route := netplan.Route{
 				To:     route.DestinationCIDR,
@@ -305,7 +312,7 @@ func PrepareNetworkConfigFromInterfaces(interfaces corenetwork.InterfaceInfos) (
 }
 
 // AddNetworkConfig adds configuration scripts for specified interfaces
-// to cloudconfig - using boot textfiles and boot commands. It currently
+// to cloudconfig - using boot text files and boot commands. It currently
 // supports e/n/i and netplan.
 func (cfg *ubuntuCloudConfig) AddNetworkConfig(interfaces corenetwork.InterfaceInfos) error {
 	if len(interfaces) != 0 {
@@ -313,7 +320,7 @@ func (cfg *ubuntuCloudConfig) AddNetworkConfig(interfaces corenetwork.InterfaceI
 		if err != nil {
 			return errors.Trace(err)
 		}
-		netPlan, err := GenerateNetplan(interfaces)
+		netPlan, err := GenerateNetplan(interfaces, !cfg.omitNetplanHWAddrMatch)
 		if err != nil {
 			return errors.Trace(err)
 		}

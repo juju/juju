@@ -11,6 +11,7 @@ import (
 	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	"github.com/juju/juju/apiserver/facades/controller/caasfirewaller"
 	"github.com/juju/juju/core/config"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 )
@@ -73,7 +74,7 @@ type mockApplication struct {
 	watcher      state.NotifyWatcher
 
 	charm         mockCharm
-	appPortRanges state.ApplicationPortRanges
+	appPortRanges network.GroupedPortRanges
 }
 
 func (a *mockApplication) Life() state.Life {
@@ -96,7 +97,7 @@ func (a *mockApplication) Watch() state.NotifyWatcher {
 	return a.watcher
 }
 
-func (a *mockApplication) OpenedPortRanges() (state.ApplicationPortRanges, error) {
+func (a *mockApplication) OpenedPortRanges() (network.GroupedPortRanges, error) {
 	a.MethodCall(a, "OpenedPortRanges")
 	return a.appPortRanges, nil
 }

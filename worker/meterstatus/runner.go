@@ -87,6 +87,8 @@ func (w *hookRunner) RunHook(code, info string, interrupt <-chan struct{}) {
 	switch {
 	case charmrunner.IsMissingHookError(cause):
 		w.logger.Infof("skipped %q hook (missing)", string(hooks.MeterStatusChanged))
+	case cause == runner.ErrTerminated:
+		w.logger.Warningf("%q hook was terminated", hooks.MeterStatusChanged)
 	case err != nil:
 		w.logger.Errorf("error running %q: %v", hooks.MeterStatusChanged, err)
 	default:

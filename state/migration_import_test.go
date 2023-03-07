@@ -471,11 +471,29 @@ func (s *MigrationImportSuite) TestMachinePortOps(c *gc.C) {
 	c.Assert(ops[0].Id, gc.Equals, "3")
 }
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/description_mock.go github.com/juju/description/v4 Machine,MachinePortRanges,UnitPortRanges
+func (s *MigrationImportSuite) ApplicationPortOps(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	mockApplication := mocks.NewMockApplication(ctrl)
+	mockApplicationPortRanges := mocks.NewMockPortRanges(ctrl)
+
+	aExp := mockApplication.EXPECT()
+	aExp.Name().Return("gitlab")
+	aExp.OpenedPortRanges().Return(mockApplicationPortRanges)
+
+	opExp := mockApplicationPortRanges.EXPECT()
+	opExp.ByUnit().Return(nil)
+
+	ops, err := state.ApplicationPortOps(s.State, mockApplication)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ops, gc.HasLen, 1)
+	c.Assert(ops[0].Id, gc.Equals, "gitlab")
+}
+
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/description_mock.go github.com/juju/description/v4 Application,Machine,PortRanges,UnitPortRanges
 func setupMockOpenedPortRanges(c *gc.C, mID string) (*gomock.Controller, *mocks.MockMachine) {
 	ctrl := gomock.NewController(c)
 	mockMachine := mocks.NewMockMachine(ctrl)
-	mockMachinePortRanges := mocks.NewMockMachinePortRanges(ctrl)
+	mockMachinePortRanges := mocks.NewMockPortRanges(ctrl)
 
 	mExp := mockMachine.EXPECT()
 	mExp.Id().Return(mID)

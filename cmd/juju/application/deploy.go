@@ -384,16 +384,16 @@ or channel can optionally be specified:
   juju deploy ch:postgresql --channel edge
   juju deploy ch:ubuntu --revision 17 --channel edge
 
-All the above deployments use remote charms found in Charm Hub, denoted by the
-'ch:' prefix.  Remote charms with no prefix will be deployed from Charm Hub.
+All the above deployments use remote charms found in Charmhub, denoted by the
+'ch:' prefix.  Remote charms with no prefix will be deployed from Charmhub.
 
 If a channel is specified, it will be used as the source for looking up the
-charm or bundle from Charm Hub. When used in a bundle deployment context,
+charm or bundle from Charmhub. When used in a bundle deployment context,
 the specified channel is only used for retrieving the bundle and is ignored when
 looking up the charms referenced by the bundle. However, each charm within a
 bundle is allowed to explicitly specify the channel used to look it up.
 
-If a revision is specified, a channel must also be specified for Charm Hub charms
+If a revision is specified, a channel must also be specified for Charmhub charms
 and bundles.  The charm will be deployed with revision.  The channel will be used
 when refreshing the application in the future.
 
@@ -628,7 +628,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.UnitCommandBase.SetFlags(f)
 	c.ModelCommandBase.SetFlags(f)
 	f.IntVar(&c.NumUnits, "n", 1, "Number of application units to deploy for principal charms")
-	f.StringVar(&c.channelStr, "channel", "", "Channel to use when deploying a charm or bundle from the charm store, or charm hub")
+	f.StringVar(&c.channelStr, "channel", "", "Channel to use when deploying a charm or bundle from Charmhub")
 	f.Var(&c.ConfigOptions, "config", "Either a path to yaml-formatted application config file or a key=value pair ")
 
 	f.BoolVar(&c.Trust, "trust", false, "Allows charm to run hooks that require access credentials")

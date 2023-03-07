@@ -10,7 +10,6 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	crossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	crossmodel0 "github.com/juju/juju/core/crossmodel"
-	firewall "github.com/juju/juju/core/network/firewall"
 	permission "github.com/juju/juju/core/permission"
 	params "github.com/juju/juju/rpc/params"
 	state "github.com/juju/juju/state"
@@ -180,21 +179,6 @@ func (m *MockRemoteRelationsState) ExportLocalEntity(arg0 names.Tag) (string, er
 func (mr *MockRemoteRelationsStateMockRecorder) ExportLocalEntity(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExportLocalEntity", reflect.TypeOf((*MockRemoteRelationsState)(nil).ExportLocalEntity), arg0)
-}
-
-// FirewallRule mocks base method.
-func (m *MockRemoteRelationsState) FirewallRule(arg0 firewall.WellKnownServiceType) (*state.FirewallRule, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FirewallRule", arg0)
-	ret0, _ := ret[0].(*state.FirewallRule)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// FirewallRule indicates an expected call of FirewallRule.
-func (mr *MockRemoteRelationsStateMockRecorder) FirewallRule(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FirewallRule", reflect.TypeOf((*MockRemoteRelationsState)(nil).FirewallRule), arg0)
 }
 
 // GetOfferAccess mocks base method.

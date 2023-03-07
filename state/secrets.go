@@ -1586,16 +1586,26 @@ func (w *consumedSecretsWatcher) Changes() <-chan []string {
 	return w.out
 }
 
-func (w *consumedSecretsWatcher) initial() error {
+func (w *consumedSecretsWatcher) initial() ([]string, error) {
 	var doc secretConsumerDoc
 	secretConsumersCollection, closer := w.db.GetCollection(secretConsumersC)
 	defer closer()
 
+	var ids []string
 	iter := secretConsumersCollection.Find(bson.D{{"consumer-tag", w.consumer}}).Iter()
 	for iter.Next(&doc) {
 		w.knownRevisions[doc.DocID] = doc.LatestRevision
+		if doc.LatestRevision < 2 {
+			continue
+		}
+		uriStr := strings.Split(w.backend.localID(doc.DocID), "#")[0]
+		uri, err := secrets.ParseURI(uriStr)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ids = append(ids, uri.String())
 	}
-	return errors.Trace(iter.Close())
+	return ids, errors.Trace(iter.Close())
 }
 
 func (w *consumedSecretsWatcher) merge(currentChanges []string, change watcher.Change) ([]string, error) {
@@ -1653,11 +1663,11 @@ func (w *consumedSecretsWatcher) loop() (err error) {
 	w.watcher.WatchCollectionWithFilter(secretConsumersC, ch, filter)
 	defer w.watcher.UnwatchCollection(secretConsumersC, ch)
 
-	if err = w.initial(); err != nil {
+	changes, err := w.initial()
+	if err != nil {
 		return errors.Trace(err)
 	}
 
-	var changes []string
 	out := w.out
 	for {
 		select {
