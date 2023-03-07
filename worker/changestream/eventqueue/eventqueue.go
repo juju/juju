@@ -96,18 +96,15 @@ func (s *subscription) loop() error {
 	}
 }
 
-// signal returns the channel that events will be sent on (signalled). It
-// checks that the subscription is not already dying, before passing back the
-// changes channel. This prevents a panic if you attempt to signal a dying
-// subscription.
-func (s *subscription) signal() chan<- changestream.ChangeEvent {
+// signal will dispatch a change event to the subscription. If the subscription
+// is not active, the change will be dropped.
+func (s *subscription) signal(change changestream.ChangeEvent) {
 	select {
 	case <-s.tomb.Dying():
-		return nil
+		return
 	case <-s.active:
-		return nil
-	default:
-		return s.changes
+		return
+	case s.changes <- change:
 	}
 }
 
@@ -245,14 +242,7 @@ func (q *EventQueue) loop() error {
 
 			subs := q.gatherSubscriptions(event)
 			for _, sub := range subs {
-				// Ensure we check tomb dying as the handling logic is
-				// synchronous and blocking. This is to effectively handle
-				// back pressure on the stream.
-				select {
-				case <-q.catacomb.Dying():
-					return q.catacomb.ErrDying()
-				case sub.signal() <- event:
-				}
+				sub.signal(event)
 			}
 
 		case subOpt := <-q.subscriptionCh:
