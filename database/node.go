@@ -27,8 +27,9 @@ import (
 )
 
 const (
-	dqliteDataDir = "dqlite"
-	dqlitePort    = 17666
+	dqliteBootstrapBindIP = "127.0.0.1"
+	dqliteDataDir         = "dqlite"
+	dqlitePort            = 17666
 )
 
 // DefaultBindAddress is the address that will *always* be returned by
@@ -84,7 +85,7 @@ func (m *NodeManager) IsBootstrappedNode(ctx context.Context) (bool, error) {
 		return false, nil
 	}
 
-	return strings.HasPrefix(servers[0].Address, "127.0.0.1"), nil
+	return strings.HasPrefix(servers[0].Address, dqliteBootstrapBindIP), nil
 }
 
 // IsExistingNode returns true if this machine or container has
@@ -132,6 +133,12 @@ func (m *NodeManager) WithLogFuncOption() app.Option {
 			m.logger.Logf(actualLevel, msg, args...)
 		}
 	})
+}
+
+// WithLoopbackAddressOption returns a Dqlite application
+// Option that will bind Dqlite to the loopback IP.
+func (m *NodeManager) WithLoopbackAddressOption() app.Option {
+	return app.WithAddress(fmt.Sprintf("%s:%d", dqliteBootstrapBindIP, m.port))
 }
 
 // WithAddressOption returns a Dqlite application Option
