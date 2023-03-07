@@ -23,6 +23,7 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/database/app"
 	"github.com/juju/juju/database/client"
+	"github.com/juju/juju/database/dqlite"
 	"github.com/juju/juju/network"
 )
 
@@ -30,6 +31,7 @@ const (
 	dqliteBootstrapBindIP = "127.0.0.1"
 	dqliteDataDir         = "dqlite"
 	dqlitePort            = 17666
+	dqliteClusterFileName = "cluster.yaml"
 )
 
 // DefaultBindAddress is the address that will *always* be returned by
@@ -72,13 +74,9 @@ func (m *NodeManager) IsBootstrappedNode(ctx context.Context) (bool, error) {
 		return false, nil
 	}
 
-	store, err := m.nodeClusterStore()
+	servers, err := m.ClusterServers(ctx)
 	if err != nil {
 		return false, errors.Trace(err)
-	}
-	servers, err := store.Get(ctx)
-	if err != nil {
-		return false, errors.Annotate(err, "retrieving servers from Dqlite node store")
 	}
 
 	if len(servers) != 1 {
@@ -123,6 +121,17 @@ func (m *NodeManager) EnsureDataDir() (string, error) {
 		m.dataDir = dir
 	}
 	return m.dataDir, nil
+}
+
+// ClusterServers returns the node information for
+// Dqlite nodes configured to be in the cluster.
+func (m *NodeManager) ClusterServers(ctx context.Context) ([]dqlite.NodeInfo, error) {
+	store, err := m.nodeClusterStore()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	servers, err := store.Get(ctx)
+	return servers, errors.Annotate(err, "retrieving servers from Dqlite node store")
 }
 
 // WithLogFuncOption returns a Dqlite application Option that will proxy Dqlite
@@ -225,7 +234,7 @@ func (m *NodeManager) WithClusterOption() (app.Option, error) {
 // nodeClusterStore returns a YamlNodeStore instance based
 // on the cluster.yaml file in the Dqlite data directory.
 func (m *NodeManager) nodeClusterStore() (*client.YamlNodeStore, error) {
-	store, err := client.NewYamlNodeStore(path.Join(m.dataDir, "cluster.yaml"))
+	store, err := client.NewYamlNodeStore(path.Join(m.dataDir, dqliteClusterFileName))
 	return store, errors.Annotate(err, "opening Dqlite cluster node store")
 }
 

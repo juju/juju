@@ -96,7 +96,7 @@ func (s *nodeManagerSuite) TestIsBootstrappedNode(c *gc.C) {
 	dataDir, err := m.EnsureDataDir()
 	c.Assert(err, jc.ErrorIsNil)
 
-	clusterFile := path.Join(dataDir, "cluster.yaml")
+	clusterFile := path.Join(dataDir, dqliteClusterFileName)
 
 	// Multiple nodes indicates the cluster has mutated since bootstrap.
 	data := `
