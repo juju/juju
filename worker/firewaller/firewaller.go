@@ -49,7 +49,6 @@ type FirewallerAPI interface {
 	ControllerAPIInfoForModel(modelUUID string) (*api.Info, error)
 	MacaroonForRelation(relationKey string) (*macaroon.Macaroon, error)
 	SetRelationStatus(relationKey string, status relation.Status, message string) error
-	FirewallRules(applicationNames ...string) ([]params.FirewallRule, error)
 	AllSpaceInfos() (network.SpaceInfos, error)
 	WatchSubnets() (watcher.StringsWatcher, error)
 }
@@ -943,7 +942,7 @@ func (fw *Firewaller) ingressRulesForExposedMachineUnit(machine *machineData, un
 }
 
 // TODO(wallyworld) - consider making this configurable.
-const maxAllowedCIDRS = 20
+const maxAllowedCIDRS = 30
 
 func (fw *Firewaller) updateForRemoteRelationIngress(appTag names.ApplicationTag) (set.Strings, error) {
 	fw.logger.Debugf("finding egress rules for %v", appTag)
@@ -973,26 +972,9 @@ func (fw *Firewaller) updateForRemoteRelationIngress(appTag names.ApplicationTag
 		cidrs = set.NewStrings(merged...)
 	}
 
-	// If there's still too many after merging, look for any firewall whitelist.
+	// If there's still too many after merging, fall back to making public.
 	if cidrs.Size() > maxAllowedCIDRS {
-		cidrs = make(set.Strings)
-		rules, err := fw.firewallerApi.FirewallRules("juju-application-offer")
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if len(rules) > 0 {
-			rule := rules[0]
-			if len(rule.WhitelistCIDRS) > 0 {
-				for _, cidr := range rule.WhitelistCIDRS {
-					cidrs.Add(cidr)
-				}
-			}
-		}
-		// No relevant firewall rule exists, so go public.
-		if cidrs.Size() == 0 {
-			cidrs.Add(firewall.AllNetworksIPV4CIDR)
-			cidrs.Add(firewall.AllNetworksIPV6CIDR)
-		}
+		cidrs = set.NewStrings(firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR)
 	}
 
 	return cidrs, nil

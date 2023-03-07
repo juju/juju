@@ -221,35 +221,6 @@ func (s *firewallerSuite) TestSetRelationStatus(c *gc.C) {
 	c.Check(callCount, gc.Equals, 1)
 }
 
-func (s *firewallerSuite) TestFirewallRules(c *gc.C) {
-	var callCount int
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "Firewaller")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "FirewallRules")
-		c.Assert(arg, gc.DeepEquals, params.KnownServiceArgs{
-			KnownServices: []params.KnownServiceValue{
-				params.JujuApplicationOfferRule, params.JujuControllerRule,
-			},
-		})
-		c.Assert(result, gc.FitsTypeOf, &params.ListFirewallRulesResults{})
-		*(result.(*params.ListFirewallRulesResults)) = params.ListFirewallRulesResults{
-			Rules: []params.FirewallRule{
-				{KnownService: params.JujuApplicationOfferRule, WhitelistCIDRS: []string{"10.0.0.0/16"}},
-			},
-		}
-		callCount++
-		return nil
-	})
-	client, err := firewaller.NewClient(apiCaller)
-	c.Assert(err, jc.ErrorIsNil)
-	result, err := client.FirewallRules("juju-application-offer", "juju-controller")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.HasLen, 1)
-	c.Check(callCount, gc.Equals, 1)
-}
-
 func (s *firewallerSuite) TestAllSpaceInfos(c *gc.C) {
 	expSpaceInfos := network.SpaceInfos{
 		{

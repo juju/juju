@@ -274,6 +274,10 @@ const (
 	// different state.
 	ModeKey = "mode"
 
+	// SSHAllowListKey is a common separated list of CIDRs to allow ingress from
+	// to the ssh service on machines in this model
+	SSHAllowListKey = "ssh-allowlist"
+
 	//
 	// Deprecated Settings Attributes
 	//
@@ -604,6 +608,9 @@ var defaultConfigValues = map[string]interface{}{
 	MaxActionResultsAge:  DefaultActionResultsAge,
 	MaxActionResultsSize: DefaultActionResultsSize,
 
+	// SSH access settings
+	SSHAllowListKey: "0.0.0.0/0",
+
 	// Secret settings.
 	SecretBackendKey: DefaultSecretBackend,
 }
@@ -857,6 +864,10 @@ func Validate(cfg, old *Config) error {
 	}
 
 	if err := cfg.validateMode(); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := cfg.validateSSHAllowList(); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -1522,6 +1533,27 @@ func (c *Config) validateMode() error {
 	return nil
 }
 
+func (c *Config) SSHAllowList() []string {
+	allowList, ok := c.defined[SSHAllowListKey].(string)
+	if !ok {
+		return []string{"0.0.0.0/0"}
+	}
+	if allowList == "" {
+		return []string{}
+	}
+	return strings.Split(allowList, ",")
+}
+
+func (c *Config) validateSSHAllowList() error {
+	cidrs := c.SSHAllowList()
+	for _, cidr := range cidrs {
+		if _, _, err := net.ParseCIDR(cidr); err != nil {
+			return errors.NotValidf("SSH allow list cidr %q", cidr)
+		}
+	}
+	return nil
+}
+
 // LoggingOutput is a for determining the destination of output for
 // logging.
 func (c *Config) LoggingOutput() ([]string, bool) {
@@ -1816,6 +1848,7 @@ var alwaysOptional = schema.Defaults{
 	TestModeKey:                     schema.Omit,
 	DisableTelemetryKey:             schema.Omit,
 	ModeKey:                         schema.Omit,
+	SSHAllowListKey:                 schema.Omit,
 	TransmitVendorMetricsKey:        schema.Omit,
 	NetBondReconfigureDelayKey:      schema.Omit,
 	ContainerNetworkingMethod:       schema.Omit,
@@ -2290,6 +2323,12 @@ mode the model should run in. So far only one is implemented
 - If 'requires-prompts' is present, clients will ask for confirmation before removing
 potentially valuable resources.
 (default "")`,
+		Type:  environschema.Tstring,
+		Group: environschema.EnvironGroup,
+	},
+	SSHAllowListKey: {
+		Description: `SSH allow list is a comma-separated list of cidrs from
+which machines in this model will accept connections to the SSH service`,
 		Type:  environschema.Tstring,
 		Group: environschema.EnvironGroup,
 	},
