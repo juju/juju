@@ -32,6 +32,11 @@ type mockOpFactory struct {
 	op mockOp
 }
 
+func (f *mockOpFactory) NewInstall(charmURL string) (operation.Operation, error) {
+	f.MethodCall(f, "NewInstall", charmURL)
+	return f.op, f.NextErr()
+}
+
 func (f *mockOpFactory) NewUpgrade(charmURL string) (operation.Operation, error) {
 	f.MethodCall(f, "NewUpgrade", charmURL)
 	return f.op, f.NextErr()
