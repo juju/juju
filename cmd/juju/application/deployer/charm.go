@@ -20,6 +20,7 @@ import (
 	app "github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/common"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
@@ -418,18 +419,19 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 		}
 	}
 
-	selector := seriesSelector{
-		charmURLSeries:      userRequestedURL.Series,
-		seriesFlag:          seriesFlag,
-		supportedSeries:     supportedSeries,
-		supportedJujuSeries: workloadSeries,
-		force:               c.force,
-		conf:                modelCfg,
-		fromBundle:          false,
+	selector := corecharm.SeriesSelector{
+		CharmURLSeries:      userRequestedURL.Series,
+		SeriesFlag:          seriesFlag,
+		SupportedSeries:     supportedSeries,
+		SupportedJujuSeries: workloadSeries,
+		Force:               c.force,
+		Conf:                modelCfg,
+		FromBundle:          false,
+		Logger:              logger,
 	}
 
 	// Get the series to use.
-	series, err := selector.charmSeries()
+	series, err := selector.CharmSeries()
 	logger.Tracef("Using series %q from %v to deploy %v", series, supportedSeries, userRequestedURL)
 
 	imageStream := modelCfg.ImageStream()
