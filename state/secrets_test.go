@@ -1965,6 +1965,15 @@ func (s *SecretsConsumedWatcherSuite) SetUpTest(c *gc.C) {
 	s.owner = s.Factory.MakeApplication(c, nil)
 }
 
+func (s *SecretsConsumedWatcherSuite) TestWatcherInitialEvent(c *gc.C) {
+	w, err := s.State.WatchConsumedSecretsChanges(names.NewUnitTag("mariadb/0"))
+	c.Assert(err, jc.ErrorIsNil)
+	wc := testing.NewStringsWatcherC(c, w)
+	wc.AssertChange()
+
+	testing.AssertStop(c, w)
+}
+
 func (s *SecretsConsumedWatcherSuite) setupWatcher(c *gc.C) (state.StringsWatcher, *secrets.URI) {
 	uri := secrets.NewURI()
 	cp := state.CreateSecretParams{
@@ -1977,16 +1986,41 @@ func (s *SecretsConsumedWatcherSuite) setupWatcher(c *gc.C) (state.StringsWatche
 	}
 	_, err := s.store.CreateSecret(uri, cp)
 	c.Assert(err, jc.ErrorIsNil)
+
+	uri2 := secrets.NewURI()
+	cp = state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
+		},
+	}
+	_, err = s.store.CreateSecret(uri2, cp)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.store.UpdateSecret(uri2, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		Data:        secrets.SecretData{"foo": "bar2"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.SaveSecretConsumer(uri, names.NewUnitTag("mariadb/0"), &secrets.SecretConsumerMetadata{
+		CurrentRevision: 1,
+		LatestRevision:  1,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.SaveSecretConsumer(uri2, names.NewUnitTag("mariadb/0"), &secrets.SecretConsumerMetadata{
+		CurrentRevision: 1,
+		LatestRevision:  2,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
 	w, err := s.State.WatchConsumedSecretsChanges(names.NewUnitTag("mariadb/0"))
 	c.Assert(err, jc.ErrorIsNil)
-
 	wc := testing.NewStringsWatcherC(c, w)
-	wc.AssertChange()
 
-	err = s.State.SaveSecretConsumer(uri, names.NewUnitTag("mariadb/0"), &secrets.SecretConsumerMetadata{CurrentRevision: 1})
-	c.Assert(err, jc.ErrorIsNil)
-	// No event until rev > 1.
-	wc.AssertNoChange()
+	// No event until rev > 1, so just the one change.
+	wc.AssertChange(uri2.String())
 	return w, uri
 }
 
