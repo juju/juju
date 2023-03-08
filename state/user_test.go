@@ -495,7 +495,7 @@ func (s *UserSuite) TestAllUsers(c *gc.C) {
 }
 
 func (s *UserSuite) TestAddDeletedUser(c *gc.C) {
-	s.Factory.MakeUser(c, &factory.UserParams{Name: "bob"})
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "bob", DisplayName: "displayname"})
 
 	_ = s.State.RemoveUser(names.NewUserTag("bob"))
 
