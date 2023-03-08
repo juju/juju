@@ -58,31 +58,25 @@ func (ss *StatefulSet) Apply(ctx context.Context, client kubernetes.Interface) (
 		}
 	}()
 
-	result, err = api.Create(ctx, &ss.StatefulSet, metav1.CreateOptions{
-		FieldManager: JujuFieldManager,
-	})
-	if k8serrors.IsAlreadyExists(err) {
-		// Continue to patch.
-	} else if err != nil {
-		return errors.Trace(err)
-	} else {
-		return nil
-	}
-
 	existing, err := api.Get(ctx, ss.Name, metav1.GetOptions{})
+	if k8serrors.IsNotFound(err) {
+		result, err = api.Create(ctx, &ss.StatefulSet, metav1.CreateOptions{
+			FieldManager: JujuFieldManager,
+		})
+		return errors.Trace(err)
+	}
 	if err != nil {
 		return errors.Trace(err)
 	}
 
+	// Statefulset only allows updates to the following fields under ".Spec":
+	// 'replicas', 'template', 'updateStrategy', 'persistentVolumeClaimRetentionPolicy' and 'minReadySeconds'.
 	existing.SetAnnotations(ss.GetAnnotations())
 	existing.Spec.Replicas = ss.Spec.Replicas
 	existing.Spec.UpdateStrategy = ss.Spec.UpdateStrategy
-	existing.Spec.Template.Spec.Volumes = ss.Spec.Template.Spec.Volumes
-	existing.Spec.Template.SetAnnotations(ss.Spec.Template.GetAnnotations())
-	existing.Spec.Template.Spec.Containers = ss.Spec.Template.Spec.Containers
-	existing.Spec.Template.Spec.ServiceAccountName = ss.Spec.Template.Spec.ServiceAccountName
-	existing.Spec.Template.Spec.AutomountServiceAccountToken = ss.Spec.Template.Spec.AutomountServiceAccountToken
-	// NB: we can't update the Spec.ServiceName as it is immutable.
+	existing.Spec.PersistentVolumeClaimRetentionPolicy = ss.Spec.PersistentVolumeClaimRetentionPolicy
+	existing.Spec.MinReadySeconds = ss.Spec.MinReadySeconds
+	existing.Spec.Template = ss.Spec.Template
 
 	data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, existing)
 	if err != nil {
