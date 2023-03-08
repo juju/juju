@@ -49,7 +49,7 @@ func (s *usermanagerSuite) TestAddExistingUser(c *gc.C) {
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar"})
 
 	_, _, err := s.usermanager.AddUser("foobar", "Foo Bar", "password")
-	c.Assert(err, gc.ErrorMatches, "failed to create user: username unavailable")
+	c.Assert(err, gc.ErrorMatches, "failed to create user: the user already exists")
 }
 
 func (s *usermanagerSuite) TestAddUserResponseError(c *gc.C) {

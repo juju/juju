@@ -85,7 +85,7 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 			// the user was deleted, we update it
 			return st.updateExistingUser(foundUser, displayName, password, creator, secretKey)
 		} else {
-			return nil, errors.New("user already exists")
+			return nil, errors.New("the user already exists")
 		}
 	}
 

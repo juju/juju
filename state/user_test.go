@@ -442,7 +442,7 @@ func (s *UserSuite) TestCaseSensitiveUsersErrors(c *gc.C) {
 
 	_, err := s.State.AddUser(
 		"boB", "ignored", "ignored", "ignored")
-	c.Assert(err, gc.ErrorMatches, "username unavailable")
+	c.Assert(err, gc.ErrorMatches, "the user already exists")
 }
 
 func (s *UserSuite) TestCaseInsensitiveLookup(c *gc.C) {
@@ -495,7 +495,7 @@ func (s *UserSuite) TestAllUsers(c *gc.C) {
 }
 
 func (s *UserSuite) TestAddDeletedUser(c *gc.C) {
-	s.Factory.MakeUser(c, &factory.UserParams{Name: "Bob"})
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "bob"})
 
 	_ = s.State.RemoveUser(names.NewUserTag("bob"))
 
