@@ -77,12 +77,20 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 	}
 	lowercaseName := strings.ToLower(name)
 
-	if _, err := st.User(names.NewUserTag(name)); err != nil && !errors.IsNotFound(err) && !IsDeletedUserError(err) {
-		if !IsDeletedUserError(err) {
-			return nil, errors.Annotate(err, "cannot reuse name")
+	foundUser := &User{st: st}
+	err := st.getUser(names.NewUserTag(name).Name(), &foundUser.doc)
+	// No error, the user is already there
+	if err == nil {
+		if foundUser.doc.Deleted {
+			// the user was deleted, we update it
+			return st.updateExistingUser(foundUser, displayName, password, creator, secretKey)
 		} else {
-			return st.updateExistingUser(name, displayName, password, creator, secretKey)
+			return nil, errors.New("user already exists")
 		}
+	}
+
+	// There is an error different from not found
+	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
 
@@ -123,7 +131,7 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 		defaultControllerPermission)
 	ops = append(ops, controllerUserOps...)
 
-	err := st.db().RunTransaction(ops)
+	err = st.db().RunTransaction(ops)
 	if err != nil {
 		if err == txn.ErrAborted {
 			err = errors.Errorf("username unavailable")
@@ -136,14 +144,15 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 // updateExistingUser manipulates the values of an existing user in the db.
 // This is particularly useful when reusing existing users that were previously
 // deleted.
-func (st *State) updateExistingUser(name, displayName, password, creator string, secretKey []byte) (*User, error) {
+func (st *State) updateExistingUser(u *User, displayName, password, creator string, secretKey []byte) (*User, error) {
 
+	dateCreated := st.nowToTheSecond()
 	// update the password
-	updatePassword := bson.D{{"$set", bson.D{
-		{"delete", false},
+	updateUser := bson.D{{"$set", bson.D{
+		{"deleted", false},
 		{"displayName", displayName},
 		{"creator", creator},
-		{"dateCreated", st.nowToTheSecond()},
+		{"dateCreated", dateCreated},
 	}}}
 
 	if password != "" {
@@ -151,34 +160,45 @@ func (st *State) updateExistingUser(name, displayName, password, creator string,
 		if err != nil {
 			return nil, err
 		}
-		updatePassword = append(updatePassword,
+		updateUser = append(updateUser,
 			bson.DocElem{"$set", bson.D{
 				{"passwordhash", utils.UserPasswordHash(password, salt)},
 				{"passwordsalt", salt},
 			}},
 		)
 	}
-	// set the permission to default
-	updateUserAccess := updatePermissionOp(st.ControllerUUID(), userGlobalKey(userAccessID(names.NewUserTag(name))), defaultControllerPermission)
+	// remove previous controller permissions
+	removeControllerOps := removeControllerUserOps(st.ControllerUUID(), u.UserTag())
+
+	// create default new ones
+	createControllerOps := createControllerUserOps(st.ControllerUUID(),
+		u.UserTag(),
+		names.NewUserTag(creator),
+		displayName,
+		dateCreated,
+		defaultControllerPermission)
 
 	updateUserOps := []txn.Op{{
 		C:      usersC,
-		Id:     strings.ToLower(name),
+		Id:     strings.ToLower(u.Name()),
 		Assert: txn.DocExists,
-		Update: updatePassword,
-	}, updateUserAccess}
+		Update: updateUser,
+	}}
+	updateUserOps = append(updateUserOps, removeControllerOps...)
+	updateUserOps = append(updateUserOps, createControllerOps...)
 
-	if err := st.db().RunTransaction(updateUserOps); err != nil {
+	logger.Infof("%s", updateUserOps)
+
+	if err := u.st.db().RunTransaction(updateUserOps); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	// recreate the user object to return
-	user := User{st: st}
-	if _, err := st.User(names.NewUserTag(name)); err != nil {
-		return nil, errors.Annotatef(err, "problems adding user %s", name)
+	if err := u.Refresh(); err != nil {
+		return nil, errors.Annotate(err, "error refreshing user data")
 	}
 
-	return &user, nil
+	return u, nil
 }
 
 // RemoveUser marks the user as deleted. This obviates the ability of a user
