@@ -16,6 +16,10 @@ import (
 	"sort"
 	"strings"
 
+	// Note that this is a deliberate use of the same YAML dependency
+	// as go-dqlite. It preserves files as written by that library,
+	// whereas gopkg.in/yaml.v3 does not.
+	"github.com/ghodss/yaml"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
@@ -148,6 +152,18 @@ func (m *NodeManager) SetClusterServers(ctx context.Context, servers []dqlite.No
 	}
 
 	return errors.Annotate(store.Set(ctx, servers), "writing servers to Dqlite node store")
+}
+
+// SetNodeInfo rewrites the local node information file in the Dqlite
+// data directory, so that it matches the input NodeInfo.
+// This should only be called on a stopped Dqlite node.
+func (m *NodeManager) SetNodeInfo(server dqlite.NodeInfo) error {
+	data, err := yaml.Marshal(server)
+	if err != nil {
+		return errors.Annotatef(err, "marshalling NodeInfo %#v", server)
+	}
+	return errors.Annotatef(
+		os.WriteFile(path.Join(m.dataDir, "info.yaml"), data, 0600), "writing info.yaml to %s", m.dataDir)
 }
 
 // WithLogFuncOption returns a Dqlite application Option that will proxy Dqlite

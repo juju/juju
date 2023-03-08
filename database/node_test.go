@@ -191,6 +191,48 @@ func (s *nodeManagerSuite) TestSetClusterServersSuccess(c *gc.C) {
 `[1:])
 }
 
+func (s *nodeManagerSuite) TestSetNodeInfoSuccess(c *gc.C) {
+	subDir := strconv.Itoa(rand.Intn(10))
+
+	cfg := fakeAgentConfig{dataDir: "/tmp/" + subDir}
+	s.AddCleanup(func(*gc.C) { _ = os.RemoveAll(cfg.DataDir()) })
+
+	m := NewNodeManager(cfg, stubLogger{})
+	dataDir, err := m.EnsureDataDir()
+	c.Assert(err, jc.ErrorIsNil)
+
+	infoFile := path.Join(dataDir, "info.yaml")
+
+	// Write a cluster.yaml file into the Dqlite data directory.
+	data := []byte(`
+Address: 127.0.0.1:17666
+ID: 3297041220608546238
+Role: 0
+`[1:])
+
+	err = os.WriteFile(infoFile, data, 0600)
+	c.Assert(err, jc.ErrorIsNil)
+
+	server := dqlite.NodeInfo{
+		ID:      3297041220608546238,
+		Address: "10.6.6.6:17666",
+		Role:    0,
+	}
+
+	err = m.SetNodeInfo(server)
+	c.Assert(err, jc.ErrorIsNil)
+
+	data, err = os.ReadFile(infoFile)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// info.yaml should reflect the new node info.
+	c.Check(string(data), gc.Equals, `
+Address: 10.6.6.6:17666
+ID: 3297041220608546238
+Role: 0
+`[1:])
+}
+
 func (s *nodeManagerSuite) TestWithAddressOptionSuccess(c *gc.C) {
 	m := NewNodeManager(nil, stubLogger{})
 
