@@ -428,10 +428,11 @@ func (s *streamSuite) TestOneChangeIsBlockedByFile(c *gc.C) {
 
 	s.insertNamespace(c, 1, "foo")
 
+	timeTick := s.setupTimer()
+
 	stream := New(s.TrackedDB(), s.FileNotifier, s.clock, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
-	timeTick := s.setupTimer()
 	changes := stream.Changes()
 
 	assertChange := func(expected func(<-chan changestream.ChangeEvent, string) (string, bool)) string {
@@ -536,7 +537,8 @@ VALUES (2, ?, ?)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	c.Logf("Commmiting insert change")
+	c.Logf("Committing insert change")
 	err = tx.Commit()
 	c.Assert(err, jc.ErrorIsNil)
+	c.Logf("Committed insert change")
 }
