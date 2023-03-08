@@ -505,7 +505,7 @@ func (s *UserSuite) TestAddDeletedUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(u.Name(), gc.Equals, "bob")
 	c.Assert(u.DisplayName(), gc.Equals, "displayname")
-	c.Assert(u.CreatedBy(), gc.Equals, "test-admin")
+	c.Assert(u.CreatedBy(), gc.Equals, "creator")
 }
 
 func (s *UserSuite) TestAddUserNoSecretKey(c *gc.C) {
