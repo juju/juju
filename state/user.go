@@ -150,9 +150,9 @@ func (st *State) updateExistingUser(u *User, displayName, password, creator stri
 	// update the password
 	updateUser := bson.D{{"$set", bson.D{
 		{"deleted", false},
-		{"displayName", displayName},
-		{"creator", creator},
-		{"dateCreated", dateCreated},
+		{"displayname", displayName},
+		{"createdby", creator},
+		{"datecreated", dateCreated},
 	}}}
 
 	if password != "" {
@@ -187,18 +187,17 @@ func (st *State) updateExistingUser(u *User, displayName, password, creator stri
 	updateUserOps = append(updateUserOps, removeControllerOps...)
 	updateUserOps = append(updateUserOps, createControllerOps...)
 
-	logger.Infof("%s", updateUserOps)
-
 	if err := u.st.db().RunTransaction(updateUserOps); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	// recreate the user object to return
-	if err := u.Refresh(); err != nil {
-		return nil, errors.Annotate(err, "error refreshing user data")
+	toReturn, err := st.User(u.UserTag())
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
-	return u, nil
+	return toReturn, nil
 }
 
 // RemoveUser marks the user as deleted. This obviates the ability of a user
