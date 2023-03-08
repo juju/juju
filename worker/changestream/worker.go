@@ -4,14 +4,13 @@
 package changestream
 
 import (
-	"database/sql"
-
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 
 	"github.com/juju/juju/core/changestream"
+	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/worker/changestream/eventqueue"
 	"github.com/juju/juju/worker/changestream/stream"
 	"github.com/juju/juju/worker/dbaccessor"
@@ -181,7 +180,7 @@ func (f fileNotifyWatcher) Changes() (<-chan bool, error) {
 }
 
 // NewEventQueueWorker creates a new EventQueueWorker.
-func NewEventQueueWorker(db *sql.DB, fileNotifier FileNotifier, clock clock.Clock, logger Logger) (EventQueueWorker, error) {
+func NewEventQueueWorker(db coredatabase.TrackedDB, fileNotifier FileNotifier, clock clock.Clock, logger Logger) (EventQueueWorker, error) {
 	stream := stream.New(db, fileNotifier, clock, logger)
 
 	eventQueue, err := eventqueue.New(stream, logger)

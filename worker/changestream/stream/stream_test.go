@@ -28,7 +28,7 @@ func (s *streamSuite) TestLoopWithNoTicks(c *gc.C) {
 	s.expectFileNotifyWatcher()
 	s.expectTimer(0)
 
-	stream := New(s.DB, s.FileNotifier, s.clock, s.logger)
+	stream := New(s.TrackedDB(), s.FileNotifier, s.clock, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	changes := stream.Changes()
@@ -44,7 +44,7 @@ func (s *streamSuite) TestNoData(c *gc.C) {
 	s.expectFileNotifyWatcher()
 	done := s.expectTimer(1)
 
-	stream := New(s.DB, s.FileNotifier, s.clock, s.logger)
+	stream := New(s.TrackedDB(), s.FileNotifier, s.clock, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	changes := stream.Changes()
@@ -74,7 +74,7 @@ func (s *streamSuite) TestOneChange(c *gc.C) {
 	}
 	s.insertChange(c, first)
 
-	stream := New(s.DB, s.FileNotifier, s.clock, s.logger)
+	stream := New(s.TrackedDB(), s.FileNotifier, s.clock, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	select {
@@ -119,7 +119,7 @@ func (s *streamSuite) TestMultipleChanges(c *gc.C) {
 		inserts = append(inserts, ch)
 	}
 
-	stream := New(s.DB, s.FileNotifier, s.clock, s.logger)
+	stream := New(s.TrackedDB(), s.FileNotifier, s.clock, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	select {
@@ -184,7 +184,7 @@ func (s *streamSuite) TestMultipleChangesWithSameUUIDCoalesce(c *gc.C) {
 		inserts = append(inserts, ch)
 	}
 
-	stream := New(s.DB, s.FileNotifier, s.clock, s.logger)
+	stream := New(s.TrackedDB(), s.FileNotifier, s.clock, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	select {
@@ -235,7 +235,7 @@ func (s *streamSuite) TestMultipleChangesWithNamespaces(c *gc.C) {
 		inserts = append(inserts, ch)
 	}
 
-	stream := New(s.DB, s.FileNotifier, s.clock, s.logger)
+	stream := New(s.TrackedDB(), s.FileNotifier, s.clock, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	select {
@@ -305,7 +305,7 @@ func (s *streamSuite) TestMultipleChangesWithNamespacesCoalesce(c *gc.C) {
 		inserts = append(inserts, ch)
 	}
 
-	stream := New(s.DB, s.FileNotifier, s.clock, s.logger)
+	stream := New(s.TrackedDB(), s.FileNotifier, s.clock, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	select {
@@ -383,7 +383,7 @@ func (s *streamSuite) TestMultipleChangesWithNoNamespacesDoNotCoalesce(c *gc.C) 
 		inserts = append(inserts, ch)
 	}
 
-	stream := New(s.DB, s.FileNotifier, s.clock, s.logger)
+	stream := New(s.TrackedDB(), s.FileNotifier, s.clock, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	select {
@@ -428,7 +428,7 @@ func (s *streamSuite) TestOneChangeIsBlockedByFile(c *gc.C) {
 
 	s.insertNamespace(c, 1, "foo")
 
-	stream := New(s.DB, s.FileNotifier, s.clock, s.logger)
+	stream := New(s.TrackedDB(), s.FileNotifier, s.clock, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	timeTick := s.setupTimer()
@@ -509,7 +509,7 @@ func (s *streamSuite) insertNamespace(c *gc.C, id int, name string) {
 	q := `
 INSERT INTO change_log_namespace VALUES (?, ?);
 `[1:]
-	_, err := s.DB.Exec(q, id, name)
+	_, err := s.DB().Exec(q, id, name)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -524,7 +524,7 @@ INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid)
 VALUES (2, ?, ?)
 `[1:]
 
-	tx, err := s.DB.Begin()
+	tx, err := s.DB().Begin()
 	c.Assert(err, jc.ErrorIsNil)
 
 	stmt, err := tx.Prepare(q)

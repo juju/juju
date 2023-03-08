@@ -97,14 +97,14 @@ func (s *manifoldState) start(context dependency.Context) (worker.Worker, error)
 		return nil, errors.Trace(err)
 	}
 
-	db, err := dbGetter.GetDB("controller")
+	trackedDB, err := dbGetter.GetDB("controller")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	s.store = s.config.NewStore(lease.StoreConfig{
-		DB:     db,
-		Logger: s.config.Logger,
+		TrackedDB: trackedDB,
+		Logger:    s.config.Logger,
 	})
 
 	controllerUUID := agent.CurrentConfig().Controller().Id()

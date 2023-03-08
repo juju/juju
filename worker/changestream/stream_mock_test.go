@@ -5,11 +5,11 @@
 package changestream
 
 import (
-	sql "database/sql"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
 	changestream "github.com/juju/juju/core/changestream"
+	database "github.com/juju/juju/core/database"
 )
 
 // MockChangeStream is a mock of ChangeStream interface.
@@ -74,10 +74,10 @@ func (m *MockDBGetter) EXPECT() *MockDBGetterMockRecorder {
 }
 
 // GetDB mocks base method.
-func (m *MockDBGetter) GetDB(arg0 string) (*sql.DB, error) {
+func (m *MockDBGetter) GetDB(arg0 string) (database.TrackedDB, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetDB", arg0)
-	ret0, _ := ret[0].(*sql.DB)
+	ret0, _ := ret[0].(database.TrackedDB)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

@@ -12,6 +12,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	gc "gopkg.in/check.v1"
 
+	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/database/schema"
 )
 
@@ -20,7 +21,8 @@ import (
 type ControllerSuite struct {
 	testing.IsolationSuite
 
-	DB *sql.DB
+	db        *sql.DB
+	trackedDB coredatabase.TrackedDB
 }
 
 // SetUpTest creates a new sql.DB reference and ensures that the
@@ -30,14 +32,21 @@ func (s *ControllerSuite) SetUpTest(c *gc.C) {
 
 	dir := c.MkDir()
 
+	url := fmt.Sprintf("file:%s/db.sqlite3?_foreign_keys=1", dir)
+	c.Logf("Opening sqlite3 db with: %v", url)
+
 	// Do not be tempted in moving to :memory: mode for this test suite. It will
 	// fail in non-deterministic ways. Unfortunately :memory: mode is not
 	// completely goroutine safe.
 	var err error
-	s.DB, err = sql.Open("sqlite3", fmt.Sprintf("file:%s/db.sqlite3?_foreign_keys=1", dir))
+	s.db, err = sql.Open("sqlite3", url)
 	c.Assert(err, jc.ErrorIsNil)
 
-	tx, err := s.DB.Begin()
+	s.trackedDB = &trackedDB{
+		db: s.db,
+	}
+
+	tx, err := s.db.Begin()
 	c.Assert(err, jc.ErrorIsNil)
 
 	for idx, stmt := range schema.ControllerDDL() {
@@ -52,7 +61,19 @@ func (s *ControllerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ControllerSuite) TearDownTest(c *gc.C) {
-	c.Logf("Closing DB")
-	err := s.DB.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	if s.db != nil {
+		c.Logf("Closing DB")
+		err := s.db.Close()
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	s.IsolationSuite.TearDownTest(c)
+}
+
+func (s *ControllerSuite) DB() *sql.DB {
+	return s.db
+}
+
+func (s *ControllerSuite) TrackedDB() coredatabase.TrackedDB {
+	return s.trackedDB
 }

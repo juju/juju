@@ -28,8 +28,8 @@ func (s *storeSuite) SetUpTest(c *gc.C) {
 	s.ControllerSuite.SetUpTest(c)
 
 	s.store = lease.NewStore(lease.StoreConfig{
-		DB:     s.DB,
-		Logger: lease.StubLogger{},
+		TrackedDB: s.TrackedDB(),
+		Logger:    lease.StubLogger{},
 	})
 
 	// Single-buffered to allow us to queue up a stoppage.

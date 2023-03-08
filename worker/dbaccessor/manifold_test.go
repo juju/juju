@@ -4,6 +4,7 @@
 package dbaccessor
 
 import (
+	clock "github.com/juju/clock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -34,6 +35,9 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	cfg.NewApp = nil
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 
+	cfg = s.getConfig()
+	cfg.NewDBWorker = nil
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 }
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {
@@ -43,6 +47,9 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		Logger:    s.logger,
 		NewApp: func(string, ...app.Option) (DBApp, error) {
 			return s.dbApp, nil
+		},
+		NewDBWorker: func(DBApp, string, clock.Clock, Logger) (TrackedDB, error) {
+			return nil, nil
 		},
 	}
 }

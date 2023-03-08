@@ -27,9 +27,9 @@ var _ = gc.Suite(&workerSuite{})
 
 func (s *workerSuite) TestConfigValidate(c *gc.C) {
 	validCfg := leaseexpiry.Config{
-		Clock:  clock.WallClock,
-		Logger: leaseexpiry.StubLogger{},
-		DB:     s.DB,
+		Clock:     clock.WallClock,
+		Logger:    leaseexpiry.StubLogger{},
+		TrackedDB: s.TrackedDB(),
 	}
 
 	cfg := validCfg
@@ -41,7 +41,7 @@ func (s *workerSuite) TestConfigValidate(c *gc.C) {
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 
 	cfg = validCfg
-	cfg.DB = nil
+	cfg.TrackedDB = nil
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 }
 
@@ -62,6 +62,7 @@ func (s *workerSuite) TestWorkerDeletesExpiredLeases(c *gc.C) {
 	ch <- time.Now()
 	timer.EXPECT().Chan().Return(ch).MinTimes(1)
 	timer.EXPECT().Reset(time.Second).Do(func(any) { w.Kill() })
+	timer.EXPECT().Stop().Return(true)
 
 	// Insert 2 leases, one with an expiry time in the past,
 	// another in the future.
@@ -69,7 +70,7 @@ func (s *workerSuite) TestWorkerDeletesExpiredLeases(c *gc.C) {
 INSERT INTO lease (uuid, lease_type_id, model_uuid, name, holder, start, expiry)
 VALUES (?, 1, 'some-model-uuid', ?, ?, datetime('now'), datetime('now', ?))`[1:]
 
-	stmt, err := s.DB.Prepare(q)
+	stmt, err := s.DB().Prepare(q)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = stmt.Exec(utils.MustNewUUID().String(), "postgresql", "postgresql/0", "+2 minutes")
@@ -79,9 +80,9 @@ VALUES (?, 1, 'some-model-uuid', ?, ?, datetime('now'), datetime('now', ?))`[1:]
 	c.Assert(err, jc.ErrorIsNil)
 
 	w, err = leaseexpiry.NewWorker(leaseexpiry.Config{
-		Clock:  clk,
-		Logger: leaseexpiry.StubLogger{},
-		DB:     s.DB,
+		Clock:     clk,
+		Logger:    leaseexpiry.StubLogger{},
+		TrackedDB: s.TrackedDB(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -89,7 +90,7 @@ VALUES (?, 1, 'some-model-uuid', ?, ?, datetime('now'), datetime('now', ?))`[1:]
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Only the postgresql lease (expiring in the future) should remain.
-	row := s.DB.QueryRow("SELECT name FROM LEASE")
+	row := s.DB().QueryRow("SELECT name FROM LEASE")
 	var name string
 	err = row.Scan(&name)
 	c.Assert(err, jc.ErrorIsNil)
