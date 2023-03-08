@@ -5,10 +5,14 @@ package lxd
 
 import (
 	stdcontext "context"
+	"net"
+	"net/url"
+	"runtime"
 	"strings"
 	"sync"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/v3/arch"
 	"github.com/lxc/lxd/shared/api"
 
 	"github.com/juju/juju/core/instance"
@@ -21,6 +25,8 @@ import (
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/provider/common"
 )
+
+var _ environs.HardwareCharacteristicsDetector = (*environ)(nil)
 
 const bootstrapMessage = `To configure your system to better support LXD containers, please see: https://linuxcontainers.org/lxd/docs/master/explanation/performance_tuning/`
 
@@ -455,4 +461,40 @@ func (env *environ) AssignLXDProfiles(instID string, profilesNames []string, pro
 		}
 	}
 	return report(nil)
+}
+
+// DetectSeries is a no-op for lxd, must return an empty string.
+func (env *environ) DetectSeries() (string, error) {
+	return "", nil
+}
+
+// DetectHardware returns the hardware characteristics for the controller for
+// this environment. This method is part of the environs.HardwareCharacteristicsDetector
+// interface. On an LXD cloud, it must first check if it is a localhost cloud,
+// in that case, we only fill the Arch.
+func (env *environ) DetectHardware() (*instance.HardwareCharacteristics, error) {
+	// The returned error is willingly ignored, because this should not
+	// break bootstrapping (we detect hardware before bootstrapping),
+	// instead, bootstrapping should fallback to default hardware arch.
+	endpointURL, _ := url.Parse(env.cloud.Endpoint)
+	endpointIP := net.ParseIP(endpointURL.Hostname())
+	if endpointIP == nil {
+		return nil, nil
+	}
+	isLocal, _ := network.IsLocalAddress(endpointIP)
+	if !isLocal {
+		return nil, nil
+	}
+
+	arch := arch.NormaliseArch(runtime.GOARCH)
+	return &instance.HardwareCharacteristics{
+		Arch: &arch,
+	}, nil
+
+}
+
+// UpdateModelConstraints always returns false because we don't want to update
+// model constraints for manual env.
+func (e *environ) UpdateModelConstraints() bool {
+	return true
 }
