@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/database/app"
+	"github.com/juju/juju/database/dqlite"
 	jujutesting "github.com/juju/juju/testing"
 )
 
@@ -142,6 +143,52 @@ func (s *nodeManagerSuite) TestIsBootstrappedNode(c *gc.C) {
 	asBootstrapped, err = m.IsBootstrappedNode(ctx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(asBootstrapped, jc.IsTrue)
+}
+
+func (s *nodeManagerSuite) TestSetClusterServersSuccess(c *gc.C) {
+	subDir := strconv.Itoa(rand.Intn(10))
+
+	cfg := fakeAgentConfig{dataDir: "/tmp/" + subDir}
+	s.AddCleanup(func(*gc.C) { _ = os.RemoveAll(cfg.DataDir()) })
+
+	m := NewNodeManager(cfg, stubLogger{})
+	ctx := context.TODO()
+
+	dataDir, err := m.EnsureDataDir()
+	c.Assert(err, jc.ErrorIsNil)
+
+	clusterFile := path.Join(dataDir, dqliteClusterFileName)
+
+	// Write a cluster.yaml file into the Dqlite data directory.
+	data := []byte(`
+- Address: 127.0.0.1:17666
+  ID: 3297041220608546238
+  Role: 0
+`[1:])
+
+	err = os.WriteFile(clusterFile, data, 0600)
+	c.Assert(err, jc.ErrorIsNil)
+
+	servers := []dqlite.NodeInfo{
+		{
+			ID:      3297041220608546238,
+			Address: "10.6.6.6:17666",
+			Role:    0,
+		},
+	}
+
+	err = m.SetClusterServers(ctx, servers)
+	c.Assert(err, jc.ErrorIsNil)
+
+	data, err = os.ReadFile(clusterFile)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// cluster.yaml should reflect the new server list.
+	c.Check(string(data), gc.Equals, `
+- Address: 10.6.6.6:17666
+  ID: 3297041220608546238
+  Role: 0
+`[1:])
 }
 
 func (s *nodeManagerSuite) TestWithAddressOptionSuccess(c *gc.C) {

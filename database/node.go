@@ -134,6 +134,22 @@ func (m *NodeManager) ClusterServers(ctx context.Context) ([]dqlite.NodeInfo, er
 	return servers, errors.Annotate(err, "retrieving servers from Dqlite node store")
 }
 
+// SetClusterServers reconfigures the Dqlite cluster by writing the
+// input servers to Dqlite's Raft log and the local node YAML store.
+// This should only be called on a stopped Dqlite node.
+func (m *NodeManager) SetClusterServers(ctx context.Context, servers []dqlite.NodeInfo) error {
+	store, err := m.nodeClusterStore()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := dqlite.ReconfigureMembership(m.dataDir, servers); err != nil {
+		return errors.Annotate(err, "reconfiguring Dqlite cluster membership")
+	}
+
+	return errors.Annotate(store.Set(ctx, servers), "writing servers to Dqlite node store")
+}
+
 // WithLogFuncOption returns a Dqlite application Option that will proxy Dqlite
 // log output via this factory's logger where the level is recognised.
 func (m *NodeManager) WithLogFuncOption() app.Option {
