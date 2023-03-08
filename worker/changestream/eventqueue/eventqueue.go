@@ -86,8 +86,6 @@ func (s *subscription) Wait() error {
 }
 
 func (s *subscription) loop() error {
-	defer close(s.changes)
-
 	select {
 	case <-s.tomb.Dying():
 		return tomb.ErrDying
