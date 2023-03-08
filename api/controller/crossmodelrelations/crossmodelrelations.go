@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 )
@@ -538,5 +539,67 @@ func (c *Client) WatchOfferStatus(arg params.OfferArg) (watcher.OfferStatusWatch
 	}
 
 	w := apiwatcher.NewOfferStatusWatcher(c.facade.RawAPICaller(), result)
+	return w, nil
+}
+
+// WatchConsumedSecretsChanges returns a watcher which notifies of new secret revisions consumed by the
+// app with the specified token.
+func (c *Client) WatchConsumedSecretsChanges(applicationToken string, mac *macaroon.Macaroon) (watcher.SecretsRevisionWatcher, error) {
+	var macs macaroon.Slice
+	if mac != nil {
+		macs = macaroon.Slice{mac}
+	}
+
+	args := params.WatchRemoteSecretChangesArgs{Args: []params.WatchRemoteSecretChangesArg{{
+		ApplicationToken: applicationToken,
+		Macaroons:        macs,
+		BakeryVersion:    bakery.LatestVersion,
+	}}}
+
+	// Use any previously cached discharge macaroons.
+	if ms, ok := c.getCachedMacaroon("watch consumed secret changes", applicationToken); ok {
+		args.Args[0].Macaroons = ms
+		args.Args[0].BakeryVersion = bakery.LatestVersion
+	}
+
+	var results params.SecretRevisionWatchResults
+	apiCall := func() error {
+		// Reset the results struct before each api call.
+		results = params.SecretRevisionWatchResults{}
+		if err := c.facade.FacadeCall("WatchConsumedSecretsChanges", args, &results); err != nil {
+			return errors.Trace(err)
+		}
+		if len(results.Results) != 1 {
+			return errors.Errorf("expected 1 result, got %d", len(results.Results))
+		}
+		return nil
+	}
+
+	// Make the api call the first time.
+	if err := apiCall(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// On error, possibly discharge the macaroon and retry.
+	result := results.Results[0]
+	if result.Error != nil {
+		mac, err := c.handleError(result.Error)
+		if err != nil {
+			result.Error.Message = err.Error()
+			return nil, result.Error
+		}
+		args.Args[0].Macaroons = mac
+		c.cache.Upsert(applicationToken, mac)
+
+		if err := apiCall(); err != nil {
+			return nil, errors.Trace(err)
+		}
+		result = results.Results[0]
+	}
+	if result.Error != nil {
+		return nil, apiservererrors.RestoreError(result.Error)
+	}
+
+	w := apiwatcher.NewSecretsRevisionWatcher(c.facade.RawAPICaller(), result)
 	return w, nil
 }

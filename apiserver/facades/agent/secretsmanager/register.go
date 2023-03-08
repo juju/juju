@@ -12,10 +12,12 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/controller/crossmodelsecrets"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	coresecrets "github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/apicaller"
@@ -51,16 +53,20 @@ func NewSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 		}
 		return secrets.AdminBackendConfigInfo(secrets.SecretsModel(model))
 	}
+	controllerAPI := common.NewStateControllerConfig(context.State())
 	remoteClientGetter := func(uri *coresecrets.URI) (CrossModelSecretsClient, error) {
-		externalControllers := context.State().NewExternalControllers()
-		ext, err := externalControllers.ControllerForModel(uri.SourceUUID)
+		info, err := controllerAPI.ControllerAPIInfoForModels(params.Entities{Entities: []params.Entity{{
+			Tag: names.NewModelTag(uri.SourceUUID).String(),
+		}}})
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		info := ext.ControllerInfo()
+		if len(info.Results) < 1 {
+			return nil, errors.Errorf("no controller api for model %q", uri.SourceUUID)
+		}
 		apiInfo := api.Info{
-			Addrs:    info.Addrs,
-			CACert:   info.CACert,
+			Addrs:    info.Results[0].Addresses,
+			CACert:   info.Results[0].CACert,
 			ModelTag: names.NewModelTag(uri.SourceUUID),
 		}
 		apiInfo.Tag = names.NewUserTag(api.AnonymousUsername)

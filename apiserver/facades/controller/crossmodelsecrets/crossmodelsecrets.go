@@ -244,6 +244,7 @@ func (s *CrossModelSecretsAPI) getConsumedRevision(secretsState SecretsState, se
 		return 0, errors.Trace(err)
 	}
 	consumerInfo.CurrentRevision = md.LatestRevision
+	consumerInfo.LatestRevision = md.LatestRevision
 	if refresh {
 		if err := secretsConsumer.SaveSecretConsumer(uri, consumer, consumerInfo); err != nil {
 			return 0, errors.Trace(err)

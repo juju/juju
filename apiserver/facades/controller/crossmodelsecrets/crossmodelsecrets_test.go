@@ -178,6 +178,7 @@ func (s *CrossModelSecretsSuite) assertGetSecretContentInfo(c *gc.C, newConsumer
 	}, nil)
 	s.secretsConsumer.EXPECT().SaveSecretConsumer(uri, consumerTag, &coresecrets.SecretConsumerMetadata{
 		CurrentRevision: 667,
+		LatestRevision:  667,
 	}).Return(nil)
 	s.secretsConsumer.EXPECT().SecretAccess(uri, consumer).Return(coresecrets.RoleView, nil)
 	s.secretsState.EXPECT().GetSecretValue(uri, 667).Return(

@@ -1556,23 +1556,42 @@ func (s *secretsStore) allSecretConsumers() ([]secretConsumerDoc, error) {
 // WatchConsumedSecretsChanges returns a watcher for updates and deletes
 // of secrets that have been previously read by the specified consumer.
 func (st *State) WatchConsumedSecretsChanges(consumer names.Tag) (StringsWatcher, error) {
-	return newConsumedSecretsWatcher(st, consumer.String()), nil
+	return newConsumedSecretsWatcher(st, consumer.String(), false), nil
+}
+
+// WatchRemoteConsumedSecretsChanges returns a watcher for updates and deletes
+// of secrets that have been previously read by the specified remote consumer app.
+func (st *State) WatchRemoteConsumedSecretsChanges(consumerApp string) (StringsWatcher, error) {
+	return newConsumedSecretsWatcher(st, consumerApp, true), nil
 }
 
 type consumedSecretsWatcher struct {
 	commonWatcher
 	out chan []string
 
-	consumer       string
 	knownRevisions map[string]int
+
+	matchQuery bson.D
+	filter     func(id string) bool
 }
 
-func newConsumedSecretsWatcher(st modelBackend, consumer string) StringsWatcher {
+func newConsumedSecretsWatcher(st modelBackend, consumer string, remote bool) StringsWatcher {
 	w := &consumedSecretsWatcher{
 		commonWatcher:  newCommonWatcher(st),
 		out:            make(chan []string),
 		knownRevisions: make(map[string]int),
-		consumer:       consumer,
+	}
+	if !remote {
+		w.matchQuery = bson.D{{"consumer-tag", consumer}}
+		w.filter = func(id string) bool {
+			return strings.HasSuffix(id, "#"+consumer)
+		}
+	} else {
+		match := fmt.Sprintf("(unit|application)-%s(\\/\\d)?", consumer)
+		w.matchQuery = bson.D{{"consumer-tag", bson.D{{"$regex", match}}}}
+		w.filter = func(id string) bool {
+			return strings.HasSuffix(id, "#application-"+consumer) || strings.Contains(id, "#unit-"+consumer+"-")
+		}
 	}
 	w.tomb.Go(func() error {
 		defer close(w.out)
@@ -1592,7 +1611,7 @@ func (w *consumedSecretsWatcher) initial() ([]string, error) {
 	defer closer()
 
 	var ids []string
-	iter := secretConsumersCollection.Find(bson.D{{"consumer-tag", w.consumer}}).Iter()
+	iter := secretConsumersCollection.Find(w.matchQuery).Iter()
 	for iter.Next(&doc) {
 		w.knownRevisions[doc.DocID] = doc.LatestRevision
 		if doc.LatestRevision < 2 {
@@ -1658,7 +1677,7 @@ func (w *consumedSecretsWatcher) loop() (err error) {
 		if err != nil {
 			return false
 		}
-		return strings.HasSuffix(k, "#"+w.consumer)
+		return w.filter(k)
 	}
 	w.watcher.WatchCollectionWithFilter(secretConsumersC, ch, filter)
 	defer w.watcher.UnwatchCollection(secretConsumersC, ch)

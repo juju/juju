@@ -44,3 +44,24 @@ type SecretTriggerWatcher interface {
 	CoreWatcher
 	Changes() SecretTriggerChannel
 }
+
+// SecretRevisionChange describes changes to a secret.
+type SecretRevisionChange struct {
+	URI      *secrets.URI
+	Revision int
+}
+
+func (s SecretRevisionChange) GoString() string {
+	return fmt.Sprintf("%s/%d", s.URI.ID, s.Revision)
+}
+
+// SecretRevisionChannel is a channel used to notify of
+// changes to a secret.
+type SecretRevisionChannel <-chan []SecretRevisionChange
+
+// SecretsRevisionWatcher conveniently ties an SecretRevisionChannel to the
+// worker.Worker that represents its validity.
+type SecretsRevisionWatcher interface {
+	CoreWatcher
+	Changes() SecretRevisionChannel
+}

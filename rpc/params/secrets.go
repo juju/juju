@@ -425,3 +425,42 @@ type GetRemoteSecretAccessArg struct {
 	// URI is the secret URI.
 	URI string `json:"uri"`
 }
+
+// WatchRemoteSecretChangesArgs holds args for watching
+// changes to a remote secret.
+type WatchRemoteSecretChangesArgs struct {
+	Args []WatchRemoteSecretChangesArg `json:"relations"`
+}
+
+// WatchRemoteSecretChangesArg holds info for watching
+// changes to a remote secret.
+type WatchRemoteSecretChangesArg struct {
+	// ApplicationToken is the application token on the remote model.
+	ApplicationToken string `json:"application-token"`
+
+	// Macaroons are used for authentication.
+	Macaroons macaroon.Slice `json:"macaroons,omitempty"`
+
+	// BakeryVersion is the version of the bakery used to mint macaroons.
+	BakeryVersion bakery.Version `json:"bakery-version,omitempty"`
+}
+
+// SecretRevisionChange describes a secret revision change.
+type SecretRevisionChange struct {
+	URI      string `json:"uri"`
+	Revision int    `json:"revision"`
+}
+
+// SecretRevisionWatchResult holds a SecretRevisionWatcher id, baseline state
+// (in the Changes field), and an error (if any).
+type SecretRevisionWatchResult struct {
+	WatcherId string                 `json:"watcher-id"`
+	Changes   []SecretRevisionChange `json:"changes"`
+	Error     *Error                 `json:"error,omitempty"`
+}
+
+// SecretRevisionWatchResults holds the results for any API call which ends up
+// returning a list of SecretRevisionWatchers.
+type SecretRevisionWatchResults struct {
+	Results []SecretRevisionWatchResult `json:"results"`
+}
