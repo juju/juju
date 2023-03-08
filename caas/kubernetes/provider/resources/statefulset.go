@@ -5,6 +5,7 @@ package resources
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -48,28 +49,56 @@ func (ss *StatefulSet) ID() ID {
 }
 
 // Apply patches the resource change.
-func (ss *StatefulSet) Apply(ctx context.Context, client kubernetes.Interface) error {
+func (ss *StatefulSet) Apply(ctx context.Context, client kubernetes.Interface) (err error) {
 	api := client.AppsV1().StatefulSets(ss.Namespace)
-	data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, &ss.StatefulSet)
+	var result *appsv1.StatefulSet
+	defer func() {
+		if result != nil {
+			ss.StatefulSet = *result
+		}
+	}()
+
+	result, err = api.Create(ctx, &ss.StatefulSet, metav1.CreateOptions{
+		FieldManager: JujuFieldManager,
+	})
+	if k8serrors.IsAlreadyExists(err) {
+		// Continue to patch.
+	} else if err != nil {
+		return errors.Trace(err)
+	} else {
+		return nil
+	}
+
+	existing, err := api.Get(ctx, ss.Name, metav1.GetOptions{})
 	if err != nil {
 		return errors.Trace(err)
 	}
-	res, err := api.Patch(ctx, ss.Name, types.StrategicMergePatchType, data, metav1.PatchOptions{
+
+	existing.SetAnnotations(ss.GetAnnotations())
+	existing.Spec.Replicas = ss.Spec.Replicas
+	existing.Spec.UpdateStrategy = ss.Spec.UpdateStrategy
+	existing.Spec.Template.Spec.Volumes = ss.Spec.Template.Spec.Volumes
+	existing.Spec.Template.SetAnnotations(ss.Spec.Template.GetAnnotations())
+	existing.Spec.Template.Spec.Containers = ss.Spec.Template.Spec.Containers
+	existing.Spec.Template.Spec.ServiceAccountName = ss.Spec.Template.Spec.ServiceAccountName
+	existing.Spec.Template.Spec.AutomountServiceAccountToken = ss.Spec.Template.Spec.AutomountServiceAccountToken
+	// NB: we can't update the Spec.ServiceName as it is immutable.
+
+	data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, existing)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	result, err = api.Patch(ctx, ss.Name, types.StrategicMergePatchType, data, metav1.PatchOptions{
 		FieldManager: JujuFieldManager,
 	})
 	if k8serrors.IsNotFound(err) {
-		res, err = api.Create(ctx, &ss.StatefulSet, metav1.CreateOptions{
-			FieldManager: JujuFieldManager,
-		})
+		// This should never happen.
+		return errors.NewNotFound(err, fmt.Sprintf("statefulset %q", ss.Name))
 	}
 	if k8serrors.IsConflict(err) {
-		return errors.Annotatef(errConflict, "stateful set %q", ss.Name)
+		return errors.Annotatef(errConflict, "statefulset %q", ss.Name)
 	}
-	if err != nil {
-		return errors.Trace(err)
-	}
-	ss.StatefulSet = *res
-	return nil
+	return errors.Trace(err)
 }
 
 // Get refreshes the resource.
