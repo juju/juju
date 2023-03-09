@@ -77,6 +77,7 @@ func (fix *Fixture) RunTest(c *gc.C, test func(*lease.Manager, *testclock.Clock)
 		},
 		MaxSleep:             defaultMaxSleep,
 		Logger:               loggo.GetLogger("lease_test"),
+		CancelDBOps:          func() {},
 		PrometheusRegisterer: noopRegisterer{},
 	})
 	c.Assert(err, jc.ErrorIsNil)

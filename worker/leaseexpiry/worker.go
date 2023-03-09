@@ -8,11 +8,10 @@ import (
 	"database/sql"
 	"time"
 
-	"gopkg.in/tomb.v2"
-
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/database"
 )

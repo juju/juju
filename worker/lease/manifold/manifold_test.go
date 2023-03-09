@@ -138,10 +138,9 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 
 	storeConfig := args[0].(lease.StoreConfig)
 
-	c.Assert(storeConfig, gc.DeepEquals, lease.StoreConfig{
-		DB:     s.db,
-		Logger: &s.logger,
-	})
+	c.Check(storeConfig.DB, gc.Equals, s.db)
+	c.Check(storeConfig.Logger, gc.Equals, &s.logger)
+	c.Check(storeConfig.Ctx, gc.NotNil)
 
 	args = s.stub.Calls()[1].Args
 	c.Assert(args, gc.HasLen, 1)
@@ -155,14 +154,13 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	config.Secretary = nil
 
-	c.Assert(config, jc.DeepEquals, lease.ManagerConfig{
-		Store:                s.store,
-		Clock:                s.clock,
-		Logger:               &s.logger,
-		MaxSleep:             time.Minute,
-		EntityUUID:           "controller-uuid",
-		PrometheusRegisterer: s.metrics,
-	})
+	c.Check(config.Store, gc.Equals, s.store)
+	c.Check(config.Clock, gc.Equals, s.clock)
+	c.Check(config.Logger, gc.Equals, &s.logger)
+	c.Check(config.MaxSleep, gc.Equals, time.Minute)
+	c.Check(config.EntityUUID, gc.Equals, "controller-uuid")
+	c.Check(config.PrometheusRegisterer, gc.Equals, s.metrics)
+	c.Check(config.CancelDBOps, gc.NotNil)
 }
 
 func (s *manifoldSuite) TestOutput(c *gc.C) {

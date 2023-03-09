@@ -28,10 +28,6 @@ const (
 	// there are timeouts.
 	maxRetries = 10
 
-	// maxDeadlineRetries gives the maximum number of deadline attempts we'll
-	// try if there are timeouts.
-	maxDeadlineRetries = 3
-
 	// initialRetryDelay is the starting delay - this will be
 	// increased exponentially up maxRetries.
 	initialRetryDelay = 50 * time.Millisecond
@@ -139,6 +135,7 @@ type Manager struct {
 
 // Kill is part of the worker.Worker interface.
 func (manager *Manager) Kill() {
+	manager.config.CancelDBOps()
 	manager.catacomb.Kill(nil)
 }
 
@@ -368,13 +365,13 @@ func (manager *Manager) handleClaim(claim claim) (action, bool, error) {
 			logger.Tracef("[%s] %s asked for lease %s (%s), no lease found, claiming for %s",
 				manager.logContext, claim.holderName, claim.leaseKey.Lease, claim.leaseKey.Namespace, claim.duration)
 			act = claimAction
-			err = store.ClaimLease(claim.leaseKey, request, manager.catacomb.Dying())
+			err = store.ClaimLease(claim.leaseKey, request)
 
 		case info.Holder == claim.holderName:
 			logger.Tracef("[%s] %s extending lease %s (%s) for %s",
 				manager.logContext, claim.holderName, claim.leaseKey.Lease, claim.leaseKey.Namespace, claim.duration)
 			act = extendAction
-			err = store.ExtendLease(claim.leaseKey, request, manager.catacomb.Dying())
+			err = store.ExtendLease(claim.leaseKey, request)
 
 		default:
 			// Note: (jam) 2017-10-31) We don't check here if the lease has
@@ -479,7 +476,7 @@ func (manager *Manager) handleRevoke(revoke revoke) error {
 
 		case info.Holder == revoke.holderName:
 			logger.Tracef("[%s] %s revoking lease %s", manager.logContext, revoke.holderName, revoke.leaseKey.Lease)
-			err = manager.config.Store.RevokeLease(revoke.leaseKey, revoke.holderName, manager.catacomb.Dying())
+			err = manager.config.Store.RevokeLease(revoke.leaseKey, revoke.holderName)
 
 		default:
 			logger.Tracef("[%s] %s revoking lease %s, held by %s, rejecting",
@@ -660,11 +657,11 @@ func isFatalClaimRetryError(act action, err error, count int) bool {
 }
 
 func (manager *Manager) handlePin(p pin) {
-	p.respond(errors.Trace(manager.config.Store.PinLease(p.leaseKey, p.entity, manager.catacomb.Dying())))
+	p.respond(errors.Trace(manager.config.Store.PinLease(p.leaseKey, p.entity)))
 }
 
 func (manager *Manager) handleUnpin(p pin) {
-	p.respond(errors.Trace(manager.config.Store.UnpinLease(p.leaseKey, p.entity, manager.catacomb.Dying())))
+	p.respond(errors.Trace(manager.config.Store.UnpinLease(p.leaseKey, p.entity)))
 }
 
 // pinned returns lease names and the entities requiring their pinned

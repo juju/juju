@@ -10,6 +10,7 @@ package manifold
 // import cycle.
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock"
@@ -77,23 +78,23 @@ type manifoldState struct {
 	store  *lease.Store
 }
 
-func (s *manifoldState) start(context dependency.Context) (worker.Worker, error) {
+func (s *manifoldState) start(ctx dependency.Context) (worker.Worker, error) {
 	if err := s.config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var agent agent.Agent
-	if err := context.Get(s.config.AgentName, &agent); err != nil {
+	if err := ctx.Get(s.config.AgentName, &agent); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var clock clock.Clock
-	if err := context.Get(s.config.ClockName, &clock); err != nil {
+	if err := ctx.Get(s.config.ClockName, &clock); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var dbGetter dbaccessor.DBGetter
-	if err := context.Get(s.config.DBAccessorName, &dbGetter); err != nil {
+	if err := ctx.Get(s.config.DBAccessorName, &dbGetter); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -102,9 +103,12 @@ func (s *manifoldState) start(context dependency.Context) (worker.Worker, error)
 		return nil, errors.Trace(err)
 	}
 
+	dbCtx, cancelCtx := context.WithCancel(context.Background())
+
 	s.store = s.config.NewStore(lease.StoreConfig{
 		DB:     db,
 		Logger: s.config.Logger,
+		Ctx:    dbCtx,
 	})
 
 	controllerUUID := agent.CurrentConfig().Controller().Id()
@@ -116,6 +120,7 @@ func (s *manifoldState) start(context dependency.Context) (worker.Worker, error)
 		MaxSleep:             MaxSleep,
 		EntityUUID:           controllerUUID,
 		LogDir:               s.config.LogDir,
+		CancelDBOps:          cancelCtx,
 		PrometheusRegisterer: s.config.PrometheusRegisterer,
 	})
 	return w, errors.Trace(err)

@@ -30,6 +30,9 @@ type StoreConfig struct {
 
 	// Logger is used to emit store-specific diagnostics.
 	Logger StoreLogger
+
+	// Ctx is the context intended for use when executing database operations.
+	Ctx context.Context
 }
 
 // Store implements lease.Store using a database
@@ -37,6 +40,11 @@ type StoreConfig struct {
 type Store struct {
 	db     *sql.DB
 	logger StoreLogger
+
+	// ctx is passed to *all* database interactions that can accept a context.
+	// It must be cancelled in the worker's Kill method so no such operations
+	// can block a worker shutdown.
+	ctx context.Context
 
 	cache   map[string]*sql.Stmt
 	cacheMu sync.RWMutex
@@ -47,6 +55,7 @@ func NewStore(cfg StoreConfig) *Store {
 	return &Store{
 		db:     cfg.DB,
 		logger: cfg.Logger,
+		ctx:    cfg.Ctx,
 		cache:  make(map[string]*sql.Stmt),
 	}
 }
@@ -81,12 +90,12 @@ AND    l.name = ?`
 		args = []any{key.Namespace, key.ModelUUID, key.Lease}
 	}
 
-	stmt, err := s.getPrepared(context.Background(), name, q)
+	stmt, err := s.getPrepared(name, q)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	rows, err := stmt.Query(args...)
+	rows, err := stmt.QueryContext(s.ctx, args...)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -98,60 +107,40 @@ AND    l.name = ?`
 // ClaimLease (lease.Store) claims the lease indicated by the input key,
 // for the holder and duration indicated by the input request.
 // The lease must not already be held, otherwise an error is returned.
-func (s *Store) ClaimLease(key lease.Key, req lease.Request, stop <-chan struct{}) error {
+func (s *Store) ClaimLease(key lease.Key, req lease.Request) error {
 	if err := req.Validate(); err != nil {
 		return errors.Trace(err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	errCh := make(chan error)
-
-	go func() {
-		q := `
+	q := `
 INSERT INTO lease (uuid, lease_type_id, model_uuid, name, holder, start, expiry)
 SELECT ?, id, ?, ?, ?, datetime('now'), datetime('now', ?) 
 FROM   lease_type
 WHERE  type = ?`[1:]
 
-		stmt, err := s.getPrepared(ctx, "ClaimLease", q)
-		if err != nil {
-			errCh <- err
-			return
-		}
-
-		d := fmt.Sprintf("+%d seconds", int64(math.Ceil(req.Duration.Seconds())))
-
-		_, err = stmt.ExecContext(
-			ctx, utils.MustNewUUID().String(), key.ModelUUID, key.Lease, req.Holder, d, key.Namespace)
-		errCh <- err
-	}()
-
-	select {
-	case <-stop:
-		cancel()
-		return errors.Trace(<-errCh)
-	case err := <-errCh:
-		cancel()
-		if database.IsErrConstraintUnique(err) {
-			return lease.ErrHeld
-		}
+	stmt, err := s.getPrepared("ClaimLease", q)
+	if err != nil {
 		return errors.Trace(err)
 	}
+
+	d := fmt.Sprintf("+%d seconds", int64(math.Ceil(req.Duration.Seconds())))
+	uuid := utils.MustNewUUID().String()
+	_, err = stmt.ExecContext(s.ctx, uuid, key.ModelUUID, key.Lease, req.Holder, d, key.Namespace)
+	if database.IsErrConstraintUnique(err) {
+		return lease.ErrHeld
+	}
+	return errors.Trace(err)
 }
 
 // ExtendLease (lease.Store) ensures the input lease will be held for at least
 // the requested duration starting from now.
 // If the input holder does not currently hold the lease, an error is returned.
-func (s *Store) ExtendLease(key lease.Key, req lease.Request, stop <-chan struct{}) error {
+func (s *Store) ExtendLease(key lease.Key, req lease.Request) error {
 	if err := req.Validate(); err != nil {
 		return errors.Trace(err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	errCh := make(chan error)
-
-	go func() {
-		q := `
+	q := `
 UPDATE lease
 SET    expiry = datetime('now', ?)
 WHERE  uuid = (
@@ -163,47 +152,32 @@ WHERE  uuid = (
     AND    l.holder = ?
 )`[1:]
 
-		stmt, err := s.getPrepared(ctx, "ExtendLease", q)
-		if err != nil {
-			errCh <- err
-			return
-		}
-
-		d := fmt.Sprintf("+%d seconds", int64(math.Ceil(req.Duration.Seconds())))
-
-		result, err := stmt.ExecContext(ctx, d, key.Namespace, key.ModelUUID, key.Lease, req.Holder)
-
-		// If no rows were affected, then either this key does not exist or
-		// it is not held by the input holder, constituting an invalid request.
-		if err == nil {
-			var affected int64
-			affected, err = result.RowsAffected()
-			if affected == 0 && err == nil {
-				err = lease.ErrInvalid
-			}
-		}
-		errCh <- err
-	}()
-
-	select {
-	case <-stop:
-		cancel()
-		return errors.Trace(<-errCh)
-	case err := <-errCh:
-		cancel()
+	stmt, err := s.getPrepared("ExtendLease", q)
+	if err != nil {
 		return errors.Trace(err)
 	}
+
+	d := fmt.Sprintf("+%d seconds", int64(math.Ceil(req.Duration.Seconds())))
+
+	result, err := stmt.ExecContext(s.ctx, d, key.Namespace, key.ModelUUID, key.Lease, req.Holder)
+
+	// If no rows were affected, then either this key does not exist or
+	// it is not held by the input holder, constituting an invalid request.
+	if err == nil {
+		var affected int64
+		affected, err = result.RowsAffected()
+		if affected == 0 && err == nil {
+			err = lease.ErrInvalid
+		}
+	}
+	return errors.Trace(err)
 }
 
 // RevokeLease (lease.Store) deletes the lease from the store,
 // provided it exists and is held by the input holder.
 // If either of these conditions is false, an error is returned.
-func (s *Store) RevokeLease(key lease.Key, holder string, stop <-chan struct{}) error {
-	ctx, cancel := context.WithCancel(context.Background())
-	errCh := make(chan error)
-
-	go func() {
-		q := `
+func (s *Store) RevokeLease(key lease.Key, holder string) error {
+	q := `
 DELETE FROM lease
 WHERE  uuid = (
     SELECT l.uuid
@@ -214,31 +188,20 @@ WHERE  uuid = (
     AND    l.holder = ?
 )`[1:]
 
-		stmt, err := s.getPrepared(ctx, "RevokeLease", q)
-		if err != nil {
-			errCh <- err
-			return
-		}
-
-		result, err := stmt.ExecContext(ctx, key.Namespace, key.ModelUUID, key.Lease, holder)
-		if err == nil {
-			var affected int64
-			affected, err = result.RowsAffected()
-			if affected == 0 && err == nil {
-				err = lease.ErrInvalid
-			}
-		}
-		errCh <- err
-	}()
-
-	select {
-	case <-stop:
-		cancel()
-		return errors.Trace(<-errCh)
-	case err := <-errCh:
-		cancel()
+	stmt, err := s.getPrepared("RevokeLease", q)
+	if err != nil {
 		return errors.Trace(err)
 	}
+
+	result, err := stmt.ExecContext(s.ctx, key.Namespace, key.ModelUUID, key.Lease, holder)
+	if err == nil {
+		var affected int64
+		affected, err = result.RowsAffected()
+		if affected == 0 && err == nil {
+			err = lease.ErrInvalid
+		}
+	}
+	return errors.Trace(err)
 }
 
 // LeaseGroup (lease.Store) returns all leases
@@ -250,12 +213,12 @@ FROM   lease l JOIN lease_type t ON l.lease_type_id = t.id
 WHERE  t.type = ?
 AND    l.model_uuid = ?`[1:]
 
-	stmt, err := s.getPrepared(context.Background(), "LeaseGroup", q)
+	stmt, err := s.getPrepared("LeaseGroup", q)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	rows, err := stmt.Query(namespace, modelUUID)
+	rows, err := stmt.QueryContext(s.ctx, namespace, modelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -267,12 +230,8 @@ AND    l.model_uuid = ?`[1:]
 // PinLease (lease.Store) adds the input entity into the lease_pin table
 // to indicate that the lease indicated by the input key must not expire,
 // and that this entity requires such behaviour.
-func (s *Store) PinLease(key lease.Key, entity string, stop <-chan struct{}) error {
-	ctx, cancel := context.WithCancel(context.Background())
-	errCh := make(chan error)
-
-	go func() {
-		q := `
+func (s *Store) PinLease(key lease.Key, entity string) error {
+	q := `
 INSERT INTO lease_pin (uuid, lease_uuid, entity_id)
 SELECT ?, l.uuid, ?
 FROM   lease l JOIN lease_type t ON l.lease_type_id = t.id
@@ -280,27 +239,18 @@ WHERE  t.type = ?
 AND    l.model_uuid = ?
 AND    l.name = ?`[1:]
 
-		stmt, err := s.getPrepared(ctx, "PinLease", q)
-		if err != nil {
-			errCh <- err
-			return
-		}
-
-		_, err = stmt.ExecContext(ctx, utils.MustNewUUID().String(), entity, key.Namespace, key.ModelUUID, key.Lease)
-		errCh <- err
-	}()
-
-	select {
-	case <-stop:
-		cancel()
-		return errors.Trace(<-errCh)
-	case err := <-errCh:
-		cancel()
-		if database.IsErrConstraintUnique(err) {
-			return nil
-		}
+	stmt, err := s.getPrepared("PinLease", q)
+	if err != nil {
 		return errors.Trace(err)
 	}
+
+	_, err = stmt.ExecContext(s.ctx, utils.MustNewUUID().String(), entity, key.Namespace, key.ModelUUID, key.Lease)
+
+	// If the lease is already pinned for this requester, it is a no-op.
+	if database.IsErrConstraintUnique(err) {
+		return nil
+	}
+	return errors.Trace(err)
 }
 
 // UnpinLease (lease.Store) removes the record indicated by the input
@@ -308,12 +258,8 @@ AND    l.name = ?`[1:]
 // no longer requires the lease to be pinned.
 // When there are no entities associated with a particular lease,
 // it is determined not to be pinned, and can expire normally.
-func (s *Store) UnpinLease(key lease.Key, entity string, stop <-chan struct{}) error {
-	ctx, cancel := context.WithCancel(context.Background())
-	errCh := make(chan error)
-
-	go func() {
-		q := `
+func (s *Store) UnpinLease(key lease.Key, entity string) error {
+	q := `
 DELETE FROM lease_pin
 WHERE  uuid = (
     SELECT p.uuid
@@ -326,24 +272,13 @@ WHERE  uuid = (
     AND    p.entity_id = ?   
 )`[1:]
 
-		stmt, err := s.getPrepared(ctx, "UnpinLease", q)
-		if err != nil {
-			errCh <- err
-			return
-		}
-
-		_, err = stmt.ExecContext(ctx, key.Namespace, key.ModelUUID, key.Lease, entity)
-		errCh <- err
-	}()
-
-	select {
-	case <-stop:
-		cancel()
-		return errors.Trace(<-errCh)
-	case err := <-errCh:
-		cancel()
+	stmt, err := s.getPrepared("UnpinLease", q)
+	if err != nil {
 		return errors.Trace(err)
 	}
+
+	_, err = stmt.ExecContext(s.ctx, key.Namespace, key.ModelUUID, key.Lease, entity)
+	return errors.Trace(err)
 }
 
 // Pinned (lease.Store) returns all leases that are currently pinned,
@@ -356,12 +291,12 @@ FROM     lease l
          JOIN lease_pin p on l.uuid = p.lease_uuid
 ORDER BY l.uuid`[1:]
 
-	stmt, err := s.getPrepared(context.Background(), "Pinned", q)
+	stmt, err := s.getPrepared("Pinned", q)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	rows, err := stmt.Query()
+	rows, err := stmt.QueryContext(s.ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -392,7 +327,7 @@ ORDER BY l.uuid`[1:]
 // getPrepared returns a prepared statement for the input name,
 // ensuring that the first call for a given name caches the statement.
 // thereafter the statement is returned from the cache.
-func (s *Store) getPrepared(ctx context.Context, name string, stmt string) (*sql.Stmt, error) {
+func (s *Store) getPrepared(name string, stmt string) (*sql.Stmt, error) {
 	s.cacheMu.RLock()
 	if cachedStmt, ok := s.cache[name]; ok {
 		s.cacheMu.RUnlock()
@@ -403,7 +338,7 @@ func (s *Store) getPrepared(ctx context.Context, name string, stmt string) (*sql
 	s.cacheMu.Lock()
 	defer s.cacheMu.Unlock()
 
-	prepared, err := s.db.PrepareContext(ctx, stmt)
+	prepared, err := s.db.PrepareContext(s.ctx, stmt)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

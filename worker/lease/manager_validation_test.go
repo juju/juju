@@ -37,6 +37,7 @@ func (s *ValidationSuite) SetUpTest(c *gc.C) {
 		},
 		MaxSleep:             time.Minute,
 		Logger:               loggo.GetLogger("lease_test"),
+		CancelDBOps:          func() {},
 		PrometheusRegisterer: struct{ prometheus.Registerer }{},
 	}
 }
@@ -78,10 +79,18 @@ func (s *ValidationSuite) TestMissingSecretary(c *gc.C) {
 	c.Check(manager, gc.IsNil)
 }
 
+func (s *ValidationSuite) TestMissingCancelFunc(c *gc.C) {
+	s.config.CancelDBOps = nil
+	manager, err := lease.NewManager(s.config)
+	c.Check(err, gc.ErrorMatches, "nil CancelDBOps not valid")
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(manager, gc.IsNil)
+}
+
 func (s *ValidationSuite) TestMissingPrometheusRegisterer(c *gc.C) {
 	s.config.PrometheusRegisterer = nil
 	err := s.config.Validate()
-	// Find to miss this out for now.
+	// Fine to miss this out for now.
 	c.Assert(err, jc.ErrorIsNil)
 }
 

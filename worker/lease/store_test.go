@@ -4,6 +4,7 @@
 package lease_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -19,7 +20,7 @@ type storeSuite struct {
 	testing.ControllerSuite
 
 	store  *lease.Store
-	stopCh chan struct{}
+	cancel func()
 }
 
 var _ = gc.Suite(&storeSuite{})
@@ -27,13 +28,13 @@ var _ = gc.Suite(&storeSuite{})
 func (s *storeSuite) SetUpTest(c *gc.C) {
 	s.ControllerSuite.SetUpTest(c)
 
-	s.store = lease.NewStore(lease.StoreConfig{
+	cfg := lease.StoreConfig{
 		DB:     s.DB,
 		Logger: lease.StubLogger{},
-	})
+	}
 
-	// Single-buffered to allow us to queue up a stoppage.
-	s.stopCh = make(chan struct{}, 1)
+	cfg.Ctx, s.cancel = context.WithCancel(context.Background())
+	s.store = lease.NewStore(cfg)
 }
 
 func (s *storeSuite) TestClaimLeaseSuccessAndLeaseQueries(c *gc.C) {
@@ -49,7 +50,7 @@ func (s *storeSuite) TestClaimLeaseSuccessAndLeaseQueries(c *gc.C) {
 	}
 
 	// Add 2 leases.
-	err := s.store.ClaimLease(pgKey, pgReq, s.stopCh)
+	err := s.store.ClaimLease(pgKey, pgReq)
 	c.Assert(err, jc.ErrorIsNil)
 
 	mmKey := pgKey
@@ -58,7 +59,7 @@ func (s *storeSuite) TestClaimLeaseSuccessAndLeaseQueries(c *gc.C) {
 	mmReq := pgReq
 	mmReq.Holder = "mattermost/0"
 
-	err = s.store.ClaimLease(mmKey, mmReq, s.stopCh)
+	err = s.store.ClaimLease(mmKey, mmReq)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check all the leases.
@@ -88,7 +89,6 @@ func (s *storeSuite) TestClaimLeaseSuccessAndLeaseQueries(c *gc.C) {
 			Holder:   "machine/0",
 			Duration: time.Minute,
 		},
-		s.stopCh,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -111,10 +111,10 @@ func (s *storeSuite) TestClaimLeaseAlreadyHeld(c *gc.C) {
 		Duration: time.Minute,
 	}
 
-	err := s.store.ClaimLease(key, req, s.stopCh)
+	err := s.store.ClaimLease(key, req)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.store.ClaimLease(key, req, s.stopCh)
+	err = s.store.ClaimLease(key, req)
 	c.Assert(errors.Is(err, corelease.ErrHeld), jc.IsTrue)
 }
 
@@ -130,7 +130,7 @@ func (s *storeSuite) TestExtendLeaseSuccess(c *gc.C) {
 		Duration: time.Minute,
 	}
 
-	err := s.store.ClaimLease(key, req, s.stopCh)
+	err := s.store.ClaimLease(key, req)
 	c.Assert(err, jc.ErrorIsNil)
 
 	leases, err := s.store.Leases(key)
@@ -141,7 +141,7 @@ func (s *storeSuite) TestExtendLeaseSuccess(c *gc.C) {
 	originalExpiry := leases[key].Expiry
 
 	req.Duration = 2 * time.Minute
-	err = s.store.ExtendLease(key, req, s.stopCh)
+	err = s.store.ExtendLease(key, req)
 	c.Assert(err, jc.ErrorIsNil)
 
 	leases, err = s.store.Leases(key)
@@ -164,7 +164,7 @@ func (s *storeSuite) TestExtendLeaseNotHeldInvalid(c *gc.C) {
 		Duration: time.Minute,
 	}
 
-	err := s.store.ExtendLease(key, req, s.stopCh)
+	err := s.store.ExtendLease(key, req)
 	c.Assert(errors.Is(err, corelease.ErrInvalid), jc.IsTrue)
 }
 
@@ -180,10 +180,10 @@ func (s *storeSuite) TestRevokeLeaseSuccess(c *gc.C) {
 		Duration: time.Minute,
 	}
 
-	err := s.store.ClaimLease(key, req, s.stopCh)
+	err := s.store.ClaimLease(key, req)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.store.RevokeLease(key, req.Holder, s.stopCh)
+	err = s.store.RevokeLease(key, req.Holder)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -194,7 +194,7 @@ func (s *storeSuite) TestRevokeLeaseNotHeldInvalid(c *gc.C) {
 		Lease:     "postgresql",
 	}
 
-	err := s.store.RevokeLease(key, "not-the-holder", s.stopCh)
+	err := s.store.RevokeLease(key, "not-the-holder")
 	c.Assert(errors.Is(err, corelease.ErrInvalid), jc.IsTrue)
 }
 
@@ -210,19 +210,19 @@ func (s *storeSuite) TestPinUnpinLeaseAndPinQueries(c *gc.C) {
 		Duration: time.Minute,
 	}
 
-	err := s.store.ClaimLease(pgKey, pgReq, s.stopCh)
+	err := s.store.ClaimLease(pgKey, pgReq)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// One entity pins the lease.
-	err = s.store.PinLease(pgKey, "machine/6", s.stopCh)
+	err = s.store.PinLease(pgKey, "machine/6")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The same lease/entity is a no-op without error.
-	err = s.store.PinLease(pgKey, "machine/6", s.stopCh)
+	err = s.store.PinLease(pgKey, "machine/6")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Another entity pinning the same lease.
-	err = s.store.PinLease(pgKey, "machine/7", s.stopCh)
+	err = s.store.PinLease(pgKey, "machine/7")
 	c.Assert(err, jc.ErrorIsNil)
 
 	pins, err := s.store.Pinned()
@@ -231,7 +231,7 @@ func (s *storeSuite) TestPinUnpinLeaseAndPinQueries(c *gc.C) {
 	c.Check(pins[pgKey], jc.SameContents, []string{"machine/6", "machine/7"})
 
 	// Unpin and check the leases.
-	err = s.store.UnpinLease(pgKey, "machine/7", s.stopCh)
+	err = s.store.UnpinLease(pgKey, "machine/7")
 	c.Assert(err, jc.ErrorIsNil)
 
 	pins, err = s.store.Pinned()
@@ -241,7 +241,7 @@ func (s *storeSuite) TestPinUnpinLeaseAndPinQueries(c *gc.C) {
 }
 
 func (s *storeSuite) TestLeaseOperationCancellation(c *gc.C) {
-	s.stopCh <- struct{}{}
+	s.cancel()
 
 	key := corelease.Key{
 		Namespace: "application-leadership",
@@ -254,6 +254,6 @@ func (s *storeSuite) TestLeaseOperationCancellation(c *gc.C) {
 		Duration: time.Minute,
 	}
 
-	err := s.store.ClaimLease(key, req, s.stopCh)
+	err := s.store.ClaimLease(key, req)
 	c.Assert(err, gc.ErrorMatches, "context canceled")
 }

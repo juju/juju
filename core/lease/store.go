@@ -19,17 +19,17 @@ type Store interface {
 	// it succeeds, the claim is guaranteed until at least the supplied duration
 	// after the call to ClaimLease was initiated. If it returns ErrInvalid,
 	// check Leases() for updated state.
-	ClaimLease(lease Key, request Request, stop <-chan struct{}) error
+	ClaimLease(lease Key, request Request) error
 
 	// ExtendLease records the supplied holder's continued claim to the supplied
 	// lease, if necessary. If it succeeds, the claim is guaranteed until at
 	// least the supplied duration after the call to ExtendLease was initiated.
 	// If it returns ErrInvalid, check Leases() for updated state.
-	ExtendLease(lease Key, request Request, stop <-chan struct{}) error
+	ExtendLease(lease Key, request Request) error
 
 	// RevokeLease records the vacation of the supplied lease. It will fail if
 	// the lease is not held by the holder.
-	RevokeLease(lease Key, holder string, stop <-chan struct{}) error
+	RevokeLease(lease Key, holder string) error
 
 	// Leases returns a recent snapshot of lease state. Expiry times are
 	// expressed according to the Clock the store was configured with.
@@ -49,12 +49,12 @@ type Store interface {
 	// the recipient of the pin behaviour.
 	// The input entity denotes the party responsible for the
 	// pinning operation.
-	PinLease(lease Key, entity string, stop <-chan struct{}) error
+	PinLease(lease Key, entity string) error
 
 	// UnpinLease reverses a Pin operation for the same key and entity.
 	// Normal expiry behaviour is restored when no entities remain with
 	// pins for the application.
-	UnpinLease(lease Key, entity string, stop <-chan struct{}) error
+	UnpinLease(lease Key, entity string) error
 
 	// Pinned returns a snapshot of pinned leases.
 	// The return consists of each pinned lease and the collection of entities
