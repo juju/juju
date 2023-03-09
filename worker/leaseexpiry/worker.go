@@ -4,13 +4,15 @@
 package leaseexpiry
 
 import (
+	"context"
 	"database/sql"
 	"time"
+
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/catacomb"
 
 	"github.com/juju/juju/database"
 )
@@ -39,11 +41,17 @@ func (cfg Config) Validate() error {
 }
 
 type expiryWorker struct {
-	catacomb catacomb.Catacomb
+	tomb tomb.Tomb
 
 	clock  clock.Clock
 	logger Logger
 	db     *sql.DB
+
+	// ctx is passed to *all* database interactions that can accept a context.
+	// It must be cancelled in the worker's Kill method so no such operations
+	// can block a worker shutdown.
+	ctx       context.Context
+	ctxCancel func()
 
 	stmt *sql.Stmt
 }
@@ -57,14 +65,23 @@ func NewWorker(cfg Config) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+
 	w := &expiryWorker{
-		clock:  cfg.Clock,
-		logger: cfg.Logger,
-		db:     cfg.DB,
+		clock:     cfg.Clock,
+		logger:    cfg.Logger,
+		db:        cfg.DB,
+		ctx:       ctx,
+		ctxCancel: cancel,
 	}
 
-	// Prepare our single DML statement before considering the worker started.
-	// Pinned leases may not be deleted even if expired.
+	w.tomb.Go(w.loop)
+	return w, nil
+}
+
+func (w *expiryWorker) loop() error {
+	timer := w.clock.NewTimer(time.Second)
+
 	q := `
 DELETE FROM lease WHERE uuid in (
     SELECT l.uuid 
@@ -73,27 +90,15 @@ DELETE FROM lease WHERE uuid in (
     AND    l.expiry < datetime('now')
 )`[1:]
 
-	if w.stmt, err = w.db.Prepare(q); err != nil {
-		return nil, errors.Trace(err)
+	var err error
+	if w.stmt, err = w.db.PrepareContext(w.ctx, q); err != nil {
+		return errors.Trace(err)
 	}
-
-	if err = catacomb.Invoke(catacomb.Plan{
-		Site: &w.catacomb,
-		Work: w.loop,
-	}); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return w, nil
-}
-
-func (w *expiryWorker) loop() error {
-	timer := w.clock.NewTimer(time.Second)
 
 	for {
 		select {
-		case <-w.catacomb.Dying():
-			return w.catacomb.ErrDying()
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
 		case <-timer.Chan():
 			if err := w.expireLeases(); err != nil {
 				return errors.Trace(err)
@@ -104,7 +109,7 @@ func (w *expiryWorker) loop() error {
 }
 
 func (w *expiryWorker) expireLeases() error {
-	res, err := w.stmt.Exec()
+	res, err := w.stmt.ExecContext(w.ctx)
 	if err != nil {
 		// TODO (manadart 2022-12-15): This incarnation of the worker runs on
 		// all controller nodes. Retryable errors are those that occur due to
@@ -132,10 +137,11 @@ func (w *expiryWorker) expireLeases() error {
 
 // Kill is part of the worker.Worker interface.
 func (w *expiryWorker) Kill() {
-	w.catacomb.Kill(nil)
+	w.ctxCancel()
+	w.tomb.Kill(nil)
 }
 
 // Wait is part of the worker.Worker interface.
 func (w *expiryWorker) Wait() error {
-	return w.catacomb.Wait()
+	return w.tomb.Wait()
 }
