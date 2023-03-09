@@ -4,49 +4,46 @@
 package application
 
 import (
-	"github.com/juju/errors"
-	"github.com/juju/featureflag"
-
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/state"
 )
 
-// DeployFromRepository is a one-stop deployment method for repository
-// charms. Only a charm name is required to deploy. If argument validation
-// fails, a list of all errors found in validation will be returned. If a
-// local resource is provided, details required for uploading the validated
-// resource will be returned.
-func (api *APIBase) DeployFromRepository(args params.DeployFromRepositoryArgs) (params.DeployFromRepositoryResults, error) {
-	if !featureflag.Enabled(feature.ServerSideCharmDeploy) {
-		return params.DeployFromRepositoryResults{}, errors.NotImplementedf("this facade method is under develop")
-	}
-
-	if err := api.checkCanWrite(); err != nil {
-		return params.DeployFromRepositoryResults{}, errors.Trace(err)
-	}
-	if err := api.check.RemoveAllowed(); err != nil {
-		return params.DeployFromRepositoryResults{}, errors.Trace(err)
-	}
-
-	results := make([]params.DeployFromRepositoryResult, len(args.Args))
-	for i, entity := range args.Args {
-		info, pending, errs := api.deployOneFromRepository(entity)
-		if len(errs) > 0 {
-			results[i].Errors = apiservererrors.ServerErrors(errs)
-			continue
-		}
-		results[i].Info = info
-		results[i].PendingResourceUploads = pending
-	}
-	return params.DeployFromRepositoryResults{
-		Results: results,
-	}, nil
+// DeployFromRepositoryValidator defines an deploy config validator.
+type DeployFromRepositoryValidator interface {
+	ValidateArg(params.DeployFromRepositoryArg) []error
 }
 
-func (api *APIBase) deployOneFromRepository(arg params.DeployFromRepositoryArg) ([]string, []*params.PendingResourceUpload, []error) {
+// DeployFromRepository defines an interface for deploying a charm
+// from a repository.
+type DeployFromRepository interface {
+	DeployFromRepository(arg params.DeployFromRepositoryArg) ([]string, []*params.PendingResourceUpload, []error)
+}
+
+// DeployFromRepositoryState defines a common set of functions for retrieving state
+// objects.
+type DeployFromRepositoryState interface {
+}
+
+// DeployFromRepositoryAPI provides the deploy from repository
+// API facade for any given version. It is expected that any API
+// parameter changes should be performed before entering the API.
+type DeployFromRepositoryAPI struct {
+	state     DeployFromRepositoryState
+	validator DeployFromRepositoryValidator
+}
+
+// NewDeployFromRepositoryAPI creates a new DeployFromRepositoryAPI.
+func NewDeployFromRepositoryAPI(state DeployFromRepositoryState, validator DeployFromRepositoryValidator) DeployFromRepository {
+	api := &DeployFromRepositoryAPI{
+		state:     state,
+		validator: validator,
+	}
+	return api
+}
+
+func (api *DeployFromRepositoryAPI) DeployFromRepository(arg params.DeployFromRepositoryArg) ([]string, []*params.PendingResourceUpload, []error) {
 	// Validate the args.
-	errs := validateDeployFromRepositoryArgs(arg)
+	errs := api.validator.ValidateArg(arg)
 	if len(errs) > 0 {
 		return nil, nil, errs
 	}
@@ -61,16 +58,6 @@ func (api *APIBase) deployOneFromRepository(arg params.DeployFromRepositoryArg) 
 	return nil, pendingResourceUploads, errs
 }
 
-// validateDeployFromRepositoryArgs does validation of all provided
-// arguments.
-func validateDeployFromRepositoryArgs(_ params.DeployFromRepositoryArg) []error {
-	// Are we deploying a charm? if not, fail fast here.
-	// TODO: add a ErrorNotACharm or the like for the juju client.
-
-	// Validate the other args.
-	return nil
-}
-
 // addPendingResource adds a pending resource doc for all resources to be
 // added when deploying the charm. PendingResourceUpload is only returned
 // for local resources which will require the client to upload the
@@ -79,4 +66,47 @@ func validateDeployFromRepositoryArgs(_ params.DeployFromRepositoryArg) []error 
 // TODO: determine necessary args.
 func addPendingResources() ([]*params.PendingResourceUpload, []error) {
 	return nil, nil
+}
+
+func makeDeployFromRepositoryValidator(modelType state.ModelType, client CharmhubClient) DeployFromRepositoryValidator {
+	v := deployFromRepositoryValidator{
+		client: client,
+	}
+	if modelType == state.ModelTypeCAAS {
+		return &caasDeployFromRepositoryValidator{
+			validator: v,
+		}
+	}
+	return &iaasDeployFromRepositoryValidator{
+		validator: v,
+	}
+}
+
+type deployFromRepositoryValidator struct {
+	client CharmhubClient
+}
+
+func (v deployFromRepositoryValidator) validate(arg params.DeployFromRepositoryArg) []error {
+	return nil
+}
+
+type caasDeployFromRepositoryValidator struct {
+	validator deployFromRepositoryValidator
+}
+
+func (v caasDeployFromRepositoryValidator) ValidateArg(arg params.DeployFromRepositoryArg) []error {
+	// TODO: NumUnits
+	// TODO: Storage
+	// TODO: Warn on use of old kubernetes series in charms
+	return v.validator.validate(arg)
+}
+
+type iaasDeployFromRepositoryValidator struct {
+	validator deployFromRepositoryValidator
+}
+
+func (v iaasDeployFromRepositoryValidator) ValidateArg(arg params.DeployFromRepositoryArg) []error {
+	// TODO: NumUnits
+	// TODO: Storage
+	return v.validator.validate(arg)
 }

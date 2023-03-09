@@ -13,6 +13,7 @@ import (
 	"github.com/juju/charm/v10"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
+	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/schema"
@@ -46,6 +47,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	environsconfig "github.com/juju/juju/environs/config"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -88,6 +90,7 @@ type APIBase struct {
 	authorizer facade.Authorizer
 	check      BlockChecker
 	updateBase UpdateBase
+	repoDeploy DeployFromRepository
 
 	model     Model
 	modelType state.ModelType
@@ -129,7 +132,8 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 		registry           storage.ProviderRegistry
 		caasBroker         caas.Broker
 	)
-	if model.Type() == state.ModelTypeCAAS {
+	modelType := model.Type()
+	if modelType == state.ModelTypeCAAS {
 		caasBroker, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(model)
 		if err != nil {
 			return nil, errors.Annotate(err, "getting caas client")
@@ -163,12 +167,14 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 	}
 
 	updateBase := NewUpdateBaseAPI(state, makeUpdateSeriesValidator(chClient))
+	repoDeploy := NewDeployFromRepositoryAPI(state, makeDeployFromRepositoryValidator(modelType, chClient))
 
 	return NewAPIBase(
 		state,
 		storageAccess,
 		ctx.Auth(),
 		updateBase,
+		repoDeploy,
 		blockChecker,
 		&modelShim{Model: model}, // modelShim wraps the AllPorts() API.
 		leadershipReader,
@@ -187,6 +193,7 @@ func NewAPIBase(
 	storageAccess StorageInterface,
 	authorizer facade.Authorizer,
 	updateBase UpdateBase,
+	repoDeploy DeployFromRepository,
 	blockChecker BlockChecker,
 	model Model,
 	leadershipReader leadership.Reader,
@@ -205,6 +212,7 @@ func NewAPIBase(
 		storageAccess:         storageAccess,
 		authorizer:            authorizer,
 		updateBase:            updateBase,
+		repoDeploy:            repoDeploy,
 		check:                 blockChecker,
 		model:                 model,
 		modelType:             model.Type(),
@@ -2940,4 +2948,36 @@ func (api *APIBase) Leader(entity params.Entity) (params.StringResult, error) {
 		result.Error = apiservererrors.ServerError(errors.NotFoundf("leader for %s", entity.Tag))
 	}
 	return result, nil
+}
+
+// DeployFromRepository is a one-stop deployment method for repository
+// charms. Only a charm name is required to deploy. If argument validation
+// fails, a list of all errors found in validation will be returned. If a
+// local resource is provided, details required for uploading the validated
+// resource will be returned.
+func (api *APIBase) DeployFromRepository(args params.DeployFromRepositoryArgs) (params.DeployFromRepositoryResults, error) {
+	if !featureflag.Enabled(feature.ServerSideCharmDeploy) {
+		return params.DeployFromRepositoryResults{}, errors.NotImplementedf("this facade method is under develop")
+	}
+
+	if err := api.checkCanWrite(); err != nil {
+		return params.DeployFromRepositoryResults{}, errors.Trace(err)
+	}
+	if err := api.check.RemoveAllowed(); err != nil {
+		return params.DeployFromRepositoryResults{}, errors.Trace(err)
+	}
+
+	results := make([]params.DeployFromRepositoryResult, len(args.Args))
+	for i, entity := range args.Args {
+		info, pending, errs := api.repoDeploy.DeployFromRepository(entity)
+		if len(errs) > 0 {
+			results[i].Errors = apiservererrors.ServerErrors(errs)
+			continue
+		}
+		results[i].Info = info
+		results[i].PendingResourceUploads = pending
+	}
+	return params.DeployFromRepositoryResults{
+		Results: results,
+	}, nil
 }
