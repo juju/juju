@@ -4,7 +4,6 @@
 package dbaccessor
 
 import (
-	clock "github.com/juju/clock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -48,7 +47,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		NewApp: func(string, ...app.Option) (DBApp, error) {
 			return s.dbApp, nil
 		},
-		NewDBWorker: func(DBApp, string, clock.Clock, Logger) (TrackedDB, error) {
+		NewDBWorker: func(DBApp, string, ...TrackedDBWorkerOption) (TrackedDB, error) {
 			return nil, nil
 		},
 	}

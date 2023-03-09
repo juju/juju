@@ -146,26 +146,26 @@ func (w *changeStreamWorker) EventQueue(namespace string) (EventQueue, error) {
 		return e.(EventQueueWorker).EventQueue(), nil
 	}
 
-	var eventQueue EventQueue
-	if err := w.runner.StartWorker(namespace, func() (worker.Worker, error) {
-		db, err := w.cfg.DBGetter.GetDB(namespace)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
+	db, err := w.cfg.DBGetter.GetDB(namespace)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
-		worker, err := w.cfg.NewEventQueueWorker(db, fileNotifyWatcher{
-			fileNotifier: w.cfg.FileNotifyWatcher,
-			fileName:     namespace,
-		}, w.cfg.Clock, w.cfg.Logger)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		eventQueue = worker.EventQueue()
-		return worker, nil
+	eqWorker, err := w.cfg.NewEventQueueWorker(db, fileNotifyWatcher{
+		fileNotifier: w.cfg.FileNotifyWatcher,
+		fileName:     namespace,
+	}, w.cfg.Clock, w.cfg.Logger)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if err := w.runner.StartWorker(namespace, func() (worker.Worker, error) {
+		return eqWorker, nil
 	}); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return eventQueue, nil
+
+	return eqWorker.EventQueue(), nil
 }
 
 // fileNotifyWatcher is a wrapper around the FileNotifyWatcher that is used to

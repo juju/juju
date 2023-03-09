@@ -7,10 +7,10 @@ import (
 	"context"
 	sql "database/sql"
 	"errors"
+	"sync/atomic"
 	"time"
 
 	"github.com/golang/mock/gomock"
-	clock "github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
@@ -34,8 +34,6 @@ func (s *workerSuite) TestGetControllerDBSuccessNotExistingNode(c *gc.C) {
 	s.expectAnyLogs()
 	s.expectClock()
 
-	done := s.expectTrackedDB(c)
-
 	mgrExp := s.nodeManager.EXPECT()
 	mgrExp.EnsureDataDir().Return(c.MkDir(), nil)
 	mgrExp.IsExistingNode().Return(false, nil)
@@ -48,6 +46,8 @@ func (s *workerSuite) TestGetControllerDBSuccessNotExistingNode(c *gc.C) {
 	appExp.ID().Return(uint64(666))
 	appExp.Handover(gomock.Any()).Return(nil)
 	appExp.Close().Return(nil)
+
+	done := s.expectTrackedDB(c)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -97,7 +97,7 @@ func (s *workerSuite) TestWorkerStartupExistingNode(c *gc.C) {
 	select {
 	case <-sync:
 	case <-time.After(testing.LongWait):
-		c.Fatal("timed out waiting for synchronisation")
+		c.Fatal("timed out waiting for synchronization")
 	}
 
 	// Close the wait on the tracked DB
@@ -120,7 +120,7 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 		NewApp: func(string, ...app.Option) (DBApp, error) {
 			return s.dbApp, nil
 		},
-		NewDBWorker: func(DBApp, string, clock.Clock, Logger) (TrackedDB, error) {
+		NewDBWorker: func(DBApp, string, ...TrackedDBWorkerOption) (TrackedDB, error) {
 			return s.trackedDB, nil
 		},
 	}
@@ -145,7 +145,7 @@ func (s *trackedDBWorkerSuite) TestWorkerStartup(c *gc.C) {
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
-	w, err := NewTrackedDBWorker(s.dbApp, "controller", s.clock, s.logger)
+	w, err := NewTrackedDBWorker(s.dbApp, "controller", WithClock(s.clock), WithLogger(s.logger))
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer workertest.DirtyKill(c, w)
@@ -162,7 +162,7 @@ func (s *trackedDBWorkerSuite) TestWorkerDBIsNotNil(c *gc.C) {
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
-	w, err := NewTrackedDBWorker(s.dbApp, "controller", s.clock, s.logger)
+	w, err := NewTrackedDBWorker(s.dbApp, "controller", WithClock(s.clock), WithLogger(s.logger))
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer workertest.DirtyKill(c, w)
@@ -193,7 +193,7 @@ func (s *trackedDBWorkerSuite) TestWorkerTxnIsNotNil(c *gc.C) {
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
-	w, err := NewTrackedDBWorker(s.dbApp, "controller", s.clock, s.logger)
+	w, err := NewTrackedDBWorker(s.dbApp, "controller", WithClock(s.clock), WithLogger(s.logger))
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer workertest.DirtyKill(c, w)
@@ -227,18 +227,18 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceeds(c *gc.C) 
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil).Times(DefaultVerifyAttempts)
 
-	w, err := NewTrackedDBWorker(s.dbApp, "controller", s.clock, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
+	var count uint64
+	verifyFn := func(db *sql.DB) error {
+		val := atomic.AddUint64(&count, 1)
 
-	var count int
-	s.setupVerifyDBFunc(c, w, func(db *sql.DB) error {
-		defer func() { count++ }()
-
-		if count == DefaultVerifyAttempts-1 {
+		if val == DefaultVerifyAttempts {
 			return nil
 		}
 		return errors.New("boom")
-	})
+	}
+
+	w, err := NewTrackedDBWorker(s.dbApp, "controller", WithClock(s.clock), WithLogger(s.logger), WithVerifyDBFunc(verifyFn))
+	c.Assert(err, jc.ErrorIsNil)
 
 	defer workertest.DirtyKill(c, w)
 
@@ -264,12 +264,12 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButFails(c *gc.C) {
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil).Times(DefaultVerifyAttempts)
 
-	w, err := NewTrackedDBWorker(s.dbApp, "controller", s.clock, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.setupVerifyDBFunc(c, w, func(db *sql.DB) error {
+	verifyFn := func(db *sql.DB) error {
 		return errors.New("boom")
-	})
+	}
+
+	w, err := NewTrackedDBWorker(s.dbApp, "controller", WithClock(s.clock), WithLogger(s.logger), WithVerifyDBFunc(verifyFn))
+	c.Assert(err, jc.ErrorIsNil)
 
 	defer workertest.DirtyKill(c, w)
 
@@ -281,10 +281,4 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButFails(c *gc.C) {
 
 	c.Assert(w.Wait(), gc.ErrorMatches, "boom")
 	c.Assert(w.Err(), gc.ErrorMatches, "boom")
-}
-
-func (s *trackedDBWorkerSuite) setupVerifyDBFunc(c *gc.C, w TrackedDB, fn func(db *sql.DB) error) {
-	trackedDBWorker, ok := w.(*trackedDBWorker)
-	c.Assert(ok, jc.IsTrue, gc.Commentf("expected *trackedDBWorker, got %T", w))
-	trackedDBWorker.verifyDBFunc = fn
 }

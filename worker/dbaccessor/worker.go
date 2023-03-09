@@ -80,7 +80,7 @@ type WorkerConfig struct {
 	Clock       clock.Clock
 	Logger      Logger
 	NewApp      func(string, ...app.Option) (DBApp, error)
-	NewDBWorker func(DBApp, string, clock.Clock, Logger) (TrackedDB, error)
+	NewDBWorker func(DBApp, string, ...TrackedDBWorkerOption) (TrackedDB, error)
 }
 
 // Validate ensures that the config values are valid.
@@ -323,18 +323,42 @@ func (w *dbWorker) initializeDqlite() error {
 }
 
 func (w *dbWorker) openDatabase(namespace string) (coredatabase.TrackedDB, error) {
-	var trackedDB coredatabase.TrackedDB
+	dbWorker, err := w.cfg.NewDBWorker(w.dbApp, namespace, WithClock(w.cfg.Clock), WithLogger(w.cfg.Logger))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	if err := w.dbRunner.StartWorker(namespace, func() (worker.Worker, error) {
-		dbWorker, err := w.cfg.NewDBWorker(w.dbApp, namespace, w.cfg.Clock, w.cfg.Logger)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		trackedDB = dbWorker
 		return dbWorker, nil
 	}); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return trackedDB, nil
+
+	return dbWorker.(coredatabase.TrackedDB), nil
+}
+
+// TrackedDBWorkerOption is a function that configures a TrackedDBWorker.
+type TrackedDBWorkerOption func(*trackedDBWorker)
+
+// WithVerifyDBFunc sets the function used to verify the database connection.
+func WithVerifyDBFunc(f func(*sql.DB) error) TrackedDBWorkerOption {
+	return func(w *trackedDBWorker) {
+		w.verifyDBFunc = f
+	}
+}
+
+// WithClock sets the clock used by the worker.
+func WithClock(clock clock.Clock) TrackedDBWorkerOption {
+	return func(w *trackedDBWorker) {
+		w.clock = clock
+	}
+}
+
+// WithLogger sets the logger used by the worker.
+func WithLogger(logger Logger) TrackedDBWorkerOption {
+	return func(w *trackedDBWorker) {
+		w.logger = logger
+	}
 }
 
 type trackedDBWorker struct {
@@ -354,13 +378,16 @@ type trackedDBWorker struct {
 }
 
 // NewTrackedDBWorker creates a new TrackedDBWorker
-func NewTrackedDBWorker(dbApp DBApp, namespace string, clock clock.Clock, logger Logger) (TrackedDB, error) {
+func NewTrackedDBWorker(dbApp DBApp, namespace string, opts ...TrackedDBWorkerOption) (TrackedDB, error) {
 	w := &trackedDBWorker{
 		dbApp:        dbApp,
 		namespace:    namespace,
-		clock:        clock,
-		logger:       logger,
+		clock:        clock.WallClock,
 		verifyDBFunc: defaultVerifyDBFunc,
+	}
+
+	for _, opt := range opts {
+		opt(w)
 	}
 
 	var err error

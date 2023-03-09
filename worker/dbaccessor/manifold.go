@@ -37,7 +37,7 @@ type ManifoldConfig struct {
 	Clock       clock.Clock
 	Logger      Logger
 	NewApp      func(string, ...app.Option) (DBApp, error)
-	NewDBWorker func(DBApp, string, clock.Clock, Logger) (TrackedDB, error)
+	NewDBWorker func(DBApp, string, ...TrackedDBWorkerOption) (TrackedDB, error)
 }
 
 func (cfg ManifoldConfig) Validate() error {
