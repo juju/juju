@@ -105,6 +105,7 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 			CreatedBy:   creator,
 			DateCreated: dateCreated,
 			Deleted:     false,
+			RemovalLog:  []userRemovedLogEntry{},
 		},
 	}
 
@@ -147,6 +148,7 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 func (st *State) updateExistingUser(u *User, displayName, password, creator string, secretKey []byte) (*User, error) {
 
 	dateCreated := st.nowToTheSecond()
+
 	// update the password
 	updateUser := bson.D{{"$set", bson.D{
 		{"deleted", false},
@@ -213,6 +215,16 @@ func (st *State) RemoveUser(tag names.UserTag) error {
 		return nil
 	}
 
+	dateRemoved := st.nowToTheSecond()
+	// new entry in the removal log
+	newRemovalLogEntry := userRemovedLogEntry{
+		RemovedBy:   u.doc.CreatedBy,
+		DateCreated: u.doc.DateCreated,
+		DateRemoved: dateRemoved,
+	}
+	removalLog := u.doc.RemovalLog
+	removalLog = append(removalLog, newRemovalLogEntry)
+
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			// If it is not our first attempt, refresh the user.
@@ -224,7 +236,8 @@ func (st *State) RemoveUser(tag names.UserTag) error {
 			Id:     lowercaseName,
 			C:      usersC,
 			Assert: txn.DocExists,
-			Update: bson.M{"$set": bson.M{"deleted": true}},
+			Update: bson.M{"$set": bson.M{
+				"deleted": true, "removallog": removalLog}},
 		}}
 		return ops, nil
 	}
@@ -359,6 +372,8 @@ type userDoc struct {
 	PasswordSalt string    `bson:"passwordsalt"`
 	CreatedBy    string    `bson:"createdby"`
 	DateCreated  time.Time `bson:"datecreated"`
+	// RemovalLog keeps a track of removals for this user
+	RemovalLog []userRemovedLogEntry `bson:"removallog"`
 }
 
 type userLastLoginDoc struct {
@@ -371,6 +386,14 @@ type userLastLoginDoc struct {
 	// It is really informational only as far as everyone except the
 	// api server is concerned.
 	LastLogin time.Time `bson:"last-login"`
+}
+
+// userRemovedLog contains a log of entries added every time the user
+// doc has been removed
+type userRemovedLogEntry struct {
+	RemovedBy   string    `bson:"removedby"`
+	DateCreated time.Time `bson:"datecreated"`
+	DateRemoved time.Time `bson:"dateremoved"`
 }
 
 // String returns "<name>" where <name> is the Name of the user.
