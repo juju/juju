@@ -6,12 +6,9 @@ package params
 import (
 	"time"
 
-	"github.com/juju/charm/v10"
-
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/storage"
 )
 
@@ -549,10 +546,14 @@ type ExposeInfoResult struct {
 	ExposedEndpoints map[string]ExposedEndpoint `json:"exposed-endpoints,omitempty"`
 }
 
+// DeployFromRepositoryArgs holds arguments for multiple charms
+// to be deployed.
 type DeployFromRepositoryArgs struct {
 	Args []DeployFromRepositoryArg
 }
 
+// DeployFromRepositoryArg is all data required to deploy a
+// charm from a repository.
 type DeployFromRepositoryArg struct {
 	// CharmName is a string identifying the name of the thing to deploy.
 	// Required.
@@ -568,12 +569,12 @@ type DeployFromRepositoryArg struct {
 	AttachStorage []string
 
 	// Base describes the OS base intended to be used by the charm.
-	Base series.Base
+	Base *Base `json:"base,omitempty"`
 
 	// Channel is the channel in the repository to deploy from.
 	// This is an optional value. Required if revision is provided.
 	// Defaults to “stable” if not defined nor required.
-	Channel *charm.Channel
+	Channel *string `json:"channel,omitempty"`
 
 	// ConfigYAML is a string that overrides the default config.yml.
 	ConfigYAML string
@@ -592,16 +593,16 @@ type DeployFromRepositoryArg struct {
 	DryRun bool
 
 	// EndpointBindings
-	EndpointBindings map[string]string
+	EndpointBindings map[string]string `json:"endpoint-bindings,omitempty"`
 
 	// Force can be set to true to bypass any checks for charm-specific
 	// requirements ("assumes" sections in charm metadata, supported series,
 	// LXD profile allow list)
-	Force bool
+	Force bool `json:"force,omitempty"`
 
 	// NumUnits is the number of units to deploy. Defaults to 1 if no
 	// value provided. Synonymous with scale for kubernetes charms.
-	NumUnits *int
+	NumUnits *int `json:"num-units,omitempty"`
 
 	// Placement directives define on which machines the unit(s) must be
 	// created.
@@ -609,12 +610,12 @@ type DeployFromRepositoryArg struct {
 
 	// Revision is the charm revision number. Requires the channel
 	// be explicitly set.
-	Revision *int
+	Revision *int `json:"revision,omitempty"`
 
 	// Resources is a collection of resource names for the
 	// application, with the value being the revision of the
 	// resource to use if default revision is not desired.
-	Resources map[string]string
+	Resources map[string]string `json:"resources,omitempty"`
 
 	// Storage contains Constraints specifying how storage should be
 	// handled.
@@ -628,13 +629,15 @@ type DeployFromRepositoryResults struct {
 	Results []DeployFromRepositoryResult
 }
 
+// DeployFromRepositoryResult contains the result of deploying
+// a repository charm.
 type DeployFromRepositoryResult struct {
 	// Errors holds errors accumulated during validation of
 	// deployment, or errors during deployment
 	Errors []*Error
 
 	// Info
-	Info []string
+	Info DeployFromRepositoryInfo
 
 	// PendingResourceUploads returns a collection of data
 	// required to upload a specific resource for this charm.
@@ -645,6 +648,26 @@ type DeployFromRepositoryResult struct {
 	PendingResourceUploads []*PendingResourceUpload
 }
 
+// DeployFromRepositoryInfo describes the charm deployed.
+// TODO: (hml)
+// Change the data here: charmurl not required, add
+// source, revision and application name. The latter may
+// different from the charm name, even if not specified
+// by the user.
+type DeployFromRepositoryInfo struct {
+	CharmURL string `json:"charm-url"`
+	// Channel is a string representation of the channel
+	Channel string `json:"channel,omitempty"`
+	// Architecture is the architecture used to deploy the charm.
+	Architecture string `json:"architecture"`
+	// Base is the base used to deploy the charm.
+	Base Base `json:"base,omitempty"`
+	// EffectiveChannel
+	EffectiveChannel *string `json:"effective-channel,omitempty"`
+}
+
+// PendingResourceUpload holds data required to upload a
+// local resource if required.
 type PendingResourceUpload struct {
 	// Name is the name of the resource.
 	Name string
@@ -654,7 +677,7 @@ type PendingResourceUpload struct {
 	Filename string
 
 	// PendingID is the pending ID to associate with this upload.
-	PendingID string
+	PendingID string `json:"pending-id"`
 
 	// Type of the resource, a string matching one of the resource.Type
 	Type string
