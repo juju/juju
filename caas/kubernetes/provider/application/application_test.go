@@ -55,8 +55,6 @@ type applicationSuite struct {
 	k8sWatcherFn k8swatcher.NewK8sWatcherFunc
 	watchers     []k8swatcher.KubernetesNotifyWatcher
 	applier      *resourcesmocks.MockApplier
-
-	version version.Number
 }
 
 const defaultAgentVersion = "2.9.37"
@@ -1193,21 +1191,32 @@ func (s *applicationSuite) TestExistsDaemonSet(c *gc.C) {
 
 // Test upgrades are performed by ensure. Regression bug for lp1997253
 func (s *applicationSuite) TestUpgradeStateful(c *gc.C) {
+
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
-	s.assertEnsure(c, app, false, constraints.Value{}, true, "2.9.34", func() {})
+	s.assertEnsure(c, app, false, constraints.Value{}, true, "2.9.34", func() {
+		ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
+		c.Assert(err, jc.ErrorIsNil)
 
-	s.assertEnsure(c, app, false, constraints.Value{}, true, "2.9.37", func() {})
+		c.Assert(len(ss.Spec.Template.Spec.InitContainers), gc.Equals, 1)
+		c.Assert(ss.Spec.Template.Spec.InitContainers[0].Args, jc.DeepEquals, []string{
+			"init",
+			"--data-dir", "/var/lib/juju",
+			"--bin-dir", "/charm/bin",
+		})
+	})
 
-	ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	s.assertEnsure(c, app, false, constraints.Value{}, true, "2.9.37", func() {
+		ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
+		c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(len(ss.Spec.Template.Spec.InitContainers), gc.Equals, 1)
-	c.Assert(ss.Spec.Template.Spec.InitContainers[0].Args, jc.DeepEquals, []string{
-		"init",
-		"--containeragent-pebble-dir", "/containeragent/pebble",
-		"--charm-modified-version", "9001",
-		"--data-dir", "/var/lib/juju",
-		"--bin-dir", "/charm/bin",
+		c.Assert(len(ss.Spec.Template.Spec.InitContainers), gc.Equals, 1)
+		c.Assert(ss.Spec.Template.Spec.InitContainers[0].Args, jc.DeepEquals, []string{
+			"init",
+			"--containeragent-pebble-dir", "/containeragent/pebble",
+			"--charm-modified-version", "9001",
+			"--data-dir", "/var/lib/juju",
+			"--bin-dir", "/charm/bin",
+		})
 	})
 }
 
