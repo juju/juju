@@ -22,7 +22,7 @@ import (
 
 const (
 	// PollInterval is the amount of time to wait between polling the database.
-	PollInterval = time.Second * 30
+	PollInterval = time.Second * 10
 
 	// DefaultVerifyAttempts is the number of attempts to verify the database,
 	// by opening a new database on verification failure.

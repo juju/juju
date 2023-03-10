@@ -16,16 +16,16 @@ import (
 	"github.com/juju/juju/database/txn"
 )
 
-type transactionerSuite struct {
+type transactionRunnerSuite struct {
 	testing.ControllerSuite
 }
 
-var _ = gc.Suite(&transactionerSuite{})
+var _ = gc.Suite(&transactionRunnerSuite{})
 
-func (s *transactionerSuite) TestTxn(c *gc.C) {
-	transactioner := txn.NewTransactioner()
+func (s *transactionRunnerSuite) TestTxn(c *gc.C) {
+	runner := txn.NewTransactionRunner()
 
-	err := transactioner.Txn(context.TODO(), s.DB(), func(ctx context.Context, tx *sql.Tx) error {
+	err := runner.Txn(context.TODO(), s.DB(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, "SELECT 1")
 		if err != nil {
 			return errors.Trace(err)
@@ -36,25 +36,25 @@ func (s *transactionerSuite) TestTxn(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *transactionerSuite) TestTxnWithCancelledContext(c *gc.C) {
+func (s *transactionRunnerSuite) TestTxnWithCancelledContext(c *gc.C) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	transactioner := txn.NewTransactioner()
+	runner := txn.NewTransactionRunner()
 
-	err := transactioner.Txn(ctx, s.DB(), func(ctx context.Context, tx *sql.Tx) error {
+	err := runner.Txn(ctx, s.DB(), func(ctx context.Context, tx *sql.Tx) error {
 		c.Fatal("should not be called")
 		return nil
 	})
 	c.Assert(err, gc.ErrorMatches, "context canceled")
 }
 
-func (s *transactionerSuite) TestTxnInserts(c *gc.C) {
-	transactioner := txn.NewTransactioner()
+func (s *transactionRunnerSuite) TestTxnInserts(c *gc.C) {
+	runner := txn.NewTransactionRunner()
 
 	s.createTable(c)
 
-	err := transactioner.Txn(context.TODO(), s.DB(), func(ctx context.Context, tx *sql.Tx) error {
+	err := runner.Txn(context.TODO(), s.DB(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, "INSERT INTO foo (id, name) VALUES (1, 'test')")
 		if err != nil {
 			return errors.Trace(err)
@@ -77,12 +77,12 @@ func (s *transactionerSuite) TestTxnInserts(c *gc.C) {
 	}
 }
 
-func (s *transactionerSuite) TestTxnRollback(c *gc.C) {
-	transactioner := txn.NewTransactioner()
+func (s *transactionRunnerSuite) TestTxnRollback(c *gc.C) {
+	runner := txn.NewTransactionRunner()
 
 	s.createTable(c)
 
-	err := transactioner.Txn(context.TODO(), s.DB(), func(ctx context.Context, tx *sql.Tx) error {
+	err := runner.Txn(context.TODO(), s.DB(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, "INSERT INTO foo (id, name) VALUES (1, 'test')")
 		if err != nil {
 			return errors.Trace(err)
@@ -105,11 +105,11 @@ func (s *transactionerSuite) TestTxnRollback(c *gc.C) {
 	}
 }
 
-func (s *transactionerSuite) TestRetryForNonRetryableError(c *gc.C) {
-	transactioner := txn.NewTransactioner()
+func (s *transactionRunnerSuite) TestRetryForNonRetryableError(c *gc.C) {
+	runner := txn.NewTransactionRunner()
 
 	var count int
-	err := transactioner.Retry(context.TODO(), func() error {
+	err := runner.Retry(context.TODO(), func() error {
 		count++
 		return errors.Errorf("fail")
 	})
@@ -117,13 +117,13 @@ func (s *transactionerSuite) TestRetryForNonRetryableError(c *gc.C) {
 	c.Assert(count, gc.Equals, 1)
 }
 
-func (s *transactionerSuite) TestRetryWithACancelledContext(c *gc.C) {
+func (s *transactionRunnerSuite) TestRetryWithACancelledContext(c *gc.C) {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	transactioner := txn.NewTransactioner()
+	runner := txn.NewTransactionRunner()
 
 	var count int
-	err := transactioner.Retry(ctx, func() error {
+	err := runner.Retry(ctx, func() error {
 		defer cancel()
 
 		count++
@@ -133,11 +133,11 @@ func (s *transactionerSuite) TestRetryWithACancelledContext(c *gc.C) {
 	c.Assert(count, gc.Equals, 1)
 }
 
-func (s *transactionerSuite) TestRetryForRetryableError(c *gc.C) {
-	transactioner := txn.NewTransactioner()
+func (s *transactionRunnerSuite) TestRetryForRetryableError(c *gc.C) {
+	runner := txn.NewTransactionRunner()
 
 	var count int
-	err := transactioner.Retry(context.TODO(), func() error {
+	err := runner.Retry(context.TODO(), func() error {
 		count++
 		return sqlite3.ErrBusy
 	})
@@ -145,7 +145,7 @@ func (s *transactionerSuite) TestRetryForRetryableError(c *gc.C) {
 	c.Assert(count, gc.Equals, 250)
 }
 
-func (s *transactionerSuite) createTable(c *gc.C) {
+func (s *transactionRunnerSuite) createTable(c *gc.C) {
 	_, err := s.DB().Exec("CREATE TEMP TABLE foo (id INT PRIMARY KEY, name VARCHAR(255))")
 	c.Assert(err, jc.ErrorIsNil)
 }

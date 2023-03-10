@@ -21,7 +21,7 @@ func (t *trackedDB) DB(fn func(*sql.DB) error) error {
 
 func (t *trackedDB) Txn(ctx context.Context, fn func(context.Context, *sql.Tx) error) error {
 	return t.DB(func(db *sql.DB) error {
-		return defaultTransactioner.Txn(ctx, db, fn)
+		return defaultTransactionRunner.Txn(ctx, db, fn)
 	})
 }
 
@@ -30,5 +30,5 @@ func (t *trackedDB) Err() error {
 }
 
 var (
-	defaultTransactioner = txn.NewTransactioner()
+	defaultTransactionRunner = txn.NewTransactionRunner()
 )

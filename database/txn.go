@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	defaultTransactioner = txn.NewTransactioner()
+	defaultTransactionRunner = txn.NewTransactionRunner()
 )
 
 // Txn defines a generic txn function for applying transactions on a given
@@ -22,7 +22,7 @@ var (
 // This should not be used directly, instead the TrackedDB should be used to
 // handle transactions.
 func Txn(ctx context.Context, db *sql.DB, fn func(context.Context, *sql.Tx) error) error {
-	return defaultTransactioner.Txn(ctx, db, fn)
+	return defaultTransactionRunner.Txn(ctx, db, fn)
 }
 
 // Retry defines a generic retry function for applying transactions on a given
@@ -32,5 +32,5 @@ func Txn(ctx context.Context, db *sql.DB, fn func(context.Context, *sql.Tx) erro
 // This should not be used directly, instead the TrackedDB should be used to
 // handle transactions.
 func Retry(ctx context.Context, fn func() error) error {
-	return defaultTransactioner.Retry(ctx, fn)
+	return defaultTransactionRunner.Retry(ctx, fn)
 }

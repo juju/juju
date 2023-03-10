@@ -70,27 +70,27 @@ func newOptions() *option {
 	return &option{
 		timeout:       DefaultTimeout,
 		logger:        logger,
-		retryStrategy: DefaultRetryStrategy(clock.WallClock, logger),
+		retryStrategy: defaultRetryStrategy(clock.WallClock, logger),
 	}
 }
 
-// Transactioner defines a generic transactioner for applying transactions on a
-// given database. It expects that no individual transaction function should
-// take longer than the default timeout.
-type Transactioner struct {
+// TransactionRunner defines a generic transactioner for applying transactions
+// on a given database. It expects that no individual transaction function
+// should take longer than the default timeout.
+type TransactionRunner struct {
 	timeout       time.Duration
 	logger        Logger
 	retryStrategy RetryStrategy
 }
 
-// NewTransactioner returns a new Transactioner.
-func NewTransactioner(opts ...Option) *Transactioner {
+// NewTransactionRunner returns a new TransactionRunner.
+func NewTransactionRunner(opts ...Option) *TransactionRunner {
 	o := newOptions()
 	for _, opt := range opts {
 		opt(o)
 	}
 
-	return &Transactioner{
+	return &TransactionRunner{
 		timeout:       o.timeout,
 		logger:        o.logger,
 		retryStrategy: o.retryStrategy,
@@ -104,7 +104,7 @@ func NewTransactioner(opts ...Option) *Transactioner {
 //
 // This should not be used directly, instead the TrackedDB should be used to
 // handle transactions.
-func (t *Transactioner) Txn(ctx context.Context, db *sql.DB, fn func(context.Context, *sql.Tx) error) error {
+func (t *TransactionRunner) Txn(ctx context.Context, db *sql.DB, fn func(context.Context, *sql.Tx) error) error {
 	ctx, cancel := context.WithTimeout(ctx, t.timeout)
 	defer cancel()
 
@@ -130,14 +130,14 @@ func (t *Transactioner) Txn(ctx context.Context, db *sql.DB, fn func(context.Con
 // Retry defines a generic retry function for applying a function that
 // interacts with the database. It will retry in cases of transient known
 // database errors.
-func (t *Transactioner) Retry(ctx context.Context, fn func() error) error {
+func (t *TransactionRunner) Retry(ctx context.Context, fn func() error) error {
 	return t.retryStrategy(ctx, fn)
 }
 
-// DefaultRetryStrategy defines a generic retry function for applying a function that
-// interacts with the database. It will retry in cases of transient known
-// database errors.
-func DefaultRetryStrategy(clock clock.Clock, logger Logger) func(context.Context, func() error) error {
+// defaultRetryStrategy returns a function that can be used to apply a default
+// retry strategy to its input operation. It will retry in cases of transient
+// known database errors.
+func defaultRetryStrategy(clock clock.Clock, logger Logger) func(context.Context, func() error) error {
 	return func(ctx context.Context, fn func() error) error {
 		err := retry.Call(retry.CallArgs{
 			Func: fn,
