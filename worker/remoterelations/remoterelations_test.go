@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
@@ -563,6 +564,7 @@ func (s *remoteRelationsSuite) assertRemoteRelationsWorkers(c *gc.C) worker.Work
 		{"WatchRelationSuspendedStatus", []interface{}{"token-db2:db django:db", macaroon.Slice{apiMac}}},
 		{"WatchLocalRelationChanges", []interface{}{"db2:db django:db"}},
 		{"WatchRelationChanges", []interface{}{"token-db2:db django:db", "token-offer-db2-uuid", macaroon.Slice{apiMac}}},
+		{"WatchConsumedSecretsChanges", []interface{}{"token-django", mac}},
 	}
 	s.waitForWorkerStubCalls(c, expected)
 
@@ -1051,6 +1053,7 @@ func (s *remoteRelationsSuite) assertRemoteRelationsChangedError(c *gc.C, dying 
 		{"WatchRelationSuspendedStatus", []interface{}{"token-db2:db django:db", macaroon.Slice{apiMac}}},
 		{"WatchLocalRelationChanges", []interface{}{"db2:db django:db"}},
 		{"WatchRelationChanges", []interface{}{"token-db2:db django:db", "token-offer-db2-uuid", macaroon.Slice{apiMac}}},
+		{"WatchConsumedSecretsChanges", []interface{}{"token-django", mac}},
 	}
 
 	// If a relation is dying and there's been an error, when processing resumes
@@ -1077,6 +1080,26 @@ func (s *remoteRelationsSuite) assertRemoteRelationsChangedError(c *gc.C, dying 
 	relWatcher.changes <- []string{"db2:db django:db"}
 
 	// After the worker resumes, normal processing happens.
+	s.waitForWorkerStubCalls(c, expected)
+}
+
+func (s *remoteRelationsSuite) TestRemoteSecretChangedConsumes(c *gc.C) {
+	w := s.assertRemoteRelationsWorkers(c)
+	defer workertest.CleanKill(c, w)
+	s.stub.ResetCalls()
+
+	change := watcher.SecretRevisionChange{
+		URI:      secrets.NewURI(),
+		Revision: 666,
+	}
+	secretsWatcher, _ := s.remoteRelationsFacade.secretsRevisionWatcher("token-django")
+	secretsWatcher.changes <- []watcher.SecretRevisionChange{change}
+
+	expected := []jujutesting.StubCall{
+		{"ConsumeRemoteSecretChanges", []interface{}{
+			[]watcher.SecretRevisionChange{change},
+		}},
+	}
 	s.waitForWorkerStubCalls(c, expected)
 }
 

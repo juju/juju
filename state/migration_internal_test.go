@@ -988,7 +988,6 @@ func (s *MigrationSuite) TestSecretRotationDocFields(c *gc.C) {
 func (s *MigrationSuite) TestSecretConsumerDocFields(c *gc.C) {
 	ignored := set.NewStrings(
 		"DocID",
-		"SourceUUID",
 	)
 	migrated := set.NewStrings(
 		"ConsumerTag",

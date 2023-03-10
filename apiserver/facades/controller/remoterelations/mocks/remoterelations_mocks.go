@@ -11,6 +11,7 @@ import (
 	crossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	crossmodel0 "github.com/juju/juju/core/crossmodel"
 	permission "github.com/juju/juju/core/permission"
+	secrets "github.com/juju/juju/core/secrets"
 	params "github.com/juju/juju/rpc/params"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v4"
@@ -397,6 +398,21 @@ func (m *MockRemoteRelationsState) UpdateControllerForModel(arg0 crossmodel0.Con
 func (mr *MockRemoteRelationsStateMockRecorder) UpdateControllerForModel(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateControllerForModel", reflect.TypeOf((*MockRemoteRelationsState)(nil).UpdateControllerForModel), arg0, arg1)
+}
+
+// UpdateSecretConsumerOperation mocks base method.
+func (m *MockRemoteRelationsState) UpdateSecretConsumerOperation(arg0 *secrets.URI, arg1 int) (state.ModelOperation, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateSecretConsumerOperation", arg0, arg1)
+	ret0, _ := ret[0].(state.ModelOperation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateSecretConsumerOperation indicates an expected call of UpdateSecretConsumerOperation.
+func (mr *MockRemoteRelationsStateMockRecorder) UpdateSecretConsumerOperation(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSecretConsumerOperation", reflect.TypeOf((*MockRemoteRelationsState)(nil).UpdateSecretConsumerOperation), arg0, arg1)
 }
 
 // UserPermission mocks base method.

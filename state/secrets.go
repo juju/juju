@@ -1048,7 +1048,6 @@ func (s *secretsStore) allSecretRevisions() ([]secretRevisionDoc, error) {
 type secretConsumerDoc struct {
 	DocID string `bson:"_id"`
 
-	SourceUUID      string `bson:"source-uuid,omitempty"`
 	ConsumerTag     string `bson:"consumer-tag"`
 	Label           string `bson:"label"`
 	CurrentRevision int    `bson:"current-revision"`
@@ -1059,8 +1058,11 @@ type secretConsumerDoc struct {
 	LatestRevision int `bson:"latest-revision"`
 }
 
-func secretConsumerKey(id, consumer string) string {
-	return fmt.Sprintf("%s#%s", id, consumer)
+func (st *State) secretConsumerKey(uri *secrets.URI, consumer string) string {
+	if uri.IsLocal(st.ModelUUID()) {
+		return fmt.Sprintf("%s#%s", uri.ID, consumer)
+	}
+	return fmt.Sprintf("%s/%s#%s", uri.SourceUUID, uri.ID, consumer)
 }
 
 func splitSecretConsumerKey(key string) (string, string) {
@@ -1252,21 +1254,18 @@ func (st *State) GetURIByConsumerLabel(label string, consumer names.Tag) (*secre
 	var doc secretConsumerDoc
 	err := secretConsumersCollection.Find(bson.M{
 		"consumer-tag": consumer.String(), "label": label,
-	}).Select(bson.D{{"_id", 1}, {"source-uuid", 1}}).One(&doc)
+	}).Select(bson.D{{"_id", 1}}).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("secret consumer with label %q for %q", label, consumer)
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	id, _ := splitSecretConsumerKey(st.localID(doc.DocID))
-	if id == "" {
+	uriStr, _ := splitSecretConsumerKey(st.localID(doc.DocID))
+	if uriStr == "" {
 		return nil, errors.NotFoundf("secret consumer with label %q for %q", label, consumer)
 	}
-	return &secrets.URI{
-		ID:         id,
-		SourceUUID: doc.SourceUUID,
-	}, nil
+	return secrets.ParseURI(uriStr)
 }
 
 // GetSecretConsumer gets secret consumer metadata.
@@ -1283,7 +1282,7 @@ func (st *State) GetSecretConsumer(uri *secrets.URI, consumer names.Tag) (*secre
 
 	secretConsumersCollection, closer := st.db().GetCollection(secretConsumersC)
 	defer closer()
-	key := secretConsumerKey(uri.ID, consumer.String())
+	key := st.secretConsumerKey(uri, consumer.String())
 	var doc secretConsumerDoc
 	err := secretConsumersCollection.FindId(key).One(&doc)
 	if errors.Cause(err) == mgo.ErrNotFound {
@@ -1406,33 +1405,46 @@ func (st *State) removeRemoteSecretConsumer(appName string) error {
 
 	match := fmt.Sprintf("(unit|application)-%s(\\/\\d)?", appName)
 	q := bson.D{{"consumer-tag", bson.D{{"$regex", match}}}}
-	iter := secretConsumersCollection.Find(q).Select(bson.D{{"consumer-tag", 1}}).Iter()
+	_, err := secretConsumersCollection.Writeable().RemoveAll(q)
+	return err
+}
 
-	var (
-		doc       secretConsumerDoc
-		consumers []names.Tag
-	)
-	for iter.Next(&doc) {
-		consumer, err := names.ParseTag(doc.ConsumerTag)
-		if err != nil {
-			return errors.NotValidf("secret consumer tag %q", doc.ConsumerTag)
-		}
-		consumers = append(consumers, consumer)
+// updateSecretConsumerOperation is used to update secret consumers
+// in the consuming model when the secret in the offering model gets a new
+// revision added.
+type updateSecretConsumerOperation struct {
+	st             *State
+	uri            *secrets.URI
+	latestRevision int
+}
+
+// Build implements ModelOperation.
+func (u *updateSecretConsumerOperation) Build(attempt int) ([]txn.Op, error) {
+	if attempt > 0 {
+		return nil, errors.NotFoundf("secret consumers for secret %q", u.uri)
 	}
-	if err := iter.Close(); err != nil {
-		return errors.Annotate(err, "getting secret consumers")
-	}
-	for _, consumer := range consumers {
-		if err := st.RemoveSecretConsumer(consumer); err != nil {
-			return errors.Annotatef(err, "removing secret consumer %q", consumer)
-		}
-	}
-	return nil
+	return u.st.secretUpdateConsumersOps(u.uri, u.latestRevision)
+}
+
+// Done implements ModelOperation.
+func (u *updateSecretConsumerOperation) Done(err error) error {
+	return err
+}
+
+// UpdateSecretConsumerOperation returns a model operation to update
+// secret consumer metadata when a secret in the offering model
+// gets a new revision added..
+func (st *State) UpdateSecretConsumerOperation(uri *secrets.URI, latestRevision int) (ModelOperation, error) {
+	return &updateSecretConsumerOperation{
+		st:             st,
+		uri:            uri,
+		latestRevision: latestRevision,
+	}, nil
 }
 
 // SaveSecretConsumer saves or updates secret consumer metadata.
 func (st *State) SaveSecretConsumer(uri *secrets.URI, consumer names.Tag, metadata *secrets.SecretConsumerMetadata) error {
-	key := secretConsumerKey(uri.ID, consumer.String())
+	key := st.secretConsumerKey(uri, consumer.String())
 	secretConsumersCollection, closer := st.db().GetCollection(secretConsumersC)
 	defer closer()
 
@@ -1468,7 +1480,6 @@ func (st *State) SaveSecretConsumer(uri *secrets.URI, consumer names.Tag, metada
 				Assert: txn.DocMissing,
 				Insert: secretConsumerDoc{
 					DocID:           key,
-					SourceUUID:      uri.SourceUUID,
 					ConsumerTag:     consumer.String(),
 					Label:           metadata.Label,
 					CurrentRevision: metadata.CurrentRevision,
@@ -1522,8 +1533,8 @@ func (st *State) secretUpdateConsumersOps(uri *secrets.URI, newRevision int) ([]
 		doc secretConsumerDoc
 		ops []txn.Op
 	)
-	id := secretConsumerKey(uri.ID, ".*")
-	q := bson.D{{"_id", bson.D{{"$regex", id}}}}
+	key := st.secretConsumerKey(uri, ".*")
+	q := bson.D{{"_id", bson.D{{"$regex", key}}}}
 	iter := secretConsumersCollection.Find(q).Iter()
 	for iter.Next(&doc) {
 		ops = append(ops, txn.Op{
@@ -1611,7 +1622,7 @@ func (w *consumedSecretsWatcher) initial() ([]string, error) {
 	defer closer()
 
 	var ids []string
-	iter := secretConsumersCollection.Find(w.matchQuery).Iter()
+	iter := secretConsumersCollection.Find(w.matchQuery).Select(bson.D{{"latest-revision", 1}}).Iter()
 	for iter.Next(&doc) {
 		w.knownRevisions[doc.DocID] = doc.LatestRevision
 		if doc.LatestRevision < 2 {
@@ -2133,7 +2144,7 @@ func (st *State) GrantSecretAccess(uri *secrets.URI, p SecretAccessParams) (err 
 		Assert: isAliveDoc,
 	}
 
-	key := secretConsumerKey(uri.ID, p.Subject.String())
+	key := st.secretConsumerKey(uri, p.Subject.String())
 
 	secretPermissionsCollection, closer := st.db().GetCollection(secretPermissionsC)
 	defer closer()
@@ -2179,7 +2190,7 @@ func (st *State) GrantSecretAccess(uri *secrets.URI, p SecretAccessParams) (err 
 
 // RevokeSecretAccess removes any secret access role for the subject.
 func (st *State) RevokeSecretAccess(uri *secrets.URI, p SecretAccessParams) error {
-	key := secretConsumerKey(uri.ID, p.Subject.String())
+	key := st.secretConsumerKey(uri, p.Subject.String())
 
 	secretPermissionsCollection, closer := st.db().GetCollection(secretPermissionsC)
 	defer closer()
@@ -2212,7 +2223,7 @@ func (st *State) RevokeSecretAccess(uri *secrets.URI, p SecretAccessParams) erro
 
 // SecretAccess returns the secret access role for the subject.
 func (st *State) SecretAccess(uri *secrets.URI, subject names.Tag) (secrets.SecretRole, error) {
-	key := secretConsumerKey(uri.ID, subject.String())
+	key := st.secretConsumerKey(uri, subject.String())
 
 	secretPermissionsCollection, closer := st.db().GetCollection(secretPermissionsC)
 	defer closer()
@@ -2234,7 +2245,7 @@ func (st *State) SecretAccess(uri *secrets.URI, subject names.Tag) (secrets.Secr
 
 // SecretAccessScope returns the secret access scope for the subject.
 func (st *State) SecretAccessScope(uri *secrets.URI, subject names.Tag) (names.Tag, error) {
-	key := secretConsumerKey(uri.ID, subject.String())
+	key := st.secretConsumerKey(uri, subject.String())
 
 	secretPermissionsCollection, closer := st.db().GetCollection(secretPermissionsC)
 	defer closer()

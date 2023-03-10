@@ -1103,7 +1103,7 @@ func (s *SecretsSuite) TestGetSecretConsumerCrossModelURI(c *gc.C) {
 			Label:       strPtr("owner-label"),
 		},
 	}
-	uri := secrets.NewURI().WithSource("some-uuid")
+	uri := secrets.NewURI().WithSource("deadbeef-1bad-500d-9000-4b1d0d06f00d")
 	_, err := s.store.CreateSecret(uri, cp)
 	c.Assert(err, jc.ErrorIsNil)
 

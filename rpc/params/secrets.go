@@ -445,6 +445,12 @@ type WatchRemoteSecretChangesArg struct {
 	BakeryVersion bakery.Version `json:"bakery-version,omitempty"`
 }
 
+// LatestSecretRevisionChanges holds a collection of secret revision changes
+// for updating consumers when secrets get new revisions added.
+type LatestSecretRevisionChanges struct {
+	Changes []SecretRevisionChange `json:"changes"`
+}
+
 // SecretRevisionChange describes a secret revision change.
 type SecretRevisionChange struct {
 	URI      string `json:"uri"`

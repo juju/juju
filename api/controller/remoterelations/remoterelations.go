@@ -313,3 +313,26 @@ func (c *Client) UpdateControllerForModel(controller crossmodel.ControllerInfo, 
 	}
 	return nil
 }
+
+// ConsumeRemoteSecretChanges updates the local model with secret revision  changes
+// originating from the remote/offering model.
+func (c *Client) ConsumeRemoteSecretChanges(changes []watcher.SecretRevisionChange) error {
+	if len(changes) == 0 {
+		return nil
+	}
+	args := params.LatestSecretRevisionChanges{
+		Changes: make([]params.SecretRevisionChange, len(changes)),
+	}
+	for i, c := range changes {
+		args.Changes[i] = params.SecretRevisionChange{
+			URI:      c.URI.String(),
+			Revision: c.Revision,
+		}
+	}
+	var results params.ErrorResults
+	err := c.facade.FacadeCall("ConsumeRemoteSecretChanges", args, &results)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return results.Combine()
+}

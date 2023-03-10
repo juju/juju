@@ -511,10 +511,25 @@ type SecretsDescription interface {
 	Secrets() []description.Secret
 }
 
+// SecretConsumersState is used to create secret consumer keys
+// for use in the state model.
+type SecretConsumersState interface {
+	SecretConsumerKey(uri *secrets.URI, subject string) string
+}
+
 // SecretsInput describes the input used for migrating secrets.
 type SecretsInput interface {
 	DocModelNamespace
+	SecretConsumersState
 	SecretsDescription
+}
+
+type secretConsumersStateShim struct {
+	stateModelNamspaceShim
+}
+
+func (s *secretConsumersStateShim) SecretConsumerKey(uri *secrets.URI, subject string) string {
+	return s.st.secretConsumerKey(uri, subject)
 }
 
 // ImportSecrets describes a way to import secrets from a
@@ -610,7 +625,7 @@ func (ImportSecrets) Execute(src SecretsInput, runner TransactionRunner, knownSe
 			})
 		}
 		for subject, access := range secret.ACL() {
-			key := secretConsumerKey(uri.ID, subject)
+			key := src.SecretConsumerKey(uri, subject)
 			ops = append(ops, txn.Op{
 				C:      secretPermissionsC,
 				Id:     key,
@@ -628,7 +643,7 @@ func (ImportSecrets) Execute(src SecretsInput, runner TransactionRunner, knownSe
 			if err != nil {
 				return errors.Annotatef(err, "invalid consumer for secret %q", secret.Id())
 			}
-			key := secretConsumerKey(uri.ID, consumer.String())
+			key := src.SecretConsumerKey(uri, consumer.String())
 			ops = append(ops, txn.Op{
 				C:      secretConsumersC,
 				Id:     key,

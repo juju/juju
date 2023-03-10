@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
+	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 )
@@ -98,6 +99,10 @@ type Backend interface {
 
 	// RemoveSecretConsumer removes secret references for the specified consumer.
 	RemoveSecretConsumer(consumer names.Tag) error
+
+	// UpdateSecretConsumerOperation returns an operation for updating the latest revision
+	// for any consumers of the secret.
+	UpdateSecretConsumerOperation(uri *coresecrets.URI, latestRevision int) (state.ModelOperation, error)
 }
 
 // Relation provides access a relation in global state.

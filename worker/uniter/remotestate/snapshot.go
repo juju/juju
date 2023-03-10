@@ -98,15 +98,15 @@ type Snapshot struct {
 
 	// ConsumedSecretInfo is a list of the labels and revision info
 	// for secrets consumed by this unit.
-	// The map is keyed on secret ID.
+	// The map is keyed on secret URI.
 	ConsumedSecretInfo map[string]secrets.SecretRevisionInfo
 
 	// ObsoleteSecretRevisions is a list of the obsolete
 	// revisions for secrets owned by this unit.
 	ObsoleteSecretRevisions map[string][]int
 
-	// DeletedSecrets is a list of deleted secrets
-	// owned by this unit.
+	// DeletedSecrets is a list of deleted secret
+	// URIs owned by this unit.
 	DeletedSecrets []string
 
 	// UpgradeMachineStatus is the preparation status of

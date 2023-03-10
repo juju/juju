@@ -2744,9 +2744,11 @@ func (i *importer) secrets() error {
 	}
 	migration.Add(func() error {
 		m := ImportSecrets{}
-		return m.Execute(stateModelNamspaceShim{
-			Model: migration.src,
-			st:    i.st,
+		return m.Execute(&secretConsumersStateShim{
+			stateModelNamspaceShim: stateModelNamspaceShim{
+				Model: migration.src,
+				st:    i.st,
+			},
 		}, migration.dst, migration.knownSecretBackends)
 	})
 	if err := migration.Run(); err != nil {
