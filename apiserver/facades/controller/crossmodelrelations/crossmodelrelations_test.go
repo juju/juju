@@ -6,6 +6,7 @@ package crossmodelrelations_test
 import (
 	"bytes"
 	"context"
+	"regexp"
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
@@ -25,6 +26,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
+	corefirewall "github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
@@ -342,6 +344,48 @@ func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChanges(c *gc.C) {
 	err = results.Combine()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.st.ingressNetworks[rel.key], jc.DeepEquals, []string{"1.2.3.4/32"})
+	s.st.CheckCalls(c, []testing.StubCall{
+		{"GetRemoteEntity", []interface{}{"token-db2:db django:db"}},
+		{"KeyRelation", []interface{}{"db2:db django:db"}},
+	})
+}
+
+func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChangesRejected(c *gc.C) {
+	s.st.remoteApplications["db2"] = &mockRemoteApplication{}
+	s.st.relations["db2:db django:db"] = newMockRelation(1)
+	s.st.remoteEntities[names.NewApplicationTag("db2")] = "token-db2"
+	s.st.remoteEntities[names.NewRelationTag("db2:db django:db")] = "token-db2:db django:db"
+	s.st.offerConnectionsByKey["db2:db django:db"] = &mockOfferConnection{
+		offerUUID:       "hosted-db2-uuid",
+		sourcemodelUUID: "source-model-uuid",
+		relationKey:     "db2:db django:db",
+		relationId:      1,
+	}
+	mac, err := s.bakery.NewMacaroon(
+		context.TODO(),
+		bakery.LatestVersion,
+		[]checkers.Caveat{
+			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
+			checkers.DeclaredCaveat("relation-key", "db2:db django:db"),
+			checkers.DeclaredCaveat("username", "mary"),
+		}, bakery.Op{"db2:db django:db", "relate"})
+
+	c.Assert(err, jc.ErrorIsNil)
+	rule := state.NewFirewallRule("", []string{"10.1.1.1/8"})
+	s.st.firewallRules[corefirewall.JujuApplicationOfferRule] = &rule
+	results, err := s.api.PublishIngressNetworkChanges(params.IngressNetworksChanges{
+		Changes: []params.IngressNetworksChangeEvent{
+			{
+				ApplicationToken: "token-db2",
+				RelationToken:    "token-db2:db django:db",
+				Networks:         []string{"1.2.3.4/32"},
+				Macaroons:        macaroon.Slice{mac.M()},
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = results.Combine()
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta("subnet 1.2.3.4/32 not in firewall whitelist"))
 	s.st.CheckCalls(c, []testing.StubCall{
 		{"GetRemoteEntity", []interface{}{"token-db2:db django:db"}},
 		{"KeyRelation", []interface{}{"db2:db django:db"}},

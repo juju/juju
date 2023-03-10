@@ -12,11 +12,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
-	"github.com/juju/juju/api/client/modelconfig"
+	"github.com/juju/juju/api/client/firewallrules"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/rpc/params"
 )
 
 var setRuleHelpSummary = `
@@ -25,14 +25,12 @@ Sets a firewall rule.`[1:]
 var setRuleHelpDetails = `
 Firewall rules control ingress to a well known services
 within a Juju model. A rule consists of the service name
-and a allowlist of allowed ingress subnets.
+and a whitelist of allowed ingress subnets.
 The currently supported services are:
-- ssh
-
-DEPRECATION WARNING: %v
+%v
 
 Examples:
-    juju set-firewall-rule ssh --allowlist 192.168.1.0/16
+    juju set-firewall-rule ssh --whitelist 192.168.1.0/16
 
 See also: 
     firewall-rules`
@@ -45,7 +43,7 @@ func NewSetFirewallRuleCommand() cmd.Command {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return modelconfig.NewClient(root), nil
+		return firewallrules.NewClient(root), nil
 
 	}
 	return modelcmd.Wrap(cmd)
@@ -54,43 +52,42 @@ func NewSetFirewallRuleCommand() cmd.Command {
 type setFirewallRuleCommand struct {
 	modelcmd.ModelCommandBase
 	modelcmd.IAASOnlyCommand
-	allowlist string
-	whitelist string
+	service        string
+	whitelistValue string
 
+	whiteList  []string
 	newAPIFunc func() (SetFirewallRuleAPI, error)
 }
 
 // Info implements cmd.Command.
 func (c *setFirewallRuleCommand) Info() *cmd.Info {
+	supportedRules := []string{
+		" -" + string(params.SSHRule),
+	}
 	return jujucmd.Info(&cmd.Info{
 		Name:    "set-firewall-rule",
-		Args:    "<service-name>, --allowlist <cidr>[,<cidr>...]",
+		Args:    "<service-name>, --whitelist <cidr>[,<cidr>...]",
 		Purpose: setRuleHelpSummary,
-		Doc:     fmt.Sprintf(setRuleHelpDetails, deprecationWarning),
+		Doc:     fmt.Sprintf(setRuleHelpDetails, strings.Join(supportedRules, "\n")),
 	})
 }
 
 // SetFlags implements cmd.Command.
 func (c *setFirewallRuleCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.allowlist, "allowlist", "", "list of subnets to allowlist")
-	f.StringVar(&c.whitelist, "whitelist", "", "")
+	f.StringVar(&c.whitelistValue, "whitelist", "", "list of subnets to whitelist")
 }
 
 // Init implements cmd.Command.
 func (c *setFirewallRuleCommand) Init(args []string) (err error) {
 	if len(args) == 1 {
-		if c.allowlist == "" && c.whitelist == "" {
-			return errors.New("no allowlist subnets specified")
+		c.service = args[0]
+		if c.whitelistValue == "" {
+			return errors.New("no whitelist subnets specified")
 		}
-		if c.allowlist != "" && c.whitelist != "" {
-			return errors.New("cannot specify both whitelist and allowlist")
+		if err := c.parseCIDRs(&c.whiteList, c.whitelistValue); err != nil {
+			return errors.Annotate(err, "invalid white-list subnet")
 		}
-		if args[0] != "ssh" {
-			return errors.NotSupportedf("service %q", args[0])
-		}
-		if err := c.validateCIDRS(c.allowlist + c.whitelist); err != nil {
-			return errors.Trace(err)
-		}
+		return nil
 	}
 	if len(args) == 0 {
 		return errors.New("no well known service specified")
@@ -98,13 +95,17 @@ func (c *setFirewallRuleCommand) Init(args []string) (err error) {
 	return cmd.CheckEmpty(args[1:])
 }
 
-func (c *setFirewallRuleCommand) validateCIDRS(value string) error {
+func (c *setFirewallRuleCommand) parseCIDRs(cidrs *[]string, value string) error {
+	if value == "" {
+		return nil
+	}
 	rawValues := strings.Split(value, ",")
 	for _, cidrStr := range rawValues {
 		cidrStr = strings.TrimSpace(cidrStr)
 		if _, _, err := net.ParseCIDR(cidrStr); err != nil {
-			return errors.NotValidf(cidrStr)
+			return err
 		}
+		*cidrs = append(*cidrs, cidrStr)
 	}
 	return nil
 }
@@ -112,26 +113,15 @@ func (c *setFirewallRuleCommand) validateCIDRS(value string) error {
 // SetFirewallRuleAPI defines the API methods that the set firewall rules command uses.
 type SetFirewallRuleAPI interface {
 	Close() error
-	ModelSet(config map[string]interface{}) error
+	SetFirewallRule(service string, whiteListCidrs []string) error
 }
 
-var deprecationWarning = `
-This command now just sets/reads the "ssh-allowlist" model-config item and
-is deprecated in favour of setting/reading that item with "juju model-config"
-`[1:]
-
-func (c *setFirewallRuleCommand) Run(ctx *cmd.Context) error {
-	if c.whitelist != "" {
-		c.allowlist = c.whitelist
-		ctx.Warningf("--whitelist is deprecated in favour of --allowlist")
-	}
-	ctx.Warningf(deprecationWarning)
-
+func (c *setFirewallRuleCommand) Run(_ *cmd.Context) error {
 	client, err := c.newAPIFunc()
 	if err != nil {
 		return err
 	}
 	defer client.Close()
-	err = client.ModelSet(map[string]interface{}{config.SSHAllowListKey: c.allowlist})
+	err = client.SetFirewallRule(c.service, c.whiteList)
 	return block.ProcessBlockedError(err, block.BlockChange)
 }
