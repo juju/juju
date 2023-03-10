@@ -11,7 +11,9 @@ import (
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
+	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"
+	"github.com/kr/pretty"
 
 	"github.com/juju/juju/api/client/application"
 	applicationapi "github.com/juju/juju/api/client/application"
@@ -26,6 +28,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/series"
 	coreseries "github.com/juju/juju/core/series"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/storage"
 )
 
@@ -373,6 +376,37 @@ func (c *repositoryCharm) String() string {
 // PrepareAndDeploy finishes preparing to deploy a repository charm,
 // then deploys it.
 func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, resolver Resolver) error {
+	if featureflag.Enabled(feature.ServerSideCharmDeploy) && deployAPI.BestFacadeVersion("Application") >= 18 {
+		var base *series.Base
+		if !c.baseFlag.Empty() {
+			base = &c.baseFlag
+		}
+
+		var channel *string
+		if c.id.Origin.CharmChannel().String() != "" {
+			str := c.id.Origin.CharmChannel().String()
+			channel = &str
+		}
+
+		info, _, errs := deployAPI.DeployFromRepository(application.DeployFromRepositoryArg{
+			ApplicationName: c.applicationName,
+			CharmName:       c.userRequestedURL.Name,
+			Revision:        c.id.Origin.Revision,
+			Channel:         channel,
+			Force:           c.force,
+			Placement:       c.placement,
+			DryRun:          c.dryRun,
+			Base:            base,
+			Resources:       c.resources,
+			Cons:            c.constraints,
+		})
+		ctx.Infof("%s", pretty.Sprint(info))
+		for _, err := range errs {
+			ctx.Errorf(err.Error())
+		}
+		return nil
+	}
+
 	userRequestedURL := c.userRequestedURL
 	location := "charmhub"
 
