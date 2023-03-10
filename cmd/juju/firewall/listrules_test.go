@@ -13,7 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/firewall"
-	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
 )
 
@@ -27,7 +27,15 @@ var _ = gc.Suite(&ListSuite{})
 
 func (s *ListSuite) SetUpTest(c *gc.C) {
 	s.mockAPI = &mockListAPI{
-		rules: "192.168.1.0/16,10.0.0.0/8",
+		rules: []params.FirewallRule{
+			{
+				KnownService:   "ssh",
+				WhitelistCIDRS: []string{"192.168.1.0/16", "10.0.0.0/8"},
+			}, {
+				KnownService:   "juju-controller",
+				WhitelistCIDRS: []string{"10.2.0.0/16"},
+			},
+		},
 	}
 }
 
@@ -42,8 +50,9 @@ func (s *ListSuite) TestListTabular(c *gc.C) {
 		c,
 		[]string{"--format", "tabular"},
 		`
-Service  Whitelist subnets
-ssh      192.168.1.0/16,10.0.0.0/8
+Service          Whitelist subnets
+juju-controller  10.2.0.0/16
+ssh              192.168.1.0/16,10.0.0.0/8
 `[1:],
 		"",
 	)
@@ -58,23 +67,12 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
   whitelist-subnets:
   - 192.168.1.0/16
   - 10.0.0.0/8
+- known-service: juju-controller
+  whitelist-subnets:
+  - 10.2.0.0/16
 `[1:],
 		"",
 	)
-}
-
-func (s *ListSuite) TestListEmpty(c *gc.C) {
-	s.mockAPI.rules = ""
-	s.assertValidList(
-		c,
-		[]string{"--format", "tabular"},
-		`
-Service  Whitelist subnets
-ssh      
-`[1:],
-		"",
-	)
-
 }
 
 func (s *ListSuite) runList(c *gc.C, args []string) (*cmd.Context, error) {
@@ -93,7 +91,7 @@ func (s *ListSuite) assertValidList(c *gc.C, args []string, expectedValid, expec
 }
 
 type mockListAPI struct {
-	rules string
+	rules []params.FirewallRule
 	err   error
 }
 
@@ -101,11 +99,9 @@ func (s *mockListAPI) Close() error {
 	return nil
 }
 
-func (s *mockListAPI) ModelGet() (map[string]interface{}, error) {
+func (s *mockListAPI) ListFirewallRules() ([]params.FirewallRule, error) {
 	if s.err != nil {
 		return nil, s.err
 	}
-	return testing.FakeConfig().Merge(testing.Attrs{
-		config.SSHAllowListKey: s.rules,
-	}), nil
+	return s.rules, nil
 }
