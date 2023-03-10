@@ -20,6 +20,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
@@ -504,4 +505,25 @@ func (s *remoteRelationsSuite) TestUpdateControllersForModels(c *gc.C) {
 	c.Assert(res.Results, gc.HasLen, 2)
 	c.Assert(res.Results[0].Error.Message, gc.Equals, "whack")
 	c.Assert(res.Results[1].Error, gc.IsNil)
+}
+
+func (s *remoteRelationsSuite) TestConsumeRemoteSecretChanges(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	uri := secrets.NewURI()
+	change := params.SecretRevisionChange{
+		URI:      uri.String(),
+		Revision: 666,
+	}
+	changes := params.LatestSecretRevisionChanges{
+		Changes: []params.SecretRevisionChange{change},
+	}
+
+	op := &mockOperation{message: "killer whales"}
+	s.st.EXPECT().UpdateSecretConsumerOperation(uri, 666).Return(op, nil)
+	s.st.EXPECT().ApplyOperation(op).Return(nil)
+
+	result, err := s.api.ConsumeRemoteSecretChanges(changes)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), gc.IsNil)
 }

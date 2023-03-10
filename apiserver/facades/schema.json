@@ -36992,6 +36992,18 @@
                     },
                     "description": "ConsumeRemoteRelationChanges consumes changes to settings originating\nfrom the remote/offering side of relations."
                 },
+                "ConsumeRemoteSecretChanges": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/LatestSecretRevisionChanges"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    },
+                    "description": "ConsumeRemoteSecretChanges updates the local model with secret revision changes\noriginating from the remote/offering model."
+                },
                 "ControllerAPIInfoForModels": {
                     "type": "object",
                     "properties": {
@@ -37399,6 +37411,21 @@
                         "Args"
                     ]
                 },
+                "LatestSecretRevisionChanges": {
+                    "type": "object",
+                    "properties": {
+                        "changes": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/SecretRevisionChange"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "changes"
+                    ]
+                },
                 "Macaroon": {
                     "type": "object",
                     "additionalProperties": false
@@ -37721,6 +37748,22 @@
                         }
                     },
                     "additionalProperties": false
+                },
+                "SecretRevisionChange": {
+                    "type": "object",
+                    "properties": {
+                        "revision": {
+                            "type": "integer"
+                        },
+                        "uri": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "uri",
+                        "revision"
+                    ]
                 },
                 "SetStatus": {
                     "type": "object",

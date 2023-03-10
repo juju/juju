@@ -354,7 +354,9 @@ func (s *SecretsManagerAPI) getSecretConsumerInfo(consumerTag names.Tag, uriStr 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if !s.canRead(uri, consumerTag) {
+	// We only check read permissions for local secrets.
+	// For CMR secrets, the remote model manages the permissions.
+	if uri.IsLocal(s.modelUUID) && !s.canRead(uri, consumerTag) {
 		return nil, apiservererrors.ErrPerm
 	}
 	return s.secretsConsumer.GetSecretConsumer(uri, consumerTag)
@@ -729,6 +731,11 @@ func (s *SecretsManagerAPI) getConsumedRevision(uri *coresecrets.URI, refresh, p
 	refresh = refresh ||
 		err != nil // Not found, so need to create one.
 
+	var wantRevision int
+	if err == nil {
+		wantRevision = consumerInfo.CurrentRevision
+	}
+
 	// Use the latest revision as the current one if --refresh or --peek.
 	if refresh || peek {
 		md, err := s.secretsState.GetSecret(uri)
@@ -736,11 +743,13 @@ func (s *SecretsManagerAPI) getConsumedRevision(uri *coresecrets.URI, refresh, p
 			return 0, errors.Trace(err)
 		}
 		if consumerInfo == nil {
-			consumerInfo = &coresecrets.SecretConsumerMetadata{
-				LatestRevision: md.LatestRevision,
-			}
+			consumerInfo = &coresecrets.SecretConsumerMetadata{}
 		}
-		consumerInfo.CurrentRevision = md.LatestRevision
+		consumerInfo.LatestRevision = md.LatestRevision
+		if refresh {
+			consumerInfo.CurrentRevision = md.LatestRevision
+		}
+		wantRevision = md.LatestRevision
 	}
 	// Save the latest consumer info if required.
 	if refresh || possibleUpdateLabel {
@@ -751,7 +760,7 @@ func (s *SecretsManagerAPI) getConsumedRevision(uri *coresecrets.URI, refresh, p
 			return 0, errors.Trace(err)
 		}
 	}
-	return consumerInfo.CurrentRevision, nil
+	return wantRevision, nil
 }
 
 // WatchConsumedSecretsChanges sets up a watcher to notify of changes to secret revisions for the specified consumers.

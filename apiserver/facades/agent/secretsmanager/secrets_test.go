@@ -495,6 +495,29 @@ func (s *SecretsManagerSuite) TestGetConsumerSecretsRevisionInfo(c *gc.C) {
 	})
 }
 
+func (s *SecretsManagerSuite) TestGetConsumerRemoteSecretsRevisionInfo(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	uri := coresecrets.NewURI().WithSource("deadbeef-1bad-500d-9000-4b1d0d06f00d")
+	s.secretsConsumer.EXPECT().GetSecretConsumer(uri, names.NewApplicationTag("mariadb")).Return(
+		&coresecrets.SecretConsumerMetadata{
+			LatestRevision: 666,
+			Label:          "label",
+		}, nil)
+
+	results, err := s.facade.GetConsumerSecretsRevisionInfo(params.GetSecretConsumerInfoArgs{
+		ConsumerTag: "application-mariadb",
+		URIs:        []string{uri.String()},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.SecretConsumerInfoResults{
+		Results: []params.SecretConsumerInfoResult{{
+			Label:    "label",
+			Revision: 666,
+		}},
+	})
+}
+
 func (s *SecretsManagerSuite) TestGetSecretMetadata(c *gc.C) {
 	defer s.setup(c).Finish()
 
@@ -865,14 +888,14 @@ func (s *SecretsManagerSuite) TestGetSecretContentConsumerUpdateArg(c *gc.C) {
 
 	s.expectgetAppOwnedOrUnitOwnedSecretMetadataNotFound()
 	s.secretsConsumer.EXPECT().GetSecretConsumer(uri, names.NewUnitTag("mariadb/0")).Return(
-		&coresecrets.SecretConsumerMetadata{CurrentRevision: 666, LatestRevision: 666}, nil,
+		&coresecrets.SecretConsumerMetadata{CurrentRevision: 666, LatestRevision: 668}, nil,
 	)
 	s.secretsState.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{LatestRevision: 668}, nil)
 	s.secretsConsumer.EXPECT().SaveSecretConsumer(
 		uri, names.NewUnitTag("mariadb/0"), &coresecrets.SecretConsumerMetadata{
 			Label:           "label",
 			CurrentRevision: 668,
-			LatestRevision:  666,
+			LatestRevision:  668,
 		}).Return(nil)
 
 	s.secretsState.EXPECT().GetSecretValue(uri, 668).Return(
@@ -902,7 +925,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentConsumerPeekArg(c *gc.C) {
 
 	s.expectgetAppOwnedOrUnitOwnedSecretMetadataNotFound()
 	s.secretsConsumer.EXPECT().GetSecretConsumer(uri, names.NewUnitTag("mariadb/0")).Return(
-		&coresecrets.SecretConsumerMetadata{CurrentRevision: 666, LatestRevision: 666}, nil,
+		&coresecrets.SecretConsumerMetadata{CurrentRevision: 666, LatestRevision: 668}, nil,
 	)
 	s.secretsState.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{LatestRevision: 668}, nil)
 	s.secretsState.EXPECT().GetSecretValue(uri, 668).Return(

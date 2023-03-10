@@ -55,7 +55,7 @@ const (
 var validUUID = regexp.MustCompile(uuidSnippet)
 
 var secretURIParse = regexp.MustCompile(`^` +
-	fmt.Sprintf(`(?P<id>%s)`, idSnippet) +
+	fmt.Sprintf(`((?P<source>%s)/)?(?P<id>%s)`, uuidSnippet, idSnippet) +
 	`$`)
 
 // ParseURI parses the specified string into a URI.
@@ -77,16 +77,21 @@ func ParseURI(str string) (*URI, error) {
 	if idStr == "" {
 		idStr = u.Opaque
 	}
-	matches := secretURIParse.FindStringSubmatch(idStr)
-	if matches == nil {
+	valid := secretURIParse.MatchString(idStr)
+	if !valid {
 		return nil, errors.NotValidf("secret URI %q", str)
 	}
-	id, err := xid.FromString(matches[1])
+	sourceUUID := secretURIParse.ReplaceAllString(idStr, "$source")
+	if sourceUUID == "" {
+		sourceUUID = u.Host
+	}
+	idPart := secretURIParse.ReplaceAllString(idStr, "$id")
+	id, err := xid.FromString(idPart)
 	if err != nil {
 		return nil, errors.NotValidf("secret URI %q", str)
 	}
 	result := &URI{
-		SourceUUID: u.Host,
+		SourceUUID: sourceUUID,
 		ID:         id.String(),
 	}
 	return result, nil

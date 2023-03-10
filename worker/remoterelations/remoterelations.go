@@ -66,6 +66,10 @@ type RemoteModelRelationsFacade interface {
 	// WatchOfferStatus starts an OfferStatusWatcher for watching the status
 	// of the specified offer in the remote model.
 	WatchOfferStatus(arg params.OfferArg) (watcher.OfferStatusWatcher, error)
+
+	// WatchConsumedSecretsChanges starts a watcher for any changes to secrets
+	// consumed by the specified application.
+	WatchConsumedSecretsChanges(applicationToken string, mac *macaroon.Macaroon) (watcher.SecretsRevisionWatcher, error)
 }
 
 // RemoteRelationsFacade exposes remote relation functionality to a worker.
@@ -119,6 +123,10 @@ type RemoteRelationsFacade interface {
 	// UpdateControllerForModel ensures that there is an external controller record
 	// for the input info, associated with the input model ID.
 	UpdateControllerForModel(controller crossmodel.ControllerInfo, modelUUID string) error
+
+	// ConsumeRemoteSecretChanges updates the local model with secret revision  changes
+	// originating from the remote/offering model.
+	ConsumeRemoteSecretChanges(changes []watcher.SecretRevisionChange) error
 }
 
 type newRemoteRelationsFacadeFunc func(*api.Info) (RemoteModelRelationsFacadeCloser, error)
