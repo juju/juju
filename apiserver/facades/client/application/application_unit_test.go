@@ -191,6 +191,7 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 		s.storageAccess,
 		s.authorizer,
 		nil,
+		nil,
 		s.blockChecker,
 		s.model,
 		s.leadershipReader,

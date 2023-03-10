@@ -53,6 +53,7 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 		storageAccess,
 		s.authorizer,
 		nil,
+		nil,
 		blockChecker,
 		application.GetModel(model),
 		nil, // leadership not used in this suite.
@@ -171,6 +172,7 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 		application.GetState(st),
 		storageAccess,
 		s.authorizer,
+		nil,
 		nil,
 		blockChecker,
 		application.GetModel(mod),
