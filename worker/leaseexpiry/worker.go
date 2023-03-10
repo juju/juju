@@ -46,12 +46,6 @@ type expiryWorker struct {
 	logger Logger
 	db     *sql.DB
 
-	// ctx is passed to *all* database interactions that can accept a context.
-	// It must be cancelled in the worker's Kill method so no such operations
-	// can block a worker shutdown.
-	ctx       context.Context
-	ctxCancel func()
-
 	stmt *sql.Stmt
 }
 
@@ -64,14 +58,10 @@ func NewWorker(cfg Config) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-
 	w := &expiryWorker{
-		clock:     cfg.Clock,
-		logger:    cfg.Logger,
-		db:        cfg.DB,
-		ctx:       ctx,
-		ctxCancel: cancel,
+		clock:  cfg.Clock,
+		logger: cfg.Logger,
+		db:     cfg.DB,
 	}
 
 	w.tomb.Go(w.loop)
@@ -80,6 +70,11 @@ func NewWorker(cfg Config) (worker.Worker, error) {
 
 func (w *expiryWorker) loop() error {
 	timer := w.clock.NewTimer(time.Second)
+
+	// We pass this context to every database method that accepts one.
+	// It is cancelled by killing the tomb, which prevents shutdown
+	// being blocked by such calls.
+	ctx := w.tomb.Context(context.Background())
 
 	q := `
 DELETE FROM lease WHERE uuid in (
@@ -90,7 +85,7 @@ DELETE FROM lease WHERE uuid in (
 )`[1:]
 
 	var err error
-	if w.stmt, err = w.db.PrepareContext(w.ctx, q); err != nil {
+	if w.stmt, err = w.db.PrepareContext(ctx, q); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -99,7 +94,7 @@ DELETE FROM lease WHERE uuid in (
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case <-timer.Chan():
-			if err := w.expireLeases(); err != nil {
+			if err := w.expireLeases(ctx); err != nil {
 				return errors.Trace(err)
 			}
 			timer.Reset(time.Second)
@@ -107,8 +102,8 @@ DELETE FROM lease WHERE uuid in (
 	}
 }
 
-func (w *expiryWorker) expireLeases() error {
-	res, err := w.stmt.ExecContext(w.ctx)
+func (w *expiryWorker) expireLeases(ctx context.Context) error {
+	res, err := w.stmt.ExecContext(ctx)
 	if err != nil {
 		// TODO (manadart 2022-12-15): This incarnation of the worker runs on
 		// all controller nodes. Retryable errors are those that occur due to
@@ -136,7 +131,6 @@ func (w *expiryWorker) expireLeases() error {
 
 // Kill is part of the worker.Worker interface.
 func (w *expiryWorker) Kill() {
-	w.ctxCancel()
 	w.tomb.Kill(nil)
 }
 
