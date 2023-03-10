@@ -13,11 +13,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	charmresource "github.com/juju/charm/v10/resource"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/mocks"
 	apitesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
@@ -316,4 +320,17 @@ func (s *resourcesUploadSuite) assertResponse(c *gc.C, resp *http.Response, expS
 	err := json.Unmarshal(body, &outResp)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("Body: %s", body))
 	return outResp
+}
+
+func (s *resourcesUploadSuite) TestSetResource(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	stResources := mocks.NewMockResources(ctrl)
+	gomock.InOrder(
+		stResources.EXPECT().SetUnitResource(gomock.Any(), gomock.Any(), gomock.Any()).Return(resources.Resource{}, nil),
+		stResources.EXPECT().SetResource(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), state.DoNotIncrementCharmModifiedVersion).Return(resources.Resource{}, nil),
+	)
+	apiserver.SetResource(true, "", "", charmresource.Resource{}, nil, stResources)
+	apiserver.SetResource(false, "", "", charmresource.Resource{}, nil, stResources)
 }
