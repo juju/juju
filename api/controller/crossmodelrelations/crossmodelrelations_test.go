@@ -713,3 +713,82 @@ func (s *CrossModelRelationsSuite) TestWatchOfferStatusDischargeRequired(c *gc.C
 	c.Assert(ok, jc.IsTrue)
 	apitesting.MacaroonEquals(c, ms[0], dischargeMac[0])
 }
+
+func (s *CrossModelRelationsSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
+	appToken := "token"
+	mac, err := apitesting.NewMacaroon("id")
+	c.Assert(err, jc.ErrorIsNil)
+	var callCount int
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "CrossModelRelations")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(arg, jc.DeepEquals, params.WatchRemoteSecretChangesArgs{Args: []params.WatchRemoteSecretChangesArg{{
+			ApplicationToken: appToken, Macaroons: macaroon.Slice{mac},
+			BakeryVersion: bakery.LatestVersion,
+		}}})
+		c.Check(request, gc.Equals, "WatchConsumedSecretsChanges")
+		c.Assert(result, gc.FitsTypeOf, &params.SecretRevisionWatchResults{})
+		*(result.(*params.SecretRevisionWatchResults)) = params.SecretRevisionWatchResults{
+			Results: []params.SecretRevisionWatchResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}},
+		}
+		callCount++
+		return nil
+	})
+	client := crossmodelrelations.NewClientWithCache(apiCaller, s.cache)
+	_, err = client.WatchConsumedSecretsChanges(appToken, mac)
+	c.Check(err, gc.ErrorMatches, "FAIL")
+	// Call again with a different macaroon but the first one will be
+	// cached and override the passed in macaroon.
+	different, err := apitesting.NewMacaroon("different")
+	c.Assert(err, jc.ErrorIsNil)
+	s.cache.Upsert(appToken, macaroon.Slice{mac})
+	_, err = client.WatchConsumedSecretsChanges(appToken, different)
+	c.Check(err, gc.ErrorMatches, "FAIL")
+	c.Check(callCount, gc.Equals, 2)
+}
+
+func (s *CrossModelRelationsSuite) TestWatchConsumedSecretsChangesDischargeRequired(c *gc.C) {
+	var (
+		callCount    int
+		dischargeMac macaroon.Slice
+	)
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		var resultErr *params.Error
+		switch callCount {
+		case 2, 3: //Watcher Next, Stop
+			return nil
+		case 0:
+			mac := s.newDischargeMacaroon(c)
+			resultErr = &params.Error{
+				Code: params.CodeDischargeRequired,
+				Info: params.DischargeRequiredErrorInfo{
+					Macaroon: mac,
+				}.AsMap(),
+			}
+		case 1:
+			argParam := arg.(params.WatchRemoteSecretChangesArgs)
+			dischargeMac = argParam.Args[0].Macaroons
+		}
+		resp := params.SecretRevisionWatchResults{
+			Results: []params.SecretRevisionWatchResult{{Error: resultErr}},
+		}
+		s.fillResponse(c, result, resp)
+		callCount++
+		return nil
+	})
+	acquirer := &mockDischargeAcquirer{}
+	callerWithBakery := testing.APICallerWithBakery(apiCaller, acquirer)
+	client := crossmodelrelations.NewClientWithCache(callerWithBakery, s.cache)
+	_, err := client.WatchConsumedSecretsChanges("token", nil)
+	c.Check(callCount, gc.Equals, 2)
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(dischargeMac, gc.HasLen, 1)
+	c.Assert(dischargeMac[0].Id(), jc.DeepEquals, []byte("discharge mac"))
+	// Macaroon has been cached.
+	ms, ok := s.cache.Get("token")
+	c.Assert(ok, jc.IsTrue)
+	apitesting.MacaroonEquals(c, ms[0], dischargeMac[0])
+}

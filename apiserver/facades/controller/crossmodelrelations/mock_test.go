@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelrelations"
 	"github.com/juju/juju/core/crossmodel"
 	coremacaroon "github.com/juju/juju/core/macaroon"
+	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/state"
@@ -54,6 +55,7 @@ type mockState struct {
 	offerConnectionsByKey map[string]*mockOfferConnection
 	remoteEntities        map[names.Tag]string
 	ingressNetworks       map[string][]string
+	secrets               map[string]coresecrets.SecretMetadata
 	migrationActive       bool
 }
 
@@ -68,6 +70,7 @@ func newMockState() *mockState {
 		offerConnections:      make(map[int]*mockOfferConnection),
 		offerConnectionsByKey: make(map[string]*mockOfferConnection),
 		ingressNetworks:       make(map[string][]string),
+		secrets:               make(map[string]coresecrets.SecretMetadata),
 	}
 }
 
@@ -264,6 +267,40 @@ func (st *mockState) Application(id string) (commoncrossmodel.Application, error
 		return nil, errors.NotFoundf("application %q", id)
 	}
 	return a, nil
+}
+
+func (st *mockState) GetSecretConsumerInfo(token string) (names.Tag, string, error) {
+	st.MethodCall(st, "GetSecretConsumerInfo", token)
+	if err := st.NextErr(); err != nil {
+		return nil, "", err
+	}
+	for e, t := range st.remoteEntities {
+		if t == token {
+			return e, e.Id() + "-uuid", nil
+		}
+	}
+	return nil, "", errors.NotFoundf("token %v", token)
+}
+
+func (st *mockState) GetSecret(uri *coresecrets.URI) (*coresecrets.SecretMetadata, error) {
+	st.MethodCall(st, "GetSecret", uri)
+	if err := st.NextErr(); err != nil {
+		return nil, err
+	}
+	md, ok := st.secrets[uri.ID]
+	if ok {
+		return &md, nil
+	}
+	return nil, errors.NotFoundf("secret id %q", uri.ID)
+}
+
+type mockSecretsWatcher struct {
+	*mockWatcher
+	changes chan []string
+}
+
+func (w *mockSecretsWatcher) Changes() <-chan []string {
+	return w.changes
 }
 
 type mockFirewallState struct {

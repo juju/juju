@@ -644,6 +644,7 @@ func (s *loginSuite) TestAnonymousModelLogin(c *gc.C) {
 		{Name: "RelationStatusWatcher", Versions: []int{1}},
 		{Name: "RelationUnitsWatcher", Versions: []int{1}},
 		{Name: "RemoteRelationWatcher", Versions: []int{1}},
+		{Name: "SecretsRevisionWatcher", Versions: []int{1}},
 		{Name: "StringsWatcher", Versions: []int{1}},
 	})
 }
