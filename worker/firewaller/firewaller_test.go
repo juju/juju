@@ -1281,10 +1281,21 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleOffering(c *gc.C) {
 
 func (s *InstanceModeSuite) TestRemoteRelationIngressFallbackToPublic(c *gc.C) {
 	var ingress []string
-	for i := 1; i < 40; i++ {
+	for i := 1; i < 30; i++ {
 		ingress = append(ingress, fmt.Sprintf("10.%d.0.1/32", i))
 	}
 	s.assertIngressCidrs(c, ingress, []string{"0.0.0.0/0", "::/0"})
+}
+
+func (s *InstanceModeSuite) TestRemoteRelationIngressFallbackToWhitelist(c *gc.C) {
+	fwRules := state.NewFirewallRules(s.State)
+	err := fwRules.Save(state.NewFirewallRule(firewall.JujuApplicationOfferRule, []string{"192.168.1.0/16"}))
+	c.Assert(err, jc.ErrorIsNil)
+	var ingress []string
+	for i := 1; i < 30; i++ {
+		ingress = append(ingress, fmt.Sprintf("10.%d.0.1/32", i))
+	}
+	s.assertIngressCidrs(c, ingress, []string{"192.168.1.0/16"})
 }
 
 func (s *InstanceModeSuite) TestRemoteRelationIngressMergesCIDRS(c *gc.C) {
@@ -1310,16 +1321,6 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressMergesCIDRS(c *gc.C) {
 		"192.0.4.0/28",
 		"192.0.5.0/28",
 		"192.0.6.0/28",
-		"192.0.7.0/28",
-		"192.0.8.0/28",
-		"192.0.9.0/28",
-		"192.0.10.0/28",
-		"192.0.11.0/28",
-		"192.0.12.0/28",
-		"192.0.13.0/28",
-		"192.0.14.0/28",
-		"192.0.15.0/28",
-		"192.0.16.0/28",
 	}
 	expected := []string{
 		"192.0.1.254/31",
@@ -1328,16 +1329,6 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressMergesCIDRS(c *gc.C) {
 		"192.0.4.0/28",
 		"192.0.5.0/28",
 		"192.0.6.0/28",
-		"192.0.7.0/28",
-		"192.0.8.0/28",
-		"192.0.9.0/28",
-		"192.0.10.0/28",
-		"192.0.11.0/28",
-		"192.0.12.0/28",
-		"192.0.13.0/28",
-		"192.0.14.0/28",
-		"192.0.15.0/28",
-		"192.0.16.0/28",
 	}
 	s.assertIngressCidrs(c, ingress, expected)
 }
