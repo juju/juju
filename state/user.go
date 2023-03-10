@@ -223,6 +223,9 @@ func (st *State) RemoveUser(tag names.UserTag) error {
 		DateRemoved: dateRemoved,
 	}
 	removalLog := u.doc.RemovalLog
+	if removalLog == nil {
+		removalLog = make([]userRemovedLogEntry, 0)
+	}
 	removalLog = append(removalLog, newRemovalLogEntry)
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
