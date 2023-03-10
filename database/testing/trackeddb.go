@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/juju/errors"
 	"github.com/juju/juju/database/txn"
 )
 
@@ -24,16 +23,6 @@ func (t *trackedDB) Txn(ctx context.Context, fn func(context.Context, *sql.Tx) e
 	return t.DB(func(db *sql.DB) error {
 		return defaultTransactioner.Txn(ctx, db, fn)
 	})
-}
-
-func (t *trackedDB) PrepareStmts(fn func(*sql.DB) error) (func(), error) {
-	err := t.DB(func(db *sql.DB) error {
-		return fn(db)
-	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return func() {}, nil
 }
 
 func (t *trackedDB) Err() error {
