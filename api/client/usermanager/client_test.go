@@ -49,7 +49,7 @@ func (s *usermanagerSuite) TestAddExistingUser(c *gc.C) {
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar"})
 
 	_, _, err := s.usermanager.AddUser("foobar", "Foo Bar", "password")
-	c.Assert(err, gc.ErrorMatches, "failed to create user: username unavailable")
+	c.Assert(err, gc.ErrorMatches, "failed to create user: the user already exists")
 }
 
 func (s *usermanagerSuite) TestAddUserResponseError(c *gc.C) {
@@ -74,6 +74,40 @@ func (s *usermanagerSuite) TestAddUserResultCount(c *gc.C) {
 	)
 	_, _, err := s.usermanager.AddUser("foobar", "Foo Bar", "password")
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
+}
+
+func (s *usermanagerSuite) TestAddRemovedUser(c *gc.C) {
+	tag, _, err := s.usermanager.AddUser("jjam", "Jimmy Jam", "password")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Ensure the user exists.
+	user, err := s.State.User(tag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(user.Name(), gc.Equals, "jjam")
+	c.Assert(user.DisplayName(), gc.Equals, "Jimmy Jam")
+
+	// Delete the user.
+	err = s.usermanager.RemoveUser(tag.Name())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Assert that the user is gone.
+	_, err = s.State.User(tag)
+	c.Assert(err, gc.ErrorMatches, `user "jjam" is permanently deleted`)
+
+	err = user.Refresh()
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(user.IsDeleted(), jc.IsTrue)
+
+	// Add the user again
+	tag2, _, err := s.usermanager.AddUser("jjam", "Jimmy Again", "password2")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Ensure the user exists.
+	user2, err := s.State.User(tag2)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(user2.Name(), gc.Equals, "jjam")
+	c.Assert(user2.DisplayName(), gc.Equals, "Jimmy Again")
+
 }
 
 func (s *usermanagerSuite) TestRemoveUser(c *gc.C) {
