@@ -191,6 +191,11 @@ parts:
     override-build: |
       set -ex
 
+      CUSTOM_CFLAGS=""
+      if [ "$(uname -m)" = "ppc64le" ]; then
+        CUSTOM_CFLAGS="-mlong-double-64"
+      fi
+
       export PATH=/usr/local/musl/bin:$PATH
       export CC=musl-gcc
 
@@ -198,7 +203,9 @@ parts:
       # why that's required for linking.
 
       ./autogen.sh
-      ./configure 
+
+      CFLAGS="${CUSTOM_CFLAGS}" \
+        ./configure
       make
 
       mkdir -p $SNAPCRAFT_PART_INSTALL/libuv
@@ -228,7 +235,13 @@ parts:
       export PATH=/usr/local/musl/bin:$PATH
       export CC=musl-gcc
 
-      ./configure --disable-shared
+      CUSTOM_CFLAGS=""
+      if [ "$(uname -m)" = "ppc64le" ]; then
+        CUSTOM_CFLAGS="-mlong-double-64"
+      fi
+
+      CFLAGS="${CUSTOM_CFLAGS}" \
+        ./configure --disable-shared
       make
 
       mkdir -p $SNAPCRAFT_PART_INSTALL/libsqlite3
@@ -259,7 +272,13 @@ parts:
       export PATH=/usr/local/musl/bin:$PATH
       export CC=musl-gcc
 
-      make lib
+      CUSTOM_CFLAGS=""
+      if [ "$(uname -m)" = "ppc64le" ]; then
+        CUSTOM_CFLAGS="-mlong-double-64"
+      fi
+
+      CFLAGS="${CUSTOM_CFLAGS}" \
+        make lib
 
       mkdir -p $SNAPCRAFT_PART_INSTALL/liblz4
       cp -r $SNAPCRAFT_PART_BUILD/lib $SNAPCRAFT_PART_INSTALL/liblz4/lib
