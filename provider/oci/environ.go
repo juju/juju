@@ -324,15 +324,16 @@ func (e *Environ) AdoptResources(ctx envcontext.ProviderCallContext, controllerU
 	return errors.NotImplementedf("AdoptResources")
 }
 
+// list of unsupported OCI provider constraints
+var unsupportedConstraints = []string{
+	constraints.Container,
+	constraints.VirtType,
+	constraints.Tags,
+	constraints.ImageID,
+}
+
 // ConstraintsValidator implements environs.Environ.
 func (e *Environ) ConstraintsValidator(ctx envcontext.ProviderCallContext) (constraints.Validator, error) {
-	// list of unsupported OCI provider constraints
-	unsupportedConstraints := []string{
-		constraints.Container,
-		constraints.VirtType,
-		constraints.Tags,
-	}
-
 	validator := constraints.NewValidator()
 	validator.RegisterUnsupported(unsupportedConstraints)
 	validator.RegisterVocabulary(constraints.Arch, []string{arch.AMD64})

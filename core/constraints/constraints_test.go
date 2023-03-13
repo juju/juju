@@ -378,6 +378,21 @@ var parseConstraintsTests = []struct {
 		err:     `bad "allocate-public-ip" constraint: already set`,
 	},
 
+	// ImageID
+	{
+		summary: "set image-id",
+		args:    []string{"image-id=ubuntu-bf2"},
+	},
+	{
+		summary: "set image-id",
+		args:    []string{"image-id="},
+	},
+	{
+		summary: "set image-id",
+		args:    []string{"image-id=ubuntu-bf2 image-id=ubuntu-bf1"},
+		err:     `bad "image-id" constraint: already set`,
+	},
+
 	// Everything at once.
 	{
 		summary: "kitchen sink together",
@@ -385,7 +400,7 @@ var parseConstraintsTests = []struct {
 			"root-disk=8G mem=2T  arch=i386  cores=4096 cpu-power=9001 container=lxd " +
 				"tags=foo,bar spaces=space1,^space2 instance-type=foo " +
 				"instance-role=foo1",
-			"virt-type=kvm zones=az1,az2 allocate-public-ip=true root-disk-source=sourcename"},
+			"virt-type=kvm zones=az1,az2 allocate-public-ip=true root-disk-source=sourcename image-id=ubuntu-bf2"},
 		result: &constraints.Value{
 			Arch:             strp("i386"),
 			Container:        (*instance.ContainerType)(strp("lxd")),
@@ -401,6 +416,7 @@ var parseConstraintsTests = []struct {
 			VirtType:         strp("kvm"),
 			Zones:            &[]string{"az1", "az2"},
 			AllocatePublicIP: boolp(true),
+			ImageID:          strp("ubuntu-bf2"),
 		},
 	}, {
 		summary: "kitchen sink separately",
@@ -485,7 +501,7 @@ func (s *ConstraintsSuite) TestMerge(c *gc.C) {
 	con1 := constraints.MustParse("arch=amd64 mem=4G")
 	con2 := constraints.MustParse("cores=42")
 	con3 := constraints.MustParse(
-		"root-disk=8G container=lxd spaces=space1,^space2",
+		"root-disk=8G container=lxd spaces=space1,^space2 image-id=ubuntu-bf2",
 	)
 	merged, err := constraints.Merge(con1, con2)
 	c.Assert(err, jc.ErrorIsNil)
@@ -496,7 +512,7 @@ func (s *ConstraintsSuite) TestMerge(c *gc.C) {
 	merged, err = constraints.Merge(con1, con2, con3)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(merged, jc.DeepEquals, constraints.
-		MustParse("arch=amd64 mem=4G cores=42 root-disk=8G container=lxd spaces=space1,^space2"),
+		MustParse("arch=amd64 mem=4G cores=42 root-disk=8G container=lxd spaces=space1,^space2 image-id=ubuntu-bf2"),
 	)
 	merged, err = constraints.Merge()
 	c.Assert(err, jc.ErrorIsNil)
@@ -614,6 +630,15 @@ func (s *ConstraintsSuite) TestHasRootDisk(c *gc.C) {
 	c.Check(con.HasRootDisk(), jc.IsFalse)
 }
 
+func (s *ConstraintsSuite) TestHasImageID(c *gc.C) {
+	con := constraints.MustParse("image-id=ubuntu-bf2")
+	c.Check(con.HasImageID(), jc.IsTrue)
+	con = constraints.MustParse("image-id=")
+	c.Check(con.HasImageID(), jc.IsFalse)
+	con = constraints.MustParse("spaces=space1,^space2")
+	c.Check(con.HasImageID(), jc.IsFalse)
+}
+
 func (s *ConstraintsSuite) TestIsEmpty(c *gc.C) {
 	con := constraints.Value{}
 	c.Check(&con, jc.Satisfies, constraints.IsEmpty)
@@ -645,6 +670,8 @@ func (s *ConstraintsSuite) TestIsEmpty(c *gc.C) {
 	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
 	con = constraints.MustParse("allocate-public-ip=")
 	c.Check(&con, jc.Satisfies, constraints.IsEmpty)
+	con = constraints.MustParse("image-id=")
+	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
 }
 
 func boolp(b bool) *bool {
@@ -705,6 +732,9 @@ var constraintsRoundtripTests = []roundTrip{
 	{"Zones3", constraints.Value{Zones: &[]string{"az1", "az2"}}},
 	{"AllocatePublicIP1", constraints.Value{AllocatePublicIP: nil}},
 	{"AllocatePublicIP2", constraints.Value{AllocatePublicIP: boolp(true)}},
+	{"ImageID1", constraints.Value{ImageID: nil}},
+	{"ImageID1", constraints.Value{ImageID: strp("")}},
+	{"ImageID1", constraints.Value{ImageID: strp("ubuntu-bf2")}},
 	{"All", constraints.Value{
 		Arch:             strp("i386"),
 		Container:        ctypep("lxd"),
@@ -718,6 +748,7 @@ var constraintsRoundtripTests = []roundTrip{
 		InstanceType:     strp("foo"),
 		Zones:            &[]string{"az1", "az2"},
 		AllocatePublicIP: boolp(true),
+		ImageID:          strp("ubuntu-bf2"),
 	}},
 }
 
@@ -796,7 +827,7 @@ func (s *ConstraintsSuite) TestHasInstanceType(c *gc.C) {
 }
 
 const initialWithoutCons = "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cores=4 spaces=space1,^space2 tags=foo " +
-	"container=lxd instance-type=bar zones=az1,az2 allocate-public-ip=true"
+	"container=lxd instance-type=bar zones=az1,az2 allocate-public-ip=true image-id=ubuntu-bf2"
 
 var withoutTests = []struct {
 	initial string
@@ -805,51 +836,55 @@ var withoutTests = []struct {
 }{{
 	initial: initialWithoutCons,
 	without: []string{"root-disk"},
-	final:   "mem=4G arch=amd64 cpu-power=1000 cores=4 tags=foo spaces=space1,^space2 container=lxd instance-type=bar  zones=az1,az2 allocate-public-ip=true",
+	final:   "mem=4G arch=amd64 cpu-power=1000 cores=4 tags=foo spaces=space1,^space2 container=lxd instance-type=bar  zones=az1,az2 allocate-public-ip=true image-id=ubuntu-bf2",
 }, {
 	initial: initialWithoutCons,
 	without: []string{"mem"},
-	final:   "root-disk=8G arch=amd64 cpu-power=1000 cores=4 tags=foo spaces=space1,^space2 container=lxd instance-type=bar  zones=az1,az2 allocate-public-ip=true",
+	final:   "root-disk=8G arch=amd64 cpu-power=1000 cores=4 tags=foo spaces=space1,^space2 container=lxd instance-type=bar  zones=az1,az2 allocate-public-ip=true image-id=ubuntu-bf2",
 }, {
 	initial: initialWithoutCons,
 	without: []string{"arch"},
-	final:   "root-disk=8G mem=4G cpu-power=1000 cores=4 tags=foo spaces=space1,^space2 container=lxd instance-type=bar zones=az1,az2 allocate-public-ip=true",
+	final:   "root-disk=8G mem=4G cpu-power=1000 cores=4 tags=foo spaces=space1,^space2 container=lxd instance-type=bar zones=az1,az2 allocate-public-ip=true image-id=ubuntu-bf2",
 }, {
 	initial: initialWithoutCons,
 	without: []string{"cpu-power"},
-	final:   "root-disk=8G mem=4G arch=amd64 cores=4 tags=foo spaces=space1,^space2 container=lxd instance-type=bar  zones=az1,az2 allocate-public-ip=true",
+	final:   "root-disk=8G mem=4G arch=amd64 cores=4 tags=foo spaces=space1,^space2 container=lxd instance-type=bar  zones=az1,az2 allocate-public-ip=true image-id=ubuntu-bf2",
 }, {
 	initial: initialWithoutCons,
 	without: []string{"cores"},
-	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 tags=foo spaces=space1,^space2 container=lxd instance-type=bar  zones=az1,az2 allocate-public-ip=true",
+	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 tags=foo spaces=space1,^space2 container=lxd instance-type=bar  zones=az1,az2 allocate-public-ip=true image-id=ubuntu-bf2",
 }, {
 	initial: initialWithoutCons,
 	without: []string{"tags"},
-	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cores=4 spaces=space1,^space2 container=lxd instance-type=bar  zones=az1,az2 allocate-public-ip=true",
+	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cores=4 spaces=space1,^space2 container=lxd instance-type=bar  zones=az1,az2 allocate-public-ip=true image-id=ubuntu-bf2",
 }, {
 	initial: initialWithoutCons,
 	without: []string{"spaces"},
-	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cores=4 tags=foo container=lxd instance-type=bar  zones=az1,az2 allocate-public-ip=true",
+	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cores=4 tags=foo container=lxd instance-type=bar  zones=az1,az2 allocate-public-ip=true image-id=ubuntu-bf2",
 }, {
 	initial: initialWithoutCons,
 	without: []string{"container"},
-	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cores=4 tags=foo spaces=space1,^space2 instance-type=bar  zones=az1,az2 allocate-public-ip=true",
+	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cores=4 tags=foo spaces=space1,^space2 instance-type=bar  zones=az1,az2 allocate-public-ip=true image-id=ubuntu-bf2",
 }, {
 	initial: initialWithoutCons,
 	without: []string{"instance-type"},
-	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cores=4 tags=foo spaces=space1,^space2 container=lxd  zones=az1,az2 allocate-public-ip=true",
+	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cores=4 tags=foo spaces=space1,^space2 container=lxd  zones=az1,az2 allocate-public-ip=true image-id=ubuntu-bf2",
 }, {
 	initial: initialWithoutCons,
 	without: []string{"root-disk", "mem", "arch"},
-	final:   "cpu-power=1000 cores=4 tags=foo spaces=space1,^space2 container=lxd instance-type=bar  zones=az1,az2 allocate-public-ip=true",
+	final:   "cpu-power=1000 cores=4 tags=foo spaces=space1,^space2 container=lxd instance-type=bar  zones=az1,az2 allocate-public-ip=true image-id=ubuntu-bf2",
 }, {
 	initial: initialWithoutCons,
 	without: []string{"zones"},
-	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cores=4 spaces=space1,^space2 tags=foo container=lxd instance-type=bar allocate-public-ip=true",
+	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cores=4 spaces=space1,^space2 tags=foo container=lxd instance-type=bar allocate-public-ip=true image-id=ubuntu-bf2",
 }, {
 	initial: initialWithoutCons,
 	without: []string{"allocate-public-ip"},
-	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cores=4 spaces=space1,^space2 tags=foo container=lxd instance-type=bar zones=az1,az2",
+	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cores=4 spaces=space1,^space2 tags=foo container=lxd instance-type=bar zones=az1,az2 image-id=ubuntu-bf2",
+}, {
+	initial: initialWithoutCons,
+	without: []string{"image-id"},
+	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cores=4 spaces=space1,^space2 tags=foo container=lxd instance-type=bar zones=az1,az2 allocate-public-ip=true",
 }}
 
 func (s *ConstraintsSuite) TestWithout(c *gc.C) {
@@ -872,9 +907,9 @@ var hasAnyTests = []struct {
 		expected: []string{"root-disk", "mem", "spaces"},
 	},
 	{
-		cons:     "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cores=4",
-		attrs:    []string{"root-disk", "tags", "mem"},
-		expected: []string{"root-disk", "mem"},
+		cons:     "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cores=4 image-id=ubuntu-bf2",
+		attrs:    []string{"root-disk", "tags", "mem", "image-id"},
+		expected: []string{"root-disk", "mem", "image-id"},
 	},
 	{
 		cons:     "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cores=4",

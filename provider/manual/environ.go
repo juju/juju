@@ -334,6 +334,7 @@ var unsupportedConstraints = []string{
 	constraints.Tags,
 	constraints.VirtType,
 	constraints.AllocatePublicIP,
+	constraints.ImageID,
 }
 
 // ConstraintsValidator is defined on the Environs interface.

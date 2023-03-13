@@ -1157,10 +1157,16 @@ func (e *environ) DestroyController(ctx context.ProviderCallContext, controllerU
 	return nil
 }
 
+var unsupportedConstraints = []string{
+	constraints.CpuPower,
+	constraints.VirtType,
+	constraints.ImageID,
+}
+
 // ConstraintsValidator is defined on the Environs interface.
 func (e *environ) ConstraintsValidator(ctx context.ProviderCallContext) (constraints.Validator, error) {
 	validator := constraints.NewValidator()
-	validator.RegisterUnsupported([]string{constraints.CpuPower, constraints.VirtType})
+	validator.RegisterUnsupported(unsupportedConstraints)
 	validator.RegisterConflicts([]string{constraints.InstanceType}, []string{constraints.Mem})
 	validator.RegisterVocabulary(constraints.Arch, []string{arch.AMD64, arch.ARM64, arch.I386, arch.PPC64EL, arch.S390X})
 	return validator, nil

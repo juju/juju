@@ -582,6 +582,7 @@ func (s *MigrationSuite) TestConstraintsDocFields(c *gc.C) {
 		"VirtType",
 		"Zones",
 		"AllocatePublicIP",
+		"ImageID",
 	)
 	s.AssertExportedFields(c, constraintsDoc{}, fields)
 }

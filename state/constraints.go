@@ -33,6 +33,7 @@ type constraintsDoc struct {
 	VirtType         *string
 	Zones            *[]string
 	AllocatePublicIP *bool
+	ImageID          *string
 }
 
 func newConstraintsDoc(cons constraints.Value, id string) constraintsDoc {
@@ -52,6 +53,7 @@ func newConstraintsDoc(cons constraints.Value, id string) constraintsDoc {
 		VirtType:         cons.VirtType,
 		Zones:            cons.Zones,
 		AllocatePublicIP: cons.AllocatePublicIP,
+		ImageID:          cons.ImageID,
 	}
 	return result
 }
@@ -72,6 +74,7 @@ func (doc constraintsDoc) value() constraints.Value {
 		VirtType:         doc.VirtType,
 		Zones:            doc.Zones,
 		AllocatePublicIP: doc.AllocatePublicIP,
+		ImageID:          doc.ImageID,
 	}
 	return result
 }

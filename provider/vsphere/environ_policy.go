@@ -79,6 +79,7 @@ var unsupportedConstraints = []string{
 	constraints.Tags,
 	constraints.VirtType,
 	constraints.AllocatePublicIP,
+	constraints.ImageID,
 }
 
 // ConstraintsValidator returns a Validator value which is used to
