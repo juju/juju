@@ -656,13 +656,15 @@ type DeployFromRepositoryResult struct {
 // by the user.
 type DeployFromRepositoryInfo struct {
 	CharmURL string `json:"charm-url"`
-	// Channel is a string representation of the channel
+	// Channel is a string representation of the channel used to
+	// deploy the charm.
 	Channel string `json:"channel,omitempty"`
 	// Architecture is the architecture used to deploy the charm.
 	Architecture string `json:"architecture"`
 	// Base is the base used to deploy the charm.
 	Base Base `json:"base,omitempty"`
-	// EffectiveChannel
+	// EffectiveChannel is the channel actually deployed from as determined
+	// by the charmhub response.
 	EffectiveChannel *string `json:"effective-channel,omitempty"`
 }
 
