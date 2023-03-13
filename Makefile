@@ -80,17 +80,23 @@ JUJU_GOMOD_MODE ?= readonly
 # if the tree that is checked out is dirty (modified) or clean.
 GIT_TREE_STATE = $(if $(shell git -C $(PROJECT_DIR) rev-parse --is-inside-work-tree 2>/dev/null | grep -e 'true'),$(if $(shell git -C $(PROJECT_DIR) status --porcelain),dirty,clean),archive)
 
-# BUILD_AGENT_TARGETS is a list of make targets the get built that fall under
-# the category of Juju agents. These targets are also the ones we are more then
-# likely wanting to cross compile.
+# BUILD_AGENT_TARGETS is a list of make targets that get built, that fall under
+# the category of Juju agents, that are not CGO. These targets are also the ones
+# we are more then likely wanting to cross compile.
 # NOTES:
 # - We filter pebble here for only linux builds as that is only what it will
 #   compile for at the moment.
 define BUILD_AGENT_TARGETS
 	$(call tool_platform_paths,jujuc,$(filter-out windows%,${AGENT_PACKAGE_PLATFORMS})) \
-	$(call tool_platform_paths,jujud,$(filter linux%,${AGENT_PACKAGE_PLATFORMS})) \
 	$(call tool_platform_paths,containeragent,$(filter-out windows%,${AGENT_PACKAGE_PLATFORMS})) \
 	$(call tool_platform_paths,pebble,$(filter linux%,${AGENT_PACKAGE_PLATFORMS}))
+endef
+
+# BUILD_CGO_AGENT_TARGETS is a list of make targets that get built, that fall
+# under the category of Juju agents, that are CGO. These targets are also the
+# ones we are more then likely wanting to cross compile.
+define BUILD_CGO_AGENT_TARGETS
+	$(call tool_platform_paths,jujud,$(filter linux%,${AGENT_PACKAGE_PLATFORMS}))
 endef
 
 # BUILD_CLIENT_TARGETS is a list of make targets that get built that fall under
@@ -337,7 +343,7 @@ ${BUILD_DIR}/%/bin/pebble: phony_explicit
 # build for pebble
 	$(run_go_build)
 
-${JUJU_METADATA_SOURCE}/tools/released/juju-${JUJU_VERSION}-%.tgz: phony_explicit juju $(BUILD_AGENT_TARGETS)
+${JUJU_METADATA_SOURCE}/tools/released/juju-${JUJU_VERSION}-%.tgz: phony_explicit juju $(BUILD_AGENT_TARGETS) $(BUILD_CGO_AGENT_TARGETS)
 	@echo "Packaging simplestream tools for juju ${JUJU_VERSION} on $*"
 	@mkdir -p ${JUJU_METADATA_SOURCE}/tools/released
 	@tar czf "$@" -C $(call bin_platform_paths,$(subst -,/,$*)) .
@@ -353,15 +359,21 @@ build: rebuild-schema go-build
 ## BUILD_CLIENT_TARGETS while also rebuilding a new schema.
 
 .PHONY: go-agent-build
-go-agent-build: $(BUILD_AGENT_TARGETS)
+go-agent-build: $(BUILD_AGENT_TARGETS) $(BUILD_CGO_AGENT_TARGETS)
+
+.PHONY: go-agent-build-no-cgo
+go-agent-build-no-cgo: $(BUILD_AGENT_TARGETS)
+
+.PHONY: go-client-build
+go-client-build: $(BUILD_CLIENT_TARGETS)
 
 .PHONY: go-build
-go-build: go-agent-build $(BUILD_CLIENT_TARGETS)
+go-build: go-agent-build go-client-build
 ## build builds all the targets specified by BUILD_AGENT_TARGETS and
 ## BUILD_CLIENT_TARGETS.
 
 .PHONY: release-build
-release-build: $(BUILD_MAIN_TARGETS) $(BUILD_AGENT_TARGETS)
+release-build: go-agent-build
 ## release-build: Construct Juju binaries, without building schema
 
 .PHONY: release-install
