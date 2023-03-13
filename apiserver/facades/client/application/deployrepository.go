@@ -527,7 +527,7 @@ func (v *deployFromRepositoryValidator) resolveCharm(curl *charm.URL, requestedO
 		if usedModelDefaultBase {
 			msg += " Used the default-series."
 		}
-		return nil, corecharm.Origin{}, errors.Trace(err)
+		return nil, corecharm.Origin{}, errors.Errorf(msg)
 	}
 
 	var base coreseries.Base
