@@ -58,13 +58,16 @@ type DeployFromRepositoryState interface {
 type DeployFromRepositoryAPI struct {
 	state     DeployFromRepositoryState
 	validator DeployFromRepositoryValidator
+
+	stateCharm func(Charm) *state.Charm
 }
 
 // NewDeployFromRepositoryAPI creates a new DeployFromRepositoryAPI.
 func NewDeployFromRepositoryAPI(state DeployFromRepositoryState, validator DeployFromRepositoryValidator) DeployFromRepository {
 	api := &DeployFromRepositoryAPI{
-		state:     state,
-		validator: validator,
+		state:      state,
+		validator:  validator,
+		stateCharm: CharmToStateCharm,
 	}
 	return api
 }
@@ -108,7 +111,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(arg params.DeployFromRe
 	}
 	_, err = api.state.AddApplication(state.AddApplicationArgs{
 		Name:              dt.applicationName,
-		Charm:             CharmToStateCharm(ch),
+		Charm:             api.stateCharm(ch),
 		CharmOrigin:       stOrigin,
 		Storage:           nil,
 		Devices:           nil,
