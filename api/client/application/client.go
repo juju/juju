@@ -1120,6 +1120,9 @@ func (c *Client) DeployFromRepository(arg DeployFromRepositoryArg) (DeployInfo, 
 	deployInfo, err := deployInfoFromParams(result.Results[0].Info)
 	pendingResourceUploads := pendingResourceUploadsFromParams(result.Results[0].PendingResourceUploads)
 	var errs []error
+	if err != nil {
+		errs = append(errs, err)
+	}
 	if len(result.Results[0].Errors) > 0 {
 		errs = make([]error, len(result.Results[0].Errors))
 		for i, er := range result.Results[0].Errors {
