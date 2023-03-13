@@ -128,8 +128,8 @@ func (a *appWorker) loop() error {
 		return nil
 	}
 
-	// If the application has an operator pod due to an upgrade-charm from a
-	// pod-spec charm to a sidecar charm, delete it. Also delete workload pod.
+	// If the application has an operator pod due to upgrading the charm from a pod-spec charm
+	// to a sidecar charm, delete it. Also delete workload pod.
 	const maxDeleteLoops = 20
 	for i := 0; ; i++ {
 		if i >= maxDeleteLoops {
@@ -145,13 +145,13 @@ func (a *appWorker) loop() error {
 
 		exists, err := a.broker.OperatorExists(a.name)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Annotatef(err, "checking if %q has an operator pod due to upgrading the charm from a pod-spec charm to a sidecar charm", a.name)
 		}
 		if !exists.Exists {
 			break
 		}
 
-		a.logger.Infof("deleting workload and operator pods for application %q", a.name)
+		a.logger.Infof("app %q has just been upgraded from a podspec charm to sidecar, now deleting workload and operator pods %q", a.name)
 		err = a.broker.DeleteService(a.name)
 		if err != nil && !errors.IsNotFound(err) {
 			return errors.Annotatef(err, "deleting workload pod for application %q", a.name)
