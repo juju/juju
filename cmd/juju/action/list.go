@@ -69,13 +69,13 @@ func (c *listCommand) Info() *cmd.Info {
 		Doc:     listDoc,
 		Aliases: []string{"list-actions"},
 		Examples: []string{
-		    "`juju actions postgresql`",
-		    "`juju actions postgresql --format yaml`",
-		    "`juju actions postgresql --schema`",
+			  "`juju actions postgresql`",
+			  "`juju actions postgresql --format yaml`",
+			  "`juju actions postgresql --schema`",
 		},
 		SeeAlso: []string{
-		"run",
-		"show-action",
+			 "run",
+			 "show-action",
 		},
 	})
 	return info
