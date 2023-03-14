@@ -2568,6 +2568,9 @@ func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value)
 	if cons.HasVirtType() {
 		suitableTerms = append(suitableTerms, bson.DocElem{"virttype", *cons.VirtType})
 	}
+	if cons.HasImageID() {
+		suitableTerms = append(suitableTerms, bson.DocElem{"imageid", *cons.ImageID})
+	}
 	if len(suitableTerms) > 0 {
 		instanceDataCollection, iCloser := db.GetCollection(instanceDataC)
 		defer iCloser()

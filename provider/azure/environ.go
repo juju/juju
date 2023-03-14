@@ -377,6 +377,13 @@ func (env *azureEnviron) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
+var unsupportedConstraints = []string{
+	constraints.CpuPower,
+	constraints.Tags,
+	constraints.VirtType,
+	constraints.ImageID,
+}
+
 // ConstraintsValidator is defined on the Environs interface.
 func (env *azureEnviron) ConstraintsValidator(ctx context.ProviderCallContext) (constraints.Validator, error) {
 	instanceTypes, err := env.getInstanceTypes(ctx)
@@ -390,11 +397,7 @@ func (env *azureEnviron) ConstraintsValidator(ctx context.ProviderCallContext) (
 	sort.Strings(instTypeNames)
 
 	validator := constraints.NewValidator()
-	validator.RegisterUnsupported([]string{
-		constraints.CpuPower,
-		constraints.Tags,
-		constraints.VirtType,
-	})
+	validator.RegisterUnsupported(unsupportedConstraints)
 	validator.RegisterVocabulary(
 		constraints.Arch,
 		[]string{arch.AMD64},

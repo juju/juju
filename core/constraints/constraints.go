@@ -36,6 +36,7 @@ const (
 	VirtType         = "virt-type"
 	Zones            = "zones"
 	AllocatePublicIP = "allocate-public-ip"
+	ImageID          = "image-id"
 )
 
 // Value describes a user's requirements of the hardware on which units
@@ -110,6 +111,11 @@ type Value struct {
 	// The default behaviour if the value is not specified is to allocate
 	// a public IP so that public cloud behaviour works out of the box.
 	AllocatePublicIP *bool `json:"allocate-public-ip,omitempty" yaml:"allocate-public-ip,omitempty"`
+
+	// ImageID, if not nil, indicates that a machine must use the specified
+	// image. This is provider specific, and for the moment is only
+	// implemented on MAAS clouds.
+	ImageID *string `json:"image-id,omitempty" yaml:"image-id,omitempty"`
 }
 
 var rawAliases = map[string]string{
@@ -232,6 +238,11 @@ func (v *Value) HasAllocatePublicIP() bool {
 	return v.AllocatePublicIP != nil
 }
 
+// HasImageID returns true if the constraints.Value specifies an image-id.
+func (v *Value) HasImageID() bool {
+	return v.ImageID != nil && *v.ImageID != ""
+}
+
 // String expresses a constraints.Value in the language in which it was specified.
 func (v Value) String() string {
 	var strs []string
@@ -288,6 +299,9 @@ func (v Value) String() string {
 	}
 	if v.AllocatePublicIP != nil {
 		strs = append(strs, "allocate-public-ip="+boolStr(*v.AllocatePublicIP))
+	}
+	if v.ImageID != nil {
+		strs = append(strs, "image-id="+(*v.ImageID))
 	}
 
 	// Ensure constraint values with spaces are properly escaped
@@ -346,6 +360,9 @@ func (v Value) GoString() string {
 	}
 	if v.AllocatePublicIP != nil {
 		values = append(values, fmt.Sprintf("AllocatePublicIP: %v", *v.AllocatePublicIP))
+	}
+	if v.ImageID != nil {
+		values = append(values, fmt.Sprintf("ImageID: %q", *v.ImageID))
 	}
 	return fmt.Sprintf("{%s}", strings.Join(values, ", "))
 }
@@ -520,6 +537,8 @@ func (v *Value) setRaw(name, str string) error {
 		err = v.setZones(str)
 	case AllocatePublicIP:
 		err = v.setAllocatePublicIP(str)
+	case ImageID:
+		err = v.setImageID(str)
 	default:
 		return errors.Errorf("unknown constraint %q", name)
 	}
@@ -591,6 +610,8 @@ func (v *Value) UnmarshalYAML(unmarshal func(interface{}) error) error {
 			v.Zones, err = parseYamlStrings("zones", val)
 		case AllocatePublicIP:
 			v.AllocatePublicIP, err = parseBool(vstr)
+		case ImageID:
+			v.ImageID = &vstr
 		default:
 			return errors.Errorf("unknown constraint value: %v", k)
 		}
@@ -747,6 +768,14 @@ func (v *Value) setAllocatePublicIP(str string) (err error) {
 		return errors.Errorf("already set")
 	}
 	v.AllocatePublicIP, err = parseBool(str)
+	return
+}
+
+func (v *Value) setImageID(str string) (err error) {
+	if v.ImageID != nil {
+		return errors.Errorf("already set")
+	}
+	v.ImageID = &str
 	return
 }
 

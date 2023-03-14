@@ -4237,6 +4237,9 @@
                         "cpu-power": {
                             "type": "integer"
                         },
+                        "image-id": {
+                            "type": "string"
+                        },
                         "instance-role": {
                             "type": "string"
                         },
@@ -8310,6 +8313,9 @@
                         },
                         "cpu-power": {
                             "type": "integer"
+                        },
+                        "image-id": {
+                            "type": "string"
                         },
                         "instance-role": {
                             "type": "string"
@@ -14455,6 +14461,9 @@
                         "cpu-power": {
                             "type": "integer"
                         },
+                        "image-id": {
+                            "type": "string"
+                        },
                         "instance-role": {
                             "type": "string"
                         },
@@ -18145,6 +18154,9 @@
                         },
                         "cpu-power": {
                             "type": "integer"
+                        },
+                        "image-id": {
+                            "type": "string"
                         },
                         "instance-role": {
                             "type": "string"
@@ -23933,6 +23945,9 @@
                         "cpu-power": {
                             "type": "integer"
                         },
+                        "image-id": {
+                            "type": "string"
+                        },
                         "instance-role": {
                             "type": "string"
                         },
@@ -27808,6 +27823,9 @@
                         "cpu-power": {
                             "type": "integer"
                         },
+                        "image-id": {
+                            "type": "string"
+                        },
                         "instance-role": {
                             "type": "string"
                         },
@@ -31104,6 +31122,9 @@
                         },
                         "cpu-power": {
                             "type": "integer"
+                        },
+                        "image-id": {
+                            "type": "string"
                         },
                         "instance-role": {
                             "type": "string"
@@ -35983,6 +36004,9 @@
                         },
                         "cpu-power": {
                             "type": "integer"
+                        },
+                        "image-id": {
+                            "type": "string"
                         },
                         "instance-role": {
                             "type": "string"
