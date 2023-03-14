@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
@@ -1439,4 +1440,69 @@ func (s *applicationSuite) TestLeader(c *gc.C) {
 	obtainedUnit, err := client.Leader("ubuntu")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedUnit, gc.Equals, "ubuntu/42")
+}
+
+func (s *applicationSuite) TestDeployFromRepository(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	args := params.DeployFromRepositoryArgs{
+		Args: []params.DeployFromRepositoryArg{{
+			ApplicationName: "jammy",
+			CharmName:       "ubuntu",
+			Base: &params.Base{
+				Name:    "ubuntu",
+				Channel: "22.04",
+			},
+		}},
+	}
+	stable := "stable"
+	candidate := "candidate"
+	result := new(params.DeployFromRepositoryResults)
+	results := params.DeployFromRepositoryResults{
+		Results: []params.DeployFromRepositoryResult{{
+			Errors: []*params.Error{
+				{Message: "one"},
+				{Message: "two"},
+				{Message: "three"},
+			},
+			Info: params.DeployFromRepositoryInfo{
+				CharmURL:     "ch:arm64/jammy/ubuntu-7",
+				Channel:      candidate,
+				Architecture: "arm64",
+				Base: params.Base{
+					Name:    "ubuntu",
+					Channel: "22.04",
+				},
+				EffectiveChannel: &stable,
+			},
+			PendingResourceUploads: nil,
+		}},
+	}
+	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("DeployFromRepository", args, result).SetArg(2, results).Return(nil)
+
+	arg := application.DeployFromRepositoryArg{
+		CharmName:       "ubuntu",
+		ApplicationName: "jammy",
+		Base:            &series.Base{OS: "ubuntu", Channel: series.Channel{Track: "22.04"}},
+	}
+	client := application.NewClientFromCaller(mockFacadeCaller)
+	info, _, errs := client.DeployFromRepository(arg)
+	c.Assert(errs, gc.HasLen, 3)
+	c.Assert(errs[0], gc.ErrorMatches, "one")
+	c.Assert(errs[1], gc.ErrorMatches, "two")
+	c.Assert(errs[2], gc.ErrorMatches, "three")
+
+	c.Assert(info, gc.DeepEquals, application.DeployInfo{
+		CharmURL:     "ch:arm64/jammy/ubuntu-7",
+		Channel:      candidate,
+		Architecture: "arm64",
+		Base: series.Base{
+			OS:      "ubuntu",
+			Channel: series.Channel{Track: "22.04", Risk: "stable"},
+		},
+		EffectiveChannel: &stable,
+	})
+
 }

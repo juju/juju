@@ -571,6 +571,20 @@ func (mr *MockCharmMockRecorder) Config() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Config", reflect.TypeOf((*MockCharm)(nil).Config))
 }
 
+// IsUploaded mocks base method.
+func (m *MockCharm) IsUploaded() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsUploaded")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// IsUploaded indicates an expected call of IsUploaded.
+func (mr *MockCharmMockRecorder) IsUploaded() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsUploaded", reflect.TypeOf((*MockCharm)(nil).IsUploaded))
+}
+
 // Manifest mocks base method.
 func (m *MockCharm) Manifest() *v10.Manifest {
 	m.ctrl.T.Helper()

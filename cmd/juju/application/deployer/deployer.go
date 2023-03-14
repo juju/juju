@@ -359,20 +359,21 @@ func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		seriesSelector := seriesSelector{
-			seriesFlag:          seriesName,
-			supportedSeries:     supportedSeries,
-			supportedJujuSeries: workloadSeries,
-			force:               d.force,
-			conf:                modelCfg,
-			fromBundle:          false,
+		seriesSelector := corecharm.SeriesSelector{
+			SeriesFlag:          seriesName,
+			SupportedSeries:     supportedSeries,
+			SupportedJujuSeries: workloadSeries,
+			Force:               d.force,
+			Conf:                modelCfg,
+			FromBundle:          false,
+			Logger:              logger,
 		}
 
 		if len(supportedSeries) == 0 {
 			logger.Warningf("%s does not declare supported series in metadata.yml", ch.Meta().Name)
 		}
 
-		seriesName, err = seriesSelector.charmSeries()
+		seriesName, err = seriesSelector.CharmSeries()
 		if err = charmValidationError(ch.Meta().Name, errors.Trace(err)); err != nil {
 			return nil, errors.Trace(err)
 		}

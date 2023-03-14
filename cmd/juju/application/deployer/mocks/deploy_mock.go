@@ -297,6 +297,22 @@ func (mr *MockDeployerAPIMockRecorder) Deploy(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Deploy", reflect.TypeOf((*MockDeployerAPI)(nil).Deploy), arg0)
 }
 
+// DeployFromRepository mocks base method.
+func (m *MockDeployerAPI) DeployFromRepository(arg0 application.DeployFromRepositoryArg) (application.DeployInfo, []application.PendingResourceUpload, []error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeployFromRepository", arg0)
+	ret0, _ := ret[0].(application.DeployInfo)
+	ret1, _ := ret[1].([]application.PendingResourceUpload)
+	ret2, _ := ret[2].([]error)
+	return ret0, ret1, ret2
+}
+
+// DeployFromRepository indicates an expected call of DeployFromRepository.
+func (mr *MockDeployerAPIMockRecorder) DeployFromRepository(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeployFromRepository", reflect.TypeOf((*MockDeployerAPI)(nil).DeployFromRepository), arg0)
+}
+
 // Expose mocks base method.
 func (m *MockDeployerAPI) Expose(arg0 string, arg1 map[string]params.ExposedEndpoint) error {
 	m.ctrl.T.Helper()

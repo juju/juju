@@ -265,7 +265,7 @@ func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.Ch
 	}
 
 	if args.Origin.Base.Name == "" || args.Origin.Base.Channel == "" {
-		return params.CharmOriginResult{}, errors.BadRequestf("base required for charm-hub charms")
+		return params.CharmOriginResult{}, errors.BadRequestf("base required for Charmhub charms")
 	}
 
 	if err := a.checkCanWrite(); err != nil {
@@ -328,7 +328,7 @@ func (a *API) queueAsyncCharmDownload(args params.AddCharmWithAuth) (corecharm.O
 	metaRes := essentialMeta[0]
 
 	_, err = a.backendState.AddCharmMetadata(state.CharmInfo{
-		Charm: charmInfoAdapter{metaRes},
+		Charm: corecharm.NewCharmInfoAdapter(metaRes),
 		ID:    charmURL,
 	})
 	if err != nil {
@@ -336,40 +336,6 @@ func (a *API) queueAsyncCharmDownload(args params.AddCharmWithAuth) (corecharm.O
 	}
 
 	return metaRes.ResolvedOrigin, nil
-}
-
-// charmInfoAdapter wraps an EssentialMetadata object and implements the
-// charm.Charm interface so it can be passed to state.AddCharm.
-type charmInfoAdapter struct {
-	meta corecharm.EssentialMetadata
-}
-
-func (adapter charmInfoAdapter) Meta() *charm.Meta {
-	return adapter.meta.Meta
-}
-
-func (adapter charmInfoAdapter) Manifest() *charm.Manifest {
-	return adapter.meta.Manifest
-}
-
-func (adapter charmInfoAdapter) Config() *charm.Config {
-	return adapter.meta.Config
-}
-
-func (adapter charmInfoAdapter) LXDProfile() *charm.LXDProfile {
-	return nil // not part of the essential metadata
-}
-
-func (adapter charmInfoAdapter) Metrics() *charm.Metrics {
-	return nil // not part of the essential metadata
-}
-
-func (adapter charmInfoAdapter) Actions() *charm.Actions {
-	return nil // not part of the essential metadata
-}
-
-func (adapter charmInfoAdapter) Revision() int {
-	return 0 // not part of the essential metadata
 }
 
 // ResolveCharms resolves the given charm URLs with an optionally specified

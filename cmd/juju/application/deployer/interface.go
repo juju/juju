@@ -139,6 +139,8 @@ type ApplicationAPI interface {
 	Consume(arg crossmodel.ConsumeApplicationArgs) (string, error)
 
 	ApplicationsInfo([]names.ApplicationTag) ([]apiparams.ApplicationInfoResult, error)
+
+	DeployFromRepository(arg application.DeployFromRepositoryArg) (application.DeployInfo, []application.PendingResourceUpload, []error)
 }
 
 // Bundle is a local version of the charm.Bundle interface, for test

@@ -2921,21 +2921,6 @@
                         "channel"
                     ]
                 },
-                "Channel": {
-                    "type": "object",
-                    "properties": {
-                        "branch": {
-                            "type": "string"
-                        },
-                        "risk": {
-                            "type": "string"
-                        },
-                        "track": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false
-                },
                 "CharmOrigin": {
                     "type": "object",
                     "properties": {
@@ -3207,12 +3192,6 @@
                                 "type": "string"
                             }
                         },
-                        "Base": {
-                            "$ref": "#/definitions/Base"
-                        },
-                        "Channel": {
-                            "$ref": "#/definitions/Channel"
-                        },
                         "CharmName": {
                             "type": "string"
                         },
@@ -3233,36 +3212,11 @@
                         "DryRun": {
                             "type": "boolean"
                         },
-                        "EndpointBindings": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "string"
-                                }
-                            }
-                        },
-                        "Force": {
-                            "type": "boolean"
-                        },
-                        "NumUnits": {
-                            "type": "integer"
-                        },
                         "Placement": {
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/Placement"
                             }
-                        },
-                        "Resources": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "string"
-                                }
-                            }
-                        },
-                        "Revision": {
-                            "type": "integer"
                         },
                         "Storage": {
                             "type": "object",
@@ -3274,6 +3228,37 @@
                         },
                         "Trust": {
                             "type": "boolean"
+                        },
+                        "base": {
+                            "$ref": "#/definitions/Base"
+                        },
+                        "channel": {
+                            "type": "string"
+                        },
+                        "endpoint-bindings": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "force": {
+                            "type": "boolean"
+                        },
+                        "num-units": {
+                            "type": "integer"
+                        },
+                        "resources": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "revision": {
+                            "type": "integer"
                         }
                     },
                     "additionalProperties": false,
@@ -3281,18 +3266,11 @@
                         "CharmName",
                         "ApplicationName",
                         "AttachStorage",
-                        "Base",
-                        "Channel",
                         "ConfigYAML",
                         "Cons",
                         "Devices",
                         "DryRun",
-                        "EndpointBindings",
-                        "Force",
-                        "NumUnits",
                         "Placement",
-                        "Revision",
-                        "Resources",
                         "Storage",
                         "Trust"
                     ]
@@ -3312,6 +3290,31 @@
                         "Args"
                     ]
                 },
+                "DeployFromRepositoryInfo": {
+                    "type": "object",
+                    "properties": {
+                        "architecture": {
+                            "type": "string"
+                        },
+                        "base": {
+                            "$ref": "#/definitions/Base"
+                        },
+                        "channel": {
+                            "type": "string"
+                        },
+                        "charm-url": {
+                            "type": "string"
+                        },
+                        "effective-channel": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "charm-url",
+                        "architecture"
+                    ]
+                },
                 "DeployFromRepositoryResult": {
                     "type": "object",
                     "properties": {
@@ -3322,10 +3325,7 @@
                             }
                         },
                         "Info": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/DeployFromRepositoryInfo"
                         },
                         "PendingResourceUploads": {
                             "type": "array",
@@ -3779,10 +3779,10 @@
                         "Name": {
                             "type": "string"
                         },
-                        "PendingID": {
+                        "Type": {
                             "type": "string"
                         },
-                        "Type": {
+                        "pending-id": {
                             "type": "string"
                         }
                     },
@@ -3790,7 +3790,7 @@
                     "required": [
                         "Name",
                         "Filename",
-                        "PendingID",
+                        "pending-id",
                         "Type"
                     ]
                 },

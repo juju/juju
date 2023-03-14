@@ -90,7 +90,7 @@ func MustParsePlatform(s string) Platform {
 //  4. `<arch>/unknown/<series>`
 func ParsePlatform(s string) (Platform, error) {
 	if s == "" {
-		return Platform{}, errors.Errorf("platform cannot be empty")
+		return Platform{}, errors.BadRequestf("platform cannot be empty")
 	}
 
 	p := strings.Split(s, "/")

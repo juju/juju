@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package deployer
+package charm
 
 import (
 	"fmt"
@@ -10,7 +10,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/version"
 )
@@ -28,31 +27,38 @@ type modelConfig interface {
 	DefaultBase() (string, bool)
 }
 
-// seriesSelector is a helper type that determines what series the charm should
+// Logger defines the logging methods needed
+type SeriesSelectorLogger interface {
+	Infof(string, ...interface{})
+	Tracef(string, ...interface{})
+}
+
+// SeriesSelector is a helper type that determines what series the charm should
 // be deployed to.
 //
-// TODO: This type should really have a Validate method, as the force flag is
-// really only valid if the seriesFlag is specified. There is code and tests
-// that allow the force flag when series isn't specified, but they should
+// TODO: This type should really have a Validate method, as the Force flag is
+// really only valid if the SeriesFlag is specified. There is code and tests
+// that allow the Force flag when series isn't specified, but they should
 // really be cleaned up. The `deploy` CLI command has tests to ensure that
-// --force is only valid with --series.
-type seriesSelector struct {
-	// seriesFlag is the series passed to the --series flag on the command line.
-	seriesFlag string
-	// charmURLSeries is the series specified as part of the charm URL, i.e.
+// --Force is only valid with --series.
+type SeriesSelector struct {
+	// SeriesFlag is the series passed to the --series flag on the command line.
+	SeriesFlag string
+	// CharmURLSeries is the series specified as part of the charm URL, i.e.
 	// ch:jammy/ubuntu.
-	charmURLSeries string
-	// conf is the configuration for the model we're deploying to.
-	conf modelConfig
-	// supportedSeries is the list of series the charm supports.
-	supportedSeries []string
-	// supportedJujuSeries is the list of series that juju supports.
-	supportedJujuSeries set.Strings
-	// force indicates the user explicitly wants to deploy to a requested
+	CharmURLSeries string
+	// Conf is the configuration for the model we're deploying to.
+	Conf modelConfig
+	// SupportedSeries is the list of series the charm supports.
+	SupportedSeries []string
+	// SupportedJujuSeries is the list of series that juju supports.
+	SupportedJujuSeries set.Strings
+	// Force indicates the user explicitly wants to deploy to a requested
 	// series, regardless of whether the charm says it supports that series.
-	force bool
+	Force bool
 	// from bundle specifies the deploy request comes from a bundle spec.
-	fromBundle bool
+	FromBundle bool
+	Logger     SeriesSelectorLogger
 }
 
 // charmSeries determines what series to use with a charm.
@@ -62,23 +68,23 @@ type seriesSelector struct {
 //   - model default, if set, acts like --series
 //   - default from charm metadata supported series / series in url
 //   - default LTS
-func (s seriesSelector) charmSeries() (selectedSeries string, err error) {
+func (s SeriesSelector) CharmSeries() (selectedSeries string, err error) {
 	// TODO(sidecar): handle systems
 
 	// User has requested a series with --series.
-	if s.seriesFlag != "" {
-		return s.userRequested(s.seriesFlag)
+	if s.SeriesFlag != "" {
+		return s.userRequested(s.SeriesFlag)
 	}
 
 	// User specified a series in the charm URL, e.g.
 	// juju deploy precise/ubuntu.
-	if s.charmURLSeries != "" {
-		return s.userRequested(s.charmURLSeries)
+	if s.CharmURLSeries != "" {
+		return s.userRequested(s.CharmURLSeries)
 	}
 
 	// No series explicitly requested by the user.
 	// Use model default series, if explicitly set and supported by the charm.
-	if defaultBase, explicit := s.conf.DefaultBase(); explicit {
+	if defaultBase, explicit := s.Conf.DefaultBase(); explicit {
 		base, err := series.ParseBaseFromString(defaultBase)
 		if err != nil {
 			return "", errors.Trace(err)
@@ -96,12 +102,12 @@ func (s seriesSelector) charmSeries() (selectedSeries string, err error) {
 	// metadata, as the order could be out of order compared to Ubuntu series
 	// order (precise, xenial, bionic, trusty, etc).
 	var supportedSeries []string
-	for _, charmSeries := range s.supportedSeries {
-		if s.supportedJujuSeries.Contains(charmSeries) {
+	for _, charmSeries := range s.SupportedSeries {
+		if s.SupportedJujuSeries.Contains(charmSeries) {
 			supportedSeries = append(supportedSeries, charmSeries)
 		}
 	}
-	defaultSeries, err := corecharm.SeriesForCharm("", supportedSeries)
+	defaultSeries, err := SeriesForCharm("", supportedSeries)
 	if err == nil {
 		return defaultSeries, nil
 	}
@@ -110,12 +116,12 @@ func (s seriesSelector) charmSeries() (selectedSeries string, err error) {
 	// deployed by path). Last chance, best we can do is default to LTS.
 
 	// At this point, because we have no idea what series the charm supports,
-	// *everything* requires --force.
-	if !s.force {
-		logger.Tracef("juju supported series %s", s.supportedJujuSeries.SortedValues())
-		logger.Tracef("charm supported series %s", s.supportedSeries)
-		if corecharm.IsMissingSeriesError(err) && len(s.supportedSeries) > 0 {
-			return "", errors.Errorf("the charm defined series %q not supported", strings.Join(s.supportedSeries, ", "))
+	// *everything* requires --Force.
+	if !s.Force {
+		s.Logger.Tracef("juju supported series %s", s.SupportedJujuSeries.SortedValues())
+		s.Logger.Tracef("charm supported series %s", s.SupportedSeries)
+		if IsMissingSeriesError(err) && len(s.SupportedSeries) > 0 {
+			return "", errors.Errorf("the charm defined series %q not supported", strings.Join(s.SupportedSeries, ", "))
 		}
 
 		// We know err is not nil due to above, so return the error
@@ -124,20 +130,20 @@ func (s seriesSelector) charmSeries() (selectedSeries string, err error) {
 	}
 
 	latestLTS := version.DefaultSupportedLTS()
-	logger.Infof(msgLatestLTSSeries, latestLTS)
+	s.Logger.Infof(msgLatestLTSSeries, latestLTS)
 	return latestLTS, nil
 }
 
 // userRequested checks the series the user has requested, and returns it if it
-// is supported, or if they used --force.
-func (s seriesSelector) userRequested(requestedSeries string) (string, error) {
+// is supported, or if they used --Force.
+func (s SeriesSelector) userRequested(requestedSeries string) (string, error) {
 	// TODO(sidecar): handle computed series
-	series, err := corecharm.SeriesForCharm(requestedSeries, s.supportedSeries)
-	if s.force {
+	series, err := SeriesForCharm(requestedSeries, s.SupportedSeries)
+	if s.Force {
 		series = requestedSeries
 	} else if err != nil {
-		if corecharm.IsUnsupportedSeriesError(err) {
-			supported := s.supportedJujuSeries.Intersection(set.NewStrings(s.supportedSeries...))
+		if IsUnsupportedSeriesError(err) {
+			supported := s.SupportedJujuSeries.Intersection(set.NewStrings(s.SupportedSeries...))
 			if supported.IsEmpty() {
 				return "", errors.NewNotSupported(nil, fmt.Sprintf("series: %s", requestedSeries))
 			}
@@ -154,23 +160,23 @@ func (s seriesSelector) userRequested(requestedSeries string) (string, error) {
 		return "", err
 	}
 
-	// either it's a supported series or the user used --force, so just
+	// either it's a supported series or the user used --Force, so just
 	// give them what they asked for.
-	if s.fromBundle {
-		logger.Infof(msgBundleSeries, series)
+	if s.FromBundle {
+		s.Logger.Infof(msgBundleSeries, series)
 		return series, nil
 	}
-	logger.Infof(msgUserRequestedSeries, series)
+	s.Logger.Infof(msgUserRequestedSeries, series)
 	return series, nil
 }
 
-func (s seriesSelector) validateSeries(seriesName string) error {
-	if len(s.supportedJujuSeries) == 0 {
+func (s SeriesSelector) validateSeries(seriesName string) error {
+	if len(s.SupportedJujuSeries) == 0 {
 		// programming error
 		return errors.Errorf("expected supported juju series to exist")
 	}
 
-	if !s.supportedJujuSeries.Contains(seriesName) {
+	if !s.SupportedJujuSeries.Contains(seriesName) {
 		return errors.NotSupportedf("series: %s", seriesName)
 	}
 	return nil

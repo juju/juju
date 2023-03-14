@@ -661,17 +661,18 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		selector := seriesSelector{
-			charmURLSeries:      url.Series,
-			seriesFlag:          change.Params.Series,
-			supportedSeries:     supportedSeries,
-			supportedJujuSeries: workloadSeries,
-			conf:                modelCfg,
-			fromBundle:          true,
+		selector := corecharm.SeriesSelector{
+			CharmURLSeries:      url.Series,
+			SeriesFlag:          change.Params.Series,
+			SupportedSeries:     supportedSeries,
+			SupportedJujuSeries: workloadSeries,
+			Conf:                modelCfg,
+			FromBundle:          true,
+			Logger:              logger,
 		}
 
 		// Get the series to use.
-		chSeries, err := selector.charmSeries()
+		chSeries, err := selector.CharmSeries()
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -996,16 +997,17 @@ func (h *bundleHandler) selectedSeries(ch charm.CharmMeta, chID application.Char
 		return "", errors.Trace(err)
 	}
 
-	selector := seriesSelector{
-		seriesFlag:          chSeries,
-		charmURLSeries:      chID.URL.Series,
-		supportedSeries:     supportedSeries,
-		supportedJujuSeries: workloadSeries,
-		conf:                h.modelConfig,
-		force:               h.force,
-		fromBundle:          true,
+	selector := corecharm.SeriesSelector{
+		SeriesFlag:          chSeries,
+		CharmURLSeries:      chID.URL.Series,
+		SupportedSeries:     supportedSeries,
+		SupportedJujuSeries: workloadSeries,
+		Conf:                h.modelConfig,
+		Force:               h.force,
+		FromBundle:          true,
+		Logger:              logger,
 	}
-	selectedSeries, err := selector.charmSeries()
+	selectedSeries, err := selector.CharmSeries()
 	return selectedSeries, charmValidationError(curl.Name, errors.Trace(err))
 }
 

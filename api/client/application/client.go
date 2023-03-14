@@ -5,6 +5,7 @@ package application
 
 import (
 	stderrors "errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -1018,4 +1019,174 @@ func unitInfoFromParams(in params.UnitInfoResult) UnitInfo {
 		info.RelationData = append(info.RelationData, erd)
 	}
 	return info
+}
+
+type DeployInfo struct {
+	CharmURL string `json:"charm-url"`
+	// Channel is a string representation of the channel used to
+	// deploy the charm.
+	Channel string `json:"channel,omitempty"`
+	// Architecture is the architecture used to deploy the charm.
+	Architecture string `json:"architecture"`
+	// Base is the base used to deploy the charm.
+	Base coreseries.Base `json:"base,omitempty"`
+	// EffectiveChannel is the channel actually deployed from as determined
+	// by the charmhub response. May be empty if the same as the
+	// channel.
+	EffectiveChannel *string `json:"effective-channel,omitempty"`
+}
+
+type PendingResourceUpload struct {
+	// Name is the name of the resource.
+	Name string
+	// Filename is the name of the file as it exists on disk.
+	// Sometimes referred to as the path.
+	Filename string
+	// PendingID is the pending ID to associate with this upload.
+	PendingID string
+	// Type of the resource, a string matching one of the resource.Type
+	Type string
+}
+
+type DeployFromRepositoryArg struct {
+	// CharmName is a string identifying the name of the thing to deploy.
+	// Required.
+	CharmName string
+	// ApplicationName is the name to give the application. Optional. By
+	// default, the charm name and the application name will be the same.
+	ApplicationName string
+	// AttachStorage contains IDs of existing storage that should be
+	// attached to the application unit that will be deployed. This
+	// may be non-empty only if NumUnits is 1.
+	AttachStorage []string
+	// Base describes the OS base intended to be used by the charm.
+	Base *coreseries.Base `json:"base,omitempty"`
+	// Channel is the channel in the repository to deploy from.
+	// This is an optional value. Required if revision is provided.
+	// Defaults to “stable” if not defined nor required.
+	Channel *string `json:"channel,omitempty"`
+	// ConfigYAML is a string that overrides the default config.yml.
+	ConfigYAML string
+	// Cons contains constraints on where units of this application
+	// may be placed.
+	Cons constraints.Value
+	// Devices contains Constraints specifying how devices should be
+	// handled.
+	Devices map[string]devices.Constraints
+	// DryRun just shows what the deploy would do, including finding the
+	// charm; determining version, channel and base to use; validation
+	// of the config. Does not actually download or deploy the charm.
+	DryRun bool
+	// EndpointBindings
+	EndpointBindings map[string]string `json:"endpoint-bindings,omitempty"`
+	// Force can be set to true to bypass any checks for charm-specific
+	// requirements ("assumes" sections in charm metadata, supported series,
+	// LXD profile allow list)
+	Force bool `json:"force,omitempty"`
+	// NumUnits is the number of units to deploy. Defaults to 1 if no
+	// value provided. Synonymous with scale for kubernetes charms.
+	NumUnits *int `json:"num-units,omitempty"`
+	// Placement directives define on which machines the unit(s) must be
+	// created.
+	Placement []*instance.Placement
+	// Revision is the charm revision number. Requires the channel
+	// be explicitly set.
+	Revision *int `json:"revision,omitempty"`
+	// Resources is a collection of resource names for the
+	// application, with the value being the revision of the
+	// resource to use if default revision is not desired.
+	Resources map[string]string `json:"resources,omitempty"`
+	// Storage contains Constraints specifying how storage should be
+	// handled.
+	Storage map[string]storage.Constraints
+	//  Trust allows charm to run hooks that require access credentials
+	Trust bool
+}
+
+// DeployFromRepository deploys a charm from a repository based on the
+// provided arguments. Returned in info on application was deployed,
+// data required to upload any local resources and errors returned.
+// Where possible, more than all errors regarding argument validation
+// are returned.
+func (c *Client) DeployFromRepository(arg DeployFromRepositoryArg) (DeployInfo, []PendingResourceUpload, []error) {
+	var result params.DeployFromRepositoryResults
+	args := params.DeployFromRepositoryArgs{
+		Args: []params.DeployFromRepositoryArg{paramsFromDeployFromRepositoryArg(arg)},
+	}
+	err := c.facade.FacadeCall("DeployFromRepository", args, &result)
+	if err != nil {
+		return DeployInfo{}, nil, []error{err}
+	}
+	if len(result.Results) != 1 {
+		return DeployInfo{}, nil, []error{fmt.Errorf("expected 1 result, got %d", len(result.Results))}
+	}
+	deployInfo, err := deployInfoFromParams(result.Results[0].Info)
+	pendingResourceUploads := pendingResourceUploadsFromParams(result.Results[0].PendingResourceUploads)
+	var errs []error
+	if err != nil {
+		errs = append(errs, err)
+	}
+	if len(result.Results[0].Errors) > 0 {
+		errs = make([]error, len(result.Results[0].Errors))
+		for i, er := range result.Results[0].Errors {
+			errs[i] = errors.New(er.Error())
+		}
+	}
+	return deployInfo, pendingResourceUploads, errs
+}
+
+func deployInfoFromParams(di params.DeployFromRepositoryInfo) (DeployInfo, error) {
+	base, err := coreseries.ParseBase(di.Base.Name, di.Base.Channel)
+	return DeployInfo{
+		CharmURL:         di.CharmURL,
+		Channel:          di.Channel,
+		Architecture:     di.Architecture,
+		Base:             base,
+		EffectiveChannel: di.EffectiveChannel,
+	}, err
+}
+
+func pendingResourceUploadsFromParams(uploads []*params.PendingResourceUpload) []PendingResourceUpload {
+	if len(uploads) == 0 {
+		return []PendingResourceUpload{}
+	}
+	prus := make([]PendingResourceUpload, len(uploads))
+	for i, upload := range uploads {
+		prus[i] = PendingResourceUpload{
+			Name:      upload.Name,
+			Filename:  upload.Filename,
+			PendingID: upload.PendingID,
+			Type:      upload.Type,
+		}
+	}
+	return prus
+}
+
+func paramsFromDeployFromRepositoryArg(arg DeployFromRepositoryArg) params.DeployFromRepositoryArg {
+	var b *params.Base
+	if arg.Base != nil {
+		b = &params.Base{
+			Name:    arg.Base.OS,
+			Channel: arg.Base.Channel.String(),
+		}
+	}
+	return params.DeployFromRepositoryArg{
+		CharmName:        arg.CharmName,
+		ApplicationName:  arg.ApplicationName,
+		AttachStorage:    arg.AttachStorage,
+		Base:             b,
+		Channel:          arg.Channel,
+		ConfigYAML:       arg.ConfigYAML,
+		Cons:             arg.Cons,
+		Devices:          arg.Devices,
+		DryRun:           arg.DryRun,
+		EndpointBindings: arg.EndpointBindings,
+		Force:            arg.Force,
+		NumUnits:         arg.NumUnits,
+		Placement:        arg.Placement,
+		Revision:         arg.Revision,
+		Resources:        arg.Resources,
+		Storage:          arg.Storage,
+		Trust:            arg.Trust,
+	}
 }

@@ -78,6 +78,7 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.APIBase {
 		storageAccess,
 		s.authorizer,
 		nil,
+		nil,
 		blockChecker,
 		application.GetModel(model),
 		nil, // leadership not used in these tests.
