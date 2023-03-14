@@ -6,8 +6,6 @@ package dbaccessor
 import (
 	"context"
 	"database/sql"
-	"os"
-	"path/filepath"
 	"sync"
 
 	"github.com/juju/clock"
@@ -17,8 +15,6 @@ import (
 
 	"github.com/juju/juju/database/app"
 )
-
-const replSocketFileName = "juju.sock"
 
 // NodeManager creates Dqlite `App` initialisation arguments and options.
 type NodeManager interface {
@@ -282,12 +278,6 @@ func (w *dbWorker) initializeDqlite() error {
 		return errors.Annotate(err, "opening initial databases")
 	}
 
-	if err := w.startREPL(dataDir); err != nil {
-		_ = w.dbApp.Close()
-		w.dbApp = nil
-		return errors.Annotatef(err, "starting Dqlite REPL")
-	}
-
 	// Start handling GetDB calls from third parties.
 	close(w.dbReadyCh)
 	w.cfg.Logger.Infof("initialized Dqlite application (ID: %v)", w.dbApp.ID())
@@ -302,15 +292,4 @@ func (w *dbWorker) openDatabases() error {
 
 	w.dbHandles["controller"] = db
 	return nil
-}
-
-func (w *dbWorker) startREPL(dataDir string) error {
-	socketPath := filepath.Join(dataDir, replSocketFileName)
-	_ = os.Remove(socketPath)
-
-	repl, err := newREPL(socketPath, w, isRetryableError, w.cfg.Clock, w.cfg.Logger)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return errors.Trace(w.catacomb.Add(repl))
 }
