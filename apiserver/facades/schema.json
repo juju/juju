@@ -3302,17 +3302,22 @@
                         "channel": {
                             "type": "string"
                         },
-                        "charm-url": {
-                            "type": "string"
-                        },
                         "effective-channel": {
                             "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        },
+                        "revision": {
+                            "type": "integer"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "charm-url",
-                        "architecture"
+                        "architecture",
+                        "channel",
+                        "name",
+                        "revision"
                     ]
                 },
                 "DeployFromRepositoryResult": {

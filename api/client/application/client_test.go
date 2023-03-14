@@ -1467,7 +1467,6 @@ func (s *applicationSuite) TestDeployFromRepository(c *gc.C) {
 				{Message: "three"},
 			},
 			Info: params.DeployFromRepositoryInfo{
-				CharmURL:     "ch:arm64/jammy/ubuntu-7",
 				Channel:      candidate,
 				Architecture: "arm64",
 				Base: params.Base{
@@ -1475,6 +1474,8 @@ func (s *applicationSuite) TestDeployFromRepository(c *gc.C) {
 					Channel: "22.04",
 				},
 				EffectiveChannel: &stable,
+				Name:             "ubuntu",
+				Revision:         7,
 			},
 			PendingResourceUploads: nil,
 		}},
@@ -1495,7 +1496,6 @@ func (s *applicationSuite) TestDeployFromRepository(c *gc.C) {
 	c.Assert(errs[2], gc.ErrorMatches, "three")
 
 	c.Assert(info, gc.DeepEquals, application.DeployInfo{
-		CharmURL:     "ch:arm64/jammy/ubuntu-7",
 		Channel:      candidate,
 		Architecture: "arm64",
 		Base: series.Base{
@@ -1503,6 +1503,8 @@ func (s *applicationSuite) TestDeployFromRepository(c *gc.C) {
 			Channel: series.Channel{Track: "22.04", Risk: "stable"},
 		},
 		EffectiveChannel: &stable,
+		Name:             "ubuntu",
+		Revision:         7,
 	})
 
 }

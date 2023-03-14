@@ -88,14 +88,15 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(arg params.DeployFromRe
 	}
 
 	info := params.DeployFromRepositoryInfo{
-		CharmURL:     dt.charmURL.String(),
-		Channel:      dt.origin.Channel.String(),
 		Architecture: dt.origin.Platform.Architecture,
 		Base: params.Base{
 			Name:    dt.origin.Platform.OS,
 			Channel: dt.origin.Platform.Channel,
 		},
+		Channel:          dt.origin.Channel.String(),
 		EffectiveChannel: nil,
+		Name:             dt.applicationName,
+		Revision:         dt.charmURL.Revision,
 	}
 	if dt.dryRun {
 		return info, nil, nil
@@ -261,7 +262,7 @@ func (v *deployFromRepositoryValidator) validate(arg params.DeployFromRepository
 		errs = append(errs, err)
 	}
 
-	appName := charmURL.Name
+	appName := resolvedCharm.Meta().Name
 	if arg.ApplicationName != "" {
 		appName = arg.ApplicationName
 	}

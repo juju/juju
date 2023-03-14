@@ -649,23 +649,23 @@ type DeployFromRepositoryResult struct {
 }
 
 // DeployFromRepositoryInfo describes the charm deployed.
-// TODO: (hml)
-// Change the data here: charmurl not required, add
-// source, revision and application name. The latter may
-// different from the charm name, even if not specified
-// by the user.
 type DeployFromRepositoryInfo struct {
-	CharmURL string `json:"charm-url"`
-	// Channel is a string representation of the channel used to
-	// deploy the charm.
-	Channel string `json:"channel,omitempty"`
 	// Architecture is the architecture used to deploy the charm.
 	Architecture string `json:"architecture"`
 	// Base is the base used to deploy the charm.
 	Base Base `json:"base,omitempty"`
+	// Channel is a string representation of the channel used to
+	// deploy the charm.
+	Channel string `json:"channel"`
 	// EffectiveChannel is the channel actually deployed from as determined
 	// by the charmhub response.
 	EffectiveChannel *string `json:"effective-channel,omitempty"`
+	// Is the name of the application deployed. This may vary from
+	// the charm name provided if differs in the metadata.yaml and
+	// no provided on the cli.
+	Name string `json:"name"`
+	// Revision is the revision of the charm deployed.
+	Revision int `json:"revision"`
 }
 
 // PendingResourceUpload holds data required to upload a
