@@ -99,13 +99,6 @@ as the controller model.
 When adding --config, the default-series key is deprecated in favour of
 default-base .e.g. ubuntu@22.04.
 
-Examples:
-
-    juju add-model mymodel
-    juju add-model mymodel us-east-1
-    juju add-model mymodel aws/us-east-1
-    juju add-model mymodel --config my-config.yaml --config image-stream=daily
-    juju add-model mymodel --credential credential_name --config authorized-keys="ssh-rsa ..."
 `
 
 func (c *addModelCommand) Info() *cmd.Info {
@@ -114,6 +107,13 @@ func (c *addModelCommand) Info() *cmd.Info {
 		Args:    "<model name> [cloud|region|(cloud/region)]",
 		Purpose: "Adds a workload model.",
 		Doc:     strings.TrimSpace(addModelHelpDoc),
+		Examples: []string{
+			"`juju add-model mymodel`",
+			"`juju add-model mymodel us-east-1`",
+			"`juju add-model mymodel aws/us-east-1`",
+			"`juju add-model mymodel --config my-config.yaml --config image-stream=daily`",
+			"`juju add-model mymodel --credential credential_name --config authorized-keys="ssh-rsa ..."`",
+		},
 	})
 }
 
