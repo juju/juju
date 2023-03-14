@@ -87,63 +87,9 @@ It is also possible to add containers to existing machines using the format
 <container-type>:<machine-id>. Constraints cannot be combined this mode.
 
 
-Examples:
-
-	# Start a new machine by requesting one from the cloud provider.
-	juju add-machine
-	
-	# Start 2 new machines.
-	juju add-machine -n 2
-
-	# Start a LXD container on a new machine instance and add both as machines. 
-	juju add-machine lxd
-
-	# Start two machine instances, each hosting a LXD container, then add all
-	# four as machines. 
-	juju add-machine lxd -n 2
-
-	# Create a container on machine 4 and add it as a machine.
-	juju add-machine lxd:4
-
-	# Start a new machine and require that it has 8GB RAM
-	juju add-machine --constraints mem=8G
-
-	# Start a new machine within the "us-east-1a" availability zone.
-	juju add-machine --constraints zones=us-east-1a
-
-	# Start a new machine with at least 4 CPU cores and 16GB RAM, and request
-	# three storage volumes to be attached to it. Two are large capacity (1TB)
-	# HDD and one is a lower capacity (100GB) SSD. Note: "ebs" and "ebs-ssd" 
-	# are storage pools specific to AWS. 
-	juju add-machine --constraints="cores=4 mem=16G" --disks="ebs,1T,2 ebs-ssd,100G,1"
-
-	# Allocate a machine to the model via SSH
-	juju add-machine ssh:user@10.10.0.3
-
-	# Allocate a machine specifying the private key to use during the connection.
-	juju add-machine ssh:user@10.10.0.3 --private-key /tmp/id_rsa
-
-	# Allocate a machine specifying a public key to set in the list of
-	# authorized keys in the machine.
-	juju add-machine ssh:user@10.10.0.3 --public-key /tmp/id_rsa.pub
-
-	# Allocate a machine specifying a public key to set in the list of
-	# authorized keys and the private key to used during the 
-	# connection
-	juju add-machine ssh:user@10.10.0.3 --public-key /tmp/id_rsa.pub --private-key /tmp/id_rsa
-
-	# Allocate a machine to the model. Note: specific to MAAS.
-	juju add-machine host.internal
-
-
 Further reading:
 	https://juju.is/docs/reference/commands/add-machine
 	https://juju.is/docs/reference/constraints
-
-See also:
-	remove-machine
-	model-constraints
-	set-model-constraints
 `
 
 // NewAddCommand returns a command that adds a machine to a model.
@@ -186,6 +132,39 @@ func (c *addCommand) Info() *cmd.Info {
 		Args:    "[<container-type>[:<machine-id>] | ssh:[<user>@]<host> | <placement>] | <private-key> | <public-key>",
 		Purpose: "Provision a new machine or assign one to the model.",
 		Doc:     addMachineDoc,
+		Examples: []string{
+			"Start a new machine by requesting one from the cloud provider.
+ 			`juju add-machine`",
+			"Start 2 new machines.
+			`juju add-machine -n 2`",
+			"Start a LXD container on a new machine instance and add both as machines. 
+ 			`juju add-machine lxd`",
+			"Start two machine instances, each hosting a LXD container, then add all four as machines. 
+			`juju add-machine lxd -n 2`",
+			"Create a container on machine 4 and add it as a machine.
+			`juju add-machine lxd:4`",
+			"Start a new machine and require that it has 8GB RAM
+			`juju add-machine --constraints mem=8G`",
+ 			"Start a new machine within the "us-east-1a" availability zone.
+			`juju add-machine --constraints zones=us-east-1a`",			
+			"Start a new machine with at least 4 CPU cores and 16GB RAM, and request three storage volumes to be attached to it. Two are large capacity (1TB) HDD and one is a lower capacity (100GB) SSD. Note: "ebs" and "ebs-ssd" are storage pools specific to AWS. 
+			`juju add-machine --constraints="cores=4 mem=16G" --disks="ebs,1T,2 ebs-ssd,100G,1"`",
+			"Allocate a machine to the model via SSH
+			`juju add-machine ssh:user@10.10.0.3`",			
+			"Allocate a machine specifying the private key to use during the connection.
+			`juju add-machine ssh:user@10.10.0.3 --private-key /tmp/id_rsa`",
+			"Allocate a machine specifying a public key to set in the list of authorized keys in the machine.
+			`juju add-machine ssh:user@10.10.0.3 --public-key /tmp/id_rsa.pub`",			
+			"Allocate a machine specifying a public key to set in the list of authorized keys and the private key to used during the connection.
+			`juju add-machine ssh:user@10.10.0.3 --public-key /tmp/id_rsa.pub --private-key /tmp/id_rsa`",			
+			"Allocate a machine to the model. Note: specific to MAAS.
+			`juju add-machine host.internal`",
+		},
+		SeeAlso: []string{
+			"remove-machine",
+			"model-constraints",
+			"set-model-constraints",
+		},
 	})
 }
 
