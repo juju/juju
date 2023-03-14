@@ -381,6 +381,9 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 		if !c.baseFlag.Empty() {
 			base = &c.baseFlag
 		}
+		if err := c.validateCharmFlags(); err != nil {
+			return errors.Trace(err)
+		}
 
 		var channel *string
 		if c.id.Origin.CharmChannel().String() != "" {
@@ -388,17 +391,36 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 			channel = &str
 		}
 
+		// Process the --config args.
+		// TODO: ensure that all config is in configYAML,
+		// for now, appConfig is ignored.
+		appConfig, configYAML, err := utils.ProcessConfig(ctx, c.model.Filesystem(), c.configOptions, c.trust)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		// At deploy time, there's no need to include "trust=false" as missing is the same thing.
+		if !c.trust {
+			delete(appConfig, app.TrustConfigOptionName)
+		}
+
 		info, _, errs := deployAPI.DeployFromRepository(application.DeployFromRepositoryArg{
-			ApplicationName: c.applicationName,
-			CharmName:       c.userRequestedURL.Name,
-			Revision:        c.id.Origin.Revision,
-			Channel:         channel,
-			Force:           c.force,
-			Placement:       c.placement,
-			DryRun:          c.dryRun,
-			Base:            base,
-			Resources:       c.resources,
-			Cons:            c.constraints,
+			CharmName:        c.userRequestedURL.Name,
+			ApplicationName:  c.applicationName,
+			AttachStorage:    c.attachStorage,
+			Base:             base,
+			Channel:          channel,
+			ConfigYAML:       configYAML,
+			Cons:             c.constraints,
+			Devices:          c.devices,
+			DryRun:           c.dryRun,
+			EndpointBindings: c.bindings,
+			Force:            c.force,
+			NumUnits:         &c.numUnits,
+			Placement:        c.placement,
+			Revision:         c.id.Origin.Revision,
+			Resources:        c.resources,
+			Storage:          c.storage,
+			Trust:            c.trust,
 		})
 		ctx.Infof("%s", pretty.Sprint(info))
 		for _, err := range errs {
