@@ -401,6 +401,7 @@ parts:
       github.com/juju/juju/version.build: ""
     go-static: true
     go-strip: true
+    go-buildtags: ["libsqlite3", "dqlite"]
     go-cgo-enabled: "1"
     go-cgo-cc: "musl-gcc"
     go-cgo-cflags: "-I/usr/local/musl/include"
