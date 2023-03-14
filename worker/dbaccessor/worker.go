@@ -247,6 +247,9 @@ func (w *dbWorker) GetDB(namespace string) (coredatabase.TrackedDB, error) {
 		return nil, w.catacomb.ErrDying()
 	}
 
+	// TODO (stickupkid): Before handing out any DB for any namespace, we should
+	// first validate it exists in the controller list. This should only be
+	// required if it's not the controller DB.
 	if e, err := w.dbRunner.Worker(namespace, w.catacomb.Dying()); err == nil {
 		return e.(coredatabase.TrackedDB), nil
 	}
