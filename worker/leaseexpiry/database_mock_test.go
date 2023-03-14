@@ -35,6 +35,20 @@ func (m *MockTrackedDB) EXPECT() *MockTrackedDBMockRecorder {
 	return m.recorder
 }
 
+// DB mocks base method.
+func (m *MockTrackedDB) DB(arg0 func(*sql.DB) error) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DB", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DB indicates an expected call of DB.
+func (mr *MockTrackedDBMockRecorder) DB(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DB", reflect.TypeOf((*MockTrackedDB)(nil).DB), arg0)
+}
+
 // Err mocks base method.
 func (m *MockTrackedDB) Err() error {
 	m.ctrl.T.Helper()
@@ -47,21 +61,6 @@ func (m *MockTrackedDB) Err() error {
 func (mr *MockTrackedDBMockRecorder) Err() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Err", reflect.TypeOf((*MockTrackedDB)(nil).Err))
-}
-
-// PrepareStmts mocks base method.
-func (m *MockTrackedDB) PrepareStmts(arg0 func(*sql.DB) error) (func(), error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PrepareStmts", arg0)
-	ret0, _ := ret[0].(func())
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// PrepareStmts indicates an expected call of PrepareStmts.
-func (mr *MockTrackedDBMockRecorder) PrepareStmts(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareStmts", reflect.TypeOf((*MockTrackedDB)(nil).PrepareStmts), arg0)
 }
 
 // Txn mocks base method.
