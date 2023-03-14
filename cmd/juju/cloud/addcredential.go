@@ -77,13 +77,6 @@ The format for a credential is cloud-specific. Thus, it's best to use
 adding this new credential locally and / or uploading it to a controller 
 in a correct format for the desired cloud.
 
-Examples:
-    juju add-credential google
-    juju add-credential google --client
-    juju add-credential google -c mycontroller
-    juju add-credential aws -f ~/credentials.yaml -c mycontroller
-    juju add-credential aws -f ~/credentials.yaml
-    juju add-credential aws -f ~/credentials.yaml --client
 
 Notes:
 If you are setting up Juju for the first time, consider running
@@ -102,13 +95,6 @@ Further help:
 Please visit https://discourse.charmhub.io/t/1508 for cloud-specific
 instructions.
 
-See also: 
-    credentials
-    remove-credential
-    update-credential
-    default-credential
-    default-region
-    autoload-credentials
 `
 
 type addCredentialCommand struct {
@@ -153,6 +139,22 @@ func (c *addCredentialCommand) Info() *cmd.Info {
 		Args:    "<cloud name>",
 		Purpose: usageAddCredentialSummary,
 		Doc:     usageAddCredentialDetails,
+		Examples: []string{
+			"`juju add-credential google`",
+			"`juju add-credential google --client`",
+			"`juju add-credential google -c mycontroller`",
+			"`juju add-credential aws -f ~/credentials.yaml -c mycontroller`",
+			"`juju add-credential aws -f ~/credentials.yaml`",
+			"`juju add-credential aws -f ~/credentials.yaml --client`",
+			},
+		SeeAlso: []string{
+			"credentials",
+			"remove-credential",
+			"update-credential",
+			"default-credential",
+			"default-region",
+			"autoload-credentials",
+		},
 	})
 }
 
