@@ -9,6 +9,8 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
+//go:generate go run github.com/golang/mock/mockgen -package manifold_test -destination database_mock_test.go github.com/juju/juju/core/database TrackedDB
+
 func TestPackage(t *stdtesting.T) {
 	coretesting.MgoTestPackage(t)
 }

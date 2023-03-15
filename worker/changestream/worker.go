@@ -4,14 +4,13 @@
 package changestream
 
 import (
-	"database/sql"
-
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 
 	"github.com/juju/juju/core/changestream"
+	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/worker/changestream/eventqueue"
 	"github.com/juju/juju/worker/changestream/stream"
 	"github.com/juju/juju/worker/dbaccessor"
@@ -147,26 +146,26 @@ func (w *changeStreamWorker) EventQueue(namespace string) (EventQueue, error) {
 		return e.(EventQueueWorker).EventQueue(), nil
 	}
 
-	var eventQueue EventQueue
-	if err := w.runner.StartWorker(namespace, func() (worker.Worker, error) {
-		db, err := w.cfg.DBGetter.GetDB(namespace)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
+	db, err := w.cfg.DBGetter.GetDB(namespace)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
-		worker, err := w.cfg.NewEventQueueWorker(db, fileNotifyWatcher{
-			fileNotifier: w.cfg.FileNotifyWatcher,
-			fileName:     namespace,
-		}, w.cfg.Clock, w.cfg.Logger)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		eventQueue = worker.EventQueue()
-		return worker, nil
+	eqWorker, err := w.cfg.NewEventQueueWorker(db, fileNotifyWatcher{
+		fileNotifier: w.cfg.FileNotifyWatcher,
+		fileName:     namespace,
+	}, w.cfg.Clock, w.cfg.Logger)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if err := w.runner.StartWorker(namespace, func() (worker.Worker, error) {
+		return eqWorker, nil
 	}); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return eventQueue, nil
+
+	return eqWorker.EventQueue(), nil
 }
 
 // fileNotifyWatcher is a wrapper around the FileNotifyWatcher that is used to
@@ -181,7 +180,7 @@ func (f fileNotifyWatcher) Changes() (<-chan bool, error) {
 }
 
 // NewEventQueueWorker creates a new EventQueueWorker.
-func NewEventQueueWorker(db *sql.DB, fileNotifier FileNotifier, clock clock.Clock, logger Logger) (EventQueueWorker, error) {
+func NewEventQueueWorker(db coredatabase.TrackedDB, fileNotifier FileNotifier, clock clock.Clock, logger Logger) (EventQueueWorker, error) {
 	stream := stream.New(db, fileNotifier, clock, logger)
 
 	eventQueue, err := eventqueue.New(stream, logger)

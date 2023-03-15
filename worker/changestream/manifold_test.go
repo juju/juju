@@ -4,12 +4,12 @@
 package changestream
 
 import (
-	"database/sql"
-
 	clock "github.com/juju/clock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	coredatabase "github.com/juju/juju/core/database"
 )
 
 type manifoldSuite struct {
@@ -50,7 +50,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		FileNotifyWatcher: "filenotifywatcher",
 		Clock:             s.clock,
 		Logger:            s.logger,
-		NewEventQueueWorker: func(*sql.DB, FileNotifier, clock.Clock, Logger) (EventQueueWorker, error) {
+		NewEventQueueWorker: func(coredatabase.TrackedDB, FileNotifier, clock.Clock, Logger) (EventQueueWorker, error) {
 			return nil, nil
 		},
 	}

@@ -3,11 +3,11 @@
 package changestream
 
 import (
-	"database/sql"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3"
@@ -53,7 +53,7 @@ func (s *workerSuite) getConfig() WorkerConfig {
 		FileNotifyWatcher: s.fileNotifyWatcher,
 		Clock:             s.clock,
 		Logger:            s.logger,
-		NewEventQueueWorker: func(*sql.DB, FileNotifier, clock.Clock, Logger) (EventQueueWorker, error) {
+		NewEventQueueWorker: func(coredatabase.TrackedDB, FileNotifier, clock.Clock, Logger) (EventQueueWorker, error) {
 			return nil, nil
 		},
 	}
@@ -65,7 +65,7 @@ func (s *workerSuite) TestEventQueue(c *gc.C) {
 	s.expectAnyLogs()
 	s.expectClock()
 
-	s.dbGetter.EXPECT().GetDB("controller").Return(&sql.DB{}, nil)
+	s.dbGetter.EXPECT().GetDB("controller").Return(s.TrackedDB(), nil)
 	s.eventQueueWorker.EXPECT().EventQueue().Return(s.eventQueue)
 	s.eventQueueWorker.EXPECT().Kill().AnyTimes()
 	s.eventQueueWorker.EXPECT().Wait().MinTimes(1)
@@ -90,7 +90,7 @@ func (s *workerSuite) TestEventQueueCalledTwice(c *gc.C) {
 
 	done := make(chan struct{})
 
-	s.dbGetter.EXPECT().GetDB("controller").Return(&sql.DB{}, nil)
+	s.dbGetter.EXPECT().GetDB("controller").Return(s.TrackedDB(), nil)
 	s.eventQueueWorker.EXPECT().EventQueue().Return(s.eventQueue).Times(2)
 	s.eventQueueWorker.EXPECT().Kill().AnyTimes()
 	s.eventQueueWorker.EXPECT().Wait().DoAndReturn(func() error {
@@ -126,7 +126,7 @@ func (s *workerSuite) newWorker(c *gc.C, attempts int) worker.Worker {
 		FileNotifyWatcher: s.fileNotifyWatcher,
 		Clock:             s.clock,
 		Logger:            s.logger,
-		NewEventQueueWorker: func(*sql.DB, FileNotifier, clock.Clock, Logger) (EventQueueWorker, error) {
+		NewEventQueueWorker: func(coredatabase.TrackedDB, FileNotifier, clock.Clock, Logger) (EventQueueWorker, error) {
 			attempts--
 			if attempts < 0 {
 				c.Fatal("NewEventQueueWorker called too many times")

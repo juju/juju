@@ -4,8 +4,6 @@
 package leaseexpiry_test
 
 import (
-	"database/sql"
-
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -13,6 +11,7 @@ import (
 	dt "github.com/juju/worker/v3/dependency/testing"
 	gc "gopkg.in/check.v1"
 
+	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/database/testing"
 	"github.com/juju/juju/worker/leaseexpiry"
 )
@@ -71,17 +70,17 @@ func newManifoldConfig() leaseexpiry.ManifoldConfig {
 func (s *manifoldSuite) newStubContext() *dt.Context {
 	return dt.StubContext(nil, map[string]interface{}{
 		"clock-name":       clock.WallClock,
-		"db-accessor-name": stubDBGetter{s.DB},
+		"db-accessor-name": stubDBGetter{s.TrackedDB()},
 	})
 }
 
 type stubDBGetter struct {
-	db *sql.DB
+	trackedDB coredatabase.TrackedDB
 }
 
-func (s stubDBGetter) GetDB(name string) (*sql.DB, error) {
+func (s stubDBGetter) GetDB(name string) (coredatabase.TrackedDB, error) {
 	if name != "controller" {
 		return nil, errors.Errorf(`expected a request for "controller" DB; got %q`, name)
 	}
-	return s.db, nil
+	return s.trackedDB, nil
 }

@@ -20,17 +20,13 @@ import (
 	"gopkg.in/retry.v1"
 
 	"github.com/juju/juju/core/lease"
-	"github.com/juju/juju/database"
+	"github.com/juju/juju/database/txn"
 )
 
 const (
 	// maxRetries gives the maximum number of attempts we'll try if
 	// there are timeouts.
 	maxRetries = 10
-
-	// maxDeadlineRetries gives the maximum number of deadline attempts we'll
-	// try if there are timeouts.
-	maxDeadlineRetries = 3
 
 	// initialRetryDelay is the starting delay - this will be
 	// increased exponentially up maxRetries.
@@ -299,7 +295,7 @@ func (manager *Manager) retryingClaim(claim claim) {
 		claim.respond(nil)
 	} else {
 		switch {
-		case lease.IsTimeout(err), database.IsErrRetryable(err):
+		case lease.IsTimeout(err), txn.IsErrRetryable(err):
 			manager.config.Logger.Warningf("[%s] retrying timed out while handling claim %q for %q",
 				manager.logContext, claim.leaseKey, claim.holderName)
 			claim.respond(lease.ErrTimeout)
@@ -433,7 +429,7 @@ func (manager *Manager) retryingRevoke(revoke revoke) {
 		}
 	} else {
 		switch {
-		case lease.IsTimeout(err), database.IsErrRetryable(err):
+		case lease.IsTimeout(err), txn.IsErrRetryable(err):
 			manager.config.Logger.Warningf("[%s] retrying timed out while handling revoke %q for %q",
 				manager.logContext, revoke.leaseKey, revoke.holderName)
 			revoke.respond(lease.ErrTimeout)
@@ -637,7 +633,7 @@ func (manager *Manager) startRetry() *retry.Attempt {
 
 func isFatalRetryError(err error) bool {
 	switch {
-	case database.IsErrRetryable(err):
+	case txn.IsErrRetryable(err):
 		return false
 	case lease.IsTimeout(err):
 		return false
@@ -649,7 +645,7 @@ func isFatalRetryError(err error) bool {
 
 func isFatalClaimRetryError(act action, err error, count int) bool {
 	switch {
-	case database.IsErrRetryable(err):
+	case txn.IsErrRetryable(err):
 		return false
 	case lease.IsTimeout(err):
 		return false

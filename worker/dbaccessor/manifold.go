@@ -26,15 +26,18 @@ type Logger interface {
 
 	// Logf is used to proxy Dqlite logs via this logger.
 	Logf(level loggo.Level, msg string, args ...interface{})
+
+	IsTraceEnabled() bool
 }
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will
 // depend.
 type ManifoldConfig struct {
-	AgentName string
-	Clock     clock.Clock
-	Logger    Logger
-	NewApp    func(string, ...app.Option) (DBApp, error)
+	AgentName   string
+	Clock       clock.Clock
+	Logger      Logger
+	NewApp      func(string, ...app.Option) (DBApp, error)
+	NewDBWorker func(DBApp, string, ...TrackedDBWorkerOption) (TrackedDB, error)
 }
 
 func (cfg ManifoldConfig) Validate() error {
@@ -49,6 +52,9 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.NewApp == nil {
 		return errors.NotValidf("nil NewApp")
+	}
+	if cfg.NewDBWorker == nil {
+		return errors.NotValidf("nil NewDBWorker")
 	}
 	return nil
 }
@@ -77,6 +83,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				Clock:       config.Clock,
 				Logger:      config.Logger,
 				NewApp:      config.NewApp,
+				NewDBWorker: config.NewDBWorker,
 			}
 
 			w, err := newWorker(cfg)

@@ -4,13 +4,13 @@
 package changestream
 
 import (
-	"database/sql"
-
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/worker/common"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
+
+	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/worker/common"
 )
 
 // Logger represents the logging methods called.
@@ -25,7 +25,7 @@ type Logger interface {
 
 // EventQueueWorkerFn is an alias function that allows the creation of
 // EventQueueWorker.
-type EventQueueWorkerFn = func(*sql.DB, FileNotifier, clock.Clock, Logger) (EventQueueWorker, error)
+type EventQueueWorkerFn = func(coredatabase.TrackedDB, FileNotifier, clock.Clock, Logger) (EventQueueWorker, error)
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will
 // depend.

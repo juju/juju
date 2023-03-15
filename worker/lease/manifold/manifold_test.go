@@ -4,10 +4,10 @@
 package manifold_test
 
 import (
-	"database/sql"
 	"io"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -22,6 +22,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	coredatabase "github.com/juju/juju/core/database"
 	corelease "github.com/juju/juju/core/lease"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/worker/lease"
@@ -41,9 +42,9 @@ type manifoldSuite struct {
 	logger  loggo.Logger
 	metrics prometheus.Registerer
 
-	worker worker.Worker
-	db     *sql.DB
-	store  *lease.Store
+	worker    worker.Worker
+	trackedDB coredatabase.TrackedDB
+	store     *lease.Store
 
 	stub testing.Stub
 }
@@ -51,18 +52,21 @@ type manifoldSuite struct {
 var _ = gc.Suite(&manifoldSuite{})
 
 func (s *manifoldSuite) SetUpTest(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	s.StateSuite.SetUpTest(c)
 
 	s.stub.ResetCalls()
 
-	s.db = &sql.DB{}
+	s.trackedDB = NewMockTrackedDB(ctrl)
 
 	s.agent = &mockAgent{conf: mockAgentConfig{
 		uuid:    "controller-uuid",
 		apiInfo: &api.Info{},
 	}}
 	s.clock = testclock.NewClock(time.Now())
-	s.dbAccessor = stubDBGetter{s.db}
+	s.dbAccessor = stubDBGetter{s.trackedDB}
 
 	s.logger = loggo.GetLogger("lease.manifold_test")
 	registerer := struct{ prometheus.Registerer }{}
@@ -139,8 +143,8 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 	storeConfig := args[0].(lease.StoreConfig)
 
 	c.Assert(storeConfig, gc.DeepEquals, lease.StoreConfig{
-		DB:     s.db,
-		Logger: &s.logger,
+		TrackedDB: s.trackedDB,
+		Logger:    &s.logger,
 	})
 
 	args = s.stub.Calls()[1].Args
@@ -211,12 +215,12 @@ func (*mockWorker) Wait() error {
 }
 
 type stubDBGetter struct {
-	db *sql.DB
+	trackedDB coredatabase.TrackedDB
 }
 
-func (s stubDBGetter) GetDB(name string) (*sql.DB, error) {
+func (s stubDBGetter) GetDB(name string) (coredatabase.TrackedDB, error) {
 	if name != "controller" {
 		return nil, errors.Errorf(`expected a request for "controller" DB; got %q`, name)
 	}
-	return s.db, nil
+	return s.trackedDB, nil
 }

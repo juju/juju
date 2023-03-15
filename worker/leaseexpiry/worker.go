@@ -4,7 +4,9 @@
 package leaseexpiry
 
 import (
+	"context"
 	"database/sql"
+	"sync"
 	"time"
 
 	"github.com/juju/clock"
@@ -12,15 +14,17 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 
+	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/database"
+	"github.com/juju/juju/database/txn"
 )
 
 // Config encapsulates the configuration options for
 // instantiating a new lease expiry worker.
 type Config struct {
-	Clock  clock.Clock
-	Logger Logger
-	DB     *sql.DB
+	Clock     clock.Clock
+	Logger    Logger
+	TrackedDB coredatabase.TrackedDB
 }
 
 // Validate checks whether the worker configuration settings are valid.
@@ -31,8 +35,8 @@ func (cfg Config) Validate() error {
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
-	if cfg.DB == nil {
-		return errors.NotValidf("nil DB")
+	if cfg.TrackedDB == nil {
+		return errors.NotValidf("nil TrackedDB")
 	}
 
 	return nil
@@ -41,11 +45,12 @@ func (cfg Config) Validate() error {
 type expiryWorker struct {
 	catacomb catacomb.Catacomb
 
-	clock  clock.Clock
-	logger Logger
-	db     *sql.DB
+	clock     clock.Clock
+	logger    Logger
+	trackedDB coredatabase.TrackedDB
 
-	stmt *sql.Stmt
+	mutex sync.Mutex
+	stmt  *sql.Stmt
 }
 
 // NewWorker returns a worker that periodically deletes
@@ -58,23 +63,9 @@ func NewWorker(cfg Config) (worker.Worker, error) {
 	}
 
 	w := &expiryWorker{
-		clock:  cfg.Clock,
-		logger: cfg.Logger,
-		db:     cfg.DB,
-	}
-
-	// Prepare our single DML statement before considering the worker started.
-	// Pinned leases may not be deleted even if expired.
-	q := `
-DELETE FROM lease WHERE uuid in (
-    SELECT l.uuid 
-    FROM   lease l LEFT JOIN lease_pin p ON l.uuid = p.lease_uuid
-    WHERE  p.uuid IS NULL
-    AND    l.expiry < datetime('now')
-)`[1:]
-
-	if w.stmt, err = w.db.Prepare(q); err != nil {
-		return nil, errors.Trace(err)
+		clock:     cfg.Clock,
+		logger:    cfg.Logger,
+		trackedDB: cfg.TrackedDB,
 	}
 
 	if err = catacomb.Invoke(catacomb.Plan{
@@ -88,7 +79,9 @@ DELETE FROM lease WHERE uuid in (
 }
 
 func (w *expiryWorker) loop() error {
+	// Now that we have a statement, we can start the worker.
 	timer := w.clock.NewTimer(time.Second)
+	defer timer.Stop()
 
 	for {
 		select {
@@ -104,29 +97,58 @@ func (w *expiryWorker) loop() error {
 }
 
 func (w *expiryWorker) expireLeases() error {
-	res, err := w.stmt.Exec()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := w.trackedDB.DB(func(db *sql.DB) error {
+		// Txn here provides the transaction semantics we need, but there are
+		// no retry strategies employed. This is a special case, in this instance
+		// we will retry this in one second and other controllers in a HA
+		// setup will also retry.
+		return database.Txn(ctx, db, func(ctx context.Context, tx *sql.Tx) error {
+			q := `
+		DELETE FROM lease WHERE uuid in (
+			SELECT l.uuid 
+			FROM   lease l LEFT JOIN lease_pin p ON l.uuid = p.lease_uuid
+			WHERE  p.uuid IS NULL
+			AND    l.expiry < datetime('now')
+		)`[1:]
+
+			res, err := tx.ExecContext(ctx, q)
+			if err != nil {
+				// TODO (manadart 2022-12-15): This incarnation of the worker runs on
+				// all controller nodes. Retryable errors are those that occur due to
+				// locking or other contention. We know we will retry very soon,
+				// so just log and indicate success for these cases.
+				// Rethink this if the worker cardinality changes to be singular.
+				if txn.IsErrRetryable(err) {
+					w.logger.Debugf("ignoring error during lease expiry: %s", err.Error())
+					return nil
+				}
+				return errors.Trace(err)
+			}
+
+			expired, err := res.RowsAffected()
+			if err != nil {
+				return errors.Trace(err)
+			}
+
+			if expired > 0 {
+				w.logger.Infof("expired %d leases", expired)
+			}
+
+			return nil
+		})
+	})
 	if err != nil {
-		// TODO (manadart 2022-12-15): This incarnation of the worker runs on
-		// all controller nodes. Retryable errors are those that occur due to
-		// locking or other contention. We know we will retry very soon,
-		// so just log and indicate success for these cases.
-		// Rethink this if the worker cardinality changes to be singular.
-		if database.IsErrRetryable(err) {
-			w.logger.Debugf("ignoring error during lease expiry: %s", err.Error())
+		if txn.IsErrRetryable(err) {
 			return nil
 		}
 		return errors.Trace(err)
 	}
-
-	expired, err := res.RowsAffected()
-	if err != nil {
-		return errors.Trace(err)
+	if w.trackedDB.Err() != nil {
+		return errors.Trace(w.trackedDB.Err())
 	}
-
-	if expired > 0 {
-		w.logger.Infof("expired %d leases", expired)
-	}
-
 	return nil
 }
 
