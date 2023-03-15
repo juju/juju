@@ -80,21 +80,36 @@ juju_agent () {
 }
 
 juju_goroutines () {
-  juju_agent debug/pprof/goroutine?debug=1
+  local D=1
+  if ! test -z $1; then
+    D=$1
+    shift
+  fi
+  juju_agent debug/pprof/goroutine?debug=$D
 }
 
 juju_cpu_profile () {
-  N=30
+  local N=30
   if test -n "$1"; then
     N=$1
     shift
   fi
+  local D=1
+  if ! test -z $1; then
+    D=$1
+    shift
+  fi
   echo "Sampling CPU for $N seconds." >&2
-  juju_agent "debug/pprof/profile?debug=1&seconds=$N"
+  juju_agent "debug/pprof/profile?debug=$D&seconds=$N"
 }
 
 juju_heap_profile () {
-  juju_agent debug/pprof/heap?debug=1
+  local D=1
+  if ! test -z $1; then
+    D=$1
+    shift
+  fi
+  juju_agent debug/pprof/heap?debug=$D
 }
 
 juju_engine_report () {
@@ -118,7 +133,12 @@ juju_presence_report () {
 }
 
 juju_statetracker_report () {
-  juju_agent debug/pprof/juju/state/tracker?debug=1
+  local D=1
+  if ! test -z $1; then
+    D=$1
+    shift
+  fi
+  juju_agent debug/pprof/juju/state/tracker?debug=$D
 }
 
 juju_machine_lock () {
