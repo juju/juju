@@ -10,7 +10,6 @@ import (
 	"path"
 	"time"
 
-	"github.com/canonical/pebble/plan"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -25,6 +24,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/constants"
 	"github.com/juju/juju/cmd/containeragent/utils"
+	"github.com/juju/juju/service/pebble/plan"
 	"github.com/juju/juju/worker/apicaller"
 )
 
