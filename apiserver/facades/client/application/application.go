@@ -518,7 +518,7 @@ func deployApplication(
 
 	// This check is done early so that errors deeper in the call-stack do not
 	// leave an application deployment in an unrecoverable error state.
-	if err := checkMachinePlacement(backend, args); err != nil {
+	if err := checkMachinePlacement(backend, args.ApplicationName, args.Placement); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -731,16 +731,19 @@ func parseCharmSettings(modelType state.ModelType, ch Charm, appName string, cfg
 	return appConfig, appCfgSchema, charmSettings, schemaDefaults, nil
 }
 
+type MachinePlacementBackend interface {
+	Machine(string) (Machine, error)
+}
+
 // checkMachinePlacement does a non-exhaustive validation of any supplied
 // placement directives.
 // If the placement scope is for a machine, ensure that the machine exists.
 // If the placement is for a machine or a container on an existing machine,
 // check that the machine is not locked for series upgrade.
-func checkMachinePlacement(backend Backend, args params.ApplicationDeploy) error {
+func checkMachinePlacement(backend MachinePlacementBackend, app string, placement []*instance.Placement) error {
 	errTemplate := "cannot deploy %q to machine %s"
-	app := args.ApplicationName
 
-	for _, p := range args.Placement {
+	for _, p := range placement {
 		if p == nil {
 			continue
 		}

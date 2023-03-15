@@ -21,10 +21,12 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
+	jujuversion "github.com/juju/juju/version"
 )
 
 var deployRepoLogger = logger.Child("deployfromrepository")
@@ -50,6 +52,10 @@ type DeployFromRepositoryState interface {
 	ModelConstraints() (constraints.Value, error)
 
 	services.StateBackend
+
+	network.SpaceLookup
+	DefaultEndpointBindingSpace() (string, error)
+	Space(id string) (*state.Space, error)
 }
 
 // DeployFromRepositoryAPI provides the deploy from repository
@@ -116,7 +122,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(arg params.DeployFromRe
 		Storage:           nil,
 		Devices:           nil,
 		AttachStorage:     nil,
-		EndpointBindings:  nil,
+		EndpointBindings:  dt.endpoints,
 		ApplicationConfig: nil,
 		CharmConfig:       nil,
 		NumUnits:          dt.numUnits,
@@ -171,6 +177,9 @@ func makeDeployFromRepositoryValidator(st DeployFromRepositoryState, m Model, ch
 		newRepoFactory: func(cfg services.CharmRepoFactoryConfig) corecharm.RepositoryFactory {
 			return services.NewCharmRepoFactory(cfg)
 		},
+		newStateBindings: func(st state.EndpointBinding, givenMap map[string]string) (Bindings, error) {
+			return state.NewBindings(st, givenMap)
+		},
 	}
 	if m.Type() == state.ModelTypeCAAS {
 		return &caasDeployFromRepositoryValidator{
@@ -186,10 +195,14 @@ type deployFromRepositoryValidator struct {
 	model Model
 	state DeployFromRepositoryState
 
-	mu                 sync.Mutex
-	repoFactory        corecharm.RepositoryFactory
+	mu          sync.Mutex
+	repoFactory corecharm.RepositoryFactory
+	// For testing using mocks.
 	newRepoFactory     func(services.CharmRepoFactoryConfig) corecharm.RepositoryFactory
 	charmhubHTTPClient facade.HTTPClient
+
+	// For testing using mocks.
+	newStateBindings func(st state.EndpointBinding, givenMap map[string]string) (Bindings, error)
 }
 
 // validateDeployFromRepositoryArgs does validation of all provided
@@ -198,6 +211,10 @@ type deployFromRepositoryValidator struct {
 // Where possible, errors will be grouped and returned as a list.
 func (v *deployFromRepositoryValidator) validate(arg params.DeployFromRepositoryArg) (deployTemplate, []error) {
 	errs := make([]error, 0)
+
+	if err := checkMachinePlacement(v.state, arg.ApplicationName, arg.Placement); err != nil {
+		errs = append(errs, err)
+	}
 
 	initialCurl, requestedOrigin, usedModelDefaultBase, err := v.createOrigin(arg)
 	if err != nil {
@@ -240,6 +257,9 @@ func (v *deployFromRepositoryValidator) validate(arg params.DeployFromRepository
 			errs = append(errs, fmt.Errorf("subordinate application must be deployed without constraints"))
 		}
 	}
+	if err := jujuversion.CheckJujuMinVersion(resolvedCharm.Meta().MinJujuVersion, jujuversion.Current); err != nil {
+		errs = append(errs, err)
+	}
 
 	appName := charmURL.Name
 	if arg.ApplicationName != "" {
@@ -257,8 +277,6 @@ func (v *deployFromRepositoryValidator) validate(arg params.DeployFromRepository
 	var numUnits int
 	if arg.NumUnits != nil {
 		numUnits = *arg.NumUnits
-	} else {
-		numUnits = 1
 	}
 
 	// Validate the other args.
@@ -273,6 +291,22 @@ func (v *deployFromRepositoryValidator) validate(arg params.DeployFromRepository
 		placement:       arg.Placement,
 		storage:         stateStorageConstraints(arg.Storage),
 	}
+	if arg.NumUnits != nil {
+		dt.numUnits = *arg.NumUnits
+	} else {
+		// The juju client defaults num units to 1. Ensure that a
+		// charm deployed by any client has at least one if no
+		// number provided.
+		dt.numUnits = 1
+	}
+	if len(arg.EndpointBindings) > 0 {
+		bindings, err := v.newStateBindings(v.state, arg.EndpointBindings)
+		if err != nil {
+			errs = append(errs, err)
+		}
+		dt.endpoints = bindings.Map()
+	}
+
 	if !resolvedCharm.Meta().Subordinate {
 		dt.constraints = arg.Cons
 	}
@@ -288,7 +322,6 @@ func (v caasDeployFromRepositoryValidator) ValidateArg(arg params.DeployFromRepo
 	// TODO: NumUnits
 	// TODO: Storage
 	dt, errs := v.validator.validate(arg)
-
 	if corecharm.IsKubernetes(dt.charm) && charm.MetaFormat(dt.charm) == charm.FormatV1 {
 		deployRepoLogger.Debugf("DEPRECATED: %q is a podspec charm, which will be removed in a future release", arg.CharmName)
 	}
@@ -300,7 +333,6 @@ type iaasDeployFromRepositoryValidator struct {
 }
 
 func (v *iaasDeployFromRepositoryValidator) ValidateArg(arg params.DeployFromRepositoryArg) (deployTemplate, []error) {
-	// TODO: NumUnits
 	// TODO: Storage
 	return v.validator.validate(arg)
 }
