@@ -140,7 +140,6 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 
 	c.Check(storeConfig.DB, gc.Equals, s.db)
 	c.Check(storeConfig.Logger, gc.Equals, &s.logger)
-	c.Check(storeConfig.Ctx, gc.NotNil)
 
 	args = s.stub.Calls()[1].Args
 	c.Assert(args, gc.HasLen, 1)
@@ -160,7 +159,6 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 	c.Check(config.MaxSleep, gc.Equals, time.Minute)
 	c.Check(config.EntityUUID, gc.Equals, "controller-uuid")
 	c.Check(config.PrometheusRegisterer, gc.Equals, s.metrics)
-	c.Check(config.CancelDBOps, gc.NotNil)
 }
 
 func (s *manifoldSuite) TestOutput(c *gc.C) {

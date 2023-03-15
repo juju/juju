@@ -67,10 +67,6 @@ type ManagerConfig struct {
 	// case that the worker times out waiting to shut down.
 	LogDir string
 
-	// CancelDBOps is a cancel function that when called will cancel any
-	// context-bound database operations currently in progress.
-	CancelDBOps func()
-
 	PrometheusRegisterer prometheus.Registerer
 }
 
@@ -91,9 +87,6 @@ func (config ManagerConfig) Validate() error {
 	}
 	if config.MaxSleep <= 0 {
 		return errors.NotValidf("non-positive MaxSleep")
-	}
-	if config.CancelDBOps == nil {
-		return errors.NotValidf("nil CancelDBOps")
 	}
 	// TODO: make the PrometheusRegisterer required when we no longer
 	// have state workers managing leases.

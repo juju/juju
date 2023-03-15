@@ -182,7 +182,6 @@ func (s *CrossSuite) TestDifferentNamespaceValidation(c *gc.C) {
 		},
 		MaxSleep:             defaultMaxSleep,
 		Logger:               loggo.GetLogger("lease_test"),
-		CancelDBOps:          func() {},
 		PrometheusRegisterer: noopRegisterer{},
 	})
 	c.Assert(err, jc.ErrorIsNil)

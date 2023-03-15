@@ -4,6 +4,7 @@
 package lease
 
 import (
+	"context"
 	"strings"
 	"time"
 
@@ -19,29 +20,29 @@ type Store interface {
 	// it succeeds, the claim is guaranteed until at least the supplied duration
 	// after the call to ClaimLease was initiated. If it returns ErrInvalid,
 	// check Leases() for updated state.
-	ClaimLease(lease Key, request Request) error
+	ClaimLease(ctx context.Context, lease Key, request Request) error
 
 	// ExtendLease records the supplied holder's continued claim to the supplied
 	// lease, if necessary. If it succeeds, the claim is guaranteed until at
 	// least the supplied duration after the call to ExtendLease was initiated.
 	// If it returns ErrInvalid, check Leases() for updated state.
-	ExtendLease(lease Key, request Request) error
+	ExtendLease(ctx context.Context, lease Key, request Request) error
 
 	// RevokeLease records the vacation of the supplied lease. It will fail if
 	// the lease is not held by the holder.
-	RevokeLease(lease Key, holder string) error
+	RevokeLease(ctx context.Context, lease Key, holder string) error
 
 	// Leases returns a recent snapshot of lease state. Expiry times are
 	// expressed according to the Clock the store was configured with.
 	// Supplying any lease keys will filter the return for those requested.
-	Leases(keys ...Key) (map[Key]Info, error)
+	Leases(ctx context.Context, keys ...Key) (map[Key]Info, error)
 
 	// LeaseGroup returns a snapshot of all of the leases for a
 	// particular namespace/model combination. This is useful for
 	// reporting holder information for a model, and can often be
 	// implemented more efficiently than getting all leases when there
 	// are many models.
-	LeaseGroup(namespace, modelUUID string) (map[Key]Info, error)
+	LeaseGroup(ctx context.Context, namespace, modelUUID string) (map[Key]Info, error)
 
 	// PinLease ensures that the current holder of the lease for the input key
 	// will not lose the lease to expiry.
@@ -49,17 +50,17 @@ type Store interface {
 	// the recipient of the pin behaviour.
 	// The input entity denotes the party responsible for the
 	// pinning operation.
-	PinLease(lease Key, entity string) error
+	PinLease(ctx context.Context, lease Key, entity string) error
 
 	// UnpinLease reverses a Pin operation for the same key and entity.
 	// Normal expiry behaviour is restored when no entities remain with
 	// pins for the application.
-	UnpinLease(lease Key, entity string) error
+	UnpinLease(ctx context.Context, lease Key, entity string) error
 
 	// Pinned returns a snapshot of pinned leases.
 	// The return consists of each pinned lease and the collection of entities
 	// requiring its pinned behaviour.
-	Pinned() (map[Key][]string, error)
+	Pinned(ctx context.Context) (map[Key][]string, error)
 }
 
 // Key fully identifies a lease, including the namespace and

@@ -4,6 +4,7 @@
 package lease
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -129,7 +130,6 @@ type Manager struct {
 
 // Kill is part of the worker.Worker interface.
 func (manager *Manager) Kill() {
-	manager.config.CancelDBOps()
 	manager.tomb.Kill(nil)
 }
 
@@ -149,7 +149,12 @@ func (manager *Manager) loop() error {
 
 	defer manager.waitForGoroutines()
 
-	leases, err := manager.config.Store.Leases()
+	// This context is passed into all lease store operations.
+	// Doing this ensures that no such operations can block worker shutdown.
+	// Killing the tomb, cancels the context.
+	ctx := manager.tomb.Context(context.Background())
+
+	leases, err := manager.config.Store.Leases(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -157,7 +162,7 @@ func (manager *Manager) loop() error {
 
 	blocks := make(blocks)
 	for {
-		if err := manager.choose(blocks); err != nil {
+		if err := manager.choose(ctx, blocks); err != nil {
 			if errors.Is(err, tomb.ErrDying) {
 				err = manager.tomb.Err()
 			}
@@ -167,8 +172,8 @@ func (manager *Manager) loop() error {
 	}
 }
 
-func (manager *Manager) lookupLease(leaseKey lease.Key) (lease.Info, bool, error) {
-	leases, err := manager.config.Store.Leases(leaseKey)
+func (manager *Manager) lookupLease(ctx context.Context, leaseKey lease.Key) (lease.Info, bool, error) {
+	leases, err := manager.config.Store.Leases(ctx, leaseKey)
 	if err != nil {
 		return lease.Info{}, false, errors.Trace(err)
 	}
@@ -178,37 +183,37 @@ func (manager *Manager) lookupLease(leaseKey lease.Key) (lease.Info, bool, error
 }
 
 // choose breaks the select out of loop to make the blocking logic clearer.
-func (manager *Manager) choose(blocks blocks) error {
+func (manager *Manager) choose(ctx context.Context, blocks blocks) error {
 	select {
 	case <-manager.tomb.Dying():
 		return tomb.ErrDying
 
 	case check := <-manager.checks:
-		return manager.handleCheck(check)
+		return manager.handleCheck(ctx, check)
 
 	case now := <-manager.timer.Chan():
-		if err := manager.tick(now, blocks); err != nil {
+		if err := manager.tick(ctx, now, blocks); err != nil {
 			return errors.Trace(err)
 		}
 
 	case <-manager.expireDone:
-		if err := manager.checkBlocks(blocks); err != nil {
+		if err := manager.checkBlocks(ctx, blocks); err != nil {
 			return errors.Trace(err)
 		}
 
 	case claim := <-manager.claims:
 		manager.startingClaim()
-		go manager.retryingClaim(claim)
+		go manager.retryingClaim(ctx, claim)
 
 	case revoke := <-manager.revokes:
 		manager.startingRevoke()
-		go manager.retryingRevoke(revoke)
+		go manager.retryingRevoke(ctx, revoke)
 
 	case pin := <-manager.pins:
-		manager.handlePin(pin)
+		manager.handlePin(ctx, pin)
 
 	case unpin := <-manager.unpins:
-		manager.handleUnpin(unpin)
+		manager.handleUnpin(ctx, unpin)
 
 	case block := <-manager.blocks:
 		manager.config.Logger.Tracef("[%s] adding block for: %s", manager.logContext, block.leaseKey.Lease)
@@ -258,7 +263,7 @@ func (manager *Manager) Reader(namespace, modelUUID string) (lease.Reader, error
 // retryingClaim handles timeouts when claiming, and responds to the
 // claiming party when it eventually succeeds or fails, or if it times
 // out after a number of retries.
-func (manager *Manager) retryingClaim(claim claim) {
+func (manager *Manager) retryingClaim(ctx context.Context, claim claim) {
 	defer manager.finishedClaim()
 	var (
 		err     error
@@ -267,7 +272,7 @@ func (manager *Manager) retryingClaim(claim claim) {
 
 	for a := manager.startRetry(); a.Next(); {
 		var act action
-		act, success, err = manager.handleClaim(claim)
+		act, success, err = manager.handleClaim(ctx, claim)
 		if isFatalClaimRetryError(act, err, a.Count()) {
 			break
 		}
@@ -341,7 +346,7 @@ func (a action) String() string {
 // handleClaim processes the supplied claim. It will only return
 // unrecoverable errors or timeouts; mere failure to claim just
 // indicates a bad request, and is returned as (false, nil).
-func (manager *Manager) handleClaim(claim claim) (action, bool, error) {
+func (manager *Manager) handleClaim(ctx context.Context, claim claim) (action, bool, error) {
 	logger := manager.config.Logger
 	var act action
 
@@ -349,7 +354,7 @@ func (manager *Manager) handleClaim(claim claim) (action, bool, error) {
 	case <-manager.tomb.Dying():
 		return "unknown", false, tomb.ErrDying
 	default:
-		info, found, err := manager.lookupLease(claim.leaseKey)
+		info, found, err := manager.lookupLease(ctx, claim.leaseKey)
 		if err != nil {
 			return "unknown", false, errors.Trace(err)
 		}
@@ -362,13 +367,13 @@ func (manager *Manager) handleClaim(claim claim) (action, bool, error) {
 			logger.Tracef("[%s] %s asked for lease %s (%s), no lease found, claiming for %s",
 				manager.logContext, claim.holderName, claim.leaseKey.Lease, claim.leaseKey.Namespace, claim.duration)
 			act = claimAction
-			err = store.ClaimLease(claim.leaseKey, request)
+			err = store.ClaimLease(ctx, claim.leaseKey, request)
 
 		case info.Holder == claim.holderName:
 			logger.Tracef("[%s] %s extending lease %s (%s) for %s",
 				manager.logContext, claim.holderName, claim.leaseKey.Lease, claim.leaseKey.Namespace, claim.duration)
 			act = extendAction
-			err = store.ExtendLease(claim.leaseKey, request)
+			err = store.ExtendLease(ctx, claim.leaseKey, request)
 
 		default:
 			// Note: (jam) 2017-10-31) We don't check here if the lease has
@@ -395,11 +400,11 @@ func (manager *Manager) handleClaim(claim claim) (action, bool, error) {
 // retryingRevoke handles timeouts when revoking, and responds to the
 // revoking party when it eventually succeeds or fails, or if it times
 // out after a number of retries.
-func (manager *Manager) retryingRevoke(revoke revoke) {
+func (manager *Manager) retryingRevoke(ctx context.Context, revoke revoke) {
 	defer manager.finishedRevoke()
 	var err error
 	for a := manager.startRetry(); a.Next(); {
-		err = manager.handleRevoke(revoke)
+		err = manager.handleRevoke(ctx, revoke)
 		if isFatalRetryError(err) {
 			break
 		}
@@ -453,14 +458,14 @@ func (manager *Manager) retryingRevoke(revoke revoke) {
 
 // handleRevoke processes the supplied revocation. It will only return
 // unrecoverable errors or timeouts.
-func (manager *Manager) handleRevoke(revoke revoke) error {
+func (manager *Manager) handleRevoke(ctx context.Context, revoke revoke) error {
 	logger := manager.config.Logger
 
 	select {
 	case <-manager.tomb.Dying():
 		return tomb.ErrDying
 	default:
-		info, found, err := manager.lookupLease(revoke.leaseKey)
+		info, found, err := manager.lookupLease(ctx, revoke.leaseKey)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -473,7 +478,7 @@ func (manager *Manager) handleRevoke(revoke revoke) error {
 
 		case info.Holder == revoke.holderName:
 			logger.Tracef("[%s] %s revoking lease %s", manager.logContext, revoke.holderName, revoke.leaseKey.Lease)
-			err = manager.config.Store.RevokeLease(revoke.leaseKey, revoke.holderName)
+			err = manager.config.Store.RevokeLease(ctx, revoke.leaseKey, revoke.holderName)
 
 		default:
 			logger.Tracef("[%s] %s revoking lease %s, held by %s, rejecting",
@@ -496,13 +501,13 @@ func (manager *Manager) handleRevoke(revoke revoke) error {
 // handleCheck processes and responds to the supplied check. It will only return
 // unrecoverable errors; mere untruth of the assertion just indicates a bad
 // request, and is communicated back to the check's originator.
-func (manager *Manager) handleCheck(check check) error {
+func (manager *Manager) handleCheck(ctx context.Context, check check) error {
 	key := check.leaseKey
 
 	manager.config.Logger.Tracef("[%s] handling Check for lease %s on behalf of %s",
 		manager.logContext, key.Lease, check.holderName)
 
-	info, found, err := manager.lookupLease(key)
+	info, found, err := manager.lookupLease(ctx, key)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -531,16 +536,16 @@ func (manager *Manager) handleCheck(check check) error {
 // tick triggers when we think a lease might be expiring, so we check if there
 // are leases to expire, and then unblock anything that is no longer blocked,
 // and then compute the next time we should wake up.
-func (manager *Manager) tick(now time.Time, blocks blocks) error {
+func (manager *Manager) tick(ctx context.Context, now time.Time, blocks blocks) error {
 	manager.config.Logger.Tracef("[%s] tick at %v, running expiry checks\n", manager.logContext, now)
 	// Check for blocks that need to be notified.
-	return errors.Trace(manager.checkBlocks(blocks))
+	return errors.Trace(manager.checkBlocks(ctx, blocks))
 }
 
-func (manager *Manager) checkBlocks(blocks blocks) error {
+func (manager *Manager) checkBlocks(ctx context.Context, blocks blocks) error {
 	manager.config.Logger.Tracef("[%s] evaluating %d blocks", manager.logContext, len(blocks))
 
-	leases, err := manager.config.Store.Leases()
+	leases, err := manager.config.Store.Leases(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -653,18 +658,18 @@ func isFatalClaimRetryError(act action, err error, count int) bool {
 	return true
 }
 
-func (manager *Manager) handlePin(p pin) {
-	p.respond(errors.Trace(manager.config.Store.PinLease(p.leaseKey, p.entity)))
+func (manager *Manager) handlePin(ctx context.Context, p pin) {
+	p.respond(errors.Trace(manager.config.Store.PinLease(ctx, p.leaseKey, p.entity)))
 }
 
-func (manager *Manager) handleUnpin(p pin) {
-	p.respond(errors.Trace(manager.config.Store.UnpinLease(p.leaseKey, p.entity)))
+func (manager *Manager) handleUnpin(ctx context.Context, p pin) {
+	p.respond(errors.Trace(manager.config.Store.UnpinLease(ctx, p.leaseKey, p.entity)))
 }
 
 // pinned returns lease names and the entities requiring their pinned
 // behaviour, from the input namespace/model for which leases are pinned.
-func (manager *Manager) pinned(namespace, modelUUID string) (map[string][]string, error) {
-	pinned, err := manager.config.Store.Pinned()
+func (manager *Manager) pinned(ctx context.Context, namespace, modelUUID string) (map[string][]string, error) {
+	pinned, err := manager.config.Store.Pinned(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -678,8 +683,8 @@ func (manager *Manager) pinned(namespace, modelUUID string) (map[string][]string
 	return result, nil
 }
 
-func (manager *Manager) leases(namespace, modelUUID string) (map[string]string, error) {
-	group, err := manager.config.Store.LeaseGroup(namespace, modelUUID)
+func (manager *Manager) leases(ctx context.Context, namespace, modelUUID string) (map[string]string, error) {
+	group, err := manager.config.Store.LeaseGroup(ctx, namespace, modelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

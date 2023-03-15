@@ -4,6 +4,7 @@
 package lease
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -95,11 +96,37 @@ func (b *boundManager) Token(leaseName, holderName string) lease.Token {
 	}
 }
 
+// Leases (lease.Reader) returns all leases and holders
+// in the bound namespace/model.
+func (b *boundManager) Leases() (map[string]string, error) {
+	ctx, cancel := b.tombContextWithCancel()
+	defer cancel()
+
+	leases, err := b.manager.leases(ctx, b.namespace, b.modelUUID)
+	return leases, errors.Trace(err)
+}
+
 // Pinned (lease.Pinner) returns applications and the entities requiring their
 // pinned behaviour, for pinned leases in the bound namespace/model.
 func (b *boundManager) Pinned() (map[string][]string, error) {
-	pinned, err := b.manager.pinned(b.namespace, b.modelUUID)
+	ctx, cancel := b.tombContextWithCancel()
+	defer cancel()
+
+	pinned, err := b.manager.pinned(ctx, b.namespace, b.modelUUID)
 	return pinned, errors.Trace(err)
+}
+
+// tombContextWithCancel is a work-around for the bound manager that exposes
+// calls to lease store methods outside the worker loop.
+// Here, we create a new cancelable context and use that as a parent for
+// tomb.Context. This means that killing the tomb will cancel the returned
+// context, ensuring that these calls cannot block worker shutdown.
+// Every cancel method returned from this method  be called when the function
+// its context was passed to returns. Contexts are stored in the tomb,
+// which deletes those that are `done` whenever a new context is added.
+func (b *boundManager) tombContextWithCancel() (context.Context, func()) {
+	parent, cancel := context.WithCancel(context.Background())
+	return b.manager.tomb.Context(parent), cancel
 }
 
 // Pin (lease.Pinner) sends a pin message to the worker loop.
@@ -110,13 +137,6 @@ func (b *boundManager) Pin(leaseName string, entity string) error {
 // Unpin (lease.Pinner) sends an unpin message to the worker loop.
 func (b *boundManager) Unpin(leaseName string, entity string) error {
 	return errors.Trace(b.pinOp(leaseName, entity, b.manager.unpins))
-}
-
-// Leases (lease.Reader) returns all leases and holders
-// in the bound namespace/model.
-func (b *boundManager) Leases() (map[string]string, error) {
-	leases, err := b.manager.leases(b.namespace, b.modelUUID)
-	return leases, errors.Trace(err)
 }
 
 // pinOp creates a pin instance from the input lease name,
