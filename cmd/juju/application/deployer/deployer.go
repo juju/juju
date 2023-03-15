@@ -327,6 +327,7 @@ func (d *factory) determineSeriesForLocalCharm(charmOrBundle string, getter Mode
 			Force:               d.force,
 			Conf:                modelCfg,
 			FromBundle:          false,
+			Logger:              logger,
 		}
 
 		if len(supportedSeries) == 0 {
