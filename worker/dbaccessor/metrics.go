@@ -14,7 +14,7 @@ const (
 type Collector struct {
 	DBRequests  *prometheus.GaugeVec
 	DBDuration  *prometheus.HistogramVec
-	TxnRequests *prometheus.GaugeVec
+	TxnRequests *prometheus.CounterVec
 }
 
 // NewMetricsCollector returns a new Collector.
@@ -32,11 +32,11 @@ func NewMetricsCollector() *Collector {
 			Name:      "duration_seconds",
 			Help:      "Total time spent in db requests.",
 		}, []string{"namespace", "result"}),
-		TxnRequests: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		TxnRequests: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace: dbaccessorMetricsNamespace,
 			Subsystem: dbaccessorSubsystemNamespace,
 			Name:      "txn_requests_total",
-			Help:      "Number of active txn requests including retries.",
+			Help:      "Total number of txn requests including retries.",
 		}, []string{"namespace"}),
 	}
 }

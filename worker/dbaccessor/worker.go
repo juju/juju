@@ -556,7 +556,7 @@ func (w *dbWorker) shutdownDqlite(ctx context.Context) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.TODO(), time.Second*30)
+	ctx, cancel := context.WithTimeout(ctx, time.Second*30)
 	defer cancel()
 
 	if err := w.dbApp.Handover(ctx); err != nil {
