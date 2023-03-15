@@ -191,19 +191,19 @@ func (c *AddCloudCommand) Info() *cmd.Info {
 		Purpose: usageAddCloudSummary,
 		Doc:     fmt.Sprintf(usageAddCloudDetails, jujucloud.CurrentWhiteList()),
 		Examples: []string{
-			  "`juju add-cloud`",
-			  "`juju add-cloud --force`",
-			  "`juju add-cloud mycloud ~/mycloud.yaml`",
-			  "`juju add-cloud --controller mycontroller mycloud`", 
-			  "`juju add-cloud --controller mycontroller mycloud --credential mycred`",
-			  "`juju add-cloud --client mycloud ~/mycloud.yaml`",
-			  },
-		SeeAlso: []string{	
+			"`juju add-cloud`",
+			"`juju add-cloud --force`",
+			"`juju add-cloud mycloud ~/mycloud.yaml`",
+			"`juju add-cloud --controller mycontroller mycloud`",
+			"`juju add-cloud --controller mycontroller mycloud --credential mycred`",
+			"`juju add-cloud --client mycloud ~/mycloud.yaml`",
+		},
+		SeeAlso: []string{
 			"clouds",
 			"update-cloud",
 			"remove-cloud",
 			"update-credential",
-			},
+		},
 	})
 }
 
