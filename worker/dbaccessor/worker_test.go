@@ -5,7 +5,7 @@ package dbaccessor
 
 import (
 	"context"
-	sql "database/sql"
+	"database/sql"
 	"errors"
 	"fmt"
 	"sync/atomic"

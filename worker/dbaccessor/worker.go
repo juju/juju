@@ -405,7 +405,7 @@ func NewTrackedDBWorker(dbApp DBApp, namespace string, opts ...TrackedDBWorkerOp
 }
 
 // DB closes over a raw *sql.DB. Closing over the DB allows the late
-// realization of the database. Allowing retries of DB acquistion if there
+// realization of the database. Allowing retries of DB acquisition if there
 // is a failure that is non-retryable.
 func (w *trackedDBWorker) DB(fn func(*sql.DB) error) error {
 	w.mutex.RLock()
@@ -431,7 +431,8 @@ func (w *trackedDBWorker) Txn(ctx context.Context, fn func(context.Context, *sql
 	})
 }
 
-// Err will return an blocking errors from the underlying tracking source.
+// Err will return any fatal errors that have occurred on the worker, trying
+// to acquire the database.
 func (w *trackedDBWorker) Err() error {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()

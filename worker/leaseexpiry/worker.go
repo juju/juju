@@ -16,6 +16,7 @@ import (
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/database"
+	"github.com/juju/juju/database/txn"
 )
 
 // Config encapsulates the configuration options for
@@ -120,7 +121,7 @@ func (w *expiryWorker) expireLeases() error {
 				// locking or other contention. We know we will retry very soon,
 				// so just log and indicate success for these cases.
 				// Rethink this if the worker cardinality changes to be singular.
-				if database.IsErrRetryable(err) {
+				if txn.IsErrRetryable(err) {
 					w.logger.Debugf("ignoring error during lease expiry: %s", err.Error())
 					return nil
 				}
@@ -140,7 +141,7 @@ func (w *expiryWorker) expireLeases() error {
 		})
 	})
 	if err != nil {
-		if database.IsErrRetryable(err) {
+		if txn.IsErrRetryable(err) {
 			return nil
 		}
 		return errors.Trace(err)

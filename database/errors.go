@@ -8,8 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/mattn/go-sqlite3"
-
-	"github.com/juju/juju/database/txn"
 )
 
 // IsErrConstraintUnique returns true if the input error was
@@ -34,7 +32,3 @@ func IsErrConstraintUnique(err error) bool {
 
 	return false
 }
-
-// IsErrRetryable returns true if the given error might be
-// transient and the interaction can be safely retried.
-var IsErrRetryable = txn.IsErrRetryable
