@@ -205,23 +205,23 @@ func (c *AddCAASCommand) Info() *cmd.Info {
 		Purpose: usageAddCAASSummary,
 		Doc:     usageAddCAASDetails,
 		Examples: []string{
-			"When your kubeconfig file is in the default location:
-			 `juju add-k8s myk8scloud`
-			 `juju add-k8s myk8scloud --client`
-			 `juju add-k8s myk8scloud --controller mycontroller`
-			 `juju add-k8s --context-name mycontext myk8scloud`
-			 `juju add-k8s myk8scloud --region cloudNameOrCloudType/someregion`
-			 `juju add-k8s myk8scloud --cloud cloudNameOrCloudType`
-			 `juju add-k8s myk8scloud --cloud cloudNameOrCloudType --region=someregion`
-			 `juju add-k8s myk8scloud --cloud cloudNameOrCloudType --storage mystorageclass`",
-			 "To add a Kubernetes cloud using data from your kubeconfig file, when this file is not in the default location:
-			  `KUBECONFIG=path-to-kubeconfig-file juju add-k8s myk8scloud --cluster-name=my_cluster_name`",
-			 "To add a Kubernetes cloud using data from kubectl, when your kubeconfig file is not in the default location:
-			  `kubectl config view --raw | juju add-k8s myk8scloud --cluster-name=my_cluster_name`",
+			"When your kubeconfig file is in the default location:\n" +
+				"`juju add-k8s myk8scloud`\n" +
+				"`juju add-k8s myk8scloud --client`\n" +
+				"`juju add-k8s myk8scloud --controller mycontroller`\n" +
+				"`juju add-k8s --context-name mycontext myk8scloud`\n" +
+				"`juju add-k8s myk8scloud --region cloudNameOrCloudType/someregion`\n" +
+				"`juju add-k8s myk8scloud --cloud cloudNameOrCloudType`\n" +
+				"`juju add-k8s myk8scloud --cloud cloudNameOrCloudType --region=someregion`\n" +
+				"`juju add-k8s myk8scloud --cloud cloudNameOrCloudType --storage mystorageclass`",
+			"To add a Kubernetes cloud using data from your kubeconfig file, when this file is not in the default location:\n" +
+				"`KUBECONFIG=path-to-kubeconfig-file juju add-k8s myk8scloud --cluster-name=my_cluster_name`",
+			"To add a Kubernetes cloud using data from kubectl, when your kubeconfig file is not in the default location:\n" +
+				"`kubectl config view --raw | juju add-k8s myk8scloud --cluster-name=my_cluster_name`",
 		},
 		SeeAlso: []string{
-		"remove-k8s",
-		}
+			"remove-k8s",
+		},
 	})
 }
 
