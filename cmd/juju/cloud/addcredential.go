@@ -146,7 +146,7 @@ func (c *addCredentialCommand) Info() *cmd.Info {
 			"`juju add-credential aws -f ~/credentials.yaml -c mycontroller`",
 			"`juju add-credential aws -f ~/credentials.yaml`",
 			"`juju add-credential aws -f ~/credentials.yaml --client`",
-			},
+		},
 		SeeAlso: []string{
 			"credentials",
 			"remove-credential",
