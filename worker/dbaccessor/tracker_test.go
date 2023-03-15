@@ -133,7 +133,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceeds(c *gc.C) 
 		return errors.New("boom")
 	}
 
-	w, err := NewTrackedDBWorker(s.dbApp, "controller", WithClock(s.clock), WithLogger(s.logger), WithVerifyDBFunc(verifyFn))
+	w, err := s.newTrackedDBWorker(verifyFn)
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer workertest.DirtyKill(c, w)
@@ -189,7 +189,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceedsWithDiffer
 		return errors.New("boom")
 	}
 
-	w, err := NewTrackedDBWorker(s.dbApp, "controller", WithClock(s.clock), WithLogger(s.logger), WithVerifyDBFunc(verifyFn))
+	w, err := s.newTrackedDBWorker(verifyFn)
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer workertest.DirtyKill(c, w)
@@ -230,7 +230,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButFails(c *gc.C) {
 		return errors.New("boom")
 	}
 
-	w, err := NewTrackedDBWorker(s.dbApp, "controller", WithClock(s.clock), WithLogger(s.logger), WithVerifyDBFunc(verifyFn))
+	w, err := s.newTrackedDBWorker(verifyFn)
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer workertest.DirtyKill(c, w)
@@ -255,6 +255,16 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButFails(c *gc.C) {
 		return nil
 	})
 	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
+func (s *trackedDBWorkerSuite) newTrackedDBWorker(verifyFn func(context.Context, *sql.DB) error) (TrackedDB, error) {
+	collector := NewMetricsCollector()
+	return NewTrackedDBWorker(s.dbApp, "controller",
+		WithClock(s.clock),
+		WithLogger(s.logger),
+		WithVerifyDBFunc(verifyFn),
+		WithMetricsCollector(collector),
+	)
 }
 
 func checkTableNames(c *gc.C, w coredatabase.TrackedDB) []string {

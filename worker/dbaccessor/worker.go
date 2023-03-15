@@ -99,8 +99,9 @@ func makeDBRequest(namespace string) dbRequest {
 // WorkerConfig encapsulates the configuration options for the
 // dbaccessor worker.
 type WorkerConfig struct {
-	NodeManager NodeManager
-	Clock       clock.Clock
+	NodeManager      NodeManager
+	Clock            clock.Clock
+	MetricsCollector *Collector
 
 	// Hub is the pub/sub central hub used to receive notifications
 	// about API server topology changes.
@@ -121,6 +122,9 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.Clock == nil {
 		return errors.NotValidf("missing Clock")
+	}
+	if c.MetricsCollector == nil {
+		return errors.NotValidf("missing metrics collector")
 	}
 	if c.Hub == nil {
 		return errors.NotValidf("missing Hub")
@@ -367,7 +371,11 @@ func (w *dbWorker) initialiseDqlite(options ...app.Option) error {
 
 func (w *dbWorker) openDatabase(namespace string) error {
 	err := w.dbRunner.StartWorker(namespace, func() (worker.Worker, error) {
-		return w.cfg.NewDBWorker(w.dbApp, namespace, WithClock(w.cfg.Clock), WithLogger(w.cfg.Logger))
+		return w.cfg.NewDBWorker(w.dbApp, namespace,
+			WithClock(w.cfg.Clock),
+			WithLogger(w.cfg.Logger),
+			WithMetricsCollector(w.cfg.MetricsCollector),
+		)
 	})
 	if errors.Is(err, errors.AlreadyExists) {
 		return nil
