@@ -15,9 +15,9 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3/catacomb"
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/retry.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/database"
@@ -69,20 +69,14 @@ func NewManager(config ManagerConfig) (*Manager, error) {
 		unpins:     make(chan pin),
 		logContext: logContext,
 	}
-	err := catacomb.Invoke(catacomb.Plan{
-		Site: &manager.catacomb,
-		Work: manager.loop,
-	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	manager.tomb.Go(manager.loop)
 	return manager, nil
 }
 
 // Manager implements worker.Worker and can be bound to get
 // lease.Checkers and lease.Claimers.
 type Manager struct {
-	catacomb catacomb.Catacomb
+	tomb tomb.Tomb
 
 	// config collects all external configuration and dependencies.
 	config ManagerConfig
@@ -136,12 +130,12 @@ type Manager struct {
 // Kill is part of the worker.Worker interface.
 func (manager *Manager) Kill() {
 	manager.config.CancelDBOps()
-	manager.catacomb.Kill(nil)
+	manager.tomb.Kill(nil)
 }
 
 // Wait is part of the worker.Worker interface.
 func (manager *Manager) Wait() error {
-	return manager.catacomb.Wait()
+	return manager.tomb.Wait()
 }
 
 // loop runs until the manager is stopped.
@@ -164,6 +158,9 @@ func (manager *Manager) loop() error {
 	blocks := make(blocks)
 	for {
 		if err := manager.choose(blocks); err != nil {
+			if errors.Is(err, tomb.ErrDying) {
+				err = manager.tomb.Err()
+			}
 			manager.config.Logger.Tracef("[%s] exiting main loop with error: %v", manager.logContext, err)
 			return errors.Trace(err)
 		}
@@ -183,8 +180,8 @@ func (manager *Manager) lookupLease(leaseKey lease.Key) (lease.Info, bool, error
 // choose breaks the select out of loop to make the blocking logic clearer.
 func (manager *Manager) choose(blocks blocks) error {
 	select {
-	case <-manager.catacomb.Dying():
-		return manager.catacomb.ErrDying()
+	case <-manager.tomb.Dying():
+		return tomb.ErrDying
 
 	case check := <-manager.checks:
 		return manager.handleCheck(check)
@@ -319,7 +316,7 @@ func (manager *Manager) retryingClaim(claim claim) {
 
 		default:
 			// Stop the main loop because we got an abnormal error
-			manager.catacomb.Kill(errors.Trace(err))
+			manager.tomb.Kill(errors.Trace(err))
 		}
 	}
 }
@@ -349,8 +346,8 @@ func (manager *Manager) handleClaim(claim claim) (action, bool, error) {
 	var act action
 
 	select {
-	case <-manager.catacomb.Dying():
-		return "unknown", false, manager.catacomb.ErrDying()
+	case <-manager.tomb.Dying():
+		return "unknown", false, tomb.ErrDying
 	default:
 		info, found, err := manager.lookupLease(claim.leaseKey)
 		if err != nil {
@@ -383,7 +380,7 @@ func (manager *Manager) handleClaim(claim claim) (action, bool, error) {
 		}
 
 		if lease.IsAborted(err) {
-			return act, false, manager.catacomb.ErrDying()
+			return act, false, tomb.ErrDying
 		}
 		if err != nil {
 			return act, false, errors.Trace(err)
@@ -424,7 +421,7 @@ func (manager *Manager) retryingRevoke(revoke revoke) {
 		revoke.respond(nil)
 		// If we send back an error, then the main loop won't listen for expireDone
 		select {
-		case <-manager.catacomb.Dying():
+		case <-manager.tomb.Dying():
 			return
 		case manager.expireDone <- struct{}{}:
 		}
@@ -449,7 +446,7 @@ func (manager *Manager) retryingRevoke(revoke revoke) {
 
 		default:
 			// Stop the main loop because we got an abnormal error
-			manager.catacomb.Kill(errors.Trace(err))
+			manager.tomb.Kill(errors.Trace(err))
 		}
 	}
 }
@@ -460,8 +457,8 @@ func (manager *Manager) handleRevoke(revoke revoke) error {
 	logger := manager.config.Logger
 
 	select {
-	case <-manager.catacomb.Dying():
-		return manager.catacomb.ErrDying()
+	case <-manager.tomb.Dying():
+		return tomb.ErrDying
 	default:
 		info, found, err := manager.lookupLease(revoke.leaseKey)
 		if err != nil {
@@ -485,7 +482,7 @@ func (manager *Manager) handleRevoke(revoke revoke) error {
 		}
 
 		if lease.IsAborted(err) {
-			return manager.catacomb.ErrDying()
+			return tomb.ErrDying
 		}
 		if err != nil {
 			return errors.Trace(err)
@@ -628,7 +625,7 @@ func (manager *Manager) startRetry() *retry.Attempt {
 			Jitter:  true,
 		}),
 		manager.config.Clock,
-		manager.catacomb.Dying(),
+		manager.tomb.Dying(),
 	)
 }
 

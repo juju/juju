@@ -47,7 +47,7 @@ func (b *boundManager) Claim(leaseName, holderName string, duration time.Duratio
 		holderName: holderName,
 		duration:   duration,
 		response:   make(chan error),
-		stop:       b.manager.catacomb.Dying(),
+		stop:       b.manager.tomb.Dying(),
 	}.invoke(b.manager.claims)
 }
 
@@ -65,7 +65,7 @@ func (b *boundManager) Revoke(leaseName, holderName string) error {
 		leaseKey:   key,
 		holderName: holderName,
 		response:   make(chan error),
-		stop:       b.manager.catacomb.Dying(),
+		stop:       b.manager.tomb.Dying(),
 	}.invoke(b.manager.revokes)
 }
 
@@ -79,7 +79,7 @@ func (b *boundManager) WaitUntilExpired(leaseName string, cancel <-chan struct{}
 	return block{
 		leaseKey: key,
 		unblock:  make(chan struct{}),
-		stop:     b.manager.catacomb.Dying(),
+		stop:     b.manager.tomb.Dying(),
 		cancel:   cancel,
 	}.invoke(b.manager.blocks)
 }
@@ -91,7 +91,7 @@ func (b *boundManager) Token(leaseName, holderName string) lease.Token {
 		holderName: holderName,
 		secretary:  b.secretary,
 		checks:     b.manager.checks,
-		stop:       b.manager.catacomb.Dying(),
+		stop:       b.manager.tomb.Dying(),
 	}
 }
 
@@ -126,7 +126,7 @@ func (b *boundManager) pinOp(leaseName string, entity string, ch chan pin) error
 		leaseKey: b.leaseKey(leaseName),
 		entity:   entity,
 		response: make(chan error),
-		stop:     b.manager.catacomb.Dying(),
+		stop:     b.manager.tomb.Dying(),
 	}.invoke(ch))
 }
 
