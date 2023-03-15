@@ -24,7 +24,7 @@ func NewMetricsCollector() *Collector {
 			Namespace: dbaccessorMetricsNamespace,
 			Subsystem: dbaccessorSubsystemNamespace,
 			Name:      "requests_total",
-			Help:      "Total number of db requests.",
+			Help:      "Number of active db requests.",
 		}, []string{"namespace"}),
 		DBDuration: prometheus.NewHistogramVec(prometheus.HistogramOpts{
 			Namespace: dbaccessorMetricsNamespace,
@@ -36,7 +36,7 @@ func NewMetricsCollector() *Collector {
 			Namespace: dbaccessorMetricsNamespace,
 			Subsystem: dbaccessorSubsystemNamespace,
 			Name:      "txn_requests_total",
-			Help:      "Total number of txn requests including retries.",
+			Help:      "Number of active txn requests including retries.",
 		}, []string{"namespace"}),
 	}
 }

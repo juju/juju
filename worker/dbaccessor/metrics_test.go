@@ -54,10 +54,10 @@ juju_db_duration_seconds_bucket{namespace="foo",result="success",le="10"} 1
 juju_db_duration_seconds_bucket{namespace="foo",result="success",le="+Inf"} 1
 juju_db_duration_seconds_sum{namespace="foo",result="success"} 0.1
 juju_db_duration_seconds_count{namespace="foo",result="success"} 1
-# HELP juju_db_requests_total Total number of db requests.
+# HELP juju_db_requests_total Number of active db requests.
 # TYPE juju_db_requests_total gauge
 juju_db_requests_total{namespace="foo"} 1
-# HELP juju_db_txn_requests_total Total number of txn requests including retries.
+# HELP juju_db_txn_requests_total Number of active txn requests including retries.
 # TYPE juju_db_txn_requests_total gauge
 juju_db_txn_requests_total{namespace="foo"} 1
 		`[1:]))
