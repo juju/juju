@@ -81,7 +81,7 @@ func (s *ValidationSuite) TestMissingSecretary(c *gc.C) {
 func (s *ValidationSuite) TestMissingPrometheusRegisterer(c *gc.C) {
 	s.config.PrometheusRegisterer = nil
 	err := s.config.Validate()
-	// Find to miss this out for now.
+	// Fine to miss this out for now.
 	c.Assert(err, jc.ErrorIsNil)
 }
 
