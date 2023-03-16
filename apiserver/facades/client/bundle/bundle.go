@@ -817,6 +817,9 @@ func (b *BundleAPI) constraints(cons description.Constraints) []string {
 	if instType := cons.InstanceType(); instType != "" {
 		result = append(result, "instance-type="+instType)
 	}
+	if imageID := cons.ImageID(); imageID != "" {
+		result = append(result, "image-id="+imageID)
+	}
 	if container := cons.Container(); container != "" {
 		result = append(result, "container="+container)
 	}

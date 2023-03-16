@@ -2366,6 +2366,7 @@ func (e *exporter) constraintsArgs(globalKey string) (description.ConstraintsArg
 		Container:        optionalString("container"),
 		CpuCores:         optionalInt("cpucores"),
 		CpuPower:         optionalInt("cpupower"),
+		ImageID:          optionalString("imageid"),
 		InstanceType:     optionalString("instancetype"),
 		Memory:           optionalInt("mem"),
 		RootDisk:         optionalInt("rootdisk"),
