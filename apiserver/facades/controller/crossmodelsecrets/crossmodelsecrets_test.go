@@ -169,14 +169,14 @@ func (s *CrossModelSecretsSuite) assertGetSecretContentInfo(c *gc.C, newConsumer
 
 	consumerTag := names.NewUnitTag("remote-app/666")
 	if newConsumer {
-		s.secretsConsumer.EXPECT().GetSecretConsumer(uri, consumerTag).Return(nil, errors.NotFoundf(""))
+		s.secretsConsumer.EXPECT().GetSecretRemoteConsumer(uri, consumerTag).Return(nil, errors.NotFoundf(""))
 	} else {
-		s.secretsConsumer.EXPECT().GetSecretConsumer(uri, consumerTag).Return(&coresecrets.SecretConsumerMetadata{CurrentRevision: 69}, nil)
+		s.secretsConsumer.EXPECT().GetSecretRemoteConsumer(uri, consumerTag).Return(&coresecrets.SecretConsumerMetadata{CurrentRevision: 69}, nil)
 	}
 	s.secretsState.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{
 		LatestRevision: 667,
 	}, nil)
-	s.secretsConsumer.EXPECT().SaveSecretConsumer(uri, consumerTag, &coresecrets.SecretConsumerMetadata{
+	s.secretsConsumer.EXPECT().SaveSecretRemoteConsumer(uri, consumerTag, &coresecrets.SecretConsumerMetadata{
 		CurrentRevision: 667,
 		LatestRevision:  667,
 	}).Return(nil)

@@ -228,6 +228,9 @@ func (st *State) exportImpl(cfg ExportConfig, leaders map[string]string) (descri
 	if err := export.secrets(); err != nil {
 		return nil, errors.Trace(err)
 	}
+	if err := export.remoteSecrets(); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	// If we are doing a partial export, it doesn't really make sense
 	// to validate the model.
@@ -1870,7 +1873,7 @@ func (e *exporter) secrets() error {
 		}
 		access[perm.Subject] = accessArg
 	}
-	allConsumers, err := store.allSecretConsumers()
+	allConsumers, err := store.allLocalSecretConsumers()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1889,26 +1892,79 @@ func (e *exporter) secrets() error {
 		consumersByID[id] = append(consumersByID[id], consumerArg)
 	}
 
+	allRemoteConsumers, err := store.allSecretRemoteConsumers()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	remoteConsumersByID := make(map[string][]description.SecretRemoteConsumerArgs)
+	for _, info := range allRemoteConsumers {
+		consumer, err := names.ParseTag(info.ConsumerTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		id := strings.Split(e.st.localID(info.DocID), "#")[0]
+		remoteConsumerArg := description.SecretRemoteConsumerArgs{
+			Consumer:        consumer,
+			CurrentRevision: info.CurrentRevision,
+		}
+		remoteConsumersByID[id] = append(remoteConsumersByID[id], remoteConsumerArg)
+	}
+
 	for _, md := range allSecrets {
 		owner, err := names.ParseTag(md.OwnerTag)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		arg := description.SecretArgs{
-			ID:             md.URI.ID,
-			Version:        md.Version,
-			Description:    md.Description,
-			Label:          md.Label,
-			RotatePolicy:   md.RotatePolicy.String(),
-			Owner:          owner,
-			Created:        md.CreateTime,
-			Updated:        md.UpdateTime,
-			NextRotateTime: md.NextRotateTime,
-			Revisions:      revisionArgsByID[md.URI.ID],
-			ACL:            accessArgsByID[md.URI.ID],
-			Consumers:      consumersByID[md.URI.ID],
+			ID:              md.URI.ID,
+			Version:         md.Version,
+			Description:     md.Description,
+			Label:           md.Label,
+			RotatePolicy:    md.RotatePolicy.String(),
+			Owner:           owner,
+			Created:         md.CreateTime,
+			Updated:         md.UpdateTime,
+			NextRotateTime:  md.NextRotateTime,
+			Revisions:       revisionArgsByID[md.URI.ID],
+			ACL:             accessArgsByID[md.URI.ID],
+			Consumers:       consumersByID[md.URI.ID],
+			RemoteConsumers: remoteConsumersByID[md.URI.ID],
 		}
 		e.model.AddSecret(arg)
+	}
+	return nil
+}
+
+func (e *exporter) remoteSecrets() error {
+	if e.cfg.SkipSecrets {
+		return nil
+	}
+	store := NewSecrets(e.st)
+
+	allConsumers, err := store.allRemoteSecretConsumers()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	e.logger.Debugf("read %d remote secret consumers", len(allConsumers))
+	for _, info := range allConsumers {
+		consumer, err := names.ParseTag(info.ConsumerTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		id := strings.Split(e.st.localID(info.DocID), "#")[0]
+		uri, err := secrets.ParseURI(id)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		arg := description.RemoteSecretArgs{
+			ID:              uri.ID,
+			SourceUUID:      uri.SourceUUID,
+			Consumer:        consumer,
+			Label:           info.Label,
+			CurrentRevision: info.CurrentRevision,
+			LatestRevision:  info.LatestRevision,
+		}
+		e.model.AddRemoteSecret(arg)
 	}
 	return nil
 }

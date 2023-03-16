@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -262,7 +263,7 @@ func (c *Client) ControllerAPIInfoForModel(modelUUID string) (*api.Info, error) 
 	}
 	result := results.Results[0]
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, apiservererrors.RestoreError(result.Error)
 	}
 	return &api.Info{
 		Addrs:    result.Addresses,
