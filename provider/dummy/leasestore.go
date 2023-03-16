@@ -4,6 +4,7 @@
 package dummy
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -42,7 +43,7 @@ func newLeaseStore(clock clock.Clock) *leaseStore {
 }
 
 // ClaimLease is part of lease.Store.
-func (s *leaseStore) ClaimLease(key lease.Key, req lease.Request, _ <-chan struct{}) error {
+func (s *leaseStore) ClaimLease(_ context.Context, key lease.Key, req lease.Request) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if _, found := s.entries[key]; found {
@@ -57,7 +58,7 @@ func (s *leaseStore) ClaimLease(key lease.Key, req lease.Request, _ <-chan struc
 }
 
 // ExtendLease is part of lease.Store.
-func (s *leaseStore) ExtendLease(key lease.Key, req lease.Request, _ <-chan struct{}) error {
+func (s *leaseStore) ExtendLease(_ context.Context, key lease.Key, req lease.Request) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	entry, found := s.entries[key]
@@ -82,7 +83,7 @@ func (s *leaseStore) ExtendLease(key lease.Key, req lease.Request, _ <-chan stru
 }
 
 // RevokeLease is part of lease.Store.
-func (s *leaseStore) RevokeLease(key lease.Key, _ string, _ <-chan struct{}) error {
+func (s *leaseStore) RevokeLease(_ context.Context, key lease.Key, _ string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	_, found := s.entries[key]
@@ -94,7 +95,7 @@ func (s *leaseStore) RevokeLease(key lease.Key, _ string, _ <-chan struct{}) err
 }
 
 // Leases is part of lease.Store.
-func (s *leaseStore) Leases(keys ...lease.Key) (map[lease.Key]lease.Info, error) {
+func (s *leaseStore) Leases(_ context.Context, keys ...lease.Key) (map[lease.Key]lease.Info, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -121,8 +122,8 @@ func (s *leaseStore) Leases(keys ...lease.Key) (map[lease.Key]lease.Info, error)
 }
 
 // LeaseGroup is part of lease.Store.
-func (s *leaseStore) LeaseGroup(namespace, modelUUID string) (map[lease.Key]lease.Info, error) {
-	leases, _ := s.Leases()
+func (s *leaseStore) LeaseGroup(ctx context.Context, namespace, modelUUID string) (map[lease.Key]lease.Info, error) {
+	leases, _ := s.Leases(ctx)
 	if len(leases) == 0 {
 		return leases, nil
 	}
@@ -136,16 +137,16 @@ func (s *leaseStore) LeaseGroup(namespace, modelUUID string) (map[lease.Key]leas
 }
 
 // PinLease is part of lease.Store.
-func (s *leaseStore) PinLease(lease.Key, string, <-chan struct{}) error {
+func (s *leaseStore) PinLease(context.Context, lease.Key, string) error {
 	return errors.NotImplementedf("lease pinning")
 }
 
 // UnpinLease is part of lease.Store.
-func (s *leaseStore) UnpinLease(lease.Key, string, <-chan struct{}) error {
+func (s *leaseStore) UnpinLease(context.Context, lease.Key, string) error {
 	return errors.NotImplementedf("lease unpinning")
 }
 
 // Pinned is part of the Store interface.
-func (s *leaseStore) Pinned() (map[lease.Key][]string, error) {
+func (s *leaseStore) Pinned(context.Context) (map[lease.Key][]string, error) {
 	return nil, nil
 }
