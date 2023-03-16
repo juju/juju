@@ -158,9 +158,7 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 	defer cancel()
 
 	// Locate a release that we would expect to be default. In this case
-	// we want to fall back to latest/stable. We don't want to use the
-	// info.DefaultRelease here as that isn't actually the default release,
-	// but instead the last release and that's not what we want.
+	// we want to fall back to latest/stable.
 	channel := c.channel
 	if channel == "" {
 		channel = corecharm.DefaultChannelString
