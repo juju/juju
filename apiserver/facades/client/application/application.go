@@ -171,7 +171,15 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 	}
 
 	updateBase := NewUpdateBaseAPI(state, makeUpdateSeriesValidator(chClient))
-	repoDeploy := NewDeployFromRepositoryAPI(state, makeDeployFromRepositoryValidator(state, model, charmhubHTTPClient))
+	validatorCfg := validatorConfig{
+		charmhubHTTPClient: charmhubHTTPClient,
+		caasBroker:         caasBroker,
+		model:              m,
+		registry:           registry,
+		state:              state,
+		storagePoolManager: storagePoolManager,
+	}
+	repoDeploy := NewDeployFromRepositoryAPI(state, makeDeployFromRepositoryValidator(validatorCfg))
 
 	return NewAPIBase(
 		state,

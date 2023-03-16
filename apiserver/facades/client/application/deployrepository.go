@@ -29,6 +29,8 @@ import (
 	environsconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/poolmanager"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -219,11 +221,20 @@ type deployTemplate struct {
 	storage           map[string]state.StorageConstraints
 }
 
-func makeDeployFromRepositoryValidator(st DeployFromRepositoryState, m Model, charmhubHTTPClient facade.HTTPClient) DeployFromRepositoryValidator {
+type validatorConfig struct {
+	charmhubHTTPClient facade.HTTPClient
+	caasBroker         CaasBrokerInterface
+	model              Model
+	registry           storage.ProviderRegistry
+	state              DeployFromRepositoryState
+	storagePoolManager poolmanager.PoolManager
+}
+
+func makeDeployFromRepositoryValidator(cfg validatorConfig) DeployFromRepositoryValidator {
 	v := &deployFromRepositoryValidator{
-		charmhubHTTPClient: charmhubHTTPClient,
-		model:              m,
-		state:              st,
+		charmhubHTTPClient: cfg.charmhubHTTPClient,
+		model:              cfg.model,
+		state:              cfg.state,
 		newRepoFactory: func(cfg services.CharmRepoFactoryConfig) corecharm.RepositoryFactory {
 			return services.NewCharmRepoFactory(cfg)
 		},
@@ -231,9 +242,12 @@ func makeDeployFromRepositoryValidator(st DeployFromRepositoryState, m Model, ch
 			return state.NewBindings(st, givenMap)
 		},
 	}
-	if m.Type() == state.ModelTypeCAAS {
+	if cfg.model.Type() == state.ModelTypeCAAS {
 		return &caasDeployFromRepositoryValidator{
-			validator: v,
+			caasBroker:         cfg.caasBroker,
+			registry:           cfg.registry,
+			storagePoolManager: cfg.storagePoolManager,
+			validator:          v,
 		}
 	}
 	return &iaasDeployFromRepositoryValidator{
@@ -378,6 +392,10 @@ func (v *deployFromRepositoryValidator) validate(arg params.DeployFromRepository
 
 type caasDeployFromRepositoryValidator struct {
 	validator *deployFromRepositoryValidator
+
+	caasBroker         CaasBrokerInterface
+	registry           storage.ProviderRegistry
+	storagePoolManager poolmanager.PoolManager
 }
 
 func (v caasDeployFromRepositoryValidator) ValidateArg(arg params.DeployFromRepositoryArg) (deployTemplate, []error) {
