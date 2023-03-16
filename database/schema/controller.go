@@ -8,6 +8,7 @@ func ControllerDDL() []string {
 	schemas := []func() string{
 		leaseSchema,
 		changeLogSchema,
+		cloudSchema,
 	}
 
 	var deltas []string
@@ -111,5 +112,96 @@ CREATE TABLE change_log (
     CONSTRAINT          fk_change_log_namespace
             FOREIGN KEY (namespace_id)
             REFERENCES  change_log_namespace(id)
+);`[1:]
+}
+
+func cloudSchema() string {
+	return `
+CREATE TABLE cloud_type (
+    id   INT PRIMARY KEY,
+    type TEXT
+);
+
+CREATE UNIQUE INDEX idx_cloud_type_type
+ON cloud_type (type);
+
+-- The list of all the cloud types that are supported for this release. This
+-- doesn't indicate whether the cloud type is supported for the current
+-- controller, but rather the cloud type is supported in general.
+INSERT INTO cloud_type VALUES
+    (0, 'kubernetes'),
+    (1, 'lxd'),
+    (2, 'maas'),
+    (3, 'manual'),
+    (4, 'azure'),
+    (5, 'ec2'),
+    (6, 'equinix'),
+    (7, 'gce'),
+    (8, 'oci'),
+    (9, 'openstack'),
+    (10, 'vsphere');
+
+CREATE TABLE cloud_auth_type (
+    id   INT PRIMARY KEY,
+    type TEXT
+);
+
+CREATE UNIQUE INDEX idx_cloud_auth_type_type
+ON cloud_auth_type (type);
+
+INSERT INTO cloud_auth_type VALUES
+    (0, 'access-key'),
+    (1, 'instance-role'),
+    (2, 'userpass'),
+    (3, 'oauth1'),
+    (4, 'oauth2'),
+    (5, 'jsonfile'),
+    (6, 'clientcertificate'),
+    (7, 'httpsig'),
+    (8, 'interactive'),
+    (9, 'empty'),
+    (10, 'certificate'),
+    (11, 'oauth2withcert');
+
+CREATE TABLE cloud_auth_types (
+    uuid            TEXT PRIMARY KEY,
+    auth_type_id    INT NOT NULL
+);
+
+CREATE UNIQUE INDEX idx_cloud_auth_types_auth_type_id
+ON cloud_auth_types (auth_type_id);
+
+CREATE TABLE cloud_regions (
+    uuid            TEXT PRIMARY KEY,
+    region_id       INT NOT NULL
+);
+
+CREATE UNIQUE INDEX idx_cloud_regions_region_id
+ON cloud_regions (region_id);
+
+CREATE TABLE cloud_region (
+    id                     INT PRIMARY KEY,
+    region                 TEXT NOT NULL,
+    endpoint               TEXT,
+    identity_endpoint      TEXT,
+    storage_endpoint       TEXT
+);
+
+CREATE UNIQUE INDEX idx_cloud_region_region
+ON cloud_region (region);
+
+CREATE TABLE cloud_certificates (
+    uuid            TEXT PRIMARY KEY,
+    certificate     TEXT NOT NULL
+);
+
+CREATE TABLE cloud (
+    uuid                TEXT PRIMARY KEY,
+    name                TEXT NOT NULL,
+    cloud_type_id       INT NOT NULL,
+    endpoint            TEXT NOT NULL,
+    identity_endpoint   TEXT,
+    storage_endpoint    TEXT,
+    skip_tls_verify     BOOLEAN NOT NULL
 );`[1:]
 }
