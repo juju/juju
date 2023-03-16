@@ -38,6 +38,12 @@ List the actions available to run on the target application, with a short
 description.  To show the full schema for the actions, use --schema.
 `
 
+const examples = `
+   juju actions postgresql
+   juju actions postgresql --format yaml
+   juju actions postgresql --schema
+`
+
 // Set up the output.
 func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ActionCommandBase.SetFlags(f)
@@ -63,16 +69,12 @@ func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 
 func (c *listCommand) Info() *cmd.Info {
 	info := jujucmd.Info(&cmd.Info{
-		Name:    "actions",
-		Args:    "<application>",
-		Purpose: "List actions defined for an application.",
-		Doc:     listDoc,
-		Aliases: []string{"list-actions"},
-		Examples: []string{
-			"`juju actions postgresql`",
-			"`juju actions postgresql --format yaml`",
-			"`juju actions postgresql --schema`",
-		},
+		Name:     "actions",
+		Args:     "<application>",
+		Purpose:  "List actions defined for an application.",
+		Doc:      listDoc,
+		Aliases:  []string{"list-actions"},
+		Examples: examples,
 		SeeAlso: []string{
 			"run",
 			"show-action",
