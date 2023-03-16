@@ -310,9 +310,37 @@ func (v *deployFromRepositoryValidator) validate(arg params.DeployFromRepository
 	}
 	deployRepoLogger.Tracef("from getCharm: %s", charmURL, pretty.Sprint(resolvedOrigin))
 
+	// Various checks of the resolved charm against the arg provided.
+	dt, rcErrs := v.resolvedCharmValidation(resolvedCharm, arg)
+	if len(rcErrs) > 0 {
+		errs = append(errs, rcErrs...)
+	}
+
+	dt.charmURL = charmURL
+	dt.dryRun = arg.DryRun
+	dt.force = arg.Force
+	dt.origin = resolvedOrigin
+	dt.placement = arg.Placement
+	dt.storage = stateStorageConstraints(arg.Storage)
+	if len(arg.EndpointBindings) > 0 {
+		bindings, err := v.newStateBindings(v.state, arg.EndpointBindings)
+		if err != nil {
+			errs = append(errs, err)
+		}
+		dt.endpoints = bindings.Map()
+	}
+	deployRepoLogger.Tracef("validateDeployFromRepositoryArgs returning: %s", pretty.Sprint(dt))
+	return dt, errs
+}
+
+func (v *deployFromRepositoryValidator) resolvedCharmValidation(resolvedCharm charm.Charm, arg params.DeployFromRepositoryArg) (deployTemplate, []error) {
+	errs := make([]error, 0)
 	if resolvedCharm.Meta().Name == bootstrap.ControllerCharmName {
 		errs = append(errs, errors.NotSupportedf("manual deploy of the controller charm"))
 	}
+
+	var cons constraints.Value
+	var numUnits int
 	if resolvedCharm.Meta().Subordinate {
 		if arg.NumUnits != nil && *arg.NumUnits != 0 {
 			errs = append(errs, fmt.Errorf("subordinate application must be deployed without units"))
@@ -320,11 +348,22 @@ func (v *deployFromRepositoryValidator) validate(arg params.DeployFromRepository
 		if !constraints.IsEmpty(&arg.Cons) {
 			errs = append(errs, fmt.Errorf("subordinate application must be deployed without constraints"))
 		}
-	}
-	if err := jujuversion.CheckJujuMinVersion(resolvedCharm.Meta().MinJujuVersion, jujuversion.Current); err != nil {
-		errs = append(errs, err)
+	} else {
+		cons = arg.Cons
+
+		if arg.NumUnits != nil {
+			numUnits = *arg.NumUnits
+		} else {
+			// The juju client defaults num units to 1. Ensure that a
+			// charm deployed by any client has at least one if no
+			// number provided.
+			numUnits = 1
+		}
 	}
 
+	// appNameForConfig is the application name used in a config file.
+	// It is based on user knowledge and either the charm or application
+	// name from the cli.
 	appNameForConfig := arg.CharmName
 	if arg.ApplicationName != "" {
 		appNameForConfig = arg.ApplicationName
@@ -334,6 +373,13 @@ func (v *deployFromRepositoryValidator) validate(arg params.DeployFromRepository
 		errs = append(errs, err)
 	}
 
+	if err := jujuversion.CheckJujuMinVersion(resolvedCharm.Meta().MinJujuVersion, jujuversion.Current); err != nil {
+		errs = append(errs, err)
+	}
+
+	// The appName is subtly different from the application config name.
+	// The charm name in the metadata can be different from the charm
+	// name used to deploy a charm.
 	appName := resolvedCharm.Meta().Name
 	if arg.ApplicationName != "" {
 		appName = arg.ApplicationName
@@ -347,46 +393,16 @@ func (v *deployFromRepositoryValidator) validate(arg params.DeployFromRepository
 		deployRepoLogger.Warningf("proceeding with deployment of application %q even though the charm feature requirements could not be met as --force was specified", appName)
 	}
 
-	var numUnits int
-	if arg.NumUnits != nil {
-		numUnits = *arg.NumUnits
-	}
-
-	// Validate the other args.
 	dt := deployTemplate{
 		applicationConfig: appConfig,
 		applicationName:   appName,
 		charm:             resolvedCharm,
 		charmSettings:     settings,
-		charmURL:          charmURL,
-		dryRun:            arg.DryRun,
-		force:             arg.Force,
+		constraints:       cons,
 		numUnits:          numUnits,
-		origin:            resolvedOrigin,
-		placement:         arg.Placement,
-		storage:           stateStorageConstraints(arg.Storage),
 		resources:         arg.Resources,
 	}
-	if arg.NumUnits != nil {
-		dt.numUnits = *arg.NumUnits
-	} else {
-		// The juju client defaults num units to 1. Ensure that a
-		// charm deployed by any client has at least one if no
-		// number provided.
-		dt.numUnits = 1
-	}
-	if len(arg.EndpointBindings) > 0 {
-		bindings, err := v.newStateBindings(v.state, arg.EndpointBindings)
-		if err != nil {
-			errs = append(errs, err)
-		}
-		dt.endpoints = bindings.Map()
-	}
 
-	if !resolvedCharm.Meta().Subordinate {
-		dt.constraints = arg.Cons
-	}
-	deployRepoLogger.Tracef("validateDeployFromRepositoryArgs returning: %s", pretty.Sprint(dt))
 	return dt, errs
 }
 
