@@ -39,9 +39,9 @@ description.  To show the full schema for the actions, use --schema.
 `
 
 const examples = `
-   juju actions postgresql
-   juju actions postgresql --format yaml
-   juju actions postgresql --schema
+    juju actions postgresql
+    juju actions postgresql --format yaml
+    juju actions postgresql --schema
 `
 
 // Set up the output.
