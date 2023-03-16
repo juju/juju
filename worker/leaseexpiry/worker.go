@@ -6,13 +6,12 @@ package leaseexpiry
 import (
 	"context"
 	"database/sql"
-	"sync"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/catacomb"
+	"gopkg.in/tomb.v2"
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/database"
@@ -43,14 +42,12 @@ func (cfg Config) Validate() error {
 }
 
 type expiryWorker struct {
-	catacomb catacomb.Catacomb
+	tomb tomb.Tomb
 
 	clock     clock.Clock
 	logger    Logger
 	trackedDB coredatabase.TrackedDB
-
-	mutex sync.Mutex
-	stmt  *sql.Stmt
+	dml       string
 }
 
 // NewWorker returns a worker that periodically deletes
@@ -66,29 +63,35 @@ func NewWorker(cfg Config) (worker.Worker, error) {
 		clock:     cfg.Clock,
 		logger:    cfg.Logger,
 		trackedDB: cfg.TrackedDB,
+		dml: `
+DELETE FROM lease WHERE uuid in (
+    SELECT l.uuid 
+    FROM   lease l LEFT JOIN lease_pin p ON l.uuid = p.lease_uuid
+    WHERE  p.uuid IS NULL
+    AND    l.expiry < datetime('now')
+)`[1:],
 	}
 
-	if err = catacomb.Invoke(catacomb.Plan{
-		Site: &w.catacomb,
-		Work: w.loop,
-	}); err != nil {
-		return nil, errors.Trace(err)
-	}
-
+	w.tomb.Go(w.loop)
 	return w, nil
+
 }
 
 func (w *expiryWorker) loop() error {
-	// Now that we have a statement, we can start the worker.
 	timer := w.clock.NewTimer(time.Second)
 	defer timer.Stop()
 
+	// We pass this context to every database method that accepts one.
+	// It is cancelled by killing the tomb, which prevents shutdown
+	// being blocked by such calls.
+	ctx := w.tomb.Context(context.Background())
+
 	for {
 		select {
-		case <-w.catacomb.Dying():
-			return w.catacomb.ErrDying()
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
 		case <-timer.Chan():
-			if err := w.expireLeases(); err != nil {
+			if err := w.expireLeases(ctx); err != nil {
 				return errors.Trace(err)
 			}
 			timer.Reset(time.Second)
@@ -96,25 +99,14 @@ func (w *expiryWorker) loop() error {
 	}
 }
 
-func (w *expiryWorker) expireLeases() error {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
+func (w *expiryWorker) expireLeases(ctx context.Context) error {
 	err := w.trackedDB.DB(func(db *sql.DB) error {
 		// Txn here provides the transaction semantics we need, but there are
 		// no retry strategies employed. This is a special case, in this instance
 		// we will retry this in one second and other controllers in a HA
 		// setup will also retry.
 		return database.Txn(ctx, db, func(ctx context.Context, tx *sql.Tx) error {
-			q := `
-		DELETE FROM lease WHERE uuid in (
-			SELECT l.uuid 
-			FROM   lease l LEFT JOIN lease_pin p ON l.uuid = p.lease_uuid
-			WHERE  p.uuid IS NULL
-			AND    l.expiry < datetime('now')
-		)`[1:]
-
-			res, err := tx.ExecContext(ctx, q)
+			res, err := tx.ExecContext(ctx, w.dml)
 			if err != nil {
 				// TODO (manadart 2022-12-15): This incarnation of the worker runs on
 				// all controller nodes. Retryable errors are those that occur due to
@@ -154,10 +146,10 @@ func (w *expiryWorker) expireLeases() error {
 
 // Kill is part of the worker.Worker interface.
 func (w *expiryWorker) Kill() {
-	w.catacomb.Kill(nil)
+	w.tomb.Kill(nil)
 }
 
 // Wait is part of the worker.Worker interface.
 func (w *expiryWorker) Wait() error {
-	return w.catacomb.Wait()
+	return w.tomb.Wait()
 }
