@@ -158,9 +158,7 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 	defer cancel()
 
 	// Locate a release that we would expect to be default. In this case
-	// we want to fall back to latest/stable. We don't want to use the
-	// info.DefaultRelease here as that isn't actually the default release,
-	// but instead the last release and that's not what we want.
+	// we want to fall back to latest/stable.
 	channel := c.channel
 	if channel == "" {
 		channel = corecharm.DefaultChannelString
@@ -178,44 +176,10 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 	if pSeries == "all" || pSeries == "" {
 		pSeries = version.DefaultSupportedLTS()
 	}
-	base, err := coreseries.GetBaseFromSeries(pSeries)
+
+	results, normBase, err := c.refresh(ctx, cmdContext, client, normChannel, pArch, pSeries, true)
 	if err != nil {
 		return errors.Trace(err)
-	}
-	platform := fmt.Sprintf("%s/%s/%s", pArch, base.Name, base.Channel.Track)
-	normBase, err := corecharm.ParsePlatformNormalize(platform)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// Ensure we compute the base channel correctly.
-	computedNormBase := corecharm.ComputeBaseChannel(normBase)
-
-	refreshConfig, err := charmhub.InstallOneFromChannel(c.charmOrBundle, normChannel.String(), charmhub.RefreshBase{
-		Architecture: computedNormBase.Architecture,
-		Name:         computedNormBase.OS,
-		Channel:      computedNormBase.Channel,
-	})
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	results, err := client.Refresh(ctx, refreshConfig)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if len(results) == 0 {
-		return errors.NotFoundf(c.charmOrBundle)
-	}
-	// Ensure we didn't get any errors whilst querying the charmhub API
-	for _, res := range results {
-		if res.Error != nil {
-			if res.Error.Code == transport.ErrorCodeRevisionNotFound {
-				return c.suggested(pSeries, normChannel.String(), res.Error.Extra.Releases, cmdContext)
-			}
-			return errors.Errorf("unable to locate %s: %s", c.charmOrBundle, res.Error.Message)
-		}
 	}
 
 	// In theory we can get multiple responses from the refresh API, but in
@@ -286,7 +250,60 @@ Install the %q %s with:
 	return nil
 }
 
-func (c *downloadCommand) suggested(requestedSeries string, channel string, releases []transport.Release, cmdContext *cmd.Context) error {
+func (c *downloadCommand) refresh(ctx context.Context, cmdContext *cmd.Context, client CharmHubClient, normChannel charm.Channel, arch, series string, retrySuggested bool) ([]transport.RefreshResponse, *corecharm.Platform, error) {
+	base, err := coreseries.GetBaseFromSeries(series)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	platform := fmt.Sprintf("%s/%s/%s", arch, base.Name, base.Channel.Track)
+	normBase, err := corecharm.ParsePlatformNormalize(platform)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	// Ensure we compute the base channel correctly.
+	computedNormBase := corecharm.ComputeBaseChannel(normBase)
+
+	refreshConfig, err := charmhub.InstallOneFromChannel(c.charmOrBundle, normChannel.String(), charmhub.RefreshBase{
+		Architecture: computedNormBase.Architecture,
+		Name:         computedNormBase.OS,
+		Channel:      computedNormBase.Channel,
+	})
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	results, err := client.Refresh(ctx, refreshConfig)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	if len(results) == 0 {
+		return nil, nil, errors.NotFoundf(c.charmOrBundle)
+	}
+	// Ensure we didn't get any errors whilst querying the charmhub API
+	for _, res := range results {
+		if res.Error != nil {
+			if res.Error.Code == transport.ErrorCodeRevisionNotFound {
+				possibleSeries, err := c.suggested(cmdContext, series, normChannel.String(), res.Error.Extra.Releases)
+				// The following will attempt to refresh the charm with the
+				// suggested series. If it can't do that, it will give up after
+				// the second attempt.
+				if retrySuggested && errors.Is(err, errors.NotSupported) && len(possibleSeries) > 0 {
+					cmdContext.Infof("Series %q is not supported for charm %q, trying series %q", series, c.charmOrBundle, possibleSeries[0])
+					return c.refresh(ctx, cmdContext, client, normChannel, arch, possibleSeries[0], false)
+				}
+				return nil, nil, errors.Trace(err)
+			}
+			return nil, nil, errors.Errorf("unable to locate %s: %s", c.charmOrBundle, res.Error.Message)
+		}
+	}
+
+	return results, &normBase, nil
+}
+
+func (c *downloadCommand) suggested(cmdContext *cmd.Context, requestedSeries string, channel string, releases []transport.Release) ([]string, error) {
+	var ordered []string
 	series := set.NewStrings()
 	for _, rel := range releases {
 		if rel.Channel == channel {
@@ -297,6 +314,9 @@ func (c *downloadCommand) suggested(requestedSeries string, channel string, rele
 			})
 			s, err := coreseries.VersionSeries(platform.Channel)
 			if err == nil {
+				if !series.Contains(s) {
+					ordered = append(ordered, s)
+				}
 				series.Add(s)
 			} else {
 				// Shouldn't happen, log and continue if verbose is set.
@@ -306,13 +326,13 @@ func (c *downloadCommand) suggested(requestedSeries string, channel string, rele
 	}
 	if series.IsEmpty() {
 		// No releases in this channel
-		return errors.Errorf(`%q has no releases in channel %q. Type
+		return nil, errors.Errorf(`%q has no releases in channel %q. Type
     juju info %s
 for a list of supported channels.`,
 			c.charmOrBundle, channel, c.charmOrBundle)
 	}
-	return errors.Errorf("%q does not support series %q in channel %q.  Supported series are: %s.",
-		c.charmOrBundle, requestedSeries, channel, strings.Join(series.SortedValues(), ", "))
+	return ordered, errors.NewNotSupported(nil, fmt.Sprintf("%q does not support series %q in channel %q.  Supported series are: %s.",
+		c.charmOrBundle, requestedSeries, channel, strings.Join(series.SortedValues(), ", ")))
 }
 
 func (c *downloadCommand) calculateHash(path string) (string, error) {
