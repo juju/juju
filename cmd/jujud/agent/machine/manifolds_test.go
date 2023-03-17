@@ -72,6 +72,7 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"change-stream",
 			"charmhub-http-client",
 			"clock",
+			"controller-charm",
 			"controller-port",
 			"db-accessor",
 			"deployer",
@@ -152,6 +153,7 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"change-stream",
 			"charmhub-http-client",
 			"clock",
+			"controller-charm",
 			"controller-port",
 			"db-accessor",
 			"external-controller-updater",
@@ -311,6 +313,7 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 	primaryControllerWorkers := set.NewStrings(
 		"external-controller-updater",
 		"secret-backend-rotate",
+		"controller-charm",
 	)
 
 	// Guarded by ifDatabaseUpgradeComplete,
@@ -539,6 +542,21 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 	"charmhub-http-client": {},
 
 	"clock": {},
+
+	"controller-charm": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"is-controller-flag",
+		"is-primary-controller-flag",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"state-config-watcher",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+	},
 
 	"controller-port": {
 		"agent",
@@ -1131,6 +1149,21 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 	"charmhub-http-client": {},
 
 	"clock": {},
+
+	"controller-charm": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"is-controller-flag",
+		"is-primary-controller-flag",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"state-config-watcher",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+	},
 
 	"controller-port": {
 		"agent",

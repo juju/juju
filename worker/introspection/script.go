@@ -251,6 +251,24 @@ juju_revoke_lease () {
   juju_agent --post leases/revoke model="$model" lease="$lease" ns="$ns"
 }
 
+juju_add_metrics_user () {
+  # This requires some arguments.
+  if [ "$#" -lt 2 ]; then
+    echo "usage: juju_add_metrics_user <username> <password>"
+    return 1
+  fi
+  juju_agent --post metrics-users action=add username="$1" password="$2"
+}
+
+juju_remove_metrics_user () {
+  # This requires some arguments.
+  if [ "$#" -lt 1 ]; then
+    echo "usage: juju_remove_metrics_user <username>"
+    return 1
+  fi
+  juju_agent --post metrics-users action=remove username="$1"
+}
+
 
 # This asks for the command of the current pid.
 # Can't use $0 nor $SHELL due to this being wrong in various situations.
@@ -276,5 +294,7 @@ if [ "$shell" = "bash" ]; then
   export -f juju_stop_unit
   export -f juju_leases
   export -f juju_revoke_lease
+  export -f juju_add_metrics_user
+  export -f juju_remove_metrics_user
 fi
 `

@@ -219,9 +219,11 @@ func (w *socketListener) RegisterHTTPHandlers(
 		handle("/presence", notSupportedHandler{"Presence"})
 	}
 	if w.localHub != nil {
-		handle("/units", unitsHandler{w.clock, w.localHub, w.done})
+		handle("/units", unitsHandler{pubsubHandler{w.clock, w.localHub, w.done}})
+		handle("/metrics-users", usersHandler{pubsubHandler{w.clock, w.localHub, w.done}})
 	} else {
 		handle("/units", notSupportedHandler{"Units"})
+		handle("/metrics-users", notSupportedHandler{"Metrics Users"})
 	}
 	// TODO(leases) - add metrics
 	handle("/leases", notSupportedHandler{"Leases"})
@@ -362,10 +364,43 @@ func (a ValueSort) Less(i, j int) bool {
 	return a[i].ConnectionID < a[j].ConnectionID
 }
 
-type unitsHandler struct {
+// pubsubHandler can be embedded in other handlers to provide common pubsub
+// functionality.
+type pubsubHandler struct {
 	clock Clock
 	hub   SimpleHub
 	done  <-chan struct{}
+}
+
+func (h pubsubHandler) publishAndAwaitResponse(w http.ResponseWriter, topic, responseTopic string, data interface{}) {
+	response := make(chan interface{})
+	unsubscribe := h.hub.Subscribe(responseTopic, func(topic string, body interface{}) {
+		select {
+		case response <- body:
+		case <-h.done:
+		}
+	})
+	defer unsubscribe()
+
+	h.hub.Publish(topic, data)
+
+	select {
+	case message := <-response:
+		bytes, err := yaml.Marshal(message)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("error: %v", err), http.StatusInternalServerError)
+			return
+		}
+		_, _ = w.Write(bytes)
+	case <-h.done:
+		http.Error(w, "introspection worker stopping", http.StatusServiceUnavailable)
+	case <-h.clock.After(10 * time.Second):
+		http.Error(w, "response timed out", http.StatusInternalServerError)
+	}
+}
+
+type unitsHandler struct {
+	pubsubHandler
 }
 
 // ServeHTTP is part of the http.Handler interface.
@@ -409,29 +444,62 @@ func (h unitsHandler) status(w http.ResponseWriter, r *http.Request) {
 	h.publishAndAwaitResponse(w, agent.UnitStatusTopic, agent.UnitStatusResponseTopic, nil)
 }
 
-func (h unitsHandler) publishAndAwaitResponse(w http.ResponseWriter, topic, responseTopic string, data interface{}) {
-	response := make(chan interface{})
-	unsubscribe := h.hub.Subscribe(responseTopic, func(topic string, body interface{}) {
-		select {
-		case response <- body:
-		case <-h.done:
-		}
-	})
-	defer unsubscribe()
+type usersHandler struct {
+	pubsubHandler
+}
 
-	h.hub.Publish(topic, data)
-
-	select {
-	case message := <-response:
-		bytes, err := yaml.Marshal(message)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("error: %v", err), http.StatusInternalServerError)
-			return
-		}
-		_, _ = w.Write(bytes)
-	case <-h.done:
-		http.Error(w, "introspection worker stopping", http.StatusServiceUnavailable)
-	case <-h.clock.After(10 * time.Second):
-		http.Error(w, "response timed out", http.StatusInternalServerError)
+// ServeHTTP is part of the http.Handler interface.
+func (h usersHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
+
+	switch action := r.Form.Get("action"); action {
+	case "":
+		http.Error(w, "missing action", http.StatusBadRequest)
+	case "add":
+		h.addUser(w, r)
+	case "remove":
+		h.removeUser(w, r)
+	default:
+		http.Error(w, fmt.Sprintf("unknown action: %q", action), http.StatusBadRequest)
+	}
+}
+
+func (h usersHandler) addUser(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, fmt.Sprintf("add-user requires a POST request, got %q", r.Method), http.StatusMethodNotAllowed)
+		return
+	}
+
+	if !r.Form.Has("username") {
+		http.Error(w, `must provide "username"`, http.StatusBadRequest)
+		return
+	}
+	username := r.Form.Get("username")
+
+	if !r.Form.Has("password") {
+		http.Error(w, `must provide "password"`, http.StatusBadRequest)
+		return
+	}
+	password := r.Form.Get("password")
+
+	h.publishAndAwaitResponse(w, agent.AddMetricsUserTopic, agent.AddMetricsUserResponseTopic,
+		agent.UserInfo{Username: username, Password: password})
+}
+
+func (h usersHandler) removeUser(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, fmt.Sprintf("remove-user requires a POST request, got %q", r.Method), http.StatusMethodNotAllowed)
+		return
+	}
+
+	if !r.Form.Has("username") {
+		http.Error(w, `must provide "username"`, http.StatusBadRequest)
+		return
+	}
+	username := r.Form.Get("username")
+
+	h.publishAndAwaitResponse(w, agent.RemoveMetricsUserTopic, agent.RemoveMetricsUserResponseTopic, username)
 }

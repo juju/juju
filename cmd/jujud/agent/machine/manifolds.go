@@ -51,6 +51,7 @@ import (
 	"github.com/juju/juju/worker/changestream"
 	"github.com/juju/juju/worker/common"
 	lxdbroker "github.com/juju/juju/worker/containerbroker"
+	"github.com/juju/juju/worker/controllercharm"
 	"github.com/juju/juju/worker/controllerport"
 	"github.com/juju/juju/worker/credentialvalidator"
 	"github.com/juju/juju/worker/dbaccessor"
@@ -784,6 +785,15 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 				Logger:        loggo.GetLogger("juju.worker.secretbackendsrotate"),
 			},
 		))),
+
+		// TODO: use more ifX conditions here?
+		controllerCharmName: ifNotMigrating(ifPrimaryController(controllercharm.Manifold(controllercharm.ManifoldConfig{
+			APICallerName: apiCallerName,
+			Hub:           config.LocalHub,
+			Logger:        loggo.GetLogger("juju.worker.controllercharm"),
+			NewFacade:     controllercharm.NewFacade,
+			NewWorker:     controllercharm.NewWorker,
+		}))),
 	}
 
 	return manifolds
@@ -1071,6 +1081,7 @@ var ifDatabaseUpgradeComplete = engine.Housing{
 	},
 }.Decorate
 
+// TODO: is there some kind of pattern here?
 const (
 	agentName              = "agent"
 	agentConfigUpdaterName = "agent-config-updater"
@@ -1142,6 +1153,7 @@ const (
 	kvmContainerProvisioner       = "kvm-container-provisioner"
 
 	secretBackendRotateName = "secret-backend-rotate"
+	controllerCharmName     = "controller-charm"
 
 	upgradeSeriesWorkerName = "upgrade-series"
 

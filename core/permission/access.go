@@ -14,6 +14,11 @@ const (
 
 	// Model Permissions
 
+	// ReadMetricsAccess allows a user to read metrics for a permission subject,
+	// but not any other information.
+	// TODO: is this the right place for an internal permission?
+	ReadMetricsAccess Access = "read-metrics"
+
 	// ReadAccess allows a user to read information about a permission subject,
 	// without being able to make any changes.
 	ReadAccess Access = "read"

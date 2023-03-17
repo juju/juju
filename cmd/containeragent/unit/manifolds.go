@@ -39,6 +39,7 @@ import (
 	"github.com/juju/juju/worker/caasunitsmanager"
 	"github.com/juju/juju/worker/caasunitterminationworker"
 	"github.com/juju/juju/worker/caasupgrader"
+	"github.com/juju/juju/worker/controllercharm"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/leadership"
@@ -430,7 +431,16 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 	// If the container agent is colocated with the controller for the controller charm, then it doesn't
 	// need the api address updater, http probe server or the cass prober workers.
 	// For every other deployment of the containeragent, these workers are required.
-	if !config.ColocatedWithController {
+	if config.ColocatedWithController {
+		dp[controllerCharmName] = ifNotMigrating(controllercharm.Manifold(controllercharm.ManifoldConfig{
+			APICallerName: apiCallerName,
+			Hub:           config.LocalHub,
+			Logger:        loggo.GetLogger("juju.worker.controllercharm"),
+			NewFacade:     controllercharm.NewFacade,
+			NewWorker:     controllercharm.NewWorker,
+		}))
+
+	} else {
 		// The api address updater is a leaf worker that rewrites agent config
 		// as the controller addresses change. We should only need one of
 		// these in a consolidated agent.
@@ -472,6 +482,7 @@ const (
 	proxyConfigUpdaterName   = "proxy-config-updater"
 	loggingConfigUpdaterName = "logging-config-updater"
 	apiAddressUpdaterName    = "api-address-updater"
+	controllerCharmName      = "controller-charm"
 
 	caasUnitTerminationWorker = "caas-unit-termination-worker"
 	caasUnitsManager          = "caas-units-manager"

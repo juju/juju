@@ -3,6 +3,8 @@
 
 package agent
 
+// Unit topics
+
 // StartUnitTopic is used to request one or more units to start.
 // The payload for a StartUnitTopic is the Units structure.
 const StartUnitTopic = "unit.start"
@@ -40,3 +42,33 @@ type StartStopResponse map[string]interface{}
 // to allow for simple expansion later. The output of the status is expected to just
 // show a nice string representation of the map.
 type Status map[string]interface{}
+
+// Metrics user topics
+
+// AddMetricsUserTopic is used to request the creation of new user credentials
+// to access the controller's metrics endpoint.
+// The payload for an AddMetricsUserTopic is the UserInfo structure.
+const AddMetricsUserTopic = "metrics.user.add"
+
+// AddMetricsUserResponseTopic is the topic to respond to an add request.
+// The payload is the UserResponse type below.
+const AddMetricsUserResponseTopic = "metrics.user.add.response"
+
+// RemoveMetricsUserTopic is used to request the removal of a user.
+// The payload for a RemoveMetricsUserTopic is a string representing the username.
+const RemoveMetricsUserTopic = "metrics.user.remove"
+
+// RemoveMetricsUserResponseTopic is the topic to respond to a remove request.
+// The payload is the UserResponse type below.
+const RemoveMetricsUserResponseTopic = "metrics.user.remove.response"
+
+// UserInfo contains the information (username and password) needed to create
+// a new user.
+type UserInfo struct {
+	Username string
+	Password string
+}
+
+// UserResponse is the error result from the user operation (nil if the
+// operation was successful).
+type UserResponse error
