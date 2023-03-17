@@ -768,27 +768,29 @@ func (env *maasEnviron) StartInstance(
 	}
 	logger.Debugf("maas user data; %d bytes", len(userdata))
 
-	series, err := corebase.GetSeriesFromBase(args.InstanceConfig.Base)
+	distroSeries, err := env.distroSeries(args)
 	if err != nil {
 		return nil, environs.ZoneIndependentError(err)
 	}
-	var displayName string
-	var interfaces corenetwork.InterfaceInfos
-	err = inst.machine.Start(gomaasapi.StartArgs{DistroSeries: series, UserData: string(userdata)})
+	err = inst.machine.Start(gomaasapi.StartArgs{
+		DistroSeries: distroSeries,
+		UserData:     string(userdata),
+	})
 	if err != nil {
 		return nil, environs.ZoneIndependentError(err)
 	}
+
 	domains, err := env.Domains(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	interfaces, err = maasNetworkInterfaces(ctx, inst, subnetsMap, domains...)
+	interfaces, err := maasNetworkInterfaces(ctx, inst, subnetsMap, domains...)
 	if err != nil {
 		return nil, environs.ZoneIndependentError(err)
 	}
 	env.tagInstance(inst, args.InstanceConfig)
 
-	displayName, err = inst.displayName()
+	displayName, err := inst.displayName()
 	if err != nil {
 		return nil, environs.ZoneIndependentError(err)
 	}
@@ -827,6 +829,13 @@ func (env *maasEnviron) tagInstance(inst *maasInstance, instanceConfig *instance
 	if err != nil {
 		logger.Errorf("could not set owner data for instance: %v", err)
 	}
+}
+
+func (env *maasEnviron) distroSeries(args environs.StartInstanceParams) (string, error) {
+	if args.Constraints.ImageID != nil && *args.Constraints.ImageID != "" {
+		return *args.Constraints.ImageID, nil
+	}
+	return corebase.GetSeriesFromBase(args.InstanceConfig.Base)
 }
 
 func (env *maasEnviron) waitForNodeDeployment(ctx context.ProviderCallContext, id instance.Id, timeout time.Duration) error {
