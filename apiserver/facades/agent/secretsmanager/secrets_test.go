@@ -82,7 +82,11 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 
 	s.clock = testclock.NewClock(time.Now())
 
-	backendConfigGetter := func(backendIds []string) (*provider.ModelBackendConfigInfo, error) {
+	backendConfigGetter := func(backendIds []string, wantAll bool) (*provider.ModelBackendConfigInfo, error) {
+		// wantAll is for 3.1 compatibility only.
+		if wantAll {
+			return nil, errors.NotSupportedf("wantAll")
+		}
 		return &provider.ModelBackendConfigInfo{
 			ActiveID: "backend-id",
 			Configs: map[string]provider.ModelBackendConfig{
@@ -153,10 +157,10 @@ func ptr[T any](v T) *T {
 	return &v
 }
 
-func (s *SecretsManagerSuite) TestGetSecretBackendConfig(c *gc.C) {
+func (s *SecretsManagerSuite) TestGetSecretBackendConfigs(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	result, err := s.facade.GetSecretBackendConfig(params.SecretBackendArgs{
+	result, err := s.facade.GetSecretBackendConfigs(params.SecretBackendArgs{
 		BackendIDs: []string{"backend-id"},
 	})
 	c.Assert(err, jc.ErrorIsNil)

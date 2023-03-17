@@ -44,7 +44,7 @@ func getSecretBackendsState(m Model) state.SecretBackendsStorage {
 }
 
 // BackendConfigGetter is a func used to get secret backend config.
-type BackendConfigGetter func(backendIDs []string) (*provider.ModelBackendConfigInfo, error)
+type BackendConfigGetter func(backendIDs []string, wantAll bool) (*provider.ModelBackendConfigInfo, error)
 
 // BackendAdminConfigGetter is a func used to get admin level secret backend config.
 type BackendAdminConfigGetter func() (*provider.ModelBackendConfigInfo, error)
@@ -135,7 +135,7 @@ func AdminBackendConfigInfo(model Model) (*provider.ModelBackendConfigInfo, erro
 // owned by the agent, and read only those secrets shared with the agent.
 // The result includes config for all relevant backends, including the id
 // of the current active backend.
-func BackendConfigInfo(model Model, backendIDs []string, authTag names.Tag, leadershipChecker leadership.Checker) (*provider.ModelBackendConfigInfo, error) {
+func BackendConfigInfo(model Model, backendIDs []string, wantAll bool, authTag names.Tag, leadershipChecker leadership.Checker) (*provider.ModelBackendConfigInfo, error) {
 	adminModelCfg, err := AdminBackendConfigInfo(model)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting configured secrets providers")
@@ -145,7 +145,13 @@ func BackendConfigInfo(model Model, backendIDs []string, authTag names.Tag, lead
 		Configs:  make(map[string]provider.ModelBackendConfig),
 	}
 	if len(backendIDs) == 0 {
-		backendIDs = []string{adminModelCfg.ActiveID}
+		if wantAll {
+			for id := range adminModelCfg.Configs {
+				backendIDs = append(backendIDs, id)
+			}
+		} else {
+			backendIDs = []string{adminModelCfg.ActiveID}
+		}
 	}
 	for _, backendID := range backendIDs {
 		cfg, ok := adminModelCfg.Configs[backendID]
