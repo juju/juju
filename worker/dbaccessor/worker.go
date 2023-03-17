@@ -131,18 +131,32 @@ type DBApp interface {
 	Close() error
 }
 
-type REPL interface {
-	worker.Worker
+// dbRequest is used to pass requests for TrackedDB
+// instances into the worker loop.
+type dbRequest struct {
+	namespace string
+	done      chan struct{}
+}
+
+// makeDBRequest creates a new TrackedDB request for the input namespace.
+func makeDBRequest(namespace string) dbRequest {
+	return dbRequest{
+		namespace: namespace,
+		done:      make(chan struct{}),
+	}
 }
 
 type dbWorker struct {
 	cfg      WorkerConfig
 	catacomb catacomb.Catacomb
 
-	mu        sync.RWMutex
-	dbApp     DBApp
-	dbReadyCh chan struct{}
-	dbRunner  *worker.Runner
+	mu       sync.RWMutex
+	dbApp    DBApp
+	dbRunner *worker.Runner
+
+	// dbRequests is used to synchronise GetDB
+	// requests into this worker's event loop.
+	dbRequests chan dbRequest
 }
 
 func newWorker(cfg WorkerConfig) (*dbWorker, error) {
@@ -152,8 +166,7 @@ func newWorker(cfg WorkerConfig) (*dbWorker, error) {
 	}
 
 	w := &dbWorker{
-		cfg:       cfg,
-		dbReadyCh: make(chan struct{}),
+		cfg: cfg,
 		dbRunner: worker.NewRunner(worker.RunnerParams{
 			Clock: cfg.Clock,
 			// If a worker goes down, we've attempted multiple retries and in
@@ -162,6 +175,7 @@ func newWorker(cfg WorkerConfig) (*dbWorker, error) {
 			IsFatal:      func(err error) bool { return true },
 			RestartDelay: time.Second * 30,
 		}),
+		dbRequests: make(chan dbRequest),
 	}
 
 	if err = catacomb.Invoke(catacomb.Plan{
@@ -213,6 +227,11 @@ func (w *dbWorker) loop() (err error) {
 
 	for {
 		select {
+		case req := <-w.dbRequests:
+			if err := w.openDatabase(req.namespace); err != nil {
+				w.cfg.Logger.Errorf("opening database %q: %s", req.namespace, err.Error())
+			}
+			close(req.done)
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 		}
@@ -229,33 +248,34 @@ func (w *dbWorker) Wait() error {
 	return w.catacomb.Wait()
 }
 
-// GetDB returns a sql.DB reference for the dqlite-backed database that
-// contains the data for the specified namespace.
-// A NotFound error is returned if the worker is unaware of the requested DB.
-// TODO (manadart 2022-10-14): At present, Dqlite does not expose the ability
-// to detect if a database exists. so we can't just call `Open`
-// (potentially creating new databases) without any guards.
-// At this point, we expect any databases to have been opened and cached upon
-// worker startup - if it isn't in the cache, it doesn't exist.
-// Work out if we need an alternative approach later. We could lazily open and
-// cache, but the access patterns are such that the DBs would all be opened
-// pretty much at once anyway.
+// GetDB returns a TrackedDB reference for the dqlite-backed
+// database that contains the data for the specified namespace.
+// TODO (stickupkid): Before handing out any DB for any namespace,
+// we should first validate it exists in the controller list.
+// This should only be required if it's not the controller DB.
 func (w *dbWorker) GetDB(namespace string) (coredatabase.TrackedDB, error) {
+	// Enqueue the request.
+	req := makeDBRequest(namespace)
 	select {
-	case <-w.dbReadyCh:
+	case w.dbRequests <- req:
 	case <-w.catacomb.Dying():
 		return nil, w.catacomb.ErrDying()
 	}
 
-	// TODO (stickupkid): Before handing out any DB for any namespace, we should
-	// first validate it exists in the controller list. This should only be
-	// required if it's not the controller DB.
-	if e, err := w.dbRunner.Worker(namespace, w.catacomb.Dying()); err == nil {
-		return e.(coredatabase.TrackedDB), nil
+	// Wait for the worker loop to indicate it's done.
+	select {
+	case <-req.done:
+	case <-w.catacomb.Dying():
+		return nil, w.catacomb.ErrDying()
 	}
 
-	trackedDB, err := w.openDatabase(namespace)
-	return trackedDB, errors.Trace(err)
+	// This will return a not found error if the request was not honoured.
+	// The error will be logged - we don't crash this worker for bad calls.
+	tracked, err := w.dbRunner.Worker(namespace, w.catacomb.Dying())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return tracked.(coredatabase.TrackedDB), nil
 }
 
 func (w *dbWorker) initializeDqlite() error {
@@ -315,29 +335,22 @@ func (w *dbWorker) initializeDqlite() error {
 
 	// Open up the default controller database. Other database namespaces can
 	// be opened up in a more lazy fashion.
-	if _, err := w.openDatabase("controller"); err != nil {
+	if err := w.openDatabase("controller"); err != nil {
 		return errors.Annotate(err, "opening initial databases")
 	}
 
-	// Start handling GetDB calls from third parties.
-	close(w.dbReadyCh)
 	w.cfg.Logger.Infof("initialized Dqlite application (ID: %v)", w.dbApp.ID())
 	return nil
 }
 
-func (w *dbWorker) openDatabase(namespace string) (coredatabase.TrackedDB, error) {
-	dbWorker, err := w.cfg.NewDBWorker(w.dbApp, namespace, WithClock(w.cfg.Clock), WithLogger(w.cfg.Logger))
-	if err != nil {
-		return nil, errors.Trace(err)
+func (w *dbWorker) openDatabase(namespace string) error {
+	err := w.dbRunner.StartWorker(namespace, func() (worker.Worker, error) {
+		return w.cfg.NewDBWorker(w.dbApp, namespace, WithClock(w.cfg.Clock), WithLogger(w.cfg.Logger))
+	})
+	if errors.Is(err, errors.AlreadyExists) {
+		return nil
 	}
-
-	if err := w.dbRunner.StartWorker(namespace, func() (worker.Worker, error) {
-		return dbWorker, nil
-	}); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return dbWorker.(coredatabase.TrackedDB), nil
+	return errors.Trace(err)
 }
 
 // TrackedDBWorkerOption is a function that configures a TrackedDBWorker.
