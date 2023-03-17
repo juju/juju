@@ -1622,7 +1622,7 @@ func (s *changesSuite) TestMachinesWithConstraintsAndAnnotations(c *gc.C) {
                     - new
         machines:
             1:
-                constraints: "cpu-cores=4"
+                constraints: "cpu-cores=4 image-id=ubuntu-bf2"
                 annotations:
                     foo: bar
         `
@@ -1668,15 +1668,15 @@ func (s *changesSuite) TestMachinesWithConstraintsAndAnnotations(c *gc.C) {
 		Id:     "addMachines-2",
 		Method: "addMachines",
 		Params: bundlechanges.AddMachineParams{
-			Constraints: "cpu-cores=4",
+			Constraints: "cpu-cores=4 image-id=ubuntu-bf2",
 		},
 		GUIArgs: []interface{}{
 			bundlechanges.AddMachineOptions{
-				Constraints: "cpu-cores=4",
+				Constraints: "cpu-cores=4 image-id=ubuntu-bf2",
 			},
 		},
 		Args: map[string]interface{}{
-			"constraints": "cpu-cores=4",
+			"constraints": "cpu-cores=4 image-id=ubuntu-bf2",
 		},
 	}, {
 		Id:     "setAnnotations-3",
@@ -2803,7 +2803,7 @@ func (s *changesSuite) TestUnitPlacedToNewMachineWithConstraints(c *gc.C) {
                 num_units: 1
                 to:
                     - new
-                constraints: "cpu-cores=4"
+                constraints: "cpu-cores=4 image-id=ubuntu-bf2"
         `
 	expected := []record{{
 		Id:     "addCharm-0",
@@ -2829,14 +2829,14 @@ func (s *changesSuite) TestUnitPlacedToNewMachineWithConstraints(c *gc.C) {
 			Application: "django",
 			Series:      "jammy",
 			Channel:     "stable",
-			Constraints: "cpu-cores=4",
+			Constraints: "cpu-cores=4 image-id=ubuntu-bf2",
 		},
 		GUIArgs: []interface{}{
 			"$addCharm-0",
 			"jammy",
 			"django",
 			map[string]interface{}{},
-			"cpu-cores=4",
+			"cpu-cores=4 image-id=ubuntu-bf2",
 			map[string]string{},
 			map[string]string{},
 			map[string]int{},
@@ -2847,7 +2847,7 @@ func (s *changesSuite) TestUnitPlacedToNewMachineWithConstraints(c *gc.C) {
 			"application": "django",
 			"charm":       "$addCharm-0",
 			"channel":     "stable",
-			"constraints": "cpu-cores=4",
+			"constraints": "cpu-cores=4 image-id=ubuntu-bf2",
 			"series":      "jammy",
 		},
 		Requires: []string{"addCharm-0"},
@@ -2855,17 +2855,17 @@ func (s *changesSuite) TestUnitPlacedToNewMachineWithConstraints(c *gc.C) {
 		Id:     "addMachines-3",
 		Method: "addMachines",
 		Params: bundlechanges.AddMachineParams{
-			Constraints: "cpu-cores=4",
+			Constraints: "cpu-cores=4 image-id=ubuntu-bf2",
 			Series:      "jammy",
 		},
 		GUIArgs: []interface{}{
 			bundlechanges.AddMachineOptions{
 				Series:      "jammy",
-				Constraints: "cpu-cores=4",
+				Constraints: "cpu-cores=4 image-id=ubuntu-bf2",
 			},
 		},
 		Args: map[string]interface{}{
-			"constraints": "cpu-cores=4",
+			"constraints": "cpu-cores=4 image-id=ubuntu-bf2",
 			"series":      "jammy",
 		},
 	}, {
@@ -4030,7 +4030,7 @@ func (s *changesSuite) TestAppWithDifferentConstraints(c *gc.C) {
                         charm: ch:django
                         revision: 4
                         channel: stable
-                        constraints: cpu-cores=4 cpu-power=42
+                        constraints: cpu-cores=4 cpu-power=42 image-id=ubuntu-bf2
             `
 	existingModel := &bundlechanges.Model{
 		Applications: map[string]*bundlechanges.Application{
@@ -4053,7 +4053,7 @@ func (s *changesSuite) TestAppWithDifferentConstraints(c *gc.C) {
 		},
 	}
 	expectedChanges := []string{
-		`set constraints for django to "cpu-cores=4 cpu-power=42"`,
+		`set constraints for django to "cpu-cores=4 cpu-power=42 image-id=ubuntu-bf2"`,
 	}
 	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(string, series.Base, string, string, int) (string, int, error) {
 		return "stable", 4, nil
@@ -4065,10 +4065,10 @@ func (s *changesSuite) TestAppsWithArchConstraints(c *gc.C) {
                 applications:
                     django-one:
                         charm: ch:django
-                        constraints: arch=amd64 cpu-cores=4 cpu-power=42
+                        constraints: arch=amd64 cpu-cores=4 cpu-power=42 image-id=ubuntu-bf2
                     django-two:
                         charm: ch:django
-                        constraints: arch=s390x cpu-cores=4 cpu-power=42
+                        constraints: arch=s390x cpu-cores=4 cpu-power=42 image-id=ubuntu-bf2
             `
 	expectedChanges := []string{
 		"upload charm django from charm-hub with architecture=amd64",
@@ -4086,12 +4086,12 @@ func (s *changesSuite) TestExistingAppsWithArchConstraints(c *gc.C) {
                         charm: ch:django
                         revision: 4
                         channel: stable
-                        constraints: arch=amd64 cpu-cores=4 cpu-power=42
+                        constraints: arch=amd64 cpu-cores=4 cpu-power=42 image-id=ubuntu-bf2
                     django-two:
                         charm: ch:django
                         revision: 4
                         channel: stable
-                        constraints: arch=s390x cpu-cores=4 cpu-power=42
+                        constraints: arch=s390x cpu-cores=4 cpu-power=42 image-id=ubuntu-bf2
             `
 	existingModel := &bundlechanges.Model{
 		Applications: map[string]*bundlechanges.Application{
@@ -4115,7 +4115,7 @@ func (s *changesSuite) TestExistingAppsWithArchConstraints(c *gc.C) {
 		},
 	}
 	expectedChanges := []string{
-		"set constraints for django-one to \"arch=amd64 cpu-cores=4 cpu-power=42\"",
+		"set constraints for django-one to \"arch=amd64 cpu-cores=4 cpu-power=42 image-id=ubuntu-bf2\"",
 		"upload charm django from charm-hub with revision 4 with architecture=s390x",
 		"deploy application django-two from charm-hub with stable using django",
 	}
@@ -4131,12 +4131,12 @@ func (s *changesSuite) TestExistingAppsWithoutArchConstraints(c *gc.C) {
                         charm: ch:django
                         revision: 4
                         channel: stable
-                        constraints: arch=amd64 cpu-cores=4 cpu-power=42
+                        constraints: arch=amd64 cpu-cores=4 cpu-power=42 image-id=ubuntu-bf2
                     django-two:
                         charm: ch:django
                         revision: 4
                         channel: stable
-                        constraints: arch=s390x cpu-cores=4 cpu-power=42
+                        constraints: arch=s390x cpu-cores=4 cpu-power=42 image-id=ubuntu-bf2
             `
 	existingModel := &bundlechanges.Model{
 		Applications: map[string]*bundlechanges.Application{
@@ -4161,7 +4161,7 @@ func (s *changesSuite) TestExistingAppsWithoutArchConstraints(c *gc.C) {
 	}
 	expectedChanges := []string{
 		"upload charm django from charm-hub with revision 4 with architecture=amd64",
-		"set constraints for django-one to \"arch=amd64 cpu-cores=4 cpu-power=42\"",
+		"set constraints for django-one to \"arch=amd64 cpu-cores=4 cpu-power=42 image-id=ubuntu-bf2\"",
 		"upload charm django from charm-hub with revision 4 with architecture=s390x",
 		"deploy application django-two from charm-hub with stable using django",
 	}
@@ -4175,15 +4175,15 @@ func (s *changesSuite) TestAppsWithSeriesAndArchConstraints(c *gc.C) {
                 applications:
                     django-one:
                         charm: ch:django
-                        constraints: arch=amd64 cpu-cores=4 cpu-power=42
+                        constraints: arch=amd64 cpu-cores=4 cpu-power=42 image-id=ubuntu-bf2
                         series: bionic
                     django-two:
                         charm: ch:django
-                        constraints: arch=s390x cpu-cores=4 cpu-power=42
+                        constraints: arch=s390x cpu-cores=4 cpu-power=42 image-id=ubuntu-bf2
                         series: bionic
                     django-three:
                         charm: ch:django
-                        constraints: arch=s390x cpu-cores=4 cpu-power=42
+                        constraints: arch=s390x cpu-cores=4 cpu-power=42 image-id=ubuntu-bf2
                         series: focal
             `
 	expectedChanges := []string{
@@ -4202,7 +4202,7 @@ func (s *changesSuite) TestAppWithArchConstraints(c *gc.C) {
                 applications:
                     django:
                         charm: ch:django
-                        constraints: arch=amd64 cpu-cores=4 cpu-power=42
+                        constraints: arch=amd64 cpu-cores=4 cpu-power=42 image-id=ubuntu-bf2
             `
 	expectedChanges := []string{
 		"upload charm django from charm-hub with architecture=amd64",

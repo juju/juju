@@ -50,7 +50,7 @@ require (
 	github.com/juju/clock v1.0.3
 	github.com/juju/cmd/v3 v3.0.5
 	github.com/juju/collections v1.0.2
-	github.com/juju/description/v4 v4.0.6
+	github.com/juju/description/v4 v4.0.8
 	github.com/juju/errors v1.0.0
 	github.com/juju/featureflag v1.0.0
 	github.com/juju/gnuflag v1.0.0
@@ -96,6 +96,7 @@ require (
 	github.com/mittwald/vaultgo v0.1.1
 	github.com/oracle/oci-go-sdk/v47 v47.1.0
 	github.com/packethost/packngo v0.28.1
+	github.com/pkg/errors v0.9.1
 	github.com/pkg/sftp v1.13.5
 	github.com/prometheus/client_golang v1.11.1
 	github.com/prometheus/client_model v0.2.0
@@ -245,7 +246,6 @@ require (
 	github.com/pelletier/go-toml/v2 v2.0.2 // indirect
 	github.com/pierrec/lz4 v2.5.2+incompatible // indirect
 	github.com/pkg/browser v0.0.0-20210115035449-ce105d075bb4 // indirect
-	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pkg/term v1.1.0 // indirect
 	github.com/prometheus/common v0.26.0 // indirect
 	github.com/prometheus/procfs v0.6.0 // indirect
