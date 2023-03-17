@@ -65,6 +65,7 @@ var ubuntuVersions = []string{
 	"21.04",
 	"21.10",
 	"22.10",
+	"23.04",
 }
 
 var controllerCfg = controller.Config{

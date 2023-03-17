@@ -203,8 +203,6 @@ func (mm *MachineManagerAPI) AddMachines(args params.AddMachines) (params.AddMac
 	return results, nil
 }
 
-var supportedJujuSeries = coreseries.WorkloadSeries
-
 func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Machine, error) {
 	if p.ParentId != "" && p.ContainerType == "" {
 		return nil, fmt.Errorf("parent machine specified without container type")
@@ -249,18 +247,6 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-	}
-	// TODO(wallyworld) - I think we can remove this check
-	series, err := coreseries.GetSeriesFromBase(base)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	supportedSeries, err := supportedJujuSeries(time.Now(), series, "")
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if !supportedSeries.Contains(series) {
-		return nil, errors.NotSupportedf("series %q", series)
 	}
 
 	var placementDirective string
