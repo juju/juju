@@ -141,15 +141,15 @@ INSERT INTO cloud_type VALUES
     (9, 'openstack'),
     (10, 'vsphere');
 
-CREATE TABLE cloud_auth_type (
+CREATE TABLE auth_type (
     id   INT PRIMARY KEY,
     type TEXT
 );
 
-CREATE UNIQUE INDEX idx_cloud_auth_type_type
-ON cloud_auth_type (type);
+CREATE UNIQUE INDEX idx_auth_type_type
+ON auth_type (type);
 
-INSERT INTO cloud_auth_type VALUES
+INSERT INTO auth_type VALUES
     (0, 'access-key'),
     (1, 'instance-role'),
     (2, 'userpass'),
@@ -163,37 +163,55 @@ INSERT INTO cloud_auth_type VALUES
     (10, 'certificate'),
     (11, 'oauth2withcert');
 
-CREATE TABLE cloud_auth_types (
-    uuid            TEXT PRIMARY KEY,
-    auth_type_id    INT NOT NULL
+CREATE TABLE cloud_auth_type (
+    uuid              TEXT PRIMARY KEY,
+    cloud_uuid        TEXT NOT NULL,
+    auth_type_id      INT NOT NULL,
+    CONSTRAINT		  fk_cloud_auth_type_cloud
+        FOREIGN KEY       (cloud_uuid)
+        REFERENCES        cloud(uuid),
+    CONSTRAINT        fk_cloud_auth_type_auth_type
+        FOREIGN KEY       (auth_type_id)
+        REFERENCES        auth_type(id)
 );
 
-CREATE UNIQUE INDEX idx_cloud_auth_types_auth_type_id
-ON cloud_auth_types (auth_type_id);
-
-CREATE TABLE cloud_regions (
-    uuid            TEXT PRIMARY KEY,
-    region_id       INT NOT NULL
-);
-
-CREATE UNIQUE INDEX idx_cloud_regions_region_id
-ON cloud_regions (region_id);
+CREATE UNIQUE INDEX idx_cloud_auth_type_cloud_uuid_auth_type_id
+ON cloud_auth_type (cloud_uuid, auth_type_id);
 
 CREATE TABLE cloud_region (
-    id                     INT PRIMARY KEY,
-    region                 TEXT NOT NULL,
-    endpoint               TEXT,
-    identity_endpoint      TEXT,
-    storage_endpoint       TEXT
+    uuid                TEXT PRIMARY KEY,
+    cloud_uuid          TEXT NOT NULL,
+    name                TEXT NOT NULL,
+    endpoint            TEXT,
+    identity_endpoint   TEXT,
+    storage_endpoint    TEXT,
+    CONSTRAINT          fk_cloud_region_cloud
+        FOREIGN KEY         (cloud_uuid)
+        REFERENCES          cloud(uuid)
 );
 
-CREATE UNIQUE INDEX idx_cloud_region_region
-ON cloud_region (region);
+CREATE UNIQUE INDEX idx_cloud_region_cloud_uuid
+ON cloud_region (cloud_uuid);
 
-CREATE TABLE cloud_certificates (
-    uuid            TEXT PRIMARY KEY,
-    certificate     TEXT NOT NULL
+CREATE TABLE ca_cert (
+    uuid        TEXT PRIMARY KEY,
+    ca_cert     TEXT
 );
+
+CREATE TABLE cloud_ca_cert (
+    uuid              TEXT PRIMARY KEY,
+    cloud_uuid        TEXT NOT NULL,
+    ca_cert_uuid      TEXT NOT NULL,
+    CONSTRAINT        fk_cloud_ca_cert_cloud
+        FOREIGN KEY       (cloud_uuid)
+        REFERENCES        cloud(uuid),
+    CONSTRAINT        fk_cloud_ca_cert_ca_cert
+                          FOREIGN KEY (ca_cert_uuid)
+                          REFERENCES ca_cert(uuid)
+);
+
+CREATE UNIQUE INDEX idx_cloud_ca_cert_cloud_uuid_ca_cert_uuid
+ON cloud_ca_cert (cloud_uuid, ca_cert_uuid);
 
 CREATE TABLE cloud (
     uuid                TEXT PRIMARY KEY,
