@@ -32,6 +32,7 @@ require (
 	github.com/coreos/go-systemd/v22 v22.3.2
 	github.com/docker/distribution v2.8.0+incompatible
 	github.com/dustin/go-humanize v1.0.1
+	github.com/ghodss/yaml v1.0.0
 	github.com/go-goose/goose/v5 v5.0.0-20220707165353-781664254fe4
 	github.com/go-logr/logr v1.2.2
 	github.com/go-macaroon-bakery/macaroon-bakery/v3 v3.0.1
@@ -169,7 +170,6 @@ require (
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
 	github.com/gdamore/encoding v1.0.0 // indirect
 	github.com/gdamore/tcell/v2 v2.5.1 // indirect
-	github.com/ghodss/yaml v1.0.0 // indirect
 	github.com/go-macaroon-bakery/macaroonpb v1.0.0 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/godbus/dbus/v5 v5.0.4 // indirect

@@ -1,0 +1,163 @@
+// Copyright 2023 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package resource
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	charmresource "github.com/juju/charm/v10/resource"
+	"github.com/juju/errors"
+	"github.com/juju/juju/cmd/juju/application/utils"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/resources"
+	"gopkg.in/yaml.v2"
+	"io"
+	"net/http"
+	"strings"
+)
+
+func ValidateResources(resources map[string]charmresource.Meta) error {
+	var errs []error
+	for _, meta := range resources {
+		if err := meta.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if len(errs) == 1 {
+		return errors.Trace(errs[0])
+	}
+	if len(errs) > 1 {
+		msgs := make([]string, len(errs))
+		for i, err := range errs {
+			msgs[i] = err.Error()
+		}
+		return errors.NewNotValid(nil, strings.Join(msgs, ", "))
+	}
+	return nil
+}
+
+// getDockerDetailsData determines if path is a local file path and extracts the
+// details from that otherwise path is considered to be a registry path.
+func getDockerDetailsData(path string, osOpen osOpenFunc) (resources.DockerImageDetails, error) {
+	f, err := osOpen(path)
+	if err == nil {
+		defer f.Close()
+		details, err := unMarshalDockerDetails(f)
+		if err != nil {
+			return details, errors.Trace(err)
+		}
+		return details, nil
+	} else if err := resources.ValidateDockerRegistryPath(path); err == nil {
+		return resources.DockerImageDetails{
+			RegistryPath: path,
+		}, nil
+	}
+	return resources.DockerImageDetails{}, errors.NotValidf("filepath or registry path: %s", path)
+
+}
+
+func ValidateResourceDetails(res map[string]string, resMeta map[string]charmresource.Meta, fs modelcmd.Filesystem) error {
+	for name, value := range res {
+		var err error
+		switch resMeta[name].Type {
+		case charmresource.TypeFile:
+			err = utils.CheckFile(name, value, fs)
+		case charmresource.TypeContainerImage:
+			var dockerDetails resources.DockerImageDetails
+			dockerDetails, err = getDockerDetailsData(value, fs.Open)
+			if err != nil {
+				return errors.Annotatef(err, "resource %q", name)
+			}
+			// At the moment this is the same validation that occurs in getDockerDetailsData
+			err = resources.CheckDockerDetails(name, dockerDetails)
+		default:
+			return fmt.Errorf("unknown resource: %s", name)
+		}
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type osOpenFunc func(path string) (modelcmd.ReadSeekCloser, error)
+
+func OpenResource(resValue string, resType charmresource.Type, osOpen osOpenFunc) (modelcmd.ReadSeekCloser, error) {
+	switch resType {
+	case charmresource.TypeFile:
+		f, err := osOpen(resValue)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return f, nil
+	case charmresource.TypeContainerImage:
+		dockerDetails, err := getDockerDetailsData(resValue, osOpen)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		data, err := yaml.Marshal(dockerDetails)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return noopCloser{bytes.NewReader(data)}, nil
+	default:
+		return nil, errors.Errorf("unknown resource type %q", resType)
+	}
+}
+
+type noopCloser struct {
+	io.ReadSeeker
+}
+
+func (noopCloser) Close() error {
+	return nil
+}
+
+func unMarshalDockerDetails(data io.Reader) (resources.DockerImageDetails, error) {
+	var details resources.DockerImageDetails
+	contents, err := io.ReadAll(data)
+	if err != nil {
+		return details, errors.Trace(err)
+	}
+
+	if errJ := json.Unmarshal(contents, &details); errJ != nil {
+		if errY := yaml.Unmarshal(contents, &details); errY != nil {
+			contentType := http.DetectContentType(contents)
+			if strings.Contains(contentType, "text/plain") {
+				// Check first character - `{` means probably JSON
+				if strings.TrimSpace(string(contents))[0] == '{' {
+					return details, errors.Annotate(errJ, "json parsing")
+				}
+				return details, errY
+			}
+			return details, errors.New("expected json or yaml file containing oci-image registry details")
+		}
+	}
+	if err := resources.ValidateDockerRegistryPath(details.RegistryPath); err != nil {
+		return resources.DockerImageDetails{}, err
+	}
+	return details, nil
+}
+
+func CheckExpectedResources(filenames map[string]string, revisions map[string]int, resMeta map[string]charmresource.Meta) error {
+	var unknown []string
+	for name := range filenames {
+		if _, ok := resMeta[name]; !ok {
+			unknown = append(unknown, name)
+		}
+	}
+	for name := range revisions {
+		if _, ok := resMeta[name]; !ok {
+			unknown = append(unknown, name)
+		}
+	}
+	if len(unknown) == 1 {
+		return errors.Errorf("unrecognized resource %q", unknown[0])
+	}
+	if len(unknown) > 1 {
+		return errors.Errorf("unrecognized resources: %s", strings.Join(unknown, ", "))
+	}
+	return nil
+}
