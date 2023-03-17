@@ -97,6 +97,15 @@ instructions.
 
 `
 
+const examples = `
+    juju add-credential google
+    juju add-credential google --client
+    juju add-credential google -c mycontroller
+    juju add-credential aws -f ~/credentials.yaml -c mycontroller
+    juju add-credential aws -f ~/credentials.yaml
+    juju add-credential aws -f ~/credentials.yaml --client
+`
+
 type addCredentialCommand struct {
 	modelcmd.OptionalControllerCommand
 	cloudByNameFunc func(string) (*jujucloud.Cloud, error)
@@ -139,14 +148,7 @@ func (c *addCredentialCommand) Info() *cmd.Info {
 		Args:    "<cloud name>",
 		Purpose: usageAddCredentialSummary,
 		Doc:     usageAddCredentialDetails,
-		Examples: []string{
-			"`juju add-credential google`",
-			"`juju add-credential google --client`",
-			"`juju add-credential google -c mycontroller`",
-			"`juju add-credential aws -f ~/credentials.yaml -c mycontroller`",
-			"`juju add-credential aws -f ~/credentials.yaml`",
-			"`juju add-credential aws -f ~/credentials.yaml --client`",
-		},
+		Examples: examples,
 		SeeAlso: []string{
 			"credentials",
 			"remove-credential",
