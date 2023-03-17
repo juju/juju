@@ -1133,25 +1133,32 @@ func (s *mockHookContextSuite) TestSecretGet(c *gc.C) {
 
 	call := 0
 	uri := coresecrets.NewURI()
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.BestVersionCaller{APICallerFunc: basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		if call == 0 {
 			call++
 			c.Assert(objType, gc.Equals, "SecretsManager")
-			c.Assert(version, gc.Equals, 0)
-			c.Assert(id, gc.Equals, "")
-			c.Assert(request, gc.Equals, "GetSecretBackendConfig")
-			c.Assert(arg, gc.IsNil)
+			c.Check(version, gc.Equals, 2)
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "GetSecretBackendConfigs")
+			c.Check(arg, jc.DeepEquals, params.SecretBackendArgs{})
 			c.Assert(result, gc.FitsTypeOf, &params.SecretBackendConfigResults{})
 			*(result.(*params.SecretBackendConfigResults)) = params.SecretBackendConfigResults{
-				ActiveID: coretesting.ControllerTag.Id(),
-				Configs: map[string]params.SecretBackendConfig{
-					coretesting.ControllerTag.Id(): {BackendType: juju.BackendType},
+				ActiveID: "some-id",
+				Results: map[string]params.SecretBackendConfigResult{
+					coretesting.ControllerTag.Id(): {
+						ControllerUUID: coretesting.ControllerTag.Id(),
+						ModelUUID:      coretesting.ModelTag.Id(),
+						ModelName:      "fred",
+						Config: params.SecretBackendConfig{
+							BackendType: juju.BackendType,
+						},
+					},
 				},
 			}
 			return nil
 		}
 		c.Assert(objType, gc.Equals, "SecretsManager")
-		c.Assert(version, gc.Equals, 0)
+		c.Assert(version, gc.Equals, 2)
 		c.Assert(id, gc.Equals, "")
 		c.Assert(request, gc.Equals, "GetSecretContentInfo")
 		c.Assert(arg, gc.DeepEquals, params.GetSecretContentArgs{
@@ -1169,7 +1176,7 @@ func (s *mockHookContextSuite) TestSecretGet(c *gc.C) {
 			}},
 		}
 		return nil
-	})
+	}), BestVersion: 2}
 
 	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
 	jujuSecretsAPI := secretsmanager.NewClient(apiCaller)
@@ -1219,6 +1226,7 @@ func (s *mockHookContextSuite) assertSecretGetOwnedSecretURILookup(
 
 	call := 0
 	uri := coresecrets.NewURI()
+	// TODO(juju 3.2) - use facade v2
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		if call == 0 {
 			call++
@@ -1227,7 +1235,7 @@ func (s *mockHookContextSuite) assertSecretGetOwnedSecretURILookup(
 			c.Assert(id, gc.Equals, "")
 			c.Assert(request, gc.Equals, "GetSecretBackendConfig")
 			c.Assert(arg, gc.IsNil)
-			*(result.(*params.SecretBackendConfigResults)) = params.SecretBackendConfigResults{
+			*(result.(*params.SecretBackendConfigResultsV1)) = params.SecretBackendConfigResultsV1{
 				ActiveID: coretesting.ControllerTag.Id(),
 				Configs: map[string]params.SecretBackendConfig{
 					coretesting.ControllerTag.Id(): {BackendType: juju.BackendType},

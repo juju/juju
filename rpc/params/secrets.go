@@ -9,14 +9,36 @@ import (
 	"github.com/juju/juju/core/secrets"
 )
 
-// SecretBackendConfigResults holds config info for creating
+// SecretBackendConfigResultsV1 holds config info for creating
 // secret backend clients for a specific model.
-type SecretBackendConfigResults struct {
+type SecretBackendConfigResultsV1 struct {
 	ControllerUUID string                         `json:"model-controller"`
 	ModelUUID      string                         `json:"model-uuid"`
 	ModelName      string                         `json:"model-name"`
 	ActiveID       string                         `json:"active-id"`
 	Configs        map[string]SecretBackendConfig `json:"configs,omitempty"`
+}
+
+// SecretBackendArgs holds args for querying secret backends.
+type SecretBackendArgs struct {
+	BackendIDs []string `json:"backend-ids"`
+}
+
+// SecretBackendConfigResults holds config info for creating
+// secret backend clients for a specific model.
+type SecretBackendConfigResults struct {
+	ActiveID string                               `json:"active-id"`
+	Results  map[string]SecretBackendConfigResult `json:"results,omitempty"`
+}
+
+// SecretBackendConfigResult holds config info for creating
+// secret backend clients for a specific model.
+type SecretBackendConfigResult struct {
+	ControllerUUID string              `json:"model-controller"`
+	ModelUUID      string              `json:"model-uuid"`
+	ModelName      string              `json:"model-name"`
+	Draining       bool                `json:"draining"`
+	Config         SecretBackendConfig `json:"config,omitempty"`
 }
 
 // SecretBackendConfig holds config for creating a secret backend client.

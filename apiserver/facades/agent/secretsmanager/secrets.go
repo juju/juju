@@ -55,12 +55,12 @@ func (s *SecretsManagerAPI) GetSecretStoreConfig() (params.SecretBackendConfig, 
 }
 
 // GetSecretBackendConfig gets the config needed to create a client to secret backends.
-func (s *SecretsManagerAPI) GetSecretBackendConfig() (params.SecretBackendConfigResults, error) {
+func (s *SecretsManagerAPI) GetSecretBackendConfig() (params.SecretBackendConfigResultsV1, error) {
 	cfgInfo, err := s.backendConfigGetter()
 	if err != nil {
-		return params.SecretBackendConfigResults{}, errors.Trace(err)
+		return params.SecretBackendConfigResultsV1{}, errors.Trace(err)
 	}
-	result := params.SecretBackendConfigResults{
+	result := params.SecretBackendConfigResultsV1{
 		ControllerUUID: cfgInfo.ControllerUUID,
 		ModelUUID:      cfgInfo.ModelUUID,
 		ModelName:      cfgInfo.ModelName,

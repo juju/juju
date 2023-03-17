@@ -39374,7 +39374,7 @@
                     "type": "object",
                     "properties": {
                         "Result": {
-                            "$ref": "#/definitions/SecretBackendConfigResults"
+                            "$ref": "#/definitions/SecretBackendConfigResultsV1"
                         }
                     },
                     "description": "GetSecretBackendConfig gets the config needed to create a client to secret backends."
@@ -39905,7 +39905,7 @@
                         "type"
                     ]
                 },
-                "SecretBackendConfigResults": {
+                "SecretBackendConfigResultsV1": {
                     "type": "object",
                     "properties": {
                         "active-id": {
@@ -45135,7 +45135,7 @@
                     "type": "object",
                     "properties": {
                         "Result": {
-                            "$ref": "#/definitions/SecretBackendConfigResults"
+                            "$ref": "#/definitions/SecretBackendConfigResultsV1"
                         }
                     },
                     "description": "GetSecretBackendConfig gets the config needed to create a client to secret backends."
@@ -48135,7 +48135,7 @@
                         "type"
                     ]
                 },
-                "SecretBackendConfigResults": {
+                "SecretBackendConfigResultsV1": {
                     "type": "object",
                     "properties": {
                         "active-id": {

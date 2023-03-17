@@ -31,7 +31,43 @@ func NewClient(caller base.APICaller) *Client {
 
 // GetSecretBackendConfig fetches the config needed to make a secret backend client.
 func (c *Client) GetSecretBackendConfig() (*provider.ModelBackendConfigInfo, error) {
+	if c.facade.BestAPIVersion() < 2 {
+		return c.GetSecretBackendConfigV1()
+	}
+
 	var results params.SecretBackendConfigResults
+
+	args := params.SecretBackendArgs{}
+	err := c.facade.FacadeCall("GetSecretBackendConfigs", args, &results)
+	if err != nil && !errors.Is(err, errors.NotFound) {
+		return nil, errors.Trace(err)
+	}
+	if err != nil || len(results.Results) == 0 {
+		return nil, errors.NotFoundf("active secret backend")
+	}
+	if len(results.Results) != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	info := &provider.ModelBackendConfigInfo{
+		ActiveID: results.ActiveID,
+		Configs:  make(map[string]provider.BackendConfig),
+	}
+	for id, cfg := range results.Results {
+		info.ControllerUUID = cfg.ControllerUUID
+		info.ModelUUID = cfg.ModelUUID
+		info.ModelName = cfg.ModelName
+		info.Configs[id] = provider.BackendConfig{
+			BackendType: cfg.Config.BackendType,
+			Config:      cfg.Config.Params,
+		}
+	}
+	return info, nil
+}
+
+// GetSecretBackendConfigV1 fetches the config needed to make a secret backend client
+// off a 3.1 controller.
+func (c *Client) GetSecretBackendConfigV1() (*provider.ModelBackendConfigInfo, error) {
+	var results params.SecretBackendConfigResultsV1
 	err := c.facade.FacadeCall("GetSecretBackendConfig", nil, &results)
 	if err != nil {
 		return nil, errors.Trace(err)

@@ -37,15 +37,15 @@ func ptr[T any](v T) *T {
 	return &v
 }
 
-func (s *SecretsSuite) TestGetSecretBackendConfig(c *gc.C) {
+func (s *SecretsSuite) TestGetSecretBackendConfigLegacy(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "SecretsManager")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
 		c.Check(request, gc.Equals, "GetSecretBackendConfig")
 		c.Check(arg, gc.IsNil)
-		c.Assert(result, gc.FitsTypeOf, &params.SecretBackendConfigResults{})
-		*(result.(*params.SecretBackendConfigResults)) = params.SecretBackendConfigResults{
+		c.Assert(result, gc.FitsTypeOf, &params.SecretBackendConfigResultsV1{})
+		*(result.(*params.SecretBackendConfigResultsV1)) = params.SecretBackendConfigResultsV1{
 			ControllerUUID: coretesting.ControllerTag.Id(),
 			ModelUUID:      coretesting.ModelTag.Id(),
 			ModelName:      "fred",
@@ -65,6 +65,47 @@ func (s *SecretsSuite) TestGetSecretBackendConfig(c *gc.C) {
 		ControllerUUID: coretesting.ControllerTag.Id(),
 		ModelUUID:      coretesting.ModelTag.Id(),
 		ModelName:      "fred",
+		Configs: map[string]provider.BackendConfig{
+			"some-id": {
+				BackendType: "controller",
+				Config:      map[string]interface{}{"foo": "bar"},
+			},
+		},
+	})
+}
+
+func (s *SecretsSuite) TestGetSecretBackendConfig(c *gc.C) {
+	apiCaller := testing.BestVersionCaller{APICallerFunc: testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "SecretsManager")
+		c.Check(version, gc.Equals, 2)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "GetSecretBackendConfigs")
+		c.Check(arg, jc.DeepEquals, params.SecretBackendArgs{})
+		c.Assert(result, gc.FitsTypeOf, &params.SecretBackendConfigResults{})
+		*(result.(*params.SecretBackendConfigResults)) = params.SecretBackendConfigResults{
+			ActiveID: "some-id",
+			Results: map[string]params.SecretBackendConfigResult{
+				"some-id": {
+					ControllerUUID: coretesting.ControllerTag.Id(),
+					ModelUUID:      coretesting.ModelTag.Id(),
+					ModelName:      "fred",
+					Config: params.SecretBackendConfig{
+						BackendType: "controller",
+						Params:      map[string]interface{}{"foo": "bar"},
+					},
+				},
+			},
+		}
+		return nil
+	}), BestVersion: 2}
+	client := secretsmanager.NewClient(apiCaller)
+	result, err := client.GetSecretBackendConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, &provider.ModelBackendConfigInfo{
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      coretesting.ModelTag.Id(),
+		ModelName:      "fred",
+		ActiveID:       "some-id",
 		Configs: map[string]provider.BackendConfig{
 			"some-id": {
 				BackendType: "controller",

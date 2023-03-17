@@ -142,7 +142,7 @@ func (s *SecretsManagerSuite) TestGetSecretBackendConfig(c *gc.C) {
 
 	result, err := s.facade.GetSecretBackendConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.SecretBackendConfigResults{
+	c.Assert(result, jc.DeepEquals, params.SecretBackendConfigResultsV1{
 		ControllerUUID: coretesting.ControllerTag.Id(),
 		ModelUUID:      coretesting.ModelTag.Id(),
 		ModelName:      "fred",
