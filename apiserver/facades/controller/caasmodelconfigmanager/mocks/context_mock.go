@@ -10,6 +10,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	facade "github.com/juju/juju/apiserver/facade"
 	cache "github.com/juju/juju/core/cache"
+	database "github.com/juju/juju/core/database"
 	leadership "github.com/juju/juju/core/leadership"
 	lease "github.com/juju/juju/core/lease"
 	multiwatcher "github.com/juju/juju/core/multiwatcher"
@@ -275,6 +276,21 @@ func (m *MockContext) Controller() *cache.Controller {
 func (mr *MockContextMockRecorder) Controller() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Controller", reflect.TypeOf((*MockContext)(nil).Controller))
+}
+
+// ControllerDB mocks base method.
+func (m *MockContext) ControllerDB() (database.TrackedDB, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ControllerDB")
+	ret0, _ := ret[0].(database.TrackedDB)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ControllerDB indicates an expected call of ControllerDB.
+func (mr *MockContextMockRecorder) ControllerDB() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerDB", reflect.TypeOf((*MockContext)(nil).ControllerDB))
 }
 
 // Dispose mocks base method.

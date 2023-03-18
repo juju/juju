@@ -9,8 +9,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/context_mock.go github.com/juju/juju/apiserver/facade Authorizer,Context,Resources
-
 // Facade allows model config manager clients to watch controller config changes and fetch controller config.
 type Facade struct {
 	auth                facade.Authorizer

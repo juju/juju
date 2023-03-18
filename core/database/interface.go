@@ -11,3 +11,8 @@ type DBGetter interface {
 	// A NotFound error is returned if the worker is unaware of the requested DB.
 	GetDB(namespace string) (TrackedDB, error)
 }
+
+const (
+	// ControllerNS is the namespace for the controller database.
+	ControllerNS = "controller"
+)

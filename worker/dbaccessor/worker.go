@@ -326,7 +326,7 @@ func (w *dbWorker) initializeDqlite() error {
 
 	// Open up the default controller database. Other database namespaces can
 	// be opened up in a more lazy fashion.
-	if err := w.openDatabase("controller"); err != nil {
+	if err := w.openDatabase(coredatabase.ControllerNS); err != nil {
 		return errors.Annotate(err, "opening initial databases")
 	}
 

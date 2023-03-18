@@ -62,7 +62,7 @@ func (c ManifoldConfig) start(ctx dependency.Context) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 
-	trackedDB, err := dbGetter.GetDB("controller")
+	trackedDB, err := dbGetter.GetDB(coredatabase.ControllerNS)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

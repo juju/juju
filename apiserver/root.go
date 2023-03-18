@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/cache"
+	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
@@ -600,6 +601,12 @@ func (ctx *facadeContext) HTTPClient(purpose facade.HTTPClientPurpose) facade.HT
 	default:
 		return nil
 	}
+}
+
+// ControllerDB returns a TrackedDB reference for the controller database.
+func (ctx *facadeContext) ControllerDB() (coredatabase.TrackedDB, error) {
+	db, err := ctx.r.shared.dbGetter.GetDB(coredatabase.ControllerNS)
+	return db, errors.Trace(err)
 }
 
 // adminRoot dispatches API calls to those available to an anonymous connection
