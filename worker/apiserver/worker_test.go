@@ -44,6 +44,7 @@ type workerFixture struct {
 	multiwatcherFactory  multiwatcher.Factory
 	sysLogger            syslogger.SysLogger
 	charmhubHTTPClient   *http.Client
+	dbGetter             stubDBGetter
 }
 
 func (s *workerFixture) SetUpTest(c *gc.C) {
@@ -89,6 +90,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		MetricsCollector:                  s.metricsCollector,
 		SysLogger:                         s.sysLogger,
 		CharmhubHTTPClient:                s.charmhubHTTPClient,
+		DBGetter:                          s.dbGetter,
 	}
 }
 
@@ -152,6 +154,9 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 	}, {
 		func(cfg *apiserver.Config) { cfg.SysLogger = nil },
 		"nil SysLogger not valid",
+	}, {
+		func(cfg *apiserver.Config) { cfg.DBGetter = nil },
+		"nil DBGetter not valid",
 	}}
 	for i, test := range tests {
 		c.Logf("test #%d (%s)", i, test.expect)

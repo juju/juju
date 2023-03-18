@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/cache"
+	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
@@ -44,6 +45,8 @@ type Config struct {
 	MetricsCollector                  *apiserver.Collector
 	EmbeddedCommand                   apiserver.ExecEmbeddedCommandFunc
 	CharmhubHTTPClient                HTTPClient
+	// DBGetter supplies sql.DB references on request, for named databases.
+	DBGetter coredatabase.DBGetter
 }
 
 type HTTPClient interface {
@@ -104,6 +107,9 @@ func (config Config) Validate() error {
 	if config.CharmhubHTTPClient == nil {
 		return errors.NotValidf("nil CharmhubHTTPClient")
 	}
+	if config.DBGetter == nil {
+		return errors.NotValidf("nil DBGetter")
+	}
 	return nil
 }
 
@@ -162,6 +168,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		ExecEmbeddedCommand:           config.EmbeddedCommand,
 		SysLogger:                     config.SysLogger,
 		CharmhubHTTPClient:            config.CharmhubHTTPClient,
+		DBGetter:                      config.DBGetter,
 	}
 	return config.NewServer(serverConfig)
 }

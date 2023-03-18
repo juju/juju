@@ -55,7 +55,7 @@ func (s *workerSuite) TestGetControllerDBSuccessNotExistingNode(c *gc.C) {
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
 
-	getter, ok := w.(DBGetter)
+	getter, ok := w.(coredatabase.DBGetter)
 	c.Assert(ok, jc.IsTrue, gc.Commentf("worker does not implement DBGetter"))
 
 	_, err := getter.GetDB("controller")

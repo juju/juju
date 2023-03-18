@@ -47,6 +47,7 @@ import (
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/container"
+	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/instance"
 	corelease "github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
@@ -1019,6 +1020,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 				},
 				MetricsCollector: apiserver.NewMetricsCollector(),
 				SysLogger:        noopSysLogger{},
+				DBGetter:         stubDBGetter{},
 			})
 			if err != nil {
 				panic(err)
@@ -1051,6 +1053,15 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 type noopSysLogger struct{}
 
 func (noopSysLogger) Log([]corelogger.LogRecord) error { return nil }
+
+type stubDBGetter struct{}
+
+func (s stubDBGetter) GetDB(namespace string) (coredatabase.TrackedDB, error) {
+	if namespace != "controller" {
+		return nil, errors.Errorf(`expected a request for "controller" DB; got %q`, namespace)
+	}
+	return nil, nil
+}
 
 func leaseManager(controllerUUID string, st *state.State) (*lease.Manager, error) {
 	dummyStore := newLeaseStore(clock.WallClock)
