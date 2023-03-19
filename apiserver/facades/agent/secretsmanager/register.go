@@ -26,8 +26,21 @@ import (
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("SecretsManager", 1, func(ctx facade.Context) (facade.Facade, error) {
+		return NewSecretManagerAPIV1(ctx)
+	}, reflect.TypeOf((*SecretsManagerAPIV1)(nil)))
+	registry.MustRegister("SecretsManager", 2, func(ctx facade.Context) (facade.Facade, error) {
 		return NewSecretManagerAPI(ctx)
 	}, reflect.TypeOf((*SecretsManagerAPI)(nil)))
+}
+
+// NewSecretManagerAPIV1 creates a SecretsManagerAPIV1.
+// TODO - drop when we no longer support juju 3.1.x
+func NewSecretManagerAPIV1(context facade.Context) (*SecretsManagerAPIV1, error) {
+	api, err := NewSecretManagerAPI(context)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &SecretsManagerAPIV1{SecretsManagerAPI: api}, nil
 }
 
 // NewSecretManagerAPI creates a SecretsManagerAPI.
@@ -39,12 +52,12 @@ func NewSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	secretBackendConfigGetter := func(backendIDs []string) (*provider.ModelBackendConfigInfo, error) {
+	secretBackendConfigGetter := func(backendIDs []string, wantAll bool) (*provider.ModelBackendConfigInfo, error) {
 		model, err := context.State().Model()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return secrets.BackendConfigInfo(secrets.SecretsModel(model), backendIDs, context.Auth().GetAuthTag(), leadershipChecker)
+		return secrets.BackendConfigInfo(secrets.SecretsModel(model), backendIDs, wantAll, context.Auth().GetAuthTag(), leadershipChecker)
 	}
 	secretBackendAdminConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
 		model, err := context.State().Model()

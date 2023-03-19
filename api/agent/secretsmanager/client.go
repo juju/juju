@@ -40,7 +40,7 @@ func (c *Client) GetSecretBackendConfig(backendID *string) (*provider.ModelBacke
 	if backendID != nil {
 		args.BackendIDs = []string{*backendID}
 	}
-	err := c.facade.FacadeCall("GetSecretBackendConfig", args, &results)
+	err := c.facade.FacadeCall("GetSecretBackendConfigs", args, &results)
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
 	}

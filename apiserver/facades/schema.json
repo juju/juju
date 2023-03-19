@@ -39875,7 +39875,7 @@
     {
         "Name": "SecretsManager",
         "Description": "SecretsManagerAPI is the implementation for the SecretsManager facade.",
-        "Version": 1,
+        "Version": 2,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -39921,7 +39921,7 @@
                     },
                     "description": "GetConsumerSecretsRevisionInfo returns the latest secret revisions for the specified secrets."
                 },
-                "GetSecretBackendConfig": {
+                "GetSecretBackendConfigs": {
                     "type": "object",
                     "properties": {
                         "Params": {
@@ -39931,7 +39931,7 @@
                             "$ref": "#/definitions/SecretBackendConfigResults"
                         }
                     },
-                    "description": "GetSecretBackendConfig gets the config needed to create a client to secret backends."
+                    "description": "GetSecretBackendConfigs gets the config needed to create a client to secret backends."
                 },
                 "GetSecretContentInfo": {
                     "type": "object",
@@ -45806,7 +45806,7 @@
                     },
                     "description": "GetRawK8sSpec gets the raw k8s specs for a set of applications."
                 },
-                "GetSecretBackendConfig": {
+                "GetSecretBackendConfigs": {
                     "type": "object",
                     "properties": {
                         "Params": {
@@ -45816,7 +45816,7 @@
                             "$ref": "#/definitions/SecretBackendConfigResults"
                         }
                     },
-                    "description": "GetSecretBackendConfig gets the config needed to create a client to secret backends."
+                    "description": "GetSecretBackendConfigs gets the config needed to create a client to secret backends."
                 },
                 "GetSecretContentInfo": {
                     "type": "object",

@@ -12,6 +12,16 @@ import (
 	"github.com/juju/juju/core/secrets"
 )
 
+// SecretBackendConfigResultsV1 holds config info for creating
+// secret backend clients for a specific model.
+type SecretBackendConfigResultsV1 struct {
+	ControllerUUID string                         `json:"model-controller"`
+	ModelUUID      string                         `json:"model-uuid"`
+	ModelName      string                         `json:"model-name"`
+	ActiveID       string                         `json:"active-id"`
+	Configs        map[string]SecretBackendConfig `json:"configs,omitempty"`
+}
+
 // SecretBackendArgs holds args for querying secret backends.
 type SecretBackendArgs struct {
 	BackendIDs []string `json:"backend-ids"`

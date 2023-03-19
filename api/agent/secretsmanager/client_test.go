@@ -42,7 +42,7 @@ func (s *SecretsSuite) TestGetSecretBackendConfig(c *gc.C) {
 		c.Check(objType, gc.Equals, "SecretsManager")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "GetSecretBackendConfig")
+		c.Check(request, gc.Equals, "GetSecretBackendConfigs")
 		c.Check(arg, jc.DeepEquals, params.SecretBackendArgs{
 			BackendIDs: []string{"active-id"},
 		})

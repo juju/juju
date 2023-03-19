@@ -57,8 +57,50 @@ type SecretsManagerAPI struct {
 	crossModelState CrossModelState
 }
 
+// SecretsManagerAPIV1 the secrets manager facade v1.
+// TODO - drop when we no longer support juju 3.1.0
+type SecretsManagerAPIV1 struct {
+	*SecretsManagerAPI
+}
+
+// GetSecretStoreConfig is for 3.0.x agents.
+// TODO - drop when we no longer support juju 3.0.x
+func (s *SecretsManagerAPIV1) GetSecretStoreConfig() (params.SecretBackendConfig, error) {
+	cfgInfo, err := s.GetSecretBackendConfig()
+	if err != nil {
+		return params.SecretBackendConfig{}, errors.Trace(err)
+	}
+	return cfgInfo.Configs[cfgInfo.ActiveID], nil
+}
+
 // GetSecretBackendConfig gets the config needed to create a client to secret backends.
-func (s *SecretsManagerAPI) GetSecretBackendConfig(arg params.SecretBackendArgs) (params.SecretBackendConfigResults, error) {
+// TODO - drop when we no longer support juju 3.1.x
+func (s *SecretsManagerAPIV1) GetSecretBackendConfig() (params.SecretBackendConfigResultsV1, error) {
+	cfgInfo, err := s.backendConfigGetter(nil, true)
+	if err != nil {
+		return params.SecretBackendConfigResultsV1{}, errors.Trace(err)
+	}
+	result := params.SecretBackendConfigResultsV1{
+		ActiveID: cfgInfo.ActiveID,
+		Configs:  make(map[string]params.SecretBackendConfig),
+	}
+	for id, cfg := range cfgInfo.Configs {
+		result.ControllerUUID = cfg.ControllerUUID
+		result.ModelUUID = cfg.ModelUUID
+		result.ModelName = cfg.ModelName
+		result.Configs[id] = params.SecretBackendConfig{
+			BackendType: cfg.BackendType,
+			Params:      cfg.Config,
+		}
+	}
+	return result, nil
+}
+
+// GetSecretBackendConfigs isn't on the V1 API.
+func (*SecretsManagerAPIV1) GetSecretBackendConfigs(_ struct{}) {}
+
+// GetSecretBackendConfigs gets the config needed to create a client to secret backends.
+func (s *SecretsManagerAPI) GetSecretBackendConfigs(arg params.SecretBackendArgs) (params.SecretBackendConfigResults, error) {
 	results := params.SecretBackendConfigResults{
 		Results: make(map[string]params.SecretBackendConfigResult, len(arg.BackendIDs)),
 	}
@@ -73,7 +115,7 @@ func (s *SecretsManagerAPI) GetSecretBackendConfig(arg params.SecretBackendArgs)
 
 // GetSecretBackendConfig gets the config needed to create a client to secret backends.
 func (s *SecretsManagerAPI) getSecretBackendConfig(backendIDs []string) (map[string]params.SecretBackendConfigResult, string, error) {
-	cfgInfo, err := s.backendConfigGetter(backendIDs)
+	cfgInfo, err := s.backendConfigGetter(backendIDs, false)
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
@@ -102,7 +144,7 @@ func (s *SecretsManagerAPI) getSecretBackendConfig(backendIDs []string) (map[str
 }
 
 func (s *SecretsManagerAPI) getBackend(backendID string) (*secretsprovider.ModelBackendConfig, bool, error) {
-	cfgInfo, err := s.backendConfigGetter([]string{backendID})
+	cfgInfo, err := s.backendConfigGetter([]string{backendID}, false)
 	if err != nil {
 		return nil, false, errors.Trace(err)
 	}
