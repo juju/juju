@@ -5,6 +5,7 @@ package application
 
 import (
 	"fmt"
+	"github.com/juju/charm/v10/resource"
 	"sync"
 
 	"github.com/juju/charm/v10"
@@ -47,6 +48,7 @@ type DeployFromRepository interface {
 // objects.
 type DeployFromRepositoryState interface {
 	AddApplication(state.AddApplicationArgs) (Application, error)
+	AddPendingResource(string, resource.Resource) (string, error)
 	AddCharmMetadata(info state.CharmInfo) (Charm, error)
 	ControllerConfig() (controller.Config, error)
 	Machine(string) (Machine, error)
@@ -137,7 +139,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(arg params.DeployFromRe
 	}
 
 	// Last step, add pending resources.
-	pendingResourceUploads, errs := addPendingResources()
+	pendingResourceUploads, errs := api.addPendingResources(dt.applicationName, dt.resources, ch.Meta().Resources)
 
 	return info, pendingResourceUploads, errs
 }
@@ -147,9 +149,34 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(arg params.DeployFromRe
 // for local resources which will require the client to upload the
 // resource once DeployFromRepository returns. All resources will be
 // processed. Errors are not terminal.
-// TODO: determine necessary args.
-func addPendingResources() ([]*params.PendingResourceUpload, []error) {
-	return nil, nil
+func (api *DeployFromRepositoryAPI) addPendingResources(appName string, uploads map[string]string, res map[string]resource.Meta) ([]*params.PendingResourceUpload, []error) {
+	var pIDs []*params.PendingResourceUpload
+	var errs []error
+
+	for name, meta := range res {
+		res := resource.Resource{
+			Meta:     meta,
+			Origin:   resource.OriginStore,
+			Revision: -1,
+		}
+
+		pID, err := api.state.AddPendingResource(appName, res)
+		if err != nil {
+			logger.Warningf("Unable to add pending resource %v for application %v", name, appName)
+			errs = append(errs, err)
+		} else {
+			if _, ok := uploads[name]; ok {
+				pIDs = append(pIDs, &params.PendingResourceUpload{
+					Name:      meta.Name,
+					Type:      meta.Type.String(),
+					Filename:  meta.Path,
+					PendingID: pID,
+				})
+			}
+		}
+	}
+
+	return pIDs, errs
 }
 
 type deployTemplate struct {

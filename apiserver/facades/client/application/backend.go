@@ -4,6 +4,7 @@
 package application
 
 import (
+	"github.com/juju/charm/v10/resource"
 	"time"
 
 	"github.com/juju/charm/v10"
@@ -37,6 +38,7 @@ type Backend interface {
 	ApplicationOfferForUUID(offerUUID string) (*crossmodel.ApplicationOffer, error)
 	ApplyOperation(state.ModelOperation) error
 	AddApplication(state.AddApplicationArgs) (Application, error)
+	AddPendingResource(string, resource.Resource) (string, error)
 	AddCharmMetadata(info state.CharmInfo) (Charm, error)
 	RemoteApplication(string) (RemoteApplication, error)
 	AddRemoteApplication(state.AddRemoteApplicationParams) (RemoteApplication, error)
@@ -312,6 +314,10 @@ func (s stateShim) AddApplication(args state.AddApplicationArgs) (Application, e
 		return nil, err
 	}
 	return stateApplicationShim{a, s.State}, nil
+}
+
+func (s stateShim) AddPendingResource(appName string, chRes resource.Resource) (string, error) {
+	return s.State.Resources().AddPendingResource(appName, "", chRes)
 }
 
 func (s stateShim) AddCharmMetadata(info state.CharmInfo) (Charm, error) {
