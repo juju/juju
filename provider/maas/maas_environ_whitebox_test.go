@@ -2437,7 +2437,15 @@ func (suite *maasEnvironSuite) TestStartInstanceEndToEnd(c *gc.C) {
 	node1.zoneName = "test_zone"
 	controller.allocateMachine = node1
 
-	instance, hc := jujutesting.AssertStartInstance(c, env, suite.callCtx, suite.controllerUUID, "1")
+	instance, hc := jujutesting.AssertStartInstanceWithConstraints(
+		c,
+		env,
+		suite.callCtx,
+		suite.controllerUUID,
+		"1",
+		constraints.Value{
+			ImageID: stringp("ubuntu-bf2"),
+		})
 	c.Check(instance, gc.NotNil)
 	c.Assert(hc, gc.NotNil)
 	c.Check(hc.String(), gc.Equals, fmt.Sprintf("arch=%s cores=1 mem=1024M availability-zone=test_zone", arch.HostArch()))
@@ -2445,6 +2453,8 @@ func (suite *maasEnvironSuite) TestStartInstanceEndToEnd(c *gc.C) {
 	node1.Stub.CheckCallNames(c, "Start", "SetOwnerData")
 	startArgs, ok := node1.Stub.Calls()[0].Args[0].(gomaasapi.StartArgs)
 	c.Assert(ok, jc.IsTrue)
+
+	c.Assert(startArgs.DistroSeries, gc.Equals, "ubuntu-bf2")
 
 	decodedUserData, err := decodeUserData(startArgs.UserData)
 	c.Assert(err, jc.ErrorIsNil)
