@@ -236,7 +236,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceeds(c *gc.C) 
 	})
 
 	var count uint64
-	verifyFn := func(db *sql.DB) error {
+	verifyFn := func(context.Context, *sql.DB) error {
 		val := atomic.AddUint64(&count, 1)
 
 		if val == DefaultVerifyAttempts {
@@ -289,7 +289,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceedsWithDiffer
 	})
 
 	var count uint64
-	verifyFn := func(db *sql.DB) error {
+	verifyFn := func(context.Context, *sql.DB) error {
 		val := atomic.AddUint64(&count, 1)
 
 		if val == DefaultVerifyAttempts {
@@ -335,7 +335,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButFails(c *gc.C) {
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil).Times(DefaultVerifyAttempts)
 
-	verifyFn := func(db *sql.DB) error {
+	verifyFn := func(context.Context, *sql.DB) error {
 		return errors.New("boom")
 	}
 
