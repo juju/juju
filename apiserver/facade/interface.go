@@ -11,6 +11,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/core/cache"
+	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
@@ -146,19 +147,20 @@ type Context interface {
 
 	// HTTPClient returns an HTTP client to use for the given purpose.
 	HTTPClient(purpose HTTPClientPurpose) HTTPClient
+
+	// ControllerDB returns a TrackedDB reference for the controller database.
+	ControllerDB() (coredatabase.TrackedDB, error)
 }
 
 // RequestRecorder is implemented by types that can record information about
 // successful and unsuccessful http requests.
 type RequestRecorder interface {
-	// Record an outgoing request which produced an http.Response.
+	// Record an outgoing request that produced a http.Response.
 	Record(method string, url *url.URL, res *http.Response, rtt time.Duration)
 
-	// Record an outgoing request which returned back an error.
+	// RecordError records an outgoing request that returned back an error.
 	RecordError(method string, url *url.URL, err error)
 }
-
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/facade_mock.go github.com/juju/juju/apiserver/facade Resources,Authorizer
 
 // Authorizer represents the authenticated entity using the API server.
 type Authorizer interface {

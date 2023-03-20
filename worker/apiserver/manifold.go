@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/cache"
+	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
@@ -47,6 +48,7 @@ type ManifoldConfig struct {
 	LeaseManagerName       string
 	SyslogName             string
 	CharmhubHTTPClientName string
+	DBAccessorName         string
 
 	PrometheusRegisterer              prometheus.Registerer
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
@@ -99,7 +101,10 @@ func (config ManifoldConfig) Validate() error {
 		return errors.NotValidf("empty SyslogName")
 	}
 	if config.CharmhubHTTPClientName == "" {
-		return errors.NotValidf("nil CharmhubHTTPClientName")
+		return errors.NotValidf("empty CharmhubHTTPClientName")
+	}
+	if config.DBAccessorName == "" {
+		return errors.NotValidf("empty DBAccessorName")
 	}
 	if config.Hub == nil {
 		return errors.NotValidf("nil Hub")
@@ -134,6 +139,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.LeaseManagerName,
 			config.SyslogName,
 			config.CharmhubHTTPClientName,
+			config.DBAccessorName,
 		},
 		Start: config.start,
 	}
@@ -205,6 +211,11 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
+	var dbGetter coredatabase.DBGetter
+	if err := context.Get(config.DBAccessorName, &dbGetter); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	// Register the metrics collector against the prometheus register.
 	metricsCollector := config.NewMetricsCollector()
 	if err := config.PrometheusRegisterer.Register(metricsCollector); err != nil {
@@ -242,6 +253,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		EmbeddedCommand:                   execEmbeddedCommand,
 		SysLogger:                         sysLogger,
 		CharmhubHTTPClient:                charmhubHTTPClient,
+		DBGetter:                          dbGetter,
 	})
 	if err != nil {
 		_ = stTracker.Done()

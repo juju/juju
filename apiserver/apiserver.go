@@ -48,6 +48,7 @@ import (
 
 	"github.com/juju/juju/core/resources"
 
+	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/pubsub/apiserver"
 	controllermsg "github.com/juju/juju/pubsub/controller"
 	"github.com/juju/juju/resource"
@@ -201,6 +202,9 @@ type ServerConfig struct {
 
 	// CharmhubHTTPClient is the HTTP client used for Charmhub API requests.
 	CharmhubHTTPClient facade.HTTPClient
+
+	// DBGetter supplies sql.DB references on request, for named databases.
+	DBGetter coredatabase.DBGetter
 }
 
 // Validate validates the API server configuration.
@@ -271,7 +275,7 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 	// Important note:
 	// Do not manipulate the state within NewServer as the API
 	// server needs to run before mongo upgrades have happened and
-	// any state manipulation may be be relying on features of the
+	// any state manipulation may be relying on features of the
 	// database added by upgrades. Here be dragons.
 	return newServer(cfg)
 }
@@ -298,6 +302,7 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		controllerConfig:    controllerConfig,
 		logger:              loggo.GetLogger("juju.apiserver"),
 		charmhubHTTPClient:  cfg.CharmhubHTTPClient,
+		dbGetter:            cfg.DBGetter,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -570,7 +575,7 @@ func (w httpRequestRecorderWrapper) Record(method string, url *url.URL, res *htt
 	w.collector.TotalRequestsDuration.WithLabelValues(w.modelUUID, url.Host).Observe(rtt.Seconds())
 }
 
-// Record an outgoing request which returned back an error.
+// RecordError records an outgoing request that returned back an error.
 func (w httpRequestRecorderWrapper) RecordError(method string, url *url.URL, err error) {
 	// Note: Do not log url.Path as REST queries _can_ include the name of the
 	// entities (charms, architectures, etc).

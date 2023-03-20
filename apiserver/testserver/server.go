@@ -13,6 +13,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
+	"github.com/pkg/errors"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -24,6 +25,7 @@ import (
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/cache"
+	coredatabase "github.com/juju/juju/core/database"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
@@ -54,6 +56,7 @@ func DefaultServerConfig(c *gc.C, testclock clock.Clock) apiserver.ServerConfig 
 		MetricsCollector:    apiserver.NewMetricsCollector(),
 		SysLogger:           noopSysLogger{},
 		CharmhubHTTPClient:  &http.Client{},
+		DBGetter:            stubDBGetter{},
 	}
 }
 
@@ -139,4 +142,13 @@ func (s *Server) Stop() error {
 
 type fakeMultiwatcherFactory struct {
 	multiwatcher.Factory
+}
+
+type stubDBGetter struct{}
+
+func (s stubDBGetter) GetDB(namespace string) (coredatabase.TrackedDB, error) {
+	if namespace != "controller" {
+		return nil, errors.Errorf(`expected a request for "controller" DB; got %q`, namespace)
+	}
+	return nil, nil
 }

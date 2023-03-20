@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/cache"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
+	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
@@ -71,6 +72,7 @@ func (ctx *charmsSuiteContext) LeadershipPinner(string) (leadership.Pinner, erro
 func (ctx *charmsSuiteContext) LeadershipReader(string) (leadership.Reader, error)    { return nil, nil }
 func (ctx *charmsSuiteContext) SingularClaimer() (lease.Claimer, error)               { return nil, nil }
 func (ctx *charmsSuiteContext) HTTPClient(facade.HTTPClientPurpose) facade.HTTPClient { return nil }
+func (ctx *charmsSuiteContext) ControllerDB() (coredatabase.TrackedDB, error)         { return nil, nil }
 
 func (s *charmsSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)

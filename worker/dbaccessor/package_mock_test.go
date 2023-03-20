@@ -10,7 +10,6 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	database "github.com/juju/juju/core/database"
 	app "github.com/juju/juju/database/app"
 )
 
@@ -217,44 +216,6 @@ func (mr *MockNodeManagerMockRecorder) WithTLSOption() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithTLSOption", reflect.TypeOf((*MockNodeManager)(nil).WithTLSOption))
 }
 
-// MockDBGetter is a mock of DBGetter interface.
-type MockDBGetter struct {
-	ctrl     *gomock.Controller
-	recorder *MockDBGetterMockRecorder
-}
-
-// MockDBGetterMockRecorder is the mock recorder for MockDBGetter.
-type MockDBGetterMockRecorder struct {
-	mock *MockDBGetter
-}
-
-// NewMockDBGetter creates a new mock instance.
-func NewMockDBGetter(ctrl *gomock.Controller) *MockDBGetter {
-	mock := &MockDBGetter{ctrl: ctrl}
-	mock.recorder = &MockDBGetterMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockDBGetter) EXPECT() *MockDBGetterMockRecorder {
-	return m.recorder
-}
-
-// GetDB mocks base method.
-func (m *MockDBGetter) GetDB(namespace string) (database.TrackedDB, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetDB", namespace)
-	ret0, _ := ret[0].(database.TrackedDB)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetDB indicates an expected call of GetDB.
-func (mr *MockDBGetterMockRecorder) GetDB(namespace interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDB", reflect.TypeOf((*MockDBGetter)(nil).GetDB), namespace)
-}
-
 // MockDBApp is a mock of DBApp interface.
 type MockDBApp struct {
 	ctrl     *gomock.Controller
@@ -347,53 +308,4 @@ func (m *MockDBApp) Ready(arg0 context.Context) error {
 func (mr *MockDBAppMockRecorder) Ready(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Ready", reflect.TypeOf((*MockDBApp)(nil).Ready), arg0)
-}
-
-// MockREPL is a mock of REPL interface.
-type MockREPL struct {
-	ctrl     *gomock.Controller
-	recorder *MockREPLMockRecorder
-}
-
-// MockREPLMockRecorder is the mock recorder for MockREPL.
-type MockREPLMockRecorder struct {
-	mock *MockREPL
-}
-
-// NewMockREPL creates a new mock instance.
-func NewMockREPL(ctrl *gomock.Controller) *MockREPL {
-	mock := &MockREPL{ctrl: ctrl}
-	mock.recorder = &MockREPLMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockREPL) EXPECT() *MockREPLMockRecorder {
-	return m.recorder
-}
-
-// Kill mocks base method.
-func (m *MockREPL) Kill() {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Kill")
-}
-
-// Kill indicates an expected call of Kill.
-func (mr *MockREPLMockRecorder) Kill() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Kill", reflect.TypeOf((*MockREPL)(nil).Kill))
-}
-
-// Wait mocks base method.
-func (m *MockREPL) Wait() error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Wait")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Wait indicates an expected call of Wait.
-func (mr *MockREPLMockRecorder) Wait() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Wait", reflect.TypeOf((*MockREPL)(nil).Wait))
 }

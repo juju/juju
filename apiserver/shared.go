@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/cache"
+	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
@@ -46,6 +47,7 @@ type sharedServerContext struct {
 	logger              loggo.Logger
 	cancel              <-chan struct{}
 	charmhubHTTPClient  facade.HTTPClient
+	dbGetter            coredatabase.DBGetter
 
 	configMutex      sync.RWMutex
 	controllerConfig jujucontroller.Config
@@ -64,6 +66,7 @@ type sharedServerConfig struct {
 	controllerConfig    jujucontroller.Config
 	logger              loggo.Logger
 	charmhubHTTPClient  facade.HTTPClient
+	dbGetter            coredatabase.DBGetter
 }
 
 func (c *sharedServerConfig) validate() error {
@@ -88,6 +91,9 @@ func (c *sharedServerConfig) validate() error {
 	if c.controllerConfig == nil {
 		return errors.NotValidf("nil controllerConfig")
 	}
+	if c.dbGetter == nil {
+		return errors.NotValidf("nil dbGetter")
+	}
 	return nil
 }
 
@@ -105,6 +111,7 @@ func newSharedServerContext(config sharedServerConfig) (*sharedServerContext, er
 		logger:              config.logger,
 		controllerConfig:    config.controllerConfig,
 		charmhubHTTPClient:  config.charmhubHTTPClient,
+		dbGetter:            config.dbGetter,
 	}
 	ctx.features = config.controllerConfig.Features()
 	// We are able to get the current controller config before subscribing to changes
