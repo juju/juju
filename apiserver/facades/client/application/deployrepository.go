@@ -280,32 +280,13 @@ func (v *deployFromRepositoryValidator) validate(arg params.DeployFromRepository
 		errs = append(errs, err)
 	}
 
-	initialCurl, requestedOrigin, usedModelDefaultBase, err := v.createOrigin(arg)
-	if err != nil {
-		errs = append(errs, err)
-		return deployTemplate{}, errs
-	}
-	deployRepoLogger.Tracef("from createOrigin: %s, %s", initialCurl, pretty.Sprint(requestedOrigin))
-	// TODO:
-	// The logic in resolveCharm and getCharm can be improved as there is some
-	// duplication. We call ResolveCharmWithPreferredChannel, then pick a
-	// series, then call GetEssentialMetadata, which again calls ResolveCharmWithPreferredChannel
-	// then a refresh request.
-
-	charmURL, resolvedOrigin, err := v.resolveCharm(initialCurl, requestedOrigin, arg.Force, usedModelDefaultBase, arg.Cons)
-	if err != nil {
-		errs = append(errs, err)
-		return deployTemplate{}, errs
-	}
-	deployRepoLogger.Tracef("from resolveCharm: %s, %s", charmURL, pretty.Sprint(resolvedOrigin))
-	// Are we deploying a charm? if not, fail fast here.
-	// TODO: add a ErrorNotACharm or the like for the juju client.
-
 	// get the charm data to validate against, either a previously deployed
 	// charm or the essential metadata from a charm to be async downloaded.
-	resolvedOrigin, resolvedCharm, err := v.getCharm(charmURL, resolvedOrigin)
+	charmURL, resolvedOrigin, resolvedCharm, err := v.getCharm(arg)
 	if err != nil {
-		errs = append(errs, err)
+		errs = append(errs, err...)
+		// return any errors here, there is no need to continue with
+		// validation if we cannot find the charm.
 		return deployTemplate{}, errs
 	}
 	deployRepoLogger.Tracef("from getCharm: %s", charmURL, pretty.Sprint(resolvedOrigin))
@@ -390,7 +371,7 @@ func (v *deployFromRepositoryValidator) resolvedCharmValidation(resolvedCharm ch
 		if !errors.Is(err, errors.NotSupported) || !arg.Force {
 			errs = append(errs, err)
 		}
-		deployRepoLogger.Warningf("proceeding with deployment of application %q even though the charm feature requirements could not be met as --force was specified", appName)
+		deployRepoLogger.Warningf("proceeding with deployment of application even though the charm feature requirements could not be met as --force was specified")
 	}
 
 	dt := deployTemplate{
@@ -682,11 +663,34 @@ func (v *deployFromRepositoryValidator) resolveCharm(curl *charm.URL, requestedO
 }
 
 // getCharm returns the charm being deployed. Either it already has been
-// used once and we get the data from state. Or we get the essential metadata.
-func (v *deployFromRepositoryValidator) getCharm(charmURL *charm.URL, resolvedOrigin corecharm.Origin) (corecharm.Origin, charm.Charm, error) {
+// used once, and we get the data from state. Or we get the essential metadata.
+func (v *deployFromRepositoryValidator) getCharm(arg params.DeployFromRepositoryArg) (*charm.URL, corecharm.Origin, charm.Charm, []error) {
+	errs := make([]error, 0)
+	initialCurl, requestedOrigin, usedModelDefaultBase, err := v.createOrigin(arg)
+	if err != nil {
+		errs = append(errs, err)
+		return nil, corecharm.Origin{}, nil, errs
+	}
+	deployRepoLogger.Tracef("from createOrigin: %s, %s", initialCurl, pretty.Sprint(requestedOrigin))
+	// TODO:
+	// The logic in resolveCharm and getCharm can be improved as there is some
+	// duplication. We call ResolveCharmWithPreferredChannel, then pick a
+	// series, then call GetEssentialMetadata, which again calls ResolveCharmWithPreferredChannel
+	// then a refresh request.
+
+	charmURL, resolvedOrigin, err := v.resolveCharm(initialCurl, requestedOrigin, arg.Force, usedModelDefaultBase, arg.Cons)
+	if err != nil {
+		errs = append(errs, err)
+		return nil, corecharm.Origin{}, nil, errs
+	}
+	deployRepoLogger.Tracef("from resolveCharm: %s, %s", charmURL, pretty.Sprint(resolvedOrigin))
+	// Are we deploying a charm? if not, fail fast here.
+	// TODO: add a ErrorNotACharm or the like for the juju client.
+
 	repo, err := v.getCharmRepository(corecharm.CharmHub)
 	if err != nil {
-		return resolvedOrigin, nil, err
+		errs = append(errs, err)
+		return nil, corecharm.Origin{}, nil, errs
 	}
 
 	// Check if a charm doc already exists for this charm URL. If so, the
@@ -714,11 +718,12 @@ func (v *deployFromRepositoryValidator) getCharm(charmURL *charm.URL, resolvedOr
 		Origin:   resolvedOrigin,
 	})
 	if err != nil {
-		return resolvedOrigin, nil, errors.Annotatef(err, "retrieving essential metadata for charm %q", charmURL)
+		errs = append(errs, errors.Annotatef(err, "retrieving essential metadata for charm %q", charmURL))
+		return nil, corecharm.Origin{}, nil, errs
 	}
 	metaRes := essentialMeta[0]
 	resolvedCharm := corecharm.NewCharmInfoAdapter(metaRes)
-	return metaRes.ResolvedOrigin, resolvedCharm, nil
+	return charmURL, metaRes.ResolvedOrigin, resolvedCharm, nil
 }
 
 func (v *deployFromRepositoryValidator) appCharmSettings(appName string, trust bool, chCfg *charm.Config, configYAML string) (*config.Config, charm.Settings, error) {

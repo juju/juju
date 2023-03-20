@@ -425,10 +425,25 @@ func (s *validatorSuite) TestCreateOriginChannel(c *gc.C) {
 
 func (s *validatorSuite) TestGetCharm(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	curl := charm.MustParseURL("ch:amd64/jammy/testcharm-1")
+	s.expectSimpleValidate()
+	// resolveCharm
+	curl := charm.MustParseURL("testcharm")
+	resultURL := charm.MustParseURL("ch:amd64/jammy/testcharm-4")
 	origin := corecharm.Origin{
-		Source: "charm-hub",
+		Source:   "charm-hub",
+		Channel:  &charm.Channel{Risk: "stable"},
+		Platform: corecharm.Platform{Architecture: "amd64"},
 	}
+	resolvedOrigin := corecharm.Origin{
+		Source:   "charm-hub",
+		Type:     "charm",
+		Channel:  &charm.Channel{Track: "default", Risk: "stable"},
+		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04/stable"},
+		Revision: intptr(4),
+	}
+	supportedSeries := []string{"jammy", "focal"}
+	s.repo.EXPECT().ResolveWithPreferredChannel(curl, origin).Return(resultURL, resolvedOrigin, supportedSeries, nil)
+	// getCharm
 	expMeta := &charm.Meta{
 		Name: "test-charm",
 	}
@@ -438,16 +453,21 @@ func (s *validatorSuite) TestGetCharm(c *gc.C) {
 		Meta:           expMeta,
 		Manifest:       expManifest,
 		Config:         expConfig,
-		ResolvedOrigin: origin,
+		ResolvedOrigin: resolvedOrigin,
 	}
 	s.repo.EXPECT().GetEssentialMetadata(corecharm.MetadataRequest{
-		CharmURL: curl,
-		Origin:   origin,
+		CharmURL: resultURL,
+		Origin:   resolvedOrigin,
 	}).Return([]corecharm.EssentialMetadata{essMeta}, nil)
-	obtainedOrigin, obtainedCharm, err := s.getValidator().getCharm(curl, origin)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtainedOrigin, gc.DeepEquals, origin)
+
+	arg := params.DeployFromRepositoryArg{
+		CharmName: "testcharm",
+	}
+	obtainedURL, obtainedOrigin, obtainedCharm, err := s.getValidator().getCharm(arg)
+	c.Assert(err, gc.HasLen, 0)
+	c.Assert(obtainedOrigin, gc.DeepEquals, resolvedOrigin)
 	c.Assert(obtainedCharm, gc.DeepEquals, corecharm.NewCharmInfoAdapter(essMeta))
+	c.Assert(obtainedURL.String(), gc.Equals, resultURL.String())
 }
 
 func (s *validatorSuite) TestDeducePlatformSimple(c *gc.C) {
