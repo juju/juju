@@ -37,6 +37,43 @@ import (
 
 var logger = loggo.GetLogger("juju.cmd.juju.application.deployer")
 
+// DeployerKind is an interface that provides Read function to get
+// the appropriate deployer from a corresponding type of deployment
+type DeployerKind interface {
+	Read(d factory) (Deployer, error)
+}
+
+// localBundleDeployerKind represents a local bundle deployment
+type localBundleDeployerKind struct {
+	DataSource charm.BundleDataSource
+}
+
+// localPreDeployerKind represents a local pre-deployed charm deployment
+type localPreDeployerKind struct {
+	userCharmURL *charm.URL
+}
+
+// localCharmDeployerKind represents a local charm deployment
+type localCharmDeployerKind struct {
+	seriesName  string
+	imageStream string
+	ch          charm.Charm
+	curl        *charm.URL
+}
+
+// repositoryBundleDeployerKind represents a repository bundle deployment
+type repositoryBundleDeployerKind struct {
+	bundleURL    *charm.URL
+	bundleOrigin commoncharm.Origin
+	resolver     Resolver
+}
+
+// repositoryCharmDeployerKind struct represents a repository charm deployment
+type repositoryCharmDeployerKind struct {
+	deployCharm deployCharm
+	charmURL    *charm.URL
+}
+
 // NewDeployerFactory returns a factory setup with the API and
 // function dependencies required by every deployer.
 func NewDeployerFactory(dep DeployerDependencies) DeployerFactory {
@@ -57,22 +94,283 @@ func NewDeployerFactory(dep DeployerDependencies) DeployerFactory {
 // GetDeployer returns the correct deployer to use based on the cfg provided.
 // A ModelConfigGetter needed to find the deployer.
 func (d *factory) GetDeployer(cfg DeployerConfig, getter ModelConfigGetter, resolver Resolver) (Deployer, error) {
+	// Determine the type of deploy we have
+	var dk DeployerKind
+
+	// Set the factory config
 	d.setConfig(cfg)
-	maybeDeployers := []func() (Deployer, error){
-		d.maybeReadLocalBundle,
-		func() (Deployer, error) { return d.maybeReadLocalCharm(getter) },
-		d.maybePredeployedLocalCharm,
-		func() (Deployer, error) { return d.maybeReadRepositoryBundle(resolver) },
-		d.repositoryCharm, // This always returns a Deployer
+
+	// Check the path and try to catch problems (e.g. ambiguity) and fail early
+	if fileStatErr := d.checkPath(); fileStatErr != nil {
+		return nil, errors.Trace(fileStatErr)
 	}
-	for _, d := range maybeDeployers {
-		if deploy, err := d(); err != nil {
+
+	if charm.IsValidLocalCharmOrBundlePath(d.charmOrBundle) || isLocalSchema(d.charmOrBundle) {
+		// Local charm or bundle or a pre-deployed local charm
+
+		// Go for local bundle
+		var localBundleErr error
+		if dk, localBundleErr = d.localBundleDeployer(); localBundleErr != nil {
+			return nil, errors.Trace(localBundleErr)
+		}
+
+		// Go for local charm (if it's not set by the localBundleDeployer above)
+		if dk == nil {
+			var localCharmErr error
+			if dk, localCharmErr = d.localCharmDeployer(getter); localCharmErr != nil {
+				return nil, errors.Trace(localCharmErr)
+			}
+		}
+
+		// Go for local pre-deployed charm (if it's not set by the localCharmDeployer above)
+		if dk == nil {
+			var localPreDeployedCharmErr error
+			if dk, localPreDeployedCharmErr = d.localPreDeployedCharmDeployer(); localPreDeployedCharmErr != nil {
+				return nil, errors.Trace(localPreDeployedCharmErr)
+			}
+		}
+	} else {
+		// Repository charm or bundle
+		userCharmURL, resolveCharmErr := resolveCharmURL(d.charmOrBundle, d.defaultCharmSchema)
+		if resolveCharmErr != nil {
+			return nil, errors.Trace(resolveCharmErr)
+		}
+
+		charmHubSchemaCheck := charm.CharmHub.Matches(userCharmURL.Schema)
+
+		// Check revision
+		urlForOrigin, revErr := d.checkHandleRevision(userCharmURL, charmHubSchemaCheck)
+		if revErr != nil {
+			return nil, errors.Trace(revErr)
+		}
+
+		// Make the origin
+		platform := utils.MakePlatform(d.constraints, d.base, d.modelConstraints)
+		origin, err := utils.DeduceOrigin(urlForOrigin, d.channel, platform)
+		if err != nil {
 			return nil, errors.Trace(err)
-		} else if deploy != nil {
-			return deploy, nil
+		}
+
+		// Go for repository bundle
+		var bundleErr error
+		if dk, bundleErr = d.repoBundleDeployer(userCharmURL, origin, resolver, charmHubSchemaCheck); bundleErr != nil && !errors.Is(bundleErr, errors.NotValid) {
+			// If the error is NotValid, then the URL is resolved alright, but not to a bundle, so no need to raise
+			return nil, errors.Trace(bundleErr)
+		}
+
+		// Go for repository charm (if it's not set by the repoBundleDeployer above)
+		if dk == nil {
+			var charmErr error
+			dk, charmErr = d.repoCharmDeployer(userCharmURL, origin, charmHubSchemaCheck)
+			if charmErr != nil {
+				return nil, charmErr
+			}
 		}
 	}
-	return nil, errors.NotFoundf("suitable Deployer")
+
+	return dk.Read(*d)
+}
+
+func (d *factory) repoCharmDeployer(userCharmURL *charm.URL, origin commoncharm.Origin, charmHubSchemaCheck bool) (DeployerKind, error) {
+	// Check for when revision is set without a channel for future upgrades
+	if d.revision != -1 && charmHubSchemaCheck && d.channel.Empty() {
+		return nil, errors.Errorf("specifying a revision requires a channel for future upgrades. Please use --channel")
+	}
+	deployCharm := d.newDeployCharm()
+	deployCharm.id = application.CharmID{
+		Origin: origin,
+	}
+	return &repositoryCharmDeployerKind{deployCharm, userCharmURL}, nil
+}
+
+func (d *factory) repoBundleDeployer(userCharmURL *charm.URL, origin commoncharm.Origin, resolver Resolver, charmHubSchemaCheck bool) (DeployerKind, error) {
+	// TODO (cderici): check the validity of the comment below
+	// Resolve the bundle URL using the channel supplied via the channel
+	// supplied. All charms within this bundle unless pinned via a channel are
+	// NOT expected to be in the same channel as the bundle channel.
+	// The pinning of a bundle does not flow down to charms as well. Each charm
+	// has it's own channel supplied via a bundle, if no is supplied then the
+	// channel is worked out via the resolving what is available.
+	// See: LP:1677404 and LP:1832873
+	bundleURL, bundleOrigin, bundleResolveErr := resolver.ResolveBundleURL(userCharmURL, origin)
+	if charm.IsUnsupportedSeriesError(errors.Cause(bundleResolveErr)) {
+		return nil, errors.Errorf("%v. Use --force to deploy the charm anyway.", bundleResolveErr)
+	}
+	if bundleResolveErr != nil {
+		return nil, errors.Trace(bundleResolveErr)
+	} else {
+		if d.revision != -1 && charmHubSchemaCheck {
+			if !d.channel.Empty() {
+				return nil, errors.Errorf("revision and channel are mutually exclusive when deploying a bundle. Please choose one.")
+			}
+		}
+		if err := d.validateBundleFlags(); err != nil {
+			return nil, errors.Trace(err)
+		}
+		// Set the deployer kind to repositoryBundleDeployerKind
+		return &repositoryBundleDeployerKind{bundleURL, bundleOrigin, resolver}, nil
+	}
+}
+
+func (d *factory) localBundleDeployer() (DeployerKind, error) {
+	if ds, localBundleDataErr := charm.LocalBundleDataSource(d.charmOrBundle); localBundleDataErr == nil {
+		// Set the deployer kind to localBundleDeployerKind
+		return &localBundleDeployerKind{DataSource: ds}, nil
+	} else if !errors.Is(localBundleDataErr, errors.NotFound) {
+		// Only raise if it's not a NotFound.
+		// Otherwise, no need to raise, it's not a bundle,
+		// continue with trying for local charm.
+		return nil, errors.Annotatef(localBundleDataErr, "cannot deploy bundle")
+	} else {
+		return nil, nil
+	}
+}
+
+func (d *factory) localCharmDeployer(getter ModelConfigGetter) (DeployerKind, error) {
+	// Determine series
+	charmOrBundle := d.charmOrBundle
+	if isLocalSchema(charmOrBundle) {
+		charmOrBundle = charmOrBundle[6:]
+	}
+	seriesName, imageStream, seriesErr := d.determineSeriesForLocalCharm(charmOrBundle, getter)
+	if seriesErr != nil {
+		return nil, errors.Trace(seriesErr)
+	}
+
+	// Charm may have been supplied via a path reference.
+	ch, curl, err := corecharm.NewCharmAtPathForceSeries(charmOrBundle, seriesName, d.force)
+	// We check for several types of known error which indicate
+	// that the supplied reference was indeed a path but there was
+	// an issue reading the charm located there.
+	if corecharm.IsMissingSeriesError(err) {
+		return nil, err
+	} else if corecharm.IsUnsupportedSeriesError(err) {
+		return nil, errors.Trace(err)
+	} else if errors.Cause(err) == zip.ErrFormat {
+		return nil, errors.Errorf("invalid charm or bundle provided at %q", charmOrBundle)
+	} else if errors.Is(err, errors.NotFound) {
+		return nil, errors.Wrap(err, errors.NotFoundf("charm or bundle at %q", charmOrBundle))
+	} else if err != nil && err != os.ErrNotExist {
+		// If we get a "not exists" error then we attempt to interpret
+		// the supplied charm reference as a URL elsewhere, otherwise
+		// we return the error.
+		return nil, errors.Annotatef(err, "attempting to deploy %q", charmOrBundle)
+	} else if err != nil {
+		logger.Debugf("cannot interpret as local charm: %v", err)
+		return nil, nil
+	} else {
+		return &localCharmDeployerKind{seriesName, imageStream, ch, curl}, nil
+	}
+}
+
+func (d *factory) localPreDeployedCharmDeployer() (DeployerKind, error) {
+	// If the charm's schema is local, we should definitively attempt
+	// to deploy a charm that's already deployed in the
+	// environment.
+	userCharmURL, resolveCharmErr := resolveCharmURL(d.charmOrBundle, d.defaultCharmSchema)
+	if resolveCharmErr != nil {
+		return nil, errors.Trace(resolveCharmErr)
+	}
+	if !charm.Local.Matches(userCharmURL.Schema) {
+		return nil, errors.Errorf("cannot interpret as a redeployment of a local charm from the controller")
+	}
+	return &localPreDeployerKind{userCharmURL: userCharmURL}, nil
+}
+
+func (d *factory) determineSeriesForLocalCharm(charmOrBundle string, getter ModelConfigGetter) (string, string, error) {
+	// TODO (cderici): check the validity of the comments belowe
+	// NOTE: Here we select the series using the algorithm defined by
+	// `seriesSelector.charmSeries`. This serves to override the algorithm found
+	// in `charmrepo.NewCharmAtPath` which is outdated (but must still be
+	// called since the code is coupled with path interpretation logic which
+	// cannot easily be factored out).
+
+	// NOTE: Reading the charm here is only meant to aid in inferring the
+	// correct series, if this fails we fall back to the argument series. If
+	// reading the charm fails here it will also fail below (the charm is read
+	// again below) where it is handled properly. This is just an expedient to
+	// get the correct series. A proper refactoring of the charmrepo package is
+	// needed for a more elegant fix.
+	var (
+		imageStream string
+		seriesName  string
+	)
+	if !d.base.Empty() {
+		var err error
+		seriesName, err = series.GetSeriesFromBase(d.base)
+		if err != nil {
+			return "", "", errors.Trace(err)
+		}
+	}
+
+	ch, err := d.charmReader.ReadCharm(charmOrBundle)
+	if err == nil {
+		modelCfg, err := getModelConfig(getter)
+		if err != nil {
+			return "", "", errors.Trace(err)
+		}
+
+		imageStream = modelCfg.ImageStream()
+		workloadSeries, err := SupportedJujuSeries(d.clock.Now(), seriesName, imageStream)
+		if err != nil {
+			return "", "", errors.Trace(err)
+		}
+
+		supportedSeries, err := corecharm.ComputedSeries(ch)
+		if err != nil {
+			return "", "", errors.Trace(err)
+		}
+		seriesSelector := corecharm.SeriesSelector{
+			SeriesFlag:          seriesName,
+			SupportedSeries:     supportedSeries,
+			SupportedJujuSeries: workloadSeries,
+			Force:               d.force,
+			Conf:                modelCfg,
+			FromBundle:          false,
+			Logger:              logger,
+		}
+
+		if len(supportedSeries) == 0 {
+			logger.Warningf("%s does not declare supported series in metadata.yml", ch.Meta().Name)
+		}
+
+		seriesName, err = seriesSelector.CharmSeries()
+		if err = charmValidationError(ch.Meta().Name, errors.Trace(err)); err != nil {
+			return "", "", errors.Trace(err)
+		}
+	}
+	return seriesName, imageStream, nil
+}
+
+func (d *factory) checkHandleRevision(userCharmURL *charm.URL, charmHubSchemaCheck bool) (*charm.URL, error) {
+	// To deploy by revision, the revision number must be in the origin for a charmhub bundle
+	if userCharmURL.Revision != -1 && charmHubSchemaCheck {
+		return nil, errors.Errorf("cannot specify revision in a charm or bundle name. Please use --revision.")
+	}
+
+	if d.revision != -1 {
+		userCharmURL = userCharmURL.WithRevision(d.revision)
+	}
+	return userCharmURL, nil
+}
+
+func (d *factory) checkPath() error {
+	_, fileStatErr := d.fileSystem.Stat(d.charmOrBundle)
+	// Check for path ambiguity where we don't have a valid local path,
+	// but such a path does exist
+	if fileStatErr == nil && !charm.IsValidLocalCharmOrBundlePath(d.charmOrBundle) {
+		return errors.Errorf(""+
+			"The charm or bundle %q is ambiguous.\n"+
+			"To deploy a local charm or bundle, run `juju deploy ./%[1]s`.\n"+
+			"To deploy a charm or bundle from CharmHub, run `juju deploy ch:%[1]s`.",
+			d.charmOrBundle,
+		)
+	}
+	// Check in case we do have a valid path, but it doesn't exist
+	if fileStatErr != nil && charm.IsValidLocalCharmOrBundlePath(d.charmOrBundle) && os.IsNotExist(errors.Cause(fileStatErr)) {
+		return errors.Errorf("no charm was found at %q", d.charmOrBundle)
+	}
+	return nil
 }
 
 func (d *factory) setConfig(cfg DeployerConfig) {
@@ -112,6 +410,7 @@ type DeployerDependencies struct {
 	CharmReader          CharmReader
 	NewConsumeDetailsAPI func(url *charm.OfferURL) (ConsumeDetails, error)
 	Steps                []DeployStep
+	DeployKind           DeployerFactory
 }
 
 // DeployerConfig is the data required to choose a deployer and then run
@@ -193,27 +492,6 @@ type factory struct {
 	clock jujuclock.Clock
 }
 
-func (d *factory) maybePredeployedLocalCharm() (Deployer, error) {
-	// If the charm's schema is local, we should definitively attempt
-	// to deploy a charm that's already deployed in the
-	// environment.
-	userCharmURL, err := resolveCharmURL(d.charmOrBundle, d.defaultCharmSchema)
-	if err != nil {
-		if _, err := d.fileSystem.Stat(d.charmOrBundle); os.IsNotExist(errors.Cause(err)) {
-			return nil, errors.Errorf("no charm was found at %q", d.charmOrBundle)
-		}
-		return nil, errors.Trace(err)
-	} else if userCharmURL.Schema != "local" {
-		logger.Debugf("cannot interpret as a redeployment of a local charm from the controller")
-		return nil, nil
-	}
-
-	return &predeployedLocalCharm{
-		deployCharm:  d.newDeployCharm(),
-		userCharmURL: userCharmURL,
-	}, nil
-}
-
 // newDeployCharm returns the config needed to eventually call
 // deployCharm.deploy.  This is used by all types of charms to
 // be deployed
@@ -245,34 +523,15 @@ func (d *factory) newDeployCharm() deployCharm {
 	}
 }
 
-func (d *factory) maybeReadLocalBundle() (Deployer, error) {
-	bundleFile := d.charmOrBundle
-	_, statErr := d.model.Filesystem().Stat(bundleFile)
-	if statErr == nil && !charm.IsValidLocalCharmOrBundlePath(bundleFile) {
-		return nil, errors.Errorf(""+
-			"The charm or bundle %q is ambiguous.\n"+
-			"To deploy a local charm or bundle, run `juju deploy ./%[1]s`.\n"+
-			"To deploy a charm or bundle from CharmHub, run `juju deploy ch:%[1]s`.",
-			bundleFile,
-		)
-	}
-
-	ds, err := charm.LocalBundleDataSource(bundleFile)
-	if errors.IsNotFound(err) {
-		// Not a local bundle. Return nil, nil to indicate the fallback
-		// pipeline should try the next possibility.
-		return nil, nil
-	}
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot deploy bundle")
-	}
+func (dt *localBundleDeployerKind) Read(d factory) (Deployer, error) {
 	if err := d.validateBundleFlags(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	platform := utils.MakePlatform(d.constraints, d.base, d.modelConstraints)
-	db := d.newDeployBundle(d.defaultCharmSchema, ds)
+	db := d.newDeployBundle(d.defaultCharmSchema, dt.DataSource)
 	var base series.Base
+	var err error
 	if platform.Channel != "" {
 		base, err = series.ParseBase(platform.OS, platform.Channel)
 		if err != nil {
@@ -312,158 +571,41 @@ func (d *factory) newDeployBundle(_ charm.Schema, ds charm.BundleDataSource) dep
 	}
 }
 
-func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error) {
-	// NOTE: Here we select the series using the algorithm defined by
-	// `seriesSelector.charmSeries`. This serves to override the algorithm found
-	// in `charmrepo.NewCharmAtPath` which is outdated (but must still be
-	// called since the code is coupled with path interpretation logic which
-	// cannot easily be factored out).
+func (dk *localPreDeployerKind) Read(d factory) (Deployer, error) {
+	return &predeployedLocalCharm{
+		deployCharm:  d.newDeployCharm(),
+		userCharmURL: dk.userCharmURL,
+	}, nil
+}
 
-	// NOTE: Reading the charm here is only meant to aid in inferring the
-	// correct series, if this fails we fall back to the argument series. If
-	// reading the charm fails here it will also fail below (the charm is read
-	// again below) where it is handled properly. This is just an expedient to
-	// get the correct series. A proper refactoring of the charmrepo package is
-	// needed for a more elegant fix.
-	charmOrBundle := d.charmOrBundle
-	if isLocalSchema(charmOrBundle) {
-		charmOrBundle = charmOrBundle[6:]
-	}
-
-	var (
-		imageStream string
-		seriesName  string
-	)
-	if !d.base.Empty() {
-		var err error
-		seriesName, err = series.GetSeriesFromBase(d.base)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-
-	ch, err := d.charmReader.ReadCharm(charmOrBundle)
-	if err == nil {
-		modelCfg, err := getModelConfig(getter)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		imageStream = modelCfg.ImageStream()
-		workloadSeries, err := SupportedJujuSeries(d.clock.Now(), seriesName, imageStream)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		supportedSeries, err := corecharm.ComputedSeries(ch)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		seriesSelector := corecharm.SeriesSelector{
-			SeriesFlag:          seriesName,
-			SupportedSeries:     supportedSeries,
-			SupportedJujuSeries: workloadSeries,
-			Force:               d.force,
-			Conf:                modelCfg,
-			FromBundle:          false,
-			Logger:              logger,
-		}
-
-		if len(supportedSeries) == 0 {
-			logger.Warningf("%s does not declare supported series in metadata.yml", ch.Meta().Name)
-		}
-
-		seriesName, err = seriesSelector.CharmSeries()
-		if err = charmValidationError(ch.Meta().Name, errors.Trace(err)); err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-
-	// Charm may have been supplied via a path reference.
-	ch, curl, err := corecharm.NewCharmAtPathForceSeries(charmOrBundle, seriesName, d.force)
-	// We check for several types of known error which indicate
-	// that the supplied reference was indeed a path but there was
-	// an issue reading the charm located there.
-	if corecharm.IsMissingSeriesError(err) {
-		return nil, err
-	} else if corecharm.IsUnsupportedSeriesError(err) {
-		return nil, errors.Trace(err)
-	} else if errors.Cause(err) == zip.ErrFormat {
-		return nil, errors.Errorf("invalid charm or bundle provided at %q", charmOrBundle)
-	} else if errors.IsNotFound(err) {
-		return nil, errors.Wrap(err, errors.NotFoundf("charm or bundle at %q", charmOrBundle))
-	} else if err != nil && err != os.ErrNotExist {
-		// If we get a "not exists" error then we attempt to interpret
-		// the supplied charm reference as a URL elsewhere, otherwise
-		// we return the error.
-		return nil, errors.Annotatef(err, "attempting to deploy %q", charmOrBundle)
-	} else if err != nil {
-		logger.Debugf("cannot interpret as local charm: %v", err)
-		return nil, nil
-	}
-
+func (dk *localCharmDeployerKind) Read(d factory) (Deployer, error) {
 	// Avoid deploying charm if the charm series is not correct for the
 	// available image streams.
-	if err := d.validateCharmSeriesWithName(seriesName, curl.Name, imageStream); err != nil {
+	var err error
+	if err = d.validateCharmSeriesWithName(dk.seriesName, dk.curl.Name, dk.imageStream); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := d.validateResourcesNeededForLocalDeploy(ch.Meta()); err != nil {
+	if err := d.validateResourcesNeededForLocalDeploy(dk.ch.Meta()); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	return &localCharm{
 		deployCharm: d.newDeployCharm(),
-		curl:        curl,
-		ch:          ch,
+		curl:        dk.curl,
+		ch:          dk.ch,
 	}, err
 }
 
-func (d *factory) maybeReadRepositoryBundle(resolver Resolver) (Deployer, error) {
-	curl, err := resolveCharmURL(d.charmOrBundle, d.defaultCharmSchema)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	// To deploy by revision, the revision number must be in the origin for a
-	// charmhub bundle and in the url for a charmstore bundle.
-	if curl.Revision != -1 && charm.CharmHub.Matches(curl.Schema) {
-		return nil, errors.Errorf("cannot specify revision in a charm or bundle name. Please use --revision.")
-	}
+func (dk *repositoryCharmDeployerKind) Read(d factory) (Deployer, error) {
+	return &repositoryCharm{
+		deployCharm:      dk.deployCharm,
+		userRequestedURL: dk.charmURL,
+		clock:            d.clock,
+	}, nil
 
-	urlForOrigin := curl
-	if d.revision != -1 {
-		urlForOrigin = urlForOrigin.WithRevision(d.revision)
-	}
+}
 
-	platform := utils.MakePlatform(d.constraints, d.base, d.modelConstraints)
-	origin, err := utils.DeduceOrigin(urlForOrigin, d.channel, platform)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	// Resolve the bundle URL using the channel supplied via the channel
-	// supplied. All charms within this bundle unless pinned via a channel are
-	// NOT expected to be in the same channel as the bundle channel.
-	// The pinning of a bundle does not flow down to charms as well. Each charm
-	// has it's own channel supplied via a bundle, if no is supplied then the
-	// channel is worked out via the resolving what is available.
-	// See: LP:1677404 and LP:1832873
-	bundleURL, bundleOrigin, err := resolver.ResolveBundleURL(curl, origin)
-	if charm.IsUnsupportedSeriesError(errors.Cause(err)) {
-		return nil, errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
-	}
-	if errors.IsNotValid(err) {
-		// The URL resolved alright, but not to a bundle.
-		return nil, nil
-	}
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if d.revision != -1 && !d.channel.Empty() && charm.CharmHub.Matches(curl.Schema) {
-		return nil, errors.Errorf("revision and channel are mutually exclusive when deploying a bundle. Please choose one.")
-	}
-	if err := d.validateBundleFlags(); err != nil {
-		return nil, errors.Trace(err)
-	}
+func (dk *repositoryBundleDeployerKind) Read(d factory) (Deployer, error) {
 
 	// Validated, prepare to Deploy
 	// TODO(bundles) - Ideally, we would like to expose a GetBundleDataSource method for the charmstore.
@@ -472,59 +614,20 @@ func (d *factory) maybeReadRepositoryBundle(resolver Resolver) (Deployer, error)
 	// from the charmstore we simply use the existing
 	// charmrepo.v4 API to read the base bundle and
 	// wrap it in a BundleDataSource for use by deployBundle.
-	dir, err := os.MkdirTemp("", bundleURL.Name)
+	dir, err := os.MkdirTemp("", dk.bundleURL.Name)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	bundle, err := resolver.GetBundle(bundleURL, bundleOrigin, filepath.Join(dir, bundleURL.Name))
+	bundle, err := dk.resolver.GetBundle(dk.bundleURL, dk.bundleOrigin, filepath.Join(dir, dk.bundleURL.Name))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	db := d.newDeployBundle(d.defaultCharmSchema, store.NewResolvedBundle(bundle))
-	db.bundleURL = bundleURL
+	db.bundleURL = dk.bundleURL
 	db.bundleOverlayFile = d.bundleOverlayFile
-	db.origin = bundleOrigin
+	db.origin = dk.bundleOrigin
 	return &repositoryBundle{deployBundle: db}, nil
-}
-
-func (d *factory) repositoryCharm() (Deployer, error) {
-	// Validate we have a charm store change.
-	userRequestedURL, err := resolveCharmURL(d.charmOrBundle, d.defaultCharmSchema)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if charm.CharmHub.Matches(userRequestedURL.Schema) && d.channel.Empty() && d.revision != -1 {
-		// Tell the user they need to specify a channel
-		return nil, errors.Errorf("specifying a revision requires a channel for future upgrades. Please use --channel")
-	}
-	// To deploy by revision, the revision number must be in the origin for a
-	// charmhub charm.
-	if charm.CharmHub.Matches(userRequestedURL.Schema) {
-		if userRequestedURL.Revision != -1 {
-			return nil, errors.Errorf("cannot specify revision in a charm or bundle name. Please use --revision.")
-		}
-	}
-
-	urlForOrigin := userRequestedURL
-	if d.revision != -1 {
-		urlForOrigin = urlForOrigin.WithRevision(d.revision)
-	}
-	platform := utils.MakePlatform(d.constraints, d.base, d.modelConstraints)
-	origin, err := utils.DeduceOrigin(urlForOrigin, d.channel, platform)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	deployCharm := d.newDeployCharm()
-	deployCharm.id = application.CharmID{
-		Origin: origin,
-	}
-	return &repositoryCharm{
-		deployCharm:      deployCharm,
-		userRequestedURL: userRequestedURL,
-		clock:            d.clock,
-	}, nil
 }
 
 func resolveCharmURL(path string, defaultSchema charm.Schema) (*charm.URL, error) {

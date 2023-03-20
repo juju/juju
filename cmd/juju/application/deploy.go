@@ -664,7 +664,7 @@ func (c *DeployCommand) Init(args []string) error {
 	// a bundle, only the components. These flags will be verified in the
 	// GetDeployer instead.
 	if err := c.validateStorageByModelType(); err != nil {
-		if !errors.IsNotFound(err) {
+		if !errors.Is(err, errors.NotFound) {
 			return errors.Trace(err)
 		}
 		// It is possible that we will not be able to get model type to validate with.
