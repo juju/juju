@@ -8,7 +8,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/worker/v3/catacomb"
 
-	"github.com/juju/juju/api/controller/lifeflag"
+	apilifeflag "github.com/juju/juju/api/common/lifeflag"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher"
 )
@@ -41,27 +41,15 @@ func (config Config) Validate() error {
 	return nil
 }
 
-var (
+const (
 	// ErrNotFound indicates that the worker cannot run because
 	// the configured entity does not exist.
-	ErrNotFound = errors.New("entity not found")
+	ErrNotFound = apilifeflag.ErrNotFound
 
 	// ErrValueChanged indicates that the result of Check is
 	// outdated, and the worker should be restarted.
-	ErrValueChanged = errors.New("flag value changed")
+	ErrValueChanged = errors.ConstError("flag value changed")
 )
-
-// filter is used to wrap errors that might have come from the api,
-// so that we can return an error appropriate to our level. Was
-// tempted to make it a manifold-level thing, but that'd be even
-// worse (because the worker should not be emitting api errors for
-// conditions it knows about, full stop).
-func filter(err error) error {
-	if cause := errors.Cause(err); cause == lifeflag.ErrNotFound {
-		return ErrNotFound
-	}
-	return err
-}
 
 // New returns a worker that exposes the result of the configured
 // predicate when applied to the configured entity's life value,
@@ -78,7 +66,7 @@ func New(config Config) (*Worker, error) {
 	// be the same value, but we can't assume it.
 	life, err := config.Facade.Life(config.Entity)
 	if err != nil {
-		return nil, filter(errors.Trace(err))
+		return nil, errors.Trace(err)
 	}
 
 	w := &Worker{
@@ -110,7 +98,7 @@ func (w *Worker) Kill() {
 
 // Wait is part of the worker.Worker interface.
 func (w *Worker) Wait() error {
-	return filter(w.catacomb.Wait())
+	return w.catacomb.Wait()
 }
 
 // Check is part of the util.Flag interface.

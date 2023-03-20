@@ -1424,3 +1424,47 @@ func (a *API) watchUnits(tagString string) (string, []string, error) {
 	}
 	return "", nil, watcher.EnsureErr(w)
 }
+
+// DestroyUnits is responsible for scaling down a set of units on the this
+// Application.
+func (a *API) DestroyUnits(args params.DestroyUnitsParams) (params.DestroyUnitResults, error) {
+	results := make([]params.DestroyUnitResult, 0, len(args.Units))
+
+	for _, unit := range args.Units {
+		res, err := a.destroyUnit(params.DestroyUnitParams{
+			DestroyStorage: false,
+			UnitTag:        unit.UnitTag,
+			Force:          false,
+		})
+		if err != nil {
+			res = params.DestroyUnitResult{
+				Error: apiservererrors.ServerError(err),
+			}
+		}
+		results = append(results, res)
+	}
+
+	return params.DestroyUnitResults{
+		Results: results,
+	}, nil
+}
+
+func (a *API) destroyUnit(args params.DestroyUnitParams) (params.DestroyUnitResult, error) {
+	unitTag, err := names.ParseUnitTag(args.UnitTag)
+	if err != nil {
+		return params.DestroyUnitResult{}, fmt.Errorf("parsing unit tag: %w", err)
+	}
+
+	unit, err := a.state.Unit(unitTag.Id())
+	if err != nil {
+		return params.DestroyUnitResult{}, fmt.Errorf("fetching unit %q state: %w", unitTag, err)
+	}
+
+	op := unit.DestroyOperation()
+
+	if err := a.state.ApplyOperation(op); err != nil {
+		return params.DestroyUnitResult{}, fmt.Errorf("destroying unit %q: %w", unitTag, err)
+	}
+
+	return params.DestroyUnitResult{}, nil
+}

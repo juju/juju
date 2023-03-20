@@ -30,6 +30,11 @@ type UpgradeReadyError struct {
 	DataDir   string
 }
 
+const (
+	// FatalError is an error type designated for fatal errors.
+	FatalError = errors.ConstError("fatal")
+)
+
 func (e *UpgradeReadyError) Error() string {
 	return "must restart: an agent upgrade is available"
 }
@@ -53,36 +58,25 @@ func RequiredError(name string) error {
 
 // IsFatal determines if an error is fatal to the process.
 func IsFatal(err error) bool {
-	err = errors.Cause(err)
-	switch err {
-	case jworker.ErrTerminateAgent, jworker.ErrRebootMachine, jworker.ErrShutdownMachine, jworker.ErrRestartAgent:
+	if errors.Is(err, jworker.ErrTerminateAgent) ||
+		errors.Is(err, jworker.ErrRebootMachine) ||
+		errors.Is(err, jworker.ErrShutdownMachine) ||
+		errors.Is(err, jworker.ErrRestartAgent) ||
+		errors.Is(err, FatalError) ||
+		isUpgraded(err) {
 		return true
 	}
-
-	if isUpgraded(err) {
-		return true
-	}
-	_, ok := err.(*FatalError)
-	return ok
+	return false
 }
 
+// isUpgraded returns true if error contains an UpgradeReadyError within it's
+// chain.
 func isUpgraded(err error) bool {
-	_, ok := err.(*UpgradeReadyError)
-	return ok
-}
-
-// FatalError is an error type designated for fatal errors.
-type FatalError struct {
-	Err string
-}
-
-// Error returns an error string.
-func (e *FatalError) Error() string {
-	return e.Err
+	_, is := errors.AsType[*UpgradeReadyError](err)
+	return is
 }
 
 func importance(err error) int {
-	err = errors.Cause(err)
 	switch {
 	case err == nil:
 		return 0
@@ -90,11 +84,11 @@ func importance(err error) int {
 		return 1
 	case isUpgraded(err):
 		return 2
-	case err == jworker.ErrRebootMachine:
+	case errors.Is(err, jworker.ErrRebootMachine):
 		return 3
-	case err == jworker.ErrShutdownMachine:
+	case errors.Is(err, jworker.ErrShutdownMachine):
 		return 3
-	case err == jworker.ErrTerminateAgent:
+	case errors.Is(err, jworker.ErrTerminateAgent):
 		return 4
 	}
 }

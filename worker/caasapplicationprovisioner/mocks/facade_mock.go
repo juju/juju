@@ -100,6 +100,20 @@ func (mr *MockCAASProvisionerFacadeMockRecorder) ClearApplicationResources(arg0 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClearApplicationResources", reflect.TypeOf((*MockCAASProvisionerFacade)(nil).ClearApplicationResources), arg0)
 }
 
+// DestroyUnits mocks base method.
+func (m *MockCAASProvisionerFacade) DestroyUnits(arg0 []string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DestroyUnits", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DestroyUnits indicates an expected call of DestroyUnits.
+func (mr *MockCAASProvisionerFacadeMockRecorder) DestroyUnits(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DestroyUnits", reflect.TypeOf((*MockCAASProvisionerFacade)(nil).DestroyUnits), arg0)
+}
+
 // GarbageCollect mocks base method.
 func (m *MockCAASProvisionerFacade) GarbageCollect(arg0 string, arg1 []names.Tag, arg2 int, arg3 []string, arg4 bool) error {
 	m.ctrl.T.Helper()

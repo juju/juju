@@ -4,6 +4,7 @@
 package caasapplicationprovisioner
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"strings"
@@ -309,7 +310,7 @@ func (a *appWorker) loop() error {
 			shouldRefresh = false
 		case <-scaleChan:
 			err := a.ensureScale(app)
-			if errors.IsNotFound(err) {
+			if errors.Is(err, errors.NotFound) {
 				if scaleTries >= maxRetries {
 					return errors.Annotatef(err, "more than %d retries ensuring scale", maxRetries)
 				}
@@ -336,16 +337,14 @@ func (a *appWorker) loop() error {
 			}
 			for _, unit := range units {
 				unitLife, err := a.facade.Life(unit)
-				if err != nil && !errors.IsNotFound(err) {
+				if errors.Is(err, errors.NotFound) {
 					return errors.Annotatef(err, "fetching unit %q life", unit)
 				}
 				a.logger.Debugf("got unit change %q (%s)", unit, unitLife)
-				if errors.IsNotFound(err) || unitLife == life.Dead {
-					a.logger.Debugf("removing dead unit %q", unit)
-					if err := a.facade.RemoveUnit(unit); err != nil {
-						return errors.Annotatef(err, "removing unit %q", unit)
-					}
-				}
+			}
+			err := a.ReconcileDeadUnitScale(app)
+			if err != nil {
+				return fmt.Errorf("reconciling dead unit scale: %w", err)
 			}
 		case <-trustChan:
 			err := a.ensureTrust(app)
@@ -618,7 +617,7 @@ func (a *appWorker) refreshApplicationStatus(app caas.Application, appLife life.
 
 	// refresh the units information.
 	units, err := a.facade.Units(a.name)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return nil
 	} else if err != nil {
 		return errors.Trace(err)
@@ -654,13 +653,23 @@ func (a *appWorker) ensureScale(app caas.Application) error {
 	}
 
 	a.logger.Debugf("updating application %q scale to %d", a.name, desiredScale)
-	err = app.Scale(desiredScale)
-	if desiredScale == 0 && errors.IsNotFound(err) {
+
+	ctx := context.TODO()
+
+	unitsToRemove, err := app.UnitsToRemove(ctx, desiredScale)
+	if err != nil && errors.Is(err, errors.NotFound) {
 		return nil
 	} else if err != nil {
-		return errors.Annotatef(err, "scaling application %q to desired scale %d", a.name, desiredScale)
+		return fmt.Errorf("scaling application %q to desired scale %d: %w",
+			a.name, desiredScale, err)
+	}
+	if len(unitsToRemove) == 0 {
+		return app.Scale(desiredScale)
 	}
 
+	if err := a.facade.DestroyUnits(unitsToRemove); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -850,4 +859,65 @@ func (a *appWorker) waitForTerminated(app caas.Application) error {
 		},
 	}
 	return errors.Trace(retry.Call(retryCallArgs))
+}
+
+// ReconcileDeadUnitScale is setup to respond to CAAS sidecard units that become
+// dead. It takes stock of what the current desired scale is for the application
+// and the number of dead units in the application. Once the number of dead units
+// has reached the a point where the desired scale has been achieved this func
+// can go ahead and removed the units from CAAS provider.
+func (a *appWorker) ReconcileDeadUnitScale(app caas.Application) error {
+	units, err := a.facade.Units(a.name)
+	if err != nil {
+		return fmt.Errorf("getting units for application %s: %w", a.name, err)
+	}
+
+	// We need to know what the target scale is, so we can make sure all extra
+	// units are dead before we go
+	desiredScale, err := a.unitFacade.ApplicationScale(a.name)
+	if err != nil {
+		return err
+	}
+
+	unitsToRemove := len(units) - desiredScale
+
+	var deadUnits []params.CAASUnit
+	for _, unit := range units {
+		unitLife, err := a.facade.Life(unit.Tag.Id())
+		if err != nil {
+			return fmt.Errorf("getting life for unit %q: %w", unit.Tag, err)
+		}
+		if unitLife == life.Dead {
+			deadUnits = append(deadUnits, unit)
+		}
+	}
+
+	if unitsToRemove <= 0 {
+		unitsToRemove = len(deadUnits)
+	}
+
+	// We haven't met the threshold to initiate scale down in the CAAS provider
+	// yet.
+	if unitsToRemove != len(deadUnits) {
+		return nil
+	}
+
+	a.logger.Infof("scaling application %q to desired scale %d", a.name, desiredScale)
+	if err := app.Scale(desiredScale); err != nil {
+		return fmt.Errorf(
+			"scaling application %q to scale %d: %w",
+			a.name,
+			desiredScale,
+			err,
+		)
+	}
+
+	for _, deadUnit := range deadUnits {
+		a.logger.Infof("removing dead unit %s", deadUnit.Tag.Id())
+		if err := a.facade.RemoveUnit(deadUnit.Tag.Id()); err != nil {
+			return fmt.Errorf("removing dead unit %q: %w", deadUnit.Tag.Id(), err)
+		}
+	}
+
+	return nil
 }

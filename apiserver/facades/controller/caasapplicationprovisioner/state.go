@@ -23,10 +23,12 @@ import (
 // CAASApplicationProvisionerState provides the subset of model state
 // required by the CAAS operator provisioner facade.
 type CAASApplicationProvisionerState interface {
+	ApplyOperation(state.ModelOperation) error
 	Model() (Model, error)
 	Application(string) (Application, error)
 	ResolveConstraints(cons constraints.Value) (constraints.Value, error)
 	Resources() Resources
+	Unit(string) (Unit, error)
 	WatchApplications() state.StringsWatcher
 }
 
@@ -109,6 +111,15 @@ func (s stateShim) Application(name string) (Application, error) {
 
 func (s stateShim) Resources() Resources {
 	return s.State.Resources()
+}
+
+func (s stateShim) Unit(unitTag string) (Unit, error) {
+	unit, err := s.State.Unit(unitTag)
+	if err != nil {
+		return nil, err
+	}
+
+	return unit, nil
 }
 
 type applicationShim struct {

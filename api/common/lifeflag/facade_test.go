@@ -12,9 +12,8 @@ import (
 
 	"github.com/juju/juju/api/base"
 	apitesting "github.com/juju/juju/api/base/testing"
-	"github.com/juju/juju/api/controller/lifeflag"
+	"github.com/juju/juju/api/common/lifeflag"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -34,7 +33,7 @@ func (*FacadeSuite) TestLifeCall(c *gc.C) {
 		})
 		return nil
 	})
-	facade := lifeflag.NewFacade(caller, nil)
+	facade := lifeflag.NewClient(caller, "LifeFlag")
 
 	facade.Life(names.NewApplicationTag("blah"))
 	c.Check(called, jc.IsTrue)
@@ -44,7 +43,7 @@ func (*FacadeSuite) TestLifeCallError(c *gc.C) {
 	caller := apiCaller(c, func(_ string, _, _ interface{}) error {
 		return errors.New("crunch belch")
 	})
-	facade := lifeflag.NewFacade(caller, nil)
+	facade := lifeflag.NewClient(caller, "LifeFlag")
 
 	result, err := facade.Life(names.NewApplicationTag("blah"))
 	c.Check(err, gc.ErrorMatches, "crunch belch")
@@ -55,7 +54,7 @@ func (*FacadeSuite) TestLifeNoResultsError(c *gc.C) {
 	caller := apiCaller(c, func(_ string, _, _ interface{}) error {
 		return nil
 	})
-	facade := lifeflag.NewFacade(caller, nil)
+	facade := lifeflag.NewClient(caller, "LifeFlag")
 
 	result, err := facade.Life(names.NewApplicationTag("blah"))
 	c.Check(err, gc.ErrorMatches, "expected 1 Life result, got 0")
@@ -71,7 +70,7 @@ func (*FacadeSuite) TestLifeExtraResultsError(c *gc.C) {
 		}
 		return nil
 	})
-	facade := lifeflag.NewFacade(caller, nil)
+	facade := lifeflag.NewClient(caller, "LifeFlag")
 
 	result, err := facade.Life(names.NewApplicationTag("blah"))
 	c.Check(err, gc.ErrorMatches, "expected 1 Life result, got 2")
@@ -89,7 +88,7 @@ func (*FacadeSuite) TestLifeNotFoundError(c *gc.C) {
 		}
 		return nil
 	})
-	facade := lifeflag.NewFacade(caller, nil)
+	facade := lifeflag.NewClient(caller, "LifeFlag")
 
 	result, err := facade.Life(names.NewApplicationTag("blah"))
 	c.Check(err, gc.Equals, lifeflag.ErrNotFound)
@@ -105,7 +104,7 @@ func (*FacadeSuite) TestLifeInvalidResultError(c *gc.C) {
 		}
 		return nil
 	})
-	facade := lifeflag.NewFacade(caller, nil)
+	facade := lifeflag.NewClient(caller, "LifeFlag")
 
 	result, err := facade.Life(names.NewApplicationTag("blah"))
 	c.Check(err, gc.ErrorMatches, `life value "decomposed" not valid`)
@@ -121,7 +120,7 @@ func (*FacadeSuite) TestLifeSuccess(c *gc.C) {
 		}
 		return nil
 	})
-	facade := lifeflag.NewFacade(caller, nil)
+	facade := lifeflag.NewClient(caller, "LifeFlag")
 
 	result, err := facade.Life(names.NewApplicationTag("blah"))
 	c.Check(err, jc.ErrorIsNil)
@@ -138,7 +137,7 @@ func (*FacadeSuite) TestWatchCall(c *gc.C) {
 		})
 		return nil
 	})
-	facade := lifeflag.NewFacade(caller, nil)
+	facade := lifeflag.NewClient(caller, "LifeFlag")
 
 	facade.Watch(names.NewApplicationTag("blah"))
 	c.Check(called, jc.IsTrue)
@@ -148,7 +147,7 @@ func (*FacadeSuite) TestWatchCallError(c *gc.C) {
 	caller := apiCaller(c, func(_ string, _, _ interface{}) error {
 		return errors.New("crunch belch")
 	})
-	facade := lifeflag.NewFacade(caller, nil)
+	facade := lifeflag.NewClient(caller, "LifeFlag")
 
 	watcher, err := facade.Watch(names.NewApplicationTag("blah"))
 	c.Check(err, gc.ErrorMatches, "crunch belch")
@@ -159,7 +158,7 @@ func (*FacadeSuite) TestWatchNoResultsError(c *gc.C) {
 	caller := apiCaller(c, func(_ string, _, _ interface{}) error {
 		return nil
 	})
-	facade := lifeflag.NewFacade(caller, nil)
+	facade := lifeflag.NewClient(caller, "LifeFlag")
 
 	watcher, err := facade.Watch(names.NewApplicationTag("blah"))
 	c.Check(err, gc.ErrorMatches, "expected 1 Watch result, got 0")
@@ -175,7 +174,7 @@ func (*FacadeSuite) TestWatchExtraResultsError(c *gc.C) {
 		}
 		return nil
 	})
-	facade := lifeflag.NewFacade(caller, nil)
+	facade := lifeflag.NewClient(caller, "LifeFlag")
 
 	watcher, err := facade.Watch(names.NewApplicationTag("blah"))
 	c.Check(err, gc.ErrorMatches, "expected 1 Watch result, got 2")
@@ -193,7 +192,7 @@ func (*FacadeSuite) TestWatchNotFoundError(c *gc.C) {
 		}
 		return nil
 	})
-	facade := lifeflag.NewFacade(caller, nil)
+	facade := lifeflag.NewClient(caller, "LifeFlag")
 
 	watcher, err := facade.Watch(names.NewApplicationTag("blah"))
 	c.Check(err, gc.Equals, lifeflag.ErrNotFound)
@@ -211,19 +210,10 @@ func (*FacadeSuite) TestWatchSuccess(c *gc.C) {
 		}
 		return nil
 	})
-	expectWatcher := &struct{ watcher.NotifyWatcher }{}
-	newWatcher := func(apiCaller base.APICaller, result params.NotifyWatchResult) watcher.NotifyWatcher {
-		c.Check(apiCaller, gc.NotNil) // uncomparable
-		c.Check(result, jc.DeepEquals, params.NotifyWatchResult{
-			NotifyWatcherId: "123",
-		})
-		return expectWatcher
-	}
-	facade := lifeflag.NewFacade(caller, newWatcher)
+	facade := lifeflag.NewClient(caller, "LifeFlag")
 
-	watcher, err := facade.Watch(names.NewApplicationTag("blah"))
+	_, err := facade.Watch(names.NewApplicationTag("blah"))
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(watcher, gc.Equals, expectWatcher)
 }
 
 func apiCaller(c *gc.C, check func(request string, arg, result interface{}) error) base.APICaller {

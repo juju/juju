@@ -187,9 +187,12 @@ func (c *initCommand) ContainerAgentPebbleConfig() error {
 					c.dataDir,
 					c.binDir,
 					extraArgs),
-				Startup: plan.StartupEnabled,
+				KillDelay: plan.OptionalDuration{Value: 30 * time.Minute, IsSet: true},
+				Startup:   plan.StartupEnabled,
+				OnSuccess: plan.ActionIgnore,
+				OnFailure: plan.ActionShutdown,
 				OnCheckFailure: map[string]plan.ServiceAction{
-					"liveness":  plan.ActionShutdown,
+					"liveness":  plan.ActionIgnore,
 					"readiness": plan.ActionIgnore,
 				},
 				Environment: map[string]string{

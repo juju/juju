@@ -417,24 +417,22 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 			}),
 
 		// 1st Notify() - dying.
-		tc.facade.EXPECT().Life("test").DoAndReturn(func(string) (life.Value, error) {
-			return life.Dying, nil
-		}),
-		tc.brokerApp.EXPECT().Scale(0).DoAndReturn(func(int) error {
+		tc.facade.EXPECT().Life("test").Return(life.Dying, nil),
+		tc.brokerApp.EXPECT().UnitsToRemove(gomock.Any(), 0).Return([]string{"test-0"}, nil),
+		tc.facade.EXPECT().DestroyUnits([]string{"test-0"}).DoAndReturn(func([]string) error {
 			tc.notifyReady <- struct{}{}
 			return nil
 		}),
+		// tc.brokerApp.EXPECT().Scale(0).DoAndReturn(func(int) error {
+		//	tc.notifyReady <- struct{}{}
+		//	return nil
+		// }),
 
 		// 2nd Notify() - dead.
-		tc.facade.EXPECT().Life("test").DoAndReturn(func(string) (life.Value, error) {
-			return life.Dead, nil
-		}),
-		tc.brokerApp.EXPECT().Scale(0).DoAndReturn(func(int) error {
-			return nil
-		}),
-		tc.brokerApp.EXPECT().Delete().DoAndReturn(func() error {
-			return nil
-		}),
+		tc.facade.EXPECT().Life("test").Return(life.Dead, nil),
+		tc.brokerApp.EXPECT().UnitsToRemove(gomock.Any(), 0).Return([]string{}, nil),
+		tc.brokerApp.EXPECT().Scale(0).Return(nil),
+		tc.brokerApp.EXPECT().Delete().Return(nil),
 		tc.brokerApp.EXPECT().Exists().DoAndReturn(func() (caas.DeploymentState, error) {
 			return caas.DeploymentState{
 				Exists:      false,
@@ -442,18 +440,14 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 			}, nil
 		}),
 		tc.facade.EXPECT().ClearApplicationResources("test").Return(nil),
-		tc.facade.EXPECT().Units("test").DoAndReturn(func(string) ([]params.CAASUnit, error) {
-			return []params.CAASUnit(nil), nil
-		}),
+		tc.facade.EXPECT().Units("test").Return([]params.CAASUnit(nil), nil),
 		tc.brokerApp.EXPECT().State().DoAndReturn(func() (caas.ApplicationState, error) {
 			return caas.ApplicationState{
 				DesiredReplicas: 0,
 				Replicas:        []string(nil),
 			}, nil
 		}),
-		tc.brokerApp.EXPECT().Service().DoAndReturn(func() (*caas.Service, error) {
-			return nil, errors.NotFoundf("test")
-		}),
+		tc.brokerApp.EXPECT().Service().Return(nil, errors.NotFound),
 		tc.facade.EXPECT().GarbageCollect("test", []names.Tag(nil), 0, []string(nil), true).DoAndReturn(func(appName string, observedUnits []names.Tag, desiredReplicas int, activePodNames []string, force bool) error {
 			close(done)
 			return nil
@@ -490,16 +484,80 @@ func (s *ApplicationWorkerSuite) TestScaleChanges(c *gc.C) {
 	newAppWorker, tc, ctrl := s.getWorker(c)
 	defer ctrl.Finish()
 
+	unit0Tag, err := names.ParseUnitTag("unit-test-0")
+	c.Assert(err, jc.ErrorIsNil)
+	unit1Tag, err := names.ParseUnitTag("unit-test-1")
+	c.Assert(err, jc.ErrorIsNil)
+	unit2Tag, err := names.ParseUnitTag("unit-test-2")
+	c.Assert(err, jc.ErrorIsNil)
+	unit3Tag, err := names.ParseUnitTag("unit-test-3")
+	c.Assert(err, jc.ErrorIsNil)
+
+	units := []params.CAASUnit{
+		{
+			Tag: unit0Tag,
+			UnitStatus: &params.UnitStatus{
+				AgentStatus: params.DetailedStatus{
+					Status: string(status.Active),
+				},
+			},
+		},
+		{
+			Tag: unit1Tag,
+			UnitStatus: &params.UnitStatus{
+				AgentStatus: params.DetailedStatus{
+					Status: string(status.Active),
+				},
+			},
+		},
+		{
+			Tag: unit2Tag,
+			UnitStatus: &params.UnitStatus{
+				AgentStatus: params.DetailedStatus{
+					Status: string(status.Active),
+				},
+			},
+		},
+		{
+			Tag: unit3Tag,
+			UnitStatus: &params.UnitStatus{
+				AgentStatus: params.DetailedStatus{
+					Status: string(status.Active),
+				},
+			},
+		},
+	}
+
 	done := make(chan struct{})
+	deadUnits := make(chan struct{})
+	tc.facade.EXPECT().SetOperatorStatus(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	assertionCalls := []*gomock.Call{
 		tc.unitFacade.EXPECT().ApplicationScale("test").Return(3, nil),
-		tc.brokerApp.EXPECT().Scale(3).Return(nil),
-
+		tc.brokerApp.EXPECT().UnitsToRemove(gomock.Any(), 3).Return([]string{"unit-test-3"}, nil),
+		tc.facade.EXPECT().DestroyUnits([]string{"unit-test-3"}).DoAndReturn(func(_ []string) error {
+			close(deadUnits)
+			return nil
+		}),
 		// refresh application status - test separately.
-		tc.brokerApp.EXPECT().State().
-			DoAndReturn(func() (caas.ApplicationState, error) {
+		tc.brokerApp.EXPECT().State().Return(caas.ApplicationState{DesiredReplicas: 3}, nil),
+		tc.facade.EXPECT().Units("test").Return(units, nil),
+		tc.facade.EXPECT().Life("test/3").Return(life.Dead, nil),
+
+		// Reconcile units logic
+		tc.facade.EXPECT().Units("test").Return(units, nil),
+		tc.unitFacade.EXPECT().ApplicationScale("test").Return(3, nil),
+		tc.facade.EXPECT().Life("test/0").Return(life.Alive, nil),
+		tc.facade.EXPECT().Life("test/1").Return(life.Alive, nil),
+		tc.facade.EXPECT().Life("test/2").Return(life.Alive, nil),
+		tc.facade.EXPECT().Life("test/3").Return(life.Dead, nil),
+		tc.brokerApp.EXPECT().Scale(3).Return(nil),
+		tc.facade.EXPECT().RemoveUnit("test/3").Return(nil),
+
+		tc.brokerApp.EXPECT().State().Return(caas.ApplicationState{DesiredReplicas: 3}, nil),
+		tc.facade.EXPECT().Units("test").
+			DoAndReturn(func(_ string) ([]params.CAASUnit, error) {
 				close(done)
-				return caas.ApplicationState{}, errors.NotFoundf("")
+				return units[0:3], nil
 			}),
 	}
 
@@ -510,6 +568,11 @@ func (s *ApplicationWorkerSuite) TestScaleChanges(c *gc.C) {
 		tc.appScaleChan <- struct{}{}
 	}(appWorker.(appNotifyWorker))
 
+	go func() {
+		<-deadUnits
+		tc.unitsChan <- []string{"test/3"}
+	}()
+
 	s.waitDone(c, done)
 }
 
@@ -517,10 +580,57 @@ func (s *ApplicationWorkerSuite) TestScaleRetry(c *gc.C) {
 	newAppWorker, tc, ctrl := s.getWorker(c)
 	defer ctrl.Finish()
 
+	unit0Tag, err := names.ParseUnitTag("unit-test-0")
+	c.Assert(err, jc.ErrorIsNil)
+	unit1Tag, err := names.ParseUnitTag("unit-test-1")
+	c.Assert(err, jc.ErrorIsNil)
+	unit2Tag, err := names.ParseUnitTag("unit-test-2")
+	c.Assert(err, jc.ErrorIsNil)
+	unit3Tag, err := names.ParseUnitTag("unit-test-3")
+	c.Assert(err, jc.ErrorIsNil)
+
+	units := []params.CAASUnit{
+		{
+			Tag: unit0Tag,
+			UnitStatus: &params.UnitStatus{
+				AgentStatus: params.DetailedStatus{
+					Status: string(status.Active),
+				},
+			},
+		},
+		{
+			Tag: unit1Tag,
+			UnitStatus: &params.UnitStatus{
+				AgentStatus: params.DetailedStatus{
+					Status: string(status.Active),
+				},
+			},
+		},
+		{
+			Tag: unit2Tag,
+			UnitStatus: &params.UnitStatus{
+				AgentStatus: params.DetailedStatus{
+					Status: string(status.Active),
+				},
+			},
+		},
+		{
+			Tag: unit3Tag,
+			UnitStatus: &params.UnitStatus{
+				AgentStatus: params.DetailedStatus{
+					Status: string(status.Active),
+				},
+			},
+		},
+	}
+
 	done := make(chan struct{})
+	deadUnits := make(chan struct{})
+	tc.facade.EXPECT().SetOperatorStatus(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	assertionCalls := []*gomock.Call{
 		tc.unitFacade.EXPECT().ApplicationScale("test").Return(3, nil),
-		tc.brokerApp.EXPECT().Scale(3).DoAndReturn(func(int) error {
+		tc.brokerApp.EXPECT().UnitsToRemove(gomock.Any(), 3).Return([]string{"unit-test-3"}, nil),
+		tc.facade.EXPECT().DestroyUnits([]string{"unit-test-3"}).DoAndReturn(func(_ []string) error {
 			go func() {
 				// n is 5 due to:
 				// * three times around the main select for the After(10s)
@@ -532,11 +642,32 @@ func (s *ApplicationWorkerSuite) TestScaleRetry(c *gc.C) {
 			return errors.NotFoundf("")
 		}),
 		tc.unitFacade.EXPECT().ApplicationScale("test").Return(3, nil),
+		tc.brokerApp.EXPECT().UnitsToRemove(gomock.Any(), 3).Return([]string{"unit-test-3"}, nil),
+		tc.facade.EXPECT().DestroyUnits([]string{"unit-test-3"}).DoAndReturn(func(_ []string) error {
+			close(deadUnits)
+			return nil
+		}),
+
+		// refresh application status - test separately.
+		tc.brokerApp.EXPECT().State().Return(caas.ApplicationState{DesiredReplicas: 3}, nil),
+		tc.facade.EXPECT().Units("test").Return(units, nil),
+		tc.facade.EXPECT().Life("test/3").Return(life.Dead, nil),
+
+		// Reconcile units logic
+		tc.facade.EXPECT().Units("test").Return(units, nil),
+		tc.unitFacade.EXPECT().ApplicationScale("test").Return(3, nil),
+		tc.facade.EXPECT().Life("test/0").Return(life.Alive, nil),
+		tc.facade.EXPECT().Life("test/1").Return(life.Alive, nil),
+		tc.facade.EXPECT().Life("test/2").Return(life.Alive, nil),
+		tc.facade.EXPECT().Life("test/3").Return(life.Dead, nil),
 		tc.brokerApp.EXPECT().Scale(3).Return(nil),
-		tc.brokerApp.EXPECT().State().
-			DoAndReturn(func() (caas.ApplicationState, error) {
+		tc.facade.EXPECT().RemoveUnit("test/3").Return(nil),
+
+		tc.brokerApp.EXPECT().State().Return(caas.ApplicationState{DesiredReplicas: 3}, nil),
+		tc.facade.EXPECT().Units("test").
+			DoAndReturn(func(_ string) ([]params.CAASUnit, error) {
 				close(done)
-				return caas.ApplicationState{}, errors.NotFoundf("")
+				return units[0:3], nil
 			}),
 	}
 
@@ -546,6 +677,11 @@ func (s *ApplicationWorkerSuite) TestScaleRetry(c *gc.C) {
 		<-tc.notifyReady
 		tc.appScaleChan <- struct{}{}
 	}(appWorker.(appNotifyWorker))
+
+	go func() {
+		<-deadUnits
+		tc.unitsChan <- []string{"test/3"}
+	}()
 
 	s.waitDone(c, done)
 }
@@ -572,35 +708,6 @@ func (s *ApplicationWorkerSuite) TestTrustChanges(c *gc.C) {
 	go func(w appNotifyWorker) {
 		<-tc.notifyReady
 		tc.appTrustHashChan <- []string{"test"}
-	}(appWorker.(appNotifyWorker))
-
-	s.waitDone(c, done)
-}
-
-func (s *ApplicationWorkerSuite) TestUnitChanges(c *gc.C) {
-	newAppWorker, tc, ctrl := s.getWorker(c)
-	defer ctrl.Finish()
-
-	done := make(chan struct{})
-	assertionCalls := []*gomock.Call{
-		tc.facade.EXPECT().Life("test-0").Return(life.Dead, nil),
-		tc.facade.EXPECT().RemoveUnit("test-0").Return(nil),
-		tc.facade.EXPECT().Life("test-1").Return(life.Alive, nil),
-		tc.facade.EXPECT().Life("test-2").Return(life.Value(""), errors.NotFoundf("")),
-		tc.facade.EXPECT().RemoveUnit("test-2").Return(nil),
-		tc.facade.EXPECT().Life("test-3").Return(life.Dead, nil),
-		tc.facade.EXPECT().RemoveUnit("test-3").Return(nil),
-		tc.brokerApp.EXPECT().State().DoAndReturn(func() (caas.ApplicationState, error) {
-			close(done)
-			return caas.ApplicationState{}, errors.NotFoundf("")
-		}),
-	}
-
-	appWorker := newAppWorker(assertionCalls...)
-
-	go func(w appNotifyWorker) {
-		<-tc.notifyReady
-		tc.unitsChan <- []string{"test-0", "test-1", "test-2", "test-3"}
 	}(appWorker.(appNotifyWorker))
 
 	s.waitDone(c, done)
@@ -794,10 +901,14 @@ func (s *ApplicationWorkerSuite) TestRefreshApplicationStatusNoOpsForDyingApplic
 		tc.facade.EXPECT().Life("test").DoAndReturn(func(string) (life.Value, error) {
 			return life.Dying, nil
 		}),
-		tc.brokerApp.EXPECT().Scale(0).DoAndReturn(func(int) error {
-			close(done)
-			return nil
-		}),
+		tc.brokerApp.EXPECT().UnitsToRemove(gomock.Any(), 0).Return(
+			[]string{"unit-0"}, nil,
+		),
+		tc.facade.EXPECT().DestroyUnits([]string{"unit-0"}).
+			DoAndReturn(func(_ []string) error {
+				close(done)
+				return nil
+			}),
 	)
 	s.waitDone(c, done)
 }
@@ -812,9 +923,10 @@ func (s *ApplicationWorkerSuite) TestRefreshApplicationStatusNoOpsForDeadApplica
 		tc.facade.EXPECT().Life("test").DoAndReturn(func(string) (life.Value, error) {
 			return life.Dead, nil
 		}),
-		tc.brokerApp.EXPECT().Scale(0).DoAndReturn(func(int) error {
-			return nil
-		}),
+		tc.brokerApp.EXPECT().UnitsToRemove(gomock.Any(), 0).Return(
+			[]string{"unit-0"}, nil,
+		),
+		tc.facade.EXPECT().DestroyUnits([]string{"unit-0"}).Return(nil),
 		tc.brokerApp.EXPECT().Delete().DoAndReturn(func() error {
 			return nil
 		}),

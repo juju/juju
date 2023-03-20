@@ -19,23 +19,16 @@ var (
 	ErrCannotAcceptLeadership = errors.New("cannot accept leadership")
 )
 
-type deployConflictError struct {
+type DeployConflictError struct {
 	charmURL string
 }
 
-func (err *deployConflictError) Error() string {
+func (err *DeployConflictError) Error() string {
 	return fmt.Sprintf("cannot deploy charm %s", err.charmURL)
 }
 
 // NewDeployConflictError returns an error indicating that the charm with
 // the supplied URL failed to deploy.
 func NewDeployConflictError(charmURL string) error {
-	return &deployConflictError{charmURL}
-}
-
-// IsDeployConflictError returns true if the error is a
-// deploy conflict error.
-func IsDeployConflictError(err error) bool {
-	_, ok := err.(*deployConflictError)
-	return ok
+	return &DeployConflictError{charmURL}
 }

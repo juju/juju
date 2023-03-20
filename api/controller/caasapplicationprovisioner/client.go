@@ -442,3 +442,35 @@ func (c *Client) RemoveUnit(unitName string) error {
 	}
 	return resultErr
 }
+
+// DestroyUnits is responsible for starting the process of destroying units
+// associated with this application.
+func (c *Client) DestroyUnits(unitNames []string) error {
+	args := params.DestroyUnitsParams{}
+	args.Units = make([]params.DestroyUnitParams, 0, len(unitNames))
+
+	for _, unitName := range unitNames {
+		tag := names.NewUnitTag(unitName)
+		args.Units = append(args.Units, params.DestroyUnitParams{
+			UnitTag: tag.String(),
+		})
+	}
+	result := params.DestroyUnitResults{}
+
+	err := c.facade.FacadeCall("DestroyUnits", args, &result)
+	if err != nil {
+		return err
+	}
+
+	if len(result.Results) != len(unitNames) {
+		return fmt.Errorf("expected %d results got %d", len(unitNames), len(result.Results))
+	}
+
+	for _, res := range result.Results {
+		if res.Error != nil {
+			return errors.Trace(res.Error)
+		}
+	}
+
+	return nil
+}

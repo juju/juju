@@ -62,6 +62,7 @@ type CAASProvisionerFacade interface {
 	WatchUnits(application string) (watcher.StringsWatcher, error)
 	RemoveUnit(unitName string) error
 	WatchProvisioningInfo(string) (watcher.NotifyWatcher, error)
+	DestroyUnits(unitNames []string) error
 }
 
 // CAASBroker exposes CAAS broker functionality to a worker.

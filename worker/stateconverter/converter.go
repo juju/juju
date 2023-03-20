@@ -4,6 +4,8 @@
 package stateconverter
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -79,7 +81,7 @@ func (c *converter) Handle(_ <-chan struct{}) error {
 		return nil
 	}
 
-	return &agenterrors.FatalError{"bounce agent to pick up new jobs"}
+	return fmt.Errorf("bouncing agent to pick up new jobs %w", errors.Hide(agenterrors.FatalError))
 }
 
 // TearDown implements NotifyWatchHandler's TearDown method.

@@ -28,7 +28,7 @@ type ManifoldConfig struct {
 	Result        life.Predicate
 	Filter        dependency.FilterFunc
 
-	NewFacade func(base.APICaller) (Facade, error)
+	NewFacade func(base.APICaller) Facade
 	NewWorker func(Config) (worker.Worker, error)
 }
 
@@ -38,10 +38,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	if err := context.Get(config.APICallerName, &apiCaller); err != nil {
 		return nil, errors.Trace(err)
 	}
-	facade, err := config.NewFacade(apiCaller)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	facade := config.NewFacade(apiCaller)
 
 	worker, err := config.NewWorker(Config{
 		Facade: facade,

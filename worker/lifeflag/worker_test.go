@@ -34,7 +34,7 @@ func (*WorkerSuite) TestCreateNotFoundError(c *gc.C) {
 
 	worker, err := lifeflag.New(config)
 	c.Check(worker, gc.IsNil)
-	c.Check(err, gc.Equals, lifeflag.ErrNotFound)
+	c.Check(errors.Is(err, apilifeflag.ErrNotFound), jc.IsTrue)
 	checkCalls(c, stub, "Life")
 }
 
@@ -67,7 +67,7 @@ func (*WorkerSuite) TestWatchNotFoundError(c *gc.C) {
 	c.Check(worker.Check(), jc.IsFalse)
 
 	err = workertest.CheckKilled(c, worker)
-	c.Check(err, gc.Equals, lifeflag.ErrNotFound)
+	c.Check(errors.Is(err, apilifeflag.ErrNotFound), jc.IsTrue)
 	checkCalls(c, stub, "Life", "Watch")
 }
 
@@ -103,7 +103,7 @@ func (*WorkerSuite) TestLifeNotFoundError(c *gc.C) {
 	c.Check(worker.Check(), jc.IsFalse)
 
 	err = workertest.CheckKilled(c, worker)
-	c.Check(err, gc.Equals, lifeflag.ErrNotFound)
+	c.Check(errors.Is(err, apilifeflag.ErrNotFound), jc.IsTrue)
 	checkCalls(c, stub, "Life", "Watch", "Life")
 }
 

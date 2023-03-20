@@ -79,24 +79,6 @@ func (*ManifoldSuite) TestMissingAPICaller(c *gc.C) {
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 }
 
-func (*ManifoldSuite) TestNewFacadeError(c *gc.C) {
-	expect := struct{ base.APICaller }{}
-	context := dt.StubContext(nil, map[string]interface{}{
-		"api-caller": expect,
-	})
-	manifold := lifeflag.Manifold(lifeflag.ManifoldConfig{
-		APICallerName: "api-caller",
-		NewFacade: func(actual base.APICaller) (lifeflag.Facade, error) {
-			c.Check(actual, gc.Equals, expect)
-			return nil, errors.New("splort")
-		},
-	})
-
-	worker, err := manifold.Start(context)
-	c.Check(worker, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "splort")
-}
-
 func (*ManifoldSuite) TestNewWorkerError(c *gc.C) {
 	expectFacade := struct{ lifeflag.Facade }{}
 	expectEntity := names.NewMachineTag("33")
@@ -107,8 +89,8 @@ func (*ManifoldSuite) TestNewWorkerError(c *gc.C) {
 		APICallerName: "api-caller",
 		Entity:        expectEntity,
 		Result:        life.IsNotAlive,
-		NewFacade: func(_ base.APICaller) (lifeflag.Facade, error) {
-			return expectFacade, nil
+		NewFacade: func(_ base.APICaller) lifeflag.Facade {
+			return expectFacade
 		},
 		NewWorker: func(config lifeflag.Config) (worker.Worker, error) {
 			c.Check(config.Facade, gc.Equals, expectFacade)
@@ -130,8 +112,8 @@ func (*ManifoldSuite) TestNewWorkerSuccess(c *gc.C) {
 	})
 	manifold := lifeflag.Manifold(lifeflag.ManifoldConfig{
 		APICallerName: "api-caller",
-		NewFacade: func(_ base.APICaller) (lifeflag.Facade, error) {
-			return struct{ lifeflag.Facade }{}, nil
+		NewFacade: func(_ base.APICaller) lifeflag.Facade {
+			return struct{ lifeflag.Facade }{}
 		},
 		NewWorker: func(_ lifeflag.Config) (worker.Worker, error) {
 			return expectWorker, nil

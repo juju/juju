@@ -54,6 +54,16 @@ func newMockState() *mockState {
 	return st
 }
 
+func (st *mockState) ApplyOperation(op state.ModelOperation) error {
+	st.MethodCall(st, "AppyOperation")
+	return nil
+}
+
+func (st *mockState) Unit(unit string) (caasapplicationprovisioner.Unit, error) {
+	st.MethodCall(st, "Unit")
+	return nil, nil
+}
+
 func (st *mockState) WatchControllerConfig() state.NotifyWatcher {
 	st.MethodCall(st, "WatchControllerConfig")
 	return st.controllerConfigWatcher
