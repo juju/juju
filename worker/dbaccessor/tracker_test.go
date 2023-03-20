@@ -53,7 +53,7 @@ func (s *trackedDBWorkerSuite) TestWorkerDBIsNotNil(c *gc.C) {
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
-	w, err := NewTrackedDBWorker(s.dbApp, "controller", WithClock(s.clock), WithLogger(s.logger))
+	w, err := s.newTrackedDBWorker(defaultVerifyDBFunc)
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer workertest.DirtyKill(c, w)
@@ -84,7 +84,7 @@ func (s *trackedDBWorkerSuite) TestWorkerTxnIsNotNil(c *gc.C) {
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
-	w, err := NewTrackedDBWorker(s.dbApp, "controller", WithClock(s.clock), WithLogger(s.logger))
+	w, err := s.newTrackedDBWorker(defaultVerifyDBFunc)
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer workertest.DirtyKill(c, w)
