@@ -6,6 +6,7 @@ package application
 import (
 	stderrors "errors"
 	"fmt"
+	charmresource "github.com/juju/charm/v10/resource"
 	"strings"
 	"time"
 
@@ -1064,6 +1065,8 @@ type PendingResourceUpload struct {
 	PendingID string
 	// Type of the resource, a string matching one of the resource.Type
 	Type string
+
+	Res charmresource.Resource
 }
 
 type DeployFromRepositoryArg struct {
@@ -1176,6 +1179,7 @@ func pendingResourceUploadsFromParams(uploads []*params.PendingResourceUpload) [
 			Filename:  upload.Filename,
 			PendingID: upload.PendingID,
 			Type:      upload.Type,
+			Res:       upload.Res,
 		}
 	}
 	return prus

@@ -209,7 +209,9 @@ func newAddPendingResourcesArgsV2(tag names.ApplicationTag, chID CharmID, resour
 }
 
 // UploadPendingResource sends the provided resource blob up to Juju
-// and makes it available.
+// and makes it available by calling AddPendingResources to compute the
+// pendingID first, then it uses the UploadExistingPendingResource
+// to actually send it
 func (c Client) UploadPendingResource(application string, res charmresource.Resource, filename string, reader io.ReadSeeker) (pendingID string, err error) {
 	if !names.IsValidApplication(application) {
 		return "", errors.Errorf("invalid application %q", application)
@@ -223,25 +225,18 @@ func (c Client) UploadPendingResource(application string, res charmresource.Reso
 		return "", errors.Trace(err)
 	}
 	pendingID = ids[0]
+	return c.UploadExistingPendingResource(pendingID, application, res, filename, reader)
+}
 
+// UploadExistingPendingResource sends the provided resource blob up to Juju
+// and makes it available.
+func (c Client) UploadExistingPendingResource(pID string, application string, res charmresource.Resource, filename string, reader io.ReadSeeker) (pendingID string, err error) {
 	if reader != nil {
-		uReq, err := NewUploadRequest(application, res.Name, filename, reader)
-		if err != nil {
-			return "", errors.Trace(err)
-		}
-		uReq.PendingID = pendingID
-		req, err := uReq.HTTPRequest()
-		if err != nil {
-			return "", errors.Trace(err)
-		}
-
-		var response params.UploadResult // ignored
-		if err := c.httpClient.Do(c.facade.RawAPICaller().Context(), req, &response); err != nil {
-			return "", errors.Trace(err)
+		if uploadErr := c.Upload(application, res.Name, filename, reader); uploadErr != nil {
+			return pID, errors.Trace(uploadErr)
 		}
 	}
-
-	return pendingID, nil
+	return pID, nil
 }
 
 func resolveErrors(errs []error) error {

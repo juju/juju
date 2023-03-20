@@ -5,10 +5,10 @@ package application
 
 import (
 	"fmt"
-	"github.com/juju/charm/v10/resource"
 	"sync"
 
 	"github.com/juju/charm/v10"
+	"github.com/juju/charm/v10/resource"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -119,6 +119,10 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(arg params.DeployFromRe
 	if err != nil {
 		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
 	}
+
+	// Last step, add pending resources.
+	pendingIDs, pendingResourceUploads, errs := api.addPendingResources(dt.applicationName, dt.resources, ch.Meta().Resources)
+
 	_, err = api.state.AddApplication(state.AddApplicationArgs{
 		Name:              dt.applicationName,
 		Charm:             api.stateCharm(ch),
@@ -132,14 +136,12 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(arg params.DeployFromRe
 		NumUnits:          dt.numUnits,
 		Placement:         dt.placement,
 		Constraints:       dt.constraints,
-		Resources:         dt.resources,
+		Resources:         pendingIDs,
 	})
+
 	if err != nil {
 		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
 	}
-
-	// Last step, add pending resources.
-	pendingResourceUploads, errs := api.addPendingResources(dt.applicationName, dt.resources, ch.Meta().Resources)
 
 	return info, pendingResourceUploads, errs
 }
@@ -148,35 +150,42 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(arg params.DeployFromRe
 // added when deploying the charm. PendingResourceUpload is only returned
 // for local resources which will require the client to upload the
 // resource once DeployFromRepository returns. All resources will be
-// processed. Errors are not terminal.
-func (api *DeployFromRepositoryAPI) addPendingResources(appName string, uploads map[string]string, res map[string]resource.Meta) ([]*params.PendingResourceUpload, []error) {
-	var pIDs []*params.PendingResourceUpload
+// processed. Errors are not terminal. It also returns the name to pendingIDs
+// map that's needed by the AddApplication.
+func (api *DeployFromRepositoryAPI) addPendingResources(appName string, uploads map[string]string, res map[string]resource.Meta) (map[string]string, []*params.PendingResourceUpload, []error) {
+	var pendingUploadIDs []*params.PendingResourceUpload
 	var errs []error
+	pendingIDs := make(map[string]string)
 
 	for name, meta := range res {
-		res := resource.Resource{
-			Meta:     meta,
-			Origin:   resource.OriginStore,
-			Revision: -1,
+		r := resource.Resource{
+			Meta: meta,
+		}
+		if _, ok := uploads[name]; ok {
+			r.Origin = resource.OriginUpload
+		} else {
+			r.Origin = resource.OriginStore
 		}
 
-		pID, err := api.state.AddPendingResource(appName, res)
+		pID, err := api.state.AddPendingResource(appName, r)
 		if err != nil {
 			logger.Warningf("Unable to add pending resource %v for application %v", name, appName)
 			errs = append(errs, err)
 		} else {
+			pendingIDs[name] = pID
 			if _, ok := uploads[name]; ok {
-				pIDs = append(pIDs, &params.PendingResourceUpload{
+				pendingUploadIDs = append(pendingUploadIDs, &params.PendingResourceUpload{
 					Name:      meta.Name,
 					Type:      meta.Type.String(),
-					Filename:  meta.Path,
+					Filename:  uploads[name],
 					PendingID: pID,
+					Res:       r,
 				})
 			}
 		}
 	}
 
-	return pIDs, errs
+	return pendingIDs, pendingUploadIDs, errs
 }
 
 type deployTemplate struct {
@@ -328,6 +337,7 @@ func (v *deployFromRepositoryValidator) validate(arg params.DeployFromRepository
 		origin:            resolvedOrigin,
 		placement:         arg.Placement,
 		storage:           stateStorageConstraints(arg.Storage),
+		resources:         arg.Resources,
 	}
 	if arg.NumUnits != nil {
 		dt.numUnits = *arg.NumUnits
