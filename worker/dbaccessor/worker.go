@@ -357,7 +357,7 @@ func (w *dbWorker) openDatabase(namespace string) error {
 type TrackedDBWorkerOption func(*trackedDBWorker)
 
 // WithVerifyDBFunc sets the function used to verify the database connection.
-func WithVerifyDBFunc(f func(*sql.DB) error) TrackedDBWorkerOption {
+func WithVerifyDBFunc(f func(context.Context, *sql.DB) error) TrackedDBWorkerOption {
 	return func(w *trackedDBWorker) {
 		w.verifyDBFunc = f
 	}
@@ -390,7 +390,7 @@ type trackedDBWorker struct {
 	clock  clock.Clock
 	logger Logger
 
-	verifyDBFunc func(*sql.DB) error
+	verifyDBFunc func(context.Context, *sql.DB) error
 }
 
 // NewTrackedDBWorker creates a new TrackedDBWorker
@@ -512,9 +512,12 @@ func (w *trackedDBWorker) loop() error {
 }
 
 func (w *trackedDBWorker) verifyDB(db *sql.DB) (*sql.DB, error) {
-	// Force the timeout to be lower that the DefaultTimeout, so we can spot
-	// issues a lot quicker.
+	// Force the timeout to be lower that the DefaultTimeout,
+	// so we can spot issues sooner.
+	// Also allow killing the tomb to cancel the context,
+	// so shutdown/restart can not be blocked by this call.
 	ctx, cancel := context.WithTimeout(context.TODO(), time.Second*10)
+	ctx = w.tomb.Context(ctx)
 	defer cancel()
 
 	if w.logger.IsTraceEnabled() {
@@ -536,7 +539,7 @@ func (w *trackedDBWorker) verifyDB(db *sql.DB) (*sql.DB, error) {
 			if w.logger.IsTraceEnabled() {
 				w.logger.Tracef("attempting ping")
 			}
-			return w.verifyDBFunc(db)
+			return w.verifyDBFunc(ctx, db)
 		})
 		// We were successful at requesting the schema, so we can bail out
 		// early.
@@ -563,6 +566,6 @@ func (w *trackedDBWorker) verifyDB(db *sql.DB) (*sql.DB, error) {
 	return nil, errors.NotValidf("database")
 }
 
-func defaultVerifyDBFunc(db *sql.DB) error {
-	return db.Ping()
+func defaultVerifyDBFunc(ctx context.Context, db *sql.DB) error {
+	return db.PingContext(ctx)
 }
