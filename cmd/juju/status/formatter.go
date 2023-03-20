@@ -76,7 +76,8 @@ func newStatusFormatter(p newStatusFormatterParams) *statusFormatter {
 	return &sf
 }
 
-func (sf *statusFormatter) format() (formattedStatus, error) {
+// Format returns the formatted model status.
+func (sf *statusFormatter) Format() (formattedStatus, error) {
 	if sf.status == nil {
 		return formattedStatus{}, nil
 	}

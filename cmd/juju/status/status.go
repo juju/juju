@@ -368,7 +368,7 @@ func (c *statusCommand) runStatus(ctx *cmd.Context) error {
 		}
 	}
 
-	formatted, err := newStatusFormatter(formatterParams).format()
+	formatted, err := newStatusFormatter(formatterParams).Format()
 	if err != nil {
 		return errors.Trace(err)
 	}
