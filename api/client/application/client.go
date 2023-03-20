@@ -1022,18 +1022,22 @@ func unitInfoFromParams(in params.UnitInfoResult) UnitInfo {
 }
 
 type DeployInfo struct {
-	CharmURL string `json:"charm-url"`
-	// Channel is a string representation of the channel used to
-	// deploy the charm.
-	Channel string `json:"channel,omitempty"`
 	// Architecture is the architecture used to deploy the charm.
 	Architecture string `json:"architecture"`
 	// Base is the base used to deploy the charm.
 	Base coreseries.Base `json:"base,omitempty"`
+	// Channel is a string representation of the channel used to
+	// deploy the charm.
+	Channel string `json:"channel"`
 	// EffectiveChannel is the channel actually deployed from as determined
-	// by the charmhub response. May be empty if the same as the
-	// channel.
+	// by the charmhub response.
 	EffectiveChannel *string `json:"effective-channel,omitempty"`
+	// Is the name of the application deployed. This may vary from
+	// the charm name provided if differs in the metadata.yaml and
+	// no provided on the cli.
+	Name string `json:"name"`
+	// Revision is the revision of the charm deployed.
+	Revision int `json:"revision"`
 }
 
 type PendingResourceUpload struct {
@@ -1138,11 +1142,12 @@ func (c *Client) DeployFromRepository(arg DeployFromRepositoryArg) (DeployInfo, 
 func deployInfoFromParams(di params.DeployFromRepositoryInfo) (DeployInfo, error) {
 	base, err := coreseries.ParseBase(di.Base.Name, di.Base.Channel)
 	return DeployInfo{
-		CharmURL:         di.CharmURL,
-		Channel:          di.Channel,
 		Architecture:     di.Architecture,
 		Base:             base,
+		Channel:          di.Channel,
 		EffectiveChannel: di.EffectiveChannel,
+		Name:             di.Name,
+		Revision:         di.Revision,
 	}, err
 }
 

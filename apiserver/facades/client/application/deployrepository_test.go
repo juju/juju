@@ -73,7 +73,7 @@ func (s *validatorSuite) TestValidateSuccess(c *gc.C) {
 	dt, errs := s.getValidator().validate(arg)
 	c.Assert(errs, gc.HasLen, 0)
 	c.Assert(dt, gc.DeepEquals, deployTemplate{
-		applicationName: "testcharm",
+		applicationName: "test-charm",
 		charm:           corecharm.NewCharmInfoAdapter(essMeta),
 		charmURL:        resultURL,
 		numUnits:        1,
@@ -137,7 +137,7 @@ func (s *validatorSuite) TestValidatePlacementSuccess(c *gc.C) {
 	dt, errs := s.getValidator().validate(arg)
 	c.Assert(errs, gc.HasLen, 0)
 	c.Assert(dt, gc.DeepEquals, deployTemplate{
-		applicationName: "testcharm",
+		applicationName: "test-charm",
 		charm:           corecharm.NewCharmInfoAdapter(essMeta),
 		charmURL:        resultURL,
 		numUnits:        1,
@@ -195,7 +195,7 @@ func (s *validatorSuite) TestValidateEndpointBindingSuccess(c *gc.C) {
 	dt, errs := s.getValidator().validate(arg)
 	c.Assert(errs, gc.HasLen, 0)
 	c.Assert(dt, gc.DeepEquals, deployTemplate{
-		applicationName: "testcharm",
+		applicationName: "test-charm",
 		charm:           corecharm.NewCharmInfoAdapter(essMeta),
 		charmURL:        resultURL,
 		endpoints:       endpointMap,
@@ -596,7 +596,7 @@ func (s *deployRepositorySuite) TestDeployFromRepositoryAPI(c *gc.C) {
 		CharmName: "testme",
 	}
 	template := deployTemplate{
-		applicationName: "testme",
+		applicationName: "metadata-name",
 		charm:           corecharm.NewCharmInfoAdapter(corecharm.EssentialMetadata{}),
 		charmURL:        charm.MustParseURL("ch:amd64/jammy/testme-5"),
 		endpoints:       map[string]string{"to": "from"},
@@ -616,7 +616,7 @@ func (s *deployRepositorySuite) TestDeployFromRepositoryAPI(c *gc.C) {
 	}
 	s.state.EXPECT().AddCharmMetadata(info).Return(&state.Charm{}, nil)
 	addAppArgs := state.AddApplicationArgs{
-		Name:  "testme",
+		Name:  "metadata-name",
 		Charm: &state.Charm{},
 		CharmOrigin: &state.CharmOrigin{
 			Source:   "charm-hub",
@@ -640,11 +640,12 @@ func (s *deployRepositorySuite) TestDeployFromRepositoryAPI(c *gc.C) {
 	c.Assert(errs, gc.HasLen, 0)
 	c.Assert(resources, gc.HasLen, 0)
 	c.Assert(obtainedInfo, gc.DeepEquals, params.DeployFromRepositoryInfo{
-		CharmURL:         "ch:amd64/jammy/testme-5",
-		Channel:          "stable",
 		Architecture:     "amd64",
 		Base:             params.Base{Name: "ubuntu", Channel: "22.04"},
+		Channel:          "stable",
 		EffectiveChannel: nil,
+		Name:             "metadata-name",
+		Revision:         5,
 	})
 }
 
