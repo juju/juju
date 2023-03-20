@@ -425,9 +425,8 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 		})
 
 		uploadErr := c.uploadExistingPendingResources(c.applicationName, localPendingResources, deployAPI)
-		// Todo suggest attach-resource
 		if uploadErr != nil {
-			return errors.Trace(uploadErr)
+			ctx.Errorf("Unable to upload resources for %v, consider using --attach-resource. \n %v", c.applicationName, uploadErr)
 		}
 
 		ctx.Infof("%s", pretty.Sprint(info))
