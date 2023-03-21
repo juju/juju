@@ -11,6 +11,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	app "github.com/juju/juju/database/app"
+	dqlite "github.com/juju/juju/database/dqlite"
 	loggo "github.com/juju/loggo"
 )
 
@@ -270,6 +271,21 @@ func (m *MockNodeManager) EXPECT() *MockNodeManagerMockRecorder {
 	return m.recorder
 }
 
+// ClusterServers mocks base method.
+func (m *MockNodeManager) ClusterServers(arg0 context.Context) ([]dqlite.NodeInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ClusterServers", arg0)
+	ret0, _ := ret[0].([]dqlite.NodeInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ClusterServers indicates an expected call of ClusterServers.
+func (mr *MockNodeManagerMockRecorder) ClusterServers(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClusterServers", reflect.TypeOf((*MockNodeManager)(nil).ClusterServers), arg0)
+}
+
 // EnsureDataDir mocks base method.
 func (m *MockNodeManager) EnsureDataDir() (string, error) {
 	m.ctrl.T.Helper()
@@ -285,6 +301,21 @@ func (mr *MockNodeManagerMockRecorder) EnsureDataDir() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureDataDir", reflect.TypeOf((*MockNodeManager)(nil).EnsureDataDir))
 }
 
+// IsBootstrappedNode mocks base method.
+func (m *MockNodeManager) IsBootstrappedNode(arg0 context.Context) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsBootstrappedNode", arg0)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsBootstrappedNode indicates an expected call of IsBootstrappedNode.
+func (mr *MockNodeManagerMockRecorder) IsBootstrappedNode(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsBootstrappedNode", reflect.TypeOf((*MockNodeManager)(nil).IsBootstrappedNode), arg0)
+}
+
 // IsExistingNode mocks base method.
 func (m *MockNodeManager) IsExistingNode() (bool, error) {
 	m.ctrl.T.Helper()
@@ -298,6 +329,34 @@ func (m *MockNodeManager) IsExistingNode() (bool, error) {
 func (mr *MockNodeManagerMockRecorder) IsExistingNode() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsExistingNode", reflect.TypeOf((*MockNodeManager)(nil).IsExistingNode))
+}
+
+// SetClusterServers mocks base method.
+func (m *MockNodeManager) SetClusterServers(arg0 context.Context, arg1 []dqlite.NodeInfo) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetClusterServers", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetClusterServers indicates an expected call of SetClusterServers.
+func (mr *MockNodeManagerMockRecorder) SetClusterServers(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetClusterServers", reflect.TypeOf((*MockNodeManager)(nil).SetClusterServers), arg0, arg1)
+}
+
+// SetNodeInfo mocks base method.
+func (m *MockNodeManager) SetNodeInfo(arg0 dqlite.NodeInfo) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetNodeInfo", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetNodeInfo indicates an expected call of SetNodeInfo.
+func (mr *MockNodeManagerMockRecorder) SetNodeInfo(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetNodeInfo", reflect.TypeOf((*MockNodeManager)(nil).SetNodeInfo), arg0)
 }
 
 // WithAddressOption mocks base method.

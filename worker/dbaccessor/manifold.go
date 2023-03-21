@@ -92,12 +92,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			agentConfig := agent.CurrentConfig()
 
 			cfg := WorkerConfig{
-				NodeManager: database.NewNodeManager(agentConfig, config.Logger),
-				Clock:       config.Clock,
-				Hub:         config.Hub,
-				Logger:      config.Logger,
-				NewApp:      config.NewApp,
-				NewDBWorker: config.NewDBWorker,
+				NodeManager:  database.NewNodeManager(agentConfig, config.Logger),
+				Clock:        config.Clock,
+				Hub:          config.Hub,
+				ControllerID: agentConfig.Tag().Id(),
+				Logger:       config.Logger,
+				NewApp:       config.NewApp,
+				NewDBWorker:  config.NewDBWorker,
 			}
 
 			w, err := newWorker(cfg)

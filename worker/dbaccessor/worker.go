@@ -6,6 +6,7 @@ package dbaccessor
 import (
 	"context"
 	"database/sql"
+	"net"
 	"sync"
 	"time"
 
@@ -13,11 +14,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
+	"github.com/juju/worker/v3/dependency"
 	"gopkg.in/tomb.v2"
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/database"
 	"github.com/juju/juju/database/app"
+	"github.com/juju/juju/database/dqlite"
 	"github.com/juju/juju/pubsub/apiserver"
 )
 
@@ -41,12 +44,27 @@ type TrackedDB interface {
 // NodeManager creates Dqlite `App` initialisation arguments and options.
 type NodeManager interface {
 	// IsExistingNode returns true if this machine of container has run a
-	// Dqlite node in the past
+	// Dqlite node in the past.
 	IsExistingNode() (bool, error)
+
+	// IsBootstrappedNode returns true if this machine or container was where
+	// we first bootstrapped Dqlite, and it hasn't been reconfigured since.
+	IsBootstrappedNode(context.Context) (bool, error)
 
 	// EnsureDataDir ensures that a directory for Dqlite data exists at
 	// a path determined by the agent config, then returns that path.
 	EnsureDataDir() (string, error)
+
+	// ClusterServers returns the node information for
+	// Dqlite nodes configured to be in the cluster.
+	ClusterServers(context.Context) ([]dqlite.NodeInfo, error)
+
+	//SetClusterServers reconfigures the Dqlite cluster members.
+	SetClusterServers(context.Context, []dqlite.NodeInfo) error
+
+	// SetNodeInfo rewrites the local node information
+	// file in the Dqlite data directory.
+	SetNodeInfo(dqlite.NodeInfo) error
 
 	// WithLogFuncOption returns a Dqlite application Option that will proxy Dqlite
 	// log output via this factory's logger where the level is recognised.
@@ -131,6 +149,10 @@ type WorkerConfig struct {
 	Logger      Logger
 	NewApp      func(string, ...app.Option) (DBApp, error)
 	NewDBWorker func(DBApp, string, ...TrackedDBWorkerOption) (TrackedDB, error)
+
+	// ControllerID uniquely identifies the controller that this
+	// worker is running on. It is equivalent to the machine ID.
+	ControllerID string
 }
 
 // Validate ensures that the config values are valid.
@@ -189,7 +211,8 @@ func newWorker(cfg WorkerConfig) (*dbWorker, error) {
 			IsFatal:      func(err error) bool { return true },
 			RestartDelay: time.Second * 30,
 		}),
-		dbRequests: make(chan dbRequest),
+		dbRequests:       make(chan dbRequest),
+		apiServerChanges: make(chan apiserver.Details),
 	}
 
 	if err = catacomb.Invoke(catacomb.Plan{
@@ -206,15 +229,41 @@ func newWorker(cfg WorkerConfig) (*dbWorker, error) {
 }
 
 func (w *dbWorker) loop() (err error) {
-	defer w.shutdownDqlite()
+	defer w.shutdownDqlite(context.TODO())
 
-	if err := w.initializeDqlite(); err != nil {
+	extant, err := w.cfg.NodeManager.IsExistingNode()
+	if err != nil {
 		return errors.Trace(err)
 	}
 
-	unsub, err := w.cfg.Hub.Subscribe(apiserver.DetailsTopic, w.handleAPIServerChanges)
+	// At this time, while Juju is using both Mongo and Dqlite, we piggyback
+	// off the peer-grouper, which applies any configured HA space and
+	// broadcasts clustering addresses. Once we do away with mongo,
+	// that worker will be replaced with a Dqlite-focussed analogue that does
+	// largely the same thing, though potentially disseminating changes via a
+	// mechanism other than pub/sub.
+	unsub, err := w.cfg.Hub.Subscribe(apiserver.DetailsTopic, w.handleAPIServerChangeMsg)
 	if err != nil {
-		return errors.Annotate(err, "subscribing to node address request topic")
+		return errors.Annotate(err, "subscribing to API server topology changes")
+	}
+	defer unsub()
+
+	// If this is an existing node, we start it up immediately.
+	// Otherwise, this host is entering a HA cluster, and we need to wait for
+	// the peer-grouper to determine and broadcast addresses satisfying the
+	// Juju HA space (if configured); request those details.
+	// Once received we can continue configuring this node as a member.
+	if extant {
+		if err := w.startExistingDqliteNode(); err != nil {
+			return errors.Trace(err)
+		}
+	} else {
+		if _, err := w.cfg.Hub.Publish(apiserver.DetailsRequestTopic, apiserver.DetailsRequest{
+			Requester: "db-accessor",
+			LocalOnly: true,
+		}); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	for {
@@ -225,10 +274,11 @@ func (w *dbWorker) loop() (err error) {
 			}
 			close(req.done)
 		case <-w.catacomb.Dying():
-			unsub()
 			return w.catacomb.ErrDying()
 		case apiDetails := <-w.apiServerChanges:
-			w.cfg.Logger.Infof("%v", apiDetails)
+			if err := w.processAPIServerChange(apiDetails); err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 }
@@ -273,7 +323,35 @@ func (w *dbWorker) GetDB(namespace string) (coredatabase.TrackedDB, error) {
 	return tracked.(coredatabase.TrackedDB), nil
 }
 
-func (w *dbWorker) initializeDqlite() error {
+// startExistingDqliteNode takes care of starting Dqlite
+// when this host has run a node previously.
+func (w *dbWorker) startExistingDqliteNode() error {
+	w.cfg.Logger.Infof("host is configured as a Dqlite node")
+
+	mgr := w.cfg.NodeManager
+
+	asBootstrapped, err := mgr.IsBootstrappedNode(context.TODO())
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// If this existing node is not as bootstrapped, then it is part of a
+	// cluster. The Dqlite Raft log and configuration in the Dqlite data
+	// directory will indicate the cluster members, but we need to ensure
+	// TLS for traffic between nodes explicitly.
+	var options []app.Option
+	if !asBootstrapped {
+		withTLS, err := mgr.WithTLSOption()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		options = append(options, withTLS)
+	}
+
+	return errors.Trace(w.initialiseDqlite(options...))
+}
+
+func (w *dbWorker) initialiseDqlite(options ...app.Option) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
@@ -288,42 +366,12 @@ func (w *dbWorker) initializeDqlite() error {
 		return errors.Trace(err)
 	}
 
-	options := []app.Option{mgr.WithLogFuncOption()}
-
-	// If we have started this node before, there is no need to supply address
-	// or clustering options. These are already committed to Dqlite's Raft log
-	// and are indicated by the contents of cluster.yaml and info.yaml in the
-	// data directory.
-	extant, err := mgr.IsExistingNode()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if extant {
-		w.cfg.Logger.Infof("host is configured as a Dqlite node")
-	} else {
-		w.cfg.Logger.Infof("configuring host as a Dqlite node for the first time")
-
-		withAddr, err := mgr.WithAddressOption()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		options = append(options, withAddr)
-
-		withCluster, err := mgr.WithClusterOption()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		options = append(options, withCluster)
-	}
-
-	if w.dbApp, err = w.cfg.NewApp(dataDir, options...); err != nil {
+	if w.dbApp, err = w.cfg.NewApp(dataDir, append(options, mgr.WithLogFuncOption())...); err != nil {
 		return errors.Trace(err)
 	}
 
 	ctx := context.TODO()
 
-	// Ensure Dqlite is ready to accept new changes.
 	if err := w.dbApp.Ready(ctx); err != nil {
 		return errors.Annotatef(err, "ensuring Dqlite is ready to process changes")
 	}
@@ -565,24 +613,118 @@ func defaultVerifyDBFunc(ctx context.Context, db *sql.DB) error {
 	return db.PingContext(ctx)
 }
 
-func (w *dbWorker) handleAPIServerChanges(_ string, details apiserver.Details, err error) {
+// handleAPIServerChangeMsg is the callback supplied to the pub/sub
+// subscription for API server details. It effectively synchronises the
+// handling of such messages into the worker's evert loop.
+func (w *dbWorker) handleAPIServerChangeMsg(_ string, apiDetails apiserver.Details, err error) {
 	if err != nil {
 		// This should never happen.
 		w.cfg.Logger.Errorf("pub/sub callback error: %v", err)
 		return
 	}
 
-	w.cfg.Logger.Debugf("new API server details: %#v", details)
-
 	select {
 	case <-w.catacomb.Dying():
-	case w.apiServerChanges <- details:
+	case w.apiServerChanges <- apiDetails:
 	}
 }
 
-// shutdownDqlite makes a best-effort attempt to hand
-// off and shut down the local Dqlite node.
-func (w *dbWorker) shutdownDqlite() {
+// processAPIServerChange deals with cluster topology changes.
+func (w *dbWorker) processAPIServerChange(apiDetails apiserver.Details) error {
+	w.cfg.Logger.Debugf("new API server details: %#v", apiDetails)
+
+	mgr := w.cfg.NodeManager
+
+	extant, err := mgr.IsExistingNode()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	ctx := context.TODO()
+
+	// If this is an existing node, check if we are bound to the loopback IP
+	// and entering HA, which requires a new local-cloud bind address.
+	if extant {
+		asBootstrapped, err := mgr.IsBootstrappedNode(ctx)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		// If this is a node that is already clustered, there is nothing to do.
+		if !asBootstrapped {
+			w.cfg.Logger.Debugf("node already clustered; no work to do")
+			return nil
+		}
+
+		// Look for *our* internal address in the details that were broadcast.
+		// This is the same local-cloud address used by Mongo for replication.
+		hostPort := apiDetails.Servers[w.cfg.ControllerID].InternalAddress
+		if hostPort == "" {
+			return errors.New("no internal address determined for this Dqlite node to bind to")
+		}
+		addr, _, err := net.SplitHostPort(hostPort)
+		if err != nil {
+			return errors.Annotatef(err, "splitting host/port for %s", hostPort)
+		}
+		if err := w.rebindAddress(ctx, addr); err != nil {
+			return errors.Trace(err)
+		}
+
+		// Just bounce wholesale after reconfiguring the node.
+		// We flush the opened DBs and ensure a clean slate for dependents.
+		w.cfg.Logger.Infof("successfully reconfigured Dqlite; restarting worker")
+		return dependency.ErrBounce
+	}
+
+	// Otherwise this is a node added by enabling HA,
+	// and we need to join to an existing cluster.
+
+	return nil
+}
+
+// rebindAddress stops the current node, reconfigures the cluster so that
+// it is a single server bound to the input local-cloud address.
+// It should be called only for a cluster constituted by a single node
+// bound to the loopback IP address.
+func (w *dbWorker) rebindAddress(ctx context.Context, addr string) error {
+	w.shutdownDqlite(ctx)
+
+	mgr := w.cfg.NodeManager
+	servers, err := mgr.ClusterServers(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// This should be implied by an earlier check of
+	// NodeManager.IsBootstrappedNode, but we want to guard very
+	// conservatively against breaking established clusters.
+	if len(servers) != 1 {
+		w.cfg.Logger.Debugf("not a singular server; skipping address rebind")
+		return nil
+	}
+
+	// We need to preserve the port from the existing address.
+	_, port, err := net.SplitHostPort(servers[0].Address)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	servers[0].Address = net.JoinHostPort(addr, port)
+
+	w.cfg.Logger.Infof("rebinding Dqlite node to %s", addr)
+	if err := mgr.SetClusterServers(ctx, servers); err != nil {
+		return errors.Trace(err)
+	}
+
+	return errors.Trace(mgr.SetNodeInfo(servers[0]))
+}
+
+// shutdownDqlite makes a best-effort attempt to hand off and shut
+// down the local Dqlite node.
+// We reassign the dbReady channel, which blocks GetDB requests.
+// If the worker is not shutting down permanently, Dqlite should be
+// reinitialised either directly or by bouncing the agent reasonably
+// soon after calling this method.
+func (w *dbWorker) shutdownDqlite(ctx context.Context) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 

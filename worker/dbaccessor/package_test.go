@@ -49,7 +49,7 @@ func (s *baseSuite) expectAnyLogs() {
 	s.logger.EXPECT().Errorf(gomock.Any()).AnyTimes()
 	s.logger.EXPECT().Warningf(gomock.Any()).AnyTimes()
 	s.logger.EXPECT().Infof(gomock.Any(), gomock.Any()).AnyTimes()
-	s.logger.EXPECT().Debugf(gomock.Any()).AnyTimes()
+	s.logger.EXPECT().Debugf(gomock.Any(), gomock.Any()).AnyTimes()
 	s.logger.EXPECT().Logf(gomock.Any(), gomock.Any()).AnyTimes()
 	s.logger.EXPECT().IsTraceEnabled().AnyTimes()
 }
