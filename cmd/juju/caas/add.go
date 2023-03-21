@@ -222,10 +222,10 @@ func newAddCAASCommand(cloudMetadataStore CloudMetadataStore, clock jujuclock.Cl
 // Info returns help information about the command.
 func (c *AddCAASCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "add-k8s",
-		Args:    "<k8s name>",
-		Purpose: usageAddCAASSummary,
-		Doc:     usageAddCAASDetails,
+		Name:     "add-k8s",
+		Args:     "<k8s name>",
+		Purpose:  usageAddCAASSummary,
+		Doc:      usageAddCAASDetails,
 		Examples: examples,
 		SeeAlso: []string{
 			"remove-k8s",
