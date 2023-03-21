@@ -374,12 +374,15 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceedsWithDiffer
 	s.logger.EXPECT().Errorf(gomock.Any(), gomock.Any()).AnyTimes()
 
 	dbChange := make(chan struct{})
-	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
-	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
-	s.dbApp.EXPECT().Open(gomock.Any(), "controller").DoAndReturn(func(_ context.Context, _ string) (*sql.DB, error) {
-		defer close(dbChange)
-		return s.NewCleanDB(c), nil
-	})
+	exp := s.dbApp.EXPECT()
+	gomock.InOrder(
+		exp.Open(gomock.Any(), "controller").Return(s.DB(), nil),
+		exp.Open(gomock.Any(), "controller").Return(s.DB(), nil),
+		exp.Open(gomock.Any(), "controller").DoAndReturn(func(_ context.Context, _ string) (*sql.DB, error) {
+			defer close(dbChange)
+			return s.NewCleanDB(c), nil
+		}),
+	)
 
 	var count uint64
 	verifyFn := func(context.Context, *sql.DB) error {
