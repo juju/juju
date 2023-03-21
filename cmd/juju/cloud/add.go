@@ -115,19 +115,16 @@ Other cloud combinations can only be force added as the user must consider
 network routability, etc - concerns that are outside of scope of Juju.
 When forced addition is desired, use --force.
 
-Examples:
+`
+
+const examples = `
     juju add-cloud
     juju add-cloud --force
     juju add-cloud mycloud ~/mycloud.yaml
     juju add-cloud --controller mycontroller mycloud 
     juju add-cloud --controller mycontroller mycloud --credential mycred
     juju add-cloud --client mycloud ~/mycloud.yaml
-
-See also: 
-    clouds
-    update-cloud
-    remove-cloud
-    update-credential`
+`
 
 // AddCloudAPI - Implemented by cloudapi.Client.
 type AddCloudAPI interface {
@@ -198,10 +195,17 @@ func (c *AddCloudCommand) cloudAPI() (AddCloudAPI, error) {
 // Info returns help information about the command.
 func (c *AddCloudCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "add-cloud",
-		Args:    "<cloud name> [<cloud definition file>]",
-		Purpose: usageAddCloudSummary,
-		Doc:     fmt.Sprintf(usageAddCloudDetails, jujucloud.CurrentWhiteList()),
+		Name:     "add-cloud",
+		Args:     "<cloud name> [<cloud definition file>]",
+		Purpose:  usageAddCloudSummary,
+		Doc:      fmt.Sprintf(usageAddCloudDetails, jujucloud.CurrentWhiteList()),
+		Examples: examples,
+		SeeAlso: []string{
+			"clouds",
+			"update-cloud",
+			"remove-cloud",
+			"update-credential",
+		},
 	})
 }
 
