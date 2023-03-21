@@ -6,7 +6,9 @@
 package dqlite
 
 type NodeInfo struct {
+	ID      uint64
 	Address string
+	Role    int
 }
 
 func ReconfigureMembership(string, []NodeInfo) error {
