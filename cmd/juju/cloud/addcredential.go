@@ -144,10 +144,10 @@ func NewAddCredentialCommand() cmd.Command {
 
 func (c *addCredentialCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "add-credential",
-		Args:    "<cloud name>",
-		Purpose: usageAddCredentialSummary,
-		Doc:     usageAddCredentialDetails,
+		Name:     "add-credential",
+		Args:     "<cloud name>",
+		Purpose:  usageAddCredentialSummary,
+		Doc:      usageAddCredentialDetails,
 		Examples: examples,
 		SeeAlso: []string{
 			"credentials",
