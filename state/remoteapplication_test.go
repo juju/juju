@@ -492,6 +492,25 @@ func (s *remoteApplicationSuite) TestAddRemoteApplicationFromConsumer(c *gc.C) {
 	c.Assert(foo.IsConsumerProxy(), jc.IsTrue)
 }
 
+func (s *remoteApplicationSuite) TestSetSourceController(c *gc.C) {
+	foo, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name: "foo", OfferUUID: "offer-uuid", SourceModel: s.Model.ModelTag(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = foo.SetSourceController("source-controller-uuid")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Test results without and then with refresh.
+	for i := 0; i < 2; i++ {
+		sourceCtrl := foo.SourceController()
+		c.Assert(sourceCtrl, gc.Equals, "source-controller-uuid")
+
+		err = foo.Refresh()
+		c.Assert(err, jc.ErrorIsNil)
+	}
+}
+
 func (s *remoteApplicationSuite) TestAddEndpoints(c *gc.C) {
 	origEps := []charm.Relation{
 		{Name: "ep1", Role: charm.RoleRequirer, Scope: charm.ScopeGlobal, Limit: 1},
