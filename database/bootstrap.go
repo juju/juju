@@ -18,9 +18,9 @@ type bootstrapOptFactory interface {
 	// a path determined by the agent config, then returns that path.
 	EnsureDataDir() (string, error)
 
-	// WithAddressOption returns a Dqlite application option
-	// for specifying the local address:port to use.
-	WithAddressOption() (app.Option, error)
+	// WithLoopbackAddressOption returns a Dqlite application
+	// Option that will bind Dqlite to the loopback IP.
+	WithLoopbackAddressOption() app.Option
 
 	// WithLogFuncOption returns a Dqlite application Option
 	// that will proxy Dqlite log output via this factory's
@@ -43,15 +43,7 @@ func BootstrapDqlite(ctx context.Context, opt bootstrapOptFactory, logger Logger
 		return errors.Trace(err)
 	}
 
-	// Although we are not broadcasting this address in the bootstrap phase,
-	// the address/port set here can not be changed for this same node later.
-	// We are not using the default port, so we need to set it now.
-	withAddress, err := opt.WithAddressOption()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	dqlite, err := app.New(dir, withAddress, opt.WithLogFuncOption())
+	dqlite, err := app.New(dir, opt.WithLoopbackAddressOption(), opt.WithLogFuncOption())
 	if err != nil {
 		return errors.Annotate(err, "creating Dqlite app")
 	}

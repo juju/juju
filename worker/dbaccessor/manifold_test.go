@@ -27,6 +27,10 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 
 	cfg = s.getConfig()
+	cfg.Hub = nil
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+
+	cfg = s.getConfig()
 	cfg.Logger = nil
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 
@@ -43,6 +47,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
 		AgentName: "agent",
 		Clock:     s.clock,
+		Hub:       s.hub,
 		Logger:    s.logger,
 		NewApp: func(string, ...app.Option) (DBApp, error) {
 			return s.dbApp, nil

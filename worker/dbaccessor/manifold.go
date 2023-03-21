@@ -31,11 +31,20 @@ type Logger interface {
 	IsTraceEnabled() bool
 }
 
-// ManifoldConfig defines the names of the manifolds on which a Manifold will
-// depend.
+// Hub defines the methods of the API server central hub
+// that the DB accessor requires.
+type Hub interface {
+	Subscribe(topic string, handler interface{}) (func(), error)
+	Publish(topic string, data interface{}) (func(), error)
+}
+
+// ManifoldConfig contains:
+// - The names of other manifolds on which the DB accessor depends.
+// - Other dependencies from ManifoldsConfig required by the worker.
 type ManifoldConfig struct {
 	AgentName   string
 	Clock       clock.Clock
+	Hub         Hub
 	Logger      Logger
 	NewApp      func(string, ...app.Option) (DBApp, error)
 	NewDBWorker func(DBApp, string, ...TrackedDBWorkerOption) (TrackedDB, error)
@@ -45,11 +54,14 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.AgentName == "" {
 		return errors.NotValidf("empty AgentName")
 	}
-	if cfg.Logger == nil {
-		return errors.NotValidf("nil Logger")
-	}
 	if cfg.Clock == nil {
 		return errors.NotValidf("nil Clock")
+	}
+	if cfg.Hub == nil {
+		return errors.NotValidf("nil Hub")
+	}
+	if cfg.Logger == nil {
+		return errors.NotValidf("nil Logger")
 	}
 	if cfg.NewApp == nil {
 		return errors.NotValidf("nil NewApp")
@@ -80,11 +92,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			agentConfig := agent.CurrentConfig()
 
 			cfg := WorkerConfig{
-				NodeManager: database.NewNodeManager(agentConfig, config.Logger),
-				Clock:       config.Clock,
-				Logger:      config.Logger,
-				NewApp:      config.NewApp,
-				NewDBWorker: config.NewDBWorker,
+				NodeManager:  database.NewNodeManager(agentConfig, config.Logger),
+				Clock:        config.Clock,
+				Hub:          config.Hub,
+				ControllerID: agentConfig.Tag().Id(),
+				Logger:       config.Logger,
+				NewApp:       config.NewApp,
+				NewDBWorker:  config.NewDBWorker,
 			}
 
 			w, err := newWorker(cfg)

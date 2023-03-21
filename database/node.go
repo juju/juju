@@ -16,6 +16,10 @@ import (
 	"sort"
 	"strings"
 
+	// Note that this is a deliberate use of the same YAML dependency
+	// as go-dqlite. It preserves files as written by that library,
+	// whereas gopkg.in/yaml.v3 does not.
+	"github.com/ghodss/yaml"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
@@ -23,12 +27,15 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/database/app"
 	"github.com/juju/juju/database/client"
+	"github.com/juju/juju/database/dqlite"
 	"github.com/juju/juju/network"
 )
 
 const (
-	dqliteDataDir = "dqlite"
-	dqlitePort    = 17666
+	dqliteBootstrapBindIP = "127.0.0.1"
+	dqliteDataDir         = "dqlite"
+	dqlitePort            = 17666
+	dqliteClusterFileName = "cluster.yaml"
 )
 
 // DefaultBindAddress is the address that will *always* be returned by
@@ -71,20 +78,16 @@ func (m *NodeManager) IsBootstrappedNode(ctx context.Context) (bool, error) {
 		return false, nil
 	}
 
-	store, err := m.nodeClusterStore()
+	servers, err := m.ClusterServers(ctx)
 	if err != nil {
 		return false, errors.Trace(err)
-	}
-	servers, err := store.Get(ctx)
-	if err != nil {
-		return false, errors.Annotate(err, "retrieving servers from Dqlite node store")
 	}
 
 	if len(servers) != 1 {
 		return false, nil
 	}
 
-	return strings.HasPrefix(servers[0].Address, "127.0.0.1"), nil
+	return strings.HasPrefix(servers[0].Address, dqliteBootstrapBindIP), nil
 }
 
 // IsExistingNode returns true if this machine or container has
@@ -124,6 +127,45 @@ func (m *NodeManager) EnsureDataDir() (string, error) {
 	return m.dataDir, nil
 }
 
+// ClusterServers returns the node information for
+// Dqlite nodes configured to be in the cluster.
+func (m *NodeManager) ClusterServers(ctx context.Context) ([]dqlite.NodeInfo, error) {
+	store, err := m.nodeClusterStore()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	servers, err := store.Get(ctx)
+	return servers, errors.Annotate(err, "retrieving servers from Dqlite node store")
+}
+
+// SetClusterServers reconfigures the Dqlite cluster by writing the
+// input servers to Dqlite's Raft log and the local node YAML store.
+// This should only be called on a stopped Dqlite node.
+func (m *NodeManager) SetClusterServers(ctx context.Context, servers []dqlite.NodeInfo) error {
+	store, err := m.nodeClusterStore()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := dqlite.ReconfigureMembership(m.dataDir, servers); err != nil {
+		return errors.Annotate(err, "reconfiguring Dqlite cluster membership")
+	}
+
+	return errors.Annotate(store.Set(ctx, servers), "writing servers to Dqlite node store")
+}
+
+// SetNodeInfo rewrites the local node information file in the Dqlite
+// data directory, so that it matches the input NodeInfo.
+// This should only be called on a stopped Dqlite node.
+func (m *NodeManager) SetNodeInfo(server dqlite.NodeInfo) error {
+	data, err := yaml.Marshal(server)
+	if err != nil {
+		return errors.Annotatef(err, "marshalling NodeInfo %#v", server)
+	}
+	return errors.Annotatef(
+		os.WriteFile(path.Join(m.dataDir, "info.yaml"), data, 0600), "writing info.yaml to %s", m.dataDir)
+}
+
 // WithLogFuncOption returns a Dqlite application Option that will proxy Dqlite
 // log output via this factory's logger where the level is recognised.
 func (m *NodeManager) WithLogFuncOption() app.Option {
@@ -132,6 +174,12 @@ func (m *NodeManager) WithLogFuncOption() app.Option {
 			m.logger.Logf(actualLevel, msg, args...)
 		}
 	})
+}
+
+// WithLoopbackAddressOption returns a Dqlite application
+// Option that will bind Dqlite to the loopback IP.
+func (m *NodeManager) WithLoopbackAddressOption() app.Option {
+	return app.WithAddress(fmt.Sprintf("%s:%d", dqliteBootstrapBindIP, m.port))
 }
 
 // WithAddressOption returns a Dqlite application Option
@@ -218,7 +266,7 @@ func (m *NodeManager) WithClusterOption() (app.Option, error) {
 // nodeClusterStore returns a YamlNodeStore instance based
 // on the cluster.yaml file in the Dqlite data directory.
 func (m *NodeManager) nodeClusterStore() (*client.YamlNodeStore, error) {
-	store, err := client.NewYamlNodeStore(path.Join(m.dataDir, "cluster.yaml"))
+	store, err := client.NewYamlNodeStore(path.Join(m.dataDir, dqliteClusterFileName))
 	return store, errors.Annotate(err, "opening Dqlite cluster node store")
 }
 

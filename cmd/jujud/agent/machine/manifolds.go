@@ -693,6 +693,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		dbAccessorName: ifController(dbaccessor.Manifold(dbaccessor.ManifoldConfig{
 			AgentName:   agentName,
 			Clock:       config.Clock,
+			Hub:         config.CentralHub,
 			Logger:      loggo.GetLogger("juju.worker.dbaccessor"),
 			NewApp:      dbaccessor.NewApp,
 			NewDBWorker: dbaccessor.NewTrackedDBWorker,
