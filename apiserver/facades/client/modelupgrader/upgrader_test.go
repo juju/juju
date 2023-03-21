@@ -167,6 +167,7 @@ func (s *modelUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, d
 	assertions := []*gomock.Call{
 		s.blockChecker.EXPECT().ChangeAllowed().Return(nil),
 
+		ctrlModel.EXPECT().Life().Return(state.Alive),
 		// Decide/validate target version.
 		ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil),
 		s.toolsFinder.EXPECT().FindTools(params.FindToolsParams{MajorVersion: 3, MinorVersion: -1}).Return(
@@ -242,6 +243,7 @@ func (s *modelUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, d
 		// 2. Check other models.
 		s.statePool.EXPECT().Get(model1ModelUUID.String()).Return(state1, nil),
 		state1.EXPECT().Model().Return(model1, nil),
+		model1.EXPECT().Life().Return(state.Alive),
 		// - check agent version;
 		model1.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil),
 		//  - check if model migration is ongoing;
@@ -309,6 +311,137 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3DryRun(c *gc.
 	s.assertUpgradeModelForControllerModelJuju3(c, true)
 }
 
+func (s *modelUpgradeSuite) TestUpgradeModelForControllerDyingHostedModelJuju3(c *gc.C) {
+	ctrl, api := s.getModelUpgraderAPI(c)
+	defer ctrl.Finish()
+
+	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersions, map[int]version.Number{
+		3: version.MustParse("2.9.1"),
+	})
+
+	server := upgradevalidationmocks.NewMockServer(ctrl)
+	serverFactory := upgradevalidationmocks.NewMockServerFactory(ctrl)
+	s.PatchValue(&upgradevalidation.NewServerFactory,
+		func(_ lxd.NewHTTPClientFunc) lxd.ServerFactory {
+			return serverFactory
+		},
+	)
+
+	ctrlModelTag := coretesting.ModelTag
+	model1ModelUUID, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	ctrlModel := mocks.NewMockModel(ctrl)
+	model1 := mocks.NewMockModel(ctrl)
+	ctrlModel.EXPECT().IsControllerModel().Return(true)
+
+	ctrlState := mocks.NewMockState(ctrl)
+	state1 := mocks.NewMockState(ctrl)
+	ctrlState.EXPECT().Release().AnyTimes()
+	ctrlState.EXPECT().Model().Return(ctrlModel, nil)
+	state1.EXPECT().Release()
+
+	s.statePool.EXPECT().Get(ctrlModelTag.Id()).Return(ctrlState, nil)
+	var agentStream string
+	assertions := []*gomock.Call{
+		s.blockChecker.EXPECT().ChangeAllowed().Return(nil),
+
+		ctrlModel.EXPECT().Life().Return(state.Alive),
+		// Decide/validate target version.
+		ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil),
+		s.toolsFinder.EXPECT().FindTools(params.FindToolsParams{MajorVersion: 3, MinorVersion: -1}).Return(
+			params.FindToolsResult{
+				List: []*coretools.Tools{
+					{Version: version.MustParseBinary("3.9.99-ubuntu-amd64")},
+				},
+			}, nil,
+		),
+		ctrlModel.EXPECT().Type().Return(state.ModelTypeIAAS),
+		ctrlModel.EXPECT().Name().Return("controller"),
+
+		// 1. Check controller model.
+		// - check agent version;
+		ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil),
+		// - check mongo status;
+		ctrlState.EXPECT().MongoCurrentStatus().Return(&replicaset.Status{
+			Members: []replicaset.MemberStatus{
+				{
+					Id:      1,
+					Address: "1.1.1.1",
+					State:   replicaset.PrimaryState,
+				},
+				{
+					Id:      2,
+					Address: "2.2.2.2",
+					State:   replicaset.SecondaryState,
+				},
+				{
+					Id:      3,
+					Address: "3.3.3.3",
+					State:   replicaset.SecondaryState,
+				},
+			},
+		}, nil),
+		// - check mongo version;
+		s.statePool.EXPECT().MongoVersion().Return("4.4", nil),
+		// - check if the model has win machines;
+		ctrlState.EXPECT().MachineCountForSeries(
+			"win10", "win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2",
+			"win2016", "win2016hv", "win2019", "win7", "win8", "win81",
+		).Return(nil, nil),
+		// - check if the model has deprecated ubuntu machines;
+		ctrlState.EXPECT().MachineCountForSeries(
+			"artful",
+			"bionic",
+			"cosmic",
+			"disco",
+			"eoan",
+			"groovy",
+			"hirsute",
+			"impish",
+			"kinetic",
+			"lunar",
+			"precise",
+			"quantal",
+			"raring",
+			"saucy",
+			"trusty",
+			"utopic",
+			"vivid",
+			"wily",
+			"xenial",
+			"yakkety",
+			"zesty",
+		).Return(nil, nil),
+		// - check LXD version.
+		serverFactory.EXPECT().RemoteServer(s.cloudSpec).Return(server, nil),
+		server.EXPECT().ServerVersion().Return("5.2"),
+
+		ctrlState.EXPECT().AllModelUUIDs().Return([]string{ctrlModelTag.Id(), model1ModelUUID.String()}, nil),
+
+		// 2. Check other models.
+		s.statePool.EXPECT().Get(model1ModelUUID.String()).Return(state1, nil),
+		state1.EXPECT().Model().Return(model1, nil),
+		model1.EXPECT().Life().Return(state.Dying), // Skip this dying model.
+
+		// s.statePool.EXPECT().Get(ctrlModelTag.Id()).Return(ctrlState, nil),
+		ctrlState.EXPECT().SetModelAgentVersion(version.MustParse("3.9.99"), nil, false).Return(nil),
+	}
+	gomock.InOrder(assertions...)
+
+	result, err := api.UpgradeModel(
+		params.UpgradeModelParams{
+			ModelTag:      ctrlModelTag.String(),
+			TargetVersion: version.MustParse("3.9.99"),
+			AgentStream:   agentStream,
+			DryRun:        false,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.UpgradeModelResult{
+		ChosenVersion: version.MustParse("3.9.99"),
+	})
+}
+
 func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.C) {
 	ctrl, api := s.getModelUpgraderAPI(c)
 	defer ctrl.Finish()
@@ -343,6 +476,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 	gomock.InOrder(
 		s.blockChecker.EXPECT().ChangeAllowed().Return(nil),
 
+		ctrlModel.EXPECT().Life().Return(state.Alive),
 		// Decide/validate target version.
 		ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil),
 		s.toolsFinder.EXPECT().FindTools(params.FindToolsParams{MajorVersion: 3, MinorVersion: -1}).Return(
@@ -419,6 +553,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 		// 2. Check other models.
 		s.statePool.EXPECT().Get(model1ModelUUID.String()).Return(state1, nil),
 		state1.EXPECT().Model().Return(model1, nil),
+		model1.EXPECT().Life().Return(state.Alive),
 		// - check agent version;
 		model1.EXPECT().AgentVersion().Return(version.MustParse("2.9.0"), nil),
 		//  - check if model migration is ongoing;
@@ -515,6 +650,8 @@ func (s *modelUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, dryRun bool) {
 	var agentStream string
 	assertions := []*gomock.Call{
 		s.blockChecker.EXPECT().ChangeAllowed().Return(nil),
+
+		model.EXPECT().Life().Return(state.Alive),
 
 		// Decide/validate target version.
 		model.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil),
@@ -622,8 +759,11 @@ func (s *modelUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 	gomock.InOrder(
 		s.blockChecker.EXPECT().ChangeAllowed().Return(nil),
 
+		model.EXPECT().Life().Return(state.Alive),
+
 		// Decide/validate target version.
 		model.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil),
+
 		s.toolsFinder.EXPECT().FindTools(params.FindToolsParams{MajorVersion: 3, MinorVersion: -1}).Return(
 			params.FindToolsResult{
 				List: []*coretools.Tools{
@@ -631,6 +771,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 				},
 			}, nil,
 		),
+
 		model.EXPECT().Type().Return(state.ModelTypeIAAS),
 		model.EXPECT().Name().Return("model-1"),
 

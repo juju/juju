@@ -331,10 +331,8 @@ func (s *DestroySuite) TestDestroyWithDestroyAllModelsFlag(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test1", "-y", "--destroy-all-models")
 	c.Assert(err, jc.ErrorIsNil)
 	s.api.CheckCallNames(c, "DestroyController", "AllModels", "ModelStatus", "Close")
-	timeout := 30 * time.Minute
 	s.api.CheckCall(c, 0, "DestroyController", apicontroller.DestroyControllerParams{
 		DestroyModels: true,
-		ModelTimeout:  &timeout,
 	})
 	checkControllerRemovedFromStore(c, "test1", s.store)
 }
@@ -343,10 +341,19 @@ func (s *DestroySuite) TestDestroyWithDestroyDestroyStorageFlag(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test1", "-y", "--destroy-storage")
 	c.Assert(err, jc.ErrorIsNil)
 	destroyStorage := true
-	timeout := 30 * time.Minute
 	s.api.CheckCall(c, 0, "DestroyController", apicontroller.DestroyControllerParams{
 		DestroyStorage: &destroyStorage,
-		ModelTimeout:   &timeout,
+	})
+}
+
+func (s *DestroySuite) TestDestroyWithDestroyTimeout(c *gc.C) {
+	_, err := s.runDestroyCommand(c, "test1", "-y", "--force", "--model-timeout", "30m")
+	c.Assert(err, jc.ErrorIsNil)
+	timeout := 30 * time.Minute
+	force := true
+	s.api.CheckCall(c, 0, "DestroyController", apicontroller.DestroyControllerParams{
+		ModelTimeout: &timeout,
+		Force:        &force,
 	})
 }
 
@@ -354,10 +361,8 @@ func (s *DestroySuite) TestDestroyWithDestroyReleaseStorageFlag(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test1", "-y", "--release-storage")
 	c.Assert(err, jc.ErrorIsNil)
 	destroyStorage := false
-	timeout := 30 * time.Minute
 	s.api.CheckCall(c, 0, "DestroyController", apicontroller.DestroyControllerParams{
 		DestroyStorage: &destroyStorage,
-		ModelTimeout:   &timeout,
 	})
 }
 
