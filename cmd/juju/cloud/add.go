@@ -195,10 +195,10 @@ func (c *AddCloudCommand) cloudAPI() (AddCloudAPI, error) {
 // Info returns help information about the command.
 func (c *AddCloudCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "add-cloud",
-		Args:    "<cloud name> [<cloud definition file>]",
-		Purpose: usageAddCloudSummary,
-		Doc:     fmt.Sprintf(usageAddCloudDetails, jujucloud.CurrentWhiteList()),
+		Name:     "add-cloud",
+		Args:     "<cloud name> [<cloud definition file>]",
+		Purpose:  usageAddCloudSummary,
+		Doc:      fmt.Sprintf(usageAddCloudDetails, jujucloud.CurrentWhiteList()),
 		Examples: examples,
 		SeeAlso: []string{
 			"clouds",
