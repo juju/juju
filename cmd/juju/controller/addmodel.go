@@ -99,8 +99,9 @@ as the controller model.
 When adding --config, the default-series key is deprecated in favour of
 default-base .e.g. ubuntu@22.04.
 
-Examples:
+`
 
+const examples = `
     juju add-model mymodel
     juju add-model mymodel us-east-1
     juju add-model mymodel aws/us-east-1
@@ -110,10 +111,11 @@ Examples:
 
 func (c *addModelCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "add-model",
-		Args:    "<model name> [cloud|region|(cloud/region)]",
-		Purpose: "Adds a workload model.",
-		Doc:     strings.TrimSpace(addModelHelpDoc),
+		Name:     "add-model",
+		Args:     "<model name> [cloud|region|(cloud/region)]",
+		Purpose:  "Adds a workload model.",
+		Doc:      strings.TrimSpace(addModelHelpDoc),
+		Examples: examples,
 	})
 }
 
