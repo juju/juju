@@ -93,7 +93,6 @@ Further reading:
 `
 
 const examples = `
-
 Start a new machine by requesting one from the cloud provider:
 
 	juju add-machine
@@ -122,7 +121,7 @@ Start a new machine within the "us-east-1a" availability zone:
 
 	juju add-machine --constraints zones=us-east-1a
 	
-Start a new machine with at least 4 CPU cores and 16GB RAM, and request three storage volumes to be attached to it. Two are large capacity (1TB) HDD and one is a lower capacity (100GB) SSD. Note: `ebs` and `ebs-ssd` are storage pools specific to AWS.
+Start a new machine with at least 4 CPU cores and 16GB RAM, and request three storage volumes to be attached to it. Two are large capacity (1TB) HDD and one is a lower capacity (100GB) SSD. Note: 'ebs' and 'ebs-ssd' are storage pools specific to AWS.
 
 	juju add-machine --constraints="cores=4 mem=16G" --disks="ebs,1T,2 ebs-ssd,100G,1"
 	
@@ -145,9 +144,7 @@ Allocate a machine specifying a public key to set in the list of authorized keys
 Allocate a machine to the model. Note: specific to MAAS.
 
 	juju add-machine host.internal
-
 `
-
 
 // NewAddCommand returns a command that adds a machine to a model.
 func NewAddCommand() cmd.Command {
@@ -185,10 +182,10 @@ type addCommand struct {
 
 func (c *addCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "add-machine",
-		Args:    "[<container-type>[:<machine-id>] | ssh:[<user>@]<host> | <placement>] | <private-key> | <public-key>",
-		Purpose: "Provision a new machine or assign one to the model.",
-		Doc:     addMachineDoc,
+		Name:     "add-machine",
+		Args:     "[<container-type>[:<machine-id>] | ssh:[<user>@]<host> | <placement>] | <private-key> | <public-key>",
+		Purpose:  "Provision a new machine or assign one to the model.",
+		Doc:      addMachineDoc,
 		Examples: examples,
 		SeeAlso: []string{
 			"remove-machine",
