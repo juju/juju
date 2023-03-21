@@ -117,14 +117,14 @@ When forced addition is desired, use --force.
 
 `
 
-const examples = `
-    juju add-cloud
-    juju add-cloud --force
-    juju add-cloud mycloud ~/mycloud.yaml
-    juju add-cloud --controller mycontroller mycloud 
-    juju add-cloud --controller mycontroller mycloud --credential mycred
-    juju add-cloud --client mycloud ~/mycloud.yaml
-`
+var examples = []string{
+	"juju add-cloud",
+	"juju add-cloud --force",
+	"juju add-cloud mycloud ~/mycloud.yaml",
+	"juju add-cloud --controller mycontroller mycloud ",
+	"juju add-cloud --controller mycontroller mycloud --credential mycred",
+	"juju add-cloud --client mycloud ~/mycloud.yaml",
+}
 
 // AddCloudAPI - Implemented by cloudapi.Client.
 type AddCloudAPI interface {
