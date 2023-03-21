@@ -111,10 +111,10 @@ const examples = `
 
 func (c *addModelCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "add-model",
-		Args:    "<model name> [cloud|region|(cloud/region)]",
-		Purpose: "Adds a workload model.",
-		Doc:     strings.TrimSpace(addModelHelpDoc),
+		Name:     "add-model",
+		Args:     "<model name> [cloud|region|(cloud/region)]",
+		Purpose:  "Adds a workload model.",
+		Doc:      strings.TrimSpace(addModelHelpDoc),
 		Examples: examples,
 	})
 }
