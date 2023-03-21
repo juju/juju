@@ -539,7 +539,7 @@ func deployApplication(
 		}
 	}
 
-	appConfig, _, charmSettings, _, err := parseCharmSettings(modelType, ch, args.ApplicationName, args.Config, args.ConfigYAML, environsconfig.UseDefaults)
+	appConfig, _, charmSettings, _, err := parseCharmSettings(modelType, ch.Config(), args.ApplicationName, args.Config, args.ConfigYAML, environsconfig.UseDefaults)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -645,7 +645,7 @@ func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL) (corecharm.
 // charm as specified by the provided config map and config yaml payload. Any
 // model-specific application settings will be automatically extracted and
 // returned back as an *application.Config.
-func parseCharmSettings(modelType state.ModelType, ch Charm, appName string, cfg map[string]string, configYaml string, defaults environsconfig.Defaulting) (*config.Config, environschema.Fields, charm.Settings, schema.Defaults, error) {
+func parseCharmSettings(modelType state.ModelType, chCfg *charm.Config, appName string, cfg map[string]string, configYaml string, defaults environsconfig.Defaulting) (*config.Config, environschema.Fields, charm.Settings, schema.Defaults, error) {
 	// Split out the app config from the charm config for any config
 	// passed in as a map as opposed to YAML.
 	var (
@@ -696,7 +696,7 @@ func parseCharmSettings(modelType state.ModelType, ch Charm, appName string, cfg
 	// If there isn't a charm YAML, then we can just return the charmConfig as
 	// the settings and no need to attempt to parse an empty yaml.
 	if len(charmYamlConfig) == 0 {
-		settings, err := ch.Config().ParseSettingsStrings(charmConfig)
+		settings, err := chCfg.ParseSettingsStrings(charmConfig)
 		if err != nil {
 			return nil, nil, nil, nil, errors.Trace(err)
 		}
@@ -705,7 +705,7 @@ func parseCharmSettings(modelType state.ModelType, ch Charm, appName string, cfg
 
 	var charmSettings charm.Settings
 	// Parse the charm YAML and check the yaml against the charm config.
-	if charmSettings, err = ch.Config().ParseSettingsYAML([]byte(charmYamlConfig), appName); err != nil {
+	if charmSettings, err = chCfg.ParseSettingsYAML([]byte(charmYamlConfig), appName); err != nil {
 		// Check if this is 'juju get' output and parse it as such
 		jujuGetSettings, pErr := charmConfigFromYamlConfigValues(charmYamlConfig)
 		if pErr != nil {
@@ -719,7 +719,7 @@ func parseCharmSettings(modelType state.ModelType, ch Charm, appName string, cfg
 	// provided via the YAML payload.
 	if len(charmConfig) != 0 {
 		// Parse config in a compatible way (see function comment).
-		overrideSettings, err := parseSettingsCompatible(ch.Config(), charmConfig)
+		overrideSettings, err := parseSettingsCompatible(chCfg, charmConfig)
 		if err != nil {
 			return nil, nil, nil, nil, errors.Trace(err)
 		}
@@ -848,7 +848,7 @@ func (api *APIBase) setConfig(app Application, generation, settingsYAML string, 
 	// parseCharmSettings is passed false for useDefaults because setConfig
 	// should not care about defaults.
 	// If defaults are wanted, one should call unsetApplicationConfig.
-	appConfig, appConfigSchema, charmSettings, defaults, err := parseCharmSettings(api.modelType, ch, app.Name(), settingsStrings, settingsYAML, environsconfig.NoDefaults)
+	appConfig, appConfigSchema, charmSettings, defaults, err := parseCharmSettings(api.modelType, ch.Config(), app.Name(), settingsStrings, settingsYAML, environsconfig.NoDefaults)
 	if err != nil {
 		return errors.Annotate(err, "parsing settings for application")
 	}
@@ -1068,7 +1068,7 @@ func (api *APIBase) applicationSetCharm(
 	}
 	modelType := model.Type()
 
-	appConfig, appSchema, charmSettings, appDefaults, err := parseCharmSettings(modelType, newCharm, params.AppName, params.ConfigSettingsStrings, params.ConfigSettingsYAML, environsconfig.NoDefaults)
+	appConfig, appSchema, charmSettings, appDefaults, err := parseCharmSettings(modelType, newCharm.Config(), params.AppName, params.ConfigSettingsStrings, params.ConfigSettingsYAML, environsconfig.NoDefaults)
 	if err != nil {
 		return errors.Annotate(err, "parsing config settings")
 	}
