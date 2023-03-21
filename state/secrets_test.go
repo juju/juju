@@ -2387,12 +2387,12 @@ func (s *SecretsRemoteConsumerWatcherSuite) setupWatcher(c *gc.C) (state.Strings
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.SaveSecretConsumer(uri, names.NewUnitTag("remote-app/0"), &secrets.SecretConsumerMetadata{
+	err = s.State.SaveSecretRemoteConsumer(uri, names.NewUnitTag("remote-app/0"), &secrets.SecretConsumerMetadata{
 		CurrentRevision: 1,
 		LatestRevision:  1,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.SaveSecretConsumer(uri2, names.NewUnitTag("remote-app/0"), &secrets.SecretConsumerMetadata{
+	err = s.State.SaveSecretRemoteConsumer(uri2, names.NewUnitTag("remote-app/0"), &secrets.SecretConsumerMetadata{
 		CurrentRevision: 1,
 		LatestRevision:  2,
 	})
@@ -2444,7 +2444,7 @@ func (s *SecretsRemoteConsumerWatcherSuite) TestWatchMultipleSecrets(c *gc.C) {
 	_, err := s.store.CreateSecret(uri2, cp)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.SaveSecretConsumer(uri2, names.NewUnitTag("remote-app/0"), &secrets.SecretConsumerMetadata{CurrentRevision: 1})
+	err = s.State.SaveSecretRemoteConsumer(uri2, names.NewUnitTag("remote-app/0"), &secrets.SecretConsumerMetadata{CurrentRevision: 1})
 	c.Assert(err, jc.ErrorIsNil)
 	// No event until rev > 1.
 	wc.AssertNoChange()
@@ -2473,12 +2473,12 @@ func (s *SecretsRemoteConsumerWatcherSuite) TestWatchConsumedDeleted(c *gc.C) {
 	wc := testing.NewStringsWatcherC(c, w)
 	defer testing.AssertStop(c, w)
 
-	err := s.State.SaveSecretConsumer(uri, names.NewApplicationTag("foo"), &secrets.SecretConsumerMetadata{
+	err := s.State.SaveSecretRemoteConsumer(uri, names.NewApplicationTag("foo"), &secrets.SecretConsumerMetadata{
 		CurrentRevision: 1,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
-	err = s.State.SaveSecretConsumer(uri, names.NewApplicationTag("baz"), &secrets.SecretConsumerMetadata{
+	err = s.State.SaveSecretRemoteConsumer(uri, names.NewApplicationTag("baz"), &secrets.SecretConsumerMetadata{
 		CurrentRevision: 1,
 	})
 	c.Assert(err, jc.ErrorIsNil)

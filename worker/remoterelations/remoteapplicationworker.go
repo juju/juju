@@ -162,7 +162,7 @@ func (w *remoteApplicationWorker) loop() (err error) {
 			if err := w.localModelFacade.SetRemoteApplicationStatus(w.applicationName, status.Error, msg); err != nil {
 				return errors.Annotatef(err, "updating remote application %v status from remote model %v", w.applicationName, w.remoteModelUUID)
 			}
-			return errors.Trace(err)
+			return errors.Annotate(err, "cannot connect to external controller")
 		}
 		defer func() {
 			if err := w.remoteModelFacade.Close(); err != nil {
@@ -294,7 +294,7 @@ func (w *remoteApplicationWorker) loop() (err error) {
 func (w *remoteApplicationWorker) newRemoteRelationsFacadeWithRedirect() error {
 	apiInfo, err := w.localModelFacade.ControllerAPIInfoForModel(w.remoteModelUUID)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotate(err, "cannot get controller api info for remote model")
 	}
 	w.logger.Debugf("remote controller API addresses: %v", apiInfo.Addrs)
 

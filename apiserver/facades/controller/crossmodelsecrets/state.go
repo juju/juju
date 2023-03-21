@@ -19,8 +19,8 @@ type SecretsState interface {
 }
 
 type SecretsConsumer interface {
-	GetSecretConsumer(*secrets.URI, names.Tag) (*secrets.SecretConsumerMetadata, error)
-	SaveSecretConsumer(*secrets.URI, names.Tag, *secrets.SecretConsumerMetadata) error
+	GetSecretRemoteConsumer(*secrets.URI, names.Tag) (*secrets.SecretConsumerMetadata, error)
+	SaveSecretRemoteConsumer(*secrets.URI, names.Tag, *secrets.SecretConsumerMetadata) error
 	SecretAccess(uri *secrets.URI, subject names.Tag) (secrets.SecretRole, error)
 	SecretAccessScope(uri *secrets.URI, subject names.Tag) (names.Tag, error)
 }

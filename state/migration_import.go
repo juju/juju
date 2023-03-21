@@ -220,6 +220,9 @@ func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err
 	if err := restore.secrets(); err != nil {
 		return nil, nil, errors.Annotate(err, "secrets")
 	}
+	if err := restore.remoteSecrets(); err != nil {
+		return nil, nil, errors.Annotate(err, "remote secrets")
+	}
 
 	// NOTE: at the end of the import make sure that the mode of the model
 	// is set to "imported" not "active" (or whatever we call it). This way
@@ -2755,5 +2758,27 @@ func (i *importer) secrets() error {
 		return errors.Trace(err)
 	}
 	i.logger.Debugf("importing secrets succeeded")
+	return nil
+}
+
+func (i *importer) remoteSecrets() error {
+	i.logger.Debugf("importing remote secret references")
+	migration := &ImportStateMigration{
+		src: i.model,
+		dst: i.st.db(),
+	}
+	migration.Add(func() error {
+		m := ImportRemoteSecrets{}
+		return m.Execute(&secretConsumersStateShim{
+			stateModelNamspaceShim: stateModelNamspaceShim{
+				Model: migration.src,
+				st:    i.st,
+			},
+		}, migration.dst)
+	})
+	if err := migration.Run(); err != nil {
+		return errors.Trace(err)
+	}
+	i.logger.Debugf("importing remote secret references succeeded")
 	return nil
 }

@@ -831,7 +831,7 @@ func (s *watcherSuite) setupSecretsRevisionWatcher(
 	return uri, assertChange, assertNoChange, stop
 }
 
-func (s *watcherSuite) TestSecretsRevisionWatcher(c *gc.C) {
+func (s *watcherSuite) TestCrossModelSecretsRevisionWatcher(c *gc.C) {
 	uri, assertChange, assertNoChange, stop := s.setupSecretsRevisionWatcher(c)
 	defer stop()
 
@@ -840,7 +840,7 @@ func (s *watcherSuite) TestSecretsRevisionWatcher(c *gc.C) {
 	// Initial event - no changes since we're at rev 1 still.
 	assertChange(nil, 0)
 
-	err := s.State.SaveSecretConsumer(uri, names.NewUnitTag("foo/0"), &secrets.SecretConsumerMetadata{
+	err := s.State.SaveSecretRemoteConsumer(uri, names.NewUnitTag("foo/0"), &secrets.SecretConsumerMetadata{
 		CurrentRevision: 1,
 		LatestRevision:  1,
 	})

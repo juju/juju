@@ -968,24 +968,24 @@ func (s *remoteApplicationSuite) TestDestroyAlsoDeletesSecretConsumerInfo(c *gc.
 	_, err := store.CreateSecret(uri, cp)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.SaveSecretConsumer(uri, s.application.Tag(), &secrets.SecretConsumerMetadata{CurrentRevision: 666})
+	err = s.State.SaveSecretRemoteConsumer(uri, s.application.Tag(), &secrets.SecretConsumerMetadata{CurrentRevision: 666})
 	c.Assert(err, jc.ErrorIsNil)
 
 	unit := names.NewUnitTag(s.application.Name() + "/666")
-	err = s.State.SaveSecretConsumer(uri, unit, &secrets.SecretConsumerMetadata{CurrentRevision: 667})
+	err = s.State.SaveSecretRemoteConsumer(uri, unit, &secrets.SecretConsumerMetadata{CurrentRevision: 667})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.State.GetSecretConsumer(uri, s.application.Tag())
+	_, err = s.State.GetSecretRemoteConsumer(uri, s.application.Tag())
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.GetSecretConsumer(uri, unit)
+	_, err = s.State.GetSecretRemoteConsumer(uri, unit)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.application.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.State.GetSecretConsumer(uri, s.application.Tag())
+	_, err = s.State.GetSecretRemoteConsumer(uri, s.application.Tag())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	_, err = s.State.GetSecretConsumer(uri, unit)
+	_, err = s.State.GetSecretRemoteConsumer(uri, unit)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 

@@ -230,7 +230,7 @@ func (s *CrossModelSecretsAPI) getSecretContent(arg params.GetRemoteSecretConten
 }
 
 func (s *CrossModelSecretsAPI) updateConsumedRevision(secretsState SecretsState, secretsConsumer SecretsConsumer, consumer names.Tag, uri *coresecrets.URI, refresh bool) (int, error) {
-	consumerInfo, err := secretsConsumer.GetSecretConsumer(uri, consumer)
+	consumerInfo, err := secretsConsumer.GetSecretRemoteConsumer(uri, consumer)
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return 0, errors.Trace(err)
 	}
@@ -248,7 +248,7 @@ func (s *CrossModelSecretsAPI) updateConsumedRevision(secretsState SecretsState,
 		}
 		consumerInfo.LatestRevision = md.LatestRevision
 		consumerInfo.CurrentRevision = md.LatestRevision
-		if err := secretsConsumer.SaveSecretConsumer(uri, consumer, consumerInfo); err != nil {
+		if err := secretsConsumer.SaveSecretRemoteConsumer(uri, consumer, consumerInfo); err != nil {
 			return 0, errors.Trace(err)
 		}
 	}
