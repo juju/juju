@@ -10,7 +10,6 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v10"
-	resource "github.com/juju/charm/v10/resource"
 	storagecommon "github.com/juju/juju/apiserver/common/storagecommon"
 	application "github.com/juju/juju/apiserver/facades/client/application"
 	services "github.com/juju/juju/apiserver/facades/client/charms/services"
@@ -82,21 +81,6 @@ func (m *MockBackend) AddCharmMetadata(arg0 state.CharmInfo) (application.Charm,
 func (mr *MockBackendMockRecorder) AddCharmMetadata(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddCharmMetadata", reflect.TypeOf((*MockBackend)(nil).AddCharmMetadata), arg0)
-}
-
-// AddPendingResource mocks base method.
-func (m *MockBackend) AddPendingResource(arg0 string, arg1 resource.Resource) (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddPendingResource", arg0, arg1)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AddPendingResource indicates an expected call of AddPendingResource.
-func (mr *MockBackendMockRecorder) AddPendingResource(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddPendingResource", reflect.TypeOf((*MockBackend)(nil).AddPendingResource), arg0, arg1)
 }
 
 // AddRelation mocks base method.
