@@ -20,6 +20,8 @@ import (
 	"github.com/juju/juju/core/resources"
 )
 
+// ValidateResources runs the validation checks for resource metadata
+// for each resource. Errors are consolidated and reported in a single error.
 func ValidateResources(resources map[string]charmresource.Meta) error {
 	var errs []error
 	for _, meta := range resources {
@@ -60,6 +62,9 @@ func getDockerDetailsData(path string, osOpen osOpenFunc) (resources.DockerImage
 
 }
 
+// ValidateResourceDetails validates the resource path in detail depending on if it's a local file or a container image,
+// either checks with the FS and stats the file or validate the docker registry path and makes sure the registry URL
+// resolves into a fully qualified reference.
 func ValidateResourceDetails(res map[string]string, resMeta map[string]charmresource.Meta, fs modelcmd.Filesystem) error {
 	for name, value := range res {
 		var err error
@@ -86,6 +91,7 @@ func ValidateResourceDetails(res map[string]string, resMeta map[string]charmreso
 
 type osOpenFunc func(path string) (modelcmd.ReadSeekCloser, error)
 
+// OpenResource returns a readable buffer for the given resource, which can be a local file or a docker image
 func OpenResource(resValue string, resType charmresource.Type, osOpen osOpenFunc) (modelcmd.ReadSeekCloser, error) {
 	switch resType {
 	case charmresource.TypeFile:
@@ -143,6 +149,10 @@ func unMarshalDockerDetails(data io.Reader) (resources.DockerImageDetails, error
 	return details, nil
 }
 
+// CheckExpectedResources compares the resources we expect to see (metadata) against what we see in the actual
+// deployment arguments (the filenames and revisions), and identifies the resources that we weren't expecting.
+// Note that this is different from checking if we see all the resources we expect to see, as the user can
+// attach-resource post deploy.
 func CheckExpectedResources(filenames map[string]string, revisions map[string]int, resMeta map[string]charmresource.Meta) error {
 	var unknown []string
 	for name := range filenames {
