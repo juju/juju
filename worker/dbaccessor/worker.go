@@ -62,7 +62,7 @@ type NodeManager interface {
 
 	// WithAddressOption returns a Dqlite application Option
 	// for specifying the local address:port to use.
-	WithAddressOption() (app.Option, error)
+	WithAddressOption(string) app.Option
 
 	// WithTLSOption returns a Dqlite application Option for TLS encryption
 	// of traffic between clients and clustered application nodes.

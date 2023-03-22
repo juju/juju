@@ -179,18 +179,13 @@ func (m *NodeManager) WithLogFuncOption() app.Option {
 // WithLoopbackAddressOption returns a Dqlite application
 // Option that will bind Dqlite to the loopback IP.
 func (m *NodeManager) WithLoopbackAddressOption() app.Option {
-	return app.WithAddress(fmt.Sprintf("%s:%d", dqliteBootstrapBindIP, m.port))
+	return m.WithAddressOption(dqliteBootstrapBindIP)
 }
 
 // WithAddressOption returns a Dqlite application Option
 // for specifying the local address:port to use.
-// See the comment for ensureBindAddress below.
-func (m *NodeManager) WithAddressOption() (app.Option, error) {
-	if err := m.ensureBindAddress(); err != nil {
-		return nil, errors.Annotate(err, "ensuring Dqlite bind address")
-	}
-
-	return app.WithAddress(fmt.Sprintf("%s:%d", m.bindAddress, m.port)), nil
+func (m *NodeManager) WithAddressOption(ip string) app.Option {
+	return app.WithAddress(fmt.Sprintf("%s:%d", ip, m.port))
 }
 
 // WithTLSOption returns a Dqlite application Option for TLS encryption

@@ -360,18 +360,17 @@ func (mr *MockNodeManagerMockRecorder) SetNodeInfo(arg0 interface{}) *gomock.Cal
 }
 
 // WithAddressOption mocks base method.
-func (m *MockNodeManager) WithAddressOption() (app.Option, error) {
+func (m *MockNodeManager) WithAddressOption(arg0 string) app.Option {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WithAddressOption")
+	ret := m.ctrl.Call(m, "WithAddressOption", arg0)
 	ret0, _ := ret[0].(app.Option)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return ret0
 }
 
 // WithAddressOption indicates an expected call of WithAddressOption.
-func (mr *MockNodeManagerMockRecorder) WithAddressOption() *gomock.Call {
+func (mr *MockNodeManagerMockRecorder) WithAddressOption(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithAddressOption", reflect.TypeOf((*MockNodeManager)(nil).WithAddressOption))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithAddressOption", reflect.TypeOf((*MockNodeManager)(nil).WithAddressOption), arg0)
 }
 
 // WithClusterOption mocks base method.

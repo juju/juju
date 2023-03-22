@@ -236,10 +236,7 @@ Role: 0
 func (s *nodeManagerSuite) TestWithAddressOptionSuccess(c *gc.C) {
 	m := NewNodeManager(nil, stubLogger{})
 
-	withAddress, err := m.WithAddressOption()
-	c.Assert(err, jc.ErrorIsNil)
-
-	dqlite, err := app.New(c.MkDir(), withAddress)
+	dqlite, err := app.New(c.MkDir(), m.WithAddressOption("127.0.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	_ = dqlite.Close()
