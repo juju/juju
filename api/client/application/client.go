@@ -6,11 +6,11 @@ package application
 import (
 	stderrors "errors"
 	"fmt"
-	charmresource "github.com/juju/charm/v10/resource"
 	"strings"
 	"time"
 
 	"github.com/juju/charm/v10"
+	charmresource "github.com/juju/charm/v10/resource"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"

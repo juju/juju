@@ -4,8 +4,9 @@
 package params
 
 import (
-	charmresource "github.com/juju/charm/v10/resource"
 	"time"
+
+	charmresource "github.com/juju/charm/v10/resource"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"

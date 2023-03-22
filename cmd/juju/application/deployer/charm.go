@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/juju/cmd/juju/resource"
-
 	"github.com/juju/charm/v10"
 	charmres "github.com/juju/charm/v10/resource"
 	jujuclock "github.com/juju/clock"
@@ -25,6 +23,7 @@ import (
 	app "github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/juju/resource"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
