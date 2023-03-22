@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/juju/charm/v10"
-	charmresource "github.com/juju/charm/v10/resource"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -1065,8 +1064,6 @@ type PendingResourceUpload struct {
 	PendingID string
 	// Type of the resource, a string matching one of the resource.Type
 	Type string
-
-	Res charmresource.Resource
 }
 
 type DeployFromRepositoryArg struct {
@@ -1179,7 +1176,6 @@ func pendingResourceUploadsFromParams(uploads []*params.PendingResourceUpload) [
 			Filename:  upload.Filename,
 			PendingID: upload.PendingID,
 			Type:      upload.Type,
-			Res:       upload.Res,
 		}
 	}
 	return prus

@@ -6,8 +6,6 @@ package params
 import (
 	"time"
 
-	charmresource "github.com/juju/charm/v10/resource"
-
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
@@ -685,6 +683,4 @@ type PendingResourceUpload struct {
 
 	// Type of the resource, a string matching one of the resource.Type
 	Type string
-
-	Res charmresource.Resource
 }

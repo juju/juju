@@ -179,7 +179,6 @@ func (api *DeployFromRepositoryAPI) addPendingResources(appName string, uploads 
 					Type:      meta.Type.String(),
 					Filename:  uploads[name],
 					PendingID: pID,
-					Res:       r,
 				})
 			}
 		}

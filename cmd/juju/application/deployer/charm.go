@@ -616,7 +616,7 @@ func (c *repositoryCharm) uploadExistingPendingResources(
 		_, uploadErr := resourceApiClient.UploadExistingPendingResource(
 			pendingResUpload.PendingID,
 			appName,
-			pendingResUpload.Res,
+			pendingResUpload.Name,
 			pendingResUpload.Filename,
 			r)
 

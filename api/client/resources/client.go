@@ -225,14 +225,14 @@ func (c Client) UploadPendingResource(application string, res charmresource.Reso
 		return "", errors.Trace(err)
 	}
 	pendingID = ids[0]
-	return c.UploadExistingPendingResource(pendingID, application, res, filename, reader)
+	return c.UploadExistingPendingResource(pendingID, application, res.Name, filename, reader)
 }
 
 // UploadExistingPendingResource sends the provided resource blob up to Juju
 // and makes it available.
-func (c Client) UploadExistingPendingResource(pID string, application string, res charmresource.Resource, filename string, reader io.ReadSeeker) (pendingID string, err error) {
+func (c Client) UploadExistingPendingResource(pID string, application string, resName string, filename string, reader io.ReadSeeker) (pendingID string, err error) {
 	if reader != nil {
-		if uploadErr := c.Upload(application, res.Name, filename, reader); uploadErr != nil {
+		if uploadErr := c.Upload(application, resName, filename, reader); uploadErr != nil {
 			return pID, errors.Trace(uploadErr)
 		}
 	}
