@@ -30,6 +30,7 @@ import (
 	coremigration "github.com/juju/juju/core/migration"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
 	"github.com/juju/juju/rpc/params"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -42,10 +43,10 @@ var _ = gc.Suite(&ClientSuite{})
 
 func (s *ClientSuite) getClientAndStub(c *gc.C) (*migrationtarget.Client, *jujutesting.Stub) {
 	var stub jujutesting.Stub
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := apitesting.BestVersionCaller{APICallerFunc: apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
 		return errors.New("boom")
-	})
+	}), BestVersion: 2}
 	client := migrationtarget.NewClient(apiCaller)
 	return client, &stub
 }
@@ -102,8 +103,26 @@ func (s *ClientSuite) TestActivate(c *gc.C) {
 	client, stub := s.getClientAndStub(c)
 
 	uuid := "fake"
-	err := client.Activate(uuid)
-	s.AssertModelCall(c, stub, names.NewModelTag(uuid), "Activate", err, true)
+	sourceInfo := coremigration.SourceControllerInfo{
+		ControllerTag:   coretesting.ControllerTag,
+		ControllerAlias: "mycontroller",
+		Addrs:           []string{"source-addr"},
+		CACert:          "cacert",
+	}
+	relatedModels := []string{"related-model-uuid"}
+	err := client.Activate(uuid, sourceInfo, relatedModels)
+	expectedArg := params.ActivateModelArgs{
+		ModelTag:        names.NewModelTag(uuid).String(),
+		ControllerTag:   coretesting.ControllerTag.String(),
+		ControllerAlias: "mycontroller",
+		SourceAPIAddrs:  []string{"source-addr"},
+		SourceCACert:    "cacert",
+		CrossModelUUIDs: relatedModels,
+	}
+	stub.CheckCalls(c, []jujutesting.StubCall{
+		{FuncName: "MigrationTarget.Activate", Args: []interface{}{"", expectedArg}},
+	})
+	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
 func (s *ClientSuite) TestOpenLogTransferStream(c *gc.C) {
