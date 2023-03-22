@@ -114,6 +114,65 @@ func (s *workerSuite) TestWorkerStartupExistingNode(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
+func (s *workerSuite) TestWorkerStartupAsBootstrapNodeSingleServerNoRebind(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAnyLogs()
+	s.expectClock()
+
+	done := s.expectTrackedDB(c)
+
+	dataDir := c.MkDir()
+	mgrExp := s.nodeManager.EXPECT()
+	mgrExp.EnsureDataDir().Return(dataDir, nil).MinTimes(1)
+
+	// If this is an existing node, we do not
+	// invoke the address or cluster options.
+	mgrExp.IsExistingNode().Return(true, nil).Times(2)
+	mgrExp.IsBootstrappedNode(gomock.Any()).Return(true, nil).Times(2)
+	mgrExp.WithLogFuncOption().Return(nil)
+
+	sync := make(chan struct{})
+
+	appExp := s.dbApp.EXPECT()
+	appExp.Ready(gomock.Any()).Return(nil)
+	appExp.ID().DoAndReturn(func() uint64 {
+		close(sync)
+		return uint64(666)
+	})
+	appExp.Handover(gomock.Any()).Return(nil)
+	appExp.Close().Return(nil)
+
+	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
+
+	w := s.newWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-sync:
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting for Dqlite node start")
+	}
+
+	// At this point we have started successfully.
+	// Push a message onto the API details channel.
+	// A single server does not cause a binding change.
+	select {
+	case w.(*dbWorker).apiServerChanges <- apiserver.Details{
+		Servers: map[string]apiserver.APIServer{
+			"0": {ID: "0", InternalAddress: "10.6.6.6:1234"},
+		},
+	}:
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting for cluster change to be processed")
+	}
+
+	// Close the wait on the tracked DB.
+	close(done)
+
+	workertest.CleanKill(c, w)
+}
+
 func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigure(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -182,6 +241,8 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigure(c *gc.C) {
 	case w.(*dbWorker).apiServerChanges <- apiserver.Details{
 		Servers: map[string]apiserver.APIServer{
 			"0": {ID: "0", InternalAddress: "10.6.6.6:1234"},
+			"1": {ID: "1", InternalAddress: "10.6.6.7:1234"},
+			"2": {ID: "2", InternalAddress: "10.6.6.8:1234"},
 		},
 	}:
 	case <-time.After(testing.LongWait):

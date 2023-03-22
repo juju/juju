@@ -429,6 +429,13 @@ func (w *dbWorker) processAPIServerChange(apiDetails apiserver.Details) error {
 			return nil
 		}
 
+		// If we are the as-bootstrapped node, and there is only one server,
+		// there is no need to change our bind address.
+		// Just keep the loopback binding.
+		if len(apiDetails.Servers) == 1 {
+			return nil
+		}
+
 		// Look for *our* internal address in the details that were broadcast.
 		// This is the same local-cloud address used by Mongo for replication.
 		hostPort := apiDetails.Servers[w.cfg.ControllerID].InternalAddress
