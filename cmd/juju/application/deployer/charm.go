@@ -392,15 +392,13 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 		}
 
 		// Process the --config args.
-		// TODO: ensure that all config is in configYAML,
-		// for now, appConfig is ignored.
-		appConfig, configYAML, err := utils.ProcessConfig(ctx, c.model.Filesystem(), c.configOptions, c.trust)
+		appName := c.userRequestedURL.Name
+		if c.applicationName != "" {
+			appName = c.applicationName
+		}
+		configYAML, err := utils.CombinedConfig(ctx, c.model.Filesystem(), c.configOptions, appName)
 		if err != nil {
 			return errors.Trace(err)
-		}
-		// At deploy time, there's no need to include "trust=false" as missing is the same thing.
-		if !c.trust {
-			delete(appConfig, app.TrustConfigOptionName)
 		}
 
 		info, _, errs := deployAPI.DeployFromRepository(application.DeployFromRepositoryArg{
