@@ -534,6 +534,9 @@ func (s *SecretsManagerAPI) getRemoteSecretContent(uri *coresecrets.URI, refresh
 
 	scopeToken, err := extClient.GetSecretAccessScope(uri, token, unitId)
 	if err != nil {
+		if errors.Is(err, errors.NotFound) {
+			return nil, nil, false, apiservererrors.ErrPerm
+		}
 		return nil, nil, false, errors.Trace(err)
 	}
 	logger.Debugf("secret %q scope token for %v: %s", uri.String(), token, scopeToken)

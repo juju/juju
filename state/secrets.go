@@ -2280,6 +2280,16 @@ func (st *State) GrantSecretAccess(uri *secrets.URI, p SecretAccessParams) (err 
 		return errors.Errorf("cannot grant access to secret in scope of %q which is not alive", p.Scope)
 	}
 	subjectEntity, subjectCollName, subjectDocID, err := st.findSecretEntity(p.Subject)
+	if p.Subject.Kind() == names.UnitTagKind && errors.Is(err, errors.NotFound) {
+		unitApp, _ := names.UnitApplication(p.Subject.Id())
+		_, err2 := st.RemoteApplication(unitApp)
+		if err2 != nil && !errors.Is(err2, errors.NotFound) {
+			return errors.Trace(err2)
+		}
+		if err2 == nil {
+			return errors.NotSupportedf("sharing secrets with a unit across a cross model relation")
+		}
+	}
 	if err != nil {
 		return errors.Annotate(err, "invalid subject reference")
 	}
@@ -2293,18 +2303,7 @@ func (st *State) GrantSecretAccess(uri *secrets.URI, p SecretAccessParams) (err 
 	}
 	var subjectApp remoteApp
 
-	isCrossModel := subjectCollName == remoteApplicationsC
-	if subjectCollName == unitsC {
-		unitApp, _ := names.UnitApplication(p.Subject.Id())
-		remoteApp, err := st.RemoteApplication(unitApp)
-		if err != nil && !errors.IsNotFound(err) {
-			return errors.Trace(err)
-		}
-		if isCrossModel = err == nil; isCrossModel {
-			subjectApp = remoteApp
-		}
-	}
-	if isCrossModel {
+	if subjectCollName == remoteApplicationsC {
 		if e, ok := subjectEntity.(remoteApp); ok {
 			subjectApp = e
 		}
