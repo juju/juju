@@ -70,7 +70,7 @@ type NodeManager interface {
 
 	// WithClusterOption returns a Dqlite application Option for initialising
 	// Dqlite as the member of a cluster with peers representing other controllers.
-	WithClusterOption() (app.Option, error)
+	WithClusterOption([]string) app.Option
 }
 
 // DBGetter describes the ability to supply a sql.DB
@@ -436,16 +436,11 @@ func (w *dbWorker) processAPIServerChange(apiDetails apiserver.Details) error {
 			return nil
 		}
 
-		// Look for *our* internal address in the details that were broadcast.
-		// This is the same local-cloud address used by Mongo for replication.
-		hostPort := apiDetails.Servers[w.cfg.ControllerID].InternalAddress
-		if hostPort == "" {
-			return errors.New("no internal address determined for this Dqlite node to bind to")
-		}
-		addr, _, err := net.SplitHostPort(hostPort)
+		addr, err := w.bindAddrFromServerDetails(apiDetails)
 		if err != nil {
-			return errors.Annotatef(err, "splitting host/port for %s", hostPort)
+			return errors.Trace(err)
 		}
+
 		if err := w.rebindAddress(ctx, addr); err != nil {
 			return errors.Trace(err)
 		}
@@ -496,6 +491,22 @@ func (w *dbWorker) rebindAddress(ctx context.Context, addr string) error {
 	}
 
 	return errors.Trace(mgr.SetNodeInfo(servers[0]))
+}
+
+// bindAddrFromServerDetails returns the internal IP address from the
+// input details that corresponds with this controller machine.
+func (w *dbWorker) bindAddrFromServerDetails(apiDetails apiserver.Details) (string, error) {
+	hostPort := apiDetails.Servers[w.cfg.ControllerID].InternalAddress
+	if hostPort == "" {
+		return "", errors.New("no internal address determined for this Dqlite node to bind to")
+	}
+
+	addr, _, err := net.SplitHostPort(hostPort)
+	if err != nil {
+		return "", errors.Annotatef(err, "splitting host/port for %s", hostPort)
+	}
+
+	return addr, nil
 }
 
 // shutdownDqlite makes a best-effort attempt to hand off and shut

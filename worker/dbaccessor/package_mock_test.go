@@ -374,18 +374,17 @@ func (mr *MockNodeManagerMockRecorder) WithAddressOption(arg0 interface{}) *gomo
 }
 
 // WithClusterOption mocks base method.
-func (m *MockNodeManager) WithClusterOption() (app.Option, error) {
+func (m *MockNodeManager) WithClusterOption(arg0 []string) app.Option {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WithClusterOption")
+	ret := m.ctrl.Call(m, "WithClusterOption", arg0)
 	ret0, _ := ret[0].(app.Option)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return ret0
 }
 
 // WithClusterOption indicates an expected call of WithClusterOption.
-func (mr *MockNodeManagerMockRecorder) WithClusterOption() *gomock.Call {
+func (mr *MockNodeManagerMockRecorder) WithClusterOption(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithClusterOption", reflect.TypeOf((*MockNodeManager)(nil).WithClusterOption))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithClusterOption", reflect.TypeOf((*MockNodeManager)(nil).WithClusterOption), arg0)
 }
 
 // WithLogFuncOption mocks base method.

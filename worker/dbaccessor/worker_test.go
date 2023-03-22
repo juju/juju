@@ -39,8 +39,8 @@ func (s *workerSuite) TestGetControllerDBSuccessNotExistingNode(c *gc.C) {
 	mgrExp := s.nodeManager.EXPECT()
 	mgrExp.EnsureDataDir().Return(c.MkDir(), nil)
 	mgrExp.IsExistingNode().Return(false, nil)
-	mgrExp.WithAddressOption("").Return(nil, nil)
-	mgrExp.WithClusterOption().Return(nil, nil)
+	mgrExp.WithAddressOption(gomock.Any()).Return(nil, nil)
+	mgrExp.WithClusterOption(gomock.Any()).Return(nil, nil)
 	mgrExp.WithLogFuncOption().Return(nil)
 
 	appExp := s.dbApp.EXPECT()

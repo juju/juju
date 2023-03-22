@@ -20,6 +20,7 @@ import (
 	// as go-dqlite. It preserves files as written by that library,
 	// whereas gopkg.in/yaml.v3 does not.
 	"github.com/ghodss/yaml"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
@@ -222,40 +223,13 @@ func (m *NodeManager) WithTLSOption() (app.Option, error) {
 
 // WithClusterOption returns a Dqlite application Option for initialising
 // Dqlite as the member of a cluster with peers representing other controllers.
-// TODO (manadart 2022-09-30): As with WithAddressOption, this relies on each
-// controller having a unique local-cloud address *and* that we can simply
-// use those addresses that aren't ours to determine peers.
-// This will need revision in the context of juju-ha-space as well.
-// Furthermore, relying on agent config for API addresses implicitly makes this
-// affected by a configured juju-ctrl-space, which might be undesired.
-func (m *NodeManager) WithClusterOption() (app.Option, error) {
-	if err := m.ensureBindAddress(); err != nil {
-		return nil, errors.Annotate(err, "ensuring Dqlite bind address")
-	}
-
-	apiAddrs, err := m.cfg.APIAddresses()
-	if err != nil {
-		return nil, errors.Annotate(err, "retrieving API addresses")
-	}
-
-	for i, addr := range apiAddrs {
-		apiAddrs[i] = strings.Split(addr, ":")[0]
-	}
-
-	apiAddrs = corenetwork.NewMachineAddresses(apiAddrs).AllMatchingScope(corenetwork.ScopeMatchCloudLocal).Values()
-
-	// Using this option with no addresses works fine.
-	// In fact, we only need a single other address to join a cluster.
-	// Just ensure that our address is not one of the peers.
-	var peerAddrs []string
-	for _, addr := range apiAddrs {
-		if addr != m.bindAddress && addr != "localhost" {
-			peerAddrs = append(peerAddrs, fmt.Sprintf("%s:%d", addr, m.port))
-		}
-	}
+func (m *NodeManager) WithClusterOption(addrs []string) app.Option {
+	peerAddrs := transform.Slice(addrs, func(addr string) string {
+		return fmt.Sprintf("%s:%d", addr, m.port)
+	})
 
 	m.logger.Debugf("determined Dqlite cluster members: %v", peerAddrs)
-	return app.WithCluster(peerAddrs), nil
+	return app.WithCluster(peerAddrs)
 }
 
 // nodeClusterStore returns a YamlNodeStore instance based
