@@ -1238,14 +1238,22 @@ func (s *SecretsSuite) TestSecretGrantAccess(c *gc.C) {
 }
 
 func (s *SecretsSuite) TestSecretGrantCrossModelOffer(c *gc.C) {
-	s.assertSecretGrantCrossModelOffer(c, true)
+	s.assertSecretGrantCrossModelOffer(c, true, false)
 }
 
 func (s *SecretsSuite) TestSecretGrantCrossModelConsumer(c *gc.C) {
-	s.assertSecretGrantCrossModelOffer(c, false)
+	s.assertSecretGrantCrossModelOffer(c, false, false)
 }
 
-func (s *SecretsSuite) assertSecretGrantCrossModelOffer(c *gc.C, offer bool) {
+func (s *SecretsSuite) TestSecretGrantCrossModelConsumerUnit(c *gc.C) {
+	s.assertSecretGrantCrossModelOffer(c, false, true)
+}
+
+func (s *SecretsSuite) TestSecretGrantCrossModelUnit(c *gc.C) {
+	s.assertSecretGrantCrossModelOffer(c, true, true)
+}
+
+func (s *SecretsSuite) assertSecretGrantCrossModelOffer(c *gc.C, offer, unit bool) {
 	rwordpress, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:            "remote-wordpress",
 		SourceModel:     names.NewModelTag("source-model"),
@@ -1279,13 +1287,17 @@ func (s *SecretsSuite) assertSecretGrantCrossModelOffer(c *gc.C, offer bool) {
 	_, err = s.store.CreateSecret(uri, cp)
 	c.Assert(err, jc.ErrorIsNil)
 
+	subject := rwordpress.Tag()
+	if unit {
+		subject = names.NewUnitTag(rwordpress.Name() + "/0")
+	}
 	err = s.State.GrantSecretAccess(uri, state.SecretAccessParams{
 		LeaderToken: &fakeToken{},
 		Scope:       relation.Tag(),
-		Subject:     rwordpress.Tag(),
+		Subject:     subject,
 		Role:        secrets.RoleView,
 	})
-	if offer {
+	if offer && !unit {
 		c.Assert(err, jc.ErrorIsNil)
 		access, err := s.State.SecretAccess(uri, rwordpress.Tag())
 		c.Assert(err, jc.ErrorIsNil)
