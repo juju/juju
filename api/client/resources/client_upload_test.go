@@ -203,7 +203,6 @@ func (s *UploadSuite) TestUploadPendingResource(c *gc.C) {
 	req.Header.Set("Content-SHA384", fp.String())
 	req.Header.Set("Content-Length", fmt.Sprint(len(data)))
 	req.ContentLength = int64(len(data))
-	req.URL.RawQuery = "pendingid=" + expected
 	req.Header.Set("Content-Disposition", "form-data; filename=file.zip")
 
 	ctx := context.TODO()
@@ -269,7 +268,6 @@ func (s *UploadSuite) TestUploadPendingResourceFailed(c *gc.C) {
 	req.Header.Set("Content-SHA384", fp.String())
 	req.Header.Set("Content-Length", fmt.Sprint(len(data)))
 	req.ContentLength = int64(len(data))
-	req.URL.RawQuery = "pendingid=" + expected
 	req.Header.Set("Content-Disposition", "form-data; filename=file.zip")
 
 	ctx := context.TODO()
