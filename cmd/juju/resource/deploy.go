@@ -4,11 +4,13 @@
 package resource
 
 import (
+	"io"
+
 	charmresource "github.com/juju/charm/v10/resource"
 	"github.com/juju/errors"
+
 	apiresources "github.com/juju/juju/api/client/resources"
 	"github.com/juju/juju/cmd/modelcmd"
-	"io"
 )
 
 // DeployClient exposes the functionality of the resources API needed

@@ -7,15 +7,17 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	charmresource "github.com/juju/charm/v10/resource"
-	"github.com/juju/errors"
-	"github.com/juju/juju/cmd/juju/application/utils"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/resources"
-	"gopkg.in/yaml.v2"
 	"io"
 	"net/http"
 	"strings"
+
+	charmresource "github.com/juju/charm/v10/resource"
+	"github.com/juju/errors"
+	"gopkg.in/yaml.v2"
+
+	"github.com/juju/juju/cmd/juju/application/utils"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/resources"
 )
 
 func ValidateResources(resources map[string]charmresource.Meta) error {
