@@ -209,6 +209,18 @@ type composeAndVerifyRepSuite struct {
 
 var _ = gc.Suite(&composeAndVerifyRepSuite{})
 
+func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleUnsupportedConstraints(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	bundleData, err := charm.ReadBundleData(strings.NewReader(unsupportedConstraintBundle))
+	c.Assert(err, jc.ErrorIsNil)
+	s.expectParts(&charm.BundleDataPart{Data: bundleData})
+	s.expectBasePath()
+
+	obtained, _, err := ComposeAndVerifyBundle(s.bundleDataSource, nil)
+	c.Assert(err, gc.ErrorMatches, "*'image-id' constraint in a base bundle not supported")
+	c.Assert(obtained, gc.IsNil)
+}
+
 func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleNoOverlay(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	bundleData, err := charm.ReadBundleData(strings.NewReader(wordpressBundle))
@@ -373,6 +385,36 @@ func (m stringSliceMatcher) Matches(x interface{}) bool {
 func (m stringSliceMatcher) String() string {
 	return "match a slice of strings, no matter the order"
 }
+
+const unsupportedConstraintBundle = `
+series: bionic
+applications:
+  mysql:
+    charm: ch:mysql
+    revision: 42
+    channel: stable
+    series: xenial
+    num_units: 1
+    constraints: image-id=ubuntu-bf2
+    to:
+    - "0"
+  wordpress:
+    charm: ch:wordpress
+    channel: stable
+    revision: 47
+    series: xenial
+    num_units: 1
+    to:
+    - "1"
+machines:
+  "0":
+    series: xenial
+  "1":
+    series: xenial
+relations:
+- - wordpress:db
+  - mysql:db
+`
 
 const wordpressBundle = `
 series: bionic
