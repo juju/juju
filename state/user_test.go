@@ -321,7 +321,7 @@ func (s *UserSuite) TestRecreatedUsersResetPermissions(c *gc.C) {
 	// Check that the recreated user does not have the permissions set previously
 	urac, err := s.State.UserAccess(userRecreated.UserTag(), s.State.ControllerTag())
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(urac.Access, gc.Equals, permission.SuperuserAccess)
+	c.Check(urac.Access, gc.Equals, permission.LoginAccess)
 
 	// No model access was set yet
 	uram, err := s.State.UserAccess(userRecreated.UserTag(), s.Model.ModelTag())
