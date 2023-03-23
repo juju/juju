@@ -310,10 +310,10 @@ func (s *UserSuite) TestRecreatedUsersResetPermissions(c *gc.C) {
 	err = s.State.RemoveUser(user.UserTag())
 	c.Check(err, jc.ErrorIsNil)
 
-	// Add the user again with other password
+	// Add the user again with other password and access
 	userRecreated := s.Factory.MakeUser(c, &factory.UserParams{
 		Password: "otherpassword",
-		Access:   permission.ConsumeAccess})
+		Access:   permission.LoginAccess})
 
 	// Assert user exists and can authenticate.
 	c.Assert(userRecreated.PasswordValid("otherpassword"), jc.IsTrue)
