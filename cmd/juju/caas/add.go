@@ -100,9 +100,11 @@ with the specified name.
 If the cluster does not have a storage provisioning capability, use the
 --skip-storage option to add the cluster without any workload storage configured.
 
-Examples:
+`
 
+const examples = `
 When your kubeconfig file is in the default location:
+
     juju add-k8s myk8scloud
     juju add-k8s myk8scloud --client
     juju add-k8s myk8scloud --controller mycontroller
@@ -111,15 +113,15 @@ When your kubeconfig file is in the default location:
     juju add-k8s myk8scloud --cloud cloudNameOrCloudType
     juju add-k8s myk8scloud --cloud cloudNameOrCloudType --region=someregion
     juju add-k8s myk8scloud --cloud cloudNameOrCloudType --storage mystorageclass
-
+    
 To add a Kubernetes cloud using data from your kubeconfig file, when this file is not in the default location:
-    KUBECONFIG=path-to-kubeconfig-file juju add-k8s myk8scloud --cluster-name=my_cluster_name
 
+    KUBECONFIG=path-to-kubeconfig-file juju add-k8s myk8scloud --cluster-name=my_cluster_name
+    
 To add a Kubernetes cloud using data from kubectl, when your kubeconfig file is not in the default location:
+
     kubectl config view --raw | juju add-k8s myk8scloud --cluster-name=my_cluster_name
 
-See also:
-    remove-k8s
 `
 
 // AddCAASCommand is the command that allows you to add a caas and credential
@@ -220,10 +222,14 @@ func newAddCAASCommand(cloudMetadataStore CloudMetadataStore, clock jujuclock.Cl
 // Info returns help information about the command.
 func (c *AddCAASCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "add-k8s",
-		Args:    "<k8s name>",
-		Purpose: usageAddCAASSummary,
-		Doc:     usageAddCAASDetails,
+		Name:     "add-k8s",
+		Args:     "<k8s name>",
+		Purpose:  usageAddCAASSummary,
+		Doc:      usageAddCAASDetails,
+		Examples: examples,
+		SeeAlso: []string{
+			"remove-k8s",
+		},
 	})
 }
 
