@@ -79,18 +79,6 @@ func (st *State) StateServingInfo() (controller.StateServingInfo, error) {
 	}, nil
 }
 
-// IsMaster reports whether the connected machine
-// agent lives at the same network address as the primary
-// mongo server for the replica set.
-// This call will return an error if the connected
-// agent is not a machine agent with model-manager
-// privileges.
-func (st *State) IsMaster() (bool, error) {
-	var results params.IsMasterResult
-	err := st.facade.FacadeCall("IsMaster", nil, &results)
-	return results.Master, err
-}
-
 type Entity struct {
 	st  *State
 	tag names.Tag

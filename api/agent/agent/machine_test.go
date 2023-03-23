@@ -8,14 +8,12 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	apiagent "github.com/juju/juju/api/agent/agent"
-	apiserveragent "github.com/juju/juju/apiserver/facades/agent/agent"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
@@ -62,35 +60,6 @@ func (s *servingInfoSuite) TestStateServingInfoPermission(c *gc.C) {
 	apiSt, err := apiagent.NewState(st)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = apiSt.StateServingInfo()
-	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
-		Message: "permission denied",
-		Code:    "unauthorized access",
-	})
-}
-
-func (s *servingInfoSuite) TestIsMaster(c *gc.C) {
-	calledIsMaster := false
-	var fakeMongoIsMaster = func(session *mgo.Session, m mongo.WithAddresses) (bool, error) {
-		calledIsMaster = true
-		return true, nil
-	}
-	s.PatchValue(&apiserveragent.MongoIsMaster, fakeMongoIsMaster)
-
-	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageModel)
-	expected := true
-	apiSt, err := apiagent.NewState(st)
-	c.Assert(err, jc.ErrorIsNil)
-	result, err := apiSt.IsMaster()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.Equals, expected)
-	c.Assert(calledIsMaster, jc.IsTrue)
-}
-
-func (s *servingInfoSuite) TestIsMasterPermission(c *gc.C) {
-	st, _ := s.OpenAPIAsNewMachine(c)
-	apiSt, err := apiagent.NewState(st)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = apiSt.IsMaster()
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: "permission denied",
 		Code:    "unauthorized access",
