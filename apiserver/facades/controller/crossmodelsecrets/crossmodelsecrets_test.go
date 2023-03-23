@@ -153,19 +153,13 @@ func (s *CrossModelSecretsSuite) assertGetSecretContentInfo(c *gc.C, newConsumer
 	app := names.NewApplicationTag("remote-app")
 	consumer := names.NewUnitTag("remote-app/666")
 	relation := names.NewRelationTag("remote-app:foo local-app:foo")
-	offerUUID := "offer-uuid"
-	s.crossModelState.EXPECT().GetConsumerInfo("token").Return(app, offerUUID, nil)
+	s.crossModelState.EXPECT().GetRemoteApplicationTag("token").Return(app, nil)
 	s.stateBackend.EXPECT().HasEndpoint(relation.Id(), "remote-app").Return(true, nil)
 
-	// Remote app 2 has mismatched offer.
+	// Remote app 2 has incorrect relation.
 	app2 := names.NewApplicationTag("remote-app2")
-	offerUUID2 := "offer-uuid2"
-	s.crossModelState.EXPECT().GetConsumerInfo("token2").Return(app2, offerUUID2, nil)
-
-	// Remote app 3 has incorrect relation.
-	app3 := names.NewApplicationTag("remote-app3")
-	s.crossModelState.EXPECT().GetConsumerInfo("token3").Return(app3, offerUUID, nil)
-	s.stateBackend.EXPECT().HasEndpoint(relation.Id(), "remote-app3").Return(false, nil)
+	s.crossModelState.EXPECT().GetRemoteApplicationTag("token2").Return(app2, nil)
+	s.stateBackend.EXPECT().HasEndpoint(relation.Id(), "remote-app2").Return(false, nil)
 
 	consumerTag := names.NewUnitTag("remote-app/666")
 	if newConsumer {
@@ -194,7 +188,7 @@ func (s *CrossModelSecretsSuite) assertGetSecretContentInfo(c *gc.C, newConsumer
 		bakery.LatestVersion,
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("username", "mary"),
-			checkers.DeclaredCaveat("offer-uuid", offerUUID),
+			checkers.DeclaredCaveat("offer-uuid", "some-offer"),
 			checkers.DeclaredCaveat("source-model-uuid", coretesting.ModelTag.Id()),
 			checkers.DeclaredCaveat("relation-key", relation.Id()),
 		}, bakery.Op{"consume", "mysql-uuid"})
@@ -214,13 +208,6 @@ func (s *CrossModelSecretsSuite) assertGetSecretContentInfo(c *gc.C, newConsumer
 			URI: uri.String(),
 		}, {
 			ApplicationToken: "token2",
-			UnitId:           666,
-			BakeryVersion:    3,
-			Macaroons:        macaroon.Slice{mac.M()},
-			URI:              uri.String(),
-			Refresh:          true,
-		}, {
-			ApplicationToken: "token3",
 			UnitId:           666,
 			BakeryVersion:    3,
 			Macaroons:        macaroon.Slice{mac.M()},
@@ -258,11 +245,6 @@ func (s *CrossModelSecretsSuite) assertGetSecretContentInfo(c *gc.C, newConsumer
 			Error: &params.Error{
 				Code:    "not valid",
 				Message: "empty secret revision not valid",
-			},
-		}, {
-			Error: &params.Error{
-				Code:    "unauthorized access",
-				Message: "permission denied",
 			},
 		}, {
 			Error: &params.Error{

@@ -50,10 +50,7 @@ func newStateCrossModelSecretsAPI(ctx facade.Context) (*CrossModelSecretsAPI, er
 		st.ModelUUID(),
 		secretInfoGetter,
 		secretBackendConfigGetter,
-		&crossModelShim{
-			RemoteEntities: st.RemoteEntities(),
-			State:          st,
-		},
+		&crossModelShim{st.RemoteEntities()},
 		&stateBackendShim{st},
 	)
 }
