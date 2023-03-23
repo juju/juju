@@ -34,20 +34,19 @@ func (m *MockCrossModelState) EXPECT() *MockCrossModelStateMockRecorder {
 	return m.recorder
 }
 
-// GetConsumerInfo mocks base method.
-func (m *MockCrossModelState) GetConsumerInfo(arg0 string) (names.Tag, string, error) {
+// GetRemoteApplicationTag mocks base method.
+func (m *MockCrossModelState) GetRemoteApplicationTag(arg0 string) (names.Tag, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetConsumerInfo", arg0)
+	ret := m.ctrl.Call(m, "GetRemoteApplicationTag", arg0)
 	ret0, _ := ret[0].(names.Tag)
-	ret1, _ := ret[1].(string)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
-// GetConsumerInfo indicates an expected call of GetConsumerInfo.
-func (mr *MockCrossModelStateMockRecorder) GetConsumerInfo(arg0 interface{}) *gomock.Call {
+// GetRemoteApplicationTag indicates an expected call of GetRemoteApplicationTag.
+func (mr *MockCrossModelStateMockRecorder) GetRemoteApplicationTag(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetConsumerInfo", reflect.TypeOf((*MockCrossModelState)(nil).GetConsumerInfo), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRemoteApplicationTag", reflect.TypeOf((*MockCrossModelState)(nil).GetRemoteApplicationTag), arg0)
 }
 
 // GetToken mocks base method.

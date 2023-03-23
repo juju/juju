@@ -94,7 +94,7 @@ func (s *CrossModelSecretsAPI) getSecretAccessScope(arg params.GetRemoteSecretAc
 		return "", errors.NotValidf("secret URI with empty source UUID")
 	}
 
-	consumerApp, _, err := s.crossModelState.GetConsumerInfo(arg.ApplicationToken)
+	consumerApp, err := s.crossModelState.GetRemoteApplicationTag(arg.ApplicationToken)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -115,15 +115,15 @@ func (s *CrossModelSecretsAPI) getSecretAccessScope(arg params.GetRemoteSecretAc
 	return s.crossModelState.GetToken(scopeTag)
 }
 
-func (s *CrossModelSecretsAPI) checkRelationMacaroons(consumerTag names.Tag, offerUUID string, mac macaroon.Slice, version bakery.Version) error {
+func (s *CrossModelSecretsAPI) checkRelationMacaroons(consumerTag names.Tag, mac macaroon.Slice, version bakery.Version) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	// Check that the macaroon contains caveats for the relevant offer and
 	// relation and that the consumer is in the relation.
-	relKey, macOfferUUID, ok := crossmodel.RelationInfoFromMacaroons(mac)
-	if !ok || macOfferUUID != offerUUID {
-		logger.Debugf("missing relation or mismatched offer from macaroons for consumer %v on offer %v", consumerTag.Id(), offerUUID)
+	relKey, offerUUID, ok := crossmodel.RelationInfoFromMacaroons(mac)
+	if !ok {
+		logger.Debugf("missing relation or offer uuid from macaroons for consumer %v", consumerTag.Id())
 		return apiservererrors.ErrPerm
 	}
 	valid, err := s.stateBackend.HasEndpoint(relKey, consumerTag.Id())
@@ -184,13 +184,13 @@ func (s *CrossModelSecretsAPI) getSecretContent(arg params.GetRemoteSecretConten
 		return nil, nil, 0, errors.NotValidf("empty secret revision")
 	}
 
-	app, offerUUID, err := s.crossModelState.GetConsumerInfo(arg.ApplicationToken)
+	appTag, err := s.crossModelState.GetRemoteApplicationTag(arg.ApplicationToken)
 	if err != nil {
 		return nil, nil, 0, errors.Trace(err)
 	}
-	consumer := names.NewUnitTag(fmt.Sprintf("%s/%d", app.Id(), arg.UnitId))
+	consumer := names.NewUnitTag(fmt.Sprintf("%s/%d", appTag.Id(), arg.UnitId))
 
-	if err := s.checkRelationMacaroons(app, offerUUID, arg.Macaroons, arg.BakeryVersion); err != nil {
+	if err := s.checkRelationMacaroons(appTag, arg.Macaroons, arg.BakeryVersion); err != nil {
 		return nil, nil, 0, errors.Trace(err)
 	}
 

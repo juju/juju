@@ -26,7 +26,7 @@ type SecretsConsumer interface {
 }
 
 type CrossModelState interface {
-	GetConsumerInfo(string) (names.Tag, string, error)
+	GetRemoteApplicationTag(string) (names.Tag, error)
 	GetToken(entity names.Tag) (string, error)
 }
 
@@ -52,19 +52,10 @@ func (s *stateBackendShim) HasEndpoint(key string, app string) (bool, error) {
 
 type crossModelShim struct {
 	*state.RemoteEntities
-	*state.State
 }
 
-// GetConsumerInfo returns the consumer remote application proxy
-// for the token, plus the offer uuid.
-func (s *crossModelShim) GetConsumerInfo(token string) (names.Tag, string, error) {
-	appTag, err := s.RemoteEntities.GetRemoteEntity(token)
-	if err != nil {
-		return nil, "", errors.Trace(err)
-	}
-	app, err := s.State.RemoteApplication(appTag.Id())
-	if err != nil {
-		return nil, "", errors.Trace(err)
-	}
-	return appTag, app.OfferUUID(), nil
+// GetRemoteApplicationTag returns the consumer remote application
+// tag for the token.
+func (s *crossModelShim) GetRemoteApplicationTag(token string) (names.Tag, error) {
+	return s.RemoteEntities.GetRemoteEntity(token)
 }
