@@ -51,8 +51,8 @@ type BackendAdminConfigGetter func() (*provider.ModelBackendConfigInfo, error)
 
 // AdminBackendConfigInfo returns the admin config for the secret backends is use by
 // the specified model.
-// If no backend is configured, the "internal" backend is used for machine models and
-// a k8s backend with the same namespace is used for k8s models.
+// If external backend is configured, it returns the external backend together with the "internal" backend and
+// the k8s backend for k8s models.
 func AdminBackendConfigInfo(model Model) (*provider.ModelBackendConfigInfo, error) {
 	cfg, err := model.Config()
 	if err != nil {
@@ -60,48 +60,44 @@ func AdminBackendConfigInfo(model Model) (*provider.ModelBackendConfigInfo, erro
 	}
 	backendName := cfg.SecretBackend()
 
-	var backendType string
-	switch backendName {
-	case provider.Auto:
-		backendType = juju.BackendType
-		if model.Type() == state.ModelTypeCAAS {
-			backendType = kubernetes.BackendType
-		}
-	case provider.Internal:
-		backendType = juju.BackendType
-	}
-
 	var info provider.ModelBackendConfigInfo
 	info.Configs = make(map[string]provider.ModelBackendConfig)
-	if backendType != "" {
-		if backendType == juju.BackendType {
-			info.ActiveID = model.ControllerUUID()
-			info.Configs[info.ActiveID] = provider.ModelBackendConfig{
-				ControllerUUID: model.ControllerUUID(),
-				ModelUUID:      model.UUID(),
-				ModelName:      model.Name(),
-				BackendConfig:  juju.BuiltInConfig(),
-			}
-		} else {
-			spec, err := cloudSpecForModel(model)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			k8sConfig, err := kubernetes.BuiltInConfig(spec)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			info.ActiveID = model.UUID()
-			info.Configs[info.ActiveID] = provider.ModelBackendConfig{
-				ControllerUUID: model.ControllerUUID(),
-				ModelUUID:      model.UUID(),
-				ModelName:      model.Name(),
-				BackendConfig:  *k8sConfig,
-			}
-		}
-	}
+
+	// We need to include builtin backends for secret migration(draining) and accessing those secrets while migration is in progress.
 	// TODO(secrets) - only use those in use by model
 	// For now, we'll return all backends on the controller.
+	jujuBackendID := model.ControllerUUID()
+	info.Configs[jujuBackendID] = provider.ModelBackendConfig{
+		ControllerUUID: model.ControllerUUID(),
+		ModelUUID:      model.UUID(),
+		ModelName:      model.Name(),
+		BackendConfig:  juju.BuiltInConfig(),
+	}
+	if backendName == provider.Auto || backendName == provider.Internal {
+		info.ActiveID = jujuBackendID
+	}
+
+	if model.Type() == state.ModelTypeCAAS {
+		spec, err := cloudSpecForModel(model)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		k8sConfig, err := kubernetes.BuiltInConfig(spec)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		k8sBackendID := model.UUID()
+		info.Configs[k8sBackendID] = provider.ModelBackendConfig{
+			ControllerUUID: model.ControllerUUID(),
+			ModelUUID:      model.UUID(),
+			ModelName:      model.Name(),
+			BackendConfig:  *k8sConfig,
+		}
+		if backendName == provider.Auto {
+			info.ActiveID = k8sBackendID
+		}
+	}
+
 	backendState := GetSecretBackendsState(model)
 	backends, err := backendState.ListSecretBackends()
 	if err != nil {
