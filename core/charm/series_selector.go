@@ -68,18 +68,20 @@ type SeriesSelector struct {
 //   - model default, if set, acts like --series
 //   - default from charm metadata supported series / series in url
 //   - default LTS
-func (s SeriesSelector) CharmSeries() (selectedSeries string, err error) {
+func (s SeriesSelector) CharmSeries() (selectedSeries string, isDefault bool, err error) {
 	// TODO(sidecar): handle systems
 
 	// User has requested a series with --series.
 	if s.SeriesFlag != "" {
-		return s.userRequested(s.SeriesFlag)
+		res, err := s.userRequested(s.SeriesFlag)
+		return res, false, err
 	}
 
 	// User specified a series in the charm URL, e.g.
 	// juju deploy precise/ubuntu.
 	if s.CharmURLSeries != "" {
-		return s.userRequested(s.CharmURLSeries)
+		res, err := s.userRequested(s.CharmURLSeries)
+		return res, false, err
 	}
 
 	// No series explicitly requested by the user.
@@ -87,14 +89,15 @@ func (s SeriesSelector) CharmSeries() (selectedSeries string, err error) {
 	if defaultBase, explicit := s.Conf.DefaultBase(); explicit {
 		base, err := series.ParseBaseFromString(defaultBase)
 		if err != nil {
-			return "", errors.Trace(err)
+			return "", false, errors.Trace(err)
 		}
 
 		defaultSeries, err := series.GetSeriesFromBase(base)
 		if err != nil {
-			return "", errors.Trace(err)
+			return "", false, errors.Trace(err)
 		}
-		return s.userRequested(defaultSeries)
+		res, err := s.userRequested(defaultSeries)
+		return res, false, err
 	}
 
 	// Next fall back to the charm's list of series, filtered to what's supported
@@ -109,7 +112,7 @@ func (s SeriesSelector) CharmSeries() (selectedSeries string, err error) {
 	}
 	defaultSeries, err := SeriesForCharm("", supportedSeries)
 	if err == nil {
-		return defaultSeries, nil
+		return defaultSeries, true, nil
 	}
 
 	// Charm hasn't specified a default (likely due to being a local charm
@@ -121,17 +124,17 @@ func (s SeriesSelector) CharmSeries() (selectedSeries string, err error) {
 		s.Logger.Tracef("juju supported series %s", s.SupportedJujuSeries.SortedValues())
 		s.Logger.Tracef("charm supported series %s", s.SupportedSeries)
 		if IsMissingSeriesError(err) && len(s.SupportedSeries) > 0 {
-			return "", errors.Errorf("the charm defined series %q not supported", strings.Join(s.SupportedSeries, ", "))
+			return "", false, errors.Errorf("the charm defined series %q not supported", strings.Join(s.SupportedSeries, ", "))
 		}
 
 		// We know err is not nil due to above, so return the error
 		// returned to us from the charm call.
-		return "", err
+		return "", false, err
 	}
 
 	latestLTS := version.DefaultSupportedLTS()
 	s.Logger.Infof(msgLatestLTSSeries, latestLTS)
-	return latestLTS, nil
+	return latestLTS, true, nil
 }
 
 // userRequested checks the series the user has requested, and returns it if it

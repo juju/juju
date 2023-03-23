@@ -569,7 +569,7 @@ func (v *deployFromRepositoryValidator) resolveCharm(curl *charm.URL, requestedO
 	}
 
 	// Get the series to use.
-	series, err := selector.CharmSeries()
+	series, _, err := selector.CharmSeries()
 	deployRepoLogger.Tracef("Using series %q from %v to deploy %v", series, supportedSeries, curl)
 	if charm.IsUnsupportedSeriesError(err) {
 		msg := fmt.Sprintf("%v. Use --force to deploy the charm anyway.", err)

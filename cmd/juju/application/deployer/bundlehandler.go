@@ -672,7 +672,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		}
 
 		// Get the series to use.
-		chSeries, err := selector.CharmSeries()
+		chSeries, _, err := selector.CharmSeries()
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1007,7 +1007,7 @@ func (h *bundleHandler) selectedSeries(ch charm.CharmMeta, chID application.Char
 		FromBundle:          true,
 		Logger:              logger,
 	}
-	selectedSeries, err := selector.CharmSeries()
+	selectedSeries, _, err := selector.CharmSeries()
 	return selectedSeries, charmValidationError(curl.Name, errors.Trace(err))
 }
 

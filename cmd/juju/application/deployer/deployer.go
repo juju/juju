@@ -232,9 +232,14 @@ func (d *factory) localCharmDeployer(getter ModelConfigGetter) (DeployerKind, er
 	if isLocalSchema(charmOrBundle) {
 		charmOrBundle = charmOrBundle[6:]
 	}
-	seriesName, imageStream, seriesErr := d.determineSeriesForLocalCharm(charmOrBundle, getter)
+	seriesName, isDefaultSeries, imageStream, seriesErr := d.determineSeriesForLocalCharm(charmOrBundle, getter)
 	if seriesErr != nil {
 		return nil, errors.Trace(seriesErr)
+	}
+	// If the image-id constraint is provided then base must be explicitly
+	// provided either by flag either by model-config default base.
+	if (d.constraints.HasImageID() || d.modelConstraints.HasImageID()) && isDefaultSeries {
+		return nil, errors.Forbiddenf("base must be explicitly provided when image-id constraint is used")
 	}
 
 	// Charm may have been supplied via a path reference.
@@ -277,7 +282,7 @@ func (d *factory) localPreDeployedCharmDeployer() (DeployerKind, error) {
 	return &localPreDeployerKind{userCharmURL: userCharmURL}, nil
 }
 
-func (d *factory) determineSeriesForLocalCharm(charmOrBundle string, getter ModelConfigGetter) (string, string, error) {
+func (d *factory) determineSeriesForLocalCharm(charmOrBundle string, getter ModelConfigGetter) (string, bool, string, error) {
 	// TODO (cderici): check the validity of the comments belowe
 	// NOTE: Here we select the series using the algorithm defined by
 	// `seriesSelector.charmSeries`. This serves to override the algorithm found
@@ -292,14 +297,15 @@ func (d *factory) determineSeriesForLocalCharm(charmOrBundle string, getter Mode
 	// get the correct series. A proper refactoring of the charmrepo package is
 	// needed for a more elegant fix.
 	var (
-		imageStream string
-		seriesName  string
+		imageStream     string
+		seriesName      string
+		isDefaultSeries bool
 	)
 	if !d.base.Empty() {
 		var err error
 		seriesName, err = series.GetSeriesFromBase(d.base)
 		if err != nil {
-			return "", "", errors.Trace(err)
+			return "", isDefaultSeries, "", errors.Trace(err)
 		}
 	}
 
@@ -307,18 +313,18 @@ func (d *factory) determineSeriesForLocalCharm(charmOrBundle string, getter Mode
 	if err == nil {
 		modelCfg, err := getModelConfig(getter)
 		if err != nil {
-			return "", "", errors.Trace(err)
+			return "", isDefaultSeries, "", errors.Trace(err)
 		}
 
 		imageStream = modelCfg.ImageStream()
 		workloadSeries, err := SupportedJujuSeries(d.clock.Now(), seriesName, imageStream)
 		if err != nil {
-			return "", "", errors.Trace(err)
+			return "", isDefaultSeries, "", errors.Trace(err)
 		}
 
 		supportedSeries, err := corecharm.ComputedSeries(ch)
 		if err != nil {
-			return "", "", errors.Trace(err)
+			return "", isDefaultSeries, "", errors.Trace(err)
 		}
 		seriesSelector := corecharm.SeriesSelector{
 			SeriesFlag:          seriesName,
@@ -334,12 +340,12 @@ func (d *factory) determineSeriesForLocalCharm(charmOrBundle string, getter Mode
 			logger.Warningf("%s does not declare supported series in metadata.yml", ch.Meta().Name)
 		}
 
-		seriesName, err = seriesSelector.CharmSeries()
+		seriesName, isDefaultSeries, err = seriesSelector.CharmSeries()
 		if err = charmValidationError(ch.Meta().Name, errors.Trace(err)); err != nil {
-			return "", "", errors.Trace(err)
+			return "", isDefaultSeries, "", errors.Trace(err)
 		}
 	}
-	return seriesName, imageStream, nil
+	return seriesName, isDefaultSeries, imageStream, nil
 }
 
 func (d *factory) checkHandleRevision(userCharmURL *charm.URL, charmHubSchemaCheck bool) (*charm.URL, error) {

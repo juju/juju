@@ -21,8 +21,9 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 
 		SeriesSelector
 
-		expectedSeries string
-		err            string
+		expectedSeries          string
+		expectedIsDefaultSeries bool
+		err                     string
 	}{
 		{
 			// Simple selectors first, no supported series.
@@ -107,7 +108,8 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 				Force: true,
 				Conf:  defaultBase{},
 			},
-			expectedSeries: "jammy",
+			expectedSeries:          "jammy",
+			expectedIsDefaultSeries: true,
 		},
 
 		// Now charms with supported series.
@@ -119,7 +121,8 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 				Conf:                defaultBase{},
 				SupportedJujuSeries: set.NewStrings("bionic", "cosmic"),
 			},
-			expectedSeries: "bionic",
+			expectedSeries:          "bionic",
+			expectedIsDefaultSeries: true,
 		},
 		{
 			title: "juju deploy multiseries with invalid series  # use charm default, nothing specified, no default series",
@@ -128,7 +131,8 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 				Conf:                defaultBase{},
 				SupportedJujuSeries: set.NewStrings("bionic", "cosmic"),
 			},
-			expectedSeries: "bionic",
+			expectedSeries:          "bionic",
+			expectedIsDefaultSeries: true,
 		},
 		{
 			title: "juju deploy multiseries with invalid serie  # use charm default, nothing specified, no default series",
@@ -277,12 +281,13 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 	for i, test := range deploySeriesTests {
 		c.Logf("test %d [%s]", i, test.title)
 		test.SeriesSelector.Logger = &noOpLogger{}
-		series, err := test.SeriesSelector.CharmSeries()
+		series, isDefaultSeries, err := test.SeriesSelector.CharmSeries()
 		if test.err != "" {
 			c.Check(err, gc.ErrorMatches, test.err)
 		} else {
 			c.Check(err, jc.ErrorIsNil)
 			c.Check(series, gc.Equals, test.expectedSeries)
+			c.Check(isDefaultSeries, gc.Equals, test.expectedIsDefaultSeries)
 		}
 	}
 }

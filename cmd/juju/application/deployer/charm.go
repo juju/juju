@@ -485,7 +485,13 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	}
 
 	// Get the series to use.
-	series, err := selector.CharmSeries()
+	series, isDefaultSeries, err := selector.CharmSeries()
+	// If the image-id constraint is provided then base must be explicitly
+	// provided either by flag either by model-config default base.
+	if (c.constraints.HasImageID() || c.modelConstraints.HasImageID()) && isDefaultSeries {
+		return errors.Forbiddenf("base must be explicitly provided when image-id constraint is used")
+	}
+
 	logger.Tracef("Using series %q from %v to deploy %v", series, supportedSeries, userRequestedURL)
 
 	imageStream := modelCfg.ImageStream()

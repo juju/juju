@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/cmd/juju/application/deployer/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	coretesting "github.com/juju/juju/testing"
@@ -88,6 +89,31 @@ func (s *charmSuite) TestRepositoryCharmDeployDryRun(c *gc.C) {
 
 	err := repoCharm.PrepareAndDeploy(s.ctx, s.deployerAPI, s.resolver)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *charmSuite) TestRepositoryCharmDeployDryRunImageIdNoBase(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.resolver = mocks.NewMockResolver(ctrl)
+	s.expectResolveChannel()
+	s.expectDeployerAPIModelGet(c, series.Base{})
+
+	dCharm := s.newDeployCharm()
+	dCharm.dryRun = true
+	dCharm.validateCharmSeriesWithName = func(series, name string, imageStream string) error {
+		return nil
+	}
+	dCharm.constraints = constraints.Value{
+		ImageID: strptr("ubuntu-bf2"),
+	}
+	repoCharm := &repositoryCharm{
+		deployCharm:      *dCharm,
+		userRequestedURL: s.url,
+		clock:            clock.WallClock,
+	}
+
+	err := repoCharm.PrepareAndDeploy(s.ctx, s.deployerAPI, s.resolver)
+	c.Assert(err, gc.ErrorMatches, "base must be explicitly provided when image-id constraint is used")
 }
 
 func (s *charmSuite) TestRepositoryCharmDeployDryRunDefaultSeriesForce(c *gc.C) {
@@ -198,4 +224,8 @@ func minimalModelConfig() map[string]interface{} {
 		"ca-private-key": coretesting.CAKey,
 		"image-stream":   "testing",
 	}
+}
+
+func strptr(s string) *string {
+	return &s
 }
