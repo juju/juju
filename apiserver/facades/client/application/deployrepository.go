@@ -18,12 +18,14 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/bootstrap"
+	environsconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	jujuversion "github.com/juju/juju/version"
@@ -124,8 +126,8 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(arg params.DeployFromRe
 		Devices:           nil,
 		AttachStorage:     nil,
 		EndpointBindings:  dt.endpoints,
-		ApplicationConfig: nil,
-		CharmConfig:       nil,
+		ApplicationConfig: dt.applicationConfig,
+		CharmConfig:       dt.charmSettings,
 		NumUnits:          dt.numUnits,
 		Placement:         dt.placement,
 		Constraints:       dt.constraints,
@@ -152,22 +154,22 @@ func addPendingResources() ([]*params.PendingResourceUpload, []error) {
 }
 
 type deployTemplate struct {
-	applicationName string
-	attachStorage   []string
-	charm           charm.Charm
-	charmURL        *charm.URL
-	configYaml      string
-	constraints     constraints.Value
-	devices         map[string]devices.Constraints
-	endpoints       map[string]string
-	dryRun          bool
-	force           bool
-	numUnits        int
-	origin          corecharm.Origin
-	placement       []*instance.Placement
-	resources       map[string]string
-	storage         map[string]state.StorageConstraints
-	trust           bool
+	applicationConfig *config.Config
+	applicationName   string
+	attachStorage     []string
+	charm             charm.Charm
+	charmSettings     charm.Settings
+	charmURL          *charm.URL
+	constraints       constraints.Value
+	devices           map[string]devices.Constraints
+	endpoints         map[string]string
+	dryRun            bool
+	force             bool
+	numUnits          int
+	origin            corecharm.Origin
+	placement         []*instance.Placement
+	resources         map[string]string
+	storage           map[string]state.StorageConstraints
 }
 
 func makeDeployFromRepositoryValidator(st DeployFromRepositoryState, m Model, charmhubHTTPClient facade.HTTPClient) DeployFromRepositoryValidator {
@@ -262,6 +264,15 @@ func (v *deployFromRepositoryValidator) validate(arg params.DeployFromRepository
 		errs = append(errs, err)
 	}
 
+	appNameForConfig := arg.CharmName
+	if arg.ApplicationName != "" {
+		appNameForConfig = arg.ApplicationName
+	}
+	appConfig, settings, err := v.appCharmSettings(appNameForConfig, arg.Trust, resolvedCharm.Config(), arg.ConfigYAML)
+	if err != nil {
+		errs = append(errs, err)
+	}
+
 	appName := resolvedCharm.Meta().Name
 	if arg.ApplicationName != "" {
 		appName = arg.ApplicationName
@@ -282,15 +293,17 @@ func (v *deployFromRepositoryValidator) validate(arg params.DeployFromRepository
 
 	// Validate the other args.
 	dt := deployTemplate{
-		applicationName: appName,
-		charm:           resolvedCharm,
-		charmURL:        charmURL,
-		dryRun:          arg.DryRun,
-		force:           arg.Force,
-		numUnits:        numUnits,
-		origin:          resolvedOrigin,
-		placement:       arg.Placement,
-		storage:         stateStorageConstraints(arg.Storage),
+		applicationConfig: appConfig,
+		applicationName:   appName,
+		charm:             resolvedCharm,
+		charmSettings:     settings,
+		charmURL:          charmURL,
+		dryRun:            arg.DryRun,
+		force:             arg.Force,
+		numUnits:          numUnits,
+		origin:            resolvedOrigin,
+		placement:         arg.Placement,
+		storage:           stateStorageConstraints(arg.Storage),
 	}
 	if arg.NumUnits != nil {
 		dt.numUnits = *arg.NumUnits
@@ -619,6 +632,24 @@ func (v *deployFromRepositoryValidator) getCharm(charmURL *charm.URL, resolvedOr
 	metaRes := essentialMeta[0]
 	resolvedCharm := corecharm.NewCharmInfoAdapter(metaRes)
 	return metaRes.ResolvedOrigin, resolvedCharm, nil
+}
+
+func (v *deployFromRepositoryValidator) appCharmSettings(appName string, trust bool, chCfg *charm.Config, configYAML string) (*config.Config, charm.Settings, error) {
+	if !trust && configYAML == "" {
+		return nil, nil, nil
+	}
+	// Cheat with trust. Trust is passed to DeployFromRepository as a flag, however
+	// it's handled internally to juju as an application config. As DFR only
+	// has charm config via yaml, stick trust into the config via map to enable
+	// reuse of current parseCharmSettings as used with the old deploy and
+	// setConfig.
+	// At deploy time, there's no need to include "trust=false" as missing is the same thing.
+	var cfg map[string]string
+	if trust {
+		cfg = map[string]string{"trust": "true"}
+	}
+	appConfig, _, charmSettings, _, err := parseCharmSettings(v.model.Type(), chCfg, appName, cfg, configYAML, environsconfig.NoDefaults)
+	return appConfig, charmSettings, err
 }
 
 func (v *deployFromRepositoryValidator) getCharmRepository(src corecharm.Source) (corecharm.Repository, error) {

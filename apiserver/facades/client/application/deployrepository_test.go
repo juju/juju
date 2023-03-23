@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	corecharm "github.com/juju/juju/core/charm"
+	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/config"
@@ -549,6 +550,41 @@ func (s *validatorSuite) TestDeducePlatformPlacementMutipleMatchFail(c *gc.C) {
 	}
 	_, _, err := s.getValidator().deducePlatform(arg)
 	c.Assert(errors.Is(err, errors.BadRequest), jc.IsTrue, gc.Commentf("%+v", err))
+}
+
+var configYaml = `
+testme:
+  optionOne: one
+  optionTwo: 8
+`[1:]
+
+func (s *validatorSuite) TestAppCharmSettings(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.model.EXPECT().Type().Return(state.ModelTypeIAAS)
+
+	cfg := charm.NewConfig()
+	cfg.Options = map[string]charm.Option{
+		"optionOne": {
+			Type:        "string",
+			Description: "option one",
+		},
+		"optionTwo": {
+			Type:        "int",
+			Description: "option two",
+		},
+	}
+
+	appCfgSchema, _, err := applicationConfigSchema(state.ModelTypeIAAS)
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedAppConfig, err := coreconfig.NewConfig(map[string]interface{}{"trust": true}, appCfgSchema, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	appConfig, charmConfig, err := s.getValidator().appCharmSettings("testme", true, cfg, configYaml)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(appConfig, gc.DeepEquals, expectedAppConfig)
+	c.Assert(charmConfig["optionOne"], gc.DeepEquals, "one")
+	c.Assert(charmConfig["optionTwo"], gc.DeepEquals, int64(8))
 }
 
 func (s *validatorSuite) setupMocks(c *gc.C) *gomock.Controller {

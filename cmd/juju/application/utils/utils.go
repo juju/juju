@@ -16,6 +16,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 	"github.com/mattn/go-isatty"
+	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api/client/application"
 	app "github.com/juju/juju/apiserver/facades/client/application"
@@ -325,4 +326,72 @@ func ProcessConfig(ctx *cmd.Context, filesystem modelcmd.Filesystem, configOptio
 	// Expand the trust flag into the appConfig
 	appConfig[app.TrustConfigOptionName] = strconv.FormatBool(trust)
 	return appConfig, string(configYAML), nil
+}
+
+// CombinedConfig takes the config key/value pairs and config.yaml file
+// and combines into a yaml string. The key/value pairs representing
+// charm settings overrides anything in the YAML file. If more than one
+// file is specified, that is an error.
+func CombinedConfig(ctx *cmd.Context, filesystem modelcmd.Filesystem, configOptions configFlag, appName string) (string, error) {
+	settings, err := settingsFromYaml(ctx, configOptions, appName)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	attr, err := configOptions.ReadConfigPairs(ctx)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	appConfig := make(map[string]string)
+	for k, v := range attr {
+		appConfig[k] = v.(string)
+
+		// Handle @ syntax for including file contents as values so we
+		// are consistent to how 'juju config' works
+		if len(appConfig[k]) < 1 || appConfig[k][0] != '@' {
+			continue
+		}
+
+		if appConfig[k], err = ReadValue(ctx, filesystem, appConfig[k][1:]); err != nil {
+			return "", errors.Trace(err)
+		}
+	}
+	// CLI config over-rides config in the yaml file.
+	for k, v := range appConfig {
+		settings[k] = v
+	}
+	// Return to the expected yaml format for over the wire
+	settingsForYaml := map[interface{}]interface{}{appName: settings}
+	configYaml, err := goyaml.Marshal(settingsForYaml)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return string(configYaml), nil
+}
+
+func settingsFromYaml(ctx *cmd.Context, configOptions configFlag, appName string) (map[interface{}]interface{}, error) {
+	var configYAML []byte
+	files, err := configOptions.AbsoluteFileNames(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	switch len(files) {
+	case 0:
+		return make(map[interface{}]interface{}), nil
+	case 1:
+		configYAML, err = os.ReadFile(files[0])
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	default:
+		return nil, errors.Errorf("only a single config YAML file can be specified, got %d", len(files))
+	}
+	var allSettings map[string]interface{}
+	if err := goyaml.Unmarshal(configYAML, &allSettings); err != nil {
+		return nil, errors.Annotate(err, "cannot parse settings data")
+	}
+	settings, ok := allSettings[appName].(map[interface{}]interface{})
+	if !ok {
+		return nil, errors.Trace(err)
+	}
+	return settings, nil
 }
