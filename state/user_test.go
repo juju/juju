@@ -313,7 +313,7 @@ func (s *UserSuite) TestRecreatedUsersResetPermissions(c *gc.C) {
 	// Add the user again with other password and access
 	userRecreated := s.Factory.MakeUser(c, &factory.UserParams{
 		Password: "otherpassword",
-		Access:   permission.LoginAccess})
+		Access:   permission.SuperuserAccess})
 
 	// Assert user exists and can authenticate.
 	c.Assert(userRecreated.PasswordValid("otherpassword"), jc.IsTrue)
@@ -321,12 +321,12 @@ func (s *UserSuite) TestRecreatedUsersResetPermissions(c *gc.C) {
 	// Check that the recreated user does not have the permissions set previously
 	urac, err := s.State.UserAccess(userRecreated.UserTag(), s.State.ControllerTag())
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(urac.Access, gc.Equals, permission.ConsumeAccess)
+	c.Check(urac.Access, gc.Equals, permission.SuperuserAccess)
 
 	// No model access was set yet
 	uram, err := s.State.UserAccess(userRecreated.UserTag(), s.Model.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(uram.Access, gc.Equals, permission.NoAccess)
+	c.Check(uram.Access, gc.Equals, permission.SuperuserAccess)
 }
 
 func (s *UserSuite) TestDisableUser(c *gc.C) {
