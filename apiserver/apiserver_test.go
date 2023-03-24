@@ -293,6 +293,21 @@ func (s *apiserverBaseSuite) openAPIAs(c *gc.C, srv *apiserver.Server, tag names
 	return conn
 }
 
+func (s *apiserverBaseSuite) openAPINoLogin(c *gc.C, srv *apiserver.Server, controllerOnly bool) api.Connection {
+	apiInfo := s.APIInfo(srv)
+	apiInfo.SkipLogin = true
+	if !controllerOnly {
+		apiInfo.ModelTag = s.Model.ModelTag()
+	}
+	conn, err := api.Open(apiInfo, api.DialOpts{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(conn, gc.NotNil)
+	s.AddCleanup(func(c *gc.C) {
+		conn.Close()
+	})
+	return conn
+}
+
 // OpenAPIAsNewMachine creates a new client connection logging in as the
 // controller owner. The returned api.Connection should not be closed by the
 // caller as a cleanup function has been registered to do that.

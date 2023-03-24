@@ -387,6 +387,17 @@ var newConfigTests = []struct {
 			controller.ControllerResourceDownloadLimit: "-42",
 		},
 		expectError: `negative controller-resource-download-limit \(-42\) not valid, use 0 to disable the limit`,
+	}, {
+		about: "login token refresh url",
+		config: controller.Config{
+			controller.LoginTokenRefreshURL: `https://xxxx`,
+		},
+	}, {
+		about: "invalid login token refresh url",
+		config: controller.Config{
+			controller.LoginTokenRefreshURL: `xxxx`,
+		},
+		expectError: `logic token refresh URL "xxxx" not valid`,
 	}, {}}
 
 func (s *ConfigSuite) TestNewConfig(c *gc.C) {

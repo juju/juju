@@ -183,21 +183,6 @@ func (mr *MockAuthorizerMockRecorder) HasPermission(arg0, arg1 interface{}) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasPermission", reflect.TypeOf((*MockAuthorizer)(nil).HasPermission), arg0, arg1)
 }
 
-// UserHasPermission mocks base method.
-func (m *MockAuthorizer) UserHasPermission(arg0 names.UserTag, arg1 permission.Access, arg2 names.Tag) (bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UserHasPermission", arg0, arg1, arg2)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// UserHasPermission indicates an expected call of UserHasPermission.
-func (mr *MockAuthorizerMockRecorder) UserHasPermission(arg0, arg1, arg2 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UserHasPermission", reflect.TypeOf((*MockAuthorizer)(nil).UserHasPermission), arg0, arg1, arg2)
-}
-
 // MockContext is a mock of Context interface.
 type MockContext struct {
 	ctrl     *gomock.Controller

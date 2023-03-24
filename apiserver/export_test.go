@@ -4,12 +4,15 @@
 package apiserver
 
 import (
+	"context"
 	"sync"
 
 	"github.com/juju/clock"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
+	"github.com/lestrrat-go/jwx/v2/jwk"
+	"github.com/lestrrat-go/jwx/v2/jwt"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -90,6 +93,25 @@ func TestingAPIHandlerWithEntity(c *gc.C, pool *state.StatePool, st *state.State
 	h, hr := TestingAPIHandler(c, pool, st)
 	h.entity = entity
 	return h, hr
+}
+
+// TestingAPIHandlerWithToken gives you the sane kind of APIHandler as
+// TestingAPIHandler but sets the passed token as the apiHandler
+// login token.
+func TestingAPIHandlerWithToken(c *gc.C, pool *state.StatePool, st *state.State, jwt jwt.Token) (*apiHandler, *common.Resources) {
+	h, hr := TestingAPIHandler(c, pool, st)
+	user, err := names.ParseUserTag(jwt.Subject())
+	c.Assert(err, jc.ErrorIsNil)
+	h.entity = tokenEntity{user: user}
+	h.loginToken = jwt
+	return h, hr
+}
+
+// TokenPublicKey returns the login token public key for the given url.
+func TokenPublicKey(c *gc.C, srv *Server, url string) jwk.Set {
+	set, err := srv.jwtTokenService.cache.Get(context.TODO(), url)
+	c.Assert(err, jc.ErrorIsNil)
+	return set
 }
 
 // TestingUpgradingRoot returns a resricted srvRoot in an upgrade

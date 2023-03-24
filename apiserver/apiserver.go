@@ -71,6 +71,10 @@ type Server struct {
 
 	shared *sharedServerContext
 
+	// jwtTokenService manages the refresh of the login
+	// token public key.
+	jwtTokenService *jwtService
+
 	// tag of the machine where the API server is running.
 	tag                    names.Tag
 	dataDir                string
@@ -355,6 +359,17 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		execEmbeddedCommand: cfg.ExecEmbeddedCommand,
 
 		healthStatus: "starting",
+	}
+	if refreshURL := controllerConfig.LoginTokenRefreshURL(); refreshURL != "" {
+		if !strings.Contains(refreshURL, "wellknown") {
+			refreshURL = strings.Trim(refreshURL, "/") + "/.well-known/jwks.json"
+		}
+		srv.jwtTokenService = &jwtService{
+			refreshURL: refreshURL,
+		}
+		if err := srv.jwtTokenService.RegisterJWKSCache(context.TODO(), http.DefaultClient); err != nil {
+			logger.Warningf("failed to refresh jwt cache: %v", err)
+		}
 	}
 	srv.updateAgentRateLimiter(controllerConfig)
 	srv.updateResourceDownloadLimiters(controllerConfig)

@@ -114,6 +114,9 @@ const (
 	// ControllerUUIDKey is the key for the controller UUID attribute.
 	ControllerUUIDKey = "controller-uuid"
 
+	// LoginTokenRefreshURL sets the url of the login jwt well known endpoint.
+	LoginTokenRefreshURL = "login-token-refresh-url"
+
 	// IdentityURL sets the url of the identity manager.
 	IdentityURL = "identity-url"
 
@@ -379,6 +382,7 @@ var (
 		ControllerAPIPort,
 		ControllerName,
 		ControllerUUIDKey,
+		LoginTokenRefreshURL,
 		IdentityPublicKey,
 		IdentityURL,
 		SetNUMAControlPolicyKey,
@@ -788,6 +792,11 @@ func (c Config) IdentityPublicKey() *bakery.PublicKey {
 	return &pubKey
 }
 
+// LoginTokenRefreshURL returns the url of the login jwt well known endpoint.
+func (c Config) LoginTokenRefreshURL() string {
+	return c.asString(LoginTokenRefreshURL)
+}
+
 // MongoMemoryProfile returns the selected profile or low.
 func (c Config) MongoMemoryProfile() string {
 	if profile, ok := c[MongoMemoryProfile]; ok {
@@ -992,6 +1001,16 @@ func Validate(c Config) error {
 		// key.
 		if _, ok := c[IdentityPublicKey]; !ok && u.Scheme != "https" {
 			return errors.Errorf("URL needs to be https when %s not provided", IdentityPublicKey)
+		}
+	}
+
+	if v, ok := c[LoginTokenRefreshURL].(string); ok {
+		u, err := url.Parse(v)
+		if err != nil {
+			return errors.Annotate(err, "invalid login token refresh URL")
+		}
+		if u.Scheme == "" || u.Host == "" {
+			return errors.NotValidf("logic token refresh URL %q", v)
 		}
 	}
 
@@ -1273,6 +1292,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	ControllerAPIPort:                schema.ForceInt(),
 	ControllerName:                   schema.String(),
 	StatePort:                        schema.ForceInt(),
+	LoginTokenRefreshURL:             schema.String(),
 	IdentityURL:                      schema.String(),
 	IdentityPublicKey:                schema.String(),
 	SetNUMAControlPolicyKey:          schema.Bool(),
@@ -1317,6 +1337,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	AuditLogMaxBackups:               DefaultAuditLogMaxBackups,
 	AuditLogExcludeMethods:           DefaultAuditLogExcludeMethods,
 	StatePort:                        DefaultStatePort,
+	LoginTokenRefreshURL:             schema.Omit,
 	IdentityURL:                      schema.Omit,
 	IdentityPublicKey:                schema.Omit,
 	SetNUMAControlPolicyKey:          DefaultNUMAControlPolicy,
@@ -1411,6 +1432,10 @@ set, the api-port isn't opened until the controllers have started properly.`,
 	StatePort: {
 		Type:        environschema.Tint,
 		Description: `The port used for mongo connections`,
+	},
+	LoginTokenRefreshURL: {
+		Type:        environschema.Tstring,
+		Description: `The url of the jwt well known endpoint`,
 	},
 	IdentityURL: {
 		Type:        environschema.Tstring,
