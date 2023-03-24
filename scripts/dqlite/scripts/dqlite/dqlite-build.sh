@@ -89,14 +89,15 @@ build() {
     git clone https://github.com/libuv/libuv.git --depth 1 --branch ${TAG_LIBUV}
     cd libuv
     ./autogen.sh
-    ./configure # we need the .so files as well; see note below
+    ./configure CFLAGS="${CUSTOM_CFLAGS}" # we need the .so files as well; see note below
     make
     cd ../
 
     # liblz4
     git clone https://github.com/lz4/lz4.git --depth 1 --branch ${TAG_LIBLZ4}
     cd lz4
-    make lib
+    CFLAGS="${CUSTOM_CFLAGS}" \
+        make lib
     cd ../
 
     # raft
@@ -116,7 +117,7 @@ build() {
     # sqlite3
     git clone https://github.com/sqlite/sqlite.git --depth 1 --branch ${TAG_SQLITE}
     cd sqlite
-    ./configure --disable-shared
+    ./configure --disable-shared CFLAGS="${CUSTOM_CFLAGS}"
     make
     cd ../
 
