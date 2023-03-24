@@ -186,7 +186,8 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 
 	// Does the requested local endpoint exist?
 	var localEndpoint *state.Endpoint
-	for _, ep := range eps {
+	for _, v := range eps {
+		ep := v
 		if ep.Name == relation.LocalEndpointName {
 			localEndpoint = &ep
 			break

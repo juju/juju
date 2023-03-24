@@ -145,8 +145,9 @@ func (c *guiCommand) Run(ctx *cmd.Context) error {
 	}
 	var vers *version.Number
 	for _, v := range versions {
-		if v.Current {
-			vers = &v.Version
+		ver := v
+		if ver.Current {
+			vers = &ver.Version
 			break
 		}
 	}
