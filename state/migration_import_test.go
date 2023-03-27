@@ -1578,34 +1578,27 @@ func (s *MigrationImportSuite) TestSpaces(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) TestFirewallRules(c *gc.C) {
-	serviceType := firewall.WellKnownServiceType("ssh")
-	cidr0 := []string{"192.0.2.1/24"}
-	cidr1 := []string{"192.168.2.1/16"}
+	sshCIDRs := []string{"192.168.1.0/24", "192.0.2.1/24"}
+	saasCIDRs := []string{"10.0.0.0/16"}
 
-	fwRule0 := state.NewFirewallRule(serviceType, cidr0)
-	fwRule1 := state.NewFirewallRule(serviceType, cidr1)
+	sshRule := state.NewFirewallRule(firewall.SSHRule, sshCIDRs)
+	saasRule := state.NewFirewallRule(firewall.JujuApplicationOfferRule, saasCIDRs)
 
 	firewallRuleService := state.NewFirewallRules(s.State)
-	err := firewallRuleService.Save(fwRule0)
+	err := firewallRuleService.Save(sshRule)
+	c.Assert(err, jc.ErrorIsNil)
+	err = firewallRuleService.Save(saasRule)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = firewallRuleService.Save(fwRule1)
+	_, newSt := s.importModel(c, s.State)
+
+	m, err := newSt.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	cfg, err := m.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, newSt := s.importModel(c, s.State, func(map[string]interface{}) {
-		err := firewallRuleService.Remove(serviceType)
-		c.Assert(err, jc.ErrorIsNil)
-	})
-
-	firewallRuleService = state.NewFirewallRules(newSt)
-	rules, err := firewallRuleService.AllRules()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rules, gc.HasLen, 1)
-
-	rule, err := firewallRuleService.Rule(serviceType)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rule.WhitelistCIDRs(), gc.DeepEquals, fwRule1.WhitelistCIDRs())
-	c.Assert(rule.WellKnownService(), gc.Equals, fwRule1.WellKnownService())
+	c.Assert(cfg.SSHAllow(), gc.DeepEquals, sshCIDRs)
+	c.Assert(cfg.SAASIngressAllow(), gc.DeepEquals, saasCIDRs)
 }
 
 func (s *MigrationImportSuite) TestDestroyEmptyModel(c *gc.C) {

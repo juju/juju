@@ -1613,7 +1613,7 @@ func (i *importer) firewallRules() error {
 		return m.Execute(stateModelNamspaceShim{
 			Model: migration.src,
 			st:    i.st,
-		}, migration.dst)
+		}, i.dbModel)
 	})
 	if err := migration.Run(); err != nil {
 		return errors.Trace(err)
