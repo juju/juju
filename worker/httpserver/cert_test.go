@@ -90,11 +90,11 @@ func (s *certSuite) TestAutocertFailure(c *gc.C) {
 		_, err := tls.Dial("tcp", parsed.Host, &tls.Config{
 			ServerName: "somewhere.example",
 		})
-		expectedErr := `x509: certificate is valid for .*, not somewhere.example`
+		expectedErr := `.*x509: certificate is valid for .*, not somewhere.example`
 		if runtime.GOOS == "windows" {
 			// For some reason, windows doesn't think that the certificate is signed
 			// by a valid authority. This could be problematic.
-			expectedErr = "x509: certificate signed by unknown authority"
+			expectedErr = ".*x509: certificate signed by unknown authority"
 		}
 		// We can't get an autocert certificate, so we'll fall back to the local certificate
 		// which isn't valid for connecting to somewhere.example.
@@ -131,11 +131,11 @@ func (s *certSuite) TestAutocertNameMismatch(c *gc.C) {
 		_, err := tls.Dial("tcp", parsed.Host, &tls.Config{
 			ServerName: "somewhere.else",
 		})
-		expectedErr := `x509: certificate is valid for .*, not somewhere.else`
+		expectedErr := `.*x509: certificate is valid for .*, not somewhere.else`
 		if runtime.GOOS == "windows" {
 			// For some reason, windows doesn't think that the certificate is signed
 			// by a valid authority. This could be problematic.
-			expectedErr = "x509: certificate signed by unknown authority"
+			expectedErr = ".*x509: certificate signed by unknown authority"
 		}
 		// We can't get an autocert certificate, so we'll fall back to the local certificate
 		// which isn't valid for connecting to somewhere.example.
@@ -160,11 +160,11 @@ func (s *certSuite) TestAutocertNoAutocertDNSName(c *gc.C) {
 		_, err := tls.Dial("tcp", parsed.Host, &tls.Config{
 			ServerName: "somewhere.example",
 		})
-		expectedErr := `x509: certificate is valid for .*, not somewhere.example`
+		expectedErr := `.*x509: certificate is valid for .*, not somewhere.example`
 		if runtime.GOOS == "windows" {
 			// For some reason, windows doesn't think that the certificate is signed
 			// by a valid authority. This could be problematic.
-			expectedErr = "x509: certificate signed by unknown authority"
+			expectedErr = ".*x509: certificate signed by unknown authority"
 		}
 		// We can't get an autocert certificate, so we'll fall back to the local certificate
 		// which isn't valid for connecting to somewhere.example.
