@@ -16,6 +16,7 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -227,7 +228,8 @@ func (a *admin) authenticate(ctx context.Context, req params.LoginRequest) (*aut
 		userLogin:           true,
 	}
 
-	if req.AuthTag != "" {
+	logger.Debugf("request loginToken: %q", req.Token)
+	if req.Token == "" && req.AuthTag != "" {
 		tag, err := names.ParseTag(req.AuthTag)
 		if err == nil {
 			result.tag = tag
@@ -279,31 +281,48 @@ func (a *admin) authenticate(ctx context.Context, req params.LoginRequest) (*aut
 	// information for them.
 	startPinger := !result.anonymousLogin
 
-	// Only attempt to login with credentials if we are not doing an anonymous login.
+	// controllerConn is used to indicate a connection from
+	// the controller to a non-controller model.
+	controllerConn := false
 	if !result.anonymousLogin {
-		authInfo, err := a.srv.authenticator.AuthenticateLoginRequest(ctx, a.root.serverHost, modelUUID, req)
-		if err != nil {
-			return nil, a.handleAuthError(err)
-		}
+		// Only attempt to login with credentials if we are not doing an anonymous login.
+		if req.Token != "" {
+			tok, entity, err := a.srv.jwtTokenService.Parse(ctx, req.Token)
+			if err != nil {
+				return nil, a.handleAuthError(errors.Annotate(err, "parsing request loginToken"))
+			}
+			a.root.entity = entity
+			a.root.loginToken = tok
+		} else {
+			authParams := authentication.AuthParams{
+				AuthTag:       result.tag,
+				Credentials:   req.Credentials,
+				Nonce:         req.Nonce,
+				Macaroons:     req.Macaroons,
+				BakeryVersion: req.BakeryVersion,
+			}
+			authInfo, err := a.srv.authenticator.AuthenticateLoginRequest(ctx, a.root.serverHost, modelUUID, authParams)
+			if err != nil {
+				return nil, a.handleAuthError(err)
+			}
 
-		result.controllerMachineLogin = authInfo.Controller
-		// controllerConn is used to indicate a connection from
-		// the controller to a non-controller model.
-		controllerConn := false
-		if authInfo.Controller && !a.root.state.IsController() {
-			// We only need to run a pinger for controller machine
-			// agents when logging into the controller model.
-			startPinger = false
-			controllerConn = true
+			result.controllerMachineLogin = authInfo.Controller
+			if authInfo.Controller && !a.root.state.IsController() {
+				// We only need to run a pinger for controller machine
+				// agents when logging into the controller model.
+				startPinger = false
+				controllerConn = true
+			}
+			a.root.entity = authInfo.Entity
 		}
-
-		// TODO(wallyworld) - we can't yet observe anonymous logins as entity must be non-nil
-		a.root.entity = authInfo.Entity
-		a.apiObserver.Login(authInfo.Entity.Tag(), a.root.model.ModelTag(), controllerConn, req.UserData)
 	} else if a.root.model == nil {
 		// Anonymous login to unknown model.
 		// Hide the fact that the model does not exist.
 		return nil, errors.Unauthorizedf("invalid entity name or password")
+	}
+	// TODO(wallyworld) - we can't yet observe anonymous logins as entity must be non-nil
+	if !result.anonymousLogin {
+		a.apiObserver.Login(a.root.entity.Tag(), a.root.model.ModelTag(), controllerConn, req.UserData)
 	}
 	a.loggedIn = true
 
@@ -389,10 +408,27 @@ func (a *admin) fillLoginDetails(result *authResult, lastConnection *time.Time) 
 	// Send back user info if user
 	if result.userLogin {
 		userTag := a.root.entity.Tag().(names.UserTag)
-		var err error
-		result.userInfo, err = a.checkUserPermissions(userTag, result.controllerOnlyLogin)
-		if err != nil {
-			return errors.Trace(err)
+		if token := a.root.loginToken; token != nil {
+			// We're passing in known valid tag kinds here, so we'll not get an error.
+			controllerAccess, err := permissionFromToken(token, names.ControllerTagKind)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			modelAccess, err := permissionFromToken(token, names.ModelTagKind)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			result.userInfo = &params.AuthUserInfo{
+				Identity:         userTag.String(),
+				ControllerAccess: string(controllerAccess),
+				ModelAccess:      string(modelAccess),
+			}
+		} else {
+			var err error
+			result.userInfo, err = a.checkUserPermissions(userTag, result.controllerOnlyLogin)
+			if err != nil {
+				return errors.Trace(err)
+			}
 		}
 		result.userInfo.LastConnection = lastConnection
 	}

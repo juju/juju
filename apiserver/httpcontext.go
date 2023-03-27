@@ -15,6 +15,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/apiserver/stateauthenticator"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -221,20 +222,32 @@ func (controllerAuthorizer) Authorize(authInfo httpcontext.AuthInfo) error {
 }
 
 type controllerAdminAuthorizer struct {
-	st *state.State
+	hasPermission hasPermissionFunc
 }
 
 // Authorize is part of the httpcontext.Authorizer interface.
 func (a controllerAdminAuthorizer) Authorize(authInfo httpcontext.AuthInfo) error {
+	if authInfo.Token != nil {
+		access, err := permissionFromToken(authInfo.Token, names.ControllerTagKind)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if access != permission.SuperuserAccess {
+			return errors.Errorf("%s is not a controller admin", names.ReadableString(authInfo.Entity.Tag()))
+		}
+	}
+	if a.hasPermission == nil {
+		return errors.New("no permission checker configured")
+	}
 	userTag, ok := authInfo.Entity.Tag().(names.UserTag)
 	if !ok {
 		return errors.Errorf("%s is not a user", names.ReadableString(authInfo.Entity.Tag()))
 	}
-	admin, err := a.st.IsControllerAdmin(userTag)
+	isControllerAdmin, err := a.hasPermission(permission.SuperuserAccess, userTag)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if !admin {
+	if !isControllerAdmin {
 		return errors.Errorf("%s is not a controller admin", names.ReadableString(authInfo.Entity.Tag()))
 	}
 	return nil

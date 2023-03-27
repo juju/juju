@@ -15,8 +15,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/httpcontext"
-	"github.com/juju/juju/rpc/params"
 )
 
 type BasicAuthHandlerSuite struct {
@@ -51,7 +51,7 @@ func (s *BasicAuthHandlerSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *BasicAuthHandlerSuite) Authenticate(req *http.Request) (httpcontext.AuthInfo, error) {
+func (s *BasicAuthHandlerSuite) Authenticate(req *http.Request, tokenParser authentication.TokenParser) (httpcontext.AuthInfo, error) {
 	s.stub.MethodCall(s, "Authenticate", req)
 	if err := s.stub.NextErr(); err != nil {
 		return httpcontext.AuthInfo{}, err
@@ -60,7 +60,7 @@ func (s *BasicAuthHandlerSuite) Authenticate(req *http.Request) (httpcontext.Aut
 }
 
 func (s *BasicAuthHandlerSuite) AuthenticateLoginRequest(
-	ctx context.Context, serverHost, modelUUID string, req params.LoginRequest,
+	ctx context.Context, serverHost, modelUUID string, authParams authentication.AuthParams,
 ) (httpcontext.AuthInfo, error) {
 	panic("should not be called")
 }

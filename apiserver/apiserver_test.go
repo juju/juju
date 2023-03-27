@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/cache"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/jujuclient"
 	psapiserver "github.com/juju/juju/pubsub/apiserver"
@@ -178,6 +179,9 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 			}
 			return 0
 		},
+		HasPermissionFunc: func(operation permission.Access, target names.Tag) (bool, error) {
+			return apiserver.CheckHasPermission(s.State, operation, target)
+		},
 		SysLogger: noopSysLogger{},
 		DBGetter:  apiserver.StubDBGetter{},
 	}
@@ -281,6 +285,21 @@ func (s *apiserverBaseSuite) openAPIAs(c *gc.C, srv *apiserver.Server, tag names
 	apiInfo.Tag = tag
 	apiInfo.Password = password
 	apiInfo.Nonce = nonce
+	if !controllerOnly {
+		apiInfo.ModelTag = s.Model.ModelTag()
+	}
+	conn, err := api.Open(apiInfo, api.DialOpts{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(conn, gc.NotNil)
+	s.AddCleanup(func(c *gc.C) {
+		conn.Close()
+	})
+	return conn
+}
+
+func (s *apiserverBaseSuite) openAPINoLogin(c *gc.C, srv *apiserver.Server, controllerOnly bool) api.Connection {
+	apiInfo := s.APIInfo(srv)
+	apiInfo.SkipLogin = true
 	if !controllerOnly {
 		apiInfo.ModelTag = s.Model.ModelTag()
 	}

@@ -10,6 +10,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/httpcontext"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/rpc/params"
@@ -20,8 +21,9 @@ func newDebugLogDBHandler(
 	ctxt httpContext,
 	authenticator httpcontext.Authenticator,
 	authorizer httpcontext.Authorizer,
+	tokenParser authentication.TokenParser,
 ) http.Handler {
-	return newDebugLogHandler(ctxt, authenticator, authorizer, handleDebugLogDBRequest)
+	return newDebugLogHandler(ctxt, authenticator, authorizer, handleDebugLogDBRequest, tokenParser)
 }
 
 func handleDebugLogDBRequest(

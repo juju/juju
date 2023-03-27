@@ -102,7 +102,7 @@ func (a *Authenticator) AddHandlers(mux *apiserverhttp.Mux) error {
 }
 
 // Authenticate is part of the httpcontext.Authenticator interface.
-func (a *Authenticator) Authenticate(req *http.Request) (httpcontext.AuthInfo, error) {
+func (a *Authenticator) Authenticate(req *http.Request, tokenParser authentication.TokenParser) (httpcontext.AuthInfo, error) {
 	modelUUID := httpcontext.RequestModelUUID(req)
 	if modelUUID == "" {
 		return httpcontext.AuthInfo{}, errors.New("model UUID not found")
@@ -111,27 +111,38 @@ func (a *Authenticator) Authenticate(req *http.Request) (httpcontext.AuthInfo, e
 	if err != nil {
 		return httpcontext.AuthInfo{}, errors.Trace(err)
 	}
-	return a.AuthenticateLoginRequest(req.Context(), req.Host, modelUUID, loginRequest)
+	authParams := authentication.AuthParams{
+		Credentials:   loginRequest.Credentials,
+		Nonce:         loginRequest.Nonce,
+		Macaroons:     loginRequest.Macaroons,
+		BakeryVersion: loginRequest.BakeryVersion,
+	}
+	if loginRequest.AuthTag != "" {
+		authParams.AuthTag, err = names.ParseTag(loginRequest.AuthTag)
+		if err != nil {
+			return httpcontext.AuthInfo{}, errors.Trace(err)
+		}
+	}
+	if tokenParser != nil && loginRequest.Token != "" {
+		token, entity, err := tokenParser.Parse(req.Context(), loginRequest.Token)
+		if err != nil {
+			return httpcontext.AuthInfo{}, errors.Trace(err)
+		}
+		return httpcontext.AuthInfo{
+			Entity: entity,
+			Token:  token,
+		}, nil
+	}
+	return a.AuthenticateLoginRequest(req.Context(), req.Host, modelUUID, authParams)
 }
 
 // AuthenticateLoginRequest authenticates a LoginRequest.
-//
-// TODO(axw) we shouldn't be using params types here.
 func (a *Authenticator) AuthenticateLoginRequest(
 	ctx context.Context,
 	serverHost string,
 	modelUUID string,
-	req params.LoginRequest,
+	authParams authentication.AuthParams,
 ) (httpcontext.AuthInfo, error) {
-	var authTag names.Tag
-	if req.AuthTag != "" {
-		tag, err := names.ParseTag(req.AuthTag)
-		if err != nil {
-			return httpcontext.AuthInfo{}, errors.Trace(err)
-		}
-		authTag = tag
-	}
-
 	st, err := a.statePool.Get(modelUUID)
 	if err != nil {
 		return httpcontext.AuthInfo{}, errors.Trace(err)
@@ -139,34 +150,35 @@ func (a *Authenticator) AuthenticateLoginRequest(
 	defer st.Release()
 
 	authenticator := a.authContext.authenticator(serverHost)
-	authInfo, err := a.checkCreds(ctx, st.State, req, authTag, true, authenticator)
+	authInfo, err := a.checkCreds(ctx, st.State, authParams, true, authenticator)
+	if err == nil {
+		return authInfo, err
+	}
+	var dischargeRequired *apiservererrors.DischargeRequiredError
+	if errors.As(err, &dischargeRequired) || errors.Is(err, errors.NotProvisioned) {
+		// TODO(axw) move out of common?
+		return httpcontext.AuthInfo{}, errors.Trace(err)
+	}
+	_, isMachineTag := authParams.AuthTag.(names.MachineTag)
+	_, isControllerAgentTag := authParams.AuthTag.(names.ControllerAgentTag)
+	systemState, errS := a.statePool.SystemState()
+	if errS != nil {
+		return httpcontext.AuthInfo{}, errors.Trace(err)
+	}
+	if (isMachineTag || isControllerAgentTag) && !st.IsController() {
+		// Controller agents are allowed to log into any model.
+		var err2 error
+		authInfo, err2 = a.checkCreds(
+			ctx,
+			systemState,
+			authParams, false, authenticator,
+		)
+		if err2 == nil && authInfo.Controller {
+			err = nil
+		}
+	}
 	if err != nil {
-		var dischargeRequired *apiservererrors.DischargeRequiredError
-		if errors.As(err, &dischargeRequired) || errors.Is(err, errors.NotProvisioned) {
-			// TODO(axw) move out of common?
-			return httpcontext.AuthInfo{}, errors.Trace(err)
-		}
-		_, isMachineTag := authTag.(names.MachineTag)
-		_, isControllerAgentTag := authTag.(names.ControllerAgentTag)
-		systemState, errS := a.statePool.SystemState()
-		if errS != nil {
-			return httpcontext.AuthInfo{}, errors.Trace(err)
-		}
-		if (isMachineTag || isControllerAgentTag) && !st.IsController() {
-			// Controller agents are allowed to log into any model.
-			var err2 error
-			authInfo, err2 = a.checkCreds(
-				ctx,
-				systemState,
-				req, authTag, false, authenticator,
-			)
-			if err2 == nil && authInfo.Controller {
-				err = nil
-			}
-		}
-		if err != nil {
-			return httpcontext.AuthInfo{}, errors.NewUnauthorized(err, "")
-		}
+		return httpcontext.AuthInfo{}, errors.NewUnauthorized(err, "")
 	}
 	return authInfo, nil
 }
@@ -174,8 +186,7 @@ func (a *Authenticator) AuthenticateLoginRequest(
 func (a *Authenticator) checkCreds(
 	ctx context.Context,
 	st *state.State,
-	req params.LoginRequest,
-	authTag names.Tag,
+	authParams authentication.AuthParams,
 	userLogin bool,
 	authenticator authentication.Authenticator,
 ) (httpcontext.AuthInfo, error) {
@@ -186,7 +197,7 @@ func (a *Authenticator) checkCreds(
 		// tag is in the local domain) and the model user.
 		entityFinder = modelUserEntityFinder{st}
 	}
-	entity, err := authenticator.Authenticate(ctx, entityFinder, authTag, req)
+	entity, err := authenticator.Authenticate(ctx, entityFinder, authParams)
 	if err != nil {
 		return httpcontext.AuthInfo{}, errors.Trace(err)
 	}
@@ -204,7 +215,7 @@ func (a *Authenticator) checkCreds(
 	}
 	if entity, ok := entity.(withLogin); ok {
 		if err := entity.UpdateLastLogin(); err != nil {
-			logger.Warningf("updating last login time for %v", authTag)
+			logger.Warningf("updating last login time for %v", authParams.AuthTag)
 		}
 	}
 	return authInfo, nil

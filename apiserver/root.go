@@ -16,6 +16,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/rpcreflect"
 	"github.com/juju/version/v2"
+	"github.com/lestrrat-go/jwx/v2/jwt"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
@@ -49,12 +50,13 @@ type objectKey struct {
 // after it has logged in. It contains an rpc.Root which it
 // uses to dispatch API calls appropriately.
 type apiHandler struct {
-	state     *state.State
-	model     *state.Model
-	rpcConn   *rpc.Conn
-	resources *common.Resources
-	shared    *sharedServerContext
-	entity    state.Entity
+	state      *state.State
+	model      *state.Model
+	rpcConn    *rpc.Conn
+	resources  *common.Resources
+	shared     *sharedServerContext
+	entity     state.Entity
+	loginToken jwt.Token
 
 	// An empty modelUUID means that the user has logged in through the
 	// root of the API server rather than the /model/:model-uuid/api
@@ -706,14 +708,18 @@ func (r *apiHandler) ConnectedModel() string {
 	return r.modelUUID
 }
 
-// HasPermission returns true if the logged in user can perform <operation> on <target>.
-func (r *apiHandler) HasPermission(operation permission.Access, target names.Tag) (bool, error) {
-	return common.HasPermission(r.state.UserPermission, r.entity.Tag(), operation, target)
+func (r *apiHandler) userPermission(subject names.UserTag, target names.Tag) (permission.Access, error) {
+	if r.loginToken == nil {
+		return r.state.UserPermission(subject, target)
+	}
+	return permissionFromToken(r.loginToken, target.Kind())
 }
 
-// UserHasPermission returns true if the passed in user can perform <operation> on <target>.
-func (r *apiHandler) UserHasPermission(user names.UserTag, operation permission.Access, target names.Tag) (bool, error) {
-	return common.HasPermission(r.state.UserPermission, user, operation, target)
+type hasPermissionFunc func(operation permission.Access, target names.Tag) (bool, error)
+
+// HasPermission returns true if the logged in user can perform <operation> on <target>.
+func (r *apiHandler) HasPermission(operation permission.Access, target names.Tag) (bool, error) {
+	return common.HasPermission(r.userPermission, r.entity.Tag(), operation, target)
 }
 
 // DescribeFacades returns the list of available Facades and their Versions

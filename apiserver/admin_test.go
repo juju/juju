@@ -35,7 +35,6 @@ import (
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/client/controller"
-	"github.com/juju/juju/apiserver/httpcontext"
 	servertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/apiserver/testserver"
 	corecontroller "github.com/juju/juju/controller"
@@ -1594,26 +1593,4 @@ func (t errorTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		}, nil
 	}
 	return t.fallback.RoundTrip(req)
-}
-
-type mockDelayAuthenticator struct {
-	httpcontext.LocalMacaroonAuthenticator
-	delay chan struct{}
-}
-
-func (a *mockDelayAuthenticator) AuthenticateLoginRequest(
-	serverHost string,
-	modelUUID string,
-	req params.LoginRequest,
-) (httpcontext.AuthInfo, error) {
-	select {
-	case <-time.After(coretesting.LongWait):
-		panic("timed out delaying login")
-	case <-a.delay:
-	}
-	tag, err := names.ParseTag(req.AuthTag)
-	if err != nil {
-		return httpcontext.AuthInfo{}, errors.Trace(err)
-	}
-	return httpcontext.AuthInfo{Entity: &mockEntity{tag: tag}}, nil
 }

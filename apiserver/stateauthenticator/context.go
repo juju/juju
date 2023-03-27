@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/apiserver/bakeryutil"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/macaroon"
-	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
@@ -183,14 +182,13 @@ type authenticator struct {
 func (a authenticator) Authenticate(
 	ctx context.Context,
 	entityFinder authentication.EntityFinder,
-	tag names.Tag,
-	req params.LoginRequest,
+	authParams authentication.AuthParams,
 ) (state.Entity, error) {
-	auth, err := a.authenticatorForTag(tag)
+	auth, err := a.authenticatorForTag(authParams.AuthTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return auth.Authenticate(ctx, entityFinder, tag, req)
+	return auth.Authenticate(ctx, entityFinder, authParams)
 }
 
 // authenticatorForTag returns the authenticator appropriate

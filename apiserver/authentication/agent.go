@@ -7,10 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
@@ -26,10 +24,10 @@ type taggedAuthenticator interface {
 
 // Authenticate authenticates the provided entity.
 // It takes an entityfinder and the tag used to find the entity that requires authentication.
-func (*EntityAuthenticator) Authenticate(ctx context.Context, entityFinder EntityFinder, tag names.Tag, req params.LoginRequest) (state.Entity, error) {
-	entity, err := entityFinder.FindEntity(tag)
+func (*EntityAuthenticator) Authenticate(ctx context.Context, entityFinder EntityFinder, authParams AuthParams) (state.Entity, error) {
+	entity, err := entityFinder.FindEntity(authParams.AuthTag)
 	if errors.IsNotFound(err) {
-		logger.Debugf("cannot authenticate unknown entity: %v", tag)
+		logger.Debugf("cannot authenticate unknown entity: %v", authParams.AuthTag)
 		return nil, errors.Trace(apiservererrors.ErrBadCreds)
 	}
 	if err != nil {
@@ -39,7 +37,7 @@ func (*EntityAuthenticator) Authenticate(ctx context.Context, entityFinder Entit
 	if !ok {
 		return nil, errors.Trace(apiservererrors.ErrBadRequest)
 	}
-	if !authenticator.PasswordValid(req.Credentials) {
+	if !authenticator.PasswordValid(authParams.Credentials) {
 		return nil, errors.Trace(apiservererrors.ErrBadCreds)
 	}
 
@@ -53,7 +51,7 @@ func (*EntityAuthenticator) Authenticate(ctx context.Context, entityFinder Entit
 	// prevent a controller machine from logging into the hosted
 	// model.
 	if machine, ok := authenticator.(*state.Machine); ok {
-		if !machine.CheckProvisioned(req.Nonce) {
+		if !machine.CheckProvisioned(authParams.Nonce) {
 			return nil, errors.NotProvisionedf("machine %v", machine.Id())
 		}
 	}

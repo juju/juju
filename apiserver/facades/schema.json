@@ -860,6 +860,9 @@
                         "nonce": {
                             "type": "string"
                         },
+                        "token": {
+                            "type": "string"
+                        },
                         "user-data": {
                             "type": "string"
                         }
