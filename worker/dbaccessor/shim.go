@@ -12,7 +12,8 @@ import (
 	"github.com/juju/juju/database/dqlite"
 )
 
-// Client describes a Dqlite client, which can retrieve cluster information.
+// Client describes a client that speaks the Dqlite wire protocol,
+// and can retrieve cluster information.
 type Client interface {
 	// Cluster returns the current state of the Dqlite cluster.
 	Cluster(context.Context) ([]dqlite.NodeInfo, error)
@@ -34,6 +35,8 @@ type DBApp interface {
 	// likely to succeed quickly.
 	Ready(context.Context) error
 
+	// Client returns a client that can be used
+	// to interrogate the Dqlite cluster.
 	Client(ctx context.Context) (Client, error)
 
 	// Handover transfers all responsibilities for this node (such has
@@ -50,7 +53,7 @@ type DBApp interface {
 	Close() error
 }
 
-// dbApp wraps a Dqlite App reference, to that we can shim out Client.
+// dbApp wraps a Dqlite App reference, so that we can shim out Client.
 type dbApp struct {
 	*app.App
 }
