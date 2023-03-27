@@ -715,6 +715,8 @@ func (r *apiHandler) userPermission(subject names.UserTag, target names.Tag) (pe
 	return permissionFromToken(r.loginToken, target.Kind())
 }
 
+type hasPermissionFunc func(operation permission.Access, target names.Tag) (bool, error)
+
 // HasPermission returns true if the logged in user can perform <operation> on <target>.
 func (r *apiHandler) HasPermission(operation permission.Access, target names.Tag) (bool, error) {
 	return common.HasPermission(r.userPermission, r.entity.Tag(), operation, target)

@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/lestrrat-go/jwx/v2/jwk"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver"
@@ -21,23 +22,18 @@ import (
 
 type loginTokenSuite struct {
 	apiserverBaseSuite
-	url string
-	tok []byte
+	url        string
+	keySet     jwk.Set
+	signingKey jwk.Key
 }
 
 var _ = gc.Suite(&loginTokenSuite{})
 
 func (s *loginTokenSuite) SetUpTest(c *gc.C) {
-	tok, set, err := apitesting.EncodedJWT(apitesting.JWTParams{
-		Controller: testing.ControllerTag.Id(),
-		User:       "user-fred",
-		Access: map[string]string{
-			"controller": "superuser",
-			"model":      "write",
-		},
-	})
+	keySet, signingKey, err := apitesting.NewJWKSet()
 	c.Assert(err, jc.ErrorIsNil)
-	s.tok = tok
+	s.keySet = keySet
+	s.signingKey = signingKey
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.RequestURI != "/.well-known/jwks.json" {
@@ -46,7 +42,7 @@ func (s *loginTokenSuite) SetUpTest(c *gc.C) {
 		}
 		hdrs := w.Header()
 		hdrs.Set(`Content-Type`, `application/json`)
-		pub, _ := set.Key(0)
+		pub, _ := s.keySet.Key(0)
 		_ = json.NewEncoder(w).Encode(pub)
 	}))
 
@@ -67,16 +63,70 @@ func (s *loginTokenSuite) TestUsesLoginToken(c *gc.C) {
 	srv := s.newServer(c, s.config)
 	st := s.openAPINoLogin(c, srv, false)
 
+	tok, err := apitesting.EncodedJWT(apitesting.JWTParams{
+		Controller: testing.ControllerTag.Id(),
+		User:       "user-fred",
+		Access: map[string]string{
+			"controller": "superuser",
+			"model":      "write",
+		},
+	}, s.keySet, s.signingKey)
+	c.Assert(err, jc.ErrorIsNil)
 	request := &params.LoginRequest{
-		Token:         base64.StdEncoding.EncodeToString(s.tok),
+		Token:         base64.StdEncoding.EncodeToString(tok),
 		ClientVersion: jujuversion.Current.String(),
 	}
 
 	var response params.LoginResult
-	err := st.APICall("Admin", 3, "", "Login", request, &response)
+	err = st.APICall("Admin", 3, "", "Login", request, &response)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(response.UserInfo, gc.NotNil)
 	c.Assert(response.UserInfo.Identity, gc.Equals, "user-fred")
 	c.Assert(response.UserInfo.ControllerAccess, gc.Equals, "superuser")
 	c.Assert(response.UserInfo.ModelAccess, gc.Equals, "write")
+}
+
+func (s *loginTokenSuite) TestLoginInvalidUser(c *gc.C) {
+	srv := s.newServer(c, s.config)
+	st := s.openAPINoLogin(c, srv, false)
+
+	tok, err := apitesting.EncodedJWT(apitesting.JWTParams{
+		Controller: testing.ControllerTag.Id(),
+		User:       "machine-0",
+		Access: map[string]string{
+			"controller": "superuser",
+			"model":      "write",
+		},
+	}, s.keySet, s.signingKey)
+	c.Assert(err, jc.ErrorIsNil)
+	request := &params.LoginRequest{
+		Token:         base64.StdEncoding.EncodeToString(tok),
+		ClientVersion: jujuversion.Current.String(),
+	}
+
+	var response params.LoginResult
+	err = st.APICall("Admin", 3, "", "Login", request, &response)
+	c.Assert(err, gc.ErrorMatches, `parsing request loginToken: invalid user tag in loginToken: "machine-0" is not a valid user tag`)
+}
+
+func (s *loginTokenSuite) TestLoginInvalidPermission(c *gc.C) {
+	srv := s.newServer(c, s.config)
+	st := s.openAPINoLogin(c, srv, false)
+
+	tok, err := apitesting.EncodedJWT(apitesting.JWTParams{
+		Controller: testing.ControllerTag.Id(),
+		User:       "user-fred",
+		Access: map[string]string{
+			"controller": "foo",
+		},
+	}, s.keySet, s.signingKey)
+	c.Assert(err, jc.ErrorIsNil)
+	request := &params.LoginRequest{
+		Token:         base64.StdEncoding.EncodeToString(tok),
+		ClientVersion: jujuversion.Current.String(),
+	}
+
+	var response params.LoginResult
+	err = st.APICall("Admin", 3, "", "Login", request, &response)
+	c.Assert(err, gc.ErrorMatches, `access level foo not valid .*`)
 }

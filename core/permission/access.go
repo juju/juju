@@ -45,7 +45,7 @@ var AllAccessLevels = []Access{NoAccess, ReadAccess, WriteAccess, ConsumeAccess,
 func (a Access) Validate() error {
 	switch a {
 	case NoAccess, AdminAccess, ReadAccess, WriteAccess,
-		LoginAccess, AddModelAccess, SuperuserAccess:
+		LoginAccess, AddModelAccess, SuperuserAccess, ConsumeAccess:
 		return nil
 	}
 	return errors.NotValidf("access level %s", a)

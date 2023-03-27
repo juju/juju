@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/juju/clock"
+	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -204,4 +205,18 @@ func AssertHasPermission(c *gc.C, handler *apiHandler, access permission.Access,
 	hasPermission, err := handler.HasPermission(access, tag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hasPermission, gc.Equals, expect)
+}
+
+func CheckHasPermission(st *state.State, operation permission.Access, target names.Tag) (bool, error) {
+	if operation != permission.SuperuserAccess || target.Kind() != names.UserTagKind {
+		return false, errors.Errorf("%s is not a user", names.ReadableString(target))
+	}
+	isAdmin, err := st.IsControllerAdmin(target.(names.UserTag))
+	if err != nil {
+		return false, err
+	}
+	if !isAdmin {
+		return false, errors.Errorf("%s is not a controller admin", names.ReadableString(target))
+	}
+	return true, nil
 }

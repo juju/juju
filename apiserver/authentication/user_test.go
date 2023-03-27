@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
 )
@@ -51,7 +50,8 @@ func (s *userAuthenticatorSuite) TestMachineLoginFails(c *gc.C) {
 
 	// attempt machine login
 	authenticator := &authentication.LocalUserAuthenticator{}
-	_, err = authenticator.Authenticate(context.TODO(), nil, machine.Tag(), params.LoginRequest{
+	_, err = authenticator.Authenticate(context.TODO(), nil, authentication.AuthParams{
+		AuthTag:     machine.Tag(),
 		Credentials: machinePassword,
 		Nonce:       nonce,
 	})
@@ -71,9 +71,9 @@ func (s *userAuthenticatorSuite) TestUnitLoginFails(c *gc.C) {
 
 	// Attempt unit login
 	authenticator := &authentication.LocalUserAuthenticator{}
-	_, err = authenticator.Authenticate(context.TODO(), nil, unit.Tag(), params.LoginRequest{
+	_, err = authenticator.Authenticate(context.TODO(), nil, authentication.AuthParams{
+		AuthTag:     unit.UnitTag(),
 		Credentials: unitPassword,
-		Nonce:       "",
 	})
 	c.Assert(err, gc.ErrorMatches, "invalid request")
 }
@@ -87,9 +87,9 @@ func (s *userAuthenticatorSuite) TestValidUserLogin(c *gc.C) {
 
 	// User login
 	authenticator := &authentication.LocalUserAuthenticator{}
-	_, err := authenticator.Authenticate(context.TODO(), s.State, user.Tag(), params.LoginRequest{
+	_, err := authenticator.Authenticate(context.TODO(), s.State, authentication.AuthParams{
+		AuthTag:     user.Tag(),
 		Credentials: "password",
-		Nonce:       "",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -103,9 +103,9 @@ func (s *userAuthenticatorSuite) TestUserLoginWrongPassword(c *gc.C) {
 
 	// User login
 	authenticator := &authentication.LocalUserAuthenticator{}
-	_, err := authenticator.Authenticate(context.TODO(), s.State, user.Tag(), params.LoginRequest{
+	_, err := authenticator.Authenticate(context.TODO(), s.State, authentication.AuthParams{
+		AuthTag:     user.Tag(),
 		Credentials: "wrongpassword",
-		Nonce:       "",
 	})
 	c.Assert(err, gc.ErrorMatches, "invalid entity name or password")
 
@@ -125,9 +125,9 @@ func (s *userAuthenticatorSuite) TestInvalidRelationLogin(c *gc.C) {
 
 	// Attempt relation login
 	authenticator := &authentication.LocalUserAuthenticator{}
-	_, err = authenticator.Authenticate(context.TODO(), nil, relation.Tag(), params.LoginRequest{
+	_, err = authenticator.Authenticate(context.TODO(), nil, authentication.AuthParams{
+		AuthTag:     relation.Tag(),
 		Credentials: "dummy-secret",
-		Nonce:       "",
 	})
 	c.Assert(err, gc.ErrorMatches, "invalid request")
 }
@@ -145,10 +145,9 @@ func (s *userAuthenticatorSuite) TestValidMacaroonUserLogin(c *gc.C) {
 
 	// User login
 	authenticator := &authentication.LocalUserAuthenticator{Bakery: &service, Clock: testclock.NewClock(time.Time{})}
-	_, err = authenticator.Authenticate(context.TODO(), s.State, user.Tag(), params.LoginRequest{
-		Credentials: "",
-		Nonce:       "",
-		Macaroons:   macaroons,
+	_, err = authenticator.Authenticate(context.TODO(), s.State, authentication.AuthParams{
+		AuthTag:   user.Tag(),
+		Macaroons: macaroons,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -186,8 +185,9 @@ func (s *userAuthenticatorSuite) TestAuthenticateLocalLoginMacaroon(c *gc.C) {
 	_, err := authenticator.Authenticate(
 		context.TODO(),
 		authentication.EntityFinder(nil),
-		names.NewUserTag("bobbrown"),
-		params.LoginRequest{},
+		authentication.AuthParams{
+			AuthTag: names.NewUserTag("bobbrown"),
+		},
 	)
 	c.Assert(err, gc.FitsTypeOf, &apiservererrors.DischargeRequiredError{})
 
@@ -326,11 +326,7 @@ func (s *macaroonAuthenticatorSuite) TestMacaroonAuthentication(c *gc.C) {
 		}
 
 		// Authenticate once to obtain the macaroon to be discharged.
-		_, err := authenticator.Authenticate(context.TODO(), test.finder, nil, params.LoginRequest{
-			Credentials: "",
-			Nonce:       "",
-			Macaroons:   nil,
-		})
+		_, err := authenticator.Authenticate(context.TODO(), test.finder, authentication.AuthParams{})
 
 		// Discharge the macaroon.
 		dischargeErr := errors.Cause(err).(*apiservererrors.DischargeRequiredError)
@@ -339,10 +335,8 @@ func (s *macaroonAuthenticatorSuite) TestMacaroonAuthentication(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 
 		// Authenticate again with the discharged macaroon.
-		entity, err := authenticator.Authenticate(context.TODO(), test.finder, nil, params.LoginRequest{
-			Credentials: "",
-			Nonce:       "",
-			Macaroons:   []macaroon.Slice{ms},
+		entity, err := authenticator.Authenticate(context.TODO(), test.finder, authentication.AuthParams{
+			Macaroons: []macaroon.Slice{ms},
 		})
 		if test.expectError != "" {
 			c.Assert(err, gc.ErrorMatches, test.expectError)

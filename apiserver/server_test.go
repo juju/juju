@@ -12,7 +12,6 @@ import (
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/gorilla/websocket"
-	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -24,6 +23,7 @@ import (
 	"github.com/juju/juju/api"
 	apimachiner "github.com/juju/juju/api/agent/machiner"
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/httpcontext"
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/apiserver/testserver"
@@ -380,7 +380,7 @@ func assertStop(c *gc.C, stopper stopper) {
 type mockAuthenticator struct {
 }
 
-func (a *mockAuthenticator) Authenticate(req *http.Request) (httpcontext.AuthInfo, error) {
+func (a *mockAuthenticator) Authenticate(req *http.Request, tokenParser authentication.TokenParser) (httpcontext.AuthInfo, error) {
 	return httpcontext.AuthInfo{}, nil
 }
 
@@ -388,14 +388,10 @@ func (a *mockAuthenticator) AuthenticateLoginRequest(
 	ctx context.Context,
 	serverHost string,
 	modelUUID string,
-	req params.LoginRequest,
+	authParams authentication.AuthParams,
 ) (httpcontext.AuthInfo, error) {
-	tag, err := names.ParseTag(req.AuthTag)
-	if err != nil {
-		return httpcontext.AuthInfo{}, errors.Trace(err)
-	}
 	return httpcontext.AuthInfo{
-		Entity: &mockEntity{tag: tag},
+		Entity: &mockEntity{tag: authParams.AuthTag},
 	}, nil
 }
 

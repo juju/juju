@@ -16,6 +16,7 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -283,33 +284,37 @@ func (a *admin) authenticate(ctx context.Context, req params.LoginRequest) (*aut
 	// controllerConn is used to indicate a connection from
 	// the controller to a non-controller model.
 	controllerConn := false
-	if req.Token != "" {
-		tok, err := a.srv.jwtTokenService.Parse(context.TODO(), req.Token)
-		if err != nil {
-			return nil, a.handleAuthError(errors.Annotate(err, "parsing request loginToken"))
-		}
-		a.root.loginToken = tok
-		entity, err := userFromToken(tok)
-		if err != nil {
-			return nil, a.handleAuthError(errors.Annotate(err, "invalid user in loginToken"))
-		}
-		result.tag = entity.Tag()
-		a.root.entity = entity
-	} else if !result.anonymousLogin {
+	if !result.anonymousLogin {
 		// Only attempt to login with credentials if we are not doing an anonymous login.
-		authInfo, err := a.srv.authenticator.AuthenticateLoginRequest(ctx, a.root.serverHost, modelUUID, req)
-		if err != nil {
-			return nil, a.handleAuthError(err)
-		}
+		if req.Token != "" {
+			tok, entity, err := a.srv.jwtTokenService.Parse(ctx, req.Token)
+			if err != nil {
+				return nil, a.handleAuthError(errors.Annotate(err, "parsing request loginToken"))
+			}
+			a.root.entity = entity
+			a.root.loginToken = tok
+		} else {
+			authParams := authentication.AuthParams{
+				AuthTag:       result.tag,
+				Credentials:   req.Credentials,
+				Nonce:         req.Nonce,
+				Macaroons:     req.Macaroons,
+				BakeryVersion: req.BakeryVersion,
+			}
+			authInfo, err := a.srv.authenticator.AuthenticateLoginRequest(ctx, a.root.serverHost, modelUUID, authParams)
+			if err != nil {
+				return nil, a.handleAuthError(err)
+			}
 
-		result.controllerMachineLogin = authInfo.Controller
-		if authInfo.Controller && !a.root.state.IsController() {
-			// We only need to run a pinger for controller machine
-			// agents when logging into the controller model.
-			startPinger = false
-			controllerConn = true
+			result.controllerMachineLogin = authInfo.Controller
+			if authInfo.Controller && !a.root.state.IsController() {
+				// We only need to run a pinger for controller machine
+				// agents when logging into the controller model.
+				startPinger = false
+				controllerConn = true
+			}
+			a.root.entity = authInfo.Entity
 		}
-		a.root.entity = authInfo.Entity
 	} else if a.root.model == nil {
 		// Anonymous login to unknown model.
 		// Hide the fact that the model does not exist.
@@ -404,8 +409,15 @@ func (a *admin) fillLoginDetails(result *authResult, lastConnection *time.Time) 
 	if result.userLogin {
 		userTag := a.root.entity.Tag().(names.UserTag)
 		if token := a.root.loginToken; token != nil {
-			controllerAccess, _ := permissionFromToken(token, names.ControllerTagKind)
-			modelAccess, _ := permissionFromToken(token, names.ModelTagKind)
+			// We're passing in known valid tag kinds here, so we'll not get an error.
+			controllerAccess, err := permissionFromToken(token, names.ControllerTagKind)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			modelAccess, err := permissionFromToken(token, names.ModelTagKind)
+			if err != nil {
+				return errors.Trace(err)
+			}
 			result.userInfo = &params.AuthUserInfo{
 				Identity:         userTag.String(),
 				ControllerAccess: string(controllerAccess),

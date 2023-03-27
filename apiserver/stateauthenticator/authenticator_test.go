@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/stateauthenticator"
-	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing/factory"
@@ -43,7 +42,8 @@ func (s *agentAuthenticatorSuite) TestAuthenticatorForTag(c *gc.C) {
 	c.Assert(authenticator, gc.NotNil)
 	userFinder := userFinder{user}
 
-	entity, err := authenticator.Authenticate(context.TODO(), userFinder, user.Tag(), params.LoginRequest{
+	entity, err := authenticator.Authenticate(context.TODO(), userFinder, authentication.AuthParams{
+		AuthTag:     user.Tag(),
 		Credentials: "password",
 		Nonce:       "nonce",
 	})

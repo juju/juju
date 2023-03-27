@@ -13,8 +13,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	"github.com/lestrrat-go/jwx/v2/jwt"
 	"gopkg.in/macaroon.v2"
 
+	"github.com/juju/juju/apiserver/authentication"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/rpc/params"
 )
@@ -47,16 +49,14 @@ type Authenticator interface {
 	//
 	// If the request does not contain any authentication details,
 	// then an error satisfying errors.IsNotFound will be returned.
-	Authenticate(req *http.Request) (AuthInfo, error)
+	Authenticate(req *http.Request, tokenParser authentication.TokenParser) (AuthInfo, error)
 
 	// AuthenticateLoginRequest authenticates a LoginRequest.
-	//
-	// TODO(axw) we shouldn't be using params types here.
 	AuthenticateLoginRequest(
 		ctx context.Context,
 		serverHost string,
 		modelUUID string,
-		req params.LoginRequest,
+		authParams authentication.AuthParams,
 	) (AuthInfo, error)
 }
 
@@ -65,14 +65,6 @@ type Authenticator interface {
 // If this returns an error, the handler should return StatusForbidden.
 type Authorizer interface {
 	Authorize(AuthInfo) error
-}
-
-// AuthorizerFunc is a function type implementing Authorizer.
-type AuthorizerFunc func(AuthInfo) error
-
-// Authorize is part of the Authorizer interface.
-func (f AuthorizerFunc) Authorize(info AuthInfo) error {
-	return f(info)
 }
 
 // Entity represents a user, machine, or unit that might be
@@ -85,6 +77,9 @@ type Entity interface {
 type AuthInfo struct {
 	// Entity is the user/machine/unit/etc that has authenticated.
 	Entity Entity
+
+	// Token is the token included with the login request.
+	Token jwt.Token
 
 	// Controller reports whether or not the authenticated
 	// entity is a controller agent.
@@ -100,6 +95,9 @@ type BasicAuthHandler struct {
 	// Authenticator is the Authenticator used for authenticating
 	// the HTTP requests handled by this handler.
 	Authenticator Authenticator
+
+	// TokenParser parses login tokens.
+	TokenParser authentication.TokenParser
 
 	// Authorizer, if non-nil, will be called with the auth info
 	// returned by the Authenticator, to validate it for the route.
@@ -138,7 +136,7 @@ func sendError(w http.ResponseWriter, errToSend error) error {
 
 // ServeHTTP is part of the http.Handler interface.
 func (h *BasicAuthHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	authInfo, err := h.Authenticator.Authenticate(req)
+	authInfo, err := h.Authenticator.Authenticate(req, h.TokenParser)
 	if err != nil {
 		w.Header().Set("WWW-Authenticate", `Basic realm="juju"`)
 		var dischargeError *apiservererrors.DischargeRequiredError

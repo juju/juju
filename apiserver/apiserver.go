@@ -209,6 +209,9 @@ type ServerConfig struct {
 
 	// DBGetter supplies sql.DB references on request, for named databases.
 	DBGetter coredatabase.DBGetter
+
+	// HasPermissionFunc checks whether a target has the required permission.
+	HasPermissionFunc hasPermissionFunc
 }
 
 // Validate validates the API server configuration.
@@ -307,6 +310,7 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		logger:              loggo.GetLogger("juju.apiserver"),
 		charmhubHTTPClient:  cfg.CharmhubHTTPClient,
 		dbGetter:            cfg.DBGetter,
+		hasPermission:       cfg.HasPermissionFunc,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -367,7 +371,14 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		srv.jwtTokenService = &jwtService{
 			refreshURL: refreshURL,
 		}
-		if err := srv.jwtTokenService.RegisterJWKSCache(context.TODO(), http.DefaultClient); err != nil {
+
+		httpClient := &http.Client{
+			Timeout: 30 * time.Second,
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		}
+		if err := srv.jwtTokenService.RegisterJWKSCache(context.TODO(), httpClient); err != nil {
 			logger.Warningf("failed to refresh jwt cache: %v", err)
 		}
 	}
@@ -664,6 +675,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 				Handler:       h,
 				Authenticator: srv.authenticator,
 				Authorizer:    handler.authorizer,
+				TokenParser:   srv.jwtTokenService,
 			}
 		}
 		if !handler.noModelUUID {
@@ -701,7 +713,8 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	debugLogHandler := newDebugLogDBHandler(
 		httpCtxt, srv.authenticator,
 		tagKindAuthorizer{names.MachineTagKind, names.ControllerAgentTagKind, names.UserTagKind,
-			names.ApplicationTagKind})
+			names.ApplicationTagKind},
+		srv.jwtTokenService)
 	pubsubHandler := newPubSubHandler(httpCtxt, srv.shared.centralHub)
 	logSinkHandler := logsink.NewHTTPHandler(
 		newAgentLogWriteCloserFunc(httpCtxt, srv.logSinkWriter, &srv.apiServerLoggers),
@@ -794,7 +807,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		},
 	}
 
-	controllerAdminAuthorizer := controllerAdminAuthorizer{systemState}
+	controllerAdminAuthorizer := controllerAdminAuthorizer{srv.shared.hasPermission}
 	migrateCharmsHandler := &charmsHandler{
 		ctxt:          httpCtxt,
 		dataDir:       srv.dataDir,
@@ -1097,6 +1110,7 @@ func (srv *Server) serveConn(
 	if err != nil {
 		conn.ServeRoot(&errRoot{errors.Trace(err)}, recorderFactory, serverError)
 	} else {
+		srv.shared.hasPermission = h.HasPermission
 		// Set up the admin apis used to accept logins and direct
 		// requests to the relevant business facade.
 		// There may be more than one since we need a new API each

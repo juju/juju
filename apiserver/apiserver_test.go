@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/cache"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/jujuclient"
 	psapiserver "github.com/juju/juju/pubsub/apiserver"
@@ -177,6 +178,9 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 				fmt.Fprintf(ctx.Stdout, "\n")
 			}
 			return 0
+		},
+		HasPermissionFunc: func(operation permission.Access, target names.Tag) (bool, error) {
+			return apiserver.CheckHasPermission(s.State, operation, target)
 		},
 		SysLogger: noopSysLogger{},
 		DBGetter:  apiserver.StubDBGetter{},

@@ -19,7 +19,7 @@ import (
 	"gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/state"
 )
 
@@ -83,7 +83,8 @@ func (h *localLoginHandlers) formHandler(w http.ResponseWriter, req *http.Reques
 		}
 
 		authenticator := h.authCtxt.authenticator(req.Host)
-		if _, err := authenticator.Authenticate(ctx, h.finder, userTag, params.LoginRequest{
+		if _, err := authenticator.Authenticate(ctx, h.finder, authentication.AuthParams{
+			AuthTag:     userTag,
 			Credentials: password,
 		}); err != nil {
 			h.bakeryError(w, err)

@@ -44,18 +44,18 @@ func (j *jwtService) RegisterJWKSCache(ctx context.Context, client *http.Client)
 }
 
 // Parse parses the bytes into a jwt.
-func (j *jwtService) Parse(ctx context.Context, tok string) (jwt.Token, error) {
+func (j *jwtService) Parse(ctx context.Context, tok string) (jwt.Token, state.Entity, error) {
 	if j == nil || j.refreshURL == "" {
-		return nil, errors.New("no jwt loginToken parser configured")
+		return nil, nil, errors.New("no jwt loginToken parser configured")
 	}
 	tokBytes, err := base64.StdEncoding.DecodeString(tok)
 	if err != nil {
-		return nil, errors.Annotate(err, "invalid jwt loginToken in request")
+		return nil, nil, errors.Annotate(err, "invalid jwt loginToken in request")
 	}
 
 	jwkSet, err := j.cache.Get(ctx, j.refreshURL)
 	if err != nil {
-		return nil, errors.Annotate(err, "refreshing jwt key")
+		return nil, nil, errors.Annotate(err, "refreshing jwt key")
 	}
 
 	jwtTok, err := jwt.Parse(
@@ -64,8 +64,10 @@ func (j *jwtService) Parse(ctx context.Context, tok string) (jwt.Token, error) {
 	)
 	if err != nil {
 		logger.Warningf("invalid jwt in request: %v", tok)
+		return nil, nil, errors.Trace(err)
 	}
-	return jwtTok, err
+	entity, err := userFromToken(jwtTok)
+	return jwtTok, entity, err
 }
 
 func userFromToken(token jwt.Token) (state.Entity, error) {
@@ -86,7 +88,7 @@ func permissionFromToken(token jwt.Token, kind string) (permission.Access, error
 		return "", errors.NotValidf("%q as a target", kind)
 	}
 	accessClaims, ok := token.PrivateClaims()["access"].(map[string]interface{})
-	if !ok {
+	if !ok || len(accessClaims) == 0 {
 		logger.Warningf("loginToken contains invalid access claims: %v", token.PrivateClaims()["access"])
 		return permission.NoAccess, nil
 	}
@@ -94,5 +96,6 @@ func permissionFromToken(token jwt.Token, kind string) (permission.Access, error
 	if !ok {
 		return permission.NoAccess, nil
 	}
-	return permission.Access(fmt.Sprintf("%v", access)), nil
+	result := permission.Access(fmt.Sprintf("%v", access))
+	return result, result.Validate()
 }

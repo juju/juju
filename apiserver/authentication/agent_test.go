@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
 )
@@ -104,7 +103,8 @@ func (s *agentAuthenticatorSuite) TestValidLogins(c *gc.C) {
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)
 		var authenticator authentication.EntityAuthenticator
-		entity, err := authenticator.Authenticate(context.TODO(), s.State, t.entity.Tag(), params.LoginRequest{
+		entity, err := authenticator.Authenticate(context.TODO(), s.State, authentication.AuthParams{
+			AuthTag:     t.entity.Tag(),
 			Credentials: t.credentials,
 			Nonce:       t.nonce,
 		})
@@ -140,7 +140,8 @@ func (s *agentAuthenticatorSuite) TestInvalidLogins(c *gc.C) {
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)
 		var authenticator authentication.EntityAuthenticator
-		entity, err := authenticator.Authenticate(context.TODO(), s.State, t.entity.Tag(), params.LoginRequest{
+		entity, err := authenticator.Authenticate(context.TODO(), s.State, authentication.AuthParams{
+			AuthTag:     t.entity.Tag(),
 			Credentials: t.credentials,
 			Nonce:       t.nonce,
 		})

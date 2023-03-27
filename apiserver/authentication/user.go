@@ -21,7 +21,6 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	coremacaroon "github.com/juju/juju/core/macaroon"
-	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
@@ -69,19 +68,19 @@ var _ Authenticator = (*LocalUserAuthenticator)(nil)
 // If and only if no password is supplied, then Authenticate will check for any
 // valid macaroons. Otherwise, password authentication will be performed.
 func (u *LocalUserAuthenticator) Authenticate(
-	ctx context.Context, entityFinder EntityFinder, tag names.Tag, req params.LoginRequest,
+	ctx context.Context, entityFinder EntityFinder, authParams AuthParams,
 ) (state.Entity, error) {
-	userTag, ok := tag.(names.UserTag)
+	userTag, ok := authParams.AuthTag.(names.UserTag)
 	if !ok {
 		return nil, errors.Errorf("invalid request")
 	}
 	if !userTag.IsLocal() {
 		return nil, errors.Errorf("invalid request - expected local user")
 	}
-	if req.Credentials == "" {
-		return u.authenticateMacaroons(ctx, entityFinder, userTag, req)
+	if authParams.Credentials == "" {
+		return u.authenticateMacaroons(ctx, entityFinder, userTag, authParams)
 	}
-	return u.EntityAuthenticator.Authenticate(ctx, entityFinder, tag, req)
+	return u.EntityAuthenticator.Authenticate(ctx, entityFinder, authParams)
 }
 
 // CreateLocalLoginMacaroon creates a macaroon that may be provided to a
@@ -161,14 +160,14 @@ func DischargeCaveats(tag names.UserTag, clock clock.Clock) []checkers.Caveat {
 }
 
 func (u *LocalUserAuthenticator) authenticateMacaroons(
-	ctx context.Context, entityFinder EntityFinder, tag names.UserTag, req params.LoginRequest,
+	ctx context.Context, entityFinder EntityFinder, tag names.UserTag, authParams AuthParams,
 ) (state.Entity, error) {
 	// Check for a valid request macaroon.
 	if logger.IsTraceEnabled() {
-		mac, _ := json.Marshal(req.Macaroons)
+		mac, _ := json.Marshal(authParams.Macaroons)
 		logger.Tracef("authentication macaroons for %s: %s", tag, mac)
 	}
-	a := u.Bakery.Auth(req.Macaroons...)
+	a := u.Bakery.Auth(authParams.Macaroons...)
 	ai, err := a.Allow(ctx, identchecker.LoginOp)
 	if err == nil {
 		logger.Tracef("authenticated conditions: %v", ai.Conditions())
@@ -189,7 +188,7 @@ func (u *LocalUserAuthenticator) authenticateMacaroons(
 
 		m, err := bakery.NewMacaroon(
 			ctx,
-			req.BakeryVersion,
+			authParams.BakeryVersion,
 			[]checkers.Caveat{
 				checkers.TimeBeforeCaveat(expiryTime),
 				checkers.NeedDeclaredCaveat(
@@ -248,11 +247,11 @@ var _ Authenticator = (*ExternalMacaroonAuthenticator)(nil)
 
 // Authenticate authenticates the provided entity. If there is no macaroon provided, it will
 // return a *DischargeRequiredError containing a macaroon that can be used to grant access.
-func (m *ExternalMacaroonAuthenticator) Authenticate(ctx context.Context, _ EntityFinder, _ names.Tag, req params.LoginRequest) (state.Entity, error) {
-	authChecker := m.Bakery.Checker.Auth(req.Macaroons...)
+func (m *ExternalMacaroonAuthenticator) Authenticate(ctx context.Context, _ EntityFinder, authParams AuthParams) (state.Entity, error) {
+	authChecker := m.Bakery.Checker.Auth(authParams.Macaroons...)
 	ai, identErr := authChecker.Allow(ctx, identchecker.LoginOp)
 	if de, ok := errors.Cause(identErr).(*bakery.DischargeRequiredError); ok {
-		if dcMac, err := m.Bakery.Oven.NewMacaroon(ctx, req.BakeryVersion, de.Caveats, de.Ops...); err != nil {
+		if dcMac, err := m.Bakery.Oven.NewMacaroon(ctx, authParams.BakeryVersion, de.Caveats, de.Ops...); err != nil {
 			return nil, errors.Annotatef(err, "cannot create macaroon")
 		} else {
 			return nil, &apiservererrors.DischargeRequiredError{

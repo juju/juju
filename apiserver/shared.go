@@ -54,6 +54,8 @@ type sharedServerContext struct {
 	features         set.Strings
 
 	unsubscribe func()
+
+	hasPermission hasPermissionFunc
 }
 
 type sharedServerConfig struct {
@@ -67,6 +69,7 @@ type sharedServerConfig struct {
 	logger              loggo.Logger
 	charmhubHTTPClient  facade.HTTPClient
 	dbGetter            coredatabase.DBGetter
+	hasPermission       hasPermissionFunc
 }
 
 func (c *sharedServerConfig) validate() error {
@@ -112,6 +115,7 @@ func newSharedServerContext(config sharedServerConfig) (*sharedServerContext, er
 		controllerConfig:    config.controllerConfig,
 		charmhubHTTPClient:  config.charmhubHTTPClient,
 		dbGetter:            config.dbGetter,
+		hasPermission:       config.hasPermission,
 	}
 	ctx.features = config.controllerConfig.Features()
 	// We are able to get the current controller config before subscribing to changes

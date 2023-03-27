@@ -78,73 +78,81 @@ func generateJTI() (string, error) {
 	return id.String(), nil
 }
 
+// NewJWKSet returns a new key set and signing key.
+func NewJWKSet() (jwk.Set, jwk.Key, error) {
+	jwkSet, pkeyPem, err := getJWKS()
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	block, _ := pem.Decode(pkeyPem)
+
+	pkeyDecoded, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	signingKey, err := jwk.FromRaw(pkeyDecoded)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	return jwkSet, signingKey, nil
+}
+
 // NewJWT returns a parsed jwt.
 func NewJWT(params JWTParams) (jwt.Token, error) {
-	tok, set, err := EncodedJWT(params)
+	jwkSet, signingKey, err := NewJWKSet()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	tok, err := EncodedJWT(params, jwkSet, signingKey)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return jwt.Parse(
 		tok,
-		jwt.WithKeySet(set),
+		jwt.WithKeySet(jwkSet),
 	)
 }
 
-// EncodedJWT returns jwt as bytes plus the key set used to generate it.
-func EncodedJWT(params JWTParams) ([]byte, jwk.Set, error) {
-	if jti, err := generateJTI(); err != nil {
-		return nil, nil, errors.Trace(err)
-	} else {
-		jwkSet, pkeyPem, err := getJWKS()
-		if err != nil {
-			return nil, nil, errors.Trace(err)
-		}
-
-		pubKey, ok := jwkSet.Key(jwkSet.Len() - 1)
-		if !ok {
-			return nil, nil, errors.Errorf("no jwk found")
-		}
-
-		block, _ := pem.Decode(pkeyPem)
-
-		pkeyDecoded, err := x509.ParsePKCS1PrivateKey(block.Bytes)
-		if err != nil {
-			return nil, nil, errors.Trace(err)
-		}
-
-		signingKey, err := jwk.FromRaw(pkeyDecoded)
-		if err != nil {
-			return nil, nil, errors.Trace(err)
-		}
-
-		err = signingKey.Set(jwk.AlgorithmKey, jwa.RS256)
-		if err != nil {
-			return nil, nil, errors.Trace(err)
-		}
-		err = signingKey.Set(jwk.KeyIDKey, pubKey.KeyID())
-		if err != nil {
-			return nil, nil, errors.Trace(err)
-		}
-
-		token, err := jwt.NewBuilder().
-			Audience([]string{params.Controller}).
-			Subject(params.User).
-			Issuer("test").
-			JwtID(jti).
-			Claim("access", params.Access).
-			Expiration(time.Now().Add(time.Hour)).
-			Build()
-		if err != nil {
-			return nil, nil, errors.Trace(err)
-		}
-
-		freshToken, err := jwt.Sign(
-			token,
-			jwt.WithKey(
-				jwa.RS256,
-				signingKey,
-			),
-		)
-		return freshToken, jwkSet, errors.Trace(err)
+// EncodedJWT returns jwt as bytes signed by the specified key.
+func EncodedJWT(params JWTParams, jwkSet jwk.Set, signingKey jwk.Key) ([]byte, error) {
+	jti, err := generateJTI()
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
+	pubKey, ok := jwkSet.Key(jwkSet.Len() - 1)
+	if !ok {
+		return nil, errors.Errorf("no jwk found")
+	}
+
+	err = signingKey.Set(jwk.AlgorithmKey, jwa.RS256)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	err = signingKey.Set(jwk.KeyIDKey, pubKey.KeyID())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	token, err := jwt.NewBuilder().
+		Audience([]string{params.Controller}).
+		Subject(params.User).
+		Issuer("test").
+		JwtID(jti).
+		Claim("access", params.Access).
+		Expiration(time.Now().Add(time.Hour)).
+		Build()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	freshToken, err := jwt.Sign(
+		token,
+		jwt.WithKey(
+			jwa.RS256,
+			signingKey,
+		),
+	)
+	return freshToken, errors.Trace(err)
 }
