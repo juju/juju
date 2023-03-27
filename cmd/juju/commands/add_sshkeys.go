@@ -44,7 +44,6 @@ to the command:
 
 `
 
-
 // NewAddKeysCommand is used to add a new ssh key to a model.
 func NewAddKeysCommand() cmd.Command {
 	return modelcmd.Wrap(&addKeysCommand{})
@@ -60,10 +59,10 @@ type addKeysCommand struct {
 // Info implements Command.Info.
 func (c *addKeysCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "add-ssh-key",
-		Args:    "<ssh key> ...",
-		Purpose: usageAddSSHKeySummary,
-		Doc:     usageAddSSHKeyDetails,
+		Name:     "add-ssh-key",
+		Args:     "<ssh key> ...",
+		Purpose:  usageAddSSHKeySummary,
+		Doc:      usageAddSSHKeyDetails,
 		Examples: examples,
 		SeeAlso: []string{
 			"ssh-keys",
