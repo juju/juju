@@ -680,9 +680,11 @@ func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (
 		// DetectCredential ensures that there is only one credential
 		// to choose from. It's still in a map, though, hence for..range.
 		var credentialName string
-		for name, one := range cloudCredential.AuthCredentials {
+		for name, v := range cloudCredential.AuthCredentials {
+			one := v
 			credential = &one
 			credentialName = name
+			break
 		}
 		credential, err = FinalizeFileContent(credential, provider)
 		if err != nil {

@@ -473,7 +473,8 @@ func (m *fakeModelAPI) ModelInfo(tags []names.ModelTag) ([]params.ModelInfoResul
 	)
 
 	modelUUID := tags[0].Id()
-	for _, model := range m.modelInfo {
+	for _, v := range m.modelInfo {
+		model := v
 		if model.UUID == modelUUID {
 			mi = &model
 			break

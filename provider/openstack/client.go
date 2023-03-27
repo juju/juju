@@ -177,7 +177,8 @@ func (c *ClientFactory) getClientState(options ...ClientOption) (client.Authenti
 		// Walk over the options to verify if the AuthUserPassV3 exists, if it
 		// does exist use that to attempt authentication.
 		var authOption *identity.AuthOption
-		for _, option := range authOptions {
+		for _, v := range authOptions {
+			option := v
 			if option.Mode == identity.AuthUserPassV3 {
 				authOption = &option
 				break

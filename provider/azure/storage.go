@@ -977,7 +977,8 @@ func getStorageAccountKey(
 
 	// We need a storage key with full permissions.
 	var fullKey *legacystorage.AccountKey
-	for _, key := range *listKeysResult.Keys {
+	for _, v := range *listKeysResult.Keys {
+		key := v
 		logger.Debugf("storage account key: %#v", key)
 		// At least some of the time, Azure returns the permissions
 		// in title-case, which does not match the constant.
