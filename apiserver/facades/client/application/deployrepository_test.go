@@ -680,6 +680,7 @@ func intptr(i int) *int {
 
 type deployRepositorySuite struct {
 	application *MockApplication
+	charm       *MockCharm
 	state       *MockDeployFromRepositoryState
 	validator   *MockDeployFromRepositoryValidator
 }
@@ -710,7 +711,11 @@ func (s *deployRepositorySuite) TestDeployFromRepositoryAPI(c *gc.C) {
 		Charm: template.charm,
 		ID:    charm.MustParseURL("ch:amd64/jammy/testme-5"),
 	}
-	s.state.EXPECT().AddCharmMetadata(info).Return(&state.Charm{}, nil)
+
+	s.charm.EXPECT().Meta().Return(&charm.Meta{Resources: nil})
+
+	s.state.EXPECT().AddCharmMetadata(info).Return(s.charm, nil)
+
 	addAppArgs := state.AddApplicationArgs{
 		Name:  "metadata-name",
 		Charm: &state.Charm{},
@@ -729,10 +734,13 @@ func (s *deployRepositorySuite) TestDeployFromRepositoryAPI(c *gc.C) {
 		EndpointBindings: map[string]string{"to": "from"},
 		NumUnits:         1,
 		Placement:        []*instance.Placement{{Directive: "0", Scope: instance.MachineScope}},
+		Resources:        map[string]string{},
 	}
-	s.state.EXPECT().AddApplication(addAppArgs).Return(s.application, nil)
+	s.state.EXPECT().AddApplication(addApplicationArgsMatcher{c: c, expectedArgs: addAppArgs}).Return(s.application, nil)
 
-	obtainedInfo, resources, errs := s.getDeployFromRepositoryAPI().DeployFromRepository(arg)
+	deployFromRepositoryAPI := s.getDeployFromRepositoryAPI()
+
+	obtainedInfo, resources, errs := deployFromRepositoryAPI.DeployFromRepository(arg)
 	c.Assert(errs, gc.HasLen, 0)
 	c.Assert(resources, gc.HasLen, 0)
 	c.Assert(obtainedInfo, gc.DeepEquals, params.DeployFromRepositoryInfo{
@@ -745,6 +753,44 @@ func (s *deployRepositorySuite) TestDeployFromRepositoryAPI(c *gc.C) {
 	})
 }
 
+// The reason for this matcher is that the AddApplicationArgs.Charm is
+// obtained by casting application.Charm into a state.Charm, but we
+// can't do that cast with a MockCharm
+type addApplicationArgsMatcher struct {
+	c            *gc.C
+	expectedArgs state.AddApplicationArgs
+}
+
+func (m addApplicationArgsMatcher) String() string {
+	return "match AddApplicationArgs"
+}
+
+func (m addApplicationArgsMatcher) Matches(x interface{}) bool {
+
+	oA, ok := x.(state.AddApplicationArgs)
+	if !ok {
+		return false
+	}
+
+	eA := m.expectedArgs
+	// Check everything but the Charm
+	check := oA.Name == eA.Name &&
+		oA.ApplicationConfig == eA.ApplicationConfig &&
+		oA.NumUnits == eA.NumUnits &&
+		oA.Constraints == eA.Constraints
+
+	checkStorage, _ := jc.DeepEqual(oA.Storage, eA.Storage)
+	checkDevices, _ := jc.DeepEqual(oA.Devices, eA.Devices)
+	checkAttachStorage, _ := jc.DeepEqual(eA.AttachStorage, eA.AttachStorage)
+	checkExportBindings, _ := jc.DeepEqual(oA.EndpointBindings, eA.EndpointBindings)
+	checkCharmConfig, _ := jc.DeepEqual(oA.CharmConfig, eA.CharmConfig)
+	checkPlacement, _ := jc.DeepEqual(oA.Placement, eA.Placement)
+	checkResources, _ := jc.DeepEqual(oA.Resources, eA.Resources)
+
+	return check && checkStorage && checkDevices && checkAttachStorage &&
+		checkExportBindings && checkCharmConfig && checkPlacement && checkResources
+}
+
 func (s *deployRepositorySuite) getDeployFromRepositoryAPI() *DeployFromRepositoryAPI {
 	return &DeployFromRepositoryAPI{
 		state:      s.state,
@@ -755,6 +801,7 @@ func (s *deployRepositorySuite) getDeployFromRepositoryAPI() *DeployFromReposito
 
 func (s *deployRepositorySuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
+	s.charm = NewMockCharm(ctrl)
 	s.state = NewMockDeployFromRepositoryState(ctrl)
 	s.validator = NewMockDeployFromRepositoryValidator(ctrl)
 	return ctrl
