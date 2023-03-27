@@ -66,34 +66,27 @@ by the charm, which can specify a maximum number of storage instances per unit.
 positive number, followed by a size suffix.  Valid suffixes include M, G, T,
 and P.  Defaults to "1024M", or the which can specify a minimum size required 
 by the charm.
+`
 
+	examples = `
+Add a 100MiB tmpfs storage instance for "pgdata" storage to unit postgresql/0:
 
-Examples:
-
-    # Add a 100MiB tmpfs storage instance for "pgdata" storage
-    # to unit postgresql/0
     juju add-storage postgresql/0 pgdata=tmpfs,100M
 
-    # Add 10 1TiB storage instances to "osd-devices" storage
-    # to unit ceph-osd/0 from the model's default storage pool
+Add 10 1TiB storage instances to "osd-devices" storage to unit ceph-osd/0 from the model's default storage pool:
+
     juju add-storage ceph-osd/0 osd-devices=1T,10
 
-    # Add a storage instance from the (AWS-specific) ebs-ssd
-    # storage pool for "brick" storage to unit gluster/0:
+Add a storage instance from the (AWS-specific) ebs-ssd storage pool for "brick" storage to unit gluster/0:
+
     juju add-storage gluster/0 brick=ebs-ssd
 
 
 Further reading:
 
-    https://juju.is/docs/storage
-
-
-See also:
-
-    import-filesystem
-    storage
-    storage-pools
+https://juju.is/docs/storage
 `
+
 	addCommandAgs = `<unit> <storage-directive>`
 )
 
@@ -128,10 +121,16 @@ func (c *addCommand) Init(args []string) (err error) {
 // Info implements Command.Info.
 func (c *addCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "add-storage",
-		Purpose: "Adds storage to a unit after it has been deployed.",
-		Doc:     addCommandDoc,
-		Args:    addCommandAgs,
+		Name:     "add-storage",
+		Purpose:  "Adds storage to a unit after it has been deployed.",
+		Doc:      addCommandDoc,
+		Args:     addCommandAgs,
+		Examples: examples,
+		SeeAlso: []string{
+			"import-filesystem",
+			"storage",
+			"storage-pools",
+		},
 	})
 }
 
