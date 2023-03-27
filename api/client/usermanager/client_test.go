@@ -34,7 +34,7 @@ func (s *usermanagerSuite) TestAddExistingUser(c *gc.C) {
 			{
 				Tag:       "user-foobar",
 				SecretKey: []byte("passwedfdd"),
-				Error:     apiservererrors.ServerError(errors.Annotate(errors.New("username unavailable"), "failed to create user")),
+				Error:     apiservererrors.ServerError(errors.Annotate(errors.New("the user already exists"), "failed to create user")),
 			},
 		},
 	}
@@ -43,7 +43,7 @@ func (s *usermanagerSuite) TestAddExistingUser(c *gc.C) {
 
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	_, _, err := client.AddUser("foobar", "Foo Bar", "password")
-	c.Assert(err, gc.ErrorMatches, "failed to create user: username unavailable")
+	c.Assert(err, gc.ErrorMatches, "failed to create user: the user already exists")
 }
 
 func (s *usermanagerSuite) TestAddUserResponseError(c *gc.C) {

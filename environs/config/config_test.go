@@ -654,13 +654,6 @@ var configTests = []configTest{
 			"charmhub-url": "meshuggah",
 		}),
 		err: `charm-hub url "meshuggah" not valid`,
-	}, {
-		about:       "Invalid ssh-allowlist cidr",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"ssh-allowlist": "blah",
-		}),
-		err: `SSH allow list cidr "blah" not valid`,
 	},
 }
 
@@ -1261,27 +1254,6 @@ func (s *ConfigSuite) TestMode(c *gc.C) {
 	mode, ok = cfg.Mode()
 	c.Assert(ok, jc.IsFalse)
 	c.Assert(mode, gc.DeepEquals, set.NewStrings())
-}
-
-func (s *ConfigSuite) TestSSHAllowList(c *gc.C) {
-	cfg := newTestConfig(c, testing.Attrs{})
-	allowlist := cfg.SSHAllowList()
-	c.Assert(allowlist, gc.HasLen, 1)
-	c.Assert(allowlist[0], gc.Equals, "0.0.0.0/0")
-
-	cfg = newTestConfig(c, testing.Attrs{
-		config.SSHAllowListKey: "192.168.0.0/24,192.168.2.0/24",
-	})
-	allowlist = cfg.SSHAllowList()
-	c.Assert(allowlist, gc.HasLen, 2)
-	c.Assert(allowlist[0], gc.Equals, "192.168.0.0/24")
-	c.Assert(allowlist[1], gc.Equals, "192.168.2.0/24")
-
-	cfg = newTestConfig(c, testing.Attrs{
-		config.SSHAllowListKey: "",
-	})
-	allowlist = cfg.SSHAllowList()
-	c.Assert(allowlist, gc.HasLen, 0)
 }
 
 func (s *ConfigSuite) TestLoggingOutput(c *gc.C) {

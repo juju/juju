@@ -419,6 +419,33 @@ func isIPv6UniqueLocalAddress(addrType AddressType, ip net.IP) bool {
 	return ipv6UniqueLocal.Contains(ip)
 }
 
+// InterfaceAddrs is patched for tests.
+var InterfaceAddrs = func() ([]net.Addr, error) {
+	return net.InterfaceAddrs()
+}
+
+// IsLocalAddress returns true if the provided IP address equals to one of the
+// local IP addresses.
+func IsLocalAddress(ip net.IP) (bool, error) {
+	addrs, err := InterfaceAddrs()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+
+	for _, addr := range addrs {
+		localIP, _, err := net.ParseCIDR(addr.String())
+		if err != nil {
+			continue
+		}
+		if localIP.To4() != nil || localIP.To16() != nil {
+			if ip.Equal(localIP) {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
+}
+
 // ProviderAddress represents an address supplied by provider logic.
 // It can include the provider's knowledge of the space in which the
 // address resides.

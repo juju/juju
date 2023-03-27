@@ -116,7 +116,7 @@ parts:
     plugin: autotools
     build-packages:
       - automake
-      - make     
+      - make
     override-build: |
       set -ex
 

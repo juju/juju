@@ -60,21 +60,21 @@ run_deploy_lxd_profile_charm_container() {
 }
 
 run_deploy_local_predeployed_charm() {
-  echo
+	echo
 
-  model_name="test-deploy-local-predeployed-charm"
-  file="${TEST_DIR}/${model_name}.log"
+	model_name="test-deploy-local-predeployed-charm"
+	file="${TEST_DIR}/${model_name}.log"
 
-  ensure "${model_name}" "${file}"
+	ensure "${model_name}" "${file}"
 
-  juju deploy ./testcharms/charms/lxd-profile --base ubuntu@22.04
-  wait_for "lxd-profile" "$(idle_condition "lxd-profile")"
+	juju deploy ./testcharms/charms/lxd-profile --base ubuntu@22.04
+	wait_for "lxd-profile" "$(idle_condition "lxd-profile")"
 
-  juju deploy local:jammy/lxd-profile-0 another-lxd-profile-app
-  wait_for "another-lxd-profile-app" "$(idle_condition "another-lxd-profile-app")"
-  wait_for "active" '.applications["another-lxd-profile-app"] | ."application-status".current'
+	juju deploy local:jammy/lxd-profile-0 another-lxd-profile-app
+	wait_for "another-lxd-profile-app" "$(idle_condition "another-lxd-profile-app")"
+	wait_for "active" '.applications["another-lxd-profile-app"] | ."application-status".current'
 
-  destroy_model "${model_name}"
+	destroy_model "${model_name}"
 }
 
 run_deploy_local_lxd_profile_charm() {

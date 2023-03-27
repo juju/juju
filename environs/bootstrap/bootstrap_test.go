@@ -1568,6 +1568,9 @@ func (e bootstrapEnvironWithHardwareDetection) DetectSeries() (string, error) {
 func (e bootstrapEnvironWithHardwareDetection) DetectHardware() (*instance.HardwareCharacteristics, error) {
 	return e.detectedHW, nil
 }
+func (e bootstrapEnvironWithHardwareDetection) UpdateModelConstraints() bool {
+	return false
+}
 
 func bootstrapContext(c *gc.C) (environs.BootstrapContext, *simplestreams.Simplestreams) {
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())

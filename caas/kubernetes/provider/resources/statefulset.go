@@ -5,6 +5,7 @@ package resources
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -48,28 +49,50 @@ func (ss *StatefulSet) ID() ID {
 }
 
 // Apply patches the resource change.
-func (ss *StatefulSet) Apply(ctx context.Context, client kubernetes.Interface) error {
+func (ss *StatefulSet) Apply(ctx context.Context, client kubernetes.Interface) (err error) {
 	api := client.AppsV1().StatefulSets(ss.Namespace)
-	data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, &ss.StatefulSet)
+	var result *appsv1.StatefulSet
+	defer func() {
+		if result != nil {
+			ss.StatefulSet = *result
+		}
+	}()
+
+	existing, err := api.Get(ctx, ss.Name, metav1.GetOptions{})
+	if k8serrors.IsNotFound(err) {
+		result, err = api.Create(ctx, &ss.StatefulSet, metav1.CreateOptions{
+			FieldManager: JujuFieldManager,
+		})
+		return errors.Trace(err)
+	}
 	if err != nil {
 		return errors.Trace(err)
 	}
-	res, err := api.Patch(ctx, ss.Name, types.StrategicMergePatchType, data, metav1.PatchOptions{
+
+	// Statefulset only allows updates to the following fields under ".Spec":
+	// 'replicas', 'template', 'updateStrategy', 'persistentVolumeClaimRetentionPolicy' and 'minReadySeconds'.
+	existing.SetAnnotations(ss.GetAnnotations())
+	existing.Spec.Replicas = ss.Spec.Replicas
+	existing.Spec.UpdateStrategy = ss.Spec.UpdateStrategy
+	existing.Spec.PersistentVolumeClaimRetentionPolicy = ss.Spec.PersistentVolumeClaimRetentionPolicy
+	existing.Spec.MinReadySeconds = ss.Spec.MinReadySeconds
+	existing.Spec.Template = ss.Spec.Template
+
+	data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, existing)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	result, err = api.Patch(ctx, ss.Name, types.StrategicMergePatchType, data, metav1.PatchOptions{
 		FieldManager: JujuFieldManager,
 	})
 	if k8serrors.IsNotFound(err) {
-		res, err = api.Create(ctx, &ss.StatefulSet, metav1.CreateOptions{
-			FieldManager: JujuFieldManager,
-		})
+		// This should never happen.
+		return errors.NewNotFound(err, fmt.Sprintf("statefulset %q", ss.Name))
 	}
 	if k8serrors.IsConflict(err) {
-		return errors.Annotatef(errConflict, "stateful set %q", ss.Name)
+		return errors.Annotatef(errConflict, "statefulset %q", ss.Name)
 	}
-	if err != nil {
-		return errors.Trace(err)
-	}
-	ss.StatefulSet = *res
-	return nil
+	return errors.Trace(err)
 }
 
 // Get refreshes the resource.
