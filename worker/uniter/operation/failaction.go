@@ -12,7 +12,6 @@ import (
 type failAction struct {
 	actionId  string
 	callbacks Callbacks
-	name      string
 	RequiresMachineLock
 }
 

@@ -5,7 +5,6 @@ package equinix
 
 import (
 	"context"
-	"net/http"
 
 	"github.com/golang/mock/gomock"
 	jtesting "github.com/juju/testing"
@@ -34,7 +33,6 @@ type environProviderSuite struct {
 	jtesting.IsolationSuite
 	provider environs.EnvironProvider
 	spec     environscloudspec.CloudSpec
-	requests []*http.Request
 }
 
 var _ = gc.Suite(&environProviderSuite{})
@@ -576,14 +574,6 @@ func (s *environProviderSuite) TestStartInstance(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *environProviderSuite) testOpenError(c *gc.C, spec environscloudspec.CloudSpec, expect string) {
-	_, err := environs.Open(context.TODO(), s.provider, environs.OpenParams{
-		Cloud:  spec,
-		Config: makeTestModelConfig(c),
-	})
-	c.Assert(err, gc.ErrorMatches, expect)
 }
 
 func makeTestModelConfig(c *gc.C, extra ...testing.Attrs) *config.Config {

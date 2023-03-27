@@ -39,7 +39,6 @@ type supportCommandSuite struct {
 	mockAPI       *mockapi
 	mockSLAClient *mockSlaClient
 	fakeAPIRoot   *fakeAPIConnection
-	charmURL      string
 	modelUUID     string
 }
 

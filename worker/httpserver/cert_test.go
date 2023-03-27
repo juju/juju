@@ -51,17 +51,6 @@ func (s *certSuite) handler(w http.ResponseWriter, req *http.Request) {
 	w.Write([]byte("yay"))
 }
 
-func (s *certSuite) request(url string) (*http.Response, error) {
-	// Create the client each time to ensure that we get the
-	// certificate again.
-	client := &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: s.config.TLSConfig,
-		},
-	}
-	return client.Get(url)
-}
-
 func (s *certSuite) TestAutocertFailure(c *gc.C) {
 	// We don't have a fake autocert server, but we can at least
 	// smoke test that the autocert path is followed when we try

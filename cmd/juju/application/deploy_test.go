@@ -1060,11 +1060,6 @@ func (s *CAASDeploySuiteBase) fakeAPI() *fakeDeployAPI {
 	return fakeAPI
 }
 
-func (s *CAASDeploySuiteBase) makeCharmDir(c *gc.C, cloneCharm string) *charm.CharmDir {
-	charmsPath := c.MkDir()
-	return testcharms.RepoWithSeries("kubernetes").ClonedDir(charmsPath, cloneCharm)
-}
-
 func (s *CAASDeploySuiteBase) runDeploy(c *gc.C, fakeAPI *fakeDeployAPI, args ...string) (*cmd.Context, error) {
 	deployCmd := &DeployCommand{
 		NewDeployAPI: func() (deployer.DeployerAPI, error) {
@@ -1975,8 +1970,6 @@ func (c *testMetricsRegistrationHandler) ServeHTTP(w http.ResponseWriter, req *h
 
 type FakeStoreStateSuite struct {
 	DeploySuiteBase
-	path string
-	riak *state.Application
 }
 
 func (s *FakeStoreStateSuite) runDeploy(c *gc.C, args ...string) error {

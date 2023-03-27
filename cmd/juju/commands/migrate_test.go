@@ -35,7 +35,6 @@ type MigrateSuite struct {
 	modelAPI            *fakeModelAPI
 	userAPI             *fakeUserAPI
 	store               *jujuclient.MemStore
-	password            string
 }
 
 var _ = gc.Suite(&MigrateSuite{})

@@ -46,7 +46,6 @@ type addCAASSuite struct {
 	fakeK8sClusterMetadataChecker *fakeK8sClusterMetadataChecker
 	cloudMetadataStore            *fakeCloudMetadataStore
 	credentialStoreAPI            *mocks.MockCredentialStoreAPI
-	fakeK8SConfigFunc             *clientconfig.ClientConfigFunc
 }
 
 var _ = gc.Suite(&addCAASSuite{})

@@ -31,8 +31,7 @@ type loggerSuite struct {
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
 
-	ctrl    *cachetest.TestController
-	capture func(change interface{})
+	ctrl *cachetest.TestController
 }
 
 var _ = gc.Suite(&loggerSuite{})

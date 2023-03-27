@@ -16,6 +16,8 @@ type containerAZSuite struct {
 	jujutesting.JujuConnSuite
 }
 
+var _ = gc.Suite(&containerAZSuite{})
+
 func (s *containerAZSuite) TestContainerAvailabilityZone(c *gc.C) {
 	availabilityZone := "ru-north-siberia"
 	azMachine := s.Factory.MakeMachine(c, &factory.MachineParams{

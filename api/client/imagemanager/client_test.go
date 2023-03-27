@@ -18,8 +18,6 @@ import (
 
 type imagemanagerSuite struct {
 	coretesting.BaseSuite
-
-	imagemanager *imagemanager.Client
 }
 
 var _ = gc.Suite(&imagemanagerSuite{})

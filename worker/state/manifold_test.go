@@ -28,7 +28,6 @@ type ManifoldSuite struct {
 	openStateCalled   bool
 	openStateErr      error
 	config            workerstate.ManifoldConfig
-	agent             *mockAgent
 	resources         dt.StubResources
 	setStatePoolCalls []*state.StatePool
 }

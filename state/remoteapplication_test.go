@@ -120,21 +120,6 @@ func (s *remoteApplicationSuite) makeRemoteApplication(c *gc.C, name, url string
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *remoteApplicationSuite) assertApplicationRelations(c *gc.C, app *state.Application, expectedKeys ...string) []*state.Relation {
-	rels, err := app.Relations()
-	c.Assert(err, jc.ErrorIsNil)
-	if len(rels) == 0 {
-		return nil
-	}
-	relKeys := make([]string, len(expectedKeys))
-	for i, rel := range rels {
-		relKeys[i] = rel.String()
-	}
-	sort.Strings(relKeys)
-	c.Assert(relKeys, gc.DeepEquals, expectedKeys)
-	return rels
-}
-
 func (s *remoteApplicationSuite) TestNoStatusForConsumerProxy(c *gc.C) {
 	application, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:            "hosted-mysql",

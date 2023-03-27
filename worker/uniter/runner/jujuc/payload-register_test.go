@@ -23,7 +23,6 @@ import (
 
 type registerSuite struct {
 	testing.IsolationSuite
-	hctx mocks.MockContext
 }
 
 var _ = gc.Suite(&registerSuite{})

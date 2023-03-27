@@ -33,6 +33,7 @@ linters:
     - misspell
     - unconvert
     - exportloopref
+    - unused
 run:
   timeout: 30m
 skip-dirs:

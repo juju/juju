@@ -40,7 +40,6 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/storage"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
-	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/status"
@@ -501,51 +500,6 @@ type annotationUpdater interface {
 	resources.Resource
 	GetAnnotations() map[string]string
 	SetAnnotations(annotations map[string]string)
-}
-
-func (a *app) upgradeHeadlessService(applier resources.Applier, ver version.Number) error {
-	r := resources.NewService(headlessServiceName(a.name), a.namespace, nil)
-	if err := r.Get(context.Background(), a.client); err != nil {
-		return errors.Trace(err)
-	}
-	r.SetAnnotations(a.upgradeAnnotations(annotations.New(r.GetAnnotations()), ver))
-	applier.Apply(r)
-	return nil
-}
-
-func (a *app) upgradeMainResource(applier resources.Applier, ver version.Number) error {
-	switch a.deploymentType {
-	case caas.DeploymentStateful:
-		if err := a.upgradeHeadlessService(applier, ver); err != nil {
-			return errors.Trace(err)
-		}
-
-		ss := resources.NewStatefulSet(a.name, a.namespace, nil)
-		if err := ss.Get(context.Background(), a.client); err != nil {
-			return errors.Trace(err)
-		}
-		initContainers := ss.Spec.Template.Spec.InitContainers
-		if len(initContainers) != 1 {
-			return errors.NotValidf("init container of %q", a.name)
-		}
-		initContainer := initContainers[0]
-		var err error
-		initContainer.Image, err = podcfg.RebuildOldOperatorImagePath(initContainer.Image, ver)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		ss.Spec.Template.Spec.InitContainers = []corev1.Container{initContainer}
-		ss.Spec.Template.SetAnnotations(a.upgradeAnnotations(annotations.New(ss.Spec.Template.GetAnnotations()), ver))
-		ss.SetAnnotations(a.upgradeAnnotations(annotations.New(ss.GetAnnotations()), ver))
-		applier.Apply(ss)
-		return nil
-	case caas.DeploymentStateless:
-		return errors.NotSupportedf("upgrade for deployment type %q", a.deploymentType)
-	case caas.DeploymentDaemon:
-		return errors.NotSupportedf("upgrade for deployment type %q", a.deploymentType)
-	default:
-		return errors.NotSupportedf("unknown deployment type %q", a.deploymentType)
-	}
 }
 
 // Exists indicates if the application for the specified
@@ -1583,10 +1537,6 @@ func (a *app) ensureImagePullSecrets(applier resources.Applier, config caas.Appl
 func (a *app) annotations(config caas.ApplicationConfig) annotations.Annotation {
 	return utils.ResourceTagsToAnnotations(config.ResourceTags, a.legacyLabels).
 		Merge(utils.AnnotationsForVersion(config.AgentVersion.String(), a.legacyLabels))
-}
-
-func (a *app) upgradeAnnotations(anns annotations.Annotation, ver version.Number) annotations.Annotation {
-	return anns.Merge(utils.AnnotationsForVersion(ver.String(), a.legacyLabels))
 }
 
 func (a *app) labels() labels.Set {

@@ -38,7 +38,6 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/network"
 	jujuos "github.com/juju/juju/core/os"
 	jujuseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
@@ -48,7 +47,6 @@ import (
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/gui"
 	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/sync"
@@ -203,7 +201,6 @@ type bootstrapTest struct {
 	info string
 	// binary version string used to set jujuversion.Current
 	version   string
-	sync      bool
 	args      []string
 	err       string
 	silentErr bool
@@ -1021,14 +1018,6 @@ func (s *BootstrapSuite) TestBootstrapWithoutGUI(c *gc.C) {
 	})
 	cmdtesting.RunCommand(c, s.newBootstrapCommandWrapper(false), "dummy", "devcontroller", "--no-gui")
 	c.Assert(bootstrapFuncs.args.GUIDataSourceBaseURL, gc.Equals, "")
-}
-
-type mockBootstrapInstance struct {
-	instances.Instance
-}
-
-func (*mockBootstrapInstance) Addresses() ([]network.SpaceAddress, error) {
-	return []network.SpaceAddress{{MachineAddress: network.MachineAddress{Value: "localhost"}}}, nil
 }
 
 // In the case where we cannot examine the client store, we want the

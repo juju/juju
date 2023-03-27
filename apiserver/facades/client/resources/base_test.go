@@ -35,14 +35,6 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.csClient = &stubCSClient{Stub: s.stub}
 }
 
-func (s *BaseSuite) newCSClient() (CharmStore, error) {
-	s.stub.AddCall("newCSClient")
-	if err := s.stub.NextErr(); err != nil {
-		return nil, err
-	}
-	return s.csClient, nil
-}
-
 func (s *BaseSuite) newCSFactory() func(_ *charm.URL) (NewCharmRepository, error) {
 	return func(_ *charm.URL) (NewCharmRepository, error) {
 		return newCharmStoreClient(s.csClient), nil

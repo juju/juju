@@ -17,7 +17,6 @@ import (
 
 type bundleMockSuite struct {
 	coretesting.BaseSuite
-	bundleClient *bundle.Client
 }
 
 var _ = gc.Suite(&bundleMockSuite{})

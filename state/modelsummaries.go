@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/names/v4"
@@ -85,13 +84,6 @@ type modelSummaryProcessor struct {
 	isSuperuser bool
 	indexByUUID map[string]int
 	modelUUIDs  []string
-
-	//invalidLocalUsers are usernames that show up as we're walking the database, but ultimately are considered deleted
-	invalidLocalUsers set.Strings
-
-	// incompleteUUIDs are ones that are missing some information, we should treat them as not being available
-	// we wait to strip them out until we're done doing all the processing steps.
-	incompleteUUIDs set.Strings
 }
 
 func newProcessorFromModelDocs(st *State, modelDocs []modelDoc, user names.UserTag, isSuperuser bool) *modelSummaryProcessor {

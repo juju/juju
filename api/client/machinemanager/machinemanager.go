@@ -117,39 +117,6 @@ func (client *Client) DestroyMachinesWithParams(force, keep bool, maxWait *time.
 	return allResults, nil
 }
 
-func (client *Client) destroyMachines(method string, machines []string) ([]params.DestroyMachineResult, error) {
-	args := params.Entities{
-		Entities: make([]params.Entity, 0, len(machines)),
-	}
-	allResults := make([]params.DestroyMachineResult, len(machines))
-	index := make([]int, 0, len(machines))
-	for i, machineId := range machines {
-		if !names.IsValidMachine(machineId) {
-			allResults[i].Error = &params.Error{
-				Message: errors.NotValidf("machine ID %q", machineId).Error(),
-			}
-			continue
-		}
-		index = append(index, i)
-		args.Entities = append(args.Entities, params.Entity{
-			Tag: names.NewMachineTag(machineId).String(),
-		})
-	}
-	if len(args.Entities) > 0 {
-		var result params.DestroyMachineResults
-		if err := client.facade.FacadeCall(method, args, &result); err != nil {
-			return nil, errors.Trace(err)
-		}
-		if n := len(result.Results); n != len(args.Entities) {
-			return nil, errors.Errorf("expected %d result(s), got %d", len(args.Entities), n)
-		}
-		for i, result := range result.Results {
-			allResults[index[i]] = result
-		}
-	}
-	return allResults, nil
-}
-
 // ProvisioningScript returns a shell script that, when run,
 // provisions a machine agent on the machine executing the script.
 func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (script string, err error) {

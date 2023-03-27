@@ -175,25 +175,6 @@ func (s *ProxyUpdaterSuite) waitForFile(c *gc.C, filename, expected string) {
 	}
 }
 
-func (s *ProxyUpdaterSuite) assertNoFile(c *gc.C, filename string) {
-	//TODO(bogdanteleaga): Find a way to test this on windows
-	if runtime.GOOS == "windows" {
-		c.Skip("Proxy settings are written to the registry on windows")
-	}
-	maxWait := time.After(coretesting.ShortWait)
-	for {
-		select {
-		case <-maxWait:
-			return
-		case <-time.After(10 * time.Millisecond):
-			_, err := os.Stat(filename)
-			if err == nil {
-				c.Fatalf("file %s exists", filename)
-			}
-		}
-	}
-}
-
 func (s *ProxyUpdaterSuite) TestRunStop(c *gc.C) {
 	updater, err := proxyupdater.NewWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)

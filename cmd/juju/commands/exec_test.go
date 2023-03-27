@@ -713,9 +713,6 @@ func (s *ExecSuite) setupMockAPI() *mockExecAPI {
 
 type mockExecAPI struct {
 	action.APIClient
-	stdout string
-	stderr string
-	code   int
 	// machines, applications, units
 	machines        map[string]bool
 	execResponses   map[string]actionapi.ActionResult

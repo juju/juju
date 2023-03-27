@@ -8,8 +8,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
@@ -66,14 +64,4 @@ func (s *WorkerSuite) TestConfigMissingRegisterer(c *gc.C) {
 	err := s.config.Validate()
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(err, gc.ErrorMatches, "missing PrometheusRegisterer not valid")
-}
-
-func (s *WorkerSuite) start(c *gc.C) worker.Worker {
-	config := s.config
-	w, err := multiwatcher.NewWorker(config)
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) {
-		workertest.CleanKill(c, w)
-	})
-	return w
 }

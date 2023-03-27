@@ -277,7 +277,6 @@ func modelConfig(attrs map[string]interface{}) (*config.Config, error) {
 type ImportStateMigration struct {
 	src        description.Model
 	dst        Database
-	importer   *importer
 	migrations []func() error
 }
 
@@ -1745,15 +1744,6 @@ func (i *importer) firewallRules() error {
 	}
 	i.logger.Debugf("importing remote applications succeeded")
 	return nil
-}
-
-// makeStatusDoc assumes status is non-nil.
-func (i *importer) makeFirewallRuleDoc(firewallRule description.FirewallRule) *firewallRulesDoc {
-	return &firewallRulesDoc{
-		Id:               firewallRule.ID(),
-		WellKnownService: firewallRule.WellKnownService(),
-		WhitelistCIDRS:   firewallRule.WhitelistCIDRs(),
-	}
 }
 
 func (i *importer) makeRemoteApplicationDoc(app description.RemoteApplication) *remoteApplicationDoc {

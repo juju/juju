@@ -73,11 +73,6 @@ func (c commands) conf(name, dirname string) string {
 	return args
 }
 
-func (c commands) mkdirs(dirname string) string {
-	cmds := c.MkdirAll(dirname)
-	return strings.Join(cmds, "\n")
-}
-
 func (c commands) writeConf(name, dirname string, data []byte) string {
 	filename := c.unitFilename(name, dirname)
 	cmds := c.WriteFile(filename, data)

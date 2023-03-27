@@ -46,7 +46,6 @@ type showOutputCommand struct {
 	ActionCommandBase
 	out         cmd.Output
 	requestedID string
-	fullSchema  bool
 	// TODO(juju3) - remove legacyWait
 	legacyWait string
 	wait       time.Duration

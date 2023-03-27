@@ -24,7 +24,6 @@ type RelationUnit struct {
 	unitTag  names.UnitTag
 	appTag   names.ApplicationTag
 	endpoint Endpoint
-	scope    string
 }
 
 // Relation returns the relation associated with the unit.

@@ -1699,11 +1699,6 @@ func (s *mockRelationResolverSuite) expectState(st relation.State) {
 	exp.State(st.RelationId).Return(&st, nil)
 }
 
-func (s *mockRelationResolverSuite) expectStateMaybe(st relation.State) {
-	exp := s.mockRelStTracker.EXPECT()
-	exp.State(st.RelationId).Return(&st, nil).AnyTimes()
-}
-
 func (s *mockRelationResolverSuite) expectIsPeerRelationFalse(id int) {
 	exp := s.mockRelStTracker.EXPECT()
 	exp.IsPeerRelation(id).Return(false, nil)

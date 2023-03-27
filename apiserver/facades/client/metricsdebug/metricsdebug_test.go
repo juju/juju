@@ -23,7 +23,6 @@ type metricsDebugSuite struct {
 
 	metricsdebug *metricsdebug.MetricsDebugAPI
 	authorizer   apiservertesting.FakeAuthorizer
-	unit         *state.Unit
 }
 
 var _ = gc.Suite(&metricsDebugSuite{})

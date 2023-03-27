@@ -527,7 +527,6 @@ type ModelChecker struct {
 	foundBlobPaths set.Strings
 	session        *mgo.Session
 	model          *state.Model
-	system         *state.State
 
 	managedResources *mgo.Collection
 	resources        *mgo.Collection

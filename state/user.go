@@ -361,7 +361,7 @@ func (st *State) AllUsers(includeDeactivated bool) ([]*User, error) {
 type User struct {
 	st           *State
 	doc          userDoc
-	lastLoginDoc userLastLoginDoc
+	lastLoginDoc userLastLoginDoc //nolint:unused
 }
 
 type userDoc struct {

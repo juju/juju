@@ -120,7 +120,6 @@ func (op mockOp) Commit(st operation.State) (*operation.State, error) {
 type mockCharmDirGuard struct {
 	fortress.Guard
 	testing.Stub
-	commit func(operation.State) (*operation.State, error)
 }
 
 func (l *mockCharmDirGuard) Unlock() error {

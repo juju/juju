@@ -63,9 +63,7 @@ var (
 
 	errDeadOrGone     = errors.New("neither alive nor dying")
 	errAlreadyDying   = errors.New("already dying")
-	errAlreadyDead    = errors.New("already dead")
 	errAlreadyRemoved = errors.New("already removed")
-	errNotDying       = errors.New("not dying")
 )
 
 var valueMap = map[life.Value]Life{

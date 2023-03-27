@@ -257,7 +257,6 @@ type mockRelation struct {
 	testing.Stub
 	firewall.Relation
 	id        int
-	key       string
 	endpoints []state.Endpoint
 	ruw       *mockRelationUnitsWatcher
 	ew        *mockStringsWatcher
@@ -396,9 +395,8 @@ type mockMachine struct {
 	firewall.Machine
 
 	testing.Stub
-	id       string
-	watcher  *mockAddressWatcher
-	isManual bool
+	id      string
+	watcher *mockAddressWatcher
 }
 
 func newMockMachine(id string) *mockMachine {

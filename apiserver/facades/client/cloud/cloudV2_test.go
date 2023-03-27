@@ -601,12 +601,11 @@ func (m *mockStatePool) SystemState() (*state.State, error) {
 }
 
 type mockModel struct {
-	uuid               string
-	cloud              string
-	cloudRegion        string
-	cloudValue         cloud.Cloud
-	cloudCredentialTag names.CloudCredentialTag
-	cfg                *config.Config
+	uuid        string
+	cloud       string
+	cloudRegion string
+	cloudValue  cloud.Cloud
+	cfg         *config.Config
 }
 
 type mockModelBackend struct {

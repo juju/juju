@@ -209,14 +209,6 @@ func (s *agentConfSuite) TestCreateAgentConfFailAgentKind(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `agent "application-fail" is neither a machine nor a unit`)
 }
 
-func (s *agentConfSuite) agentUnitNames() []string {
-	unitAgents := make([]string, len(s.unitNames))
-	for i, name := range s.unitNames {
-		unitAgents[i] = "jujud-" + name
-	}
-	return unitAgents
-}
-
 func (s *agentConfSuite) TestWriteSystemdAgent(c *gc.C) {
 	err := s.manager.WriteSystemdAgent(
 		s.machineName, s.systemdDataDir, s.systemdMultiUserDir)
@@ -263,23 +255,6 @@ func (s *agentConfSuite) TestWriteSystemdAgentWriteServiceFail(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "fail me")
 	s.assertServicesCalls(c, "RemoveOldService", 1)
 	s.assertServicesCalls(c, "WriteService", 1)
-}
-
-func (s *agentConfSuite) assertToolsCopySymlink(c *gc.C, series string) {
-	// Check tools changes.
-	ver := version.Binary{
-		Number:  jujuversion.Current,
-		Arch:    arch.HostArch(),
-		Release: series,
-	}
-	jujuTools, err := agenttools.ReadTools(s.dataDir, ver)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(jujuTools.Version, gc.DeepEquals, ver)
-
-	link := path.Join(s.dataDir, "tools", s.machineName)
-	linkResult, err := os.Readlink(link)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(linkResult, gc.Equals, path.Join(s.dataDir, "tools", ver.String()))
 }
 
 func (s *agentConfSuite) assertServicesCalls(c *gc.C, svc string, expectedCnt int) {

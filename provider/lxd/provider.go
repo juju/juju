@@ -271,31 +271,6 @@ func (p *environProvider) DetectCloud(name string) (cloud.Cloud, error) {
 	return cloud.Cloud{}, errors.NotFoundf("cloud %s", name)
 }
 
-func (p *environProvider) detectCloud(name, path string) (cloud.Cloud, error) {
-	config, err := p.lxcConfigReader.ReadConfig(path)
-	if err != nil {
-		return cloud.Cloud{}, err
-	}
-
-	if remote, ok := config.Remotes[name]; ok {
-		return cloud.Cloud{
-			Name:        name,
-			Type:        lxdnames.ProviderType,
-			Endpoint:    remote.Addr,
-			Description: cloud.DefaultCloudDescription(lxdnames.ProviderType),
-			AuthTypes: []cloud.AuthType{
-				cloud.CertificateAuthType,
-			},
-			Regions: []cloud.Region{{
-				Name:     lxdnames.DefaultRemoteRegion,
-				Endpoint: remote.Addr,
-			}},
-		}, nil
-	}
-
-	return cloud.Cloud{}, errors.NotFoundf("cloud %s", name)
-}
-
 // FinalizeCloud is part of the environs.CloudFinalizer interface.
 func (p *environProvider) FinalizeCloud(
 	ctx environs.FinalizeCloudContext,
