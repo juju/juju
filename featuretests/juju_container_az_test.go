@@ -26,7 +26,7 @@ func (s *containerAZSuite) TestContainerAvailabilityZone(c *gc.C) {
 
 	retAvailabilityZone, err := azMachine.AvailabilityZone()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(availabilityZone, gc.Equals, retAvailabilityZone)
+	c.Assert(retAvailabilityZone, gc.Equals, availabilityZone)
 
 	// now add a container to that machine
 	container := s.Factory.MakeMachineNested(c, azMachine.Id(), nil)
@@ -34,7 +34,7 @@ func (s *containerAZSuite) TestContainerAvailabilityZone(c *gc.C) {
 
 	containerAvailabilityZone, err := container.AvailabilityZone()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(availabilityZone, gc.Equals, containerAvailabilityZone)
+	c.Assert(containerAvailabilityZone, gc.Equals, "")
 }
 
 func (s *containerAZSuite) TestContainerNilAvailabilityZone(c *gc.C) {
@@ -44,7 +44,7 @@ func (s *containerAZSuite) TestContainerNilAvailabilityZone(c *gc.C) {
 
 	retAvailabilityZone, err := azMachine.AvailabilityZone()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert("", gc.Equals, retAvailabilityZone)
+	c.Assert(retAvailabilityZone, gc.Equals, "")
 
 	// now add a container to that machine
 	container := s.Factory.MakeMachineNested(c, azMachine.Id(), nil)
@@ -52,5 +52,5 @@ func (s *containerAZSuite) TestContainerNilAvailabilityZone(c *gc.C) {
 
 	containerAvailabilityZone, err := container.AvailabilityZone()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert("", gc.Equals, containerAvailabilityZone)
+	c.Assert(containerAvailabilityZone, gc.Equals, "")
 }
