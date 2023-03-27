@@ -5,7 +5,6 @@ package dbaccessor
 
 import (
 	"context"
-	"database/sql"
 	"net"
 	"sync"
 	"time"
@@ -82,36 +81,6 @@ type DBGetter interface {
 	GetDB(namespace string) (coredatabase.TrackedDB, error)
 }
 
-// DBApp describes methods of a Dqlite database application,
-// required to run this host as a Dqlite node.
-type DBApp interface {
-	// Open the dqlite database with the given name
-	Open(context.Context, string) (*sql.DB, error)
-
-	// Ready can be used to wait for a node to complete tasks that
-	// are initiated at startup. For example a new node will attempt
-	// to join the cluster, a restarted node will check if it should
-	// assume some particular role, etc.
-	//
-	// If this method returns without error it means that those initial
-	// tasks have succeeded and follow-up operations like Open() are more
-	// likely to succeed quickly.
-	Ready(context.Context) error
-
-	// Handover transfers all responsibilities for this node (such has
-	// leadership and voting rights) to another node, if one is available.
-	//
-	// This method should always be called before invoking Close(),
-	// in order to gracefully shut down a node.
-	Handover(context.Context) error
-
-	// ID returns the dqlite ID of this application node.
-	ID() uint64
-
-	// Close the application node, releasing all resources it created.
-	Close() error
-}
-
 // dbRequest is used to pass requests for TrackedDB
 // instances into the worker loop.
 type dbRequest struct {
@@ -176,6 +145,10 @@ type dbWorker struct {
 	dbApp    DBApp
 	dbRunner *worker.Runner
 
+	// dbReady is used to signal that we can
+	// begin processing GetDB requests.
+	dbReady chan struct{}
+
 	// dbRequests is used to synchronise GetDB
 	// requests into this worker's event loop.
 	dbRequests chan dbRequest
@@ -201,6 +174,7 @@ func newWorker(cfg WorkerConfig) (*dbWorker, error) {
 			IsFatal:      func(err error) bool { return true },
 			RestartDelay: time.Second * 30,
 		}),
+		dbReady:          make(chan struct{}),
 		dbRequests:       make(chan dbRequest),
 		apiServerChanges: make(chan apiserver.Details),
 	}
@@ -289,6 +263,13 @@ func (w *dbWorker) Wait() error {
 // we should first validate it exists in the controller list.
 // This should only be required if it's not the controller DB.
 func (w *dbWorker) GetDB(namespace string) (coredatabase.TrackedDB, error) {
+	// Ensure Dqlite is initialised.
+	select {
+	case <-w.dbReady:
+	case <-w.catacomb.Dying():
+		return nil, w.catacomb.ErrDying()
+	}
+
 	// Enqueue the request.
 	req := makeDBRequest(namespace)
 	select {
@@ -373,6 +354,14 @@ func (w *dbWorker) initialiseDqlite(options ...app.Option) error {
 	}
 
 	w.cfg.Logger.Infof("initialized Dqlite application (ID: %v)", w.dbApp.ID())
+
+	if c, err := w.dbApp.Client(ctx); err == nil {
+		if info, err := c.Cluster(ctx); err == nil {
+			w.cfg.Logger.Infof("current cluster: %#v", info)
+		}
+	}
+
+	close(w.dbReady)
 	return nil
 }
 
@@ -453,8 +442,7 @@ func (w *dbWorker) processAPIServerChange(apiDetails apiserver.Details) error {
 
 	// Otherwise this is a node added by enabling HA,
 	// and we need to join to an existing cluster.
-
-	return nil
+	return errors.Trace(w.joinNodeToCluster(apiDetails))
 }
 
 // rebindAddress stops the current node, reconfigures the cluster so that
@@ -491,6 +479,43 @@ func (w *dbWorker) rebindAddress(ctx context.Context, addr string) error {
 	}
 
 	return errors.Trace(mgr.SetNodeInfo(servers[0]))
+}
+
+func (w *dbWorker) joinNodeToCluster(apiDetails apiserver.Details) error {
+	w.cfg.Logger.Infof("joining Dqlite cluster")
+
+	// Get our address from the API details.
+	localAddr, err := w.bindAddrFromServerDetails(apiDetails)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Then get addresses for any other of the servers,
+	// so we can join the cluster.
+	var clusterAddrs []string
+	for id, server := range apiDetails.Servers {
+		hostPort := server.InternalAddress
+		if id != w.cfg.ControllerID && hostPort != "" {
+			addr, _, err := net.SplitHostPort(hostPort)
+			if err != nil {
+				return errors.Annotatef(err, "splitting host/port for %s", hostPort)
+			}
+			clusterAddrs = append(clusterAddrs, addr)
+		}
+	}
+	if len(clusterAddrs) == 0 {
+		return errors.New("no addresses available for this Dqlite node to join cluster")
+	}
+
+	mgr := w.cfg.NodeManager
+
+	withTLS, err := mgr.WithTLSOption()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return errors.Trace(w.initialiseDqlite(
+		mgr.WithAddressOption(localAddr), mgr.WithClusterOption(clusterAddrs), withTLS))
 }
 
 // bindAddrFromServerDetails returns the internal IP address from the

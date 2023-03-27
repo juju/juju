@@ -14,7 +14,6 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/database/app"
 	"github.com/juju/juju/database/dqlite"
 	"github.com/juju/juju/pubsub/apiserver"
@@ -29,37 +28,62 @@ type workerSuite struct {
 
 var _ = gc.Suite(&workerSuite{})
 
-func (s *workerSuite) TestGetControllerDBSuccessNotExistingNode(c *gc.C) {
-	c.Skip("to be reinstated in follow-up patch")
+func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
 	s.expectClock()
 
+	done := s.expectTrackedDB(c)
+
 	mgrExp := s.nodeManager.EXPECT()
 	mgrExp.EnsureDataDir().Return(c.MkDir(), nil)
-	mgrExp.IsExistingNode().Return(false, nil)
-	mgrExp.WithAddressOption(gomock.Any()).Return(nil, nil)
-	mgrExp.WithClusterOption(gomock.Any()).Return(nil, nil)
+	mgrExp.IsExistingNode().Return(false, nil).Times(2)
+	mgrExp.WithAddressOption("10.6.6.6").Return(nil)
+	mgrExp.WithClusterOption([]string{"10.6.6.7"}).Return(nil)
 	mgrExp.WithLogFuncOption().Return(nil)
+	mgrExp.WithTLSOption().Return(nil, nil)
+
+	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
+
+	sync := make(chan struct{})
 
 	appExp := s.dbApp.EXPECT()
 	appExp.Ready(gomock.Any()).Return(nil)
-	appExp.ID().Return(uint64(666))
+	appExp.Client(gomock.Any()).Return(s.client, nil)
+	appExp.ID().DoAndReturn(func() uint64 {
+		close(sync)
+		return uint64(666)
+	})
 	appExp.Handover(gomock.Any()).Return(nil)
 	appExp.Close().Return(nil)
 
-	done := s.expectTrackedDB(c)
+	// When we are starting up as a new node,
+	// we request details immediately.
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
+	s.hub.EXPECT().Publish(apiserver.DetailsRequestTopic, gomock.Any()).Return(func() {}, nil)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
 
-	getter, ok := w.(coredatabase.DBGetter)
-	c.Assert(ok, jc.IsTrue, gc.Commentf("worker does not implement DBGetter"))
+	// Push a message onto the API details channel to simulate a move into HA.
+	// Note that this happens before the node can actually start.
+	select {
+	case w.(*dbWorker).apiServerChanges <- apiserver.Details{
+		Servers: map[string]apiserver.APIServer{
+			"0": {ID: "0", InternalAddress: "10.6.6.6:1234"},
+			"1": {ID: "1", InternalAddress: "10.6.6.7:1234"},
+		},
+	}:
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting for cluster change to be processed")
+	}
 
-	_, err := getter.GetDB("controller")
-	c.Assert(err, jc.ErrorIsNil)
+	select {
+	case <-sync:
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting for Dqlite node start")
+	}
 
 	// Close the wait on the tracked DB
 	close(done)
@@ -86,10 +110,13 @@ func (s *workerSuite) TestWorkerStartupExistingNode(c *gc.C) {
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTLSOption().Return(nil, nil)
 
+	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
+
 	sync := make(chan struct{})
 
 	appExp := s.dbApp.EXPECT()
 	appExp.Ready(gomock.Any()).Return(nil)
+	appExp.Client(gomock.Any()).Return(s.client, nil)
 	appExp.ID().DoAndReturn(func() uint64 {
 		close(sync)
 		return uint64(666)
@@ -132,10 +159,13 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeSingleServerNoRebind(c *gc
 	mgrExp.IsBootstrappedNode(gomock.Any()).Return(true, nil).Times(2)
 	mgrExp.WithLogFuncOption().Return(nil)
 
+	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
+
 	sync := make(chan struct{})
 
 	appExp := s.dbApp.EXPECT()
 	appExp.Ready(gomock.Any()).Return(nil)
+	appExp.Client(gomock.Any()).Return(s.client, nil)
 	appExp.ID().DoAndReturn(func() uint64 {
 		close(sync)
 		return uint64(666)
@@ -213,10 +243,13 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigure(c *gc.C) {
 		Role:    0,
 	}).Return(nil)
 
+	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
+
 	sync := make(chan struct{})
 
 	appExp := s.dbApp.EXPECT()
 	appExp.Ready(gomock.Any()).Return(nil)
+	appExp.Client(gomock.Any()).Return(s.client, nil)
 	appExp.ID().DoAndReturn(func() uint64 {
 		close(sync)
 		return uint64(666)

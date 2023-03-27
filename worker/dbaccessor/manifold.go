@@ -128,9 +128,3 @@ func dbAccessorOutput(in worker.Worker, out interface{}) error {
 	}
 	return nil
 }
-
-// NewApp creates a new DQlite application.
-func NewApp(dataDir string, options ...app.Option) (DBApp, error) {
-	dqlite, err := app.New(dataDir, options...)
-	return dqlite, errors.Trace(err)
-}
