@@ -97,7 +97,7 @@ instructions.
 
 `
 
-const examples = `
+const examplesAddCredential = `
     juju add-credential google
     juju add-credential google --client
     juju add-credential google -c mycontroller
@@ -148,7 +148,7 @@ func (c *addCredentialCommand) Info() *cmd.Info {
 		Args:     "<cloud name>",
 		Purpose:  usageAddCredentialSummary,
 		Doc:      usageAddCredentialDetails,
-		Examples: examples,
+		Examples: examplesAddCredential,
 		SeeAlso: []string{
 			"credentials",
 			"remove-credential",
