@@ -120,8 +120,8 @@ func (w *trackedDBWorker) Txn(ctx context.Context, fn func(context.Context, *sql
 // Err will return any fatal errors that have occurred on the worker, trying
 // to acquire the database.
 func (w *trackedDBWorker) Err() error {
-	w.mutex.Lock()
-	defer w.mutex.Unlock()
+	w.mutex.RLock()
+	defer w.mutex.RUnlock()
 
 	return w.err
 }
