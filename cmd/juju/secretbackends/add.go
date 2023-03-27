@@ -50,16 +50,12 @@ Any key values override file content if both are specified.
 To rotate the backend access credential/token (if specified), use
 the "token-rotate" config and supply a duration.
 
-Examples:
+`
+
+const examples = `
     juju add-secret-backend myvault vault --config /path/to/cfg.yaml
     juju add-secret-backend myvault vault token-rotate=10m --config /path/to/cfg.yaml
     juju add-secret-backend myvault vault endpoint=https://vault.io:8200 token=s.1wshwhw
-
-See also:
-    list-secret-backends
-    remove-secret-backend
-    show-secret-backend
-    update-secret-backend
 `
 
 // AddSecretBackendsAPI is the secrets client API.
@@ -88,10 +84,17 @@ func (c *addSecretBackendCommand) secretBackendsAPI() (AddSecretBackendsAPI, err
 // Info implements cmd.Info.
 func (c *addSecretBackendCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "add-secret-backend",
-		Purpose: "Add a new secret backend to the controller.",
-		Doc:     addSecretBackendsDoc,
-		Args:    "<backend-name> <backend-type>",
+		Name:     "add-secret-backend",
+		Purpose:  "Add a new secret backend to the controller.",
+		Doc:      addSecretBackendsDoc,
+		Args:     "<backend-name> <backend-type>",
+		Examples: examples,
+		SeeAlso: []string{
+			"list-secret-backends",
+			"remove-secret-backend",
+			"show-secret-backend",
+			"update-secret-backend",
+		},
 	})
 }
 
