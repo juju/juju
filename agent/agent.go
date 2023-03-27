@@ -14,7 +14,6 @@ import (
 	"strconv"
 
 	"github.com/juju/collections/set"
-
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"

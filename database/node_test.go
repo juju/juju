@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
-	"net"
 	"os"
 	"path"
 	"strconv"
@@ -263,20 +262,6 @@ func (s *nodeManagerSuite) TestWithClusterOptionSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_ = dqliteApp.Close()
-}
-
-func (s *nodeManagerSuite) TestIgnoreInterface(c *gc.C) {
-	shouldIgnore := []string{
-		"lxdbr0",
-		"virbr0",
-		"docker0",
-	}
-	for _, devName := range shouldIgnore {
-		c.Check(ignoreInterface(net.Interface{Name: devName}), jc.IsTrue)
-	}
-
-	c.Check(ignoreInterface(net.Interface{Flags: net.FlagLoopback}), jc.IsTrue)
-	c.Check(ignoreInterface(net.Interface{Name: "enp5s0"}), jc.IsFalse)
 }
 
 type fakeAgentConfig struct {

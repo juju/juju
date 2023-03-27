@@ -9,11 +9,9 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io"
-	"net"
 	"os"
 	"path"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	// Note that this is a deliberate use of the same YAML dependency
@@ -25,11 +23,9 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/agent"
-	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/database/app"
 	"github.com/juju/juju/database/client"
 	"github.com/juju/juju/database/dqlite"
-	"github.com/juju/juju/network"
 )
 
 const (
@@ -39,10 +35,6 @@ const (
 	dqliteClusterFileName = "cluster.yaml"
 )
 
-// DefaultBindAddress is the address that will *always* be returned by
-// WithAddressOption. It is used in tests to override address detection.
-var DefaultBindAddress = ""
-
 // NodeManager is responsible for interrogating a single Dqlite node,
 // and emitting configuration for starting its Dqlite `App` based on
 // operational requirements and controller agent config.
@@ -51,18 +43,16 @@ type NodeManager struct {
 	port   int
 	logger Logger
 
-	dataDir     string
-	bindAddress string
+	dataDir string
 }
 
 // NewNodeManager returns a new NodeManager reference
 // based on the input agent configuration.
 func NewNodeManager(cfg agent.Config, logger Logger) *NodeManager {
 	return &NodeManager{
-		cfg:         cfg,
-		port:        dqlitePort,
-		logger:      logger,
-		bindAddress: DefaultBindAddress,
+		cfg:    cfg,
+		port:   dqlitePort,
+		logger: logger,
 	}
 }
 
@@ -237,62 +227,4 @@ func (m *NodeManager) WithClusterOption(addrs []string) app.Option {
 func (m *NodeManager) nodeClusterStore() (*client.YamlNodeStore, error) {
 	store, err := client.NewYamlNodeStore(path.Join(m.dataDir, dqliteClusterFileName))
 	return store, errors.Annotate(err, "opening Dqlite cluster node store")
-}
-
-// ensureBindAddress sets the bind address, used by clients and peers.
-// We will need to revisit this because at present it is not influenced
-// by a configured juju-ha-space.
-func (m *NodeManager) ensureBindAddress() error {
-	if m.bindAddress != "" {
-		return nil
-	}
-
-	nics, err := net.Interfaces()
-	if err != nil {
-		return errors.Annotate(err, "querying local network interfaces")
-	}
-
-	var addrs corenetwork.MachineAddresses
-	for _, nic := range nics {
-		if ignoreInterface(nic) {
-			continue
-		}
-
-		sysAddrs, err := nic.Addrs()
-		if err != nil || len(sysAddrs) == 0 {
-			continue
-		}
-
-		for _, addr := range sysAddrs {
-			switch v := addr.(type) {
-			case *net.IPNet:
-				addrs = append(addrs, corenetwork.NewMachineAddress(v.IP.String()))
-			case *net.IPAddr:
-				addrs = append(addrs, corenetwork.NewMachineAddress(v.IP.String()))
-			default:
-			}
-		}
-	}
-
-	cloudLocal := addrs.AllMatchingScope(corenetwork.ScopeMatchCloudLocal).Values()
-
-	if len(cloudLocal) == 0 {
-		return errors.NotFoundf("suitable local address for advertising to Dqlite peers")
-	}
-
-	sort.Strings(cloudLocal)
-	m.bindAddress = cloudLocal[0]
-	m.logger.Debugf("chose Dqlite bind address %v from %v", m.bindAddress, cloudLocal)
-	return nil
-}
-
-// ignoreInterface returns true if we should discount the input
-// interface as one suitable for binding Dqlite to.
-// Such interfaces are loopback devices and the default bridges
-// for LXD/KVM/Docker.
-func ignoreInterface(nic net.Interface) bool {
-	return int(nic.Flags&net.FlagLoopback) > 0 ||
-		nic.Name == network.DefaultLXDBridge ||
-		nic.Name == network.DefaultKVMBridge ||
-		nic.Name == network.DefaultDockerBridge
 }
