@@ -482,27 +482,27 @@ func (*suite) TestAPIInfoMissingAddress(c *gc.C) {
 	c.Assert(ok, jc.IsFalse)
 }
 
-func (*suite) TestAPIInfoServesLocalhostOnlyWhenServingInfoPresent(c *gc.C) {
+func (*suite) TestAPIInfoServesLocalhostWhenServingInfoPresent(c *gc.C) {
 	attrParams := attributeParams
-	attrParams.APIAddresses = []string{"localhost:1235", "localhost:1236"}
+	attrParams.APIAddresses = []string{"foo.example:1235"}
 	servingInfo := stateServingInfo()
 	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	apiinfo, ok := conf.APIInfo()
 	c.Assert(ok, jc.IsTrue)
-	c.Check(apiinfo.Addrs, gc.DeepEquals, []string{"localhost:52"})
+	c.Check(apiinfo.Addrs, jc.SameContents, []string{"localhost:52", "foo.example:1235"})
 }
 
 func (*suite) TestAPIInfoServesStandardAPIPortWhenControllerAPIPortNotSet(c *gc.C) {
 	attrParams := attributeParams
-	attrParams.APIAddresses = []string{"localhost:1235", "localhost:1236"}
+	attrParams.APIAddresses = []string{"foo.example:1235"}
 	servingInfo := stateServingInfo()
 	servingInfo.ControllerAPIPort = 0
 	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	apiinfo, ok := conf.APIInfo()
 	c.Assert(ok, jc.IsTrue)
-	c.Check(apiinfo.Addrs, gc.DeepEquals, []string{"localhost:47"})
+	c.Check(apiinfo.Addrs, jc.SameContents, []string{"localhost:47", "foo.example:1235"})
 }
 
 func (*suite) TestMongoInfo(c *gc.C) {

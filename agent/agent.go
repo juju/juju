@@ -13,6 +13,8 @@ import (
 	"regexp"
 	"strconv"
 
+	"github.com/juju/collections/set"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -870,7 +872,17 @@ func (c *configInternal) APIInfo() (*api.Info, bool) {
 		// loopback, and when/if this changes localhost should resolve
 		// to IPv6 loopback in any case (lp:1644009). Review.
 		localAPIAddr := net.JoinHostPort("localhost", strconv.Itoa(port))
-		addrs = []string{localAPIAddr}
+
+		// TODO (manadart 2023-03-27): This is a temporary change from using
+		// *only* the localhost address, to fix an issue where we can get the
+		// configuration change that tells a new machine that it is a
+		// controller *before* the machine agent has completed its first run
+		// set its status to "running". When this happens we deadlock, because
+		// the peergrouper has not joined the machine to replica-set, so there
+		// will never be a working API available at localhost.
+		if !set.NewStrings(addrs...).Contains(localAPIAddr) {
+			addrs = append(addrs, localAPIAddr)
+		}
 	}
 	return &api.Info{
 		Addrs:    addrs,
