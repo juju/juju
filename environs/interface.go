@@ -636,6 +636,10 @@ type HardwareCharacteristicsDetector interface {
 	// DetectHardware returns the hardware characteristics for the
 	// controller instance.
 	DetectHardware() (*instance.HardwareCharacteristics, error)
+	// UpdateModelConstraints returns true if the model constraints should
+	// be updated based on the returns of DetectSeries() and
+	// DetectHardware().
+	UpdateModelConstraints() bool
 }
 
 // SupportedFeatureEnumerator is implemented by environments that can report

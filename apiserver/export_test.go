@@ -28,6 +28,7 @@ var (
 	NewPingTimeout        = newPingTimeout
 	MaxClientPingInterval = maxClientPingInterval
 	NewBackups            = &newBackups
+	SetResource           = setResource
 )
 
 func APIHandlerWithEntity(entity state.Entity) *apiHandler {

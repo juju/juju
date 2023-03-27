@@ -71,15 +71,26 @@ func (st *State) AddUserWithSecretKey(name, displayName, creator string) (*User,
 }
 
 func (st *State) addUser(name, displayName, password, creator string, secretKey []byte) (*User, error) {
+
 	if !names.IsValidUserName(name) {
 		return nil, errors.Errorf("invalid user name %q", name)
 	}
 	lowercaseName := strings.ToLower(name)
 
-	if _, err := st.User(names.NewUserTag(name)); err != nil && !errors.IsNotFound(err) {
-		if IsDeletedUserError(err) {
-			return nil, errors.Annotate(err, "cannot reuse name")
+	foundUser := &User{st: st}
+	err := st.getUser(names.NewUserTag(name).Name(), &foundUser.doc)
+	// No error, the user is already there
+	if err == nil {
+		if foundUser.doc.Deleted {
+			// the user was deleted, we update it
+			return st.updateExistingUser(foundUser, displayName, password, creator, secretKey)
+		} else {
+			return nil, errors.New("the user already exists")
 		}
+	}
+
+	// There is an error different from not found
+	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
 
@@ -93,6 +104,8 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 			SecretKey:   secretKey,
 			CreatedBy:   creator,
 			DateCreated: dateCreated,
+			Deleted:     false,
+			RemovalLog:  []userRemovedLogEntry{},
 		},
 	}
 
@@ -119,7 +132,7 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 		defaultControllerPermission)
 	ops = append(ops, controllerUserOps...)
 
-	err := st.db().RunTransaction(ops)
+	err = st.db().RunTransaction(ops)
 	if err != nil {
 		if err == txn.ErrAborted {
 			err = errors.Errorf("username unavailable")
@@ -127,6 +140,70 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 		return nil, errors.Trace(err)
 	}
 	return user, nil
+}
+
+// updateExistingUser manipulates the values of an existing user in the db.
+// This is particularly useful when reusing existing users that were previously
+// deleted.
+func (st *State) updateExistingUser(u *User, displayName, password, creator string, secretKey []byte) (*User, error) {
+
+	dateCreated := st.nowToTheSecond()
+
+	// update the password
+	updateUser := bson.D{{"$set", bson.D{
+		{"deleted", false},
+		{"displayname", displayName},
+		{"createdby", creator},
+		{"datecreated", dateCreated},
+	}}}
+
+	if password != "" {
+		salt, err := utils.RandomSalt()
+		if err != nil {
+			return nil, err
+		}
+		updateUser = append(updateUser,
+			bson.DocElem{"$set", bson.D{
+				{"passwordhash", utils.UserPasswordHash(password, salt)},
+				{"passwordsalt", salt},
+			}},
+		)
+	}
+
+	// remove previous controller permissions
+	removeControllerOps := removeControllerUserOps(st.ControllerUUID(), u.UserTag())
+
+	if err := u.st.db().RunTransaction(removeControllerOps); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// // create default new ones
+	createControllerOps := createControllerUserOps(st.ControllerUUID(),
+		u.UserTag(),
+		names.NewUserTag(creator),
+		displayName,
+		dateCreated,
+		defaultControllerPermission)
+
+	updateUserOps := []txn.Op{{
+		C:      usersC,
+		Id:     strings.ToLower(u.Name()),
+		Assert: txn.DocExists,
+		Update: updateUser,
+	}}
+	updateUserOps = append(updateUserOps, createControllerOps...)
+
+	if err := u.st.db().RunTransaction(updateUserOps); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// recreate the user object to return
+	toReturn, err := st.User(u.UserTag())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return toReturn, nil
 }
 
 // RemoveUser marks the user as deleted. This obviates the ability of a user
@@ -142,6 +219,19 @@ func (st *State) RemoveUser(tag names.UserTag) error {
 		return nil
 	}
 
+	dateRemoved := st.nowToTheSecond()
+	// new entry in the removal log
+	newRemovalLogEntry := userRemovedLogEntry{
+		RemovedBy:   u.doc.CreatedBy,
+		DateCreated: u.doc.DateCreated,
+		DateRemoved: dateRemoved,
+	}
+	removalLog := u.doc.RemovalLog
+	if removalLog == nil {
+		removalLog = make([]userRemovedLogEntry, 0)
+	}
+	removalLog = append(removalLog, newRemovalLogEntry)
+
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			// If it is not our first attempt, refresh the user.
@@ -153,7 +243,8 @@ func (st *State) RemoveUser(tag names.UserTag) error {
 			Id:     lowercaseName,
 			C:      usersC,
 			Assert: txn.DocExists,
-			Update: bson.M{"$set": bson.M{"deleted": true}},
+			Update: bson.M{"$set": bson.M{
+				"deleted": true, "removallog": removalLog}},
 		}}
 		return ops, nil
 	}
@@ -288,6 +379,8 @@ type userDoc struct {
 	PasswordSalt string    `bson:"passwordsalt"`
 	CreatedBy    string    `bson:"createdby"`
 	DateCreated  time.Time `bson:"datecreated"`
+	// RemovalLog keeps a track of removals for this user
+	RemovalLog []userRemovedLogEntry `bson:"removallog"`
 }
 
 type userLastLoginDoc struct {
@@ -300,6 +393,14 @@ type userLastLoginDoc struct {
 	// It is really informational only as far as everyone except the
 	// api server is concerned.
 	LastLogin time.Time `bson:"last-login"`
+}
+
+// userRemovedLog contains a log of entries added every time the user
+// doc has been removed
+type userRemovedLogEntry struct {
+	RemovedBy   string    `bson:"removedby"`
+	DateCreated time.Time `bson:"datecreated"`
+	DateRemoved time.Time `bson:"dateremoved"`
 }
 
 // String returns "<name>" where <name> is the Name of the user.

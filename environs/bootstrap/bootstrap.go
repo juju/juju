@@ -362,9 +362,15 @@ func bootstrapIAAS(
 			args.BootstrapBase = base
 			logger.Debugf("auto-selecting bootstrap series %q", args.BootstrapBase.String())
 		}
-		if args.BootstrapConstraints.Arch == nil && args.ModelConstraints.Arch == nil && detectedHW.Arch != nil {
+		if args.BootstrapConstraints.Arch == nil &&
+			args.ModelConstraints.Arch == nil &&
+			detectedHW != nil &&
+			detectedHW.Arch != nil {
 			arch := *detectedHW.Arch
 			args.BootstrapConstraints.Arch = &arch
+			if detector.UpdateModelConstraints() {
+				args.ModelConstraints.Arch = &arch
+			}
 			logger.Debugf("auto-selecting bootstrap arch %q", arch)
 		}
 	}

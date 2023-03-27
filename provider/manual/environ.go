@@ -391,3 +391,9 @@ func (e *manualEnviron) DetectHardware() (*instance.HardwareCharacteristics, err
 	hw, _, err := e.seriesAndHardwareCharacteristics()
 	return hw, err
 }
+
+// UpdateModelConstraints always returns false because we don't want to update
+// model constraints for manual env.
+func (e *manualEnviron) UpdateModelConstraints() bool {
+	return false
+}

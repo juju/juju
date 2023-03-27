@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/permission"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
@@ -93,6 +94,9 @@ type Backend interface {
 	// WatchOffer returns a watcher that notifies of changes to the
 	// lifecycle of the offer.
 	WatchOffer(offerName string) state.NotifyWatcher
+
+	// FirewallRule returns the firewall rule for the specified service.
+	FirewallRule(service firewall.WellKnownServiceType) (*state.FirewallRule, error)
 
 	// ApplyOperation applies a model operation to the state.
 	ApplyOperation(op state.ModelOperation) error

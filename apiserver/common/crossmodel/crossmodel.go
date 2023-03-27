@@ -5,6 +5,7 @@ package crossmodel
 
 import (
 	"fmt"
+	"net"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -15,7 +16,9 @@ import (
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -410,8 +413,57 @@ func PublishIngressNetworkChange(backend Backend, relationTag names.Tag, change 
 		return errors.Trace(err)
 	}
 
+	logger.Debugf("relation %v requires ingress networks %v", rel, change.Networks)
+	if err := validateIngressNetworks(backend, change.Networks); err != nil {
+		return errors.Trace(err)
+	}
+
 	_, err = backend.SaveIngressNetworks(rel.Tag().Id(), change.Networks)
 	return err
+}
+
+func validateIngressNetworks(backend Backend, networks []string) error {
+	if len(networks) == 0 {
+		return nil
+	}
+
+	// Check that the required ingress is allowed.
+	rule, err := backend.FirewallRule(firewall.JujuApplicationOfferRule)
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
+	if errors.IsNotFound(err) {
+		return nil
+	}
+	var whitelistCIDRs, requestedCIDRs []*net.IPNet
+	if err := parseCIDRs(&whitelistCIDRs, rule.WhitelistCIDRs()); err != nil {
+		return errors.Trace(err)
+	}
+	if err := parseCIDRs(&requestedCIDRs, networks); err != nil {
+		return errors.Trace(err)
+	}
+	if len(whitelistCIDRs) > 0 {
+		for _, n := range requestedCIDRs {
+			if !network.SubnetInAnyRange(whitelistCIDRs, n) {
+				return &params.Error{
+					Code:    params.CodeForbidden,
+					Message: fmt.Sprintf("subnet %v not in firewall whitelist", n),
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func parseCIDRs(cidrs *[]*net.IPNet, values []string) error {
+	for _, cidrStr := range values {
+		if _, ipNet, err := net.ParseCIDR(cidrStr); err != nil {
+			return err
+		} else {
+			*cidrs = append(*cidrs, ipNet)
+		}
+	}
+	return nil
 }
 
 type relationGetter interface {
