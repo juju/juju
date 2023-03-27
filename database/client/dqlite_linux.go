@@ -9,6 +9,8 @@ import (
 	"github.com/canonical/go-dqlite/client"
 )
 
+type Client = client.Client
+
 // YamlNodeStore persists a list addresses of dqlite nodes in a YAML file.
 type YamlNodeStore = client.YamlNodeStore
 
