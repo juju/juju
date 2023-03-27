@@ -188,6 +188,5 @@ type command func(*cmd.Context, []string) int
 type commandFactory struct {
 	containerAgentCmd command
 	jujuRun           command
-	jujuDumpLogs      command
 	jujuIntrospect    command
 }

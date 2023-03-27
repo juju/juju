@@ -151,6 +151,8 @@ func (c *CommandBase) setRunStarted() {
 
 // closeAPIContexts closes any API contexts that have
 // been created.
+//
+//nolint:unused
 func (c *CommandBase) closeAPIContexts() {
 	for name, ctx := range c.apiContexts {
 		if err := ctx.Close(); err != nil {

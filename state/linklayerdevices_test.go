@@ -58,11 +58,6 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesNoArgs(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *linkLayerDevicesStateSuite) assertSetLinkLayerDevicesReturnsNotValidError(c *gc.C, args state.LinkLayerDeviceArgs, errorCauseMatches string) {
-	err := s.assertSetLinkLayerDevicesFailsValidationForArgs(c, args, errorCauseMatches)
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
-}
-
 func (s *linkLayerDevicesStateSuite) assertSetLinkLayerDevicesFailsValidationForArgs(c *gc.C, args state.LinkLayerDeviceArgs, errorCauseMatches string) error {
 	expectedError := fmt.Sprintf("invalid device %q: %s", args.Name, errorCauseMatches)
 	return s.assertSetLinkLayerDevicesFailsForArgs(c, args, expectedError)
@@ -797,26 +792,6 @@ func (s *linkLayerDevicesStateSuite) createNICWithIP(c *gc.C, machine *state.Mac
 		state.LinkLayerDeviceAddress{
 			DeviceName:   deviceName,
 			CIDRAddress:  cidrAddress,
-			ConfigMethod: corenetwork.ConfigStatic,
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *linkLayerDevicesStateSuite) createLoopbackNIC(c *gc.C, machine *state.Machine) {
-	err := machine.SetLinkLayerDevices(
-		state.LinkLayerDeviceArgs{
-			Name:       "lo",
-			Type:       corenetwork.LoopbackDevice,
-			ParentName: "",
-			IsUp:       true,
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetDevicesAddresses(
-		state.LinkLayerDeviceAddress{
-			DeviceName:   "lo",
-			CIDRAddress:  "127.0.0.1/24",
 			ConfigMethod: corenetwork.ConfigStatic,
 		},
 	)

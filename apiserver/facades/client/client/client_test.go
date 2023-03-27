@@ -615,30 +615,6 @@ func (s *clientSuite) TestClientStatusControllerTimestamp(c *gc.C) {
 	c.Assert(status.ControllerTimestamp, gc.NotNil)
 }
 
-func assertLife(c *gc.C, entity state.Living, life state.Life) {
-	err := entity.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(entity.Life(), gc.Equals, life)
-}
-
-func (s *clientSuite) setupDestroyMachinesTest(c *gc.C) (*state.Machine, *state.Machine, *state.Machine, *state.Unit) {
-	m0, err := s.State.AddMachine("quantal", state.JobManageModel)
-	c.Assert(err, jc.ErrorIsNil)
-	m1, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	m2, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-
-	sch := s.AddTestingCharm(c, "wordpress")
-	wordpress := s.AddTestingApplication(c, "wordpress", sch)
-	u, err := wordpress.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	err = u.AssignToMachine(m1)
-	c.Assert(err, jc.ErrorIsNil)
-
-	return m0, m1, m2, u
-}
-
 func (s *clientSuite) testClientUnitResolved(c *gc.C, retry bool, expectedResolvedMode state.ResolvedMode) {
 	// Setup:
 	s.setUpScenario(c)
@@ -989,22 +965,6 @@ func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 			c.Fatal("timed out waiting for watcher deltas to be ready")
 		}
 	}
-}
-
-func (s *clientSuite) assertBlockedErrorAndLiveliness(
-	c *gc.C,
-	err error,
-	msg string,
-	living1 state.Living,
-	living2 state.Living,
-	living3 state.Living,
-	living4 state.Living,
-) {
-	s.AssertBlocked(c, err, msg)
-	assertLife(c, living1, state.Alive)
-	assertLife(c, living2, state.Alive)
-	assertLife(c, living3, state.Alive)
-	assertLife(c, living4, state.Alive)
 }
 
 func (s *clientSuite) AssertBlocked(c *gc.C, err error, msg string) {

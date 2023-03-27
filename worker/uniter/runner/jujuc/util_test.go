@@ -37,8 +37,6 @@ func cmdString(cmd string) string {
 type ContextSuite struct {
 	jujuctesting.ContextSuite
 	testing.BaseSuite
-
-	rels map[int]*jujuctesting.ContextRelation
 }
 
 func (s *ContextSuite) SetUpTest(c *gc.C) {

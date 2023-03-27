@@ -29,7 +29,6 @@ type configTest struct {
 	config                  testing.Attrs
 	change                  map[string]interface{}
 	expect                  map[string]interface{}
-	region                  string
 	useFloatingIP           bool
 	useDefaultSecurityGroup bool
 	network                 string

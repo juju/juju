@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/juju/apiserver/facades/client/charms/interfaces"
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
-	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/state"
 )
 
@@ -76,46 +75,9 @@ func (s stateCharmShim) IsUploaded() bool {
 	return s.Charm.IsUploaded()
 }
 
-// storeCharmShim massages a *charm.CharmArchive into a LXDProfiler
-// inside of the core package.
-type storeCharmShim struct {
-	*charm.CharmArchive
-}
-
-// LXDProfile implements core.lxdprofile.LXDProfiler
-func (p *storeCharmShim) LXDProfile() *charm.LXDProfile {
-	if p.CharmArchive == nil {
-		return nil
-	}
-
-	profile := p.CharmArchive.LXDProfile()
-	if profile == nil {
-		return nil
-	}
-	return profile
-}
-
 // StoreCharm represents a store charm.
 type StoreCharm interface {
 	charm.Charm
 	charm.LXDProfiler
 	Version() string
-}
-
-// storeCharmLXDProfiler massages a *charm.CharmArchive into a LXDProfiler
-// inside of the core package.
-type storeCharmLXDProfiler struct {
-	StoreCharm
-}
-
-// LXDProfile implements core.lxdprofile.LXDProfiler
-func (p storeCharmLXDProfiler) LXDProfile() lxdprofile.LXDProfile {
-	if p.StoreCharm == nil {
-		return nil
-	}
-	profile := p.StoreCharm.LXDProfile()
-	if profile == nil {
-		return nil
-	}
-	return profile
 }

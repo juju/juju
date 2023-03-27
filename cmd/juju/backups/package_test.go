@@ -58,7 +58,6 @@ func TestPackage(t *testing.T) {
 type BaseBackupsSuite struct {
 	jujutesting.FakeJujuXDGDataHomeSuite
 
-	command    cmd.Command
 	metaresult *params.BackupsMetadataResult
 	data       string
 	apiVersion int

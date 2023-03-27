@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/worker/common"
 )
@@ -87,8 +86,6 @@ func NewUndertaker(config Config) (*Undertaker, error) {
 type Undertaker struct {
 	catacomb catacomb.Catacomb
 	config   Config
-
-	callCtx context.ProviderCallContext
 }
 
 // Kill is part of the worker.Worker interface.

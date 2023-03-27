@@ -41,10 +41,8 @@ import (
 
 type MachineSuite struct {
 	ConnSuite
-	machine0    *state.Machine
-	machine     *state.Machine
-	unit        *state.Unit
-	application *state.Application
+	machine0 *state.Machine
+	machine  *state.Machine
 }
 
 var _ = gc.Suite(&MachineSuite{})

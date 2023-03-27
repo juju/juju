@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
@@ -43,7 +42,6 @@ func TestPackage(t *testing.T) {
 
 type BaseActionSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
-	command cmd.Command
 
 	modelFlags []string
 	store      *jujuclient.MemStore

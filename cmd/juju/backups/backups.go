@@ -10,7 +10,6 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/version/v2"
@@ -97,11 +96,6 @@ var getAPI = func(c *CommandBase) (APIClient, int, error) {
 	version := root.BestFacadeVersion("Backups")
 	client := backups.NewClient(root)
 	return client, version, nil
-}
-
-// dumpMetadata writes the formatted backup metadata to stdout.
-func (c *CommandBase) dumpMetadata(ctx *cmd.Context, result *params.BackupsMetadataResult) {
-	ctx.Verbosef(c.metadata(result))
 }
 
 var backupMetadataTemplate = `

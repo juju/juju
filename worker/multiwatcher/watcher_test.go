@@ -277,16 +277,6 @@ func (w *watcher) loop() {
 	}
 }
 
-func (w *watcher) assertNextErr(expectErr string) {
-	select {
-	case err := <-w.err:
-		w.c.Assert(err, gc.ErrorMatches, expectErr)
-	case next := <-w.next:
-		w.c.Fatalf("unexpected results %#v", next)
-	case <-time.After(testing.LongWait):
-		w.c.Fatalf("no results returned")
-	}
-}
 func (w *watcher) assertNext(deltas []multiwatcher.Delta) {
 	select {
 	case err := <-w.err:

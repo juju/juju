@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/rpc/params"
@@ -30,9 +29,8 @@ import (
 type controllerConfigSuite struct {
 	testing.BaseSuite
 
-	testingEnvConfig *config.Config
-	st               *mocks.MockControllerConfigState
-	cc               *common.ControllerConfigAPI
+	st *mocks.MockControllerConfigState
+	cc *common.ControllerConfigAPI
 }
 
 var _ = gc.Suite(&controllerConfigSuite{})

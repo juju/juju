@@ -48,7 +48,6 @@ type runCommand struct {
 	ActionCommandBase
 	api               APIClient
 	unitReceivers     []string
-	leaders           map[string]string
 	actionName        string
 	paramsYAML        cmd.FileVar
 	parseStrings      bool

@@ -356,8 +356,6 @@ type mockMachine struct {
 	forceDestroyErr    error
 	forceDestroyCalled bool
 	destroyCalled      bool
-	agentDead          bool
-	presenceErr        error
 }
 
 func (m *mockMachine) Id() string {

@@ -73,11 +73,6 @@ func (s *guiSuite) dashboardURL(c *gc.C) string {
 	return fmt.Sprintf("https://%s/dashboard", info.Addrs[0])
 }
 
-func (s *guiSuite) guiURL(c *gc.C) string {
-	info := s.APIInfo(c)
-	return fmt.Sprintf("https://%s/gui/u/%s/%s", info.Addrs[0], "admin", "controller")
-}
-
 func (s *guiSuite) TestDashboardSuccessWithBrowser(c *gc.C) {
 	var clientURL, browserURL string
 	s.patchClient(func(_ context.Context, client *httprequest.Client, u string) error {

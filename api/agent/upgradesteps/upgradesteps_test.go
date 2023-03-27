@@ -18,8 +18,6 @@ import (
 type upgradeStepsSuite struct {
 	jujutesting.BaseSuite
 
-	writeArgs []params.SetUnitStateArg
-
 	fCaller *mocks.MockFacadeCaller
 }
 

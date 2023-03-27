@@ -136,7 +136,6 @@ type testContext struct {
 	pebbleClients          map[string]*fakePebbleClient
 	err                    string
 
-	wg             sync.WaitGroup
 	mu             sync.Mutex
 	hooksCompleted []string
 	runner         *mockRunner

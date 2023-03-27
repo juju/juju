@@ -277,7 +277,6 @@ type environ struct {
 	cloud        environscloudspec.CloudSpec
 	ecfgMutex    sync.Mutex
 	ecfgUnlocked *environConfig
-	spacesMutex  sync.RWMutex
 }
 
 var _ environs.Environ = (*environ)(nil)

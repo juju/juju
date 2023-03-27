@@ -3814,17 +3814,6 @@ func composeCharms(origin, extras M) M {
 	return result
 }
 
-// TODO(dfc) test failing components by destructively mutating the state under the hood
-
-// sometimes you just need to skip the tests for windows (environment variables etc)
-type skipTestOnWindows struct{}
-
-func (skipTestOnWindows) step(c *gc.C, ctx *context) {
-	if runtime.GOOS == "windows" {
-		ctx.skipTest = true
-	}
-}
-
 type setSLA struct {
 	level string
 }
@@ -3970,26 +3959,6 @@ func (sm startMachineWithHardware) step(c *gc.C, ctx *context) {
 	inst, _ := testing.AssertStartInstanceWithConstraints(c, ctx.env, environscontext.NewEmptyCloudCallContext(), cfg.ControllerUUID(), m.Id(), cons)
 	err = m.SetProvisioned(inst.Id(), "", "fake_nonce", &sm.hc)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-type startAliveMachineWithDisplayName struct {
-	machineId   string
-	displayName string
-}
-
-func (sm startAliveMachineWithDisplayName) step(c *gc.C, ctx *context) {
-	m, err := ctx.st.Machine(sm.machineId)
-	c.Assert(err, jc.ErrorIsNil)
-	cons, err := m.Constraints()
-	c.Assert(err, jc.ErrorIsNil)
-	cfg, err := ctx.st.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	inst, hc := testing.AssertStartInstanceWithConstraints(c, ctx.env, environscontext.NewEmptyCloudCallContext(), cfg.ControllerUUID(), m.Id(), cons)
-	err = m.SetProvisioned(inst.Id(), sm.displayName, "fake_nonce", hc)
-	c.Assert(err, jc.ErrorIsNil)
-	_, displayName, err := m.InstanceNames()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(displayName, gc.Equals, sm.displayName)
 }
 
 type setMachineInstanceStatus struct {

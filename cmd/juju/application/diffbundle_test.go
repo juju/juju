@@ -643,7 +643,6 @@ type mockCharmStore struct {
 	stub   jujutesting.Stub
 	url    *charm.URL
 	origin commoncharm.Origin
-	series []string
 	bundle *mockBundle
 }
 

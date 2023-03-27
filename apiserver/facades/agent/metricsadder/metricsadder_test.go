@@ -32,7 +32,6 @@ type metricsAdderSuite struct {
 
 	machine0       *state.Machine
 	machine1       *state.Machine
-	mysqlService   *state.Application
 	mysql          *state.Application
 	mysqlUnit      *state.Unit
 	meteredService *state.Application

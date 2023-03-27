@@ -21,7 +21,6 @@ type caasagentSuite struct {
 
 	resources  *common.Resources
 	authorizer *apiservertesting.FakeAuthorizer
-	facade     *caasagent.FacadeV2
 }
 
 func (s *caasagentSuite) SetUpTest(c *gc.C) {

@@ -117,9 +117,8 @@ func (s *argsSpec) expectedKnownHosts() string {
 
 type SSHMachineSuite struct {
 	testing.JujuConnSuite
-	knownHostsDir string
-	binDir        string
-	hostChecker   jujussh.ReachableChecker
+	binDir      string
+	hostChecker jujussh.ReachableChecker
 }
 
 var _ = gc.Suite(&SSHMachineSuite{})

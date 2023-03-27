@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/model"
@@ -20,7 +19,6 @@ import (
 
 // API is the concrete implementation of the API endpoint.
 type API struct {
-	check             *common.BlockChecker
 	authorizer        facade.Authorizer
 	apiUser           names.UserTag
 	isControllerAdmin bool

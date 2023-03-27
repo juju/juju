@@ -30,7 +30,6 @@ var _ = gc.Suite(&ScaleApplicationSuite{})
 type mockScaleApplicationAPI struct {
 	*testing.Stub
 	version int
-	err     error
 }
 
 func (s mockScaleApplicationAPI) Close() error {

@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -35,9 +34,6 @@ type unitUpgraderSuite struct {
 	upgrader   *upgrader.UnitUpgraderAPI
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
-
-	// Tools for the assigned machine.
-	fakeTools *tools.Tools
 }
 
 var _ = gc.Suite(&unitUpgraderSuite{})

@@ -1235,50 +1235,6 @@ func openStatePool(
 	return pool, nil
 }
 
-// startWorkerAfterUpgrade starts a worker to run the specified child worker
-// but only after waiting for upgrades to complete.
-func (a *MachineAgent) startWorkerAfterUpgrade(runner jworker.Runner, name string, start func() (worker.Worker, error)) {
-	_ = runner.StartWorker(name, func() (worker.Worker, error) {
-		return a.upgradeWaiterWorker(name, start), nil
-	})
-}
-
-// upgradeWaiterWorker runs the specified worker after upgrades have completed.
-func (a *MachineAgent) upgradeWaiterWorker(name string, start func() (worker.Worker, error)) worker.Worker {
-	return jworker.NewSimpleWorker(func(stop <-chan struct{}) error {
-		// Wait for the agent upgrade and upgrade steps to complete (or for us to be stopped).
-		for _, ch := range []<-chan struct{}{
-			a.upgradeComplete.Unlocked(),
-			a.initialUpgradeCheckComplete.Unlocked(),
-		} {
-			select {
-			case <-stop:
-				return nil
-			case <-ch:
-			}
-		}
-		logger.Debugf("upgrades done, starting worker %q", name)
-
-		// Upgrades are done, start the worker.
-		w, err := start()
-		if err != nil {
-			return err
-		}
-		// Wait for worker to finish or for us to be stopped.
-		done := make(chan error, 1)
-		go func() {
-			done <- w.Wait()
-		}()
-		select {
-		case err := <-done:
-			return errors.Annotatef(err, "worker %q exited", name)
-		case <-stop:
-			logger.Debugf("stopping so killing worker %q", name)
-			return worker.Stop(w)
-		}
-	})
-}
-
 // WorkersStarted returns a channel that's closed once all top level workers
 // have been started. This is provided for testing purposes.
 func (a *MachineAgent) WorkersStarted() <-chan struct{} {

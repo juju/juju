@@ -26,7 +26,6 @@ import (
 
 type workerSuite struct {
 	jujutesting.JujuConnSuite
-	stateMachine  *state.Machine
 	machine       *state.Machine
 	keyupdaterAPI *keyupdater.State
 

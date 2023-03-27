@@ -13,7 +13,6 @@ type StateDeleteCommand struct {
 	cmd.CommandBase
 	ctx Context
 	Key string // The key to delete
-	out cmd.Output
 }
 
 // NewStateDeleteCommand returns a state-delete command.

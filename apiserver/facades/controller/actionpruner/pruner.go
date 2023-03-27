@@ -14,7 +14,6 @@ import (
 type API struct {
 	*common.ModelWatcher
 	st         *state.State
-	model      *state.Model
 	authorizer facade.Authorizer
 }
 
