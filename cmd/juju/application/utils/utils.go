@@ -395,3 +395,14 @@ func settingsFromYaml(ctx *cmd.Context, configOptions configFlag, appName string
 	}
 	return settings, nil
 }
+
+func CheckFile(name, path string, fs modelcmd.Filesystem) error {
+	_, err := fs.Stat(path)
+	if os.IsNotExist(err) {
+		return errors.Annotatef(err, "file for resource %q", name)
+	}
+	if err != nil {
+		return errors.Annotatef(err, "can't read file for resource %q", name)
+	}
+	return nil
+}

@@ -4,21 +4,13 @@
 package resource
 
 import (
-	"bytes"
-	"encoding/json"
-	"fmt"
 	"io"
-	"net/http"
-	"os"
-	"strings"
 
 	charmresource "github.com/juju/charm/v10/resource"
 	"github.com/juju/errors"
-	"gopkg.in/yaml.v2"
 
 	apiresources "github.com/juju/juju/api/client/resources"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/resources"
 )
 
 // DeployClient exposes the functionality of the resources API needed
@@ -77,8 +69,6 @@ func DeployResources(args DeployResourcesArgs) (ids map[string]string, err error
 	return ids, nil
 }
 
-type osOpenFunc func(path string) (modelcmd.ReadSeekCloser, error)
-
 type deployUploader struct {
 	applicationID string
 	chID          apiresources.CharmID
@@ -88,15 +78,15 @@ type deployUploader struct {
 }
 
 func (d deployUploader) upload(resourceValues map[string]string, revisions map[string]int) (map[string]string, error) {
-	if err := d.validateResources(); err != nil {
+	if err := ValidateResources(d.resources); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	if err := d.checkExpectedResources(resourceValues, revisions); err != nil {
+	if err := CheckExpectedResources(resourceValues, revisions, d.resources); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	if err := d.validateResourceDetails(resourceValues); err != nil {
+	if err := ValidateResourceDetails(resourceValues, d.resources, d.filesystem); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -127,61 +117,6 @@ func (d deployUploader) upload(resourceValues map[string]string, revisions map[s
 	}
 
 	return pending, nil
-}
-
-func (d deployUploader) validateResourceDetails(res map[string]string) error {
-	for name, value := range res {
-		var err error
-		switch d.resources[name].Type {
-		case charmresource.TypeFile:
-			err = d.checkFile(name, value)
-		case charmresource.TypeContainerImage:
-			var dockerDetails resources.DockerImageDetails
-			dockerDetails, err = getDockerDetailsData(value, d.filesystem.Open)
-			if err != nil {
-				return errors.Annotatef(err, "resource %q", name)
-			}
-			// At the moment this is the same validation that occurs in getDockerDetailsData
-			err = resources.CheckDockerDetails(name, dockerDetails)
-		default:
-			return fmt.Errorf("unknown resource: %s", name)
-		}
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (d deployUploader) checkFile(name, path string) error {
-	_, err := d.filesystem.Stat(path)
-	if os.IsNotExist(err) {
-		return errors.Annotatef(err, "file for resource %q", name)
-	}
-	if err != nil {
-		return errors.Annotatef(err, "can't read file for resource %q", name)
-	}
-	return nil
-}
-
-func (d deployUploader) validateResources() error {
-	var errs []error
-	for _, meta := range d.resources {
-		if err := meta.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if len(errs) == 1 {
-		return errors.Trace(errs[0])
-	}
-	if len(errs) > 1 {
-		msgs := make([]string, len(errs))
-		for i, err := range errs {
-			msgs[i] = err.Error()
-		}
-		return errors.NewNotValid(nil, strings.Join(msgs, ", "))
-	}
-	return nil
 }
 
 // storeResources returns which resources revisions will need to be retrieved
@@ -217,102 +152,4 @@ func (d deployUploader) uploadPendingResource(resourcename, resourcevalue string
 	}
 
 	return d.client.UploadPendingResource(d.applicationID, res, resourcevalue, data)
-}
-
-func (d deployUploader) checkExpectedResources(filenames map[string]string, revisions map[string]int) error {
-	var unknown []string
-	for name := range filenames {
-		if _, ok := d.resources[name]; !ok {
-			unknown = append(unknown, name)
-		}
-	}
-	for name := range revisions {
-		if _, ok := d.resources[name]; !ok {
-			unknown = append(unknown, name)
-		}
-	}
-	if len(unknown) == 1 {
-		return errors.Errorf("unrecognized resource %q", unknown[0])
-	}
-	if len(unknown) > 1 {
-		return errors.Errorf("unrecognized resources: %s", strings.Join(unknown, ", "))
-	}
-	return nil
-}
-
-// getDockerDetailsData determines if path is a local file path and extracts the
-// details from that otherwise path is considered to be a registry path.
-func getDockerDetailsData(path string, osOpen osOpenFunc) (resources.DockerImageDetails, error) {
-	f, err := osOpen(path)
-	if err == nil {
-		defer f.Close()
-		details, err := unMarshalDockerDetails(f)
-		if err != nil {
-			return details, errors.Trace(err)
-		}
-		return details, nil
-	} else if err := resources.ValidateDockerRegistryPath(path); err == nil {
-		return resources.DockerImageDetails{
-			RegistryPath: path,
-		}, nil
-	}
-	return resources.DockerImageDetails{}, errors.NotValidf("filepath or registry path: %s", path)
-
-}
-
-func unMarshalDockerDetails(data io.Reader) (resources.DockerImageDetails, error) {
-	var details resources.DockerImageDetails
-	contents, err := io.ReadAll(data)
-	if err != nil {
-		return details, errors.Trace(err)
-	}
-
-	if errJ := json.Unmarshal(contents, &details); errJ != nil {
-		if errY := yaml.Unmarshal(contents, &details); errY != nil {
-			contentType := http.DetectContentType(contents)
-			if strings.Contains(contentType, "text/plain") {
-				// Check first character - `{` means probably JSON
-				if strings.TrimSpace(string(contents))[0] == '{' {
-					return details, errors.Annotate(errJ, "json parsing")
-				}
-				return details, errY
-			}
-			return details, errors.New("expected json or yaml file containing oci-image registry details")
-		}
-	}
-	if err := resources.ValidateDockerRegistryPath(details.RegistryPath); err != nil {
-		return resources.DockerImageDetails{}, err
-	}
-	return details, nil
-}
-
-func OpenResource(resValue string, resType charmresource.Type, osOpen osOpenFunc) (modelcmd.ReadSeekCloser, error) {
-	switch resType {
-	case charmresource.TypeFile:
-		f, err := osOpen(resValue)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return f, nil
-	case charmresource.TypeContainerImage:
-		dockerDetails, err := getDockerDetailsData(resValue, osOpen)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		data, err := yaml.Marshal(dockerDetails)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return noopCloser{bytes.NewReader(data)}, nil
-	default:
-		return nil, errors.Errorf("unknown resource type %q", resType)
-	}
-}
-
-type noopCloser struct {
-	io.ReadSeeker
-}
-
-func (noopCloser) Close() error {
-	return nil
 }
