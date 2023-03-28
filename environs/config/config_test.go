@@ -654,6 +654,20 @@ var configTests = []configTest{
 			"charmhub-url": "meshuggah",
 		}),
 		err: `charm-hub url "meshuggah" not valid`,
+	}, {
+		about:       "Invalid ssh-allow cidr",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"ssh-allow": "blah",
+		}),
+		err: `cidr "blah" not valid`,
+	}, {
+		about:       "Invalid saas-ingress-allow cidr",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"saas-ingress-allow": "blah",
+		}),
+		err: `cidr "blah" not valid`,
 	},
 }
 
@@ -1254,6 +1268,46 @@ func (s *ConfigSuite) TestMode(c *gc.C) {
 	mode, ok = cfg.Mode()
 	c.Assert(ok, jc.IsFalse)
 	c.Assert(mode, gc.DeepEquals, set.NewStrings())
+}
+
+func (s *ConfigSuite) TestSSHAllow(c *gc.C) {
+	cfg := newTestConfig(c, testing.Attrs{})
+	allowlist := cfg.SSHAllow()
+	c.Assert(allowlist, gc.DeepEquals, []string{"0.0.0.0/0", "::/0"})
+
+	cfg = newTestConfig(c, testing.Attrs{
+		config.SSHAllowKey: "192.168.0.0/24,192.168.2.0/24",
+	})
+	allowlist = cfg.SSHAllow()
+	c.Assert(allowlist, gc.HasLen, 2)
+	c.Assert(allowlist[0], gc.Equals, "192.168.0.0/24")
+	c.Assert(allowlist[1], gc.Equals, "192.168.2.0/24")
+
+	cfg = newTestConfig(c, testing.Attrs{
+		config.SSHAllowKey: "",
+	})
+	allowlist = cfg.SSHAllow()
+	c.Assert(allowlist, gc.HasLen, 0)
+}
+
+func (s *ConfigSuite) TestApplicationOfferAllowList(c *gc.C) {
+	cfg := newTestConfig(c, testing.Attrs{})
+	allowlist := cfg.SAASIngressAllow()
+	c.Assert(allowlist, gc.DeepEquals, []string{"0.0.0.0/0", "::/0"})
+
+	cfg = newTestConfig(c, testing.Attrs{
+		config.SAASIngressAllowKey: "192.168.0.0/24,192.168.2.0/24",
+	})
+	allowlist = cfg.SAASIngressAllow()
+	c.Assert(allowlist, gc.HasLen, 2)
+	c.Assert(allowlist[0], gc.Equals, "192.168.0.0/24")
+	c.Assert(allowlist[1], gc.Equals, "192.168.2.0/24")
+
+	attrs := testing.FakeConfig().Merge(testing.Attrs{
+		config.SAASIngressAllowKey: "",
+	})
+	_, err := config.New(config.UseDefaults, attrs)
+	c.Assert(err, gc.ErrorMatches, "empty cidrs not valid")
 }
 
 func (s *ConfigSuite) TestLoggingOutput(c *gc.C) {

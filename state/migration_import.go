@@ -1613,22 +1613,13 @@ func (i *importer) firewallRules() error {
 		return m.Execute(stateModelNamspaceShim{
 			Model: migration.src,
 			st:    i.st,
-		}, migration.dst)
+		}, i.dbModel)
 	})
 	if err := migration.Run(); err != nil {
 		return errors.Trace(err)
 	}
 	i.logger.Debugf("importing firewall rules succeeded")
 	return nil
-}
-
-// makeStatusDoc assumes status is non-nil.
-func (i *importer) makeFirewallRuleDoc(firewallRule description.FirewallRule) *firewallRulesDoc {
-	return &firewallRulesDoc{
-		Id:               firewallRule.ID(),
-		WellKnownService: firewallRule.WellKnownService(),
-		WhitelistCIDRS:   firewallRule.WhitelistCIDRs(),
-	}
 }
 
 func (i *importer) makeRemoteApplicationDoc(app description.RemoteApplication) *remoteApplicationDoc {

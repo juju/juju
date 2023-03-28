@@ -82,7 +82,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		deviceConstraintsC,
 
 		// crossmodelrelations
-		firewallRulesC,
 		remoteApplicationsC,
 		applicationOffersC,
 		offerConnectionsC,
