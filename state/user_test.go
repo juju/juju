@@ -284,6 +284,51 @@ func (s *UserSuite) TestRemoveUserRemovesUserAccess(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("user %q is permanently deleted", user.UserTag().Name()))
 }
 
+func (s *UserSuite) TestRecreatedUsersResetPermissions(c *gc.C) {
+	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "so sekrit"})
+
+	// Assert user exists and can authenticate.
+	c.Assert(user.PasswordValid("so sekrit"), jc.IsTrue)
+
+	s.State.SetUserAccess(user.UserTag(), s.Model.ModelTag(), permission.AdminAccess)
+	s.State.SetUserAccess(user.UserTag(), s.State.ControllerTag(), permission.SuperuserAccess)
+
+	uam, err := s.State.UserAccess(user.UserTag(), s.Model.ModelTag())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(uam.Access, gc.Equals, permission.AdminAccess)
+
+	uac, err := s.State.UserAccess(user.UserTag(), s.State.ControllerTag())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(uac.Access, gc.Equals, permission.SuperuserAccess)
+
+	// Look for the user.
+	u, err := s.State.User(user.UserTag())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(u, jc.DeepEquals, user)
+
+	// Remove the user.
+	err = s.State.RemoveUser(user.UserTag())
+	c.Check(err, jc.ErrorIsNil)
+
+	// Add the user again with other password and access
+	userRecreated := s.Factory.MakeUser(c, &factory.UserParams{
+		Password: "otherpassword",
+		Access:   permission.ReadAccess})
+
+	// Assert user exists and can authenticate.
+	c.Assert(userRecreated.PasswordValid("otherpassword"), jc.IsTrue)
+
+	// Check that the recreated user does not have the permissions set previously
+	urac, err := s.State.UserAccess(userRecreated.UserTag(), s.State.ControllerTag())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(urac.Access, gc.Equals, permission.LoginAccess)
+
+	// No model access was set yet
+	uram, err := s.State.UserAccess(userRecreated.UserTag(), s.Model.ModelTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(uram.Access, gc.Equals, permission.ReadAccess)
+}
+
 func (s *UserSuite) TestDisableUser(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "a-password"})
 	c.Assert(user.IsDisabled(), jc.IsFalse)

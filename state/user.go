@@ -169,8 +169,6 @@ func (st *State) updateExistingUser(u *User, displayName, password, creator stri
 			}},
 		)
 	}
-	// remove previous controller permissions
-	removeControllerOps := removeControllerUserOps(st.ControllerUUID(), u.UserTag())
 
 	// create default new ones
 	createControllerOps := createControllerUserOps(st.ControllerUUID(),
@@ -186,7 +184,6 @@ func (st *State) updateExistingUser(u *User, displayName, password, creator stri
 		Assert: txn.DocExists,
 		Update: updateUser,
 	}}
-	updateUserOps = append(updateUserOps, removeControllerOps...)
 	updateUserOps = append(updateUserOps, createControllerOps...)
 
 	if err := u.st.db().RunTransaction(updateUserOps); err != nil {
@@ -215,6 +212,28 @@ func (st *State) RemoveUser(tag names.UserTag) error {
 		return nil
 	}
 
+	// remove the access to all the models and the current controller
+	// first query all the models for this user
+	modelsSummary, err := st.ModelSummariesForUser(tag, true)
+	if err != nil {
+		return err
+	}
+
+	for _, summary := range modelsSummary {
+		// remove all the access permissions
+		removeModelOps := removeModelUserOps(summary.UUID, tag)
+		if err := st.db().RunTransactionFor(summary.UUID, removeModelOps); err != nil {
+			logger.Errorf("impossible to remove user from models", err)
+			return err
+		}
+	}
+
+	// remove the user from the user controllers
+	if err := st.removeControllerUser(tag); err != nil {
+		logger.Errorf("impossible to remove user from controller", err)
+		return err
+	}
+
 	dateRemoved := st.nowToTheSecond()
 	// new entry in the removal log
 	newRemovalLogEntry := userRemovedLogEntry{
@@ -235,13 +254,14 @@ func (st *State) RemoveUser(tag names.UserTag) error {
 				return nil, errors.Trace(err)
 			}
 		}
-		ops := []txn.Op{{
-			Id:     lowercaseName,
-			C:      usersC,
-			Assert: txn.DocExists,
-			Update: bson.M{"$set": bson.M{
-				"deleted": true, "removallog": removalLog}},
-		}}
+		ops := []txn.Op{
+			{
+				Id:     lowercaseName,
+				C:      usersC,
+				Assert: txn.DocExists,
+				Update: bson.M{"$set": bson.M{
+					"deleted": true, "removallog": removalLog}}},
+		}
 		return ops, nil
 	}
 	return st.db().Run(buildTxn)
