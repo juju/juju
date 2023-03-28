@@ -52,7 +52,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 func (s *baseSuite) expectAnyLogs() {
 	s.logger.EXPECT().Errorf(gomock.Any()).AnyTimes()
-	s.logger.EXPECT().Warningf(gomock.Any()).AnyTimes()
+	s.logger.EXPECT().Warningf(gomock.Any(), gomock.Any()).AnyTimes()
 	s.logger.EXPECT().Infof(gomock.Any(), gomock.Any()).AnyTimes()
 	s.logger.EXPECT().Debugf(gomock.Any(), gomock.Any()).AnyTimes()
 	s.logger.EXPECT().Logf(gomock.Any(), gomock.Any()).AnyTimes()
@@ -65,8 +65,6 @@ func (s *baseSuite) expectClock() {
 
 func (s *baseSuite) setupTimer() chan time.Time {
 	s.timer.EXPECT().Stop().MinTimes(1)
-	s.timer.EXPECT().Reset(gomock.Any()).AnyTimes()
-
 	s.clock.EXPECT().NewTimer(PollInterval).Return(s.timer)
 
 	ch := make(chan time.Time)
