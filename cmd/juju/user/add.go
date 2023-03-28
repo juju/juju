@@ -31,19 +31,12 @@ process.
 Some machine providers will require the user to be in possession of certain
 credentials in order to create a model.
 
-Examples:
+`
+
+const examples = `
     juju add-user bob
     juju add-user --controller mycontroller bob
-
-See also:
-    register
-    grant
-    users
-    show-user
-    disable-user
-    enable-user
-    change-user-password
-    remove-user`
+`
 
 // AddUserAPI defines the usermanager API methods that the add command uses.
 type AddUserAPI interface {
@@ -66,10 +59,21 @@ type addCommand struct {
 // Info implements Command.Info.
 func (c *addCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "add-user",
-		Args:    "<user name> [<display name>]",
-		Purpose: usageSummary,
-		Doc:     usageDetails,
+		Name:     "add-user",
+		Args:     "<user name> [<display name>]",
+		Purpose:  usageSummary,
+		Doc:      usageDetails,
+		Examples: examples,
+		SeeAlso: []string{
+			"register",
+			"grant",
+			"usesr",
+			"show-user",
+			"disable-user",
+			"enable-user",
+			"change-user-password",
+			"remove-user",
+		},
 	})
 }
 
