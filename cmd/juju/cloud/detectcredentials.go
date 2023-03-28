@@ -89,7 +89,7 @@ LXD
 
 `[1:]
 
-const examples = `
+const examplesAutoloadCredentials = `
     juju autoload-credentials
     juju autoload-credentials --client
     juju autoload-credentials --controller mycontroller
@@ -119,7 +119,7 @@ func (c *detectCredentialsCommand) Info() *cmd.Info {
 		Purpose:  detectCredentialsSummary,
 		Args:     "[<cloud-type>]",
 		Doc:      detectCredentialsDoc,
-		Examples: examples,
+		Examples: examplesAutoloadCredentials,
 		SeeAlso: []string{
 			"add-credential",
 			"credentials",
