@@ -6125,7 +6125,10 @@ func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
 		ControllerTimestamp: &now,
 	}
 	isoTime := true
-	formatter := NewStatusFormatter(status, isoTime)
+	formatter := NewStatusFormatter(NewStatusFormatterParams{
+		Status:  status,
+		ISOTime: isoTime,
+	})
 	formatted, err := formatter.Format()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -6175,7 +6178,10 @@ func (s *StatusSuite) TestMissingControllerTimestampInFullStatus(c *gc.C) {
 		},
 	}
 	isoTime := true
-	formatter := NewStatusFormatter(status, isoTime)
+	formatter := NewStatusFormatter(NewStatusFormatterParams{
+		Status:  status,
+		ISOTime: isoTime,
+	})
 	formatted, err := formatter.Format()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -6224,7 +6230,11 @@ func (s *StatusSuite) TestControllerTimestampInFullStatus(c *gc.C) {
 		ControllerTimestamp: &now,
 	}
 	isoTime := true
-	formatter := NewStatusFormatter(status, isoTime)
+
+	formatter := NewStatusFormatter(NewStatusFormatterParams{
+		Status:  status,
+		ISOTime: isoTime,
+	})
 	formatted, err := formatter.Format()
 	c.Assert(err, jc.ErrorIsNil)
 
