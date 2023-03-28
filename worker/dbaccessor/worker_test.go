@@ -308,6 +308,7 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 		NewDBWorker: func(DBApp, string, ...TrackedDBWorkerOption) (TrackedDB, error) {
 			return s.trackedDB, nil
 		},
+		MetricsCollector: &Collector{},
 	}
 
 	w, err := newWorker(cfg)

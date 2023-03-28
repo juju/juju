@@ -50,6 +50,13 @@ func WithLogger(logger Logger) TrackedDBWorkerOption {
 	}
 }
 
+// WithMetricsCollector sets the metrics collector used by the worker.
+func WithMetricsCollector(metrics *Collector) TrackedDBWorkerOption {
+	return func(w *trackedDBWorker) {
+		w.metrics = metrics
+	}
+}
+
 type trackedDBWorker struct {
 	tomb tomb.Tomb
 
@@ -60,8 +67,9 @@ type trackedDBWorker struct {
 	db    *sql.DB
 	err   error
 
-	clock  clock.Clock
-	logger Logger
+	clock   clock.Clock
+	logger  Logger
+	metrics *Collector
 
 	verifyDBFunc func(context.Context, *sql.DB) error
 }
@@ -93,7 +101,25 @@ func NewTrackedDBWorker(dbApp DBApp, namespace string, opts ...TrackedDBWorkerOp
 // DB closes over a raw *sql.DB. Closing over the DB allows the late
 // realization of the database. Allowing retries of DB acquisition if there
 // is a failure that is non-retryable.
-func (w *trackedDBWorker) DB(fn func(*sql.DB) error) error {
+func (w *trackedDBWorker) DB(fn func(*sql.DB) error) (err error) {
+	// Record metrics based on the namespace.
+	w.metrics.DBRequests.WithLabelValues(w.namespace).Inc()
+	defer func(begin time.Time) {
+		w.metrics.DBRequests.WithLabelValues(w.namespace).Dec()
+
+		// Record the duration of the DB call and specifically call out if the
+		// result was a success or an error. It might be useful to see if there
+		// is a correlation between the duration of the call and the result.
+		result := "success"
+		if err != nil {
+			result = "error"
+		}
+		w.metrics.DBDuration.WithLabelValues(
+			w.namespace,
+			result,
+		).Observe(w.clock.Now().Sub(begin).Seconds())
+	}(w.clock.Now())
+
 	w.mutex.RLock()
 	// We have a fatal error, the DB can not be accessed.
 	if w.err != nil {
@@ -103,7 +129,10 @@ func (w *trackedDBWorker) DB(fn func(*sql.DB) error) error {
 	db := w.db
 	w.mutex.RUnlock()
 
-	return fn(db)
+	if err = fn(db); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // Txn closes over a raw *sql.Tx. This allows retry semantics in only one
@@ -112,6 +141,9 @@ func (w *trackedDBWorker) DB(fn func(*sql.DB) error) error {
 func (w *trackedDBWorker) Txn(ctx context.Context, fn func(context.Context, *sql.Tx) error) error {
 	return w.DB(func(db *sql.DB) error {
 		return database.Retry(ctx, func() error {
+			// Record the number of transactions.
+			w.metrics.TxnRequests.WithLabelValues(w.namespace).Inc()
+
 			return database.Txn(ctx, db, fn)
 		})
 	})

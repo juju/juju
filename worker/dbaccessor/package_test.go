@@ -16,6 +16,7 @@ import (
 
 //go:generate go run github.com/golang/mock/mockgen -package dbaccessor -destination package_mock_test.go github.com/juju/juju/worker/dbaccessor Logger,DBApp,NodeManager,TrackedDB,Hub,Client
 //go:generate go run github.com/golang/mock/mockgen -package dbaccessor -destination clock_mock_test.go github.com/juju/clock Clock,Timer
+//go:generate go run github.com/golang/mock/mockgen -package dbaccessor -destination metrics_mock_test.go github.com/prometheus/client_golang/prometheus Registerer
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
@@ -24,13 +25,14 @@ func TestPackage(t *testing.T) {
 type baseSuite struct {
 	jujutesting.IsolationSuite
 
-	clock     *MockClock
-	hub       *MockHub
-	timer     *MockTimer
-	logger    *MockLogger
-	dbApp     *MockDBApp
-	client    *MockClient
-	trackedDB *MockTrackedDB
+	clock                *MockClock
+	hub                  *MockHub
+	timer                *MockTimer
+	logger               *MockLogger
+	dbApp                *MockDBApp
+	client               *MockClient
+	trackedDB            *MockTrackedDB
+	prometheusRegisterer *MockRegisterer
 }
 
 func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -43,6 +45,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.dbApp = NewMockDBApp(ctrl)
 	s.client = NewMockClient(ctrl)
 	s.trackedDB = NewMockTrackedDB(ctrl)
+	s.prometheusRegisterer = NewMockRegisterer(ctrl)
 
 	return ctrl
 }

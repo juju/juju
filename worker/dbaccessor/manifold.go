@@ -9,6 +9,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
+	"github.com/prometheus/client_golang/prometheus"
 
 	coreagent "github.com/juju/juju/agent"
 	coredatabase "github.com/juju/juju/core/database"
@@ -42,12 +43,14 @@ type Hub interface {
 // - The names of other manifolds on which the DB accessor depends.
 // - Other dependencies from ManifoldsConfig required by the worker.
 type ManifoldConfig struct {
-	AgentName   string
-	Clock       clock.Clock
-	Hub         Hub
-	Logger      Logger
-	NewApp      func(string, ...app.Option) (DBApp, error)
-	NewDBWorker func(DBApp, string, ...TrackedDBWorkerOption) (TrackedDB, error)
+	AgentName            string
+	Clock                clock.Clock
+	Hub                  Hub
+	Logger               Logger
+	PrometheusRegisterer prometheus.Registerer
+	NewApp               func(string, ...app.Option) (DBApp, error)
+	NewDBWorker          func(DBApp, string, ...TrackedDBWorkerOption) (TrackedDB, error)
+	NewMetricsCollector  func() *Collector
 }
 
 func (cfg ManifoldConfig) Validate() error {
@@ -63,11 +66,17 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
+	if cfg.PrometheusRegisterer == nil {
+		return errors.NotValidf("nil PrometheusRegisterer")
+	}
 	if cfg.NewApp == nil {
 		return errors.NotValidf("nil NewApp")
 	}
 	if cfg.NewDBWorker == nil {
 		return errors.NotValidf("nil NewDBWorker")
+	}
+	if cfg.NewMetricsCollector == nil {
+		return errors.NotValidf("nil NewMetricsCollector")
 	}
 	return nil
 }
@@ -91,21 +100,32 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 			agentConfig := agent.CurrentConfig()
 
+			// Register the metrics collector against the prometheus register.
+			metricsCollector := config.NewMetricsCollector()
+			if err := config.PrometheusRegisterer.Register(metricsCollector); err != nil {
+				return nil, errors.Trace(err)
+			}
+
 			cfg := WorkerConfig{
-				NodeManager:  database.NewNodeManager(agentConfig, config.Logger),
-				Clock:        config.Clock,
-				Hub:          config.Hub,
-				ControllerID: agentConfig.Tag().Id(),
-				Logger:       config.Logger,
-				NewApp:       config.NewApp,
-				NewDBWorker:  config.NewDBWorker,
+				NodeManager:      database.NewNodeManager(agentConfig, config.Logger),
+				Clock:            config.Clock,
+				Hub:              config.Hub,
+				ControllerID:     agentConfig.Tag().Id(),
+				MetricsCollector: metricsCollector,
+				Logger:           config.Logger,
+				NewApp:           config.NewApp,
+				NewDBWorker:      config.NewDBWorker,
 			}
 
 			w, err := newWorker(cfg)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			return w, nil
+			return common.NewCleanupWorker(w, func() {
+				// clean up the metrics for the worker, so the next time a
+				// worker is created we can safely register the metrics again.
+				config.PrometheusRegisterer.Unregister(metricsCollector)
+			}), nil
 		},
 	}
 }
