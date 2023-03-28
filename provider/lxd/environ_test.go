@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	envcontext "github.com/juju/juju/environs/context"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/lxd"
@@ -464,7 +465,7 @@ type environProfileSuite struct {
 var _ = gc.Suite(&environProfileSuite{})
 
 func (s *environProfileSuite) TestMaybeWriteLXDProfileYes(c *gc.C) {
-	defer s.setup(c).Finish()
+	defer s.setup(c, environscloudspec.CloudSpec{}).Finish()
 
 	profile := "testname"
 	s.expectMaybeWriteLXDProfile(false, profile)
@@ -479,7 +480,7 @@ func (s *environProfileSuite) TestMaybeWriteLXDProfileYes(c *gc.C) {
 }
 
 func (s *environProfileSuite) TestMaybeWriteLXDProfileNo(c *gc.C) {
-	defer s.setup(c).Finish()
+	defer s.setup(c, environscloudspec.CloudSpec{}).Finish()
 
 	profile := "testname"
 	s.expectMaybeWriteLXDProfile(true, profile)
@@ -489,7 +490,7 @@ func (s *environProfileSuite) TestMaybeWriteLXDProfileNo(c *gc.C) {
 }
 
 func (s *environProfileSuite) TestLXDProfileNames(c *gc.C) {
-	defer s.setup(c).Finish()
+	defer s.setup(c, environscloudspec.CloudSpec{}).Finish()
 
 	exp := s.svr.EXPECT()
 	exp.GetContainerProfiles("testname").Return([]string{
@@ -504,7 +505,7 @@ func (s *environProfileSuite) TestLXDProfileNames(c *gc.C) {
 }
 
 func (s *environProfileSuite) TestAssignLXDProfiles(c *gc.C) {
-	defer s.setup(c).Finish()
+	defer s.setup(c, environscloudspec.CloudSpec{}).Finish()
 
 	instId := "testme"
 	oldP := "old-profile"
@@ -531,7 +532,7 @@ func (s *environProfileSuite) TestAssignLXDProfiles(c *gc.C) {
 }
 
 func (s *environProfileSuite) TestAssignLXDProfilesErrorReturnsCurrent(c *gc.C) {
-	defer s.setup(c).Finish()
+	defer s.setup(c, environscloudspec.CloudSpec{}).Finish()
 
 	instId := "testme"
 	oldP := "old-profile"
@@ -559,10 +560,124 @@ func (s *environProfileSuite) TestAssignLXDProfilesErrorReturnsCurrent(c *gc.C) 
 	c.Assert(obtained, gc.DeepEquals, []string{"default", "juju-default", oldP})
 }
 
-func (s *environProfileSuite) setup(c *gc.C) *gomock.Controller {
+func (s *environProfileSuite) TestDetectCorrectHardwareEndpointIPOnly(c *gc.C) {
+	defer s.setup(c, environscloudspec.CloudSpec{
+		Endpoint: "1.1.1.1",
+	}).Finish()
+
+	detector, supported := s.lxdEnv.(environs.HardwareCharacteristicsDetector)
+	c.Assert(supported, jc.IsTrue)
+
+	hc, err := detector.DetectHardware()
+	c.Assert(err, gc.IsNil)
+	// 1.1.1.1 is not a local IP address, so we don't set ARCH in hc
+	c.Assert(hc, gc.IsNil)
+}
+
+func (s *environProfileSuite) TestDetectCorrectHardwareEndpointIPPort(c *gc.C) {
+	defer s.setup(c, environscloudspec.CloudSpec{
+		Endpoint: "1.1.1.1:8888",
+	}).Finish()
+
+	detector, supported := s.lxdEnv.(environs.HardwareCharacteristicsDetector)
+	c.Assert(supported, jc.IsTrue)
+
+	hc, err := detector.DetectHardware()
+	c.Assert(err, gc.IsNil)
+	// 1.1.1.1 is not a local IP address, so we don't set ARCH in hc
+	c.Assert(hc, gc.IsNil)
+}
+
+func (s *environProfileSuite) TestDetectCorrectHardwareEndpointSchemeIPPort(c *gc.C) {
+	defer s.setup(c, environscloudspec.CloudSpec{
+		Endpoint: "http://1.1.1.1:8888",
+	}).Finish()
+
+	detector, supported := s.lxdEnv.(environs.HardwareCharacteristicsDetector)
+	c.Assert(supported, jc.IsTrue)
+
+	hc, err := detector.DetectHardware()
+	c.Assert(err, gc.IsNil)
+	// 1.1.1.1 is not a local IP address, so we don't set ARCH in hc
+	c.Assert(hc, gc.IsNil)
+}
+
+func (s *environProfileSuite) TestDetectCorrectHardwareEndpointHostOnly(c *gc.C) {
+	defer s.setup(c, environscloudspec.CloudSpec{
+		Endpoint: "localhost",
+	}).Finish()
+
+	detector, supported := s.lxdEnv.(environs.HardwareCharacteristicsDetector)
+	c.Assert(supported, jc.IsTrue)
+
+	hc, err := detector.DetectHardware()
+	c.Assert(err, gc.IsNil)
+	// 1.1.1.1 is not a local IP address, so we don't set ARCH in hc
+	c.Assert(hc, gc.IsNil)
+}
+
+func (s *environProfileSuite) TestDetectCorrectHardwareEndpointHostPort(c *gc.C) {
+	defer s.setup(c, environscloudspec.CloudSpec{
+		Endpoint: "localhost:8888",
+	}).Finish()
+
+	detector, supported := s.lxdEnv.(environs.HardwareCharacteristicsDetector)
+	c.Assert(supported, jc.IsTrue)
+
+	hc, err := detector.DetectHardware()
+	c.Assert(err, gc.IsNil)
+	// localhost is not considered as a local IP address, so we don't set ARCH in hc
+	c.Assert(hc, gc.IsNil)
+}
+
+func (s *environProfileSuite) TestDetectCorrectHardwareEndpointSchemeHostPort(c *gc.C) {
+	defer s.setup(c, environscloudspec.CloudSpec{
+		Endpoint: "http://localhost:8888",
+	}).Finish()
+
+	detector, supported := s.lxdEnv.(environs.HardwareCharacteristicsDetector)
+	c.Assert(supported, jc.IsTrue)
+
+	hc, err := detector.DetectHardware()
+	c.Assert(err, gc.IsNil)
+	// localhost is not considered as a local IP address, so we don't set ARCH in hc
+	c.Assert(hc, gc.IsNil)
+}
+
+func (s *environProfileSuite) TestDetectCorrectHardwareWrongEndpoint(c *gc.C) {
+	defer s.setup(c, environscloudspec.CloudSpec{
+		Endpoint: "1.1:8888",
+	}).Finish()
+
+	detector, supported := s.lxdEnv.(environs.HardwareCharacteristicsDetector)
+	c.Assert(supported, jc.IsTrue)
+
+	hc, err := detector.DetectHardware()
+	// the endpoint is wrongly formatted but we don't return an error, that
+	// would mean we are stopping the bootstrap
+	c.Assert(err, gc.IsNil)
+	c.Assert(hc, gc.IsNil)
+}
+
+func (s *environProfileSuite) TestDetectCorrectHardwareEmptyEndpoint(c *gc.C) {
+	defer s.setup(c, environscloudspec.CloudSpec{
+		Endpoint: "",
+	}).Finish()
+
+	detector, supported := s.lxdEnv.(environs.HardwareCharacteristicsDetector)
+	c.Assert(supported, jc.IsTrue)
+
+	hc, err := detector.DetectHardware()
+	// the endpoint is wrongly formatted but we don't return an error, that
+	// would mean we are stopping the bootstrap
+	c.Assert(err, gc.IsNil)
+	c.Assert(hc, gc.IsNil)
+}
+
+func (s *environProfileSuite) setup(c *gc.C, cloudSpec environscloudspec.CloudSpec) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.svr = lxd.NewMockServer(ctrl)
-	lxdEnv, ok := s.NewEnviron(c, s.svr, nil).(environs.LXDProfiler)
+	lxdEnv, ok := s.NewEnviron(c, s.svr, nil, cloudSpec).(environs.LXDProfiler)
 	c.Assert(ok, jc.IsTrue)
 	s.lxdEnv = lxdEnv
 
