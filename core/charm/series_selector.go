@@ -35,12 +35,6 @@ type SeriesSelectorLogger interface {
 
 // SeriesSelector is a helper type that determines what series the charm should
 // be deployed to.
-//
-// TODO: This type should really have a Validate method, as the Force flag is
-// really only valid if the SeriesFlag is specified. There is code and tests
-// that allow the Force flag when series isn't specified, but they should
-// really be cleaned up. The `deploy` CLI command has tests to ensure that
-// --Force is only valid with --series.
 type SeriesSelector struct {
 	// SeriesFlag is the series passed to the --series flag on the command line.
 	SeriesFlag string
@@ -59,6 +53,27 @@ type SeriesSelector struct {
 	// from bundle specifies the deploy request comes from a bundle spec.
 	FromBundle bool
 	Logger     SeriesSelectorLogger
+	// UsingImageID is true when the user is using the image-id constraint
+	// when deploying the charm. This is needed to validate that in that
+	// case the user is also explicitly providing a base.
+	UsingImageID bool
+}
+
+// TODO(nvinuesa): The Force flag is only valid if the SeriesFlag is specified
+// or to force the deploy of a LXD profile that doesn't pass validation, this
+// should be added to these validation checks.
+func (s SeriesSelector) Validate() error {
+	// If the image-id constraint is provided then base must be explicitly
+	// provided either by flag either by model-config default base.
+	_, explicit := s.Conf.DefaultBase()
+	if s.UsingImageID &&
+		s.SeriesFlag == "" &&
+		s.CharmURLSeries == "" &&
+		!explicit {
+		return errors.Forbiddenf("base must be explicitly provided when image-id constraint is used")
+	}
+
+	return nil
 }
 
 // charmSeries determines what series to use with a charm.
@@ -68,20 +83,18 @@ type SeriesSelector struct {
 //   - model default, if set, acts like --series
 //   - default from charm metadata supported series / series in url
 //   - default LTS
-func (s SeriesSelector) CharmSeries() (selectedSeries string, isDefault bool, err error) {
+func (s SeriesSelector) CharmSeries() (selectedSeries string, err error) {
 	// TODO(sidecar): handle systems
 
 	// User has requested a series with --series.
 	if s.SeriesFlag != "" {
-		res, err := s.userRequested(s.SeriesFlag)
-		return res, false, err
+		return s.userRequested(s.SeriesFlag)
 	}
 
 	// User specified a series in the charm URL, e.g.
 	// juju deploy precise/ubuntu.
 	if s.CharmURLSeries != "" {
-		res, err := s.userRequested(s.CharmURLSeries)
-		return res, false, err
+		return s.userRequested(s.CharmURLSeries)
 	}
 
 	// No series explicitly requested by the user.
@@ -89,15 +102,14 @@ func (s SeriesSelector) CharmSeries() (selectedSeries string, isDefault bool, er
 	if defaultBase, explicit := s.Conf.DefaultBase(); explicit {
 		base, err := series.ParseBaseFromString(defaultBase)
 		if err != nil {
-			return "", false, errors.Trace(err)
+			return "", errors.Trace(err)
 		}
 
 		defaultSeries, err := series.GetSeriesFromBase(base)
 		if err != nil {
-			return "", false, errors.Trace(err)
+			return "", errors.Trace(err)
 		}
-		res, err := s.userRequested(defaultSeries)
-		return res, false, err
+		return s.userRequested(defaultSeries)
 	}
 
 	// Next fall back to the charm's list of series, filtered to what's supported
@@ -112,7 +124,7 @@ func (s SeriesSelector) CharmSeries() (selectedSeries string, isDefault bool, er
 	}
 	defaultSeries, err := SeriesForCharm("", supportedSeries)
 	if err == nil {
-		return defaultSeries, true, nil
+		return defaultSeries, nil
 	}
 
 	// Charm hasn't specified a default (likely due to being a local charm
@@ -124,17 +136,17 @@ func (s SeriesSelector) CharmSeries() (selectedSeries string, isDefault bool, er
 		s.Logger.Tracef("juju supported series %s", s.SupportedJujuSeries.SortedValues())
 		s.Logger.Tracef("charm supported series %s", s.SupportedSeries)
 		if IsMissingSeriesError(err) && len(s.SupportedSeries) > 0 {
-			return "", false, errors.Errorf("the charm defined series %q not supported", strings.Join(s.SupportedSeries, ", "))
+			return "", errors.Errorf("the charm defined series %q not supported", strings.Join(s.SupportedSeries, ", "))
 		}
 
 		// We know err is not nil due to above, so return the error
 		// returned to us from the charm call.
-		return "", false, err
+		return "", err
 	}
 
 	latestLTS := version.DefaultSupportedLTS()
 	s.Logger.Infof(msgLatestLTSSeries, latestLTS)
-	return latestLTS, true, nil
+	return latestLTS, nil
 }
 
 // userRequested checks the series the user has requested, and returns it if it

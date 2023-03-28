@@ -231,7 +231,7 @@ func (v *deployFromRepositoryValidator) validate(arg params.DeployFromRepository
 	// series, then call GetEssentialMetadata, which again calls ResolveCharmWithPreferredChannel
 	// then a refresh request.
 
-	charmURL, resolvedOrigin, err := v.resolveCharm(initialCurl, requestedOrigin, arg.Force, usedModelDefaultBase)
+	charmURL, resolvedOrigin, err := v.resolveCharm(initialCurl, requestedOrigin, arg.Force, usedModelDefaultBase, arg.Cons)
 	if err != nil {
 		errs = append(errs, err)
 		return deployTemplate{}, errs
@@ -506,7 +506,7 @@ func (v *deployFromRepositoryValidator) platformFromPlacement(placements []*inst
 	return platform, platStrings.Size() == 1, nil
 }
 
-func (v *deployFromRepositoryValidator) resolveCharm(curl *charm.URL, requestedOrigin corecharm.Origin, force, usedModelDefaultBase bool) (*charm.URL, corecharm.Origin, error) {
+func (v *deployFromRepositoryValidator) resolveCharm(curl *charm.URL, requestedOrigin corecharm.Origin, force, usedModelDefaultBase bool, cons constraints.Value) (*charm.URL, corecharm.Origin, error) {
 	repo, err := v.getCharmRepository(requestedOrigin.Source)
 	if err != nil {
 		return nil, corecharm.Origin{}, errors.Trace(err)
@@ -524,17 +524,17 @@ func (v *deployFromRepositoryValidator) resolveCharm(curl *charm.URL, requestedO
 	} else if resolveErr != nil {
 		return nil, corecharm.Origin{}, errors.Trace(resolveErr)
 	}
+	modelCons, err := v.state.ModelConstraints()
+	if err != nil {
+		return nil, corecharm.Origin{}, errors.Trace(err)
+	}
 
 	// The charmhub API can return "all" for architecture as it's not a real
 	// arch we don't know how to correctly model it. "all " doesn't mean use the
 	// default arch, it means use any arch which isn't quite the same. So if we
 	// do get "all" we should see if there is a clean way to resolve it.
 	if resolvedOrigin.Platform.Architecture == "all" {
-		cons, err := v.state.ModelConstraints()
-		if err != nil {
-			return nil, corecharm.Origin{}, errors.Trace(err)
-		}
-		resolvedOrigin.Platform.Architecture = arch.ConstraintArch(cons, nil)
+		resolvedOrigin.Platform.Architecture = arch.ConstraintArch(modelCons, nil)
 	}
 
 	var seriesFlag string
@@ -566,10 +566,15 @@ func (v *deployFromRepositoryValidator) resolveCharm(curl *charm.URL, requestedO
 		Conf:                modelCfg,
 		FromBundle:          false,
 		Logger:              deployRepoLogger,
+		UsingImageID:        cons.HasImageID() || modelCons.HasImageID(),
+	}
+	err = selector.Validate()
+	if err != nil {
+		return nil, corecharm.Origin{}, errors.Trace(err)
 	}
 
 	// Get the series to use.
-	series, _, err := selector.CharmSeries()
+	series, err := selector.CharmSeries()
 	deployRepoLogger.Tracef("Using series %q from %v to deploy %v", series, supportedSeries, curl)
 	if charm.IsUnsupportedSeriesError(err) {
 		msg := fmt.Sprintf("%v. Use --force to deploy the charm anyway.", err)

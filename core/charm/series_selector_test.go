@@ -21,9 +21,8 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 
 		SeriesSelector
 
-		expectedSeries          string
-		expectedIsDefaultSeries bool
-		err                     string
+		expectedSeries string
+		err            string
 	}{
 		{
 			// Simple selectors first, no supported series.
@@ -108,8 +107,7 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 				Force: true,
 				Conf:  defaultBase{},
 			},
-			expectedSeries:          "jammy",
-			expectedIsDefaultSeries: true,
+			expectedSeries: "jammy",
 		},
 
 		// Now charms with supported series.
@@ -121,8 +119,7 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 				Conf:                defaultBase{},
 				SupportedJujuSeries: set.NewStrings("bionic", "cosmic"),
 			},
-			expectedSeries:          "bionic",
-			expectedIsDefaultSeries: true,
+			expectedSeries: "bionic",
 		},
 		{
 			title: "juju deploy multiseries with invalid series  # use charm default, nothing specified, no default series",
@@ -131,8 +128,7 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 				Conf:                defaultBase{},
 				SupportedJujuSeries: set.NewStrings("bionic", "cosmic"),
 			},
-			expectedSeries:          "bionic",
-			expectedIsDefaultSeries: true,
+			expectedSeries: "bionic",
 		},
 		{
 			title: "juju deploy multiseries with invalid serie  # use charm default, nothing specified, no default series",
@@ -281,13 +277,71 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 	for i, test := range deploySeriesTests {
 		c.Logf("test %d [%s]", i, test.title)
 		test.SeriesSelector.Logger = &noOpLogger{}
-		series, isDefaultSeries, err := test.SeriesSelector.CharmSeries()
+		series, err := test.SeriesSelector.CharmSeries()
 		if test.err != "" {
 			c.Check(err, gc.ErrorMatches, test.err)
 		} else {
 			c.Check(err, jc.ErrorIsNil)
 			c.Check(series, gc.Equals, test.expectedSeries)
-			c.Check(isDefaultSeries, gc.Equals, test.expectedIsDefaultSeries)
+		}
+	}
+}
+
+func (s *SeriesSelectorSuite) TestValidate(c *gc.C) {
+	deploySeriesTests := []struct {
+		title    string
+		selector SeriesSelector
+		err      string
+	}{
+		{
+			title: "should fail when image-id constraint is used and no base is explicitly set",
+			selector: SeriesSelector{
+				Conf: defaultBase{
+					explicit: false,
+				},
+				UsingImageID: true,
+			},
+			err: "base must be explicitly provided when image-id constraint is used",
+		},
+		{
+			title: "should return no errors when using image-id and series flag",
+			selector: SeriesSelector{
+				Conf: defaultBase{
+					explicit: false,
+				},
+				SeriesFlag:   "jammy",
+				UsingImageID: true,
+			},
+		},
+		{
+			title: "should return no errors when using image-id and charms url series is set",
+			selector: SeriesSelector{
+				Conf: defaultBase{
+					explicit: false,
+				},
+				CharmURLSeries: "jammy",
+				UsingImageID:   true,
+			},
+		},
+		{
+			title: "should return no errors when using image-id and explicit base from conf",
+			selector: SeriesSelector{
+				Conf: defaultBase{
+					explicit: true,
+				},
+				UsingImageID: true,
+			},
+		},
+	}
+
+	for i, test := range deploySeriesTests {
+		c.Logf("test %d [%s]", i, test.title)
+		test.selector.Logger = &noOpLogger{}
+		err := test.selector.Validate()
+		if test.err != "" {
+			c.Check(err, gc.ErrorMatches, test.err)
+		} else {
+			c.Check(err, jc.ErrorIsNil)
 		}
 	}
 }
