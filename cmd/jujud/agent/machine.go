@@ -409,8 +409,6 @@ type MachineAgent struct {
 	mongoDialCollector         *mongometrics.DialCollector
 	preUpgradeSteps            upgrades.PreUpgradeStepsFunc
 
-	// Only API servers have hubs. This is temporary until the apiserver and
-	// peergrouper have manifolds.
 	centralHub    *pubsub.StructuredHub
 	pubsubMetrics *centralhub.PubsubMetrics
 

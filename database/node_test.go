@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
-	"net"
 	"os"
 	"path"
 	"strconv"
@@ -236,13 +235,10 @@ Role: 0
 func (s *nodeManagerSuite) TestWithAddressOptionSuccess(c *gc.C) {
 	m := NewNodeManager(nil, stubLogger{})
 
-	withAddress, err := m.WithAddressOption()
+	dqliteApp, err := app.New(c.MkDir(), m.WithAddressOption("127.0.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	dqlite, err := app.New(c.MkDir(), withAddress)
-	c.Assert(err, jc.ErrorIsNil)
-
-	_ = dqlite.Close()
+	_ = dqliteApp.Close()
 }
 
 func (s *nodeManagerSuite) TestWithTLSOptionSuccess(c *gc.C) {
@@ -252,68 +248,20 @@ func (s *nodeManagerSuite) TestWithTLSOptionSuccess(c *gc.C) {
 	withTLS, err := m.WithTLSOption()
 	c.Assert(err, jc.ErrorIsNil)
 
-	dqlite, err := app.New(c.MkDir(), withTLS)
+	dqliteApp, err := app.New(c.MkDir(), withTLS)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_ = dqlite.Close()
+	_ = dqliteApp.Close()
 }
 
 func (s *nodeManagerSuite) TestWithClusterOptionSuccess(c *gc.C) {
-	// Hack to get a bind address to add to config.
-	h := NewNodeManager(fakeAgentConfig{}, stubLogger{})
-	err := h.ensureBindAddress()
-	c.Assert(err, jc.ErrorIsNil)
-
-	cfg := fakeAgentConfig{
-		apiAddrs: []string{
-			"10.0.0.5:17070",
-			h.bindAddress,     // Filtered out as not being us.
-			"127.0.0.1:17070", // Filtered out as a non-local-cloud address.
-		},
-	}
-
+	cfg := fakeAgentConfig{}
 	m := NewNodeManager(cfg, stubLogger{})
 
-	withCluster, err := m.WithClusterOption()
+	dqliteApp, err := app.New(c.MkDir(), m.WithClusterOption([]string{"10.6.6.6"}))
 	c.Assert(err, jc.ErrorIsNil)
 
-	dqlite, err := app.New(c.MkDir(), withCluster)
-	c.Assert(err, jc.ErrorIsNil)
-
-	_ = dqlite.Close()
-}
-
-func (s *nodeManagerSuite) TestWithClusterNotHASuccess(c *gc.C) {
-	// Hack to get a bind address to add to config.
-	h := NewNodeManager(fakeAgentConfig{}, stubLogger{})
-	err := h.ensureBindAddress()
-	c.Assert(err, jc.ErrorIsNil)
-
-	cfg := fakeAgentConfig{apiAddrs: []string{h.bindAddress}}
-
-	m := NewNodeManager(cfg, stubLogger{})
-
-	withCluster, err := m.WithClusterOption()
-	c.Assert(err, jc.ErrorIsNil)
-
-	dqlite, err := app.New(c.MkDir(), withCluster)
-	c.Assert(err, jc.ErrorIsNil)
-
-	_ = dqlite.Close()
-}
-
-func (s *nodeManagerSuite) TestIgnoreInterface(c *gc.C) {
-	shouldIgnore := []string{
-		"lxdbr0",
-		"virbr0",
-		"docker0",
-	}
-	for _, devName := range shouldIgnore {
-		c.Check(ignoreInterface(net.Interface{Name: devName}), jc.IsTrue)
-	}
-
-	c.Check(ignoreInterface(net.Interface{Flags: net.FlagLoopback}), jc.IsTrue)
-	c.Check(ignoreInterface(net.Interface{Name: "enp5s0"}), jc.IsFalse)
+	_ = dqliteApp.Close()
 }
 
 type fakeAgentConfig struct {

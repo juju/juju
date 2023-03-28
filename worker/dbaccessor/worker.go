@@ -5,7 +5,6 @@ package dbaccessor
 
 import (
 	"context"
-	"database/sql"
 	"net"
 	"sync"
 	"time"
@@ -15,10 +14,8 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 	"github.com/juju/worker/v3/dependency"
-	"gopkg.in/tomb.v2"
 
 	coredatabase "github.com/juju/juju/core/database"
-	"github.com/juju/juju/database"
 	"github.com/juju/juju/database/app"
 	"github.com/juju/juju/database/dqlite"
 	"github.com/juju/juju/pubsub/apiserver"
@@ -32,14 +29,6 @@ const (
 	// by opening a new database on verification failure.
 	DefaultVerifyAttempts = 3
 )
-
-// TrackedDB defines the union of a TrackedDB and a worker.Worker interface.
-// This is local to the package, allowing for better testing of the underlying
-// trackerDB worker.
-type TrackedDB interface {
-	coredatabase.TrackedDB
-	worker.Worker
-}
 
 // NodeManager creates Dqlite `App` initialisation arguments and options.
 type NodeManager interface {
@@ -72,7 +61,7 @@ type NodeManager interface {
 
 	// WithAddressOption returns a Dqlite application Option
 	// for specifying the local address:port to use.
-	WithAddressOption() (app.Option, error)
+	WithAddressOption(string) app.Option
 
 	// WithTLSOption returns a Dqlite application Option for TLS encryption
 	// of traffic between clients and clustered application nodes.
@@ -80,7 +69,7 @@ type NodeManager interface {
 
 	// WithClusterOption returns a Dqlite application Option for initialising
 	// Dqlite as the member of a cluster with peers representing other controllers.
-	WithClusterOption() (app.Option, error)
+	WithClusterOption([]string) app.Option
 }
 
 // DBGetter describes the ability to supply a sql.DB
@@ -90,36 +79,6 @@ type DBGetter interface {
 	// contains the data for the specified namespace.
 	// A NotFound error is returned if the worker is unaware of the requested DB.
 	GetDB(namespace string) (coredatabase.TrackedDB, error)
-}
-
-// DBApp describes methods of a Dqlite database application,
-// required to run this host as a Dqlite node.
-type DBApp interface {
-	// Open the dqlite database with the given name
-	Open(context.Context, string) (*sql.DB, error)
-
-	// Ready can be used to wait for a node to complete tasks that
-	// are initiated at startup. For example a new node will attempt
-	// to join the cluster, a restarted node will check if it should
-	// assume some particular role, etc.
-	//
-	// If this method returns without error it means that those initial
-	// tasks have succeeded and follow-up operations like Open() are more
-	// likely to succeed quickly.
-	Ready(context.Context) error
-
-	// Handover transfers all responsibilities for this node (such has
-	// leadership and voting rights) to another node, if one is available.
-	//
-	// This method should always be called before invoking Close(),
-	// in order to gracefully shut down a node.
-	Handover(context.Context) error
-
-	// ID returns the dqlite ID of this application node.
-	ID() uint64
-
-	// Close the application node, releasing all resources it created.
-	Close() error
 }
 
 // dbRequest is used to pass requests for TrackedDB
@@ -186,6 +145,10 @@ type dbWorker struct {
 	dbApp    DBApp
 	dbRunner *worker.Runner
 
+	// dbReady is used to signal that we can
+	// begin processing GetDB requests.
+	dbReady chan struct{}
+
 	// dbRequests is used to synchronise GetDB
 	// requests into this worker's event loop.
 	dbRequests chan dbRequest
@@ -211,6 +174,7 @@ func newWorker(cfg WorkerConfig) (*dbWorker, error) {
 			IsFatal:      func(err error) bool { return true },
 			RestartDelay: time.Second * 30,
 		}),
+		dbReady:          make(chan struct{}),
 		dbRequests:       make(chan dbRequest),
 		apiServerChanges: make(chan apiserver.Details),
 	}
@@ -299,6 +263,13 @@ func (w *dbWorker) Wait() error {
 // we should first validate it exists in the controller list.
 // This should only be required if it's not the controller DB.
 func (w *dbWorker) GetDB(namespace string) (coredatabase.TrackedDB, error) {
+	// Ensure Dqlite is initialised.
+	select {
+	case <-w.dbReady:
+	case <-w.catacomb.Dying():
+		return nil, w.catacomb.ErrDying()
+	}
+
 	// Enqueue the request.
 	req := makeDBRequest(namespace)
 	select {
@@ -383,6 +354,14 @@ func (w *dbWorker) initialiseDqlite(options ...app.Option) error {
 	}
 
 	w.cfg.Logger.Infof("initialized Dqlite application (ID: %v)", w.dbApp.ID())
+
+	if c, err := w.dbApp.Client(ctx); err == nil {
+		if info, err := c.Cluster(ctx); err == nil {
+			w.cfg.Logger.Infof("current cluster: %#v", info)
+		}
+	}
+
+	close(w.dbReady)
 	return nil
 }
 
@@ -394,223 +373,6 @@ func (w *dbWorker) openDatabase(namespace string) error {
 		return nil
 	}
 	return errors.Trace(err)
-}
-
-// TrackedDBWorkerOption is a function that configures a TrackedDBWorker.
-type TrackedDBWorkerOption func(*trackedDBWorker)
-
-// WithVerifyDBFunc sets the function used to verify the database connection.
-func WithVerifyDBFunc(f func(context.Context, *sql.DB) error) TrackedDBWorkerOption {
-	return func(w *trackedDBWorker) {
-		w.verifyDBFunc = f
-	}
-}
-
-// WithClock sets the clock used by the worker.
-func WithClock(clock clock.Clock) TrackedDBWorkerOption {
-	return func(w *trackedDBWorker) {
-		w.clock = clock
-	}
-}
-
-// WithLogger sets the logger used by the worker.
-func WithLogger(logger Logger) TrackedDBWorkerOption {
-	return func(w *trackedDBWorker) {
-		w.logger = logger
-	}
-}
-
-type trackedDBWorker struct {
-	tomb tomb.Tomb
-
-	dbApp     DBApp
-	namespace string
-
-	mutex sync.RWMutex
-	db    *sql.DB
-	err   error
-
-	clock  clock.Clock
-	logger Logger
-
-	verifyDBFunc func(context.Context, *sql.DB) error
-}
-
-// NewTrackedDBWorker creates a new TrackedDBWorker
-func NewTrackedDBWorker(dbApp DBApp, namespace string, opts ...TrackedDBWorkerOption) (TrackedDB, error) {
-	w := &trackedDBWorker{
-		dbApp:        dbApp,
-		namespace:    namespace,
-		clock:        clock.WallClock,
-		verifyDBFunc: defaultVerifyDBFunc,
-	}
-
-	for _, opt := range opts {
-		opt(w)
-	}
-
-	var err error
-	w.db, err = w.dbApp.Open(context.TODO(), w.namespace)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	w.tomb.Go(w.loop)
-
-	return w, nil
-}
-
-// DB closes over a raw *sql.DB. Closing over the DB allows the late
-// realization of the database. Allowing retries of DB acquisition if there
-// is a failure that is non-retryable.
-func (w *trackedDBWorker) DB(fn func(*sql.DB) error) error {
-	w.mutex.RLock()
-	// We have a fatal error, the DB can not be accessed.
-	if w.err != nil {
-		w.mutex.RUnlock()
-		return errors.Trace(w.err)
-	}
-	db := w.db
-	w.mutex.RUnlock()
-
-	return fn(db)
-}
-
-// Txn closes over a raw *sql.Tx. This allows retry semantics in only one
-// location. For instances where the underlying sql database is busy or if
-// it's a common retryable error that can be handled cleanly in one place.
-func (w *trackedDBWorker) Txn(ctx context.Context, fn func(context.Context, *sql.Tx) error) error {
-	return w.DB(func(db *sql.DB) error {
-		return database.Retry(ctx, func() error {
-			return database.Txn(ctx, db, fn)
-		})
-	})
-}
-
-// Err will return any fatal errors that have occurred on the worker, trying
-// to acquire the database.
-func (w *trackedDBWorker) Err() error {
-	w.mutex.Lock()
-	defer w.mutex.Unlock()
-
-	return w.err
-}
-
-// Kill implements worker.Worker
-func (w *trackedDBWorker) Kill() {
-	w.tomb.Kill(nil)
-}
-
-// Wait implements worker.Worker
-func (w *trackedDBWorker) Wait() error {
-	return w.tomb.Wait()
-}
-
-func (w *trackedDBWorker) loop() error {
-	timer := w.clock.NewTimer(PollInterval)
-	defer timer.Stop()
-
-	for {
-		select {
-		case <-w.tomb.Dying():
-			return tomb.ErrDying
-		case <-timer.Chan():
-			// Any retryable errors are handled at the txn level. If we get an
-			// error returning here, we've either exhausted the number of
-			// retries or the error was fatal.
-			w.mutex.RLock()
-			currentDB := w.db
-			w.mutex.RUnlock()
-
-			newDB, err := w.verifyDB(currentDB)
-			if err != nil {
-				// If we get an error, ensure we close the underlying db and
-				// mark the tracked db in an error state.
-				w.mutex.Lock()
-				if err := w.db.Close(); err != nil {
-					w.logger.Errorf("error closing database: %v", err)
-				}
-				w.err = errors.Trace(err)
-				w.mutex.Unlock()
-
-				// As we failed attempting to verify the db, we're in a fatal
-				// state. Collapse the worker and if required, cause the other
-				// workers to follow suite.
-				return errors.Trace(err)
-			}
-
-			// We've got a new DB. Close the old one and replace it with the
-			// new one, if they're not the same.
-			if newDB != currentDB {
-				w.mutex.Lock()
-				if err := w.db.Close(); err != nil {
-					w.logger.Errorf("error closing database: %v", err)
-				}
-				w.db = newDB
-				w.err = nil
-				w.mutex.Unlock()
-			}
-		}
-	}
-}
-
-func (w *trackedDBWorker) verifyDB(db *sql.DB) (*sql.DB, error) {
-	// Force the timeout to be lower that the DefaultTimeout,
-	// so we can spot issues sooner.
-	// Also allow killing the tomb to cancel the context,
-	// so shutdown/restart can not be blocked by this call.
-	ctx, cancel := context.WithTimeout(context.TODO(), time.Second*10)
-	ctx = w.tomb.Context(ctx)
-	defer cancel()
-
-	if w.logger.IsTraceEnabled() {
-		w.logger.Tracef("verifying database by attempting a ping")
-	}
-
-	// There are multiple levels of retries here. For good reason. We want to
-	// retry the transaction semantics for retryable errors. Then if that fails
-	// we want to retry if the database is at fault. In that case we want
-	// to open up a new database and try the transaction again.
-	for i := 0; i < DefaultVerifyAttempts; i++ {
-		// Verify that we don't have a potential nil database from the retry
-		// semantics.
-		if db == nil {
-			return nil, errors.NotFoundf("database")
-		}
-
-		err := database.Retry(ctx, func() error {
-			if w.logger.IsTraceEnabled() {
-				w.logger.Tracef("attempting ping")
-			}
-			return w.verifyDBFunc(ctx, db)
-		})
-		// We were successful at requesting the schema, so we can bail out
-		// early.
-		if err == nil {
-			return db, nil
-		}
-
-		// We failed to apply the transaction, so just return the error and
-		// cause the worker to crash.
-		if i == DefaultVerifyAttempts-1 {
-			return nil, errors.Trace(err)
-		}
-
-		// We got an error that is non-retryable, attempt to open a new database
-		// connection and see if that works.
-		w.logger.Errorf("unable to ping db: attempting to reopen the database before attempting again: %v", err)
-
-		// Attempt to open a new database. If there is an error, just crash
-		// the worker, we can't do anything else.
-		if db, err = w.dbApp.Open(ctx, w.namespace); err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	return nil, errors.NotValidf("database")
-}
-
-func defaultVerifyDBFunc(ctx context.Context, db *sql.DB) error {
-	return db.PingContext(ctx)
 }
 
 // handleAPIServerChangeMsg is the callback supplied to the pub/sub
@@ -656,16 +418,18 @@ func (w *dbWorker) processAPIServerChange(apiDetails apiserver.Details) error {
 			return nil
 		}
 
-		// Look for *our* internal address in the details that were broadcast.
-		// This is the same local-cloud address used by Mongo for replication.
-		hostPort := apiDetails.Servers[w.cfg.ControllerID].InternalAddress
-		if hostPort == "" {
-			return errors.New("no internal address determined for this Dqlite node to bind to")
+		// If we are the as-bootstrapped node, and there is only one server,
+		// there is no need to change our bind address.
+		// Just keep the loopback binding.
+		if len(apiDetails.Servers) == 1 {
+			return nil
 		}
-		addr, _, err := net.SplitHostPort(hostPort)
+
+		addr, err := w.bindAddrFromServerDetails(apiDetails)
 		if err != nil {
-			return errors.Annotatef(err, "splitting host/port for %s", hostPort)
+			return errors.Trace(err)
 		}
+
 		if err := w.rebindAddress(ctx, addr); err != nil {
 			return errors.Trace(err)
 		}
@@ -678,8 +442,7 @@ func (w *dbWorker) processAPIServerChange(apiDetails apiserver.Details) error {
 
 	// Otherwise this is a node added by enabling HA,
 	// and we need to join to an existing cluster.
-
-	return nil
+	return errors.Trace(w.joinNodeToCluster(apiDetails))
 }
 
 // rebindAddress stops the current node, reconfigures the cluster so that
@@ -716,6 +479,59 @@ func (w *dbWorker) rebindAddress(ctx context.Context, addr string) error {
 	}
 
 	return errors.Trace(mgr.SetNodeInfo(servers[0]))
+}
+
+func (w *dbWorker) joinNodeToCluster(apiDetails apiserver.Details) error {
+	w.cfg.Logger.Infof("joining Dqlite cluster")
+
+	// Get our address from the API details.
+	localAddr, err := w.bindAddrFromServerDetails(apiDetails)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Then get addresses for any other of the servers,
+	// so we can join the cluster.
+	var clusterAddrs []string
+	for id, server := range apiDetails.Servers {
+		hostPort := server.InternalAddress
+		if id != w.cfg.ControllerID && hostPort != "" {
+			addr, _, err := net.SplitHostPort(hostPort)
+			if err != nil {
+				return errors.Annotatef(err, "splitting host/port for %s", hostPort)
+			}
+			clusterAddrs = append(clusterAddrs, addr)
+		}
+	}
+	if len(clusterAddrs) == 0 {
+		return errors.New("no addresses available for this Dqlite node to join cluster")
+	}
+
+	mgr := w.cfg.NodeManager
+
+	withTLS, err := mgr.WithTLSOption()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return errors.Trace(w.initialiseDqlite(
+		mgr.WithAddressOption(localAddr), mgr.WithClusterOption(clusterAddrs), withTLS))
+}
+
+// bindAddrFromServerDetails returns the internal IP address from the
+// input details that corresponds with this controller machine.
+func (w *dbWorker) bindAddrFromServerDetails(apiDetails apiserver.Details) (string, error) {
+	hostPort := apiDetails.Servers[w.cfg.ControllerID].InternalAddress
+	if hostPort == "" {
+		return "", errors.New("no internal address determined for this Dqlite node to bind to")
+	}
+
+	addr, _, err := net.SplitHostPort(hostPort)
+	if err != nil {
+		return "", errors.Annotatef(err, "splitting host/port for %s", hostPort)
+	}
+
+	return addr, nil
 }
 
 // shutdownDqlite makes a best-effort attempt to hand off and shut

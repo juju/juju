@@ -126,7 +126,6 @@ func (s *AgentSuite) SetUpSuite(c *gc.C) {
 	s.JujuConnSuite.SetUpSuite(c)
 
 	s.InitialDBOps = make([]func(db *sql.DB) error, 0)
-	s.PatchValue(&database.DefaultBindAddress, "127.0.0.1")
 }
 
 // PrimeAgent writes the configuration file and tools for an agent

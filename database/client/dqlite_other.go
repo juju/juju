@@ -12,6 +12,12 @@ import (
 	"github.com/juju/juju/database/dqlite"
 )
 
+type Client struct{}
+
+func (c *Client) Cluster(context.Context) ([]dqlite.NodeInfo, error) {
+	return nil, nil
+}
+
 type YamlNodeStore struct {
 	servers []dqlite.NodeInfo
 }
