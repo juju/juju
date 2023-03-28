@@ -316,6 +316,8 @@ func (s stateShim) AddApplication(args state.AddApplicationArgs) (Application, e
 	return stateApplicationShim{a, s.State}, nil
 }
 
+// Note that the usedID is only used in some of the implementations of the
+// AddPendingResource
 func (s stateShim) AddPendingResource(appName string, chRes resource.Resource) (string, error) {
 	return s.State.Resources().AddPendingResource(appName, "", chRes)
 }
