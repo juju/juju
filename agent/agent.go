@@ -858,7 +858,7 @@ func (c *configInternal) APIInfo() (*api.Info, bool) {
 	}
 	servingInfo, isController := c.StateServingInfo()
 	addrs := c.apiDetails.addresses
-	// For controller we return only localhost - we should not connect
+	// For controllers, we return only localhost - we should not connect
 	// to other controllers if we can talk locally.
 	if isController {
 		port := servingInfo.APIPort
@@ -880,7 +880,7 @@ func (c *configInternal) APIInfo() (*api.Info, bool) {
 		// the peergrouper has not joined the machine to replica-set, so there
 		// will never be a working API available at localhost.
 		if !set.NewStrings(addrs...).Contains(localAPIAddr) {
-			addrs = append(addrs, localAPIAddr)
+			addrs = append([]string{localAPIAddr}, addrs...)
 		}
 	}
 	return &api.Info{
