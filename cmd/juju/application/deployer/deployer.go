@@ -320,6 +320,10 @@ func (d *factory) determineSeriesForLocalCharm(charmOrBundle string, getter Mode
 		if err != nil {
 			return "", "", errors.Trace(err)
 		}
+		if len(supportedSeries) == 0 {
+			logger.Warningf("%s does not declare supported series in metadata.yml", ch.Meta().Name)
+		}
+
 		seriesSelector := corecharm.SeriesSelector{
 			SeriesFlag:          seriesName,
 			SupportedSeries:     supportedSeries,
@@ -328,10 +332,11 @@ func (d *factory) determineSeriesForLocalCharm(charmOrBundle string, getter Mode
 			Conf:                modelCfg,
 			FromBundle:          false,
 			Logger:              logger,
+			UsingImageID:        d.constraints.HasImageID() || d.modelConstraints.HasImageID(),
 		}
-
-		if len(supportedSeries) == 0 {
-			logger.Warningf("%s does not declare supported series in metadata.yml", ch.Meta().Name)
+		err = seriesSelector.Validate()
+		if err != nil {
+			return "", "", errors.Trace(err)
 		}
 
 		seriesName, err = seriesSelector.CharmSeries()

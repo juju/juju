@@ -287,6 +287,65 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 	}
 }
 
+func (s *SeriesSelectorSuite) TestValidate(c *gc.C) {
+	deploySeriesTests := []struct {
+		title    string
+		selector SeriesSelector
+		err      string
+	}{
+		{
+			title: "should fail when image-id constraint is used and no base is explicitly set",
+			selector: SeriesSelector{
+				Conf: defaultBase{
+					explicit: false,
+				},
+				UsingImageID: true,
+			},
+			err: "base must be explicitly provided when image-id constraint is used",
+		},
+		{
+			title: "should return no errors when using image-id and series flag",
+			selector: SeriesSelector{
+				Conf: defaultBase{
+					explicit: false,
+				},
+				SeriesFlag:   "jammy",
+				UsingImageID: true,
+			},
+		},
+		{
+			title: "should return no errors when using image-id and charms url series is set",
+			selector: SeriesSelector{
+				Conf: defaultBase{
+					explicit: false,
+				},
+				CharmURLSeries: "jammy",
+				UsingImageID:   true,
+			},
+		},
+		{
+			title: "should return no errors when using image-id and explicit base from conf",
+			selector: SeriesSelector{
+				Conf: defaultBase{
+					explicit: true,
+				},
+				UsingImageID: true,
+			},
+		},
+	}
+
+	for i, test := range deploySeriesTests {
+		c.Logf("test %d [%s]", i, test.title)
+		test.selector.Logger = &noOpLogger{}
+		err := test.selector.Validate()
+		if test.err != "" {
+			c.Check(err, gc.ErrorMatches, test.err)
+		} else {
+			c.Check(err, jc.ErrorIsNil)
+		}
+	}
+}
+
 type defaultBase struct {
 	base     string
 	explicit bool

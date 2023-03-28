@@ -482,10 +482,16 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 		Conf:                modelCfg,
 		FromBundle:          false,
 		Logger:              logger,
+		UsingImageID:        (c.constraints.HasImageID() || c.modelConstraints.HasImageID()),
+	}
+	err = selector.Validate()
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	// Get the series to use.
 	series, err := selector.CharmSeries()
+
 	logger.Tracef("Using series %q from %v to deploy %v", series, supportedSeries, userRequestedURL)
 
 	imageStream := modelCfg.ImageStream()

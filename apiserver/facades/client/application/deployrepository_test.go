@@ -67,6 +67,7 @@ func (s *validatorSuite) TestValidateSuccess(c *gc.C) {
 		CharmURL: resultURL,
 		Origin:   resolvedOrigin,
 	}).Return([]corecharm.EssentialMetadata{essMeta}, nil)
+	s.state.EXPECT().ModelConstraints().Return(constraints.Value{Arch: strptr("arm64")}, nil)
 
 	arg := params.DeployFromRepositoryArg{
 		CharmName: "testcharm",
@@ -130,6 +131,7 @@ func (s *validatorSuite) TestValidatePlacementSuccess(c *gc.C) {
 	})
 	hwc := &instance.HardwareCharacteristics{Arch: strptr("amd64")}
 	s.machine.EXPECT().HardwareCharacteristics().Return(hwc, nil)
+	s.state.EXPECT().ModelConstraints().Return(constraints.Value{Arch: strptr("arm64")}, nil)
 
 	arg := params.DeployFromRepositoryArg{
 		CharmName: "testcharm",
@@ -188,6 +190,7 @@ func (s *validatorSuite) TestValidateEndpointBindingSuccess(c *gc.C) {
 	// state bindings
 	endpointMap := map[string]string{"to": "from"}
 	s.bindings.EXPECT().Map().Return(endpointMap)
+	s.state.EXPECT().ModelConstraints().Return(constraints.Value{Arch: strptr("arm64")}, nil)
 
 	arg := params.DeployFromRepositoryArg{
 		CharmName:        "testcharm",
@@ -231,8 +234,11 @@ func (s *validatorSuite) TestResolveCharm(c *gc.C) {
 	supportedSeries := []string{"jammy", "focal"}
 	s.repo.EXPECT().ResolveWithPreferredChannel(curl, origin).Return(resultURL, resolvedOrigin, supportedSeries, nil)
 	s.model.EXPECT().Config().Return(config.New(config.UseDefaults, coretesting.FakeConfig()))
+	s.state.EXPECT().ModelConstraints().Return(constraints.Value{
+		Arch: strptr("arm64"),
+	}, nil)
 
-	obtainedCurl, obtainedOrigin, err := s.getValidator().resolveCharm(curl, origin, false, false)
+	obtainedCurl, obtainedOrigin, err := s.getValidator().resolveCharm(curl, origin, false, false, constraints.Value{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedCurl, gc.DeepEquals, resultURL)
 	c.Assert(obtainedOrigin, gc.DeepEquals, resolvedOrigin)
@@ -259,7 +265,7 @@ func (s *validatorSuite) TestResolveCharmArchAll(c *gc.C) {
 	s.model.EXPECT().Config().Return(config.New(config.UseDefaults, coretesting.FakeConfig()))
 	s.state.EXPECT().ModelConstraints().Return(constraints.Value{Arch: strptr("arm64")}, nil)
 
-	obtainedCurl, obtainedOrigin, err := s.getValidator().resolveCharm(curl, origin, false, false)
+	obtainedCurl, obtainedOrigin, err := s.getValidator().resolveCharm(curl, origin, false, false, constraints.Value{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedCurl, gc.DeepEquals, resultURL)
 	expectedOrigin := resolvedOrigin
@@ -287,8 +293,9 @@ func (s *validatorSuite) TestResolveCharmUnsupportedSeriesErrorForce(c *gc.C) {
 	newErr := charm.NewUnsupportedSeriesError("jammy", supportedSeries)
 	s.repo.EXPECT().ResolveWithPreferredChannel(curl, origin).Return(resultURL, resolvedOrigin, supportedSeries, newErr)
 	s.model.EXPECT().Config().Return(config.New(config.UseDefaults, coretesting.FakeConfig()))
+	s.state.EXPECT().ModelConstraints().Return(constraints.Value{Arch: strptr("arm64")}, nil)
 
-	obtainedCurl, obtainedOrigin, err := s.getValidator().resolveCharm(curl, origin, true, false)
+	obtainedCurl, obtainedOrigin, err := s.getValidator().resolveCharm(curl, origin, true, false, constraints.Value{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedCurl, gc.DeepEquals, resultURL)
 	c.Assert(obtainedOrigin, gc.DeepEquals, resolvedOrigin)
@@ -314,8 +321,61 @@ func (s *validatorSuite) TestResolveCharmUnsupportedSeriesError(c *gc.C) {
 	newErr := charm.NewUnsupportedSeriesError("jammy", supportedSeries)
 	s.repo.EXPECT().ResolveWithPreferredChannel(curl, origin).Return(resultURL, resolvedOrigin, supportedSeries, newErr)
 
-	_, _, err := s.getValidator().resolveCharm(curl, origin, false, false)
+	_, _, err := s.getValidator().resolveCharm(curl, origin, false, false, constraints.Value{})
 	c.Assert(err, gc.ErrorMatches, `series "jammy" not supported by charm, supported series are: focal. Use --force to deploy the charm anyway.`)
+}
+
+func (s *validatorSuite) TestResolveCharmExplicitBaseErrorWhenUserImageID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	curl := charm.MustParseURL("testcharm")
+	resultURL := charm.MustParseURL("ch:amd64/jammy/testcharm-4")
+	origin := corecharm.Origin{
+		Source:   "charm-hub",
+		Channel:  &charm.Channel{Risk: "stable"},
+		Platform: corecharm.Platform{Architecture: "amd64"},
+	}
+	resolvedOrigin := corecharm.Origin{
+		Source:   "charm-hub",
+		Type:     "charm",
+		Channel:  &charm.Channel{Track: "default", Risk: "stable"},
+		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04/stable"},
+		Revision: intptr(4),
+	}
+	supportedSeries := []string{"jammy", "focal"}
+	s.repo.EXPECT().ResolveWithPreferredChannel(curl, origin).Return(resultURL, resolvedOrigin, supportedSeries, nil)
+	s.model.EXPECT().Config().Return(config.New(config.UseDefaults, coretesting.FakeConfig()))
+	s.state.EXPECT().ModelConstraints().Return(constraints.Value{Arch: strptr("arm64")}, nil)
+
+	_, _, err := s.getValidator().resolveCharm(curl, origin, false, false, constraints.Value{ImageID: strptr("ubuntu-bf2")})
+	c.Assert(err, gc.ErrorMatches, `base must be explicitly provided when image-id constraint is used`)
+}
+
+func (s *validatorSuite) TestResolveCharmExplicitBaseErrorWhenModelImageID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	curl := charm.MustParseURL("testcharm")
+	resultURL := charm.MustParseURL("ch:amd64/jammy/testcharm-4")
+	origin := corecharm.Origin{
+		Source:   "charm-hub",
+		Channel:  &charm.Channel{Risk: "stable"},
+		Platform: corecharm.Platform{Architecture: "amd64"},
+	}
+	resolvedOrigin := corecharm.Origin{
+		Source:   "charm-hub",
+		Type:     "charm",
+		Channel:  &charm.Channel{Track: "default", Risk: "stable"},
+		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04/stable"},
+		Revision: intptr(4),
+	}
+	supportedSeries := []string{"jammy", "focal"}
+	s.repo.EXPECT().ResolveWithPreferredChannel(curl, origin).Return(resultURL, resolvedOrigin, supportedSeries, nil)
+	s.model.EXPECT().Config().Return(config.New(config.UseDefaults, coretesting.FakeConfig()))
+	s.state.EXPECT().ModelConstraints().Return(constraints.Value{
+		Arch:    strptr("arm64"),
+		ImageID: strptr("ubuntu-bf2"),
+	}, nil)
+
+	_, _, err := s.getValidator().resolveCharm(curl, origin, false, false, constraints.Value{})
+	c.Assert(err, gc.ErrorMatches, `base must be explicitly provided when image-id constraint is used`)
 }
 
 func (s *validatorSuite) TestCreateOrigin(c *gc.C) {

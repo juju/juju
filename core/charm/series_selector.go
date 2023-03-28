@@ -35,12 +35,6 @@ type SeriesSelectorLogger interface {
 
 // SeriesSelector is a helper type that determines what series the charm should
 // be deployed to.
-//
-// TODO: This type should really have a Validate method, as the Force flag is
-// really only valid if the SeriesFlag is specified. There is code and tests
-// that allow the Force flag when series isn't specified, but they should
-// really be cleaned up. The `deploy` CLI command has tests to ensure that
-// --Force is only valid with --series.
 type SeriesSelector struct {
 	// SeriesFlag is the series passed to the --series flag on the command line.
 	SeriesFlag string
@@ -59,6 +53,27 @@ type SeriesSelector struct {
 	// from bundle specifies the deploy request comes from a bundle spec.
 	FromBundle bool
 	Logger     SeriesSelectorLogger
+	// UsingImageID is true when the user is using the image-id constraint
+	// when deploying the charm. This is needed to validate that in that
+	// case the user is also explicitly providing a base.
+	UsingImageID bool
+}
+
+// TODO(nvinuesa): The Force flag is only valid if the SeriesFlag is specified
+// or to force the deploy of a LXD profile that doesn't pass validation, this
+// should be added to these validation checks.
+func (s SeriesSelector) Validate() error {
+	// If the image-id constraint is provided then base must be explicitly
+	// provided either by flag either by model-config default base.
+	_, explicit := s.Conf.DefaultBase()
+	if s.UsingImageID &&
+		s.SeriesFlag == "" &&
+		s.CharmURLSeries == "" &&
+		!explicit {
+		return errors.Forbiddenf("base must be explicitly provided when image-id constraint is used")
+	}
+
+	return nil
 }
 
 // charmSeries determines what series to use with a charm.
