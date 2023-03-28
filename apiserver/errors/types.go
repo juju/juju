@@ -13,6 +13,7 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/permission"
 )
 
 const (
@@ -150,4 +151,24 @@ func NewNotLeaderError(serverAddress, serverID string) error {
 		serverAddress: serverAddress,
 		serverID:      serverID,
 	}
+}
+
+// AccessRequiredError is the error returned when an api
+// request needs a login token with specified permissions.
+type AccessRequiredError struct {
+	RequiredAccess map[names.Tag]permission.Access
+}
+
+// AsMap returns the data for the info part of an error param struct.
+func (e *AccessRequiredError) AsMap() map[string]interface{} {
+	result := make(map[string]interface{})
+	for t, a := range e.RequiredAccess {
+		result[t.String()] = a
+	}
+	return result
+}
+
+// Error implements the error interface.
+func (e *AccessRequiredError) Error() string {
+	return fmt.Sprintf("access permissions required: %v", e.RequiredAccess)
 }

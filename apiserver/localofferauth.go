@@ -80,7 +80,7 @@ func newOfferAuthcontext(pool *state.StatePool) (*crossmodel.AuthContext, error)
 		localOfferBakery, location, localOfferBakeryKey, store, locator,
 	}
 	authCtx, err := crossmodel.NewAuthContext(
-		crossmodel.GetStatePool(pool), key, offerBakery)
+		crossmodel.GetBackend(st), key, offerBakery)
 	if err != nil {
 		return nil, err
 	}

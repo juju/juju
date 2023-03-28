@@ -487,14 +487,6 @@ func (st *mockStatePool) GetModel(modelUUID string) (applicationoffers.Model, fu
 	return model, func() {}, nil
 }
 
-type mockCommonStatePool struct {
-	*mockStatePool
-}
-
-func (st *mockCommonStatePool) Get(modelUUID string) (crossmodel.Backend, func(), error) {
-	return st.mockStatePool.Get(modelUUID)
-}
-
 type mockBakeryService struct {
 	authentication.ExpirableStorageBakery
 	jtesting.Stub

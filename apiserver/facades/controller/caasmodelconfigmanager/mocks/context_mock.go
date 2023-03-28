@@ -154,6 +154,21 @@ func (mr *MockAuthorizerMockRecorder) ConnectedModel() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConnectedModel", reflect.TypeOf((*MockAuthorizer)(nil).ConnectedModel))
 }
 
+// EntityHasPermission mocks base method.
+func (m *MockAuthorizer) EntityHasPermission(arg0 names.Tag, arg1 permission.Access, arg2 names.Tag) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EntityHasPermission", arg0, arg1, arg2)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// EntityHasPermission indicates an expected call of EntityHasPermission.
+func (mr *MockAuthorizerMockRecorder) EntityHasPermission(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EntityHasPermission", reflect.TypeOf((*MockAuthorizer)(nil).EntityHasPermission), arg0, arg1, arg2)
+}
+
 // GetAuthTag mocks base method.
 func (m *MockAuthorizer) GetAuthTag() names.Tag {
 	m.ctrl.T.Helper()

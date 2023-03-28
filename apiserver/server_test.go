@@ -24,6 +24,7 @@ import (
 	apimachiner "github.com/juju/juju/api/agent/machiner"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/authentication"
+	"github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/httpcontext"
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/apiserver/testserver"
@@ -279,8 +280,8 @@ func (s *serverSuite) TestAPIHandlerHasPermissionLoginToken(c *gc.C) {
 		Controller: coretesting.ControllerTag.Id(),
 		User:       user.String(),
 		Access: map[string]string{
-			"controller": "superuser",
-			"model":      "write",
+			coretesting.ControllerTag.String(): "superuser",
+			coretesting.ModelTag.String():      "write",
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -291,7 +292,30 @@ func (s *serverSuite) TestAPIHandlerHasPermissionLoginToken(c *gc.C) {
 	apiserver.AssertHasPermission(c, handler, permission.LoginAccess, coretesting.ControllerTag, true)
 	apiserver.AssertHasPermission(c, handler, permission.SuperuserAccess, coretesting.ControllerTag, true)
 	apiserver.AssertHasPermission(c, handler, permission.WriteAccess, coretesting.ModelTag, true)
-	apiserver.AssertHasPermission(c, handler, permission.AdminAccess, coretesting.ModelTag, false)
+}
+
+func (s *serverSuite) TestAPIHandlerMissingPermissionLoginToken(c *gc.C) {
+	user := names.NewUserTag("fred")
+	token, err := apitesting.NewJWT(apitesting.JWTParams{
+		Controller: coretesting.ControllerTag.Id(),
+		User:       user.String(),
+		Access: map[string]string{
+			coretesting.ControllerTag.String(): "superuser",
+			coretesting.ModelTag.String():      "write",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	handler, _ := apiserver.TestingAPIHandlerWithToken(c, s.StatePool, s.State, token)
+	defer handler.Kill()
+
+	hasPermission, err := handler.HasPermission(permission.AdminAccess, coretesting.ModelTag)
+	c.Assert(hasPermission, jc.IsFalse)
+	c.Assert(err, jc.DeepEquals, &errors.AccessRequiredError{
+		RequiredAccess: map[names.Tag]permission.Access{
+			coretesting.ModelTag: permission.AdminAccess,
+		},
+	})
 }
 
 func (s *serverSuite) TestAPIHandlerTeardownInitialModel(c *gc.C) {

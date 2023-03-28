@@ -60,10 +60,13 @@ func (CrossModelAuthorizer) AuthorizeOps(ctx context.Context, authorizedOp baker
 	return allowed, nil, nil
 }
 
+type entityHasPermissionFunc func(entity names.Tag, operation permission.Access, target names.Tag) (bool, error)
+
 // AuthContext is used to validate macaroons used to access
 // application offers.
 type AuthContext struct {
-	pool StatePool
+	systemState   Backend
+	hasPermission entityHasPermissionFunc
 
 	clock              clock.Clock
 	offerThirdPartyKey *bakery.KeyPair
@@ -75,15 +78,18 @@ type AuthContext struct {
 // NewAuthContext creates a new authentication context for checking
 // macaroons used with application offer requests.
 func NewAuthContext(
-	pool StatePool,
+	systemState Backend,
 	offerThirdPartyKey *bakery.KeyPair,
 	offerBakery authentication.ExpirableStorageBakery,
 ) (*AuthContext, error) {
 	ctxt := &AuthContext{
-		pool:               pool,
+		systemState:        systemState,
 		clock:              clock.WallClock,
 		offerBakery:        offerBakery,
 		offerThirdPartyKey: offerThirdPartyKey,
+		hasPermission: func(entity names.Tag, operation permission.Access, target names.Tag) (bool, error) {
+			return common.HasPermission(systemState.UserPermission, entity, operation, target)
+		},
 	}
 	return ctxt, nil
 }
@@ -101,6 +107,14 @@ func (a *AuthContext) WithClock(clock clock.Clock) *AuthContext {
 func (a *AuthContext) WithDischargeURL(offerAccessEndpoint string) *AuthContext {
 	ctxtCopy := *a
 	ctxtCopy.offerAccessEndpoint = offerAccessEndpoint
+	return &ctxtCopy
+}
+
+// WithPermissionChecker creates a new authentication context
+// using the specified permission checker func.
+func (a *AuthContext) WithPermissionChecker(hasPermission entityHasPermissionFunc) *AuthContext {
+	ctxtCopy := *a
+	ctxtCopy.hasPermission = hasPermission
 	return &ctxtCopy
 }
 
@@ -145,12 +159,7 @@ func (a *AuthContext) CheckOfferAccessCaveat(caveat string) (*offerPermissionChe
 // returns a list of caveats to add to the discharge macaroon.
 func (a *AuthContext) CheckLocalAccessRequest(details *offerPermissionCheck) ([]checkers.Caveat, error) {
 	authlogger.Debugf("authenticate local offer access: %+v", details)
-	st, releaser, err := a.pool.Get(details.SourceModelUUID)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	defer releaser()
-	if err := a.checkOfferAccess(st, details.User, details.OfferUUID); err != nil {
+	if err := a.checkOfferAccess(details.User, details.OfferUUID); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -166,23 +175,23 @@ func (a *AuthContext) CheckLocalAccessRequest(details *offerPermissionCheck) ([]
 	return firstPartyCaveats, nil
 }
 
-func (a *AuthContext) checkOfferAccess(st Backend, username, offerUUID string) error {
+func (a *AuthContext) checkOfferAccess(username, offerUUID string) error {
 	userTag := names.NewUserTag(username)
-	isAdmin, err := a.hasControllerAdminAccess(st, userTag)
+	isAdmin, err := a.hasAdminAccess(userTag, permission.SuperuserAccess, a.systemState.ControllerTag())
 	if err != nil {
 		return apiservererrors.ErrPerm
 	}
 	if isAdmin {
 		return nil
 	}
-	isAdmin, err = a.hasModelAdminAccess(st, userTag)
+	isAdmin, err = a.hasAdminAccess(userTag, permission.AdminAccess, a.systemState.ModelTag())
 	if err != nil {
 		return apiservererrors.ErrPerm
 	}
 	if isAdmin {
 		return nil
 	}
-	access, err := st.GetOfferAccess(offerUUID, userTag)
+	access, err := a.systemState.GetOfferAccess(offerUUID, userTag)
 	if err != nil && !errors.IsNotFound(err) {
 		return apiservererrors.ErrPerm
 	}
@@ -192,16 +201,8 @@ func (a *AuthContext) checkOfferAccess(st Backend, username, offerUUID string) e
 	return nil
 }
 
-func (api *AuthContext) hasControllerAdminAccess(st Backend, userTag names.UserTag) (bool, error) {
-	isAdmin, err := common.HasPermission(st.UserPermission, userTag, permission.SuperuserAccess, st.ControllerTag())
-	if errors.IsNotFound(err) {
-		return false, nil
-	}
-	return isAdmin, err
-}
-
-func (api *AuthContext) hasModelAdminAccess(st Backend, userTag names.UserTag) (bool, error) {
-	isAdmin, err := common.HasPermission(st.UserPermission, userTag, permission.AdminAccess, st.ModelTag())
+func (api *AuthContext) hasAdminAccess(userTag names.UserTag, access permission.Access, target names.Tag) (bool, error) {
+	isAdmin, err := api.hasPermission(userTag, access, target)
 	if errors.IsNotFound(err) {
 		return false, nil
 	}

@@ -222,13 +222,14 @@ func (controllerAuthorizer) Authorize(authInfo httpcontext.AuthInfo) error {
 }
 
 type controllerAdminAuthorizer struct {
-	hasPermission hasPermissionFunc
+	entityHasPermission func() entityHasPermissionFunc
+	controllerTag       names.Tag
 }
 
 // Authorize is part of the httpcontext.Authorizer interface.
 func (a controllerAdminAuthorizer) Authorize(authInfo httpcontext.AuthInfo) error {
 	if authInfo.Token != nil {
-		access, err := permissionFromToken(authInfo.Token, names.ControllerTagKind)
+		access, err := permissionFromToken(authInfo.Token, a.controllerTag)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -236,14 +237,14 @@ func (a controllerAdminAuthorizer) Authorize(authInfo httpcontext.AuthInfo) erro
 			return errors.Errorf("%s is not a controller admin", names.ReadableString(authInfo.Entity.Tag()))
 		}
 	}
-	if a.hasPermission == nil {
+	if a.entityHasPermission == nil {
 		return errors.New("no permission checker configured")
 	}
 	userTag, ok := authInfo.Entity.Tag().(names.UserTag)
 	if !ok {
 		return errors.Errorf("%s is not a user", names.ReadableString(authInfo.Entity.Tag()))
 	}
-	isControllerAdmin, err := a.hasPermission(permission.SuperuserAccess, userTag)
+	isControllerAdmin, err := a.entityHasPermission()(userTag, permission.SuperuserAccess, a.controllerTag)
 	if err != nil {
 		return errors.Trace(err)
 	}

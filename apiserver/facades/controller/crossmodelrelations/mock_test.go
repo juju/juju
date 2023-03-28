@@ -32,18 +32,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-type mockStatePool struct {
-	st map[string]commoncrossmodel.Backend
-}
-
-func (st *mockStatePool) Get(modelUUID string) (commoncrossmodel.Backend, func(), error) {
-	backend, ok := st.st[modelUUID]
-	if !ok {
-		return nil, nil, errors.NotFoundf("model for uuid %s", modelUUID)
-	}
-	return backend, func() {}, nil
-}
-
 type mockState struct {
 	testing.Stub
 	crossmodelrelations.CrossModelRelationsState

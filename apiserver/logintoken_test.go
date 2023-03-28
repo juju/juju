@@ -63,12 +63,40 @@ func (s *loginTokenSuite) TestUsesLoginToken(c *gc.C) {
 	srv := s.newServer(c, s.config)
 	st := s.openAPINoLogin(c, srv, false)
 
+	modelTag, ok := st.ModelTag()
+	c.Assert(ok, jc.IsTrue)
 	tok, err := apitesting.EncodedJWT(apitesting.JWTParams{
 		Controller: testing.ControllerTag.Id(),
 		User:       "user-fred",
 		Access: map[string]string{
-			"controller": "superuser",
-			"model":      "write",
+			testing.ControllerTag.String(): "login",
+			modelTag.String():              "write",
+		},
+	}, s.keySet, s.signingKey)
+	c.Assert(err, jc.ErrorIsNil)
+	request := &params.LoginRequest{
+		Token:         base64.StdEncoding.EncodeToString(tok),
+		ClientVersion: jujuversion.Current.String(),
+	}
+
+	var response params.LoginResult
+	err = st.APICall("Admin", 3, "", "Login", request, &response)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(response.UserInfo, gc.NotNil)
+	c.Assert(response.UserInfo.Identity, gc.Equals, "user-fred")
+	c.Assert(response.UserInfo.ControllerAccess, gc.Equals, "login")
+	c.Assert(response.UserInfo.ModelAccess, gc.Equals, "write")
+}
+
+func (s *loginTokenSuite) TestControllerSuperuser(c *gc.C) {
+	srv := s.newServer(c, s.config)
+	st := s.openAPINoLogin(c, srv, false)
+
+	tok, err := apitesting.EncodedJWT(apitesting.JWTParams{
+		Controller: testing.ControllerTag.Id(),
+		User:       "user-fred",
+		Access: map[string]string{
+			testing.ControllerTag.String(): "superuser",
 		},
 	}, s.keySet, s.signingKey)
 	c.Assert(err, jc.ErrorIsNil)
@@ -83,7 +111,7 @@ func (s *loginTokenSuite) TestUsesLoginToken(c *gc.C) {
 	c.Assert(response.UserInfo, gc.NotNil)
 	c.Assert(response.UserInfo.Identity, gc.Equals, "user-fred")
 	c.Assert(response.UserInfo.ControllerAccess, gc.Equals, "superuser")
-	c.Assert(response.UserInfo.ModelAccess, gc.Equals, "write")
+	c.Assert(response.UserInfo.ModelAccess, gc.Equals, "admin")
 }
 
 func (s *loginTokenSuite) TestLoginInvalidUser(c *gc.C) {
@@ -94,8 +122,8 @@ func (s *loginTokenSuite) TestLoginInvalidUser(c *gc.C) {
 		Controller: testing.ControllerTag.Id(),
 		User:       "machine-0",
 		Access: map[string]string{
-			"controller": "superuser",
-			"model":      "write",
+			testing.ControllerTag.String(): "superuser",
+			testing.ModelTag.String():      "write",
 		},
 	}, s.keySet, s.signingKey)
 	c.Assert(err, jc.ErrorIsNil)
@@ -117,7 +145,7 @@ func (s *loginTokenSuite) TestLoginInvalidPermission(c *gc.C) {
 		Controller: testing.ControllerTag.Id(),
 		User:       "user-fred",
 		Access: map[string]string{
-			"controller": "foo",
+			testing.ControllerTag.String(): "admin",
 		},
 	}, s.keySet, s.signingKey)
 	c.Assert(err, jc.ErrorIsNil)
@@ -128,5 +156,5 @@ func (s *loginTokenSuite) TestLoginInvalidPermission(c *gc.C) {
 
 	var response params.LoginResult
 	err = st.APICall("Admin", 3, "", "Login", request, &response)
-	c.Assert(err, gc.ErrorMatches, `access level foo not valid .*`)
+	c.Assert(err, gc.ErrorMatches, `"admin" controller access not valid .*`)
 }

@@ -19,6 +19,7 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwt"
 
 	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/cache"
 	coredatabase "github.com/juju/juju/core/database"
@@ -712,14 +713,29 @@ func (r *apiHandler) userPermission(subject names.UserTag, target names.Tag) (pe
 	if r.loginToken == nil {
 		return r.state.UserPermission(subject, target)
 	}
-	return permissionFromToken(r.loginToken, target.Kind())
+	return permissionFromToken(r.loginToken, target)
 }
 
-type hasPermissionFunc func(operation permission.Access, target names.Tag) (bool, error)
+type entityHasPermissionFunc func(entity names.Tag, operation permission.Access, target names.Tag) (bool, error)
 
 // HasPermission returns true if the logged in user can perform <operation> on <target>.
+// If a login token is used to specify user and access, and the operaton is not allowed, an
+// AccessRequiredError is returned with the required permissions.
 func (r *apiHandler) HasPermission(operation permission.Access, target names.Tag) (bool, error) {
-	return common.HasPermission(r.userPermission, r.entity.Tag(), operation, target)
+	return r.EntityHasPermission(r.entity.Tag(), operation, target)
+}
+
+// EntityHasPermission returns true if the passed in entity can perform <operation> on <target>.
+func (r *apiHandler) EntityHasPermission(entity names.Tag, operation permission.Access, target names.Tag) (bool, error) {
+	has, err := common.HasPermission(r.userPermission, entity, operation, target)
+	if r.loginToken == nil || err != nil || has {
+		return has, err
+	}
+	return false, &apiservererrors.AccessRequiredError{
+		RequiredAccess: map[names.Tag]permission.Access{
+			target: operation,
+		},
+	}
 }
 
 // DescribeFacades returns the list of available Facades and their Versions
