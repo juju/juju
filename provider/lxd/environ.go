@@ -6,6 +6,7 @@ package lxd
 import (
 	stdcontext "context"
 	"net"
+	"net/netip"
 	"net/url"
 	"runtime"
 	"strings"
@@ -476,8 +477,17 @@ func (env *environ) DetectHardware() (*instance.HardwareCharacteristics, error) 
 	// The returned error is willingly ignored, because this should not
 	// break bootstrapping (we detect hardware before bootstrapping),
 	// instead, bootstrapping should fallback to default hardware arch.
-	endpointURL, _ := url.Parse(env.cloud.Endpoint)
-	endpointIP := net.ParseIP(endpointURL.Hostname())
+	var endpointIP net.IP
+	endpointURL, err := url.Parse(env.cloud.Endpoint)
+	if err != nil {
+		addrPort, err := netip.ParseAddrPort(env.cloud.Endpoint)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		endpointIP = net.ParseIP(addrPort.Addr().String())
+	} else {
+		endpointIP = net.ParseIP(endpointURL.Hostname())
+	}
 	if endpointIP == nil {
 		return nil, nil
 	}
