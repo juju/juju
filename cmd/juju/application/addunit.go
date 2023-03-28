@@ -55,8 +55,9 @@ constraints. --to accepts a comma-separated list of placement specifications
 units being added, the remaining units will be added in the default way (i.e.
 to new machines).
 
-Examples:
+`[1:]
 
+const examples = `
 Add five units of mysql on five new machines:
 
     juju add-unit mysql -n 5
@@ -94,10 +95,7 @@ Add a unit of mysql to LXD container number 3 on machine 24:
 Add a unit of mysql to LXD container on a new machine:
 
     juju add-unit mysql --to lxd
-
-See also:
-    remove-unit
-`[1:]
+`
 
 // UnitCommandBase provides support for commands which deploy units. It handles the parsing
 // and validation of --to and --num-units arguments.
@@ -164,10 +162,14 @@ type addUnitCommand struct {
 
 func (c *addUnitCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "add-unit",
-		Args:    "<application name>",
-		Purpose: usageAddUnitSummary,
-		Doc:     usageAddUnitDetails,
+		Name:     "add-unit",
+		Args:     "<application name>",
+		Purpose:  usageAddUnitSummary,
+		Doc:      usageAddUnitDetails,
+		Examples: examples,
+		SeeAlso: []string{
+			"remove-unit",
+		},
 	})
 }
 
