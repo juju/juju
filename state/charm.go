@@ -863,7 +863,7 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 	if err != nil {
 		return nil, err
 	}
-	if !ch.IsUploaded() && !charm.CharmHub.Matches(curl.Schema) || ch.IsPlaceholder() {
+	if (!ch.IsUploaded() && !charm.CharmHub.Matches(curl.Schema)) || ch.IsPlaceholder() {
 		return nil, errors.NotFoundf("charm %q", curl.String())
 	}
 	return ch, nil
