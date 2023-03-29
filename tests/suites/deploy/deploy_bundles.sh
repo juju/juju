@@ -28,6 +28,37 @@ run_deploy_bundle_overlay() {
 	destroy_model "test-bundles-deploy-overlay"
 }
 
+run_deploy_bundle_overlay_with_image_id() {
+	echo
+
+	file="${TEST_DIR}/test-bundles-deploy-overlay-image-id.log"
+
+	ensure "test-bundles-deploy-overlay-image-id" "${file}"
+
+	bundle=./tests/suites/deploy/bundles/overlay_bundle_image_id.yaml
+	juju deploy ${bundle}
+
+	wait_for "ubuntu" "$(idle_condition "ubuntu" 0 0)"
+	wait_for "ubuntu" "$(idle_condition "ubuntu" 0 1)"
+
+	destroy_model "test-bundles-deploy-overlay-image-id"
+}
+
+run_deploy_bundle_overlay_with_image_id_on_base_bundle() {
+	echo
+
+	file="${TEST_DIR}/test-bundles-deploy-overlay-image-id-on-base-bundle.log"
+
+	ensure "test-bundles-deploy-overlay-image-id-on-base-bundle" "${file}"
+
+	bundle=./tests/suites/deploy/bundles/overlay_bundle_image_id_on_base_bundle.yaml
+
+	got=$(juju deploy ${bundle} 2>&1 || true)
+	check_contains "${got}" "'image-id' constraint in a base bundle not supported"
+
+	destroy_model "test-bundles-deploy-overlay-image-id-on-base-bundle"
+}
+
 run_deploy_cmr_bundle() {
 	echo
 
@@ -297,6 +328,8 @@ test_deploy_bundles() {
 
 		run "run_deploy_bundle"
 		run "run_deploy_bundle_overlay"
+		run "run_deploy_bundle_overlay_with_image_id"
+		run "run_deploy_bundle_overlay_with_image_id_on_base_bundle"
 		run "run_deploy_exported_charmhub_bundle_with_fixed_revisions"
 		run "run_deploy_exported_charmhub_bundle_with_float_revisions"
 		run "run_deploy_trusted_bundle"

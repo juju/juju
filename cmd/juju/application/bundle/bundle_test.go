@@ -251,6 +251,24 @@ func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleOverlay(c *gc.C) {
 	c.Assert(obtained, gc.DeepEquals, &expected)
 }
 
+func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleOverlayUnsupportedConstraints(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	bundleData, err := charm.ReadBundleData(strings.NewReader(unsupportedConstraintBundle))
+	c.Assert(err, jc.ErrorIsNil)
+	s.expectParts(&charm.BundleDataPart{Data: bundleData})
+	s.expectBasePath()
+	s.setupOverlayFile(c)
+
+	expected := *bundleData
+	expected.Applications["wordpress"].Options = map[string]interface{}{
+		"blog-title": "magic bundle config",
+	}
+
+	obtained, _, err := ComposeAndVerifyBundle(s.bundleDataSource, []string{s.overlayFile})
+	c.Assert(err, gc.ErrorMatches, "*'image-id' constraint in a base bundle not supported")
+	c.Assert(obtained, gc.IsNil)
+}
+
 func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleOverlayUnmarshallErrors(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	bundleData, err := charm.ReadBundleData(strings.NewReader(typoBundle))
@@ -281,11 +299,12 @@ func (s *composeAndVerifyRepSuite) setupOverlayFile(c *gc.C) {
 	c.Assert(
 		os.WriteFile(
 			s.overlayFile, []byte(`
-                applications:
-                    wordpress:
-                        options:
-                            blog-title: include-file://title
-            `), 0644),
+applications:
+  wordpress:
+    constraints: image-id=ubuntu-bf2
+    options:
+      blog-title: include-file://title
+`), 0644),
 		jc.ErrorIsNil)
 	c.Assert(
 		os.WriteFile(
