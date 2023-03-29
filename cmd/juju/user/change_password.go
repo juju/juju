@@ -39,20 +39,14 @@ This will invalidate any passwords that were previously set
 and registration strings that were previously issued for a user.
 This option will issue a new registration string to be used with
 ` + "`juju register`" + `.  
+`
 
-
-Examples:
-
+const examples = `
     juju change-user-password
     juju change-user-password bob
     juju change-user-password bob --reset
     juju change-user-password -c another-known-controller
     juju change-user-password bob --controller another-known-controller
-
-See also:
-    add-user
-    register
-
 `
 
 func NewChangePasswordCommand() cmd.Command {
@@ -84,10 +78,15 @@ func (c *changePasswordCommand) SetFlags(f *gnuflag.FlagSet) {
 // Info implements Command.Info.
 func (c *changePasswordCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "change-user-password",
-		Args:    "[username]",
-		Purpose: "Changes the password for the current or specified Juju user.",
-		Doc:     userChangePasswordDoc,
+		Name:     "change-user-password",
+		Args:     "[username]",
+		Purpose:  "Changes the password for the current or specified Juju user.",
+		Doc:      userChangePasswordDoc,
+		Examples: examples,
+		SeeAlso: []string{
+			"add-user",
+			"register",
+		},
 	})
 }
 
