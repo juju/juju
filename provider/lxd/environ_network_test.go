@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/lxd"
 )
@@ -31,7 +32,7 @@ func (s *environNetSuite) TestSubnetsForUnknownContainer(c *gc.C) {
 	srv := lxd.NewMockServer(ctrl)
 	srv.EXPECT().FilterContainers("bogus").Return(nil, nil)
 
-	env := s.NewEnviron(c, srv, nil).(environs.Networking)
+	env := s.NewEnviron(c, srv, nil, environscloudspec.CloudSpec{}).(environs.Networking)
 
 	ctx := context.NewEmptyCloudCallContext()
 	_, err := env.Subnets(ctx, "bogus", nil)
@@ -44,7 +45,7 @@ func (s *environNetSuite) TestSubnetsForServersThatLackRequiredAPIExtensions(c *
 
 	srv := lxd.NewMockServer(ctrl)
 
-	env := s.NewEnviron(c, srv, nil).(environs.Networking)
+	env := s.NewEnviron(c, srv, nil, environscloudspec.CloudSpec{}).(environs.Networking)
 	ctx := context.NewEmptyCloudCallContext()
 
 	// Space support and by extension, subnet detection is not available.
@@ -121,7 +122,7 @@ func (s *environNetSuite) TestSubnetsForKnownContainer(c *gc.C) {
 		},
 	}, nil)
 
-	env := s.NewEnviron(c, srv, nil).(environs.Networking)
+	env := s.NewEnviron(c, srv, nil, environscloudspec.CloudSpec{}).(environs.Networking)
 
 	ctx := context.NewEmptyCloudCallContext()
 	subnets, err := env.Subnets(ctx, "woot", nil)
@@ -186,7 +187,7 @@ func (s *environNetSuite) TestSubnetsForKnownContainerAndSubnetFiltering(c *gc.C
 		},
 	}, nil)
 
-	env := s.NewEnviron(c, srv, nil).(environs.Networking)
+	env := s.NewEnviron(c, srv, nil, environscloudspec.CloudSpec{}).(environs.Networking)
 
 	// Filter list so we only get a single subnet
 	ctx := context.NewEmptyCloudCallContext()
@@ -281,7 +282,7 @@ func (s *environNetSuite) TestSubnetDiscoveryFallbackForOlderLXDs(c *gc.C) {
 		},
 	}, "etag", nil)
 
-	env := s.NewEnviron(c, srv, nil).(environs.Networking)
+	env := s.NewEnviron(c, srv, nil, environscloudspec.CloudSpec{}).(environs.Networking)
 
 	ctx := context.NewEmptyCloudCallContext()
 
@@ -377,7 +378,7 @@ func (s *environNetSuite) TestNetworkInterfaces(c *gc.C) {
 		},
 	}, "etag", nil)
 
-	env := s.NewEnviron(c, srv, nil).(environs.Networking)
+	env := s.NewEnviron(c, srv, nil, environscloudspec.CloudSpec{}).(environs.Networking)
 
 	ctx := context.NewEmptyCloudCallContext()
 	infos, err := env.NetworkInterfaces(ctx, []instance.Id{"woot"})
@@ -453,7 +454,7 @@ func (s *environNetSuite) TestNetworkInterfacesPartialResults(c *gc.C) {
 		},
 	}, "etag", nil)
 
-	env := s.NewEnviron(c, srv, nil).(environs.Networking)
+	env := s.NewEnviron(c, srv, nil, environscloudspec.CloudSpec{}).(environs.Networking)
 
 	ctx := context.NewEmptyCloudCallContext()
 	infos, err := env.NetworkInterfaces(ctx, []instance.Id{"woot", "unknown"})
@@ -489,7 +490,7 @@ func (s *environNetSuite) TestNetworkInterfacesNoResults(c *gc.C) {
 	srv.EXPECT().GetInstance("unknown1").Return(nil, "", errors.New("not found"))
 	srv.EXPECT().GetInstance("unknown2").Return(nil, "", errors.New("not found"))
 
-	env := s.NewEnviron(c, srv, nil).(environs.Networking)
+	env := s.NewEnviron(c, srv, nil, environscloudspec.CloudSpec{}).(environs.Networking)
 
 	ctx := context.NewEmptyCloudCallContext()
 	_, err := env.NetworkInterfaces(ctx, []instance.Id{"unknown1", "unknown2"})

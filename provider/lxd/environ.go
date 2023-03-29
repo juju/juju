@@ -15,6 +15,7 @@ import (
 	"github.com/juju/utils/v3/arch"
 	"github.com/lxc/lxd/shared/api"
 
+	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/network"
@@ -470,22 +471,37 @@ func (env *environ) DetectSeries() (string, error) {
 
 // DetectHardware returns the hardware characteristics for the controller for
 // this environment. This method is part of the environs.HardwareCharacteristicsDetector
-// interface. On an LXD cloud, it must first check if it is a localhost cloud,
-// in that case, we only fill the Arch.
+// interface. On an LXD cloud, it must first check if it is a local cloud, in
+// that case, we only fill the Arch constraint.
+// This method should always return nil errors, because it is run during
+// bootstrap and its only purpose is to update the Arch constraint so in case
+// of an error the default arch is used and the bootstrap can continue.
 func (env *environ) DetectHardware() (*instance.HardwareCharacteristics, error) {
-	// The returned error is willingly ignored, because this should not
-	// break bootstrapping (we detect hardware before bootstrapping),
-	// instead, bootstrapping should fallback to default hardware arch.
-	endpointURL, _ := url.Parse(env.cloud.Endpoint)
+	// In order to determine if this is a local lxd cloud, we need to
+	// extract its endpoint IP.
+	// The endpoint can be formatted either as https://host:port,
+	// https://host, host:port, host, https://IP:port, https://IP,
+	// IP:port, or only IP, so we try to parse it as a URL but first
+	// ensuring it contains the correct scheme.
+	endpointURL, err := url.Parse(lxd.EnsureHTTPS(env.cloud.Endpoint))
+	if err != nil {
+		logger.Debugf("error parsing endpoint as url: %s", err.Error())
+		return nil, nil
+	}
 	endpointIP := net.ParseIP(endpointURL.Hostname())
 	if endpointIP == nil {
 		return nil, nil
 	}
+	// The returned error is deliberately ignored, because this should not
+	// break bootstrapping (we detect hardware before bootstrapping),
+	// instead, bootstrapping should fallback to default hardware arch.
 	isLocal, _ := network.IsLocalAddress(endpointIP)
 	if !isLocal {
 		return nil, nil
 	}
-
+	// If the host is a local IP address, then we set the
+	// arch to be the runtime.GOARCH on the returned
+	// HardwareCharacteristics.
 	arch := arch.NormaliseArch(runtime.GOARCH)
 	return &instance.HardwareCharacteristics{
 		Arch: &arch,
@@ -493,8 +509,9 @@ func (env *environ) DetectHardware() (*instance.HardwareCharacteristics, error) 
 
 }
 
-// UpdateModelConstraints always returns false because we don't want to update
-// model constraints for manual env.
+// UpdateModelConstraints always returns true for lxd clusters because it will
+// need to update Arch constraint in the case of a local lxd cluster according
+// to DetectHardware().
 func (e *environ) UpdateModelConstraints() bool {
 	return true
 }
