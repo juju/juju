@@ -42,6 +42,9 @@ type Logger interface {
 // SecretTriggerWatcherFunc is a function returning a secrets trigger watcher.
 type SecretTriggerWatcherFunc func(names.UnitTag, bool, chan []string) (worker.Worker, error)
 
+// SecretMigrationWorkerFunc is a function returning a secrets migration worker.
+// type SecretMigrationWorkerFunc func(unitTag names.UnitTag, isLeader bool) (worker.Worker, error)
+
 // SecretsClient provides access to the secrets manager facade.
 type SecretsClient interface {
 	WatchConsumedSecretsChanges(unitName string) (watcher.StringsWatcher, error)
@@ -81,6 +84,9 @@ type RemoteStateWatcher struct {
 	secretRotateWatcher     worker.Worker
 	rotateSecretsChanges    chan []string
 
+	// secretMigrationWorkerFunc SecretMigrationWorkerFunc
+	// secretMigrationWorker     worker.Worker
+
 	secretExpiryWatcherFunc SecretTriggerWatcherFunc
 	secretExpiryWatcher     worker.Worker
 	expireSecretsChanges    chan []string
@@ -110,10 +116,11 @@ type ContainerRunningStatusFunc func(providerID string) (*ContainerRunningStatus
 // WatcherConfig holds configuration parameters for the
 // remote state watcher.
 type WatcherConfig struct {
-	State                         State
-	LeadershipTracker             leadership.Tracker
-	SecretRotateWatcherFunc       SecretTriggerWatcherFunc
-	SecretExpiryWatcherFunc       SecretTriggerWatcherFunc
+	State                   State
+	LeadershipTracker       leadership.Tracker
+	SecretRotateWatcherFunc SecretTriggerWatcherFunc
+	SecretExpiryWatcherFunc SecretTriggerWatcherFunc
+	// SecretMigrationWorkerFunc     SecretMigrationWorkerFunc
 	SecretsClient                 SecretsClient
 	UpdateStatusChannel           UpdateStatusTimerFunc
 	CommandChannel                <-chan string
@@ -155,14 +162,15 @@ func NewWatcher(config WatcherConfig) (*RemoteStateWatcher, error) {
 		return nil, errors.Trace(err)
 	}
 	w := &RemoteStateWatcher{
-		st:                            config.State,
-		relations:                     make(map[names.RelationTag]*wrappedRelationUnitsWatcher),
-		relationUnitsChanges:          make(chan relationUnitsChange),
-		storageAttachmentWatchers:     make(map[names.StorageTag]*storageAttachmentWatcher),
-		storageAttachmentChanges:      make(chan storageAttachmentChange),
-		leadershipTracker:             config.LeadershipTracker,
-		secretRotateWatcherFunc:       config.SecretRotateWatcherFunc,
-		secretExpiryWatcherFunc:       config.SecretExpiryWatcherFunc,
+		st:                        config.State,
+		relations:                 make(map[names.RelationTag]*wrappedRelationUnitsWatcher),
+		relationUnitsChanges:      make(chan relationUnitsChange),
+		storageAttachmentWatchers: make(map[names.StorageTag]*storageAttachmentWatcher),
+		storageAttachmentChanges:  make(chan storageAttachmentChange),
+		leadershipTracker:         config.LeadershipTracker,
+		secretRotateWatcherFunc:   config.SecretRotateWatcherFunc,
+		secretExpiryWatcherFunc:   config.SecretExpiryWatcherFunc,
+		// secretMigrationWorkerFunc:     config.SecretMigrationWorkerFunc,
 		secretsClient:                 config.SecretsClient,
 		updateStatusChannel:           config.UpdateStatusChannel,
 		commandChannel:                config.CommandChannel,

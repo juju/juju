@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/worker/common/reboot"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/secretexpire"
+	// "github.com/juju/juju/worker/secretmigrationworker"
 	"github.com/juju/juju/worker/secretrotate"
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -127,6 +128,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			downloader := charms.NewCharmDownloader(apiConn)
 
 			jujuSecretsAPI := secretsmanager.NewClient(apiConn)
+			secretsBackendGetter := func() (secrets.BackendsClient, error) {
+				return secrets.NewClient(jujuSecretsAPI)
+			}
 			secretRotateWatcherFunc := func(unitTag names.UnitTag, isLeader bool, rotateSecrets chan []string) (worker.Worker, error) {
 				owners := []names.Tag{unitTag}
 				if isLeader {
@@ -155,6 +159,14 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 					ExpireRevisions:     expireRevisions,
 				})
 			}
+			// secretMigrationWorkerFunc := func(unitTag names.UnitTag, isLeader bool) (worker.Worker, error) {
+			// 	return secretmigrationworker.NewWorker(secretmigrationworker.Config{
+			// 		Facade:               jujuSecretsAPI,
+			// 		Clock:                config.Clock,
+			// 		Logger:               config.Logger.Child("secretmigrationworker"),
+			// 		SecretsBackendGetter: secretsBackendGetter,
+			// 	})
+			// }
 
 			manifoldConfig := config
 			// Configure and start the uniter.
@@ -170,21 +182,18 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 			payloadFacade := uniter.NewPayloadFacadeClient(apiConn)
 
-			secretsBackendGetter := func() (secrets.BackendsClient, error) {
-				return secrets.NewClient(jujuSecretsAPI)
-			}
-
 			uniter, err := NewUniter(&UniterParams{
-				UniterFacade:                 uniter.NewState(apiConn, unitTag),
-				ResourcesFacade:              resourcesFacade,
-				PayloadFacade:                payloadFacade,
-				SecretsClient:                jujuSecretsAPI,
-				SecretsBackendGetter:         secretsBackendGetter,
-				UnitTag:                      unitTag,
-				ModelType:                    config.ModelType,
-				LeadershipTrackerFunc:        leadershipTrackerFunc,
-				SecretRotateWatcherFunc:      secretRotateWatcherFunc,
-				SecretExpiryWatcherFunc:      secretExpiryWatcherFunc,
+				UniterFacade:            uniter.NewState(apiConn, unitTag),
+				ResourcesFacade:         resourcesFacade,
+				PayloadFacade:           payloadFacade,
+				SecretsClient:           jujuSecretsAPI,
+				SecretsBackendGetter:    secretsBackendGetter,
+				UnitTag:                 unitTag,
+				ModelType:               config.ModelType,
+				LeadershipTrackerFunc:   leadershipTrackerFunc,
+				SecretRotateWatcherFunc: secretRotateWatcherFunc,
+				SecretExpiryWatcherFunc: secretExpiryWatcherFunc,
+				// SecretMigrationWorkerFunc:    secretMigrationWorkerFunc,
 				DataDir:                      agentConfig.DataDir(),
 				Downloader:                   downloader,
 				MachineLock:                  manifoldConfig.MachineLock,
