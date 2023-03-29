@@ -61,10 +61,9 @@ type initSystemSuite struct {
 	fops    *MockFileSystemOps
 	exec    *systemd.MockShimExec
 
-	name    string
-	tag     names.Tag
-	conf    common.Conf
-	confStr string
+	name string
+	tag  names.Tag
+	conf common.Conf
 }
 
 var _ = gc.Suite(&initSystemSuite{})

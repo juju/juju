@@ -368,9 +368,3 @@ type unknownSeriesVersionError string
 func (e unknownSeriesVersionError) Error() string {
 	return `unknown version for series: "` + string(e) + `"`
 }
-
-type unknownVersionSeriesError string
-
-func (e unknownVersionSeriesError) Error() string {
-	return `unknown series for version: "` + string(e) + `"`
-}

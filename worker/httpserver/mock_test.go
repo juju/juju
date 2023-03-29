@@ -4,8 +4,6 @@
 package httpserver_test
 
 import (
-	"crypto/tls"
-
 	"github.com/juju/testing"
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -48,14 +46,4 @@ func (s *stubPrometheusRegisterer) Register(c prometheus.Collector) error {
 func (s *stubPrometheusRegisterer) Unregister(c prometheus.Collector) bool {
 	s.MethodCall(s, "Unregister", c)
 	return false
-}
-
-type stubCertWatcher struct {
-	testing.Stub
-	cert tls.Certificate
-}
-
-func (w *stubCertWatcher) get() *tls.Certificate {
-	w.MethodCall(w, "get")
-	return &w.cert
 }

@@ -43,7 +43,6 @@ type Attachments struct {
 	st      StorageAccessor
 	unitTag names.UnitTag
 	abort   <-chan struct{}
-	stateRW UnitStateReadWriter
 
 	// pending is the set of tags for storage attachments
 	// for which no hooks have been run.

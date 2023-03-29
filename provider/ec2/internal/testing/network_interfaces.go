@@ -364,13 +364,3 @@ func (srv *Server) createNICsOnRun(instId string, instSubnet *subnet, ifacesToCr
 func (srv *Server) dnsNameFromPrivateIP(privateIP string) string {
 	return fmt.Sprintf("ip-%s.ec2.internal", strings.Replace(privateIP, ".", "-", -1))
 }
-
-func (srv *Server) iface(id string) (*iface, error) {
-	srv.mu.Lock()
-	defer srv.mu.Unlock()
-	i, found := srv.ifaces[id]
-	if !found {
-		return nil, apiError("InvalidNetworkInterfaceID.NotFound", "interface %q not found", id)
-	}
-	return i, nil
-}

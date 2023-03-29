@@ -34,7 +34,6 @@ import (
 
 type InterfaceSuite struct {
 	HookContextSuite
-	stub testing.Stub
 }
 
 var _ = gc.Suite(&InterfaceSuite{})

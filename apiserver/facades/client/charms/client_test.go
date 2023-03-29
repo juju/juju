@@ -10,7 +10,6 @@ import (
 	"github.com/juju/charm/v9"
 	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -776,10 +775,6 @@ func (s *charmsMockSuite) expectControllerConfig(c *gc.C) {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	s.state.EXPECT().ControllerConfig().Return(cfg, nil).AnyTimes()
-}
-
-func (s *charmsMockSuite) expectMongoSession() {
-	s.state.EXPECT().MongoSession().Return(&mgo.Session{})
 }
 
 func (s *charmsMockSuite) expectApplication(name string) {

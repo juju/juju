@@ -47,17 +47,18 @@ func (s *StorageAddCommand) Init(args []string) error {
 		return errors.New("storage add requires a storage directive")
 	}
 
-	cons, err := storage.ParseConstraintsMap(args, false)
+	constraintsMap, err := storage.ParseConstraintsMap(args, false)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	s.all = make(map[string]params.StorageConstraints, len(cons))
-	for k, v := range cons {
-		if v != (storage.Constraints{Count: v.Count}) {
+	s.all = make(map[string]params.StorageConstraints, len(constraintsMap))
+	for k, v := range constraintsMap {
+		cons := v
+		if cons != (storage.Constraints{Count: cons.Count}) {
 			return errors.Errorf("only count can be specified for %q", k)
 		}
-		s.all[k] = params.StorageConstraints{Count: &v.Count}
+		s.all[k] = params.StorageConstraints{Count: &cons.Count}
 	}
 	return nil
 }

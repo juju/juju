@@ -206,7 +206,8 @@ func (f *Facade) UnitIntroduction(args params.CAASUnitIntroductionArgs) (params.
 		return errResp(err)
 	}
 	var pod *caas.Unit
-	for _, p := range pods {
+	for _, v := range pods {
+		p := v
 		if p.Id == args.PodName {
 			pod = &p
 			break

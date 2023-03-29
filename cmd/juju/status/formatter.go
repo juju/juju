@@ -35,46 +35,41 @@ type statusFormatter struct {
 	activeBranch      string
 }
 
-// NewStatusFormatter takes stored model information (params.FullStatus) and populates
-// the statusFormatter struct used in various status formatting methods
-func NewStatusFormatter(status *params.FullStatus, isoTime bool) *statusFormatter {
-	return newStatusFormatter(
-		newStatusFormatterParams{
-			status:        status,
-			isoTime:       isoTime,
-			showRelations: true,
-		})
+// NewStatusFormatterParams contains the parameters required
+// to be formatted for CLI output.
+type NewStatusFormatterParams struct {
+	Storage        *storage.CombinedStorage
+	Status         *params.FullStatus
+	ControllerName string
+	OutputName     string
+	ActiveBranch   string
+	ISOTime        bool
+	ShowRelations  bool
 }
 
-type newStatusFormatterParams struct {
-	storage                *storage.CombinedStorage
-	status                 *params.FullStatus
-	controllerName         string
-	outputName             string
-	activeBranch           string
-	isoTime, showRelations bool
-}
-
-func newStatusFormatter(p newStatusFormatterParams) *statusFormatter {
+// NewStatusFormatter returns a new status formatter used in various
+// formatting methods.
+func NewStatusFormatter(p NewStatusFormatterParams) *statusFormatter {
 	sf := statusFormatter{
-		storage:        p.storage,
-		status:         p.status,
-		controllerName: p.controllerName,
+		storage:        p.Storage,
+		status:         p.Status,
+		controllerName: p.ControllerName,
 		relations:      make(map[int]params.RelationStatus),
-		isoTime:        p.isoTime,
-		showRelations:  p.showRelations,
-		outputName:     p.outputName,
-		activeBranch:   p.activeBranch,
+		isoTime:        p.ISOTime,
+		showRelations:  p.ShowRelations,
+		outputName:     p.OutputName,
+		activeBranch:   p.ActiveBranch,
 	}
-	if p.showRelations {
-		for _, relation := range p.status.Relations {
+	if p.ShowRelations {
+		for _, relation := range p.Status.Relations {
 			sf.relations[relation.Id] = relation
 		}
 	}
 	return &sf
 }
 
-func (sf *statusFormatter) format() (formattedStatus, error) {
+// Format returns the formatted model status.
+func (sf *statusFormatter) Format() (formattedStatus, error) {
 	if sf.status == nil {
 		return formattedStatus{}, nil
 	}

@@ -70,6 +70,15 @@ type ModelInfo struct {
 	ControllerAgentVersion version.Number
 }
 
+// SourceControllerInfo holds the details required to connect
+// to a migration's source controller.
+type SourceControllerInfo struct {
+	ControllerTag   names.ControllerTag
+	ControllerAlias string
+	Addrs           []string
+	CACert          string
+}
+
 func (i *ModelInfo) Validate() error {
 	if i.UUID == "" {
 		return errors.NotValidf("empty UUID")

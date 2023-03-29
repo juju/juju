@@ -29,7 +29,6 @@ var _ = gc.Suite(&ScaleApplicationSuite{})
 
 type mockScaleApplicationAPI struct {
 	*testing.Stub
-	err error
 }
 
 func (s mockScaleApplicationAPI) Close() error {

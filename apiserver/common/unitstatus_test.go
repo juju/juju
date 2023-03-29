@@ -173,7 +173,6 @@ type fakeStatusUnit struct {
 	status           status.StatusInfo
 	statusErr        error
 	presence         bool
-	presenceErr      error
 	life             state.Life
 	shouldBeAssigned bool
 }

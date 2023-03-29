@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	. "gopkg.in/check.v1"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
 )
@@ -16,7 +16,9 @@ import (
 type errorsSuite struct {
 }
 
-func (*errorsSuite) TestZoneIndependentErrorConforms(c *C) {
+var _ = gc.Suite(&errorsSuite{})
+
+func (*errorsSuite) TestZoneIndependentErrorConforms(c *gc.C) {
 	err := fmt.Errorf("fly screens on a submarine: %w", environs.ErrAvailabilityZoneIndependent)
 	c.Assert(errors.Is(err, environs.ErrAvailabilityZoneIndependent), jc.IsTrue)
 
@@ -26,10 +28,4 @@ func (*errorsSuite) TestZoneIndependentErrorConforms(c *C) {
 
 	err = fmt.Errorf("or stay on dry land: %w", err)
 	c.Assert(errors.Is(err, environs.ErrAvailabilityZoneIndependent), jc.IsTrue)
-}
-
-func (*errorsSuite) TestZoneIndependentErrorIsLocationer(c *C) {
-	err := environs.ZoneIndependentError(errors.New("lets not talk about submarine's any more"))
-	_, ok := err.(errors.Locationer)
-	c.Assert(ok, jc.IsTrue)
 }

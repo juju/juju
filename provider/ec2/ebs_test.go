@@ -38,7 +38,6 @@ type ebsSuite struct {
 	testing.BaseSuite
 	srv         localServer
 	modelConfig *config.Config
-	instanceId  string
 
 	cloudCallCtx context.ProviderCallContext
 }

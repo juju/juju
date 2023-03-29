@@ -34,11 +34,13 @@ func NewRunCommand() cmd.Command {
 // params
 type runCommand struct {
 	runCommandBase
+	ActionCommandBase
 	unitReceivers []string
 	actionName    string
 	paramsYAML    cmd.FileVar
 	parseStrings  bool
 	args          [][]string
+	api           APIClient
 }
 
 const runDoc = `

@@ -89,12 +89,11 @@ func machineProvisioned(ctx *context, tag names.MachineTag, instanceId instance.
 }
 
 type machineWatcher struct {
-	catacomb   catacomb.Catacomb
-	accessor   MachineAccessor
-	tag        names.MachineTag
-	instanceId instance.Id
-	out        chan<- names.MachineTag
-	logger     Logger
+	catacomb catacomb.Catacomb
+	accessor MachineAccessor
+	tag      names.MachineTag
+	out      chan<- names.MachineTag
+	logger   Logger
 }
 
 func newMachineWatcher(

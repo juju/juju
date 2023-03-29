@@ -19,7 +19,6 @@ import (
 )
 
 type containerManifoldSuite struct {
-	context *mocks.MockContext
 	machine *mocks.MockContainerMachine
 	getter  *mocks.MockContainerMachineGetter
 }

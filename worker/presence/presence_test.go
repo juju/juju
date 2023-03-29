@@ -28,7 +28,6 @@ import (
 
 type PresenceSuite struct {
 	testing.IsolationSuite
-	server   string
 	hub      *pubsub.StructuredHub
 	clock    *testclock.Clock
 	recorder corepresence.Recorder

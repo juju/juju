@@ -123,11 +123,12 @@ build_push_operator_image() {
     WORKDIR=$(_make_docker_staging_dir)
     cp "${PROJECT_DIR}/caas/Dockerfile" "${WORKDIR}/"
     cp "${PROJECT_DIR}/caas/requirements.txt" "${WORKDIR}/"
-    DOCKER_BUILDKIT=1 "$DOCKER_BIN" buildx build \
+    BUILDX_NO_DEFAULT_ATTESTATIONS=true DOCKER_BUILDKIT=1 "$DOCKER_BIN" buildx build \
         --builder "$DOCKER_BUILDX_CONTEXT" \
         -f "${WORKDIR}/Dockerfile" \
         -t "$(operator_image_path)" \
         --platform="$build_multi_osarch" \
+        --provenance=false \
         ${output} \
         "${BUILD_DIR}"
 }

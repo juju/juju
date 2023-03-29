@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/network"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/description/v4"
@@ -174,6 +175,36 @@ func (s *Suite) TestModelInfo(c *gc.C) {
 	c.Assert(mod.Name, gc.Equals, "model-name")
 	c.Assert(mod.OwnerTag, gc.Equals, names.NewUserTag("owner").String())
 	c.Assert(mod.AgentVersion, gc.Equals, version.MustParse("1.2.3"))
+}
+
+func (s *Suite) TestSourceControllerInfo(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	exp := s.backend.EXPECT()
+	exp.AllLocalRelatedModels().Return([]string{"related-model-uuid"}, nil)
+	s.backend.EXPECT().ControllerConfig().Return(controller.Config{
+		controller.ControllerUUIDKey: coretesting.ControllerTag.Id(),
+		controller.ControllerName:    "mycontroller",
+		controller.CACertKey:         "cacert",
+	}, nil)
+	apiAddr := []network.SpaceHostPorts{{{
+		SpaceAddress: network.SpaceAddress{
+			MachineAddress: network.MachineAddress{Value: "10.0.0.1"},
+		},
+		NetPort: 666,
+	}}}
+	s.backend.EXPECT().APIHostPortsForClients().Return(apiAddr, nil)
+
+	info, err := s.mustMakeAPI(c).SourceControllerInfo()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(info, jc.DeepEquals, params.MigrationSourceInfo{
+		LocalRelatedModels: []string{"related-model-uuid"},
+		ControllerTag:      coretesting.ControllerTag.String(),
+		ControllerAlias:    "mycontroller",
+		Addrs:              []string{"10.0.0.1:666"},
+		CACert:             "cacert",
+	})
 }
 
 func (s *Suite) TestSetPhase(c *gc.C) {

@@ -838,10 +838,6 @@ func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) TestWatchLXDP
 	})
 }
 
-func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) expectAuthController() {
-	s.authorizer.EXPECT().AuthController().Return(true)
-}
-
 func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) expectWatchLXDProfileVerificationNeededWithNotify(times int) {
 	ch := make(chan struct{})
 
@@ -943,10 +939,6 @@ func (s *InstanceMutaterAPIWatchContainersSuite) TestWatchContainersWithClosedCh
 	result, err := facade.WatchContainers(params.Entity{Tag: s.machineTag.String()})
 	c.Assert(err, gc.ErrorMatches, "cannot obtain initial machine containers")
 	c.Assert(result, gc.DeepEquals, params.StringsWatchResult{})
-}
-
-func (s *InstanceMutaterAPIWatchContainersSuite) expectAuthController() {
-	s.authorizer.EXPECT().AuthController().Return(true)
 }
 
 func (s *InstanceMutaterAPIWatchContainersSuite) expectWatchContainersWithNotify(times int) {

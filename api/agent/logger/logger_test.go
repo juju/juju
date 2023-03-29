@@ -20,10 +20,7 @@ type loggerSuite struct {
 
 	// These are raw State objects. Use them for setup and assertions, but
 	// should never be touched by the API calls themselves
-	rawMachine     *state.Machine
-	rawCharm       *state.Charm
-	rawApplication *state.Application
-	rawUnit        *state.Unit
+	rawMachine *state.Machine
 
 	logger *logger.State
 }

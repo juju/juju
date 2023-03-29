@@ -26,8 +26,6 @@ import (
 
 type modelWatcherSuite struct {
 	testing.BaseSuite
-
-	testingEnvConfig *config.Config
 }
 
 var _ = gc.Suite(&modelWatcherSuite{})

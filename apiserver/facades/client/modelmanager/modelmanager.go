@@ -722,6 +722,7 @@ func (m *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList, 
 			// no reason to fail the request here, as it wasn't the users fault
 			logger.Warningf("for model %v, got an invalid owner: %q", mi.UUID, mi.Owner)
 		}
+		lastConnection := mi.LastConnection
 		result.UserModels = append(result.UserModels, params.UserModel{
 			Model: params.Model{
 				Name:     mi.Name,
@@ -729,7 +730,7 @@ func (m *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList, 
 				Type:     string(mi.Type),
 				OwnerTag: ownerTag.String(),
 			},
-			LastConnection: &mi.LastConnection,
+			LastConnection: &lastConnection,
 		})
 	}
 

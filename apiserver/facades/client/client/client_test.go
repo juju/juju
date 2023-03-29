@@ -103,21 +103,6 @@ func (s *serverSuite) TestNewFacadeWaitsForCachedModel(c *gc.C) {
 	_ = s.clientForState(c, state)
 }
 
-func (s *serverSuite) assertModelVersion(c *gc.C, st *state.State, expectedVersion, expectedStream string) {
-	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	modelConfig, err := m.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	agentVersion, found := modelConfig.AllAttrs()["agent-version"].(string)
-	c.Assert(found, jc.IsTrue)
-	c.Assert(agentVersion, gc.Equals, expectedVersion)
-	var agentStream string
-	agentStream, found = modelConfig.AllAttrs()["agent-stream"].(string)
-	c.Assert(found, jc.IsTrue)
-	c.Assert(agentStream, gc.Equals, expectedStream)
-
-}
-
 type clientSuite struct {
 	baseSuite
 

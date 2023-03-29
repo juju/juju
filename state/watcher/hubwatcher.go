@@ -87,9 +87,6 @@ type HubWatcher struct {
 
 	// changeCount is the number of change events we've processed
 	changeCount uint64
-
-	// revnoMapBytes tracks how big our revnomap is in approximate bytes
-	revnoMapBytes uintptr
 }
 
 // HubWatcherConfig contains the configuration parameters required

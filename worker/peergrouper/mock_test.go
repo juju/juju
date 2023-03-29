@@ -19,7 +19,6 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
@@ -344,7 +343,6 @@ type controllerDoc struct {
 	id         string
 	wantsVote  bool
 	hasVote    bool
-	instanceId instance.Id
 	addresses  []network.SpaceAddress
 	statusInfo status.StatusInfo
 	life       state.Life

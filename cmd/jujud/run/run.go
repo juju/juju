@@ -42,7 +42,6 @@ type RunCommand struct {
 	unitName              string
 	unit                  names.UnitTag
 	commands              string
-	showHelp              bool
 	noContext             bool
 	forceRemoteUnit       bool
 	relationId            string

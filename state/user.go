@@ -177,7 +177,7 @@ func (st *State) updateExistingUser(u *User, displayName, password, creator stri
 		return nil, errors.Trace(err)
 	}
 
-	// // create default new ones
+	// create default new ones
 	createControllerOps := createControllerUserOps(st.ControllerUUID(),
 		u.UserTag(),
 		names.NewUserTag(creator),
@@ -217,6 +217,28 @@ func (st *State) RemoveUser(tag names.UserTag) error {
 	}
 	if u.IsDeleted() {
 		return nil
+	}
+
+	// remove the access to all the models and the current controller
+	// first query all the models for this user
+	modelsSummary, err := st.ModelSummariesForUser(tag, true)
+	if err != nil {
+		return err
+	}
+
+	for _, summary := range modelsSummary {
+		// remove all the access permissions
+		removeModelOps := removeModelUserOps(summary.UUID, tag)
+		if err := st.db().RunTransactionFor(summary.UUID, removeModelOps); err != nil {
+			logger.Errorf("impossible to remove user from models", err)
+			return err
+		}
+	}
+
+	// remove the user from the user controllers
+	if err := st.removeControllerUser(tag); err != nil {
+		logger.Errorf("impossible to remove user from controller", err)
+		return err
 	}
 
 	dateRemoved := st.nowToTheSecond()
@@ -365,7 +387,7 @@ func (st *State) AllUsers(includeDeactivated bool) ([]*User, error) {
 type User struct {
 	st           *State
 	doc          userDoc
-	lastLoginDoc userLastLoginDoc
+	lastLoginDoc userLastLoginDoc //nolint:unused
 }
 
 type userDoc struct {

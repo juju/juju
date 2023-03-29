@@ -80,6 +80,10 @@ type Facade interface {
 	// ModelInfo return basic information about the model to migrated.
 	ModelInfo() (coremigration.ModelInfo, error)
 
+	// SourceControllerInfo returns connection information about the source controller
+	// and uuids of any other hosted models involved in cross model relations.
+	SourceControllerInfo() (coremigration.SourceControllerInfo, []string, error)
+
 	// Export returns a serialized representation of the model
 	// associated with the API connection.
 	Export() (coremigration.SerializedModel, error)
@@ -333,6 +337,12 @@ func (w *Worker) doQUIESCE(status coremigration.MigrationStatus) (coremigration.
 	return coremigration.IMPORT, nil
 }
 
+var incompatibleTargetMessage = `
+target controller must be upgraded to 2.9.43 or later
+to be able to migrate models with cross model relations
+to other models hosted on the source controller
+`[1:]
+
 func (w *Worker) prechecks(status coremigration.MigrationStatus) error {
 	model, err := w.config.Facade.ModelInfo()
 	if err != nil {
@@ -361,6 +371,17 @@ func (w *Worker) prechecks(status coremigration.MigrationStatus) error {
 			targetConn.ControllerTag(), status.TargetInfo.ControllerTag)
 	}
 	targetClient := migrationtarget.NewClient(targetConn)
+	// If we have cross model relations to other models on this controller,
+	// we need to ensure the target controller is recent enough to process those.
+	if targetClient.BestFacadeVersion() < 2 {
+		_, localRelatedModels, err := w.config.Facade.SourceControllerInfo()
+		if err != nil {
+			return errors.Annotate(err, "cannot get local model info")
+		}
+		if len(localRelatedModels) > 0 {
+			return errors.Errorf(incompatibleTargetMessage)
+		}
+	}
 	err = targetClient.Prechecks(model)
 	return errors.Annotate(err, "target prechecks failed")
 }
@@ -535,7 +556,11 @@ func (w *Worker) checkTargetMachines(targetClient *migrationtarget.Client, model
 
 func (w *Worker) activateModel(targetClient *migrationtarget.Client, modelUUID string) error {
 	w.setInfoStatus("activating model in target controller")
-	return errors.Trace(targetClient.Activate(modelUUID))
+	info, localRelatedModels, err := w.config.Facade.SourceControllerInfo()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Trace(targetClient.Activate(modelUUID, info, localRelatedModels))
 }
 
 func (w *Worker) doSUCCESS(status coremigration.MigrationStatus) (coremigration.Phase, error) {

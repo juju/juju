@@ -120,64 +120,69 @@ func remoteApplicationGlobalKey(appName string) string {
 }
 
 // globalKey returns the global database key for the remote application.
-func (s *RemoteApplication) globalKey() string {
-	return remoteApplicationGlobalKey(s.doc.Name)
+func (a *RemoteApplication) globalKey() string {
+	return remoteApplicationGlobalKey(a.doc.Name)
 }
 
 // IsRemote returns true for a remote application.
-func (s *RemoteApplication) IsRemote() bool {
+func (a *RemoteApplication) IsRemote() bool {
 	return true
 }
 
 // SourceModel returns the tag of the model to which the application belongs.
-func (s *RemoteApplication) SourceModel() names.ModelTag {
-	return names.NewModelTag(s.doc.SourceModelUUID)
+func (a *RemoteApplication) SourceModel() names.ModelTag {
+	return names.NewModelTag(a.doc.SourceModelUUID)
+}
+
+// SourceController returns the UUID of the controller hosting the application.
+func (a *RemoteApplication) SourceController() string {
+	return a.doc.SourceControllerUUID
 }
 
 // IsConsumerProxy returns the application is created
 // from a registration operation by a consuming model.
-func (s *RemoteApplication) IsConsumerProxy() bool {
-	return s.doc.IsConsumerProxy
+func (a *RemoteApplication) IsConsumerProxy() bool {
+	return a.doc.IsConsumerProxy
 }
 
 // ConsumeVersion is incremented each time a new consumer proxy
 // is created for an offer.
-func (s *RemoteApplication) ConsumeVersion() int {
-	return s.doc.Version
+func (a *RemoteApplication) ConsumeVersion() int {
+	return a.doc.Version
 }
 
 // Name returns the application name.
-func (s *RemoteApplication) Name() string {
-	return s.doc.Name
+func (a *RemoteApplication) Name() string {
+	return a.doc.Name
 }
 
 // OfferUUID returns the offer UUID.
-func (s *RemoteApplication) OfferUUID() string {
-	return s.doc.OfferUUID
+func (a *RemoteApplication) OfferUUID() string {
+	return a.doc.OfferUUID
 }
 
 // URL returns the remote application URL, and a boolean indicating whether or not
 // a URL is known for the remote application. A URL will only be available for the
 // consumer of an offered application.
-func (s *RemoteApplication) URL() (string, bool) {
-	return s.doc.URL, s.doc.URL != ""
+func (a *RemoteApplication) URL() (string, bool) {
+	return a.doc.URL, a.doc.URL != ""
 }
 
 // Token returns the token for the remote application, provided by the remote
 // model to identify the application in future communications.
-func (s *RemoteApplication) Token() (string, error) {
-	r := s.st.RemoteEntities()
-	return r.GetToken(s.Tag())
+func (a *RemoteApplication) Token() (string, error) {
+	r := a.st.RemoteEntities()
+	return r.GetToken(a.Tag())
 }
 
 // Tag returns a name identifying the application.
-func (s *RemoteApplication) Tag() names.Tag {
-	return names.NewApplicationTag(s.Name())
+func (a *RemoteApplication) Tag() names.Tag {
+	return names.NewApplicationTag(a.Name())
 }
 
 // Life returns whether the application is Alive, Dying or Dead.
-func (s *RemoteApplication) Life() Life {
-	return s.doc.Life
+func (a *RemoteApplication) Life() Life {
+	return a.doc.Life
 }
 
 // StatusHistory returns a slice of at most filter.Size StatusInfo items
@@ -194,18 +199,18 @@ func (a *RemoteApplication) StatusHistory(filter status.StatusHistoryFilter) ([]
 }
 
 // Spaces returns the remote spaces this application is connected to.
-func (s *RemoteApplication) Spaces() []RemoteSpace {
+func (a *RemoteApplication) Spaces() []RemoteSpace {
 	var result []RemoteSpace
-	for _, space := range s.doc.Spaces {
+	for _, space := range a.doc.Spaces {
 		result = append(result, remoteSpaceFromDoc(space))
 	}
 	return result
 }
 
 // Bindings returns the endpoint->space bindings for the application.
-func (s *RemoteApplication) Bindings() map[string]string {
+func (a *RemoteApplication) Bindings() map[string]string {
 	result := make(map[string]string)
-	for epName, spName := range s.doc.Bindings {
+	for epName, spName := range a.doc.Bindings {
 		result[epName] = spName
 	}
 	return result
@@ -213,12 +218,12 @@ func (s *RemoteApplication) Bindings() map[string]string {
 
 // SpaceForEndpoint returns the remote space an endpoint is bound to,
 // if one is found.
-func (s *RemoteApplication) SpaceForEndpoint(endpointName string) (RemoteSpace, bool) {
-	spaceName, ok := s.doc.Bindings[endpointName]
+func (a *RemoteApplication) SpaceForEndpoint(endpointName string) (RemoteSpace, bool) {
+	spaceName, ok := a.doc.Bindings[endpointName]
 	if !ok {
 		return RemoteSpace{}, false
 	}
-	for _, space := range s.doc.Spaces {
+	for _, space := range a.doc.Spaces {
 		if space.Name == spaceName {
 			return remoteSpaceFromDoc(space), true
 		}
@@ -271,9 +276,9 @@ func copyAttributes(values attributeMap) attributeMap {
 }
 
 // DestroyOperation returns a model operation to destroy remote application.
-func (s *RemoteApplication) DestroyOperation(force bool) *DestroyRemoteApplicationOperation {
+func (a *RemoteApplication) DestroyOperation(force bool) *DestroyRemoteApplicationOperation {
 	return &DestroyRemoteApplicationOperation{
-		app:             &RemoteApplication{st: s.st, doc: s.doc},
+		app:             &RemoteApplication{st: a.st, doc: a.doc},
 		ForcedOperation: ForcedOperation{Force: force},
 	}
 }
@@ -348,25 +353,25 @@ func (op *DestroyRemoteApplicationOperation) eraseHistory() error {
 // DestroyWithForce in addition to doing what Destroy() does,
 // when force is passed in as 'true', forces th destruction of remote application,
 // ignoring errors.
-func (s *RemoteApplication) DestroyWithForce(force bool, maxWait time.Duration) (opErrs []error, err error) {
+func (a *RemoteApplication) DestroyWithForce(force bool, maxWait time.Duration) (opErrs []error, err error) {
 	defer func() {
 		if err == nil {
-			s.doc.Life = Dying
+			a.doc.Life = Dying
 		}
 	}()
-	op := s.DestroyOperation(force)
+	op := a.DestroyOperation(force)
 	op.MaxWait = maxWait
-	err = s.st.ApplyOperation(op)
+	err = a.st.ApplyOperation(op)
 	return op.Errors, err
 }
 
 // Destroy ensures that this remote application reference and all its relations
 // will be removed at some point; if no relation involving the
 // application has any units in scope, they are all removed immediately.
-func (s *RemoteApplication) Destroy() error {
-	errs, err := s.DestroyWithForce(false, time.Duration(0))
+func (a *RemoteApplication) Destroy() error {
+	errs, err := a.DestroyWithForce(false, time.Duration(0))
 	if len(errs) != 0 {
-		logger.Warningf("operational errors destroying saas application %v: %v", s.Name(), errs)
+		logger.Warningf("operational errors destroying saas application %v: %v", a.Name(), errs)
 	}
 	return err
 }
@@ -486,24 +491,24 @@ func (op *DestroyRemoteApplicationOperation) destroyOps() (ops []txn.Op, err err
 
 // removeOps returns the operations required to remove the application. Supplied
 // asserts will be included in the operation on the application document.
-func (s *RemoteApplication) removeOps(asserts bson.D) ([]txn.Op, error) {
-	r := s.st.RemoteEntities()
+func (a *RemoteApplication) removeOps(asserts bson.D) ([]txn.Op, error) {
+	r := a.st.RemoteEntities()
 	ops := []txn.Op{
 		{
 			C:      remoteApplicationsC,
-			Id:     s.doc.DocID,
+			Id:     a.doc.DocID,
 			Assert: asserts,
 			Remove: true,
 		},
-		removeStatusOp(s.st, s.globalKey()),
+		removeStatusOp(a.st, a.globalKey()),
 	}
-	tokenOps := r.removeRemoteEntityOps(s.Tag())
+	tokenOps := r.removeRemoteEntityOps(a.Tag())
 	ops = append(ops, tokenOps...)
 
 	// If this is the last consumed app off an external controller,
 	// also remove the external controller record.
-	if s.doc.SourceControllerUUID != "" {
-		decRefOp, isFinal, err := decExternalControllersRefOp(s.st, s.doc.SourceControllerUUID)
+	if a.doc.SourceControllerUUID != "" {
+		decRefOp, isFinal, err := decExternalControllersRefOp(a.st, a.doc.SourceControllerUUID)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -511,7 +516,7 @@ func (s *RemoteApplication) removeOps(asserts bson.D) ([]txn.Op, error) {
 		if isFinal {
 			ops = append(ops, txn.Op{
 				C:      externalControllersC,
-				Id:     s.doc.SourceControllerUUID,
+				Id:     a.doc.SourceControllerUUID,
 				Remove: true,
 			})
 		}
@@ -520,41 +525,41 @@ func (s *RemoteApplication) removeOps(asserts bson.D) ([]txn.Op, error) {
 }
 
 // Status returns the status of the remote application.
-func (s *RemoteApplication) Status() (status.StatusInfo, error) {
-	return getStatus(s.st.db(), s.globalKey(), fmt.Sprintf("saas application %q", s.doc.Name))
+func (a *RemoteApplication) Status() (status.StatusInfo, error) {
+	return getStatus(a.st.db(), a.globalKey(), fmt.Sprintf("saas application %q", a.doc.Name))
 }
 
 // SetStatus sets the status for the application.
-func (s *RemoteApplication) SetStatus(info status.StatusInfo) error {
+func (a *RemoteApplication) SetStatus(info status.StatusInfo) error {
 	// We only care about status for alive apps; we want to
 	// avoid stray updates from the other model.
-	if s.Life() != Alive {
+	if a.Life() != Alive {
 		return nil
 	}
 	if !info.Status.KnownWorkloadStatus() {
 		return errors.Errorf("cannot set invalid status %q", info.Status)
 	}
 
-	return setStatus(s.st.db(), setStatusParams{
-		badge:     fmt.Sprintf("saas application %q", s.doc.Name),
-		globalKey: s.globalKey(),
+	return setStatus(a.st.db(), setStatusParams{
+		badge:     fmt.Sprintf("saas application %q", a.doc.Name),
+		globalKey: a.globalKey(),
 		status:    info.Status,
 		message:   info.Message,
 		rawData:   info.Data,
-		updated:   timeOrNow(info.Since, s.st.clock()),
+		updated:   timeOrNow(info.Since, a.st.clock()),
 	})
 }
 
 // TerminateOperation returns a ModelOperation that will terminate this
 // remote application when applied, ensuring that all units have left
 // scope as well.
-func (s *RemoteApplication) TerminateOperation(message string) ModelOperation {
+func (a *RemoteApplication) TerminateOperation(message string) ModelOperation {
 	return &terminateRemoteApplicationOperation{
-		app: s,
+		app: a,
 		doc: statusDoc{
 			Status:     status.Terminated,
 			StatusInfo: message,
-			Updated:    s.st.clock().Now().UnixNano(),
+			Updated:    a.st.clock().Now().UnixNano(),
 		},
 	}
 }
@@ -622,8 +627,8 @@ func (op *terminateRemoteApplicationOperation) Done(err error) error {
 }
 
 // Endpoints returns the application's currently available relation endpoints.
-func (s *RemoteApplication) Endpoints() ([]Endpoint, error) {
-	return remoteEndpointDocsToEndpoints(s.Name(), s.doc.Endpoints), nil
+func (a *RemoteApplication) Endpoints() ([]Endpoint, error) {
+	return remoteEndpointDocsToEndpoints(a.Name(), a.doc.Endpoints), nil
 }
 
 func remoteEndpointDocsToEndpoints(applicationName string, docs []remoteEndpointDoc) []Endpoint {
@@ -644,8 +649,8 @@ func remoteEndpointDocsToEndpoints(applicationName string, docs []remoteEndpoint
 }
 
 // Endpoint returns the relation endpoint with the supplied name, if it exists.
-func (s *RemoteApplication) Endpoint(relationName string) (Endpoint, error) {
-	eps, err := s.Endpoints()
+func (a *RemoteApplication) Endpoint(relationName string) (Endpoint, error) {
+	eps, err := a.Endpoints()
 	if err != nil {
 		return Endpoint{}, err
 	}
@@ -654,13 +659,13 @@ func (s *RemoteApplication) Endpoint(relationName string) (Endpoint, error) {
 			return ep, nil
 		}
 	}
-	return Endpoint{}, fmt.Errorf("saas application %q has no %q relation", s, relationName)
+	return Endpoint{}, fmt.Errorf("saas application %q has no %q relation", a, relationName)
 }
 
 // AddEndpoints adds the specified endpoints to the remote application.
 // If an endpoint with the same name already exists, an error is returned.
 // If the endpoints change during the update, the operation is retried.
-func (s *RemoteApplication) AddEndpoints(eps []charm.Relation) error {
+func (a *RemoteApplication) AddEndpoints(eps []charm.Relation) error {
 	newEps := make([]remoteEndpointDoc, len(eps))
 	for i, ep := range eps {
 		newEps[i] = remoteEndpointDoc{
@@ -672,7 +677,7 @@ func (s *RemoteApplication) AddEndpoints(eps []charm.Relation) error {
 		}
 	}
 
-	model, err := s.st.Model()
+	model, err := a.st.Model()
 	if err != nil {
 		return errors.Trace(err)
 	} else if model.Life() != Alive {
@@ -694,25 +699,25 @@ func (s *RemoteApplication) AddEndpoints(eps []charm.Relation) error {
 		return nil
 	}
 
-	currentEndpoints, err := s.Endpoints()
+	currentEndpoints, err := a.Endpoints()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if err := checkCompatibleEndpoints(currentEndpoints); err != nil {
 		return err
 	}
-	applicationID := s.st.docID(s.Name())
+	applicationID := a.st.docID(a.Name())
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// If we've tried once already and failed, check that
 		// model may have been destroyed.
 		if attempt > 0 {
-			if err := checkModelActive(s.st); err != nil {
+			if err := checkModelActive(a.st); err != nil {
 				return nil, errors.Trace(err)
 			}
-			if err = s.Refresh(); err != nil {
+			if err = a.Refresh(); err != nil {
 				return nil, errors.Trace(err)
 			}
-			currentEndpoints, err = s.Endpoints()
+			currentEndpoints, err = a.Endpoints()
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -740,18 +745,61 @@ func (s *RemoteApplication) AddEndpoints(eps []charm.Relation) error {
 		}
 		return ops, nil
 	}
-	if err := s.st.db().Run(buildTxn); err != nil {
+	if err := a.st.db().Run(buildTxn); err != nil {
 		return errors.Trace(err)
 	}
-	return s.Refresh()
+	return a.Refresh()
 }
 
-func (s *RemoteApplication) Macaroon() (*macaroon.Macaroon, error) {
-	if s.doc.Macaroon == "" {
+// SetSourceController updates the source controller attribute.
+func (a *RemoteApplication) SetSourceController(sourceControllerUUID string) error {
+	model, err := a.st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	} else if model.Life() != Alive {
+		return errors.Errorf("model is no longer alive")
+	}
+
+	applicationID := a.st.docID(a.Name())
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		// If we've tried once already and failed, check that
+		// model may have been destroyed.
+		if attempt > 0 {
+			if model.Life() == Dead {
+				return nil, errors.Errorf("model %q is %s", model.Name(), model.Life().String())
+			}
+			if err = a.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		ops := []txn.Op{
+			{
+				C:      modelsC,
+				Id:     model.UUID(),
+				Assert: notDeadDoc,
+			}, {
+				C:      remoteApplicationsC,
+				Id:     applicationID,
+				Assert: txn.DocExists,
+				Update: bson.D{
+					{"$set", bson.D{{"source-controller-uuid", sourceControllerUUID}}},
+				},
+			},
+		}
+		return ops, nil
+	}
+	if err := a.st.db().Run(buildTxn); err != nil {
+		return errors.Trace(err)
+	}
+	return a.Refresh()
+}
+
+func (a *RemoteApplication) Macaroon() (*macaroon.Macaroon, error) {
+	if a.doc.Macaroon == "" {
 		return nil, nil
 	}
 	var mac macaroon.Macaroon
-	err := json.Unmarshal([]byte(s.doc.Macaroon), &mac)
+	err := json.Unmarshal([]byte(a.doc.Macaroon), &mac)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -759,30 +807,30 @@ func (s *RemoteApplication) Macaroon() (*macaroon.Macaroon, error) {
 }
 
 // String returns the application name.
-func (s *RemoteApplication) String() string {
-	return s.doc.Name
+func (a *RemoteApplication) String() string {
+	return a.doc.Name
 }
 
 // Refresh refreshes the contents of the RemoteApplication from the underlying
 // state. It returns an error that satisfies errors.IsNotFound if the
 // application has been removed.
-func (s *RemoteApplication) Refresh() error {
-	applications, closer := s.st.db().GetCollection(remoteApplicationsC)
+func (a *RemoteApplication) Refresh() error {
+	applications, closer := a.st.db().GetCollection(remoteApplicationsC)
 	defer closer()
 
-	err := applications.FindId(s.doc.DocID).One(&s.doc)
+	err := applications.FindId(a.doc.DocID).One(&a.doc)
 	if err == mgo.ErrNotFound {
-		return errors.NotFoundf("saas application %q", s)
+		return errors.NotFoundf("saas application %q", a)
 	}
 	if err != nil {
-		return fmt.Errorf("cannot refresh application %q: %v", s, err)
+		return fmt.Errorf("cannot refresh application %q: %v", a, err)
 	}
 	return nil
 }
 
 // Relations returns a Relation for every relation the application is in.
-func (s *RemoteApplication) Relations() (relations []*Relation, err error) {
-	return matchingRelations(s.st, s.doc.Name)
+func (a *RemoteApplication) Relations() (relations []*Relation, err error) {
+	return matchingRelations(a.st, a.doc.Name)
 }
 
 // AddRemoteApplicationParams contains the parameters for adding a remote application

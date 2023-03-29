@@ -93,6 +93,7 @@ func (*importSuite) TestImports(c *gc.C) {
 		"rpc",
 		"rpc/jsoncodec",
 		"service/common",
+		"service/pebble/plan",
 		"service/snap",
 		"service/systemd",
 		"state/errors",

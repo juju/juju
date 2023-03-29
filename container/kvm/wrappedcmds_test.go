@@ -34,10 +34,10 @@ func (s *LibVertSuite) SetUpTest(c *gc.C) {
 }
 
 type testSyncParams struct {
-	arch, series, ftype string
-	srcFunc             func() simplestreams.DataSource
-	onevalErr           error
-	success             bool
+	arch, series string
+	srcFunc      func() simplestreams.DataSource
+	onevalErr    error
+	success      bool
 }
 
 func (p testSyncParams) One() (*imagedownloads.Metadata, error) {

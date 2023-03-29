@@ -136,9 +136,32 @@ func (s *downloadSuite) TestRunWithCustomCharmHubURL(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *downloadSuite) TestRunWithUnsupportedSeries(c *gc.C) {
+func (s *downloadSuite) TestRunWithUnsupportedSeriesPicksFirstSuggestion(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 
+	url := "http://example.org/"
+
+	s.expectRefreshUnsupportedSeries()
+	s.expectRefresh(url)
+	s.expectDownload(c, url)
+	s.expectFilesystem(c)
+
+	command := &downloadCommand{
+		charmHubCommand: s.newCharmHubCommand(),
+	}
+	command.SetFilesystem(s.filesystem)
+	err := cmdtesting.InitCommand(command, []string{"test"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx := commandContextForTest(c)
+	err = command.Run(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *downloadSuite) TestRunWithUnsupportedSeriesReturnsSecondAttempt(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	s.expectRefreshUnsupportedSeries()
 	s.expectRefreshUnsupportedSeries()
 
 	command := &downloadCommand{
