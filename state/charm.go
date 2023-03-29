@@ -341,7 +341,7 @@ func insertAnyCharmOps(mb modelBackend, cdoc *charmDoc) ([]txn.Op, error) {
 	} else if life == Dead {
 		return nil, errors.New("url already consumed")
 	} else {
-		return nil, errors.New("already exists")
+		return nil, errors.AlreadyExistsf("charm %q", cdoc.DocID)
 	}
 	charmOp := txn.Op{
 		C:      charmsC,
@@ -381,6 +381,8 @@ func updateCharmOps(mb modelBackend, info CharmInfo, assert bson.D) ([]txn.Op, e
 	}
 	op.Assert = append(lifeAssert, assert...)
 
+	pendingUpload := info.SHA256 == "" || info.StoragePath == ""
+
 	data := bson.D{
 		{"charm-version", info.Version},
 		{"meta", info.Charm.Meta()},
@@ -390,7 +392,7 @@ func updateCharmOps(mb modelBackend, info CharmInfo, assert bson.D) ([]txn.Op, e
 		{"metrics", info.Charm.Metrics()},
 		{"storagepath", info.StoragePath},
 		{"bundlesha256", info.SHA256},
-		{"pendingupload", false},
+		{"pendingupload", pendingUpload},
 		{"placeholder", false},
 	}
 
@@ -745,7 +747,12 @@ func (c *Charm) BundleSha256() string {
 }
 
 // IsUploaded returns whether the charm has been uploaded to the
-// model storage.
+// model storage. Response is only valid when the charm is
+// not a placeholder.
+// TODO - hml - 29-Mar-2023
+// Find a better answer than not pendingupload. Currently
+// this method returns true for placeholder charm docs as well,
+// thus the result cannot be evaluated independently.
 func (c *Charm) IsUploaded() bool {
 	return !c.doc.PendingUpload
 }
@@ -852,6 +859,25 @@ func (st *State) AllCharms() ([]*Charm, error) {
 // are returned for Charmhub charms (but not Charmstore ones). Charm
 // placeholders are never returned.
 func (st *State) Charm(curl *charm.URL) (*Charm, error) {
+	ch, err := st.findCharm(curl)
+	if err != nil {
+		return nil, err
+	}
+	if !ch.IsUploaded() && !charm.CharmHub.Matches(curl.Schema) || ch.IsPlaceholder() {
+		return nil, errors.NotFoundf("charm %q", curl.String())
+	}
+	return ch, nil
+}
+
+// findCharm returns a charm matching the curl if it exists.  This method should
+// be used with deep understanding of charm deployment, refresh, charm revision
+// updater. Most code should use Charm above.
+// The primary direct use case is AddCharmMetadata. When we asynchronously download
+// a charm, the metadata is inserted into the db so that part of deploying or
+// refreshing a charm can happen before a charm is actually downloaded. Therefore
+// it must be able to find placeholders and update them to allow for a download
+// to happen as part of refresh.
+func (st *State) findCharm(curl *charm.URL) (*Charm, error) {
 	var cdoc charmDoc
 
 	charms, closer := st.db().GetCollection(charmsC)
@@ -859,7 +885,6 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 
 	what := bson.D{
 		{"_id", curl.String()},
-		{"placeholder", bson.D{{"$ne", true}}},
 	}
 	what = append(what, nsLife.notDead()...)
 	err := charms.Find(what).One(&cdoc)
@@ -870,9 +895,6 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 		return nil, errors.Annotatef(err, "cannot get charm %q", curl)
 	}
 
-	if cdoc.PendingUpload && charm.Schema(curl.Schema) != charm.CharmHub {
-		return nil, errors.NotFoundf("charm %q", curl.String())
-	}
 	return newCharm(st, &cdoc), nil
 }
 
@@ -1106,6 +1128,9 @@ func (st *State) UpdateUploadedCharm(info CharmInfo) (*Charm, error) {
 // provided charm metadata details. If the charm document already exists it
 // will be returned back as a *charm.Charm.
 //
+// If the charm document already exists as a placeholder and the charm hasn't
+// been downloaded yet, the document is updated with the current charm info.
+//
 // If the provided CharmInfo does not include a SHA256 and storage path entry,
 // then the charm document will be created with the PendingUpload flag set
 // to true.
@@ -1124,11 +1149,24 @@ func (st *State) AddCharmMetadata(info CharmInfo) (*Charm, error) {
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// Check if the charm doc already exists.
-		if _, err := st.Charm(info.ID); err == nil {
+		ch, err := st.findCharm(info.ID)
+		if errors.Is(err, errors.NotFound) {
+			return insertCharmOps(st, info)
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if !ch.IsPlaceholder() {
+			// The charm has already been downloaded, no need to
+			// so again.
 			return nil, jujutxn.ErrNoOperations
 		}
-
-		return insertCharmOps(st, info)
+		// This doc was inserted by the charm revision updater worker.
+		// Add the charm metadata and mark for download.
+		assert := bson.D{
+			{"life", Alive},
+			{"placeholder", true},
+		}
+		return updateCharmOps(st, info, assert)
 	}
 
 	if err := st.db().Run(buildTxn); err != nil {
