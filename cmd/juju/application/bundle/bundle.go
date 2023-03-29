@@ -255,23 +255,10 @@ func ComposeAndVerifyBundle(base BundleDataSource, pathToOverlays []string) (*ch
 		_, err := constraints.Parse(s)
 		return err
 	}
-	verifyBaseConstraints := func(s string) error {
-		bundleConstraints, err := constraints.Parse(s)
-		if err != nil {
-			return err
-		}
-		if bundleConstraints.HasImageID() {
-			return errors.NotSupportedf("'image-id' constraint in a base bundle")
-		}
-		return nil
-	}
-	verifyStorage := func(s string) error {
-		_, err := storage.ParseConstraints(s)
-		return err
-	}
-	verifyDevices := func(s string) error {
-		_, err := devices.ParseConstraints(s)
-		return err
+	// verify that the base bundle does not contain image-id constraint
+	err := verifyBaseBundle(base)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
 	}
 
 	var dsList []charm.BundleDataSource
@@ -292,16 +279,9 @@ func ComposeAndVerifyBundle(base BundleDataSource, pathToOverlays []string) (*ch
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	// validate that base bundle does not include an unsupported constraint
-	baseBundleData, _, err := charm.ExtractBaseAndOverlayParts(bundleData)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	if err := verifyBundle(baseBundleData, base.BasePath(), verifyBaseConstraints, verifyStorage, verifyDevices); err != nil {
-		return nil, nil, errors.Trace(err)
-	}
+
 	// verify composed (base + overlay bundles)
-	if err = verifyBundle(bundleData, base.BasePath(), verifyConstraints, verifyStorage, verifyDevices); err != nil {
+	if err = verifyBundle(bundleData, base.BasePath(), verifyConstraints); err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
@@ -319,7 +299,36 @@ func gatherErrors(ds BundleDataSource) []error {
 	return returnErrors
 }
 
-func verifyBundle(data *charm.BundleData, bundleDir string, verifyConstraints, verifyStorage, verifyDevices func(string) error) error {
+func verifyBaseBundle(base BundleDataSource) error {
+	verifyBaseConstraints := func(s string) error {
+		bundleConstraints, err := constraints.Parse(s)
+		if err != nil {
+			return err
+		}
+		if bundleConstraints.HasImageID() {
+			return errors.NotSupportedf("'image-id' constraint in a base bundle")
+		}
+		return nil
+	}
+
+	bundleData, err := charm.ReadAndMergeBundleData(base)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return verifyBundle(bundleData, base.BasePath(), verifyBaseConstraints)
+}
+
+func verifyBundle(data *charm.BundleData, bundleDir string, verifyConstraints func(string) error) error {
+	verifyStorage := func(s string) error {
+		_, err := storage.ParseConstraints(s)
+		return err
+	}
+	verifyDevices := func(s string) error {
+		_, err := devices.ParseConstraints(s)
+		return err
+	}
+
 	var verifyError error
 	if bundleDir == "" {
 		verifyError = data.Verify(verifyConstraints, verifyStorage, verifyDevices)
