@@ -41,7 +41,7 @@ This option will issue a new registration string to be used with
 ` + "`juju register`" + `.  
 `
 
-const examples = `
+const examplesChangePassword = `
     juju change-user-password
     juju change-user-password bob
     juju change-user-password bob --reset
@@ -82,7 +82,7 @@ func (c *changePasswordCommand) Info() *cmd.Info {
 		Args:     "[username]",
 		Purpose:  "Changes the password for the current or specified Juju user.",
 		Doc:      userChangePasswordDoc,
-		Examples: examples,
+		Examples: examplesChangePassword,
 		SeeAlso: []string{
 			"add-user",
 			"register",
