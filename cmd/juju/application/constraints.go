@@ -30,15 +30,12 @@ Application constraints are combined with model constraints, set with ` +
 machines for applications. Where model and application constraints overlap, the
 application constraints take precedence.
 Constraints for a specific model can be viewed with ` + "`juju model-\nconstraints`" + `.
+`
 
-Examples:
+const usageGetConstraintsExamples = `
     juju constraints mysql
     juju constraints -m mymodel apache2
-
-See also: 
-    set-constraints
-    model-constraints
-    set-model-constraints`
+`
 
 var usageSetConstraintsSummary = `
 Sets machine constraints for an application.`[1:]
@@ -59,14 +56,12 @@ constraints to
 the first unit set them at the model level or pass them as an argument
 when deploying.
 
-Examples:
+`
+
+const usageSetConstraintsExamples = `
     juju set-constraints mysql mem=8G cores=4
     juju set-constraints -m mymodel apache2 mem=8G arch=amd64
-
-See also: 
-    constraints
-    model-constraints
-    set-model-constraints`
+`
 
 // NewApplicationGetConstraintsCommand returns a command which gets application constraints.
 func NewApplicationGetConstraintsCommand() modelcmd.ModelCommand {
@@ -103,10 +98,16 @@ type applicationGetConstraintsCommand struct {
 
 func (c *applicationGetConstraintsCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "constraints",
-		Args:    "<application>",
-		Purpose: usageGetConstraintsSummary,
-		Doc:     usageGetConstraintsDetails,
+		Name:     "constraints",
+		Args:     "<application>",
+		Purpose:  usageGetConstraintsSummary,
+		Doc:      usageGetConstraintsDetails,
+		Examples: usageGetConstraintsExamples,
+		SeeAlso: []string{
+			"set-constraints",
+			"model-constraints",
+			"set-model-constraints",
+		},
 	})
 }
 
@@ -162,10 +163,16 @@ func NewApplicationSetConstraintsCommand() modelcmd.ModelCommand {
 
 func (c *applicationSetConstraintsCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "set-constraints",
-		Args:    "<application> <constraint>=<value> ...",
-		Purpose: usageSetConstraintsSummary,
-		Doc:     usageSetConstraintsDetails,
+		Name:     "set-constraints",
+		Args:     "<application> <constraint>=<value> ...",
+		Purpose:  usageSetConstraintsSummary,
+		Doc:      usageSetConstraintsDetails,
+		Examples: usageSetConstraintsExamples,
+		SeeAlso: []string{
+			"constraints",
+			"model-constraints",
+			"set-model-constraints",
+		},
 	})
 }
 
