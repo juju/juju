@@ -44,7 +44,7 @@ func (c *enableDestroyController) Info() *cmd.Info {
 		SeeAlso: []string{
 			"disable-command",
 			"disabled-commands",
-			"enable-command",	
+			"enable-command",
 		},
 	})
 }
