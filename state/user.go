@@ -16,9 +16,9 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v2"
-	"github.com/juju/mgo/v2/bson"
-	"github.com/juju/mgo/v2/txn"
+	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/bson"
+	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v3"
 
@@ -214,25 +214,32 @@ func (st *State) RemoveUser(tag names.UserTag) error {
 
 	// remove the access to all the models and the current controller
 	// first query all the models for this user
-	modelsSummary, err := st.ModelSummariesForUser(tag, true)
+	modelQuery, closer, err := st.modelQueryForUser(tag, false)
+	defer closer()
 	if err != nil {
-		return err
+		return errors.Trace(err)
+	}
+	var modelDocs []modelDoc
+	if err := modelQuery.All(&modelDocs); err != nil {
+		return errors.Trace(err)
 	}
 
-	for _, summary := range modelsSummary {
-		// remove all the access permissions
-		removeModelOps := removeModelUserOps(summary.UUID, tag)
-		if err := st.db().RunTransactionFor(summary.UUID, removeModelOps); err != nil {
-			logger.Errorf("impossible to remove user from models", err)
-			return err
-		}
+	txns := make([]txn.Op, 0)
+	for _, summary := range modelDocs {
+		// remove the permission for the model
+		txns = append(txns, removePermissionOp(modelKey(summary.UUID), userGlobalKey(userAccessID(tag))))
+		// set the target to other model
+		targetId := ensureModelUUID(summary.UUID, userAccessID(tag))
+		txns = append(txns, txn.Op{
+			C:      modelUsersC,
+			Id:     targetId,
+			Assert: txn.DocExists,
+			Remove: true,
+		})
 	}
 
-	// remove the user from the user controllers
-	if err := st.removeControllerUser(tag); err != nil {
-		logger.Errorf("impossible to remove user from controller", err)
-		return err
-	}
+	// remove the user from the controller
+	txns = append(txns, removeControllerUserOps(st.ControllerUUID(), tag)...)
 
 	dateRemoved := st.nowToTheSecond()
 	// new entry in the removal log
@@ -247,24 +254,17 @@ func (st *State) RemoveUser(tag names.UserTag) error {
 	}
 	removalLog = append(removalLog, newRemovalLogEntry)
 
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			// If it is not our first attempt, refresh the user.
-			if err := u.Refresh(); err != nil {
-				return nil, errors.Trace(err)
-			}
-		}
-		ops := []txn.Op{
-			{
-				Id:     lowercaseName,
-				C:      usersC,
-				Assert: txn.DocExists,
-				Update: bson.M{"$set": bson.M{
-					"deleted": true, "removallog": removalLog}}},
-		}
-		return ops, nil
+	op := txn.Op{
+		Id:     lowercaseName,
+		C:      usersC,
+		Assert: txn.DocExists,
+		Update: bson.M{"$set": bson.M{
+			"deleted": true, "removallog": removalLog}},
 	}
-	return st.db().Run(buildTxn)
+	txns = append(txns, op)
+
+	// Use raw transactions to avoid model filtering
+	return st.db().RunRawTransaction(txns)
 }
 
 func createInitialUserOps(controllerUUID string, user names.UserTag, password, salt string, dateCreated time.Time) []txn.Op {
@@ -557,7 +557,7 @@ func (u *User) SetPasswordHash(pwHash string, pwSalt string) error {
 func (u *User) PasswordValid(password string) bool {
 	// If the User is deactivated or deleted, there is no point in carrying on.
 	// Since any authentication checks are done very soon after the user is
-	// read from the database, there is a very small timeframe where an user
+	// read from the database, there is a very small timeframe where a user
 	// could be disabled after it has been read but prior to being checked, but
 	// in practice, this isn't a problem.
 	if u.IsDisabled() || u.IsDeleted() {
