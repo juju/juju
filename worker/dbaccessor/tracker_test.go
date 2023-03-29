@@ -53,7 +53,7 @@ func (s *trackedDBWorkerSuite) TestWorkerDBIsNotNil(c *gc.C) {
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
-	w, err := s.newTrackedDBWorker(defaultVerifyDBFunc)
+	w, err := s.newTrackedDBWorker(defaultPingDBFunc)
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer workertest.DirtyKill(c, w)
@@ -84,7 +84,7 @@ func (s *trackedDBWorkerSuite) TestWorkerTxnIsNotNil(c *gc.C) {
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
-	w, err := s.newTrackedDBWorker(defaultVerifyDBFunc)
+	w, err := s.newTrackedDBWorker(defaultPingDBFunc)
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer workertest.DirtyKill(c, w)
@@ -107,6 +107,43 @@ func (s *trackedDBWorkerSuite) TestWorkerTxnIsNotNil(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
+func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDB(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAnyLogs()
+	s.expectClock()
+	done := s.expectTimer(1)
+
+	s.timer.EXPECT().Reset(PollInterval).Times(1)
+	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
+
+	var count uint64
+	pingFn := func(context.Context, *sql.DB) error {
+		atomic.AddUint64(&count, 1)
+		return nil
+	}
+
+	w, err := s.newTrackedDBWorker(pingFn)
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-done:
+	case <-time.After(testing.ShortWait):
+		c.Fatal("timed out waiting for DB callback")
+	}
+
+	// Attempt to use the new db, note there shouldn't be any leases in this db.
+	tables := readTableNames(c, w)
+	c.Assert(tables, SliceContains, "lease")
+
+	workertest.CleanKill(c, w)
+
+	c.Assert(count, gc.Equals, uint64(1))
+	c.Assert(w.Err(), jc.ErrorIsNil)
+}
+
 func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceeds(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -114,7 +151,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceeds(c *gc.C) 
 	s.expectClock()
 	done := s.expectTimer(1)
 
-	s.logger.EXPECT().Errorf(gomock.Any(), gomock.Any()).AnyTimes()
+	s.timer.EXPECT().Reset(PollInterval).Times(1)
 
 	dbChange := make(chan struct{})
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil).Times(DefaultVerifyAttempts - 1)
@@ -124,7 +161,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceeds(c *gc.C) 
 	})
 
 	var count uint64
-	verifyFn := func(context.Context, *sql.DB) error {
+	pingFn := func(context.Context, *sql.DB) error {
 		val := atomic.AddUint64(&count, 1)
 
 		if val == DefaultVerifyAttempts {
@@ -133,7 +170,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceeds(c *gc.C) 
 		return errors.New("boom")
 	}
 
-	w, err := s.newTrackedDBWorker(verifyFn)
+	w, err := s.newTrackedDBWorker(pingFn)
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer workertest.DirtyKill(c, w)
@@ -151,11 +188,49 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceeds(c *gc.C) 
 		c.Fatal("timed out waiting for DB callback")
 	}
 
-	tables := checkTableNames(c, w)
+	tables := readTableNames(c, w)
 	c.Assert(tables, SliceContains, "lease")
 
 	workertest.CleanKill(c, w)
 
+	c.Assert(w.Err(), jc.ErrorIsNil)
+}
+
+func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBRepeatedly(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAnyLogs()
+	s.expectClock()
+	done := s.expectTimer(2)
+
+	s.timer.EXPECT().Reset(PollInterval).Times(2)
+
+	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
+
+	var count uint64
+	pingFn := func(context.Context, *sql.DB) error {
+		atomic.AddUint64(&count, 1)
+		return nil
+	}
+
+	w, err := s.newTrackedDBWorker(pingFn)
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-done:
+	case <-time.After(testing.ShortWait):
+		c.Fatal("timed out waiting for DB callback")
+	}
+
+	// Attempt to use the new db, note there shouldn't be any leases in this db.
+	tables := readTableNames(c, w)
+	c.Assert(tables, SliceContains, "lease")
+
+	workertest.CleanKill(c, w)
+
+	c.Assert(count, gc.Equals, uint64(2))
 	c.Assert(w.Err(), jc.ErrorIsNil)
 }
 
@@ -166,7 +241,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceedsWithDiffer
 	s.expectClock()
 	done := s.expectTimer(1)
 
-	s.logger.EXPECT().Errorf(gomock.Any(), gomock.Any()).AnyTimes()
+	s.timer.EXPECT().Reset(PollInterval).Times(1)
 
 	dbChange := make(chan struct{})
 	exp := s.dbApp.EXPECT()
@@ -180,7 +255,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceedsWithDiffer
 	)
 
 	var count uint64
-	verifyFn := func(context.Context, *sql.DB) error {
+	pingFn := func(context.Context, *sql.DB) error {
 		val := atomic.AddUint64(&count, 1)
 
 		if val == DefaultVerifyAttempts {
@@ -189,7 +264,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceedsWithDiffer
 		return errors.New("boom")
 	}
 
-	w, err := s.newTrackedDBWorker(verifyFn)
+	w, err := s.newTrackedDBWorker(pingFn)
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer workertest.DirtyKill(c, w)
@@ -207,7 +282,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceedsWithDiffer
 		c.Fatal("timed out waiting for DB callback")
 	}
 
-	tables := checkTableNames(c, w)
+	tables := readTableNames(c, w)
 	c.Assert(tables, gc.Not(SliceContains), "lease")
 
 	workertest.CleanKill(c, w)
@@ -222,15 +297,13 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButFails(c *gc.C) {
 	s.expectClock()
 	done := s.expectTimer(1)
 
-	s.logger.EXPECT().Errorf(gomock.Any(), gomock.Any()).AnyTimes()
-
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil).Times(DefaultVerifyAttempts)
 
-	verifyFn := func(context.Context, *sql.DB) error {
+	pingFn := func(context.Context, *sql.DB) error {
 		return errors.New("boom")
 	}
 
-	w, err := s.newTrackedDBWorker(verifyFn)
+	w, err := s.newTrackedDBWorker(pingFn)
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer workertest.DirtyKill(c, w)
@@ -257,17 +330,17 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButFails(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
-func (s *trackedDBWorkerSuite) newTrackedDBWorker(verifyFn func(context.Context, *sql.DB) error) (TrackedDB, error) {
+func (s *trackedDBWorkerSuite) newTrackedDBWorker(pingFn func(context.Context, *sql.DB) error) (TrackedDB, error) {
 	collector := NewMetricsCollector()
 	return NewTrackedDBWorker(s.dbApp, "controller",
 		WithClock(s.clock),
 		WithLogger(s.logger),
-		WithVerifyDBFunc(verifyFn),
+		WithPingDBFunc(pingFn),
 		WithMetricsCollector(collector),
 	)
 }
 
-func checkTableNames(c *gc.C, w coredatabase.TrackedDB) []string {
+func readTableNames(c *gc.C, w coredatabase.TrackedDB) []string {
 	// Attempt to use the new db, note there shouldn't be any leases in this
 	// db.
 	var tables []string

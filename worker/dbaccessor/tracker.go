@@ -29,10 +29,10 @@ type TrackedDB interface {
 // TrackedDBWorkerOption is a function that configures a TrackedDBWorker.
 type TrackedDBWorkerOption func(*trackedDBWorker)
 
-// WithVerifyDBFunc sets the function used to verify the database connection.
-func WithVerifyDBFunc(f func(context.Context, *sql.DB) error) TrackedDBWorkerOption {
+// WithPingDBFunc sets the function used to verify the database connection.
+func WithPingDBFunc(f func(context.Context, *sql.DB) error) TrackedDBWorkerOption {
 	return func(w *trackedDBWorker) {
-		w.verifyDBFunc = f
+		w.pingDBFunc = f
 	}
 }
 
@@ -71,16 +71,16 @@ type trackedDBWorker struct {
 	logger  Logger
 	metrics *Collector
 
-	verifyDBFunc func(context.Context, *sql.DB) error
+	pingDBFunc func(context.Context, *sql.DB) error
 }
 
 // NewTrackedDBWorker creates a new TrackedDBWorker
 func NewTrackedDBWorker(dbApp DBApp, namespace string, opts ...TrackedDBWorkerOption) (TrackedDB, error) {
 	w := &trackedDBWorker{
-		dbApp:        dbApp,
-		namespace:    namespace,
-		clock:        clock.WallClock,
-		verifyDBFunc: defaultVerifyDBFunc,
+		dbApp:      dbApp,
+		namespace:  namespace,
+		clock:      clock.WallClock,
+		pingDBFunc: defaultPingDBFunc,
 	}
 
 	for _, opt := range opts {
@@ -184,7 +184,7 @@ func (w *trackedDBWorker) loop() error {
 			currentDB := w.db
 			w.mutex.RUnlock()
 
-			newDB, err := w.verifyDB(currentDB)
+			newDB, err := w.ensureDBAliveAndOpenIfRequired(currentDB)
 			if err != nil {
 				// If we get an error, ensure we close the underlying db and
 				// mark the tracked db in an error state.
@@ -212,21 +212,24 @@ func (w *trackedDBWorker) loop() error {
 				w.err = nil
 				w.mutex.Unlock()
 			}
+
+			timer.Reset(PollInterval)
 		}
 	}
 }
 
-func (w *trackedDBWorker) verifyDB(db *sql.DB) (*sql.DB, error) {
-	// Force the timeout to be lower that the DefaultTimeout,
-	// so we can spot issues sooner.
-	// Also allow killing the tomb to cancel the context,
+// ensureDBAliveAndOpenNewIfRequired is a bit long winded, but it is a way to
+// ensure that the underlying database is alive and well. If it is not, we
+// attempt to open a new one. If that fails, we return an error.
+func (w *trackedDBWorker) ensureDBAliveAndOpenIfRequired(db *sql.DB) (*sql.DB, error) {
+	// Allow killing the tomb to cancel the context,
 	// so shutdown/restart can not be blocked by this call.
 	ctx, cancel := context.WithTimeout(context.TODO(), time.Second*10)
 	ctx = w.tomb.Context(ctx)
 	defer cancel()
 
 	if w.logger.IsTraceEnabled() {
-		w.logger.Tracef("verifying database by attempting a ping")
+		w.logger.Tracef("ensuring %s database is alive", w.namespace)
 	}
 
 	// There are multiple levels of retries here. For good reason. We want to
@@ -242,9 +245,9 @@ func (w *trackedDBWorker) verifyDB(db *sql.DB) (*sql.DB, error) {
 
 		err := database.Retry(ctx, func() error {
 			if w.logger.IsTraceEnabled() {
-				w.logger.Tracef("attempting ping")
+				w.logger.Tracef("attempting %s ping", w.namespace)
 			}
-			return w.verifyDBFunc(ctx, db)
+			return w.pingDBFunc(ctx, db)
 		})
 		// We were successful at requesting the schema, so we can bail out
 		// early.
@@ -260,7 +263,7 @@ func (w *trackedDBWorker) verifyDB(db *sql.DB) (*sql.DB, error) {
 
 		// We got an error that is non-retryable, attempt to open a new database
 		// connection and see if that works.
-		w.logger.Errorf("unable to ping db: attempting to reopen the database before attempting again: %v", err)
+		w.logger.Warningf("unable to ping %s database: attempting to reopen the database before attempting again: %v", w.namespace, err)
 
 		// Attempt to open a new database. If there is an error, just crash
 		// the worker, we can't do anything else.
@@ -271,6 +274,6 @@ func (w *trackedDBWorker) verifyDB(db *sql.DB) (*sql.DB, error) {
 	return nil, errors.NotValidf("database")
 }
 
-func defaultVerifyDBFunc(ctx context.Context, db *sql.DB) error {
+func defaultPingDBFunc(ctx context.Context, db *sql.DB) error {
 	return db.PingContext(ctx)
 }
