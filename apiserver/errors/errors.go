@@ -154,6 +154,7 @@ func ServerError(err error) *params.Error {
 		notLeaderError               *NotLeaderError
 		redirectError                *RedirectError
 		upgradeSeriesValidationError *UpgradeSeriesValidationError
+		accessRequiredError          *AccessRequiredError
 	)
 	// Skip past annotations when looking for the code.
 	err = errors.Cause(err)
@@ -250,6 +251,9 @@ func ServerError(err error) *params.Error {
 		info = notLeaderError.AsMap()
 	case errors.Is(err, DeadlineExceededError):
 		code = params.CodeDeadlineExceeded
+	case errors.As(err, &accessRequiredError):
+		code = params.CodeAccessRequired
+		info = accessRequiredError.AsMap()
 	default:
 		code = params.ErrCode(err)
 	}

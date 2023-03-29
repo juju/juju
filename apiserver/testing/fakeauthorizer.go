@@ -131,3 +131,16 @@ func nameBasedHasPermission(name string, operation permission.Access, target nam
 func (fa FakeAuthorizer) ConnectedModel() string {
 	return fa.ModelUUID
 }
+
+// EntityHasPermission returns true if the passed entity is admin or has a name equal to
+// the pre-set admin tag.
+func (fa FakeAuthorizer) EntityHasPermission(entity names.Tag, operation permission.Access, target names.Tag) (bool, error) {
+	if entity.Kind() == names.UserTagKind && entity.Id() == "admin" {
+		return true, nil
+	}
+	emptyTag := names.UserTag{}
+	if fa.AdminTag != emptyTag && entity == fa.AdminTag {
+		return true, nil
+	}
+	return false, nil
+}

@@ -209,9 +209,9 @@ const (
 	CodeQuotaLimitExceeded        = "quota limit exceeded"
 	CodeNotLeader                 = "not leader"
 	CodeDeadlineExceeded          = "deadline exceeded"
-	CodeLeaseError                = "lease error"
 	CodeNotYetAvailable           = "not yet available; try again later"
 	CodeNotValid                  = "not valid"
+	CodeAccessRequired            = "access required"
 )
 
 // TranslateWellKnownError translates well known wire error codes into a github.com/juju/errors error

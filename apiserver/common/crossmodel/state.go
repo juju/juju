@@ -11,36 +11,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// StatePool provides the subset of a state pool.
-type StatePool interface {
-	// Get returns a State for a given model from the pool.
-	Get(modelUUID string) (Backend, func(), error)
-}
-
-type statePoolShim struct {
-	*state.StatePool
-}
-
-func (p *statePoolShim) Get(modelUUID string) (Backend, func(), error) {
-	st, err := p.StatePool.Get(modelUUID)
-	if err != nil {
-		return nil, func() {}, err
-	}
-	closer := func() {
-		st.Release()
-	}
-	model, err := st.Model()
-	if err != nil {
-		closer()
-		return nil, nil, err
-	}
-	return stateShim{st.State, model}, closer, err
-}
-
-func GetStatePool(pool *state.StatePool) StatePool {
-	return &statePoolShim{pool}
-}
-
 // GetBackend wraps a State to provide a Backend interface implementation.
 func GetBackend(st *state.State) stateShim {
 	model, err := st.Model()

@@ -410,18 +410,24 @@ func (a *admin) fillLoginDetails(result *authResult, lastConnection *time.Time) 
 		userTag := a.root.entity.Tag().(names.UserTag)
 		if token := a.root.loginToken; token != nil {
 			// We're passing in known valid tag kinds here, so we'll not get an error.
-			controllerAccess, err := permissionFromToken(token, names.ControllerTagKind)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			modelAccess, err := permissionFromToken(token, names.ModelTagKind)
+			controllerAccess, err := permissionFromToken(token, a.root.state.ControllerTag())
 			if err != nil {
 				return errors.Trace(err)
 			}
 			result.userInfo = &params.AuthUserInfo{
 				Identity:         userTag.String(),
 				ControllerAccess: string(controllerAccess),
-				ModelAccess:      string(modelAccess),
+			}
+			if !result.controllerOnlyLogin {
+				if controllerAccess == permission.SuperuserAccess {
+					result.userInfo.ModelAccess = string(permission.AdminAccess)
+				} else {
+					modelAccess, err := permissionFromToken(token, a.root.model.Tag())
+					if err != nil {
+						return errors.Trace(err)
+					}
+					result.userInfo.ModelAccess = string(modelAccess)
+				}
 			}
 		} else {
 			var err error

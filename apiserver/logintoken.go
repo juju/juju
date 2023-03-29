@@ -78,24 +78,29 @@ func userFromToken(token jwt.Token) (state.Entity, error) {
 	return tokenEntity{userTag}, nil
 }
 
-func permissionFromToken(token jwt.Token, kind string) (permission.Access, error) {
-	switch kind {
-	case names.ModelTagKind:
+func permissionFromToken(token jwt.Token, subject names.Tag) (permission.Access, error) {
+	var validate func(permission.Access) error
+	switch subject.Kind() {
 	case names.ControllerTagKind:
+		validate = permission.ValidateControllerAccess
+	case names.ModelTagKind:
+		validate = permission.ValidateModelAccess
 	case names.ApplicationOfferTagKind:
+		validate = permission.ValidateOfferAccess
 	case names.CloudTagKind:
+		validate = permission.ValidateCloudAccess
 	default:
-		return "", errors.NotValidf("%q as a target", kind)
+		return "", errors.NotValidf("%q as a target", subject)
 	}
 	accessClaims, ok := token.PrivateClaims()["access"].(map[string]interface{})
 	if !ok || len(accessClaims) == 0 {
 		logger.Warningf("loginToken contains invalid access claims: %v", token.PrivateClaims()["access"])
 		return permission.NoAccess, nil
 	}
-	access, ok := accessClaims[kind]
+	access, ok := accessClaims[subject.String()]
 	if !ok {
 		return permission.NoAccess, nil
 	}
 	result := permission.Access(fmt.Sprintf("%v", access))
-	return result, result.Validate()
+	return result, validate(result)
 }

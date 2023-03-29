@@ -13,7 +13,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/crossmodel"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -38,7 +37,7 @@ type BaseAPI struct {
 
 // checkPermission ensures that the logged in user holds the given permission on an entity.
 func (api *BaseAPI) checkPermission(user names.UserTag, tag names.Tag, perm permission.Access) error {
-	allowed, err := common.HasPermission(api.ControllerModel.UserPermission, user, perm, tag)
+	allowed, err := api.Authorizer.EntityHasPermission(user, perm, tag)
 	if err != nil {
 		return errors.Trace(err)
 	}

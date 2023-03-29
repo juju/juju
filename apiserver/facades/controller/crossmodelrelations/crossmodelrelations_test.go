@@ -41,13 +41,12 @@ var _ = gc.Suite(&crossmodelRelationsSuite{})
 type crossmodelRelationsSuite struct {
 	coretesting.BaseSuite
 
-	resources     *common.Resources
-	authorizer    *apiservertesting.FakeAuthorizer
-	st            *mockState
-	mockStatePool *mockStatePool
-	bakery        *mockBakeryService
-	authContext   *commoncrossmodel.AuthContext
-	api           *crossmodelrelations.CrossModelRelationsAPI
+	resources   *common.Resources
+	authorizer  *apiservertesting.FakeAuthorizer
+	st          *mockState
+	bakery      *mockBakeryService
+	authContext *commoncrossmodel.AuthContext
+	api         *crossmodelrelations.CrossModelRelationsAPI
 
 	watchedRelations       params.Entities
 	watchedOffers          []string
@@ -67,7 +66,6 @@ func (s *crossmodelRelationsSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.st = newMockState()
-	s.mockStatePool = &mockStatePool{map[string]commoncrossmodel.Backend{coretesting.ModelTag.Id(): s.st}}
 	fw := &mockFirewallState{}
 	egressAddressWatcher := func(_ facade.Resources, fws firewall.State, relations params.Entities) (params.StringsWatchResults, error) {
 		c.Assert(fw, gc.Equals, fws)
@@ -97,7 +95,7 @@ func (s *crossmodelRelationsSuite) SetUpTest(c *gc.C) {
 	}
 	var err error
 	thirdPartyKey := bakery.MustGenerateKey()
-	s.authContext, err = commoncrossmodel.NewAuthContext(s.mockStatePool, thirdPartyKey, s.bakery)
+	s.authContext, err = commoncrossmodel.NewAuthContext(s.st, thirdPartyKey, s.bakery)
 	c.Assert(err, jc.ErrorIsNil)
 	api, err := crossmodelrelations.NewCrossModelRelationsAPI(
 		s.st, fw, s.resources, s.authorizer,

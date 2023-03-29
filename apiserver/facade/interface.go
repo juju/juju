@@ -200,6 +200,10 @@ type Authorizer interface {
 	// target by the authenticated entity.
 	HasPermission(operation permission.Access, target names.Tag) (bool, error)
 
+	// EntityHasPermission reports whether the given access is allowed for the given
+	// target by the given entity.
+	EntityHasPermission(entity names.Tag, operation permission.Access, target names.Tag) (bool, error)
+
 	// ConnectedModel returns the UUID of the model to which the API
 	// connection was made.
 	ConnectedModel() string

@@ -208,16 +208,19 @@ func AssertHasPermission(c *gc.C, handler *apiHandler, access permission.Access,
 	c.Assert(hasPermission, gc.Equals, expect)
 }
 
-func CheckHasPermission(st *state.State, operation permission.Access, target names.Tag) (bool, error) {
-	if operation != permission.SuperuserAccess || target.Kind() != names.UserTagKind {
-		return false, errors.Errorf("%s is not a user", names.ReadableString(target))
+func CheckHasPermission(st *state.State, entity names.Tag, operation permission.Access, target names.Tag) (bool, error) {
+	if operation != permission.SuperuserAccess || entity.Kind() != names.UserTagKind {
+		return false, errors.Errorf("%s is not a user", names.ReadableString(entity))
 	}
-	isAdmin, err := st.IsControllerAdmin(target.(names.UserTag))
+	if target.Kind() != names.ControllerTagKind || target.Id() != st.ControllerUUID() {
+		return false, errors.Errorf("%s is not a valid controller", names.ReadableString(target))
+	}
+	isAdmin, err := st.IsControllerAdmin(entity.(names.UserTag))
 	if err != nil {
 		return false, err
 	}
 	if !isAdmin {
-		return false, errors.Errorf("%s is not a controller admin", names.ReadableString(target))
+		return false, errors.Errorf("%s is not a controller admin", names.ReadableString(entity))
 	}
 	return true, nil
 }

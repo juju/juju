@@ -179,8 +179,8 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 			}
 			return 0
 		},
-		HasPermissionFunc: func(operation permission.Access, target names.Tag) (bool, error) {
-			return apiserver.CheckHasPermission(s.State, operation, target)
+		EntityHasPermissionFunc: func(user names.Tag, operation permission.Access, target names.Tag) (bool, error) {
+			return apiserver.CheckHasPermission(s.State, user, operation, target)
 		},
 		SysLogger: noopSysLogger{},
 		DBGetter:  apiserver.StubDBGetter{},

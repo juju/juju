@@ -210,8 +210,8 @@ type ServerConfig struct {
 	// DBGetter supplies sql.DB references on request, for named databases.
 	DBGetter coredatabase.DBGetter
 
-	// HasPermissionFunc checks whether a target has the required permission.
-	HasPermissionFunc hasPermissionFunc
+	// EntityHasPermissionFunc checks whether a target has the required permission.
+	EntityHasPermissionFunc entityHasPermissionFunc
 }
 
 // Validate validates the API server configuration.
@@ -310,7 +310,7 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		logger:              loggo.GetLogger("juju.apiserver"),
 		charmhubHTTPClient:  cfg.CharmhubHTTPClient,
 		dbGetter:            cfg.DBGetter,
-		hasPermission:       cfg.HasPermissionFunc,
+		entityHasPermission: cfg.EntityHasPermissionFunc,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -807,7 +807,12 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		},
 	}
 
-	controllerAdminAuthorizer := controllerAdminAuthorizer{srv.shared.hasPermission}
+	controllerAdminAuthorizer := controllerAdminAuthorizer{
+		controllerTag: systemState.ControllerTag(),
+		entityHasPermission: func() entityHasPermissionFunc {
+			return srv.shared.entityHasPermission
+		},
+	}
 	migrateCharmsHandler := &charmsHandler{
 		ctxt:          httpCtxt,
 		dataDir:       srv.dataDir,
@@ -1110,7 +1115,8 @@ func (srv *Server) serveConn(
 	if err != nil {
 		conn.ServeRoot(&errRoot{errors.Trace(err)}, recorderFactory, serverError)
 	} else {
-		srv.shared.hasPermission = h.HasPermission
+		srv.offerAuthCtxt = srv.offerAuthCtxt.WithPermissionChecker(h.EntityHasPermission)
+		srv.shared.entityHasPermission = h.EntityHasPermission
 		// Set up the admin apis used to accept logins and direct
 		// requests to the relevant business facade.
 		// There may be more than one since we need a new API each

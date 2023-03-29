@@ -156,8 +156,8 @@ func (s *sharedServerContextSuite) newContext(c *gc.C) *sharedServerContext {
 	ctx, err := newSharedServerContext(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { ctx.Close() })
-	ctx.hasPermission = func(operation permission.Access, target names.Tag) (bool, error) {
-		return CheckHasPermission(s.State, operation, target)
+	ctx.entityHasPermission = func(entity names.Tag, operation permission.Access, target names.Tag) (bool, error) {
+		return CheckHasPermission(s.State, entity, operation, target)
 	}
 	return ctx
 }
