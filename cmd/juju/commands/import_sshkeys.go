@@ -31,8 +31,9 @@ command, where comments will indicate which ones were imported in
 this way.
 
 An alternative to this command is the more manual ` + "`juju add-ssh-key`" + `.
+`
 
-Examples:
+const usageImportSSHKeyExamples = `
 Import all public keys associated with user account 'phamilton' on the
 GitHub service:
 
@@ -40,11 +41,8 @@ GitHub service:
 
 Multiple identities may be specified in a space delimited list:
 
-juju import-ssh-key gh:rheinlein lp:iasmiov gh:hharrison
-
-See also: 
-    add-ssh-key
-    ssh-keys`
+    juju import-ssh-key gh:rheinlein lp:iasmiov gh:hharrison
+`
 
 // NewImportKeysCommand is used to add new authorized ssh keys to a model.
 func NewImportKeysCommand() cmd.Command {
@@ -61,10 +59,15 @@ type importKeysCommand struct {
 // Info implements Command.Info.
 func (c *importKeysCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "import-ssh-key",
-		Args:    "<lp|gh>:<user identity> ...",
-		Purpose: usageImportSSHKeySummary,
-		Doc:     usageImportSSHKeyDetails,
+		Name:     "import-ssh-key",
+		Args:     "<lp|gh>:<user identity> ...",
+		Purpose:  usageImportSSHKeySummary,
+		Doc:      usageImportSSHKeyDetails,
+		Examples: usageImportSSHKeyExamples,
+		SeeAlso: []string{
+			"add-ssh-key",
+			"ssh-keys",
+		},
 	})
 }
 
