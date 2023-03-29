@@ -25,12 +25,11 @@ Lists the firewall rules which control ingress to well known services
 within a Juju model.
 
 DEPRECATION WARNING: %v
+`
 
-Examples:
+const listRulesHelpExamples = `
     juju firewall-rules
-
-See also: 
-    set-firewall-rule`
+`
 
 // NewListFirewallRulesCommand returns a command to list firewall rules.
 func NewListFirewallRulesCommand() cmd.Command {
@@ -57,10 +56,14 @@ type listFirewallRulesCommand struct {
 // Info implements cmd.Command.
 func (c *listFirewallRulesCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "firewall-rules",
-		Purpose: listRulesHelpSummary,
-		Doc:     fmt.Sprintf(listRulesHelpDetails, deprecationWarning),
-		Aliases: []string{"list-firewall-rules"},
+		Name:     "firewall-rules",
+		Purpose:  listRulesHelpSummary,
+		Doc:      fmt.Sprintf(listRulesHelpDetails, deprecationWarning),
+		Aliases:  []string{"list-firewall-rules"},
+		Examples: listRulesHelpExamples,
+		SeeAlso: []string{
+			"set-firewall-rule",
+		},
 	})
 }
 
