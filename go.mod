@@ -149,6 +149,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sso v1.2.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.4.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
+	github.com/canonical/x-go v0.0.0-20230113154138-0ccdb0b57a43 // indirect
 	github.com/cenkalti/backoff/v3 v3.0.0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
 	github.com/creack/pty v1.1.15 // indirect
