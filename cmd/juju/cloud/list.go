@@ -65,28 +65,14 @@ var listCloudsDoc = "" +
 	"\n" +
 	"    Documentation:   https://juju.is/docs/olm/manage-clouds\n" +
 	"    microk8s:        https://microk8s.io/\n" +
-	"    LXD hypervisor:  https://linuxcontainers.org/lxd/\n" +
-	listCloudsDocExamples
+	"    LXD hypervisor:  https://linuxcontainers.org/lxd/\n"
 
 var listCloudsDocExamples = `
-Examples:
-
     juju clouds
     juju clouds --format yaml
     juju clouds --controller mycontroller 
     juju clouds --controller mycontroller --client
     juju clouds --client
-
-See also:
-    add-cloud
-    credentials
-    controllers
-    regions
-    default-credential
-    default-region
-    show-cloud
-    update-cloud
-    update-public-clouds
 `
 
 type ListCloudsAPI interface {
@@ -120,10 +106,22 @@ func (c *listCloudsCommand) cloudAPI() (ListCloudsAPI, error) {
 
 func (c *listCloudsCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "clouds",
-		Purpose: "Lists all clouds available to Juju.",
-		Doc:     listCloudsDoc,
-		Aliases: []string{"list-clouds"},
+		Name:     "clouds",
+		Purpose:  "Lists all clouds available to Juju.",
+		Doc:      listCloudsDoc,
+		Aliases:  []string{"list-clouds"},
+		Examples: listCloudsDocExamples,
+		SeeAlso: []string{
+			"add-cloud",
+			"credentials",
+			"controllers",
+			"regions",
+			"default-credential",
+			"default-region",
+			"show-cloud",
+			"update-cloud",
+			"update-public-clouds",
+		},
 	})
 }
 
