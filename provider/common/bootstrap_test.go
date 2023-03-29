@@ -299,7 +299,7 @@ func (s *BootstrapSuite) TestBootstrapSeriesWithForceAndInvalidFallback(c *gc.C)
 		SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
 		Force:                    true,
 	})
-	c.Assert(err, gc.ErrorMatches, "bootstrap instance series not valid")
+	c.Assert(err, gc.ErrorMatches, "bootstrap instance series \"\" not valid")
 }
 
 func (s *BootstrapSuite) TestStartInstanceDerivedZone(c *gc.C) {
