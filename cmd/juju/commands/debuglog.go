@@ -67,8 +67,9 @@ The filtering options combine as follows:
   --include-label and --exclude-label selections are logically ANDed to form
   the complete filter.
 
-Examples:
+`
 
+const usageDebugLogExamples = `
 Exclude all machine 0 messages; show a maximum of 100 lines; and continue to
 append filtered messages:
 
@@ -107,16 +108,18 @@ To see all WARNING and ERROR messages and then continue showing any
 new WARNING and ERROR messages as they are logged:
 
     juju debug-log --replay --level WARNING
-
-See also:
-    status
-    ssh`
+`
 
 func (c *debugLogCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "debug-log",
-		Purpose: usageDebugLogSummary,
-		Doc:     usageDebugLogDetails,
+		Name:     "debug-log",
+		Purpose:  usageDebugLogSummary,
+		Doc:      usageDebugLogDetails,
+		Examples: usageDebugLogExamples,
+		SeeAlso: []string{
+			"status",
+			"ssh",
+		},
 	})
 }
 
