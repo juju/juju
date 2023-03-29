@@ -45,10 +45,15 @@ func (c *enableCommand) Init(args []string) error {
 // Info implementsCommand.
 func (c *enableCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "enable-command",
-		Args:    "<command set>",
-		Purpose: "Enable commands that had been previously disabled.",
-		Doc:     enableDoc,
+		Name:     "enable-command",
+		Args:     "<command set>",
+		Purpose:  "Enable commands that had been previously disabled.",
+		Doc:      enableDoc,
+		Examples: enableExamples,
+		SeeAlso: []string{
+			"disable-command",
+			"disabled-commands",
+		},
 	})
 }
 
@@ -78,17 +83,18 @@ Disabled commands must be manually enabled to proceed.
 
 Some commands offer a --force option that can be used to bypass a block.
 ` + commandSets + `
-Examples:
-    # To allow the model to be destroyed:
+`
+
+const enableExamples = `
+To allow the model to be destroyed:
+
     juju enable-command destroy-model
 
-    # To allow the machines, applications, units and relations to be removed:
+To allow the machines, applications, units and relations to be removed:
+
     juju enable-command remove-object
 
-    # To allow changes to the model:
-    juju enable-command all
+To allow changes to the model:
 
-See also:
-    disable-command
-    disabled-commands
+    juju enable-command all
 `
