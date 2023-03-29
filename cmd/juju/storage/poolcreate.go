@@ -47,7 +47,7 @@ unless otherwise specified.
 
 `
 
-const examples = `
+const poolCreateCommandExamples = `
     juju create-storage-pool ebsrotary ebs volume-type=standard
     juju create-storage-pool gcepd storage-provisioner=kubernetes.io/gce-pd [storage-mode=RWX|RWO|ROX] parameters.type=pd-standard
 `
@@ -128,7 +128,7 @@ func (c *poolCreateCommand) Info() *cmd.Info {
 		Args:     "<name> <provider> [<key>=<value> [<key>=<value>...]]",
 		Purpose:  "Create or define a storage pool.",
 		Doc:      poolCreateCommandDoc,
-		Examples: examples,
+		Examples: poolCreateCommandExamples,
 		SeeAlso: []string{
 			"remove-storage-pool",
 			"update-storage-pool",
