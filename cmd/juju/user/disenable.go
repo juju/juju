@@ -19,28 +19,22 @@ var usageDisableUserDetails = `
 A disabled Juju user is one that cannot log in to any controller.
 This command has no affect on models that the disabled user may have
 created and/or shared nor any applications associated with that user.
+`[1:]
 
-Examples:
+const usageDisableUserExamples = `
     juju disable-user bob
-
-See also: 
-    users
-    enable-user
-    login`[1:]
+`
 
 var usageEnableUserSummary = `
 Re-enables a previously disabled Juju user.`[1:]
 
 var usageEnableUserDetails = `
 An enabled Juju user is one that can log in to a controller.
+`[1:]
 
-Examples:
+const usageEnableUserExamples = `
     juju enable-user bob
-
-See also: 
-    users
-    disable-user
-    login`[1:]
+`
 
 // disenableUserBase common code for enable/disable user commands
 type disenableUserBase struct {
@@ -70,20 +64,32 @@ type enableCommand struct {
 // Info implements Command.Info.
 func (c *disableCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "disable-user",
-		Args:    "<user name>",
-		Purpose: usageDisableUserSummary,
-		Doc:     usageDisableUserDetails,
+		Name:     "disable-user",
+		Args:     "<user name>",
+		Purpose:  usageDisableUserSummary,
+		Doc:      usageDisableUserDetails,
+		Examples: usageDisableUserExamples,
+		SeeAlso: []string{
+			"users",
+			"enable-user",
+			"login",
+		},
 	})
 }
 
 // Info implements Command.Info.
 func (c *enableCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "enable-user",
-		Args:    "<user name>",
-		Purpose: usageEnableUserSummary,
-		Doc:     usageEnableUserDetails,
+		Name:     "enable-user",
+		Args:     "<user name>",
+		Purpose:  usageEnableUserSummary,
+		Doc:      usageEnableUserDetails,
+		Examples: usageEnableUserExamples,
+		SeeAlso: []string{
+			"users",
+			"disable-user",
+			"login",
+		},
 	})
 }
 
