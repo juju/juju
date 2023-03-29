@@ -99,4 +99,7 @@ type BackendsClient interface {
 
 	// DeleteExternalContent deletes a secret from an external backend.
 	DeleteExternalContent(ref secrets.ValueRef) error
+
+	// GetBackend returns the secret client for the provided backend ID.
+	GetBackend(backendID *string) (provider.SecretsBackend, string, error)
 }

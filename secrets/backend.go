@@ -7,10 +7,13 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/secrets/provider"
 )
+
+var logger = loggo.GetLogger("juju.secrets")
 
 // PermissionDenied is returned when an api fails due to a permission issue.
 const PermissionDenied = errors.ConstError("permission denied")
@@ -46,33 +49,32 @@ func NewClient(jujuAPI JujuAPIClient) (*secretsClient, error) {
 	return c, nil
 }
 
-func (c *secretsClient) init() error {
+// GetBackend returns the secrets backend for the specified ID and the model's current active backend ID.
+func (c *secretsClient) GetBackend(backendID *string) (provider.SecretsBackend, string, error) {
+	logger.Criticalf("secretsClient.getBackend(%v)", backendID)
 	info, err := c.jujuAPI.GetSecretBackendConfig()
 	if err != nil {
-		return errors.Trace(err)
+		return nil, "", errors.Trace(err)
 	}
-	backends := make(map[string]provider.SecretsBackend)
-	for id, cfg := range info.Configs {
-		backends[id], err = GetBackend(&provider.ModelBackendConfig{
-			ControllerUUID: info.ControllerUUID,
-			ModelUUID:      info.ModelUUID,
-			ModelName:      info.ModelName,
-			BackendConfig:  cfg,
-		})
-		if err != nil {
-			return errors.Trace(err)
-		}
+	want := info.ActiveID
+	if backendID != nil {
+		want = *backendID
 	}
-	c.activeBackendID = info.ActiveID
-	c.backends = backends
-	return nil
+	cfg, ok := info.Configs[want]
+	if !ok {
+		return nil, "", errors.Errorf("secret backend %q missing from config", want)
+	}
+	b, err := GetBackend(&provider.ModelBackendConfig{
+		ControllerUUID: info.ControllerUUID,
+		ModelUUID:      info.ModelUUID,
+		ModelName:      info.ModelName,
+		BackendConfig:  cfg,
+	})
+	return b, info.ActiveID, errors.Trace(err)
 }
 
 // GetContent implements Client.
 func (c *secretsClient) GetContent(uri *secrets.URI, label string, refresh, peek bool) (secrets.SecretValue, error) {
-	if err := c.init(); err != nil {
-		return nil, errors.Trace(err)
-	}
 	lastBackendID := ""
 	for {
 		content, err := c.jujuAPI.GetContentInfo(uri, label, refresh, peek)
@@ -87,9 +89,9 @@ func (c *secretsClient) GetContent(uri *secrets.URI, label string, refresh, peek
 		}
 
 		backendID := content.ValueRef.BackendID
-		backend, ok := c.backends[backendID]
-		if !ok {
-			return nil, errors.NotFoundf("external secret backend %q", backendID)
+		backend, _, err := c.GetBackend(&backendID)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
 		val, err := backend.GetContent(context.TODO(), content.ValueRef.RevisionID)
 		if err == nil || !errors.Is(err, errors.NotFound) || lastBackendID == backendID {
@@ -100,40 +102,31 @@ func (c *secretsClient) GetContent(uri *secrets.URI, label string, refresh, peek
 		if backendID != c.activeBackendID {
 			continue
 		}
-		// The active backend may have changed.
-		if initErr := c.init(); initErr != nil {
-			return nil, errors.Trace(initErr)
-		}
-		if c.activeBackendID == backendID {
-			return nil, errors.Trace(err)
-		}
+		return nil, errors.Trace(err)
 	}
 }
 
 // SaveContent implements Client.
 func (c *secretsClient) SaveContent(uri *secrets.URI, revision int, value secrets.SecretValue) (secrets.ValueRef, error) {
-	if err := c.init(); err != nil {
+	activeBackend, activeBackendID, err := c.GetBackend(nil)
+	if err != nil {
+		if errors.Is(err, errors.NotFound) {
+			return secrets.ValueRef{}, errors.NotSupportedf("saving secret content to external backend")
+		}
 		return secrets.ValueRef{}, errors.Trace(err)
-	}
-	activeBackend := c.backends[c.activeBackendID]
-	if activeBackend == nil {
-		return secrets.ValueRef{}, errors.NotSupportedf("saving secret content to external backend")
 	}
 	revId, err := activeBackend.SaveContent(context.TODO(), uri, revision, value)
 	if err != nil {
 		return secrets.ValueRef{}, errors.Trace(err)
 	}
 	return secrets.ValueRef{
-		BackendID:  c.activeBackendID,
+		BackendID:  activeBackendID,
 		RevisionID: revId,
 	}, nil
 }
 
 // DeleteContent implements Client.
 func (c *secretsClient) DeleteContent(uri *secrets.URI, revision int) error {
-	if err := c.init(); err != nil {
-		return errors.Trace(err)
-	}
 	lastBackendID := ""
 	for {
 		content, err := c.jujuAPI.GetRevisionContentInfo(uri, revision, true)
@@ -161,23 +154,17 @@ func (c *secretsClient) DeleteContent(uri *secrets.URI, revision int) error {
 		if backendID != c.activeBackendID {
 			continue
 		}
-		// The active backend may have changed.
-		if initErr := c.init(); initErr != nil {
-			return errors.Trace(initErr)
-		}
-		if c.activeBackendID == backendID {
-			return errors.Trace(err)
-		}
+		return errors.Trace(err)
 	}
 }
 
 // DeleteExternalContent implements Client.
 func (c *secretsClient) DeleteExternalContent(ref secrets.ValueRef) error {
-	backend, ok := c.backends[ref.BackendID]
-	if !ok {
-		return errors.NotFoundf("external secret backend %q", ref.BackendID)
+	backend, _, err := c.GetBackend(&ref.BackendID)
+	if err != nil {
+		return errors.Trace(err)
 	}
-	err := backend.DeleteContent(context.TODO(), ref.RevisionID)
+	err = backend.DeleteContent(context.TODO(), ref.RevisionID)
 	if errors.Is(err, errors.NotFound) {
 		return nil
 	}
