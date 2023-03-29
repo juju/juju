@@ -310,6 +310,7 @@ func (c *Client) GetSecretsToMigrate() ([]coresecrets.SecretMetadataForMigration
 // UpdateSecretBackend updates the backend for the specified secret after migration done.
 func (c *Client) UpdateSecretBackend(uri *coresecrets.URI, revision int, backendID string) error {
 	// TODO: bulk update!!
+	// logger.Criticalf("TODO: updating secret backend for %q", uri)
 	return nil
 }
 
@@ -336,7 +337,7 @@ func (c *Client) WatchSecretsRotationChanges(ownerTags ...names.Tag) (watcher.Se
 func (c *Client) WatchSecretBackendChanged() (watcher.NotifyWatcher, error) {
 	var result params.NotifyWatchResult
 	if err := c.facade.FacadeCall("WatchSecretBackendChanged", nil, &result); err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	if result.Error != nil {
 		return nil, apiservererrors.RestoreError(result.Error)

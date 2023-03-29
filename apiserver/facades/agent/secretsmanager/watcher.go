@@ -8,7 +8,6 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 
-	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/state"
 )
 
@@ -38,7 +37,7 @@ func newSecretBackendModelConfigWatcher(modelConfigGetter ModelConfigState, src 
 		Work: w.loop,
 		Init: []worker.Worker{src},
 	})
-	return w, err
+	return w, errors.Trace(err)
 }
 
 func (w *secretBackendModelConfigWatcher) Kill() {
@@ -54,7 +53,7 @@ func (w *secretBackendModelConfigWatcher) Stop() error {
 	return w.Wait()
 }
 
-func (w *secretBackendModelConfigWatcher) Changes() corewatcher.NotifyChannel {
+func (w *secretBackendModelConfigWatcher) Changes() <-chan struct{} {
 	return w.out
 }
 
@@ -99,6 +98,7 @@ func (w *secretBackendModelConfigWatcher) isSecretBackendChanged() (bool, error)
 		return false, errors.Trace(err)
 	}
 	latest := modelConfig.SecretBackend()
+	logger.Criticalf("secretBackendModelConfigWatcher.isSecretBackendChanged(), current secret backend: %s, latest: %s", w.currentSecretBackend, latest)
 	if w.currentSecretBackend == latest {
 		return false, nil
 	}

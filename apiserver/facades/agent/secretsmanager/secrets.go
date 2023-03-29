@@ -769,14 +769,12 @@ func (s *SecretsManagerAPI) WatchSecretBackendChanged() (params.NotifyWatchResul
 	stateWatcher := s.modelConfigState.WatchForModelConfigChanges()
 	w, err := newSecretBackendModelConfigWatcher(s.modelConfigState, stateWatcher)
 	if err != nil {
-		return params.NotifyWatchResult{}, errors.Trace(err)
+		return params.NotifyWatchResult{Error: apiservererrors.ServerError(err)}, nil
 	}
 	if _, ok := <-w.Changes(); ok {
-		return params.NotifyWatchResult{
-			NotifyWatcherId: s.resources.Register(w),
-		}, nil
+		return params.NotifyWatchResult{NotifyWatcherId: s.resources.Register(w)}, nil
 	}
-	return params.NotifyWatchResult{}, watcher.EnsureErr(w)
+	return params.NotifyWatchResult{Error: apiservererrors.ServerError(watcher.EnsureErr(w))}, nil
 }
 
 // SecretsRotated records when secrets were last rotated.

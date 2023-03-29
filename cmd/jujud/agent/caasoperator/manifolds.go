@@ -45,6 +45,7 @@ import (
 	"github.com/juju/juju/worker/migrationminion"
 	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/retrystrategy"
+	"github.com/juju/juju/worker/secretmigrationworker"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/upgradesteps"
 )
@@ -306,6 +307,16 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:        loggo.GetLogger("juju.worker.caasunitsmanager"),
 			Hub:           config.LocalHub,
 		}),
+
+		// The secretMigrationWorker is worker that migrates secrets from the inactive backend to the current active backend.
+		secretMigrationWorker: secretmigrationworker.Manifold(secretmigrationworker.ManifoldConfig{
+			APICallerName:     apiCallerName,
+			Logger:            loggo.GetLogger("juju.worker.secretmigrationworker"),
+			Clock:             config.Clock,
+			NewFacade:         secretmigrationworker.NewClient,
+			NewWorker:         secretmigrationworker.NewWorker,
+			NewBackendsClient: secretmigrationworker.NewBackendsClient,
+		}),
 	}
 }
 
@@ -355,7 +366,8 @@ const (
 	loggingConfigUpdaterName = "logging-config-updater"
 	apiAddressUpdaterName    = "api-address-updater"
 
-	caasUnitsManager = "caas-units-manager"
+	caasUnitsManager      = "caas-units-manager"
+	secretMigrationWorker = "secret-migration-worker"
 )
 
 type noopStatusSetter struct{}

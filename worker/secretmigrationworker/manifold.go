@@ -74,6 +74,9 @@ func (cfg ManifoldConfig) start(context dependency.Context) (worker.Worker, erro
 		Facade: facade,
 		Logger: cfg.Logger,
 		Clock:  cfg.Clock,
+		SecretsBackendGetter: func() (jujusecrets.BackendsClient, error) {
+			return cfg.NewBackendsClient(secretsmanager.NewClient(apiCaller))
+		},
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

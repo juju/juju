@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/kr/pretty"
 
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/secrets/provider"
@@ -51,15 +52,16 @@ func NewClient(jujuAPI JujuAPIClient) (*secretsClient, error) {
 
 // GetBackend returns the secrets backend for the specified ID and the model's current active backend ID.
 func (c *secretsClient) GetBackend(backendID *string) (provider.SecretsBackend, string, error) {
-	logger.Criticalf("secretsClient.getBackend(%v)", backendID)
 	info, err := c.jujuAPI.GetSecretBackendConfig()
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
 	want := info.ActiveID
+	logger.Criticalf("secretsClient.getBackend(%+v), info.ActiveID %q", backendID, info.ActiveID)
 	if backendID != nil {
 		want = *backendID
 	}
+	logger.Warningf("secretsClient.getBackend(%+v), info.Configs -> %s", backendID, pretty.Sprint(info.Configs))
 	cfg, ok := info.Configs[want]
 	if !ok {
 		return nil, "", errors.Errorf("secret backend %q missing from config", want)

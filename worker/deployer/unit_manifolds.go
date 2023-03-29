@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/worker/migrationflag"
 	"github.com/juju/juju/worker/migrationminion"
 	"github.com/juju/juju/worker/retrystrategy"
+	"github.com/juju/juju/worker/secretmigrationworker"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/upgrader"
 )
@@ -276,6 +277,16 @@ func UnitManifolds(config UnitManifoldsConfig) dependency.Manifolds {
 			Logger:        config.LoggingContext.GetLogger("juju.worker.upgrader"),
 			Clock:         config.Clock,
 		}),
+
+		// The secretMigrationWorker is worker that migrates secrets from the inactive backend to the current active backend.
+		secretMigrationWorker: secretmigrationworker.Manifold(secretmigrationworker.ManifoldConfig{
+			APICallerName:     apiCallerName,
+			Logger:            loggo.GetLogger("juju.worker.secretmigrationworker"),
+			Clock:             config.Clock,
+			NewFacade:         secretmigrationworker.NewClient,
+			NewWorker:         secretmigrationworker.NewWorker,
+			NewBackendsClient: secretmigrationworker.NewBackendsClient,
+		}),
 	}
 }
 
@@ -309,4 +320,6 @@ const (
 	meterStatusName   = "meter-status"
 	metricCollectName = "metric-collect"
 	metricSenderName  = "metric-sender"
+
+	secretMigrationWorker = "secret-migration-worker"
 )

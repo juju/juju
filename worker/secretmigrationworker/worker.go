@@ -122,6 +122,12 @@ func (w *Worker) Wait() error {
 }
 
 func (w *Worker) loop() (err error) {
+	defer func() {
+		if err != nil {
+			w.config.Logger.Criticalf("secret migration worker loop failed: %v", err)
+		}
+	}()
+
 	watcher, err := w.config.Facade.WatchSecretBackendChanged()
 	if err != nil {
 		return errors.Trace(err)
@@ -133,7 +139,7 @@ func (w *Worker) loop() (err error) {
 	for {
 		select {
 		case <-w.catacomb.Dying():
-			return w.catacomb.ErrDying()
+			return errors.Trace(w.catacomb.ErrDying())
 		case _, ok := <-watcher.Changes():
 			if !ok {
 				return errors.New("secret backend changed watch closed")
@@ -143,6 +149,10 @@ func (w *Worker) loop() (err error) {
 			secrets, err := w.config.Facade.GetSecretsToMigrate()
 			if err != nil {
 				return errors.Trace(err)
+			}
+			if len(secrets) == 0 {
+				w.config.Logger.Criticalf("no secrets needs to be migrated")
+				continue
 			}
 			w.config.Logger.Criticalf("secrets that needs to be migrated: %+v", secrets)
 			backends, err := w.secretsBackends()
