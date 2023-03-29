@@ -42,9 +42,8 @@ removed by an operator.
 
 Detaching storage may fail but under some circumstances, Juju user may need 
 to force storage detachment despite operational errors. 
-
-
-Examples:
+`
+	detachStorageCommandExamples = `
     juju detach-storage pgdata/0
     juju detach-storage --force pgdata/0
 `
@@ -83,10 +82,11 @@ func (c *detachStorageCommand) SetFlags(f *gnuflag.FlagSet) {
 // Info implements Command.Info.
 func (c *detachStorageCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "detach-storage",
-		Purpose: "Detaches storage from units.",
-		Doc:     detachStorageCommandDoc,
-		Args:    detachStorageCommandArgs,
+		Name:     "detach-storage",
+		Purpose:  "Detaches storage from units.",
+		Doc:      detachStorageCommandDoc,
+		Args:     detachStorageCommandArgs,
+		Examples: detachStorageCommandExamples,
 	})
 }
 
