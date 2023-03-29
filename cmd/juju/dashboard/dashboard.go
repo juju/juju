@@ -103,7 +103,7 @@ func (c *dashboardCommand) Info() *cmd.Info {
 		Name:     "dashboard",
 		Purpose:  "Print the Juju Dashboard URL, or open the Juju Dashboard in the default browser.",
 		Doc:      dashboardDoc,
-		Examples: examples,
+		Examples: dashboardExamples,
 	})
 }
 
