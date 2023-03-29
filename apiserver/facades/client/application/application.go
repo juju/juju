@@ -429,7 +429,7 @@ func splitApplicationAndCharmConfigFromYAML(modelType state.ModelType, inYaml, a
 type caasDeployParams struct {
 	applicationName string
 	attachStorage   []string
-	charm           Charm
+	charm           CharmMeta
 	config          map[string]string
 	placement       []*instance.Placement
 	storage         map[string]storage.Constraints
@@ -2954,7 +2954,7 @@ func (api *APIBase) crossModelRelationData(rel Relation, appName string, erd *pa
 	return nil
 }
 
-func checkCAASMinVersion(ch Charm, caasVersion *version.Number) (err error) {
+func checkCAASMinVersion(ch CharmMeta, caasVersion *version.Number) (err error) {
 	// check caas min version.
 	charmDeployment := ch.Meta().Deployment
 	if caasVersion == nil || charmDeployment == nil || charmDeployment.MinVersion == "" {

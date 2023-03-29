@@ -9,6 +9,7 @@ import (
 	"github.com/juju/charm/v10/resource"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 
 	corecharm "github.com/juju/juju/core/charm"
@@ -30,6 +31,7 @@ type validatorSuite struct {
 	state       *MockDeployFromRepositoryState
 }
 
+var _ = gc.Suite(&deployRepositorySuite{})
 var _ = gc.Suite(&validatorSuite{})
 
 func (s *validatorSuite) TestValidateSuccess(c *gc.C) {
@@ -81,7 +83,6 @@ func (s *validatorSuite) TestValidateSuccess(c *gc.C) {
 		charmURL:        resultURL,
 		numUnits:        1,
 		origin:          resolvedOrigin,
-		storage:         map[string]state.StorageConstraints{},
 	})
 }
 
@@ -147,7 +148,6 @@ func (s *validatorSuite) TestValidatePlacementSuccess(c *gc.C) {
 		numUnits:        1,
 		origin:          resolvedOrigin,
 		placement:       arg.Placement,
-		storage:         map[string]state.StorageConstraints{},
 	})
 }
 
@@ -206,7 +206,6 @@ func (s *validatorSuite) TestValidateEndpointBindingSuccess(c *gc.C) {
 		endpoints:       endpointMap,
 		numUnits:        1,
 		origin:          resolvedOrigin,
-		storage:         map[string]state.StorageConstraints{},
 	})
 }
 
@@ -426,6 +425,7 @@ func (s *validatorSuite) TestCreateOriginChannel(c *gc.C) {
 func (s *validatorSuite) TestGetCharm(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectSimpleValidate()
+	s.state.EXPECT().ModelConstraints().Return(constraints.Value{}, nil)
 	// resolveCharm
 	curl := charm.MustParseURL("testcharm")
 	resultURL := charm.MustParseURL("ch:amd64/jammy/testcharm-4")
@@ -668,6 +668,60 @@ func (s *validatorSuite) TestAppCharmSettings(c *gc.C) {
 	c.Assert(charmConfig["optionTwo"], gc.DeepEquals, int64(8))
 }
 
+func (s *validatorSuite) TestCaasDeployFromRepositoryValidator(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectSimpleValidate()
+	// resolveCharm
+	curl := charm.MustParseURL("testcharm")
+	resultURL := charm.MustParseURL("ch:amd64/jammy/testcharm-4")
+	origin := corecharm.Origin{
+		Source:   "charm-hub",
+		Channel:  &charm.Channel{Risk: "stable"},
+		Platform: corecharm.Platform{Architecture: "amd64"},
+	}
+	resolvedOrigin := corecharm.Origin{
+		Source:   "charm-hub",
+		Type:     "charm",
+		Channel:  &charm.Channel{Track: "default", Risk: "stable"},
+		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04/stable"},
+		Revision: intptr(4),
+	}
+	supportedSeries := []string{"jammy", "focal"}
+	s.repo.EXPECT().ResolveWithPreferredChannel(curl, origin).Return(resultURL, resolvedOrigin, supportedSeries, nil)
+	// getCharm
+	expMeta := &charm.Meta{
+		Name: "test-charm",
+	}
+	expManifest := new(charm.Manifest)
+	expConfig := new(charm.Config)
+	essMeta := corecharm.EssentialMetadata{
+		Meta:           expMeta,
+		Manifest:       expManifest,
+		Config:         expConfig,
+		ResolvedOrigin: resolvedOrigin,
+	}
+	s.repo.EXPECT().GetEssentialMetadata(corecharm.MetadataRequest{
+		CharmURL: resultURL,
+		Origin:   resolvedOrigin,
+	}).Return([]corecharm.EssentialMetadata{essMeta}, nil)
+	s.state.EXPECT().ModelConstraints().Return(constraints.Value{Arch: strptr("arm64")}, nil)
+
+	arg := params.DeployFromRepositoryArg{
+		CharmName: "testcharm",
+	}
+
+	obtainedDT, errs := s.caasDeployFromRepositoryValidator(c).ValidateArg(arg)
+	c.Assert(errs, gc.HasLen, 0)
+	c.Logf("%s", pretty.Sprint(obtainedDT))
+	c.Assert(obtainedDT, gc.DeepEquals, deployTemplate{
+		applicationName: "test-charm",
+		charm:           corecharm.NewCharmInfoAdapter(essMeta),
+		charmURL:        resultURL,
+		numUnits:        1,
+		origin:          resolvedOrigin,
+	})
+}
+
 func (s *validatorSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.bindings = NewMockBindings(ctrl)
@@ -691,6 +745,18 @@ func (s *validatorSuite) getValidator() *deployFromRepositoryValidator {
 	}
 }
 
+func (s *validatorSuite) caasDeployFromRepositoryValidator(c *gc.C) caasDeployFromRepositoryValidator {
+	return caasDeployFromRepositoryValidator{
+		validator: s.getValidator(),
+		caasPrecheckFunc: func(dt deployTemplate) error {
+			// Do a quick check to ensure the expected deployTemplate
+			// has been passed.
+			c.Assert(dt.applicationName, gc.Equals, "test-charm")
+			return nil
+		},
+	}
+}
+
 func strptr(s string) *string {
 	return &s
 }
@@ -705,8 +771,6 @@ type deployRepositorySuite struct {
 	state       *MockDeployFromRepositoryState
 	validator   *MockDeployFromRepositoryValidator
 }
-
-var _ = gc.Suite(&deployRepositorySuite{})
 
 func (s *deployRepositorySuite) TestDeployFromRepositoryAPI(c *gc.C) {
 	defer s.setupMocks(c).Finish()
@@ -759,6 +823,7 @@ func (s *deployRepositorySuite) TestDeployFromRepositoryAPI(c *gc.C) {
 		NumUnits:         1,
 		Placement:        []*instance.Placement{{Directive: "0", Scope: instance.MachineScope}},
 		Resources:        map[string]string{},
+		Storage:          map[string]state.StorageConstraints{},
 	}
 	s.state.EXPECT().AddApplication(addApplicationArgsMatcher{c: c, expectedArgs: addAppArgs}).Return(s.application, nil)
 
@@ -879,6 +944,7 @@ func (s *deployRepositorySuite) TestAddPendingResourcesForDeployFromRepositoryAP
 		NumUnits:         1,
 		Placement:        []*instance.Placement{{Directive: "0", Scope: instance.MachineScope}},
 		Resources:        map[string]string{"foo-file": "3"},
+		Storage:          map[string]state.StorageConstraints{},
 	}
 	s.state.EXPECT().AddApplication(addApplicationArgsMatcher{c: c, expectedArgs: addAppArgs}).Return(s.application, nil)
 
@@ -971,6 +1037,7 @@ func (s *deployRepositorySuite) TestRemovePendingResourcesWhenDeployErrors(c *gc
 		NumUnits:         1,
 		Placement:        []*instance.Placement{{Directive: "0", Scope: instance.MachineScope}},
 		Resources:        map[string]string{"foo-file": "3"},
+		Storage:          map[string]state.StorageConstraints{},
 	}
 
 	s.state.EXPECT().RemovePendingResources("metadata-name", map[string]string{"foo-file": "3"})
@@ -990,7 +1057,7 @@ func (s *deployRepositorySuite) getDeployFromRepositoryAPI() *DeployFromReposito
 	return &DeployFromRepositoryAPI{
 		state:      s.state,
 		validator:  s.validator,
-		stateCharm: func(Charm) *state.Charm { return &state.Charm{} },
+		stateCharm: func(Charm) *state.Charm { return nil },
 	}
 }
 

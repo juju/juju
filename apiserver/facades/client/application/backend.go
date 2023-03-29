@@ -127,12 +127,17 @@ type Bindings interface {
 // details on the methods, see the methods on state.Charm with
 // the same names.
 type Charm interface {
+	CharmMeta
 	Config() *charm.Config
-	Manifest() *charm.Manifest
-	Meta() *charm.Meta
 	URL() *charm.URL
 	String() string
 	IsUploaded() bool
+}
+
+// CharmMeta describes methods that inform charm operation.
+type CharmMeta interface {
+	Manifest() *charm.Manifest
+	Meta() *charm.Meta
 }
 
 // Machine defines a subset of the functionality provided by the

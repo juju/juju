@@ -131,7 +131,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(arg params.DeployFromRe
 		Name:              dt.applicationName,
 		Charm:             api.stateCharm(ch),
 		CharmOrigin:       stOrigin,
-		Storage:           nil,
+		Storage:           stateStorageConstraints(dt.storage),
 		Devices:           nil,
 		AttachStorage:     nil,
 		EndpointBindings:  dt.endpoints,
@@ -207,6 +207,7 @@ func (api *DeployFromRepositoryAPI) addPendingResources(appName string, deployRe
 type deployTemplate struct {
 	applicationConfig *config.Config
 	applicationName   string
+	attachStorage     []string
 	charm             charm.Charm
 	charmSettings     charm.Settings
 	charmURL          *charm.URL
@@ -218,7 +219,7 @@ type deployTemplate struct {
 	origin            corecharm.Origin
 	placement         []*instance.Placement
 	resources         map[string]string
-	storage           map[string]state.StorageConstraints
+	storage           map[string]storage.Constraints
 }
 
 type validatorConfig struct {
@@ -248,6 +249,17 @@ func makeDeployFromRepositoryValidator(cfg validatorConfig) DeployFromRepository
 			registry:           cfg.registry,
 			storagePoolManager: cfg.storagePoolManager,
 			validator:          v,
+			caasPrecheckFunc: func(dt deployTemplate) error {
+				cdp := caasDeployParams{
+					applicationName: dt.applicationName,
+					attachStorage:   dt.attachStorage,
+					charm:           dt.charm,
+					config:          nil,
+					placement:       dt.placement,
+					storage:         dt.storage,
+				}
+				return cdp.precheck(v.model, cfg.storagePoolManager, cfg.registry, cfg.caasBroker)
+			},
 		}
 	}
 	return &iaasDeployFromRepositoryValidator{
@@ -297,12 +309,15 @@ func (v *deployFromRepositoryValidator) validate(arg params.DeployFromRepository
 		errs = append(errs, rcErrs...)
 	}
 
+	// TODO validate
+	// dt.attachStorage
+
 	dt.charmURL = charmURL
 	dt.dryRun = arg.DryRun
 	dt.force = arg.Force
 	dt.origin = resolvedOrigin
 	dt.placement = arg.Placement
-	dt.storage = stateStorageConstraints(arg.Storage)
+	dt.storage = arg.Storage
 	if len(arg.EndpointBindings) > 0 {
 		bindings, err := v.newStateBindings(v.state, arg.EndpointBindings)
 		if err != nil {
@@ -393,14 +408,23 @@ type caasDeployFromRepositoryValidator struct {
 	caasBroker         CaasBrokerInterface
 	registry           storage.ProviderRegistry
 	storagePoolManager poolmanager.PoolManager
+
+	// Needed for testing. caasDeployTemplate precheck funcationality tested
+	// elsewhere
+	caasPrecheckFunc func(deployTemplate) error
 }
 
 func (v caasDeployFromRepositoryValidator) ValidateArg(arg params.DeployFromRepositoryArg) (deployTemplate, []error) {
-	// TODO: NumUnits
-	// TODO: Storage
 	dt, errs := v.validator.validate(arg)
 	if corecharm.IsKubernetes(dt.charm) && charm.MetaFormat(dt.charm) == charm.FormatV1 {
 		deployRepoLogger.Debugf("DEPRECATED: %q is a podspec charm, which will be removed in a future release", arg.CharmName)
+	}
+	// TODO
+	// Convert dt.applicationConfig from Config to a map[string]string.
+	// Config across the wire as a map[string]string no longer exists for
+	// deploy. How to get the caas provider config here?
+	if err := v.caasPrecheckFunc(dt); err != nil {
+		errs = append(errs, err)
 	}
 	return dt, errs
 }
