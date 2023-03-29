@@ -545,7 +545,7 @@ func (s *cloudSuite) TestUpdateNonExistentCloud(c *gc.C) {
 }
 
 func (s *cloudSuite) TestListCloudInfo(c *gc.C) {
-	fredTag := names.NewUserTag("fred")
+	fredTag := names.NewUserTag("admin")
 	defer s.setup(c, fredTag).Finish()
 
 	cloudInfo := []state.CloudInfo{
@@ -563,7 +563,7 @@ func (s *cloudSuite) TestListCloudInfo(c *gc.C) {
 	ctrlBackend.CloudsForUser(fredTag, true).Return(cloudInfo, nil)
 
 	result, err := s.api.ListCloudInfo(params.ListCloudsRequest{
-		UserTag: "user-fred",
+		UserTag: "user-admin",
 		All:     true,
 	})
 	c.Assert(err, jc.ErrorIsNil)

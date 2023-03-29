@@ -642,7 +642,7 @@ func (m *ModelManagerAPI) ListModelSummaries(req params.ModelSummariesRequest) (
 		return result, errors.Trace(err)
 	}
 
-	modelInfos, err := m.state.ModelSummariesForUser(userTag, req.All)
+	modelInfos, err := m.state.ModelSummariesForUser(userTag, req.All && m.isAdmin)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -731,7 +731,7 @@ func (m *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList, 
 		return result, errors.Trace(err)
 	}
 
-	modelInfos, err := m.state.ModelBasicInfoForUser(userTag)
+	modelInfos, err := m.state.ModelBasicInfoForUser(userTag, m.isAdmin)
 	if err != nil {
 		return result, errors.Trace(err)
 	}

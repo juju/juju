@@ -35,9 +35,8 @@ type ModelManagerBackend interface {
 	state.CloudAccessor
 
 	ModelUUID() string
-	ModelUUIDsForUser(names.UserTag) ([]string, error)
-	ModelBasicInfoForUser(user names.UserTag) ([]state.ModelAccessInfo, error)
-	ModelSummariesForUser(user names.UserTag, all bool) ([]state.ModelSummary, error)
+	ModelBasicInfoForUser(user names.UserTag, isSuperuser bool) ([]state.ModelAccessInfo, error)
+	ModelSummariesForUser(user names.UserTag, isSupersser bool) ([]state.ModelSummary, error)
 	IsControllerAdmin(user names.UserTag) (bool, error)
 	NewModel(state.ModelArgs) (Model, ModelManagerBackend, error)
 	Model() (Model, error)

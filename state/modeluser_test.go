@@ -445,7 +445,7 @@ func (s *ModelUserSuite) TestModelBasicInfoForUser(c *gc.C) {
 	model := s.newModelWithUser(c, user.UserTag(), state.ModelTypeIAAS)
 	model2 := s.newModelWithUser(c, user.UserTag(), state.ModelTypeCAAS)
 
-	models, err := s.State.ModelBasicInfoForUser(user.UserTag())
+	models, err := s.State.ModelBasicInfoForUser(user.UserTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(models, jc.SameContents, []state.ModelAccessInfo{
 		{

@@ -85,6 +85,7 @@ func (p *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 	p.ctrlBackend.EXPECT().Model().Return(mockModel, nil)
 	p.pool.EXPECT().GetModelCallContext(coretesting.ModelTag.Id()).Return(p.credcommonPersistentBackend,
 		context.NewEmptyCloudCallContext(), nil)
+	p.backend.EXPECT().ControllerTag().Return(coretesting.ControllerTag)
 
 	api, err := cloudfacade.NewCloudAPI(p.backend, p.ctrlBackend, p.pool, p.authorizer)
 	c.Assert(err, jc.ErrorIsNil)

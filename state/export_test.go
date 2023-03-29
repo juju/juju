@@ -1093,10 +1093,6 @@ func ModelBackendFromStorageBackend(sb *StorageBackend) modelBackend {
 	return sb.mb
 }
 
-func (st *State) IsUserSuperuser(user names.UserTag) (bool, error) {
-	return st.isUserSuperuser(user)
-}
-
 func (st *State) ModelQueryForUser(user names.UserTag, isSuperuser bool) (mongo.Query, SessionCloser, error) {
 	return st.modelQueryForUser(user, isSuperuser)
 }
