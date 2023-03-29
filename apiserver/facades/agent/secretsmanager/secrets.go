@@ -42,6 +42,7 @@ type SecretsManagerAPI struct {
 
 	backendConfigGetter commonsecrets.BackendConfigGetter
 	adminConfigGetter   commonsecrets.BackendConfigGetter
+	modelConfigState    ModelConfigState
 }
 
 // GetSecretStoreConfig is for 3.0.x agents.
@@ -338,10 +339,11 @@ func (s *SecretsManagerAPI) getSecretConsumerInfo(consumerTag names.Tag, uriStr 
 	return consumer, nil
 }
 
-// GetSecretMetadata returns metadata for the caller's secrets.
-func (s *SecretsManagerAPI) GetSecretMetadata() (params.ListSecretResults, error) {
+func (s *SecretsManagerAPI) getSecretMetadata(
+	filter func(*coresecrets.SecretMetadata, *coresecrets.SecretRevisionMetadata) bool,
+) (params.ListSecretResults, error) {
 	var result params.ListSecretResults
-	filter := state.SecretsFilter{
+	listFilter := state.SecretsFilter{
 		OwnerTags: []names.Tag{s.authTag},
 	}
 	// Unit leaders can also get metadata for secrets owned by the app.
@@ -352,16 +354,15 @@ func (s *SecretsManagerAPI) GetSecretMetadata() (params.ListSecretResults, error
 	}
 	if isLeader {
 		appOwner := names.NewApplicationTag(authTagApp(s.authTag))
-		filter.OwnerTags = append(filter.OwnerTags, appOwner)
+		listFilter.OwnerTags = append(listFilter.OwnerTags, appOwner)
 	}
 
-	secrets, err := s.secretsState.ListSecrets(filter)
+	secrets, err := s.secretsState.ListSecrets(listFilter)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	result.Results = make([]params.ListSecretResult, len(secrets))
-	for i, md := range secrets {
-		result.Results[i] = params.ListSecretResult{
+	for _, md := range secrets {
+		secretResult := params.ListSecretResult{
 			URI:              md.URI.String(),
 			Version:          md.Version,
 			OwnerTag:         md.OwnerTag,
@@ -379,6 +380,9 @@ func (s *SecretsManagerAPI) GetSecretMetadata() (params.ListSecretResults, error
 			return params.ListSecretResults{}, errors.Trace(err)
 		}
 		for _, r := range revs {
+			if filter != nil && !filter(md, r) {
+				continue
+			}
 			var valueRef *params.SecretValueRef
 			if r.ValueRef != nil {
 				valueRef = &params.SecretValueRef{
@@ -386,13 +390,43 @@ func (s *SecretsManagerAPI) GetSecretMetadata() (params.ListSecretResults, error
 					RevisionID: r.ValueRef.RevisionID,
 				}
 			}
-			result.Results[i].Revisions = append(result.Results[i].Revisions, params.SecretRevision{
+			secretResult.Revisions = append(secretResult.Revisions, params.SecretRevision{
 				Revision: r.Revision,
 				ValueRef: valueRef,
 			})
 		}
+		if len(secretResult.Revisions) == 0 {
+			continue
+		}
+		result.Results = append(result.Results, secretResult)
 	}
 	return result, nil
+}
+
+// GetSecretMetadata returns metadata for the caller's secrets.
+func (s *SecretsManagerAPI) GetSecretMetadata() (params.ListSecretResults, error) {
+	return s.getSecretMetadata(nil)
+}
+
+// GetSecretsToMigrate returns metadata for the secrets that need to be migrated.
+func (s *SecretsManagerAPI) GetSecretsToMigrate() (params.ListSecretResults, error) {
+	modelConfig, err := s.modelConfigState.ModelConfig()
+	if err != nil {
+		return params.ListSecretResults{}, errors.Trace(err)
+	}
+	activeBackend := modelConfig.SecretBackend()
+	return s.getSecretMetadata(func(md *coresecrets.SecretMetadata, rev *coresecrets.SecretRevisionMetadata) bool {
+		if rev.ValueRef == nil {
+			return false
+		}
+		return rev.ValueRef.BackendID != activeBackend
+	})
+}
+
+// UpdateSecretBackend updates the backend for the specified secret after migration done.
+func (s *SecretsManagerAPI) UpdateSecretBackend(uri *coresecrets.URI, revision int, backendID string) error {
+	// TODO:
+	return nil
 }
 
 // GetSecretContentInfo returns the secret values for the specified secrets.
@@ -728,6 +762,21 @@ func (s *SecretsManagerAPI) WatchSecretsRotationChanges(args params.Entities) (p
 		result.Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
+}
+
+// WatchSecretBackendChanged sets up a watcher to notify of changes to the secret backend.
+func (s *SecretsManagerAPI) WatchSecretBackendChanged() (params.NotifyWatchResult, error) {
+	stateWatcher := s.modelConfigState.WatchForModelConfigChanges()
+	w, err := newSecretBackendModelConfigWatcher(s.modelConfigState, stateWatcher)
+	if err != nil {
+		return params.NotifyWatchResult{}, errors.Trace(err)
+	}
+	if _, ok := <-w.Changes(); ok {
+		return params.NotifyWatchResult{
+			NotifyWatcherId: s.resources.Register(w),
+		}, nil
+	}
+	return params.NotifyWatchResult{}, watcher.EnsureErr(w)
 }
 
 // SecretsRotated records when secrets were last rotated.
