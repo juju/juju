@@ -77,18 +77,15 @@ generation.
 
 Specifying a base will retrieve the bundle for the relevant store for
 the give base.
+`
 
-Examples:
-
+const bundleDiffExamples = `
     juju diff-bundle localbundle.yaml
     juju diff-bundle charmed-kubernetes
     juju diff-bundle charmed-kubernetes --overlay local-config.yaml --overlay extra.yaml
 	juju diff-bundle charmed-kubernetes --base ubuntu@22.04
     juju diff-bundle -m othermodel hadoop-spark
     juju diff-bundle localbundle.yaml --map-machines 3=4
-
-See also:
-    deploy
 `
 
 // NewDiffBundleCommand returns a command to compare a bundle against
@@ -147,10 +144,14 @@ func (c *diffBundleCommand) AllowInterspersedFlags() bool { return true }
 // Info is part of cmd.Command.
 func (c *diffBundleCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "diff-bundle",
-		Args:    "<bundle file or name>",
-		Purpose: "Compare a bundle with a model and report any differences.",
-		Doc:     bundleDiffDoc,
+		Name:     "diff-bundle",
+		Args:     "<bundle file or name>",
+		Purpose:  "Compare a bundle with a model and report any differences.",
+		Doc:      bundleDiffDoc,
+		Examples: bundleDiffExamples,
+		SeeAlso: []string{
+			"deploy",
+		},
 	})
 }
 
