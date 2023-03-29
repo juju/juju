@@ -236,49 +236,81 @@ func (c *Client) GetConsumerSecretsRevisionInfo(unitName string, uris []string) 
 	return info, err
 }
 
+func processListSecretResult(info params.ListSecretResult) (out coresecrets.SecretMetadata, _ error) {
+	uri, err := coresecrets.ParseURI(info.URI)
+	if err != nil {
+		return out, errors.NotValidf("secret URI %q", info.URI)
+	}
+	return coresecrets.SecretMetadata{
+		URI:              uri,
+		OwnerTag:         info.OwnerTag,
+		Description:      info.Description,
+		Label:            info.Label,
+		RotatePolicy:     coresecrets.RotatePolicy(info.RotatePolicy),
+		LatestRevision:   info.LatestRevision,
+		LatestExpireTime: info.LatestExpireTime,
+		NextRotateTime:   info.NextRotateTime,
+	}, nil
+}
+
 // SecretMetadata returns metadata for the specified secrets.
-func (c *Client) SecretMetadata(filter coresecrets.Filter) ([]coresecrets.SecretOwnerMetadata, error) {
-	arg := params.ListSecretsArgs{
-		Filter: params.SecretsFilter{
-			OwnerTag: filter.OwnerTag,
-			Revision: filter.Revision,
-		},
-	}
-	if filter.URI != nil {
-		uri := filter.URI.String()
-		arg.Filter.URI = &uri
-	}
+func (c *Client) SecretMetadata() ([]coresecrets.SecretOwnerMetadata, error) {
 	var results params.ListSecretResults
-	err := c.facade.FacadeCall("GetSecretMetadata", arg, &results)
+	err := c.facade.FacadeCall("GetSecretMetadata", nil, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var result []coresecrets.SecretOwnerMetadata
-	for _, info := range results.Results {
-		uri, err := coresecrets.ParseURI(info.URI)
+	out := make([]coresecrets.SecretOwnerMetadata, len(results.Results))
+	for i, info := range results.Results {
+		md, err := processListSecretResult(info)
 		if err != nil {
-			return nil, errors.NotValidf("secret URI %q", info.URI)
-		}
-		md := coresecrets.SecretMetadata{
-			URI:              uri,
-			OwnerTag:         info.OwnerTag,
-			Description:      info.Description,
-			Label:            info.Label,
-			RotatePolicy:     coresecrets.RotatePolicy(info.RotatePolicy),
-			LatestRevision:   info.LatestRevision,
-			LatestExpireTime: info.LatestExpireTime,
-			NextRotateTime:   info.NextRotateTime,
+			return nil, errors.Trace(err)
 		}
 		revisions := make([]int, len(info.Revisions))
 		for i, r := range info.Revisions {
 			revisions[i] = r.Revision
 		}
-		result = append(result, coresecrets.SecretOwnerMetadata{
-			Metadata:  md,
-			Revisions: revisions,
-		})
+		out[i] = coresecrets.SecretOwnerMetadata{Metadata: md, Revisions: revisions}
 	}
-	return result, nil
+	return out, nil
+}
+
+// GetSecretsToMigrate returns metadata for the secrets that need to be migrated.
+func (c *Client) GetSecretsToMigrate() ([]coresecrets.SecretMetadataForMigration, error) {
+	var results params.ListSecretResults
+	err := c.facade.FacadeCall("GetSecretsToMigrate", nil, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	out := make([]coresecrets.SecretMetadataForMigration, len(results.Results))
+	for i, info := range results.Results {
+		md, err := processListSecretResult(info)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		revisions := make([]coresecrets.SecretRevisionMetadata, len(info.Revisions))
+		for i, r := range info.Revisions {
+			revisions[i] = coresecrets.SecretRevisionMetadata{
+				Revision: r.Revision,
+				ValueRef: &coresecrets.ValueRef{
+					BackendID:  r.ValueRef.BackendID,
+					RevisionID: r.ValueRef.RevisionID,
+				},
+				BackendName: r.BackendName,
+				CreateTime:  r.CreateTime,
+				UpdateTime:  r.UpdateTime,
+				ExpireTime:  r.ExpireTime,
+			}
+		}
+		out[i] = coresecrets.SecretMetadataForMigration{Metadata: md, Revisions: revisions}
+	}
+	return out, nil
+}
+
+// UpdateSecretBackend updates the backend for the specified secret after migration done.
+func (c *Client) UpdateSecretBackend(uri *coresecrets.URI, revision int, backendID string) error {
+	// TODO: bulk update!!
+	return nil
 }
 
 // WatchSecretsRotationChanges returns a watcher which serves changes to
@@ -297,6 +329,19 @@ func (c *Client) WatchSecretsRotationChanges(ownerTags ...names.Tag) (watcher.Se
 		return nil, result.Error
 	}
 	w := apiwatcher.NewSecretsTriggerWatcher(c.facade.RawAPICaller(), result)
+	return w, nil
+}
+
+// WatchSecretBackendChanged sets up a watcher to notify of changes to the secret backend.
+func (c *Client) WatchSecretBackendChanged() (watcher.NotifyWatcher, error) {
+	var result params.NotifyWatchResult
+	if err := c.facade.FacadeCall("WatchSecretBackendChanged", nil, &result); err != nil {
+		return nil, err
+	}
+	if result.Error != nil {
+		return nil, apiservererrors.RestoreError(result.Error)
+	}
+	w := apiwatcher.NewNotifyWatcher(c.facade.RawAPICaller(), result)
 	return w, nil
 }
 

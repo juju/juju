@@ -39500,6 +39500,15 @@
                     },
                     "description": "GetSecretStoreConfig is for 3.0.x agents.\nTODO(wallyworld) - remove when we auto upgrade migrated models."
                 },
+                "GetSecretsToMigrate": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/ListSecretResults"
+                        }
+                    },
+                    "description": "GetSecretsToMigrate returns metadata for the secrets that need to be migrated."
+                },
                 "RemoveSecrets": {
                     "type": "object",
                     "properties": {
@@ -39583,6 +39592,15 @@
                         }
                     },
                     "description": "WatchObsolete returns a watcher for notifying when:\n  - a secret owned by the entity is deleted\n  - a secret revision owed by the entity no longer\n    has any consumers\n\nObsolete revisions results are \"uri/revno\" and deleted\nsecret results are \"uri\"."
+                },
+                "WatchSecretBackendChanged": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/NotifyWatchResult"
+                        }
+                    },
+                    "description": "WatchSecretBackendChanged sets up a watcher to notify of changes to the secret backend."
                 },
                 "WatchSecretRevisionsExpiryChanges": {
                     "type": "object",
@@ -39961,6 +39979,21 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "NotifyWatchResult": {
+                    "type": "object",
+                    "properties": {
+                        "NotifyWatcherId": {
+                            "type": "string"
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "NotifyWatcherId"
                     ]
                 },
                 "SecretBackendConfig": {
@@ -45261,6 +45294,15 @@
                     },
                     "description": "GetSecretStoreConfig is for 3.0.x agents.\nTODO(wallyworld) - remove when we auto upgrade migrated models."
                 },
+                "GetSecretsToMigrate": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/ListSecretResults"
+                        }
+                    },
+                    "description": "GetSecretsToMigrate returns metadata for the secrets that need to be migrated."
+                },
                 "GoalStates": {
                     "type": "object",
                     "properties": {
@@ -45970,6 +46012,15 @@
                         }
                     },
                     "description": "WatchRelationUnits returns a RelationUnitsWatcher for observing\nchanges to every unit in the supplied relation that is visible to\nthe supplied unit. See also state/watcher.go:RelationUnit.Watch()."
+                },
+                "WatchSecretBackendChanged": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/NotifyWatchResult"
+                        }
+                    },
+                    "description": "WatchSecretBackendChanged sets up a watcher to notify of changes to the secret backend."
                 },
                 "WatchSecretRevisionsExpiryChanges": {
                     "type": "object",

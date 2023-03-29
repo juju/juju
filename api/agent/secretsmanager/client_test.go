@@ -226,9 +226,7 @@ func (s *SecretsSuite) TestGetSecretMetadata(c *gc.C) {
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
 		c.Check(request, gc.Equals, "GetSecretMetadata")
-		c.Check(arg, jc.DeepEquals, params.ListSecretsArgs{
-			Filter: params.SecretsFilter{OwnerTag: ptr("application-mariadb")},
-		})
+		c.Check(arg, gc.IsNil)
 		c.Assert(result, gc.FitsTypeOf, &params.ListSecretResults{})
 		*(result.(*params.ListSecretResults)) = params.ListSecretResults{
 			Results: []params.ListSecretResult{{
@@ -252,9 +250,7 @@ func (s *SecretsSuite) TestGetSecretMetadata(c *gc.C) {
 		return nil
 	})
 	client := secretsmanager.NewClient(apiCaller)
-	result, err := client.SecretMetadata(coresecrets.Filter{
-		OwnerTag: ptr("application-mariadb"),
-	})
+	result, err := client.SecretMetadata()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.HasLen, 1)
 	for _, info := range result {
