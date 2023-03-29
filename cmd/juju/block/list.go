@@ -62,7 +62,7 @@ func (c *listCommand) Info() *cmd.Info {
 		Aliases: []string{"list-disabled-commands"},
 		SeeAlso: []string{
 			"disable-command",
-			"enable-command",		
+			"enable-command",
 		},
 	})
 }
