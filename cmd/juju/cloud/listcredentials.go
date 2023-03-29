@@ -74,7 +74,7 @@ Use --client option to list credentials known locally on this client.
 
 `
 
-const examples = `
+const usageListCredentialsExamples = `
     juju credentials
     juju credentials aws
     juju credentials aws --client
@@ -171,7 +171,7 @@ func (c *listCredentialsCommand) Info() *cmd.Info {
 		Purpose:  usageListCredentialsSummary,
 		Doc:      usageListCredentialsDetails,
 		Aliases:  []string{"list-credentials"},
-		Examples: examples,
+		Examples: usageListCredentialsExamples,
 		SeeAlso: []string{
 			"add-credential",
 			"update-credential",
