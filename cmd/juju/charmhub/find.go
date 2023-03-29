@@ -21,13 +21,9 @@ const (
 	findSummary = "Queries the CharmHub store for available charms or bundles."
 	findDoc     = `
 The find command queries the CharmHub store for available charms or bundles.
-
-Examples:
+`
+	findExamples = `
     juju find wordpress
-
-See also:
-    info
-    download
 `
 )
 
@@ -58,10 +54,15 @@ type findCommand struct {
 // part of the cmd.Command interface.
 func (c *findCommand) Info() *cmd.Info {
 	info := &cmd.Info{
-		Name:    "find",
-		Args:    "[options] <query>",
-		Purpose: findSummary,
-		Doc:     findDoc,
+		Name:     "find",
+		Args:     "[options] <query>",
+		Purpose:  findSummary,
+		Doc:      findDoc,
+		Examples: findExamples,
+		SeeAlso: []string{
+			"info",
+			"download",
+		},
 	}
 	return jujucmd.Info(info)
 }
