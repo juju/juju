@@ -123,11 +123,9 @@ func (s *ModelSummariesSuite) Setup4Models(c *gc.C) map[string]string {
 	return modelUUIDs
 }
 
-func (s *ModelSummariesSuite) modelNamesForUser(c *gc.C, user string) []string {
+func (s *ModelSummariesSuite) modelNamesForUser(c *gc.C, user string, isSuperuser bool) []string {
 	tag := names.NewUserTag(user)
-	isSuper, err := s.State.IsUserSuperuser(tag)
-	c.Assert(err, jc.ErrorIsNil)
-	modelQuery, closer, err := s.State.ModelQueryForUser(tag, isSuper)
+	modelQuery, closer, err := s.State.ModelQueryForUser(tag, isSuperuser)
 	defer closer()
 	c.Assert(err, jc.ErrorIsNil)
 	var docs []struct {
@@ -146,7 +144,7 @@ func (s *ModelSummariesSuite) modelNamesForUser(c *gc.C, user string) []string {
 
 func (s *ModelSummariesSuite) TestModelsForUserAdmin(c *gc.C) {
 	s.Setup4Models(c)
-	names := s.modelNamesForUser(c, s.Model.Owner().Name())
+	names := s.modelNamesForUser(c, s.Model.Owner().Name(), true)
 	// Admin always gets to see all models
 	c.Check(names, gc.DeepEquals, []string{"shared", "testmodel", "user1model", "user2model", "user3model"})
 }
@@ -196,21 +194,21 @@ func (s *ModelSummariesSuite) TestModelsForSuperuserWithAll(c *gc.C) {
 func (s *ModelSummariesSuite) TestModelsForUser1(c *gc.C) {
 	// User1 is only added to the model they own and the shared model as write
 	s.Setup4Models(c)
-	names := s.modelNamesForUser(c, "user1write")
+	names := s.modelNamesForUser(c, "user1write", false)
 	c.Check(names, gc.DeepEquals, []string{"shared", "user1model"})
 }
 
 func (s *ModelSummariesSuite) TestModelsForUser2(c *gc.C) {
 	// User2 is only added to the model they own and the shared model as read
 	s.Setup4Models(c)
-	names := s.modelNamesForUser(c, "user2read")
+	names := s.modelNamesForUser(c, "user2read", false)
 	c.Check(names, gc.DeepEquals, []string{"shared", "user2model"})
 }
 
 func (s *ModelSummariesSuite) TestModelsForUser3(c *gc.C) {
 	// User2 is only added to the model they own and the shared model as admin
 	s.Setup4Models(c)
-	names := s.modelNamesForUser(c, "user3admin")
+	names := s.modelNamesForUser(c, "user3admin", false)
 	c.Check(names, gc.DeepEquals, []string{"shared", "user3model"})
 }
 
@@ -237,10 +235,10 @@ func (s *ModelSummariesSuite) TestModelsForIgnoresImportingModels(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Since the new model is importing, when we do the list we shouldn't see it.
-	names := s.modelNamesForUser(c, "user3admin")
+	names := s.modelNamesForUser(c, "user3admin", false)
 	c.Check(names, gc.DeepEquals, []string{"shared", "user3model"})
 	// Superuser doesn't see importing models, either
-	names = s.modelNamesForUser(c, s.Model.Owner().Name())
+	names = s.modelNamesForUser(c, s.Model.Owner().Name(), true)
 	c.Check(names, gc.DeepEquals, []string{"shared", "testmodel", "user1model", "user2model", "user3model"})
 }
 

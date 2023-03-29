@@ -879,13 +879,13 @@ func (st *mockState) UserAccess(tag names.UserTag, target names.Tag) (permission
 	return permission.UserAccess{}, st.NextErr()
 }
 
-func (st *mockState) ModelSummariesForUser(user names.UserTag, all bool) ([]state.ModelSummary, error) {
-	st.MethodCall(st, "ModelSummariesForUser", user, all)
+func (st *mockState) ModelSummariesForUser(user names.UserTag, isSuperuser bool) ([]state.ModelSummary, error) {
+	st.MethodCall(st, "ModelSummariesForUser", user, isSuperuser)
 	return st.modelDetailsForUser()
 }
 
-func (st *mockState) ModelBasicInfoForUser(user names.UserTag) ([]state.ModelAccessInfo, error) {
-	st.MethodCall(st, "ModelBasicInfoForUser", user)
+func (st *mockState) ModelBasicInfoForUser(user names.UserTag, isSuperuser bool) ([]state.ModelAccessInfo, error) {
+	st.MethodCall(st, "ModelBasicInfoForUser", user, isSuperuser)
 	return []state.ModelAccessInfo{}, st.NextErr()
 }
 

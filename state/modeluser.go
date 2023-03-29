@@ -155,30 +155,8 @@ func (st *State) removeModelUser(user names.UserTag) error {
 	return nil
 }
 
-// isUserSuperuser if this user has the Superuser access on the controller.
-func (st *State) isUserSuperuser(user names.UserTag) (bool, error) {
-	access, err := st.UserAccess(user, st.controllerTag)
-	if err != nil {
-		// TODO(jam): 2017-11-27 We weren't suppressing NotFound here so that we would know when someone asked for
-		// the list of models of a user that doesn't exist.
-		// However, now we will not even check if its a known user if they aren't asking for all=true.
-		return false, errors.Trace(err)
-	}
-	isControllerSuperuser := (access.Access == permission.SuperuserAccess)
-	return isControllerSuperuser, nil
-}
-
-func (st *State) ModelSummariesForUser(user names.UserTag, all bool) ([]ModelSummary, error) {
-	// We only treat the user as a superuser if they pass --all
-	isControllerSuperuser := false
-	if all {
-		var err error
-		isControllerSuperuser, err = st.isUserSuperuser(user)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	modelQuery, closer, err := st.modelQueryForUser(user, isControllerSuperuser)
+func (st *State) ModelSummariesForUser(user names.UserTag, isSuperuser bool) ([]ModelSummary, error) {
+	modelQuery, closer, err := st.modelQueryForUser(user, isSuperuser)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -187,7 +165,7 @@ func (st *State) ModelSummariesForUser(user names.UserTag, all bool) ([]ModelSum
 	if err := modelQuery.All(&modelDocs); err != nil {
 		return nil, errors.Trace(err)
 	}
-	p := newProcessorFromModelDocs(st, modelDocs, user, isControllerSuperuser)
+	p := newProcessorFromModelDocs(st, modelDocs, user, isSuperuser)
 	modelDocs = nil
 	if err := p.fillInFromConfig(); err != nil {
 		return nil, errors.Trace(err)
@@ -263,11 +241,7 @@ type ModelAccessInfo struct {
 
 // ModelBasicInfoForUser gives you the information about all models that a user has access to.
 // This includes the name and UUID, as well as the last time the user connected to that model.
-func (st *State) ModelBasicInfoForUser(user names.UserTag) ([]ModelAccessInfo, error) {
-	isSuperuser, err := st.isUserSuperuser(user)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+func (st *State) ModelBasicInfoForUser(user names.UserTag, isSuperuser bool) ([]ModelAccessInfo, error) {
 	modelQuery, closer1, err := st.modelQueryForUser(user, isSuperuser)
 	if err != nil {
 		return nil, errors.Trace(err)

@@ -41,7 +41,7 @@ type Backend interface {
 	CreateCloudAccess(cloud string, user names.UserTag, access permission.Access) error
 	UpdateCloudAccess(cloud string, user names.UserTag, access permission.Access) error
 	RemoveCloudAccess(cloud string, user names.UserTag) error
-	CloudsForUser(user names.UserTag, all bool) ([]state.CloudInfo, error)
+	CloudsForUser(user names.UserTag, isSuperuser bool) ([]state.CloudInfo, error)
 }
 
 type stateShim struct {
