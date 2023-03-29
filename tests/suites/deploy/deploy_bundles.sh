@@ -59,6 +59,20 @@ run_deploy_bundle_overlay_with_image_id_on_base_bundle() {
 	destroy_model "test-bundles-deploy-overlay-image-id-on-base-bundle"
 }
 
+run_deploy_bundle_overlay_with_image_id_no_base() {
+	echo
+
+	file="${TEST_DIR}/test-bundles-deploy-overlay-image-id-no-base.log"
+
+	ensure "test-bundles-deploy-overlay-image-id-no-base" "${file}"
+
+	bundle=./tests/suites/deploy/bundles/overlay_bundle_image_id_no_base.yaml
+	got=$(juju deploy ${bundle} 2>&1 || true)
+	check_contains "${got}" 'base must be explicitly provided when image-id constraint is used'
+
+	destroy_model "test-bundles-deploy-overlay-image-id_no_base"
+}
+
 run_deploy_cmr_bundle() {
 	echo
 
@@ -330,6 +344,7 @@ test_deploy_bundles() {
 		run "run_deploy_bundle_overlay"
 		run "run_deploy_bundle_overlay_with_image_id"
 		run "run_deploy_bundle_overlay_with_image_id_on_base_bundle"
+		run "run_deploy_bundle_overlay_with_image_id_no_base"
 		run "run_deploy_exported_charmhub_bundle_with_fixed_revisions"
 		run "run_deploy_exported_charmhub_bundle_with_float_revisions"
 		run "run_deploy_trusted_bundle"
