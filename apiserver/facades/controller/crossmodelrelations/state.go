@@ -23,10 +23,7 @@ type CrossModelRelationsState interface {
 
 	// AddOfferConnection creates a new offer connection record, which records details about a
 	// relation made from a remote model to an offer in the local model.
-	AddOfferConnection(state.AddOfferConnectionParams) (OfferConnection, error)
-
-	// OfferConnectionForRelation returns the offer connection details for the given relation key.
-	OfferConnectionForRelation(string) (OfferConnection, error)
+	AddOfferConnection(state.AddOfferConnectionParams) (common.OfferConnection, error)
 
 	// IsMigrationActive returns true if the current model is
 	// in the process of being migrated to another controller.
@@ -56,11 +53,11 @@ func (st stateShim) ApplicationOfferForUUID(offerUUID string) (*crossmodel.Appli
 	return oa.ApplicationOfferForUUID(offerUUID)
 }
 
-func (st stateShim) AddOfferConnection(arg state.AddOfferConnectionParams) (OfferConnection, error) {
+func (st stateShim) AddOfferConnection(arg state.AddOfferConnectionParams) (common.OfferConnection, error) {
 	return st.st.AddOfferConnection(arg)
 }
 
-func (st stateShim) OfferConnectionForRelation(relationKey string) (OfferConnection, error) {
+func (st stateShim) OfferConnectionForRelation(relationKey string) (common.OfferConnection, error) {
 	return st.st.OfferConnectionForRelation(relationKey)
 }
 
@@ -99,8 +96,4 @@ type Model interface {
 
 func (st stateShim) Model() (Model, error) {
 	return st.st.Model()
-}
-
-type OfferConnection interface {
-	OfferUUID() string
 }

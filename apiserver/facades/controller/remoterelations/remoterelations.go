@@ -357,7 +357,7 @@ func (api *API) ConsumeRemoteRelationChanges(changes params.RemoteRelationsChang
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		if err := commoncrossmodel.PublishRelationChange(api.st, relationTag, change); err != nil {
+		if err := commoncrossmodel.PublishRelationChange(api.authorizer, api.st, relationTag, change); err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}

@@ -91,6 +91,11 @@ func (st stateShim) WatchRemoteApplicationRelations(applicationName string) (sta
 	return a.WatchRelations(), nil
 }
 
+func (st stateShim) ApplicationOfferForUUID(offerUUID string) (*crossmodel.ApplicationOffer, error) {
+	offers := state.NewApplicationOffers(st.st)
+	return offers.ApplicationOfferForUUID(offerUUID)
+}
+
 // UpdateControllerForModel (RemoteRelationsState) ensures
 // that there is an external controller record for the input info,
 // associated with the input model UUID.

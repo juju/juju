@@ -162,6 +162,21 @@ func (mr *MockBackendMockRecorder) Application(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Application", reflect.TypeOf((*MockBackend)(nil).Application), arg0)
 }
 
+// ApplicationOfferForUUID mocks base method.
+func (m *MockBackend) ApplicationOfferForUUID(arg0 string) (*crossmodel.ApplicationOffer, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ApplicationOfferForUUID", arg0)
+	ret0, _ := ret[0].(*crossmodel.ApplicationOffer)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ApplicationOfferForUUID indicates an expected call of ApplicationOfferForUUID.
+func (mr *MockBackendMockRecorder) ApplicationOfferForUUID(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationOfferForUUID", reflect.TypeOf((*MockBackend)(nil).ApplicationOfferForUUID), arg0)
+}
+
 // ApplyOperation mocks base method.
 func (m *MockBackend) ApplyOperation(arg0 state.ModelOperation) error {
 	m.ctrl.T.Helper()

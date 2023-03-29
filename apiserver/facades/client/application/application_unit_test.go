@@ -2406,6 +2406,29 @@ func (s *ApplicationSuite) TestSetRelationSuspendedFalse(c *gc.C) {
 	c.Assert(results.OneError(), gc.IsNil)
 }
 
+func (s *ApplicationSuite) TestSetRelationSuspendedPermission(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	rel := s.expectRelation(ctrl, "wordpress:db mysql:db", true)
+	s.backend.EXPECT().Relation(123).Return(rel, nil)
+
+	offerConn := mocks.NewMockOfferConnection(ctrl)
+	offerConn.EXPECT().OfferUUID().Return("offer-uuid")
+	offerConn.EXPECT().UserName().Return("fred")
+	s.backend.EXPECT().OfferConnectionForRelation("wordpress:db mysql:db").Return(offerConn, nil)
+	s.backend.EXPECT().ApplicationOfferForUUID("offer-uuid").Return(&crossmodel.ApplicationOffer{OfferUUID: "mysql"}, nil)
+
+	results, err := s.api.SetRelationsSuspended(params.RelationSuspendedArgs{
+		Args: []params.RelationSuspendedArg{{
+			RelationId: 123,
+			Suspended:  false,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.OneError(), gc.ErrorMatches, "permission denied")
+}
+
 func (s *ApplicationSuite) TestSetNonOfferRelationStatus(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()

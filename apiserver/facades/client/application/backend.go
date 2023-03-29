@@ -34,6 +34,7 @@ import (
 type Backend interface {
 	AllModelUUIDs() ([]string, error)
 	Application(string) (Application, error)
+	ApplicationOfferForUUID(offerUUID string) (*crossmodel.ApplicationOffer, error)
 	ApplyOperation(state.ModelOperation) error
 	AddApplication(state.AddApplicationArgs) (Application, error)
 	AddCharmMetadata(info state.CharmInfo) (Charm, error)
@@ -441,10 +442,18 @@ func (s stateShim) Resources() Resources {
 	return s.State.Resources()
 }
 
-type OfferConnection interface{}
+type OfferConnection interface {
+	UserName() string
+	OfferUUID() string
+}
 
 func (s stateShim) OfferConnectionForRelation(key string) (OfferConnection, error) {
 	return s.State.OfferConnectionForRelation(key)
+}
+
+func (s stateShim) ApplicationOfferForUUID(offerUUID string) (*crossmodel.ApplicationOffer, error) {
+	offers := state.NewApplicationOffers(s.State)
+	return offers.ApplicationOfferForUUID(offerUUID)
 }
 
 func (s stateShim) Branch(name string) (Generation, error) {

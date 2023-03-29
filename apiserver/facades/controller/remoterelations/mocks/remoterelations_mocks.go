@@ -315,6 +315,21 @@ func (mr *MockRemoteRelationsStateMockRecorder) ModelUUID() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelUUID", reflect.TypeOf((*MockRemoteRelationsState)(nil).ModelUUID))
 }
 
+// OfferConnectionForRelation mocks base method.
+func (m *MockRemoteRelationsState) OfferConnectionForRelation(arg0 string) (crossmodel.OfferConnection, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "OfferConnectionForRelation", arg0)
+	ret0, _ := ret[0].(crossmodel.OfferConnection)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// OfferConnectionForRelation indicates an expected call of OfferConnectionForRelation.
+func (mr *MockRemoteRelationsStateMockRecorder) OfferConnectionForRelation(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OfferConnectionForRelation", reflect.TypeOf((*MockRemoteRelationsState)(nil).OfferConnectionForRelation), arg0)
+}
+
 // OfferNameForRelation mocks base method.
 func (m *MockRemoteRelationsState) OfferNameForRelation(arg0 string) (string, error) {
 	m.ctrl.T.Helper()
