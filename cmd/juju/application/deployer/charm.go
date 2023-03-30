@@ -597,6 +597,9 @@ func (c *repositoryCharm) uploadExistingPendingResources(
 	pendingResources []application.PendingResourceUpload,
 	api DeployerAPI) error {
 
+	if pendingResources == nil {
+		return nil
+	}
 	resourceApiClient, err := resources.NewClient(api)
 	if err != nil {
 		return errors.Trace(err)
