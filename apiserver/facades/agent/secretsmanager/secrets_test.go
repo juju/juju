@@ -449,7 +449,7 @@ func (s *SecretsManagerSuite) TestRemoveSecretRevision(c *gc.C) {
 	})
 }
 
-func (s *SecretsManagerSuite) TestGetConsumerSecretsRevisionInfo(c *gc.C) {
+func (s *SecretsManagerSuite) TestGetConsumerSecretsRevisionInfoHavingConsumerLabel(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	s.expectSecretAccessQuery(1)
@@ -468,6 +468,63 @@ func (s *SecretsManagerSuite) TestGetConsumerSecretsRevisionInfo(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, params.SecretConsumerInfoResults{
 		Results: []params.SecretConsumerInfoResult{{
 			Label:    "label",
+			Revision: 666,
+		}},
+	})
+}
+
+func (s *SecretsManagerSuite) TestGetConsumerSecretsRevisionInfoHavingNoConsumerLabel(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.expectSecretAccessQuery(1)
+	uri := coresecrets.NewURI()
+	s.secretsConsumer.EXPECT().GetSecretConsumer(uri, names.NewApplicationTag("mariadb")).Return(
+		&coresecrets.SecretConsumerMetadata{
+			LatestRevision: 666,
+		}, nil)
+	s.secretsState.EXPECT().ListSecrets(
+		state.SecretsFilter{
+			OwnerTags: []names.Tag{names.NewUnitTag("mariadb/0"), names.NewApplicationTag("mariadb")},
+		}).Return(nil, nil)
+
+	results, err := s.facade.GetConsumerSecretsRevisionInfo(params.GetSecretConsumerInfoArgs{
+		ConsumerTag: "application-mariadb",
+		URIs:        []string{uri.String()},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.SecretConsumerInfoResults{
+		Results: []params.SecretConsumerInfoResult{{
+			Revision: 666,
+		}},
+	})
+}
+
+func (s *SecretsManagerSuite) TestGetConsumerSecretsRevisionInfoForPeerUnitsAccessingAppOwnedSecrets(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.expectSecretAccessQuery(1)
+	uri := coresecrets.NewURI()
+	s.secretsConsumer.EXPECT().GetSecretConsumer(uri, names.NewApplicationTag("mariadb")).Return(
+		&coresecrets.SecretConsumerMetadata{
+			LatestRevision: 666,
+		}, nil)
+	s.secretsState.EXPECT().ListSecrets(
+		state.SecretsFilter{
+			OwnerTags: []names.Tag{names.NewUnitTag("mariadb/0"), names.NewApplicationTag("mariadb")},
+		}).Return([]*coresecrets.SecretMetadata{{
+		URI:      uri,
+		OwnerTag: "application-mariadb",
+		Label:    "owner-label",
+	}}, nil)
+
+	results, err := s.facade.GetConsumerSecretsRevisionInfo(params.GetSecretConsumerInfoArgs{
+		ConsumerTag: "application-mariadb",
+		URIs:        []string{uri.String()},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.SecretConsumerInfoResults{
+		Results: []params.SecretConsumerInfoResult{{
+			Label:    "owner-label",
 			Revision: 666,
 		}},
 	})
