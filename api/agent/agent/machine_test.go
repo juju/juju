@@ -112,23 +112,3 @@ func (s *machineSuite) TestMachineEntity(c *gc.C) {
 	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
 	c.Assert(m, gc.IsNil)
 }
-
-func (s *machineSuite) TestClearReboot(c *gc.C) {
-	err := s.machine.SetRebootFlag(true)
-	c.Assert(err, jc.ErrorIsNil)
-	rFlag, err := s.machine.GetRebootFlag()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rFlag, jc.IsTrue)
-
-	apiSt, err := apiagent.NewState(s.st)
-	c.Assert(err, jc.ErrorIsNil)
-	entity, err := apiSt.Entity(s.machine.Tag())
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = entity.ClearReboot()
-	c.Assert(err, jc.ErrorIsNil)
-
-	rFlag, err = s.machine.GetRebootFlag()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rFlag, jc.IsFalse)
-}

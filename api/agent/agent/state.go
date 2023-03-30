@@ -121,21 +121,6 @@ func (m *Entity) ContainerType() instance.ContainerType {
 	return m.doc.ContainerType
 }
 
-// ClearReboot clears the reboot flag of the machine.
-func (m *Entity) ClearReboot() error {
-	var result params.ErrorResults
-	args := params.SetStatus{
-		Entities: []params.EntityStatusArgs{
-			{Tag: m.tag.String()},
-		},
-	}
-	err := m.st.facade.FacadeCall("ClearReboot", args, &result)
-	if err != nil {
-		return err
-	}
-	return result.OneError()
-}
-
 // IsAllowedControllerTag returns true if the tag kind can be for a controller.
 // TODO(controlleragent) - this method is needed while IAAS controllers are still machines.
 func IsAllowedControllerTag(kind string) bool {
