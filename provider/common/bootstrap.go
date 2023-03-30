@@ -102,11 +102,11 @@ func BootstrapInstance(
 	// error message, rather than the more cryptic error messages that follow
 	// onwards.
 	if selectedSeries == "" {
-		return nil, nil, nil, errors.NotValidf("bootstrap instance series")
+		return nil, nil, nil, errors.NotValidf("bootstrap instance series %q", selectedSeries)
 	}
 	selectedBase, err := coreseries.GetBaseFromSeries(selectedSeries)
-	if selectedSeries == "" {
-		return nil, nil, nil, errors.NotValidf("bootstrap instance series %q", selectedSeries)
+	if err != nil {
+		return nil, nil, nil, err
 	}
 	availableTools, err := args.AvailableTools.Match(coretools.Filter{
 		OSType: selectedBase.OS,

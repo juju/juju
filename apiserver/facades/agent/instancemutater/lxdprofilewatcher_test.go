@@ -22,7 +22,6 @@ import (
 type lxdProfileWatcherSuite struct {
 	state     *mocks.MockInstanceMutaterState
 	machine0  *mocks.MockMachine
-	machine1  *mocks.MockMachine
 	unit      *mocks.MockUnit
 	principal *mocks.MockUnit
 	app       *mocks.MockApplication

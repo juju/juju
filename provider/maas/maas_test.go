@@ -217,14 +217,6 @@ func (c *fakeController) ReleaseMachines(args gomaasapi.ReleaseMachinesArgs) err
 	return c.NextErr()
 }
 
-type fakeMachineOnlyController struct {
-	machines []gomaasapi.Machine
-}
-
-func (f *fakeMachineOnlyController) Machines(gomaasapi.MachinesArgs) ([]gomaasapi.Machine, error) {
-	return f.machines, nil
-}
-
 type fakeBootResource struct {
 	gomaasapi.BootResource
 	name         string

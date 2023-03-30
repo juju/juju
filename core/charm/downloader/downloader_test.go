@@ -28,8 +28,6 @@ var _ = gc.Suite(&downloadedCharmVerificationSuite{})
 
 type downloadedCharmVerificationSuite struct {
 	testing.IsolationSuite
-
-	charmArchive *mocks.MockCharmArchive
 }
 
 func (s *downloadedCharmVerificationSuite) TestVersionMismatch(c *gc.C) {

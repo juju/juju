@@ -1104,11 +1104,6 @@ func (s *CAASDeploySuiteBase) fakeAPI() *fakeDeployAPI {
 	return fakeAPI
 }
 
-func (s *CAASDeploySuiteBase) makeCharmDir(c *gc.C, cloneCharm string) *charm.CharmDir {
-	charmsPath := c.MkDir()
-	return testcharms.RepoWithSeries("kubernetes").ClonedDir(charmsPath, cloneCharm)
-}
-
 func (s *CAASDeploySuiteBase) runDeploy(c *gc.C, fakeAPI *fakeDeployAPI, args ...string) (*cmd.Context, error) {
 	deployCmd := &DeployCommand{
 		NewDeployAPI: func() (deployer.DeployerAPI, error) {
@@ -2023,8 +2018,6 @@ func (c *testMetricsRegistrationHandler) ServeHTTP(w http.ResponseWriter, req *h
 
 type FakeStoreStateSuite struct {
 	DeploySuiteBase
-	path string
-	riak *state.Application
 }
 
 func (s *FakeStoreStateSuite) runDeployWithOutput(c *gc.C, args ...string) (string, string, error) {
@@ -2158,20 +2151,6 @@ func (s *FakeStoreStateSuite) assertCharmsUploaded(c *gc.C, ids ...string) {
 	c.Assert(uploaded, jc.SameContents, ids)
 }
 
-// assertDeployedApplicationBindings checks that applications were deployed into the
-// expected spaces. It is separate to assertApplicationsDeployed because it is only
-// relevant to a couple of tests.
-func (s *FakeStoreStateSuite) assertDeployedApplicationBindings(c *gc.C, info map[string]applicationInfo) {
-	applications, err := s.State.AllApplications()
-	c.Assert(err, jc.ErrorIsNil)
-
-	for _, app := range applications {
-		endpointBindings, err := app.EndpointBindings()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(endpointBindings.Map(), jc.DeepEquals, info[app.Name()].endpointBindings)
-	}
-}
-
 // assertApplicationsDeployed checks that the given applications have been deployed.
 func (s *FakeStoreStateSuite) assertApplicationsDeployed(c *gc.C, info map[string]applicationInfo) {
 	applications, err := s.State.AllApplications()
@@ -2237,14 +2216,13 @@ func (s *FakeStoreStateSuite) assertUnitsCreated(c *gc.C, expectedUnits map[stri
 
 // applicationInfo holds information about a deployed application.
 type applicationInfo struct {
-	charm            string
-	config           charm.Settings
-	constraints      constraints.Value
-	scale            int
-	exposed          bool
-	storage          map[string]state.StorageConstraints
-	devices          map[string]state.DeviceConstraints
-	endpointBindings map[string]string
+	charm       string
+	config      charm.Settings
+	constraints constraints.Value
+	scale       int
+	exposed     bool
+	storage     map[string]state.StorageConstraints
+	devices     map[string]state.DeviceConstraints
 }
 
 func (s *DeploySuite) TestDeployCharmWithSomeEndpointBindingsSpecifiedSuccess(c *gc.C) {

@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/juju/charm/v9"
-	"github.com/juju/collections/set"
 	"github.com/juju/description/v4"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -278,7 +277,6 @@ func modelConfig(attrs map[string]interface{}) (*config.Config, error) {
 type ImportStateMigration struct {
 	src        description.Model
 	dst        Database
-	importer   *importer
 	migrations []func() error
 }
 
@@ -1336,41 +1334,6 @@ func (i *importer) makeApplicationDoc(a description.Application) (*applicationDo
 	}, nil
 }
 
-func (i *importer) loadInstanceHardwareFromUnits(units []description.Unit) ([]instance.HardwareCharacteristics, error) {
-	machinesCollection, closer := i.st.db().GetCollection(machinesC)
-	defer closer()
-
-	machineIds := set.NewStrings()
-	for _, unit := range units {
-		tag := unit.Machine()
-		machineIds.Add(tag.Id())
-	}
-
-	docs := []machineDoc{}
-	err := machinesCollection.Find(bson.M{
-		"_id": bson.M{
-			"$in": machineIds.SortedValues(),
-		},
-	}).All(&docs)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot get unit machines")
-	}
-
-	var hwChars []instance.HardwareCharacteristics
-	for _, doc := range docs {
-		machine := newMachine(i.st, &doc)
-		hw, err := machine.HardwareCharacteristics()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if hw == nil {
-			continue
-		}
-		hwChars = append(hwChars, *hw)
-	}
-	return hwChars, nil
-}
-
 func (i *importer) makeCharmOrigin(a description.Application) (*CharmOrigin, error) {
 	curlStr := a.CharmURL()
 
@@ -1602,15 +1565,6 @@ func (i *importer) firewallRules() error {
 	}
 	i.logger.Debugf("importing firewall rules succeeded")
 	return nil
-}
-
-// makeStatusDoc assumes status is non-nil.
-func (i *importer) makeFirewallRuleDoc(firewallRule description.FirewallRule) *firewallRulesDoc {
-	return &firewallRulesDoc{
-		Id:               firewallRule.ID(),
-		WellKnownService: firewallRule.WellKnownService(),
-		WhitelistCIDRS:   firewallRule.WhitelistCIDRs(),
-	}
 }
 
 func (i *importer) makeRemoteApplicationDoc(app description.RemoteApplication) *remoteApplicationDoc {

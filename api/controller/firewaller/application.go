@@ -10,16 +10,14 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/common"
-	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 )
 
 // Application represents the state of an application.
 type Application struct {
-	st   *Client
-	tag  names.ApplicationTag
-	life life.Value
+	st  *Client
+	tag names.ApplicationTag
 }
 
 // Name returns the application name.

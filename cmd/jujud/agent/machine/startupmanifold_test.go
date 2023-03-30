@@ -8,7 +8,6 @@ import (
 	"github.com/juju/worker/v3/dependency"
 	dt "github.com/juju/worker/v3/dependency/testing"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/jujud/agent/machine"
@@ -53,18 +52,6 @@ func (s *MachineStartupSuite) TestStartSuccess(c *gc.C) {
 
 type mockAPIConn struct {
 	api.Connection
-}
-
-type mockWorker struct {
-	tomb tomb.Tomb
-}
-
-func (w *mockWorker) Kill() {
-	w.tomb.Kill(nil)
-}
-
-func (w *mockWorker) Wait() error {
-	return w.tomb.Wait()
 }
 
 type noOpLogger struct{}

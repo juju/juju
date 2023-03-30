@@ -275,7 +275,6 @@ func (s *CharmHubClientSuite) expectRefreshWithRevision(rev int, id bool) {
 // charmhubConfigMatcher matches only the charm IDs and revisions of a
 // charmhub.RefreshMany config.
 type charmhubConfigMatcher struct {
-	c  *gc.C
 	id bool
 }
 

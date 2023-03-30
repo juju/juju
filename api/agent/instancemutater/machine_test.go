@@ -232,18 +232,6 @@ func (s *instanceMutaterMachineSuite) setUpSetCharmProfilesArgs() params.SetProf
 	}
 }
 
-func (s *instanceMutaterMachineSuite) setUpSetProfileUpgradeCompleteArgs() params.SetProfileUpgradeCompleteArgs {
-	return params.SetProfileUpgradeCompleteArgs{
-		Args: []params.SetProfileUpgradeCompleteArg{
-			{
-				Entity:   params.Entity{Tag: s.tag.String()},
-				UnitName: s.unitName,
-				Message:  s.message,
-			},
-		},
-	}
-}
-
 func (s *instanceMutaterMachineSuite) setupMachine() *instancemutater.Machine {
 	return instancemutater.NewMachine(s.fCaller, s.tag, life.Alive)
 }

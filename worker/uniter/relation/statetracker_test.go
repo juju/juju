@@ -624,10 +624,6 @@ func (s *baseStateTrackerSuite) expectRelationerSetDying() {
 	s.relationer.EXPECT().SetDying().Return(nil)
 }
 
-func (s *baseStateTrackerSuite) expectRelationerIsImplicitFalse() {
-	s.relationer.EXPECT().IsImplicit().Return(false)
-}
-
 func (s *baseStateTrackerSuite) expectRelationerIsImplicit(imp bool) {
 	s.relationer.EXPECT().IsImplicit().Return(imp)
 }

@@ -38,12 +38,10 @@ func (s *fakeEnvSuite) SetUpTest(c *gc.C) {
 }
 
 type fakeEnvAPI struct {
-	values        map[string]interface{}
-	cloud, region string
-	defaults      config.ConfigValues
-	err           error
-	keys          []string
-	resetKeys     []string
+	values    map[string]interface{}
+	defaults  config.ConfigValues
+	err       error
+	resetKeys []string
 }
 
 func (f *fakeEnvAPI) Close() error {

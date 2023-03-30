@@ -105,24 +105,7 @@ type mockConfig struct {
 
 	mu     sync.Mutex
 	info   *controller.StateServingInfo
-	addrs  []string
 	caCert string
-}
-
-func (mc *mockConfig) setCert(cert, key string) {
-	mc.mu.Lock()
-	defer mc.mu.Unlock()
-	if mc.info == nil {
-		mc.info = &controller.StateServingInfo{}
-	}
-	mc.info.Cert = cert
-	mc.info.PrivateKey = key
-}
-
-func (mc *mockConfig) setCACert(cert string) {
-	mc.mu.Lock()
-	defer mc.mu.Unlock()
-	mc.caCert = cert
 }
 
 func (mc *mockConfig) CACert() string {

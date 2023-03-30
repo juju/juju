@@ -27,7 +27,6 @@ import (
 
 type fanconfigurerSuite struct {
 	testing.BaseSuite
-	testingEnvConfig *config.Config
 }
 
 var _ = gc.Suite(&fanconfigurerSuite{})

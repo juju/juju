@@ -15,10 +15,9 @@ import (
 // ActionGetCommand implements the action-get command.
 type ActionGetCommand struct {
 	cmd.CommandBase
-	ctx      Context
-	keys     []string
-	response interface{}
-	out      cmd.Output
+	ctx  Context
+	keys []string
+	out  cmd.Output
 }
 
 // NewActionGetCommand returns an ActionGetCommand for use with the given

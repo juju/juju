@@ -17,7 +17,6 @@ import (
 
 type StateTrackerSuite struct {
 	statetesting.StateSuite
-	pool         *state.State
 	stateTracker workerstate.StateTracker
 }
 

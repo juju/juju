@@ -18,6 +18,8 @@ type restrictedRootSuite struct {
 	root rpc.Root
 }
 
+var _ = gc.Suite(&restrictedRootSuite{})
+
 func (r *restrictedRootSuite) SetUpTest(c *gc.C) {
 	r.BaseSuite.SetUpTest(c)
 	r.root = apiserver.TestingRestrictedRoot(func(facade, method string) error {
@@ -29,13 +31,13 @@ func (r *restrictedRootSuite) SetUpTest(c *gc.C) {
 }
 
 func (r *restrictedRootSuite) TestAllowedMethod(c *gc.C) {
-	caller, err := r.root.FindMethod("Client", 1, "WatchAll")
+	caller, err := r.root.FindMethod("Client", 6, "WatchAll")
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(caller, gc.NotNil)
 }
 
 func (r *restrictedRootSuite) TestDisallowedMethod(c *gc.C) {
-	caller, err := r.root.FindMethod("Client", 1, "FullStatus")
+	caller, err := r.root.FindMethod("Client", 6, "FullStatus")
 	c.Assert(err, gc.ErrorMatches, "blam")
 	c.Assert(caller, gc.IsNil)
 }
@@ -53,7 +55,7 @@ func (r *restrictedRootSuite) TestNonExistentFacade(c *gc.C) {
 }
 
 func (r *restrictedRootSuite) TestNonExistentMethod(c *gc.C) {
-	caller, err := r.root.FindMethod("Client", 1, "Bar")
+	caller, err := r.root.FindMethod("Client", 6, "Bar")
 	c.Assert(err, gc.ErrorMatches, `no such request.+`)
 	c.Assert(caller, gc.IsNil)
 }

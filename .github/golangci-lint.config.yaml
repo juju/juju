@@ -32,8 +32,8 @@ linters:
     - ineffassign
     - misspell
     - unconvert
-    - deadcode
-    - varcheck
+    - exportloopref
+    - unused
 run:
   timeout: 30m
 skip-dirs:

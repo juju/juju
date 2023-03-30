@@ -69,6 +69,9 @@ func (d *BundlesDir) download(info BundleInfo, target string, abort <-chan struc
 		return errors.Annotate(err, "could not parse charm URL")
 	}
 	expectedSha256, err := info.ArchiveSha256()
+	if err != nil {
+		return errors.Annotatef(err, "failed to get archive sha256 for charm %q", info.String())
+	}
 	req := downloader.Request{
 		URL:       curl,
 		TargetDir: downloadsPath(d.path),

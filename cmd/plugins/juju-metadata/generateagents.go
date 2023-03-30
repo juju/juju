@@ -29,7 +29,6 @@ func newGenerateAgentsCommand() cmd.Command {
 // agents.
 type generateAgentsCommand struct {
 	cmd.CommandBase
-	fetch           bool
 	metadataDir     string
 	stream          string
 	clean           bool

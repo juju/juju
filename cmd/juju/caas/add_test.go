@@ -34,7 +34,6 @@ import (
 	"github.com/juju/juju/cmd/juju/caas"
 	"github.com/juju/juju/cmd/juju/caas/mocks"
 	jujucmdcloud "github.com/juju/juju/cmd/juju/cloud"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 )
@@ -48,7 +47,6 @@ type addCAASSuite struct {
 	fakeK8sClusterMetadataChecker *fakeK8sClusterMetadataChecker
 	cloudMetadataStore            *fakeCloudMetadataStore
 	credentialStoreAPI            *mocks.MockCredentialStoreAPI
-	fakeK8SConfigFunc             *clientconfig.ClientConfigFunc
 }
 
 var _ = gc.Suite(&addCAASSuite{})
@@ -1053,47 +1051,6 @@ func (s *addCAASSuite) TestSkipStorage(c *gc.C) {
 	out := strings.Trim(cmdtesting.Stdout(ctx), "\n")
 	out = strings.Replace(out, "\n", " ", -1)
 	c.Assert(out, gc.Equals, `k8s substrate "myk8s" added as cloud "myk8s" with no configured storage provisioning capability on controller foo.`)
-}
-
-func (s *addCAASSuite) assertCreateDefaultStorageProvisioner(c *gc.C, expectedMsg string, t testData, additionalArgs ...string) {
-	s.fakeCloudAPI.isCloudRegionRequired = true
-	cloudRegion := "gce/us-east1"
-
-	ctrl := s.setupBroker(c)
-	defer ctrl.Finish()
-
-	s.fakeK8sClusterMetadataChecker.Call("CheckDefaultWorkloadStorage").Returns(
-		&environs.PreferredStorageNotFound{"error"})
-	storageProvisioner := &k8s.StorageProvisioner{
-		Name:        "mystorage",
-		Provisioner: "kubernetes.io/gce-pd",
-	}
-	s.fakeK8sClusterMetadataChecker.Call("EnsureStorageProvisioner", k8s.StorageProvisioner{
-		Name:        "mystorage",
-		Provisioner: "kubernetes.io/gce-pd",
-	}).Returns(storageProvisioner, nil)
-
-	err := SetKubeConfigData(kubeConfigStr)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.assertAddCloudResult(c, func() {
-		command := s.makeCommand(c, true, false, true)
-		args := []string{"myk8s", "--cluster-name", "myk8s", "--storage", "mystorage"}
-		if t.controller {
-			args = append(args, "-c", "foo")
-		}
-		if t.client {
-			args = append(args, "--client")
-		}
-		if len(additionalArgs) > 0 {
-			args = append(args, additionalArgs...)
-		}
-		ctx, err := s.runCommand(c, nil, command, args...)
-		c.Assert(err, jc.ErrorIsNil)
-		result := strings.Trim(cmdtesting.Stdout(ctx), "\n")
-		result = strings.Replace(result, "\n", " ", -1)
-		c.Assert(result, gc.Equals, expectedMsg)
-	}, cloudRegion, "mystorage", "mystorage", t)
 }
 
 func (s *addCAASSuite) TestFoundStorageProvisionerViaAnnationForMAASWIthoutStorageOptionProvided(c *gc.C) {

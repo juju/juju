@@ -311,12 +311,11 @@ func (s *modelconfigSuite) TestClientGetModelConstraints(c *gc.C) {
 }
 
 type mockBackend struct {
-	cfg      config.ConfigValues
-	old      *config.Config
-	b        state.BlockType
-	features string
-	msg      string
-	cons     constraints.Value
+	cfg  config.ConfigValues
+	old  *config.Config
+	b    state.BlockType
+	msg  string
+	cons constraints.Value
 }
 
 func (m *mockBackend) SetModelConstraints(value constraints.Value) error {

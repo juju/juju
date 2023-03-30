@@ -18,7 +18,6 @@ import (
 
 type blockMockSuite struct {
 	coretesting.BaseSuite
-	blockClient *block.Client
 }
 
 var _ = gc.Suite(&blockMockSuite{})

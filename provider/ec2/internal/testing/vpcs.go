@@ -228,13 +228,3 @@ func (v *vpc) matchAttr(attr, value string) (ok bool, err error) {
 	}
 	return false, fmt.Errorf("unknown attribute %q", attr)
 }
-
-func (srv *Server) vpc(id string) (*vpc, error) {
-	srv.mu.Lock()
-	defer srv.mu.Unlock()
-	v, found := srv.vpcs[id]
-	if !found {
-		return nil, apiError("InvalidVpcID.NotFound", "Vpc %s not found", id)
-	}
-	return v, nil
-}

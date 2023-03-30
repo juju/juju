@@ -427,7 +427,6 @@ type secretDeletedSuite struct {
 	opFactory     operation.Factory
 	mockTracker   *mocks.MockSecretStateTracker
 	mockCallbacks *operationmocks.MockCallbacks
-	mockFactory   *runnermocks.MockFactory
 	resolver      resolver.Resolver
 
 	deleted []string

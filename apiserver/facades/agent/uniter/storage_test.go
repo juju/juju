@@ -21,7 +21,6 @@ import (
 
 type storageSuite struct {
 	testing.BaseSuite
-	called []string
 }
 
 var _ = gc.Suite(&storageSuite{})

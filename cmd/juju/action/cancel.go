@@ -79,7 +79,8 @@ func (c *cancelCommand) Run(ctx *cmd.Context) error {
 	var failedCancels []unCanceledAction
 	var canceledActions []actionapi.ActionResult
 
-	for i, result := range actions {
+	for i, v := range actions {
+		result := v
 		if result.Action != nil {
 			canceledActions = append(canceledActions, result)
 		} else {

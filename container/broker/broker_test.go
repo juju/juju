@@ -96,7 +96,6 @@ type fakeAPI struct {
 	fakeContainerConfig params.ContainerConfig
 	fakeInterfaceInfo   corenetwork.InterfaceInfo
 	fakeDeviceToBridge  network.DeviceToBridge
-	fakeBridger         network.Bridger
 	fakePreparer        broker.PrepareHostFunc
 }
 
