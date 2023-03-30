@@ -58,6 +58,9 @@ type Backend interface {
 	// EndpointsRelation returns the existing relation with the given endpoints.
 	EndpointsRelation(...state.Endpoint) (Relation, error)
 
+	// OfferConnectionForRelation get the offer connection for a cross model relation.
+	OfferConnectionForRelation(string) (OfferConnection, error)
+
 	// AddRemoteApplication creates a new remote application record, having the supplied relation endpoints,
 	// with the supplied name (which must be unique across all applications, local and remote).
 	AddRemoteApplication(state.AddRemoteApplicationParams) (RemoteApplication, error)
@@ -107,6 +110,12 @@ type Backend interface {
 	// UpdateSecretConsumerOperation returns an operation for updating the latest revision
 	// for any consumers of the secret.
 	UpdateSecretConsumerOperation(uri *coresecrets.URI, latestRevision int) (state.ModelOperation, error)
+}
+
+// OfferConnection provides access to an offer connection in state.
+type OfferConnection interface {
+	UserName() string
+	OfferUUID() string
 }
 
 // Relation provides access a relation in global state.

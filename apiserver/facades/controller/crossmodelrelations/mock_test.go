@@ -65,6 +65,10 @@ func newMockState() *mockState {
 	}
 }
 
+func (st *mockState) ControllerTag() names.ControllerTag {
+	return coretesting.ControllerTag
+}
+
 func (st *mockState) ApplicationOfferForUUID(offerUUID string) (*crossmodel.ApplicationOffer, error) {
 	offer, ok := st.offers[offerUUID]
 	if !ok {
@@ -80,6 +84,10 @@ func (st *mockState) ApplicationOffer(offerName string) (*crossmodel.Application
 		}
 	}
 	return nil, errors.NotFoundf("offer %v", offerName)
+}
+
+func (st *mockState) ModelTag() names.ModelTag {
+	return coretesting.ModelTag
 }
 
 func (st *mockState) ModelUUID() string {
@@ -115,7 +123,7 @@ func (st *mockState) AddRelation(eps ...state.Endpoint) (commoncrossmodel.Relati
 	return rel, nil
 }
 
-func (st *mockState) AddOfferConnection(arg state.AddOfferConnectionParams) (crossmodelrelations.OfferConnection, error) {
+func (st *mockState) AddOfferConnection(arg state.AddOfferConnectionParams) (commoncrossmodel.OfferConnection, error) {
 	if _, ok := st.offerConnections[arg.RelationId]; ok {
 		return nil, errors.AlreadyExistsf("offer connection for relation %d", arg.RelationId)
 	}
@@ -136,7 +144,7 @@ func (st *mockState) SaveIngressNetworks(relationKey string, cidrs []string) (st
 	return nil, nil
 }
 
-func (st *mockState) OfferConnectionForRelation(relationKey string) (crossmodelrelations.OfferConnection, error) {
+func (st *mockState) OfferConnectionForRelation(relationKey string) (commoncrossmodel.OfferConnection, error) {
 	oc, ok := st.offerConnectionsByKey[relationKey]
 	if !ok {
 		return nil, errors.NotFoundf("offer connection details for relation %v", relationKey)
@@ -598,7 +606,6 @@ func (a *mockApplication) Status() (status.StatusInfo, error) {
 }
 
 type mockOfferConnection struct {
-	crossmodelrelations.OfferConnection
 	sourcemodelUUID string
 	relationId      int
 	relationKey     string
@@ -608,6 +615,10 @@ type mockOfferConnection struct {
 
 func (m *mockOfferConnection) OfferUUID() string {
 	return m.offerUUID
+}
+
+func (m *mockOfferConnection) UserName() string {
+	return m.username
 }
 
 type mockRelationUnit struct {

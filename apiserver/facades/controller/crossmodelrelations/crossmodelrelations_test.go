@@ -672,6 +672,56 @@ func (s *crossmodelRelationsSuite) TestPublishChangesWithApplicationSettings(c *
 	})
 }
 
+func ptr[T any](v T) *T {
+	return &v
+}
+
+func (s *crossmodelRelationsSuite) TestResumeRelationPermissionCheck(c *gc.C) {
+	s.authorizer.AdminTag = names.NewUserTag("fred")
+	s.st.remoteApplications["db2"] = &mockRemoteApplication{}
+	s.st.remoteEntities[names.NewApplicationTag("db2")] = "token-db2"
+	rel := newMockRelation(1)
+	rel.suspended = true
+	ru1 := newMockRelationUnit()
+	ru2 := newMockRelationUnit()
+	rel.units["db2/1"] = ru1
+	rel.units["db2/2"] = ru2
+	s.st.relations["db2:db django:db"] = rel
+	s.st.offers["hosted-db2-uuid"] = &crossmodel.ApplicationOffer{ApplicationName: "db2"}
+	s.st.offerConnectionsByKey["db2:db django:db"] = &mockOfferConnection{
+		offerUUID:       "hosted-db2-uuid",
+		username:        "mary",
+		sourcemodelUUID: "source-model-uuid",
+		relationKey:     "db2:db django:db",
+		relationId:      1,
+	}
+	s.st.remoteEntities[names.NewRelationTag("db2:db django:db")] = "token-db2:db django:db"
+	mac, err := s.bakery.NewMacaroon(
+		context.TODO(),
+		bakery.LatestVersion,
+		[]checkers.Caveat{
+			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
+			checkers.DeclaredCaveat("relation-key", "db2:db django:db"),
+			checkers.DeclaredCaveat("username", "mary"),
+		}, bakery.Op{"db2:db django:db", "relate"})
+
+	c.Assert(err, jc.ErrorIsNil)
+	results, err := s.api.PublishRelationChanges(params.RemoteRelationsChanges{
+		Changes: []params.RemoteRelationChangeEvent{
+			{
+				Suspended:        ptr(false),
+				Life:             life.Alive,
+				ApplicationToken: "token-db2",
+				RelationToken:    "token-db2:db django:db",
+				Macaroons:        macaroon.Slice{mac.M()},
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = results.Combine()
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+}
+
 func (s *crossmodelRelationsSuite) TestWatchRelationChanges(c *gc.C) {
 	s.st.remoteApplications["db2"] = &mockRemoteApplication{}
 	s.st.remoteEntities[names.NewApplicationTag("db2")] = "token-db2"

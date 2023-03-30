@@ -417,6 +417,44 @@ func (s *remoteRelationsSuite) TestConsumeRemoteRelationChange(c *gc.C) {
 	c.Assert(settings, jc.DeepEquals, map[string]interface{}{"foo": "bar"})
 }
 
+func ptr[T any](v T) *T {
+	return &v
+}
+
+func (s *remoteRelationsSuite) TestConsumeRelationResumePermission(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	djangoRelationUnit := newMockRelationUnit()
+	djangoRelationUnit.settings["key"] = "value"
+	db2Relation := newMockRelation(123)
+	db2Relation.suspended = true
+	db2Relation.key = "db2:db django:db"
+	db2Relation.remoteUnits["django/0"] = djangoRelationUnit
+	offerConn := &mockOfferConnection{offerUUID: "offer-uuid", username: "fred"}
+
+	change := params.RemoteRelationChangeEvent{
+		RelationToken:    "rel-token",
+		ApplicationToken: "app-token",
+		Life:             life.Alive,
+		Suspended:        ptr(false),
+	}
+	changes := params.RemoteRelationsChanges{
+		Changes: []params.RemoteRelationChangeEvent{change},
+	}
+
+	s.st.EXPECT().GetRemoteEntity("rel-token").Return(names.NewRelationTag(db2Relation.key), nil)
+	s.st.EXPECT().KeyRelation(db2Relation.key).Return(db2Relation, nil)
+	s.st.EXPECT().ModelUUID().AnyTimes()
+	s.st.EXPECT().ControllerTag().Return(coretesting.ControllerTag)
+	s.st.EXPECT().ModelTag().Return(coretesting.ModelTag)
+	s.st.EXPECT().OfferConnectionForRelation(db2Relation.key).Return(offerConn, nil)
+	s.st.EXPECT().ApplicationOfferForUUID("offer-uuid").Return(&crossmodel.ApplicationOffer{ApplicationName: "django"}, nil)
+
+	result, err := s.api.ConsumeRemoteRelationChanges(changes)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), gc.ErrorMatches, "permission denied")
+}
+
 func (s *remoteRelationsSuite) TestSetRemoteApplicationsStatus(c *gc.C) {
 	defer s.setup(c).Finish()
 

@@ -23,6 +23,7 @@ import (
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -2000,10 +2001,20 @@ func (api *APIBase) SetRelationsSuspended(args params.RelationSuspendedArgs) (pa
 		if rel.Suspended() == arg.Suspended {
 			return nil
 		}
-		_, err = api.backend.OfferConnectionForRelation(rel.Tag().Id())
+		oc, err := api.backend.OfferConnectionForRelation(rel.Tag().Id())
 		if errors.IsNotFound(err) {
 			return errors.Errorf("cannot set suspend status for %q which is not associated with an offer", rel.Tag().Id())
 		}
+		if oc != nil && !arg.Suspended && rel.Suspended() {
+			ok, err := commoncrossmodel.CheckCanConsume(api.authorizer, api.backend, api.backend.ControllerTag(), api.model.ModelTag(), oc)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if !ok {
+				return apiservererrors.ErrPerm
+			}
+		}
+
 		message := arg.Message
 		if !arg.Suspended {
 			message = ""
