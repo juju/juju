@@ -247,6 +247,20 @@ func (mr *MockDeployFromRepositoryStateMockRecorder) PrepareCharmUpload(arg0 int
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareCharmUpload", reflect.TypeOf((*MockDeployFromRepositoryState)(nil).PrepareCharmUpload), arg0)
 }
 
+// RemovePendingResources mocks base method.
+func (m *MockDeployFromRepositoryState) RemovePendingResources(arg0 string, arg1 map[string]string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemovePendingResources", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemovePendingResources indicates an expected call of RemovePendingResources.
+func (mr *MockDeployFromRepositoryStateMockRecorder) RemovePendingResources(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemovePendingResources", reflect.TypeOf((*MockDeployFromRepositoryState)(nil).RemovePendingResources), arg0, arg1)
+}
+
 // Space mocks base method.
 func (m *MockDeployFromRepositoryState) Space(arg0 string) (*state.Space, error) {
 	m.ctrl.T.Helper()
