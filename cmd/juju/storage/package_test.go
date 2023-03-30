@@ -6,7 +6,6 @@ package storage_test
 import (
 	"testing"
 
-	"github.com/juju/cmd/v3"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/jujuclient"
@@ -19,8 +18,6 @@ func TestAll(t *testing.T) {
 
 type BaseStorageSuite struct {
 	jujutesting.FakeJujuXDGDataHomeSuite
-
-	command cmd.Command
 }
 
 func (s *BaseStorageSuite) SetUpTest(c *gc.C) {

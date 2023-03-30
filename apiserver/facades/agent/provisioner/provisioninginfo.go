@@ -378,35 +378,6 @@ func (api *ProvisionerAPI) machineSpaceTopology(machineID string, spaceNames []s
 	return topology, nil
 }
 
-// machineSubnetsAndZones returns a map of availability zone names
-// keyed by provider subnet ID.
-// The result can be empty if there are no spaces constraints specified
-// for the machine, or there is an error fetching them.
-func (api *ProvisionerAPI) machineSubnetsAndZones(m *state.Machine) (map[string][]string, error) {
-	cons, err := m.Constraints()
-	if err != nil {
-		return nil, errors.Annotate(err, "retrieving machine constraints")
-	}
-
-	includeSpaces := cons.IncludeSpaces()
-	if len(includeSpaces) < 1 {
-		return nil, nil
-	}
-
-	// Versions 9 and below of the API only support honouring a single positive
-	// space constraint. Take the first if there are any.
-	spaceName := includeSpaces[0]
-	if len(includeSpaces) > 1 {
-		logger.Debugf(
-			"using space %q from constraints for machine %q (ignoring remaining: %v)",
-			spaceName, m.Id(), includeSpaces[1:],
-		)
-	}
-
-	subnetsAndZones, err := api.subnetsAndZonesForSpace(m.Id(), spaceName)
-	return subnetsAndZones, errors.Trace(err)
-}
-
 func (api *ProvisionerAPI) subnetsAndZonesForSpace(machineID string, spaceName string) (map[string][]string, error) {
 	space, err := api.st.SpaceByName(spaceName)
 	if err != nil {

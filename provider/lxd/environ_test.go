@@ -382,8 +382,6 @@ func (s *environSuite) TestInstanceAvailabilityZoneNamesInvalidCredentials(c *gc
 type environCloudProfileSuite struct {
 	lxd.EnvironSuite
 
-	callCtx envcontext.ProviderCallContext
-
 	svr          *lxd.MockServer
 	cloudSpecEnv environs.CloudSpecSetter
 }
@@ -455,8 +453,6 @@ func (s *environCloudProfileSuite) expectCreateProfile(name string, err error) {
 
 type environProfileSuite struct {
 	lxd.EnvironSuite
-
-	callCtx envcontext.ProviderCallContext
 
 	svr    *lxd.MockServer
 	lxdEnv environs.LXDProfiler

@@ -16,7 +16,6 @@ import (
 
 type removeSecretBackendCommand struct {
 	modelcmd.ControllerCommandBase
-	out cmd.Output
 
 	RemoveSecretBackendsAPIFunc func() (RemoveSecretBackendsAPI, error)
 

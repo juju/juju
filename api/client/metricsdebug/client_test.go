@@ -22,7 +22,6 @@ import (
 
 type metricsdebugSuiteMock struct {
 	testing.BaseSuite
-	manager *metricsdebug.Client
 }
 
 var _ = gc.Suite(&metricsdebugSuiteMock{})

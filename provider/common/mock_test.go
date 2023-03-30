@@ -124,8 +124,6 @@ type mockInstance struct {
 	id                 string
 	addresses          network.ProviderAddresses
 	addressesErr       error
-	dnsName            string
-	dnsNameErr         error
 	status             instance.Status
 	instances.Instance // stub out other methods with panics
 }

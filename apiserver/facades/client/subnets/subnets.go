@@ -68,17 +68,6 @@ func (api *API) checkCanRead() error {
 	return nil
 }
 
-func (api *API) checkCanWrite() error {
-	canWrite, err := api.authorizer.HasPermission(permission.WriteAccess, api.backing.ModelTag())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !canWrite {
-		return apiservererrors.ServerError(apiservererrors.ErrPerm)
-	}
-	return nil
-}
-
 // newAPIWithBacking creates a new server-side Subnets API facade with
 // a common.NetworkBacking
 func newAPIWithBacking(backing Backing, ctx context.ProviderCallContext, resources facade.Resources, authorizer facade.Authorizer) (*API, error) {

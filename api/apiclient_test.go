@@ -686,7 +686,7 @@ func (s *apiclientSuite) TestOpenWithNoCACert(c *gc.C) {
 		Timeout:    2 * time.Second,
 		RetryDelay: 200 * time.Millisecond,
 	})
-	c.Assert(err, gc.ErrorMatches, `unable to connect to API: x509: certificate signed by unknown authority`)
+	c.Assert(err, gc.ErrorMatches, `unable to connect to API:.*x509: certificate signed by unknown authority`)
 }
 
 func (s *apiclientSuite) TestOpenWithRedirect(c *gc.C) {

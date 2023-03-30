@@ -113,15 +113,6 @@ func (c *MoveCommand) Run(ctx *cmd.Context) error {
 	})
 }
 
-func (c *MoveCommand) getSpaceTag(api SpaceAPI, name string) (names.SpaceTag, error) {
-	space, err := api.ShowSpace(name)
-	if err != nil {
-		return names.SpaceTag{}, errors.Annotatef(err, "failed to get space %q", name)
-	}
-
-	return names.NewSpaceTag(space.Space.Id), nil
-}
-
 func (c *MoveCommand) getSubnetTags(ctx *cmd.Context, api SubnetAPI, cidrs set.Strings) ([]names.SubnetTag, error) {
 	sortedCIDRs := cidrs.SortedValues()
 

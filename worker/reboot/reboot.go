@@ -9,7 +9,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/worker/v3"
-	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/agent/reboot"
@@ -27,7 +26,6 @@ var logger = loggo.GetLogger("juju.worker.reboot")
 // up by the machine agent as a fatal error and will do the
 // right thing (reboot or shutdown)
 type Reboot struct {
-	tomb        tomb.Tomb
 	st          reboot.State
 	tag         names.MachineTag
 	machineLock machinelock.Lock

@@ -30,8 +30,6 @@ type unregisterCommand struct {
 	modelcmd.DestroyConfirmationCommandBase
 
 	controllerName string
-	assumeYes      bool // DEPRECATED
-	assumeNoPrompt bool
 	store          jujuclient.ClientStore
 }
 

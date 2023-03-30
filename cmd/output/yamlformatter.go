@@ -24,8 +24,6 @@ type YamlFormatter struct {
 	buff *bytes.Buffer
 	// UseIndentLines if set to true sets indentation
 	UseIndentLines bool
-	// inString detects strings that are within strings
-	inString bool
 	// raw is yaml serialised string
 	raw string
 	// key is yaml key parsed from a serialized string
@@ -237,13 +235,6 @@ func (f *YamlFormatter) isEmptyLine() bool {
 
 func (f *YamlFormatter) isElementOfList() bool {
 	if string(strings.TrimSpace(f.raw)[0]) == "-" {
-		return true
-	}
-	return false
-}
-
-func (f *YamlFormatter) isUrl() bool {
-	if strings.Contains(f.raw, "://") {
 		return true
 	}
 	return false

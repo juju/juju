@@ -18,7 +18,6 @@ import (
 
 type updateSecretBackendCommand struct {
 	modelcmd.ControllerCommandBase
-	out cmd.Output
 
 	UpdateSecretBackendsAPIFunc func() (UpdateSecretBackendsAPI, error)
 

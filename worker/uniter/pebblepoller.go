@@ -33,7 +33,6 @@ type pebblePoller struct {
 	tomb            tomb.Tomb
 	newPebbleClient NewPebbleClientFunc
 
-	containerNames    []string
 	workloadEventChan chan string
 	workloadEvents    container.WorkloadEvents
 

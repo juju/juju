@@ -32,8 +32,7 @@ import (
 type ManifoldSuite struct {
 	coretesting.BaseSuite
 
-	dataDir  string
-	oldLcAll string
+	dataDir string
 
 	manifoldConfig collect.ManifoldConfig
 	manifold       dependency.Manifold

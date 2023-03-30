@@ -5,7 +5,6 @@ package openstack_test
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/go-goose/goose/v5/cinder"
 	gooseerrors "github.com/go-goose/goose/v5/errors"
@@ -847,7 +846,6 @@ type mockAdapter struct {
 	deleteVolume          func(string) error
 	createVolume          func(cinder.CreateVolumeVolumeParams) (*cinder.Volume, error)
 	attachVolume          func(string, string, string) (*nova.VolumeAttachment, error)
-	volumeStatusNotifier  func(string, string, int, time.Duration) <-chan error
 	detachVolume          func(string, string) error
 	listVolumeAttachments func(string) ([]nova.VolumeAttachment, error)
 	setVolumeMetadata     func(string, map[string]string) (map[string]string, error)

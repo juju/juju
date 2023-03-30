@@ -26,7 +26,6 @@ type FanConfigurer struct {
 	config   FanConfigurerConfig
 	clock    clock.Clock
 	mu       sync.Mutex
-	enabled  bool
 }
 
 type FanConfigurerFacade interface {

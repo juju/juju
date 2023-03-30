@@ -65,20 +65,6 @@ func (s *State) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	return nil
 }
 
-// copy returns an independent copy of the state.
-func (s *State) copy() *State {
-	stCopy := NewState()
-	for u, v := range s.ConsumedSecretInfo {
-		stCopy.ConsumedSecretInfo[u] = v
-	}
-	for u, v := range s.SecretObsoleteRevisions {
-		rCopy := make([]int, len(v))
-		copy(rCopy, v)
-		stCopy.SecretObsoleteRevisions[u] = v
-	}
-	return stCopy
-}
-
 // stateOps reads and writes secrets state from/to the controller.
 type stateOps struct {
 	unitStateRW UnitStateReadWriter

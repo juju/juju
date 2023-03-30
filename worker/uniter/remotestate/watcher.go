@@ -75,8 +75,7 @@ type RemoteStateWatcher struct {
 	workloadEventChannel          <-chan string
 	shutdownChannel               <-chan bool
 
-	secretsClient  SecretsClient
-	secretsChanges chan []string
+	secretsClient SecretsClient
 
 	secretRotateWatcherFunc SecretTriggerWatcherFunc
 	secretRotateWatcher     worker.Worker

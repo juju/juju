@@ -40,7 +40,6 @@ type workerFixture struct {
 	hub                  *pubsub.StructuredHub
 	config               httpserver.Config
 	logDir               string
-	stub                 testing.Stub
 }
 
 func (s *workerFixture) SetUpTest(c *gc.C) {

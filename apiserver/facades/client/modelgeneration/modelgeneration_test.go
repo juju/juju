@@ -275,10 +275,6 @@ func (s *modelGenerationSuite) expectHasActiveBranch(err error) {
 	s.mockModelCache.EXPECT().Branch(s.newBranchName).Return(cache.Branch{}, err)
 }
 
-func (s *modelGenerationSuite) expectAssignAllUnits(appName string) {
-	s.mockGen.EXPECT().AssignAllUnits(appName).Return(nil)
-}
-
 func (s *modelGenerationSuite) expectAssignUnits(appName string, numUnits int) {
 	s.mockGen.EXPECT().AssignUnits(appName, numUnits).Return(nil)
 }

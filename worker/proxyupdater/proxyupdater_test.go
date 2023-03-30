@@ -169,21 +169,6 @@ func (s *ProxyUpdaterSuite) waitForFile(c *gc.C, filename, expected string) {
 	}
 }
 
-func (s *ProxyUpdaterSuite) assertNoFile(c *gc.C, filename string) {
-	maxWait := time.After(coretesting.ShortWait)
-	for {
-		select {
-		case <-maxWait:
-			return
-		case <-time.After(10 * time.Millisecond):
-			_, err := os.Stat(filename)
-			if err == nil {
-				c.Fatalf("file %s exists", filename)
-			}
-		}
-	}
-}
-
 func (s *ProxyUpdaterSuite) TestRunStop(c *gc.C) {
 	updater, err := proxyupdater.NewWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)

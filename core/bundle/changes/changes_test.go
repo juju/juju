@@ -5829,10 +5829,6 @@ func (s *changesSuite) checkBundleWithConstraintsParser(c *gc.C, bundleContent s
 	s.checkBundleImpl(c, bundleContent, nil, expectedChanges, "", parserFn, nil)
 }
 
-func (s *changesSuite) checkBundleExistingModelWithConstraintsParser(c *gc.C, bundleContent string, existingModel *bundlechanges.Model, expectedChanges []string, parserFn bundlechanges.ConstraintGetter) {
-	s.checkBundleImpl(c, bundleContent, existingModel, expectedChanges, "", parserFn, nil)
-}
-
 func (s *changesSuite) checkBundleWithConstraintsParserError(c *gc.C, bundleContent, errMatch string, parserFn bundlechanges.ConstraintGetter) {
 	s.checkBundleImpl(c, bundleContent, nil, nil, errMatch, parserFn, nil)
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/common/credentialcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/crossmodel"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
@@ -36,7 +37,12 @@ type API struct {
 	getCAASBroker stateenvirons.NewCAASBrokerFunc
 }
 
-// NewAPI returns a new API. Accepts a NewEnvironFunc and context.ProviderCallContext
+// APIV1 implements the V1 version of the API facade.
+type APIV1 struct {
+	*API
+}
+
+// NewAPI returns a new APIV1. Accepts a NewEnvironFunc and context.ProviderCallContext
 // for testing purposes.
 func NewAPI(ctx facade.Context, getEnviron stateenvirons.NewEnvironFunc, getCAASBroker stateenvirons.NewCAASBrokerFunc) (*API, error) {
 	auth := ctx.Auth()
@@ -130,8 +136,8 @@ func (api *API) getModel(modelTag string) (*state.Model, func(), error) {
 	return model, func() { ph.Release() }, nil
 }
 
-func (api *API) getImportingModel(args params.ModelArgs) (*state.Model, func(), error) {
-	model, release, err := api.getModel(args.ModelTag)
+func (api *API) getImportingModel(tag string) (*state.Model, func(), error) {
+	model, release, err := api.getModel(tag)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -145,7 +151,7 @@ func (api *API) getImportingModel(args params.ModelArgs) (*state.Model, func(), 
 // Abort removes the specified model from the database. It is an error to
 // attempt to Abort a model that has a migration mode other than importing.
 func (api *API) Abort(args params.ModelArgs) error {
-	model, releaseModel, err := api.getImportingModel(args)
+	model, releaseModel, err := api.getImportingModel(args.ModelTag)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -162,12 +168,72 @@ func (api *API) Abort(args params.ModelArgs) error {
 // Activate sets the migration mode of the model to "none", meaning it
 // is ready for use. It is an error to attempt to Abort a model that
 // has a migration mode other than importing.
-func (api *API) Activate(args params.ModelArgs) error {
-	model, release, err := api.getImportingModel(args)
+func (api *APIV1) Activate(args params.ModelArgs) error {
+	model, release, err := api.getImportingModel(args.ModelTag)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer release()
+
+	if err := model.SetStatus(status.StatusInfo{Status: status.Available}); err != nil {
+		return errors.Trace(err)
+	}
+
+	// TODO(fwereade) - need to validate binaries here.
+	return model.SetMigrationMode(state.MigrationModeNone)
+}
+
+// Activate sets the migration mode of the model to "none", meaning it
+// is ready for use. It is an error to attempt to Abort a model that
+// has a migration mode other than importing. It also adds any required
+// external controller records for those controllers hosting offers used
+// by the model.
+func (api *API) Activate(args params.ActivateModelArgs) error {
+	model, release, err := api.getImportingModel(args.ModelTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer release()
+
+	// Add any required external controller records if there are cross
+	// model relations to the source controller that were local but
+	// now need to be external after migration.
+	ec := api.state.NewExternalControllers()
+	if len(args.CrossModelUUIDs) > 0 {
+		cTag, err := names.ParseControllerTag(args.ControllerTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		_, err = ec.Save(crossmodel.ControllerInfo{
+			ControllerTag: cTag,
+			Alias:         args.ControllerAlias,
+			Addrs:         args.SourceAPIAddrs,
+			CACert:        args.SourceCACert,
+		}, args.CrossModelUUIDs...)
+		if err != nil {
+			return errors.Annotate(err, "saving source controller info")
+		}
+	}
+
+	// Update the source controller attribute on remote applications
+	// to allow external controller ref counts to function properly.
+	remoteApps, err := model.State().AllRemoteApplications()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, app := range remoteApps {
+		var sourceControllerUUID string
+		extInfo, err := ec.ControllerForModel(app.SourceModel().Id())
+		if err != nil && !errors.Is(err, errors.NotFound) {
+			return errors.Trace(err)
+		}
+		if err == nil {
+			sourceControllerUUID = extInfo.ControllerInfo().ControllerTag.Id()
+		}
+		if err := app.SetSourceController(sourceControllerUUID); err != nil {
+			return errors.Annotatef(err, "updating source controller uuid for %q", app.Name())
+		}
+	}
 
 	if err := model.SetStatus(status.StatusInfo{Status: status.Available}); err != nil {
 		return errors.Trace(err)

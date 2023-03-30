@@ -528,7 +528,6 @@ func isTerminal(w io.Writer) bool {
 type enqueuedAction struct {
 	task     string
 	receiver string
-	err      error
 }
 
 func (a *enqueuedAction) receiverId() string {

@@ -20,11 +20,7 @@ func TestPackage(t *testing.T) {
 
 var _ = gc.Suite(&TerminationWorkerSuite{})
 
-type TerminationWorkerSuite struct {
-	// c is a channel that will wait for the termination
-	// signal, to prevent signals terminating the process.
-	c chan os.Signal
-}
+type TerminationWorkerSuite struct{}
 
 func (s *TerminationWorkerSuite) TestStartStop(c *gc.C) {
 	w := terminationworker.NewWorker()

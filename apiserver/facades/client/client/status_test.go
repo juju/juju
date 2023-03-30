@@ -886,7 +886,6 @@ type statusUpgradeUnitSuite struct {
 	jujutesting.JujuConnSuite
 
 	charmrevisionupdater *charmrevisionupdater.CharmRevisionUpdaterAPI
-	authoriser           apiservertesting.FakeAuthorizer
 	ctrl                 *gomock.Controller
 }
 

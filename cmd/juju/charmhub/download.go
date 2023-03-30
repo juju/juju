@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/charm/v10"
 	"github.com/juju/cmd/v3"
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
@@ -63,8 +62,6 @@ func NewDownloadCommand() cmd.Command {
 // charm snaps.
 type downloadCommand struct {
 	*charmHubCommand
-
-	out cmd.Output
 
 	channel       string
 	charmOrBundle string
@@ -184,9 +181,7 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 	defer cancel()
 
 	// Locate a release that we would expect to be default. In this case
-	// we want to fall back to latest/stable. We don't want to use the
-	// info.DefaultRelease here as that isn't actually the default release,
-	// but instead the last release and that's not what we want.
+	// we want to fall back to latest/stable.
 	channel := c.channel
 	if channel == "" {
 		channel = corecharm.DefaultChannelString
@@ -203,37 +198,10 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 	if base.Empty() {
 		base = version.DefaultSupportedLTSBase()
 	}
-	platform := fmt.Sprintf("%s/%s/%s", pArch, base.OS, base.Channel.Track)
-	normBase, err := corecharm.ParsePlatformNormalize(platform)
+
+	results, normBase, err := c.refresh(ctx, cmdContext, client, normChannel, pArch, base, true)
 	if err != nil {
 		return errors.Trace(err)
-	}
-
-	refreshConfig, err := charmhub.InstallOneFromChannel(c.charmOrBundle, normChannel.String(), charmhub.RefreshBase{
-		Architecture: normBase.Architecture,
-		Name:         normBase.OS,
-		Channel:      normBase.Channel,
-	})
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	results, err := client.Refresh(ctx, refreshConfig)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if len(results) == 0 {
-		return errors.NotFoundf(c.charmOrBundle)
-	}
-	// Ensure we didn't get any errors whilst querying the charmhub API
-	for _, res := range results {
-		if res.Error != nil {
-			if res.Error.Code == transport.ErrorCodeRevisionNotFound {
-				return c.suggested(base, normChannel.String(), res.Error.Extra.Releases, cmdContext)
-			}
-			return errors.Errorf("unable to locate %s: %s", c.charmOrBundle, res.Error.Message)
-		}
 	}
 
 	// In theory we can get multiple responses from the refresh API, but in
@@ -299,22 +267,93 @@ Install the %q %s with:
 	return nil
 }
 
-func (c *downloadCommand) suggested(requestedBase coreseries.Base, channel string, releases []transport.Release, cmdContext *cmd.Context) error {
-	bases := set.NewStrings()
-	for _, rel := range releases {
-		if rel.Channel == channel {
-			bases.Add(coreseries.MakeDefaultBase(rel.Base.Name, rel.Base.Channel).DisplayString())
+func (c *downloadCommand) refresh(
+	ctx context.Context, cmdContext *cmd.Context,
+	client CharmHubClient,
+	normChannel charm.Channel,
+	arch string,
+	base series.Base,
+	retrySuggested bool,
+) ([]transport.RefreshResponse, *corecharm.Platform, error) {
+	platform := fmt.Sprintf("%s/%s/%s", arch, base.OS, base.Channel.Track)
+	normBase, err := corecharm.ParsePlatformNormalize(platform)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	refreshConfig, err := charmhub.InstallOneFromChannel(c.charmOrBundle, normChannel.String(), charmhub.RefreshBase{
+		Architecture: normBase.Architecture,
+		Name:         normBase.OS,
+		Channel:      normBase.Channel,
+	})
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	results, err := client.Refresh(ctx, refreshConfig)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	if len(results) == 0 {
+		return nil, nil, errors.NotFoundf(c.charmOrBundle)
+	}
+
+	// Ensure we didn't get any errors whilst querying the charmhub API
+	for _, res := range results {
+		if res.Error != nil {
+			if res.Error.Code == transport.ErrorCodeRevisionNotFound {
+				possibleBases, err := c.suggested(cmdContext, base, normChannel.String(), res.Error.Extra.Releases)
+				// The following will attempt to refresh the charm with the
+				// suggested series. If it can't do that, it will give up after
+				// the second attempt.
+				if retrySuggested && errors.Is(err, errors.NotSupported) && len(possibleBases) > 0 {
+					cmdContext.Infof("Base %q is not supported for charm %q, trying base %q", base.DisplayString(), c.charmOrBundle, possibleBases[0].DisplayString())
+					return c.refresh(ctx, cmdContext, client, normChannel, arch, possibleBases[0], false)
+				}
+				return nil, nil, errors.Trace(err)
+			}
+			return nil, nil, errors.Errorf("unable to locate %s: %s", c.charmOrBundle, res.Error.Message)
 		}
 	}
-	if bases.IsEmpty() {
+
+	return results, &normBase, nil
+}
+
+func (c *downloadCommand) suggested(cmdContext *cmd.Context, requestedBase coreseries.Base, channel string, releases []transport.Release) ([]coreseries.Base, error) {
+	var (
+		ordered []coreseries.Base
+		bases   = make(map[coreseries.Base]struct{})
+	)
+	for _, rel := range releases {
+		if rel.Channel == channel {
+			parsedBase, err := coreseries.ParseBase(rel.Base.Name, rel.Base.Channel)
+			if err != nil {
+				// Shouldn't happen, log and continue if verbose is set.
+				cmdContext.Verbosef("%s of %s", err, rel.Base.Name)
+				continue
+			}
+			if _, ok := bases[parsedBase]; !ok {
+				ordered = append(ordered, parsedBase)
+			}
+			bases[parsedBase] = struct{}{}
+		}
+	}
+	if len(bases) == 0 {
 		// No releases in this channel
-		return errors.Errorf(`%q has no releases in channel %q. Type
+		return nil, errors.Errorf(`%q has no releases in channel %q. Type
     juju info %s
 for a list of supported channels.`,
 			c.charmOrBundle, channel, c.charmOrBundle)
 	}
-	return errors.Errorf("%q does not support base %q in channel %q.  Supported bases are: %s.",
-		c.charmOrBundle, requestedBase.DisplayString(), channel, strings.Join(bases.SortedValues(), ", "))
+
+	orderedBaseStrings := make([]string, len(ordered))
+	for i, base := range ordered {
+		orderedBaseStrings[i] = base.DisplayString()
+	}
+
+	return ordered, errors.NewNotSupported(nil, fmt.Sprintf("%q does not support base %q in channel %q. Supported bases are: %s.",
+		c.charmOrBundle, requestedBase.DisplayString(), channel, strings.Join(orderedBaseStrings, ", ")))
 }
 
 func (c *downloadCommand) calculateHash(path string) (string, error) {
