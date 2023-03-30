@@ -4,7 +4,6 @@
 package stream
 
 import (
-	"context"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -514,10 +513,7 @@ func (s *streamSuite) TestReadChangesWithNoChanges(c *gc.C) {
 
 	s.insertNamespace(c, 1, "foo")
 
-	ctx, cancel := context.WithTimeout(context.Background(), testing.LongWait)
-	defer cancel()
-
-	results, err := stream.readChanges(ctx)
+	results, err := stream.readChanges()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(results, gc.HasLen, 0)
@@ -536,10 +532,7 @@ func (s *streamSuite) TestReadChangesWithOneChange(c *gc.C) {
 	}
 	s.insertChange(c, first)
 
-	ctx, cancel := context.WithTimeout(context.Background(), testing.LongWait)
-	defer cancel()
-
-	results, err := stream.readChanges(ctx)
+	results, err := stream.readChanges()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(results, gc.HasLen, 1)
@@ -563,10 +556,7 @@ func (s *streamSuite) TestReadChangesWithMultipleSameChange(c *gc.C) {
 		s.insertChange(c, ch)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), testing.LongWait)
-	defer cancel()
-
-	results, err := stream.readChanges(ctx)
+	results, err := stream.readChanges()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(results, gc.HasLen, 1)
@@ -591,10 +581,7 @@ func (s *streamSuite) TestReadChangesWithMultipleChanges(c *gc.C) {
 		changes[i] = ch
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), testing.LongWait)
-	defer cancel()
-
-	results, err := stream.readChanges(ctx)
+	results, err := stream.readChanges()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(results, gc.HasLen, 10)
@@ -629,10 +616,7 @@ func (s *streamSuite) TestReadChangesWithMultipleChangesGroupsCorrectly(c *gc.C)
 		changes[i] = ch
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), testing.LongWait)
-	defer cancel()
-
-	results, err := stream.readChanges(ctx)
+	results, err := stream.readChanges()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(results, gc.HasLen, 10)
@@ -707,10 +691,7 @@ func (s *streamSuite) TestReadChangesWithMultipleChangesInterweavedGroupsCorrect
 		changes[4] = ch
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), testing.LongWait)
-	defer cancel()
-
-	results, err := stream.readChanges(ctx)
+	results, err := stream.readChanges()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(results, gc.HasLen, 5)

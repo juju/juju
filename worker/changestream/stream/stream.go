@@ -138,12 +138,7 @@ func (s *Stream) loop() error {
 			s.logger.Infof("Change stream has been unblocked")
 
 		case <-timer.Chan():
-			// We pass this context to every database method that accepts one.
-			// It is cancelled by killing the tomb, which prevents shutdown
-			// being blocked by such calls.
-			ctx := s.tomb.Context(context.Background())
-
-			changes, err := s.readChanges(ctx)
+			changes, err := s.readChanges()
 			if err != nil {
 				// If we get an error attempting to read the changes, the Txn
 				// will have retried multiple times. There just isn't anything
@@ -202,7 +197,16 @@ func (e changeEvent) ChangedUUID() string {
 	return e.changedUUID
 }
 
-func (s *Stream) readChanges(ctx context.Context) ([]changeEvent, error) {
+func (s *Stream) readChanges() ([]changeEvent, error) {
+	// As this is a self instantiated query, we don't have a root context to tie
+	// to, so we create a new one that's cancellable.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// We want to tie the context to the tomb, so that if the tomb is killed,
+	// the context will be cancelled.
+	ctx = s.tomb.Context(ctx)
+
 	var changes []changeEvent
 	err := s.db.Txn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, query, s.lastID)
