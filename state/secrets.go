@@ -1286,38 +1286,11 @@ func (st *State) GetSecretConsumer(uri *secrets.URI, consumer names.Tag) (*secre
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	md := &secrets.SecretConsumerMetadata{
+	return &secrets.SecretConsumerMetadata{
 		Label:           doc.Label,
 		CurrentRevision: doc.CurrentRevision,
 		LatestRevision:  doc.LatestRevision,
-	}
-
-	if md.Label == "" {
-		// Note: the leader unit always has the label cached on the uniter side, but non leaders do not.
-		// Therefore, below logic (fixes https://bugs.launchpad.net/juju/+bug/2004220) makes application
-		// owned secrets' labels visible for non leader units' secret-changed hook.
-		equalOrOwned := func(consumerTag, ownerTag names.Tag) bool {
-			if consumerTag.Id() == ownerTag.Id() {
-				return true
-			}
-			applicationName, _ := names.UnitApplication(consumerTag.Id())
-			return ownerTag.Id() == applicationName
-		}
-
-		store := NewSecrets(st)
-		secret, err := store.GetSecret(uri)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		ownerTag, err := names.ParseTag(secret.OwnerTag)
-		if err != nil {
-			return nil, errors.Annotate(err, "invalid owner tag")
-		}
-		if equalOrOwned(consumer, ownerTag) {
-			md.Label = secret.Label
-		}
-	}
-	return md, nil
+	}, nil
 }
 
 func (st *State) removeSecretConsumerInfo(uri *secrets.URI) error {

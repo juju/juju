@@ -1078,19 +1078,8 @@ func (s *SecretsSuite) TestGetSecretConsumerAndGetSecretConsumerURI(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(uri3, jc.DeepEquals, uri)
 
-	ownerNonLeaderUnit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.owner})
-	err = s.State.SaveSecretConsumer(
-		// No consumer label for app owned secrets.
-		uri, ownerNonLeaderUnit.UnitTag(),
-		&secrets.SecretConsumerMetadata{CurrentRevision: 666},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
-	mdOwnerNonLeaderUnit, err := s.State.GetSecretConsumer(uri, ownerNonLeaderUnit.Tag())
-	c.Check(err, jc.ErrorIsNil)
-	// owner label visible for its own units.
-	c.Check(mdOwnerNonLeaderUnit.Label, gc.Equals, "owner-label")
-	c.Check(mdOwnerNonLeaderUnit.CurrentRevision, gc.Equals, 666)
+	_, err = s.State.GetSecretConsumer(uri, names.NewUnitTag("mysql/0"))
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *SecretsSuite) TestSaveSecretConsumer(c *gc.C) {
