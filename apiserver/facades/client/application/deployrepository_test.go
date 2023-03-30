@@ -777,21 +777,18 @@ func (m addApplicationArgsMatcher) Matches(x interface{}) bool {
 
 	eA := m.expectedArgs
 	// Check everything but the Charm
-	check := oA.Name == eA.Name &&
-		oA.ApplicationConfig == eA.ApplicationConfig &&
-		oA.NumUnits == eA.NumUnits &&
-		oA.Constraints == eA.Constraints
-
-	checkStorage, _ := jc.DeepEqual(oA.Storage, eA.Storage)
-	checkDevices, _ := jc.DeepEqual(oA.Devices, eA.Devices)
-	checkAttachStorage, _ := jc.DeepEqual(eA.AttachStorage, eA.AttachStorage)
-	checkExportBindings, _ := jc.DeepEqual(oA.EndpointBindings, eA.EndpointBindings)
-	checkCharmConfig, _ := jc.DeepEqual(oA.CharmConfig, eA.CharmConfig)
-	checkPlacement, _ := jc.DeepEqual(oA.Placement, eA.Placement)
-	checkResources, _ := jc.DeepEqual(oA.Resources, eA.Resources)
-
-	return check && checkStorage && checkDevices && checkAttachStorage &&
-		checkExportBindings && checkCharmConfig && checkPlacement && checkResources
+	m.c.Assert(oA.Name, gc.DeepEquals, eA.Name)
+	m.c.Assert(oA.ApplicationConfig, gc.DeepEquals, eA.ApplicationConfig)
+	m.c.Assert(oA.NumUnits, gc.DeepEquals, eA.NumUnits)
+	m.c.Assert(oA.Constraints, gc.DeepEquals, eA.Constraints)
+	m.c.Assert(oA.Storage, gc.DeepEquals, eA.Storage)
+	m.c.Assert(oA.Devices, gc.DeepEquals, eA.Devices)
+	m.c.Assert(eA.AttachStorage, gc.DeepEquals, eA.AttachStorage)
+	m.c.Assert(oA.EndpointBindings, gc.DeepEquals, eA.EndpointBindings)
+	m.c.Assert(oA.CharmConfig, gc.DeepEquals, eA.CharmConfig)
+	m.c.Assert(oA.Placement, gc.DeepEquals, eA.Placement)
+	m.c.Assert(oA.Resources, gc.DeepEquals, eA.Resources)
+	return true
 }
 
 func (s *deployRepositorySuite) getDeployFromRepositoryAPI() *DeployFromRepositoryAPI {
