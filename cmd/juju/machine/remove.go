@@ -218,7 +218,7 @@ func (c *removeCommand) performDryRun(ctx *cmd.Context, client RemoveMachineAPI)
 	}
 	ctx.Warningf(removeMachineMsgPrefix)
 	_ = c.logResults(ctx, results)
-	if c.runNeedsForce(results) {
+	if c.runNeedsForce(results) && !c.Force {
 		ctx.Infof("\nThis will require `--force`")
 	}
 	return nil
