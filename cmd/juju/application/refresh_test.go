@@ -60,7 +60,6 @@ type BaseRefreshSuite struct {
 	testing.Stub
 
 	deployResources      deployer.DeployResourcesFunc
-	fakeAPI              *fakeDeployAPI
 	resolveCharm         mockCharmResolver
 	resolvedCharmURL     *charm.URL
 	resolvedChannel      charm.Risk
