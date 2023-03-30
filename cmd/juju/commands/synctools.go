@@ -57,7 +57,7 @@ The online store will, of course, need to be contacted at some point to get
 the software.
 `
 
-const syntoolsExamples = `
+const synctoolsExamples = `
     juju sync-agent-binary --debug --agent-version 2.0
     juju sync-agent-binary --debug --agent-version 2.0 --local-dir=/home/ubuntu/sync-agent-binary
 `

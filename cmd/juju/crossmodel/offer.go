@@ -27,7 +27,7 @@ By default, the offer is named after the application, unless
 an offer name is explicitly specified.
 `
 
-	offerCommandExamles = `
+	offerCommandExamples = `
     juju offer mysql:db
     juju offer mymodel.mysql:db
     juju offer db2:db hosted-db2

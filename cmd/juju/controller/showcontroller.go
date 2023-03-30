@@ -72,7 +72,7 @@ func (c *showControllerCommand) Info() *cmd.Info {
 		Args:     "[<controller name> ...]",
 		Purpose:  usageShowControllerSummary,
 		Doc:      usageShowControllerDetails,
-		Examples: usageShowcontrollerExamples,
+		Examples: usageShowControllerExamples,
 		SeeAlso: []string{
 			"controllers",
 		},
