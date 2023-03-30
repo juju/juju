@@ -134,7 +134,7 @@ func (s *UploadSuite) TestUploadFileResource(c *gc.C) {
 	)
 	s.stub.CheckCall(c, 1, "ListResources", []string{"svc"})
 	s.stub.CheckCall(c, 2, "OpenResource", "bar")
-	s.stub.CheckCall(c, 3, "Upload", "svc", "foo", "bar", file)
+	s.stub.CheckCall(c, 3, "Upload", "svc", "foo", "bar", "", file)
 }
 
 func (s *UploadSuite) TestUploadFileChangeBlocked(c *gc.C) {
@@ -164,7 +164,7 @@ func (s *UploadSuite) TestUploadFileChangeBlocked(c *gc.C) {
 	)
 	s.stub.CheckCall(c, 1, "ListResources", []string{"svc"})
 	s.stub.CheckCall(c, 2, "OpenResource", "bar")
-	s.stub.CheckCall(c, 3, "Upload", "svc", "foo", "bar", file)
+	s.stub.CheckCall(c, 3, "Upload", "svc", "foo", "bar", "", file)
 }
 
 type rsc struct {
