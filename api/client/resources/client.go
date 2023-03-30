@@ -101,10 +101,13 @@ func newListResourcesArgs(applications []string) (params.ListResourcesArgs, erro
 }
 
 // Upload sends the provided resource blob up to Juju.
-func (c Client) Upload(application, name, filename string, reader io.ReadSeeker) error {
+func (c Client) Upload(application, name, filename, pendingID string, reader io.ReadSeeker) error {
 	uReq, err := NewUploadRequest(application, name, filename, reader)
 	if err != nil {
 		return errors.Trace(err)
+	}
+	if pendingID != "" {
+		uReq.PendingID = pendingID
 	}
 	req, err := uReq.HTTPRequest()
 	if err != nil {
@@ -224,10 +227,11 @@ func (c Client) UploadPendingResource(application string, res charmresource.Reso
 		return "", errors.Trace(err)
 	}
 	pendingID = ids[0]
+
 	if reader == nil {
 		return pendingID, nil
 	}
-	return pendingID, c.Upload(application, res.Name, filename, reader)
+	return pendingID, c.Upload(application, res.Name, filename, pendingID, reader)
 }
 
 func resolveErrors(errs []error) error {

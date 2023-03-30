@@ -616,7 +616,8 @@ func (c *repositoryCharm) uploadExistingPendingResources(
 			return errors.Annotatef(openResErr, "unable to open resource %v", pendingResUpload.Name)
 		}
 
-		uploadErr := resourceApiClient.Upload(appName, pendingResUpload.Name, pendingResUpload.Filename, r)
+		uploadErr := resourceApiClient.Upload(appName,
+			pendingResUpload.Name, pendingResUpload.Filename, pendingResUpload.PendingID, r)
 
 		if uploadErr != nil {
 			return errors.Trace(uploadErr)
