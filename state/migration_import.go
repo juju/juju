@@ -299,7 +299,6 @@ type ImportStateMigration struct {
 	src                 description.Model
 	dst                 Database
 	knownSecretBackends set.Strings
-	importer            *importer
 	migrations          []func() error
 }
 

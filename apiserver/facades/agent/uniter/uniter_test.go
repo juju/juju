@@ -186,17 +186,6 @@ func (s *uniterSuiteBase) assertInScope(c *gc.C, relUnit *state.RelationUnit, in
 	c.Assert(ok, gc.Equals, inScope)
 }
 
-func (s *uniterSuiteBase) addCAASSidecarApplication(c *gc.C) (*state.State, *state.Application) {
-	st := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "caas-model",
-		Type: state.ModelTypeCAAS,
-	})
-	f := factory.NewFactory(st, s.StatePool)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "cockroachdb", Series: "focal"})
-
-	return st, f.MakeApplication(c, &factory.ApplicationParams{Name: "cockroachdb", Charm: ch})
-}
-
 // TODO (manadart 2020-12-07): This should form the basis of a SetUpTest method
 // in a new suite.
 // If we are testing a CAAS model, it is a waste of resources to do preamble

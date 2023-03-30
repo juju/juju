@@ -509,7 +509,6 @@ type RefreshSuccessStateSuite struct {
 	path string
 	riak *state.Application
 
-	fakeAPI     *fakeDeployAPI
 	charmClient mockCharmClient
 	cmd         cmd.Command
 }

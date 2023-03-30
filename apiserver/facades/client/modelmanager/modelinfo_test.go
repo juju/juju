@@ -1314,10 +1314,9 @@ func (m *mockModel) SetCloudCredential(tag names.CloudCredentialTag) (bool, erro
 
 type mockModelUser struct {
 	jujutesting.Stub
-	userName       string
-	displayName    string
-	lastConnection time.Time
-	access         permission.Access
+	userName    string
+	displayName string
+	access      permission.Access
 }
 
 type mockMigration struct {

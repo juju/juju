@@ -249,19 +249,6 @@ func (st *State) RemoveUser(tag names.UserTag) error {
 		return nil
 	}
 
-	dateRemoved := st.nowToTheSecond()
-	// new entry in the removal log
-	newRemovalLogEntry := userRemovedLogEntry{
-		RemovedBy:   u.doc.CreatedBy,
-		DateCreated: u.doc.DateCreated,
-		DateRemoved: dateRemoved,
-	}
-	removalLog := u.doc.RemovalLog
-	if removalLog == nil {
-		removalLog = make([]userRemovedLogEntry, 0)
-	}
-	removalLog = append(removalLog, newRemovalLogEntry)
-
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			// If it is not our first attempt, refresh the user.

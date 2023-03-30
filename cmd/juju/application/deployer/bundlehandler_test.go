@@ -16,7 +16,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/kr/pretty"
@@ -2811,39 +2810,4 @@ func (s *BundleHandlerMakeModelSuite) expectDeployerAPIStatusWordpressBundle() {
 		Branches:            nil,
 	}
 	s.deployerAPI.EXPECT().Status(gomock.Any()).Return(status, nil)
-}
-
-func (s *BundleHandlerMakeModelSuite) expectApplicationInfo(c *gc.C) {
-	s.deployerAPI.EXPECT().ApplicationsInfo(applicationInfoMatcher{c: c}).DoAndReturn(
-		func(args []names.ApplicationTag) ([]params.ApplicationInfoResult, error) {
-			// args content ensured by applicationInfoMatcher
-			info := make([]params.ApplicationInfoResult, 2)
-			for i, arg := range args {
-				if arg == names.NewApplicationTag("mysql") {
-					info[i] = params.ApplicationInfoResult{Result: &params.ApplicationResult{Channel: "stable"}}
-				}
-				if arg == names.NewApplicationTag("wordpress") {
-					info[i] = params.ApplicationInfoResult{Result: &params.ApplicationResult{Channel: "candidate"}}
-				}
-			}
-			return info, nil
-		})
-}
-
-type applicationInfoMatcher struct {
-	c *gc.C
-}
-
-func (m applicationInfoMatcher) Matches(x interface{}) bool {
-	obtained, ok := x.([]names.ApplicationTag)
-	m.c.Assert(ok, jc.IsTrue)
-	m.c.Assert(obtained, jc.SameContents, []names.ApplicationTag{
-		names.NewApplicationTag("mysql"),
-		names.NewApplicationTag("wordpress"),
-	})
-	return true
-}
-
-func (m applicationInfoMatcher) String() string {
-	return "Match ApplicationInfo args"
 }
