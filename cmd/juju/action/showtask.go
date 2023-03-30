@@ -54,18 +54,14 @@ displayed.  This is also the behavior when any negative time is given.
 Note: if Juju has been upgraded from 2.6 and there are old action UUIDs still in use,
 and you want to specify just the UUID prefix to match on, you will need to include up
 to at least the first "-" to disambiguate from a newer numeric id.
+`
 
-Examples:
-
+const showTaskExamples = `
     juju show-task 1
     juju show-task 1 --wait=2m
     juju show-task 1 --watch
-
-See also:
-    run
-    operations
-    show-operation
 `
+
 const defaultTaskWait = -1 * time.Second
 
 // Set up the output.
@@ -85,10 +81,16 @@ func (c *showTaskCommand) SetFlags(f *gnuflag.FlagSet) {
 
 func (c *showTaskCommand) Info() *cmd.Info {
 	info := jujucmd.Info(&cmd.Info{
-		Name:    "show-task",
-		Args:    "<task ID>",
-		Purpose: "Show results of a task by ID.",
-		Doc:     showTaskDoc,
+		Name:     "show-task",
+		Args:     "<task ID>",
+		Purpose:  "Show results of a task by ID.",
+		Doc:      showTaskDoc,
+		Examples: showTaskExamples,
+		SeeAlso: []string{
+			"run",
+			"operations",
+			"show-operation",
+		},
 	})
 	return info
 }

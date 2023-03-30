@@ -46,19 +46,14 @@ from this client.
 Use --controller option to update a cloud on a controller. 
 
 Use --client to update cloud definition on this client.
+`
 
-Examples:
-
+const updateCloudExamples = `
     juju update-cloud mymaas -f path/to/maas.yaml
     juju update-cloud mymaas -f path/to/maas.yaml --controller mycontroller
     juju update-cloud mymaas --controller mycontroller
     juju update-cloud mymaas --client --controller mycontroller
     juju update-cloud mymaas --client -f path/to/maas.yaml
-
-See also:
-    add-cloud
-    remove-cloud
-    clouds
 `
 
 type updateCloudAPI interface {
@@ -113,10 +108,16 @@ func (c *updateCloudCommand) Init(args []string) error {
 
 func (c *updateCloudCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "update-cloud",
-		Args:    "<cloud name>",
-		Purpose: "Updates cloud information available to Juju.",
-		Doc:     updateCloudDoc,
+		Name:     "update-cloud",
+		Args:     "<cloud name>",
+		Purpose:  "Updates cloud information available to Juju.",
+		Doc:      updateCloudDoc,
+		Examples: updateCloudExamples,
+		SeeAlso: []string{
+			"add-cloud",
+			"remove-cloud",
+			"clouds",
+		},
 	})
 }
 

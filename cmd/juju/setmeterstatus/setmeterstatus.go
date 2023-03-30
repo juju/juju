@@ -19,10 +19,12 @@ import (
 const setMeterStatusDoc = `
 Set meter status on the given application or unit. This command is used
 to test the meter-status-changed hook for charms in development.
+`
 
-Examples:
+const setMeterStatusExamples = `
     juju set-meter-status myapp RED
     juju set-meter-status myapp/0 AMBER --info "my message"
+
 `
 
 // SetMeterStatusCommand sets the meter status on an application or unit. Useful for charm authors.
@@ -41,10 +43,11 @@ func New() cmd.Command {
 // Info implements Command.Info.
 func (c *SetMeterStatusCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "set-meter-status",
-		Args:    "[application or unit] status",
-		Purpose: "Sets the meter status on an application or unit.",
-		Doc:     setMeterStatusDoc,
+		Name:     "set-meter-status",
+		Args:     "[application or unit] status",
+		Purpose:  "Sets the meter status on an application or unit.",
+		Doc:      setMeterStatusDoc,
+		Examples: setMeterStatusExamples,
 	})
 }
 

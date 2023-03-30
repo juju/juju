@@ -28,19 +28,11 @@ const getConstraintsDoc = "" +
 	"with `juju set-constraints` for commands (such as 'deploy') that provision\n" +
 	"machines/containers for applications. Where model and application constraints overlap, the\n" +
 	"application constraints take precedence.\n" +
-	"Constraints for a specific application can be viewed with `juju constraints`.\n" + getConstraintsDocExamples
+	"Constraints for a specific application can be viewed with `juju constraints`.\n"
 
 const getConstraintsDocExamples = `
-Examples:
-
     juju model-constraints
     juju model-constraints -m mymodel
-
-See also:
-    models
-    constraints
-    set-constraints
-    set-model-constraints
 `
 
 // setConstraintsDoc is multi-line since we need to use ` to denote
@@ -52,19 +44,11 @@ const setConstraintsDoc = "" +
 	"`juju set-constraints` for commands (such as 'deploy') that provision\n" +
 	"machines/containers for applications. Where model and application constraints overlap, the\n" +
 	"application constraints take precedence.\n" +
-	"Constraints for a specific application can be viewed with `juju constraints`.\n" + setConstraintsDocExamples
+	"Constraints for a specific application can be viewed with `juju constraints`.\n"
 
 const setConstraintsDocExamples = `
-Examples:
-
     juju set-model-constraints cores=8 mem=16G
     juju set-model-constraints -m mymodel root-disk=64G
-
-See also:
-    models
-    model-constraints
-    constraints
-    set-constraints
 `
 
 // ConstraintsAPI defines methods on the client API that
@@ -89,9 +73,16 @@ type modelGetConstraintsCommand struct {
 
 func (c *modelGetConstraintsCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "model-constraints",
-		Purpose: "Displays machine constraints for a model.",
-		Doc:     getConstraintsDoc,
+		Name:     "model-constraints",
+		Purpose:  "Displays machine constraints for a model.",
+		Doc:      getConstraintsDoc,
+		Examples: getConstraintsDocExamples,
+		SeeAlso: []string{
+			"models",
+			"constraints",
+			"set-constraints",
+			"set-model-constraints",
+		},
 	})
 }
 
@@ -153,10 +144,17 @@ type modelSetConstraintsCommand struct {
 
 func (c *modelSetConstraintsCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "set-model-constraints",
-		Args:    "<constraint>=<value> ...",
-		Purpose: "Sets machine constraints on a model.",
-		Doc:     setConstraintsDoc,
+		Name:     "set-model-constraints",
+		Args:     "<constraint>=<value> ...",
+		Purpose:  "Sets machine constraints on a model.",
+		Doc:      setConstraintsDoc,
+		Examples: setConstraintsDocExamples,
+		SeeAlso: []string{
+			"models",
+			"model-constraints",
+			"constraints",
+			"set-constraints",
+		},
 	})
 }
 

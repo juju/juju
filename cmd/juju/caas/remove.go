@@ -27,13 +27,12 @@ from the specified controller (if it is not in use).
 
 Use --client option to update your current client.
 
-Examples:
+`
+
+const usageRemoveCAASExamples = `
     juju remove-k8s myk8scloud
     juju remove-k8s myk8scloud --client
     juju remove-k8s --controller mycontroller myk8scloud
-    
-See also:
-    add-k8s
 `
 
 // RemoveCloudAPI is implemented by cloudapi.Client.
@@ -79,10 +78,14 @@ func NewRemoveCAASCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
 // Info returns help information about the command.
 func (c *RemoveCAASCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "remove-k8s",
-		Args:    "<k8s name>",
-		Purpose: usageRemoveCAASSummary,
-		Doc:     usageRemoveCAASDetails,
+		Name:     "remove-k8s",
+		Args:     "<k8s name>",
+		Purpose:  usageRemoveCAASSummary,
+		Doc:      usageRemoveCAASDetails,
+		Examples: usageRemoveCAASExamples,
+		SeeAlso: []string{
+			"add-k8s",
+		},
 	})
 }
 

@@ -25,18 +25,13 @@ const (
 Deployed application endpoints are offered for use by consumers.
 By default, the offer is named after the application, unless
 an offer name is explicitly specified.
+`
 
-Examples:
-
-$ juju offer mysql:db
-$ juju offer mymodel.mysql:db
-$ juju offer db2:db hosted-db2
-$ juju offer db2:db,log hosted-db2
-
-See also:
-    consume
-    relate
-    remove-saas
+	offerCommandExamles = `
+    juju offer mysql:db
+    juju offer mymodel.mysql:db
+    juju offer db2:db hosted-db2
+    juju offer db2:db,log hosted-db2
 `
 )
 
@@ -82,10 +77,16 @@ func (c *offerCommand) NewApplicationOffersAPI() (*applicationoffers.Client, err
 // Info implements Command.Info.
 func (c *offerCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "offer",
-		Purpose: "Offer application endpoints for use in other models.",
-		Args:    "[model-name.]<application-name>:<endpoint-name>[,...] [offer-name]",
-		Doc:     offerCommandDoc,
+		Name:     "offer",
+		Purpose:  "Offer application endpoints for use in other models.",
+		Args:     "[model-name.]<application-name>:<endpoint-name>[,...] [offer-name]",
+		Doc:      offerCommandDoc,
+		Examples: offerCommandExamples,
+		SeeAlso: []string{
+			"consume",
+			"relate",
+			"remove-saas",
+		},
 	})
 }
 

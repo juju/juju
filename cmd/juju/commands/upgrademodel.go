@@ -62,13 +62,13 @@ If a failed upgrade has been resolved, '--reset-previous-upgrade' can be
 used to allow the upgrade to proceed.
 Backups are recommended prior to upgrading.
 
-Examples:
+`
+
+const usageUpgradeJujuExamples = `
     juju upgrade-model --dry-run
     juju upgrade-model --agent-version 2.0.1
     juju upgrade-model --agent-stream proposed
-    
-See also: 
-    sync-agent-binary`
+`
 
 func newUpgradeJujuCommand() cmd.Command {
 	command := &upgradeJujuCommand{}
@@ -144,9 +144,13 @@ type upgradeJujuCommand struct {
 
 func (c *upgradeJujuCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "upgrade-model",
-		Purpose: usageUpgradeJujuSummary,
-		Doc:     usageUpgradeJujuDetails,
+		Name:     "upgrade-model",
+		Purpose:  usageUpgradeJujuSummary,
+		Doc:      usageUpgradeJujuDetails,
+		Examples: usageUpgradeJujuExamples,
+		SeeAlso: []string{
+			"sync-agent-binary",
+		},
 	})
 }
 

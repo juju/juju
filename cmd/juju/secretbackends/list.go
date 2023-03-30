@@ -32,16 +32,11 @@ type listSecretBackendsCommand struct {
 
 var listSecretBackendsDoc = `
 Displays the secret backends available for storing secret content.
+`
 
-Examples:
+const listSecretBackendsExamples = `
     juju secret-backends
     juju secret-backends --format yaml
-
-See also:
-    add-secret-backend
-    remove-secret-backend
-    show-secret-backend
-    update-secret-backend
 `
 
 // ListSecretBackendsAPI is the secrets client API.
@@ -70,10 +65,17 @@ func (c *listSecretBackendsCommand) secretBackendsAPI() (ListSecretBackendsAPI, 
 // Info implements cmd.Info.
 func (c *listSecretBackendsCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "secret-backends",
-		Purpose: "Lists secret backends available in the controller.",
-		Doc:     listSecretBackendsDoc,
-		Aliases: []string{"list-secret-backends"},
+		Name:     "secret-backends",
+		Purpose:  "Lists secret backends available in the controller.",
+		Doc:      listSecretBackendsDoc,
+		Aliases:  []string{"list-secret-backends"},
+		Examples: listSecretBackendsExamples,
+		SeeAlso: []string{
+			"add-secret-backend",
+			"remove-secret-backend",
+			"show-secret-backend",
+			"update-secret-backend",
+		},
 	})
 }
 

@@ -74,43 +74,48 @@ the Juju controller as a proxy with the --proxy option.
 The SSH host keys of the target are verified by default. To disable this, add
  --no-host-key-checks option. Using this option is strongly discouraged.
 
+`
 
-Examples:
+const usageSCPExamples = `
+Copy the config of a Charmed Kubernetes cluster to ~/.kube/config:
 
-    # Copy the config of a Charmed Kubernetes cluster to ~/.kube/config
     juju scp kubernetes-master/0:config ~/.kube/config
 
-    # Copy file /var/log/syslog from machine 2 to the client's 
-    # current working directory:
+Copy file /var/log/syslog from machine 2 to the client's 
+current working directory:
+
     juju scp 2:/var/log/syslog .
 
-    # Recursively copy the /var/log/mongodb directory from the
-    # mongodb/0 unit to the client's local remote-logs directory:
+Recursively copy the /var/log/mongodb directory from the
+mongodb/0 unit to the client's local remote-logs directory:
+
     juju scp -- -r mongodb/0:/var/log/mongodb/ remote-logs
 
-    # Copy foo.txt from the client's current working directory to a
-    # the apache2/1 unit model "prod" (-m prod). Proxy the SSH connection 
-    # through the controller (--proxy) and enable compression (-- -C):
+Copy foo.txt from the client's current working directory to a
+the apache2/1 unit model "prod" (-m prod). Proxy the SSH connection 
+through the controller (--proxy) and enable compression (-- -C):
+
     juju scp -m prod --proxy -- -C foo.txt apache2/1:
 
-    # Copy multiple files from the client's current working directory to 
-    # the /home/ubuntu directory of machine 2:
+Copy multiple files from the client's current working directory to 
+the /home/ubuntu directory of machine 2:
+
     juju scp file1 file2 2:
 
-    # Copy multiple files from machine 3 as user "bob" to the client's
-    # current working directory:
+Copy multiple files from machine 3 as user "bob" to the client's
+current working directory:
+
     juju scp bob@3:'file1 file2' .
 
-    # Copy file.dat from machine 0 to the machine hosting unit foo/0 
-    # (-- -3):
+Copy file.dat from machine 0 to the machine hosting unit foo/0 
+(-- -3):
+
     juju scp -- -3 0:file.dat foo/0:
 
-    # Copy a file ('chunks-inspect') from localhost to /loki directory
-    # in a specific container in a juju unit running in Kubernetes:
-    juju scp --container loki chunks-inspect loki-k8s/0:/loki
+Copy a file ('chunks-inspect') from localhost to /loki directory
+in a specific container in a juju unit running in Kubernetes:
 
-See also: 
-	ssh
+    juju scp --container loki chunks-inspect loki-k8s/0:/loki
 `
 
 func NewSCPCommand(hostChecker jujussh.ReachableChecker, retryStrategy retry.CallArgs) cmd.Command {
@@ -143,10 +148,14 @@ func (c *scpCommand) SetFlags(f *gnuflag.FlagSet) {
 
 func (c *scpCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "scp",
-		Args:    "<source> <destination>",
-		Purpose: usageSCPSummary,
-		Doc:     usageSCPDetails,
+		Name:     "scp",
+		Args:     "<source> <destination>",
+		Purpose:  usageSCPSummary,
+		Doc:      usageSCPDetails,
+		Examples: usageSCPExamples,
+		SeeAlso: []string{
+			"ssh",
+		},
 	})
 }
 

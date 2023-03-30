@@ -39,19 +39,17 @@ The output can be filtered by:
  - allowed consumer: the name of a user allowed to consume the offer
  - active only: only show offers which are in use (are related to)
 
-Examples:
-    $ juju offers
-    $ juju offers -m model
-    $ juju offers --interface db2
-    $ juju offers --application mysql
-    $ juju offers --connected-user fred
-    $ juju offers --allowed-consumer mary
-    $ juju offers hosted-mysql
-    $ juju offers hosted-mysql --active-only
+`
 
-See also:
-   find-offers   
-   show-offer
+const listCommandExamples = `
+    juju offers
+    juju offers -m model
+    juju offers --interface db2
+    juju offers --application mysql
+    juju offers --connected-user fred
+    juju offers --allowed-consumer mary
+    juju offers hosted-mysql
+    juju offers hosted-mysql --active-only
 `
 
 // listCommand returns storage instances.
@@ -105,11 +103,16 @@ func (c *listCommand) Init(args []string) (err error) {
 // Info implements Command.Info.
 func (c *listCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "offers",
-		Args:    "[<offer-name>]",
-		Aliases: []string{"list-offers"},
-		Purpose: "Lists shared endpoints.",
-		Doc:     listCommandDoc,
+		Name:     "offers",
+		Args:     "[<offer-name>]",
+		Aliases:  []string{"list-offers"},
+		Purpose:  "Lists shared endpoints.",
+		Doc:      listCommandDoc,
+		Examples: listCommandExamples,
+		SeeAlso: []string{
+			"find-offers",
+			"show-offer",
+		},
 	})
 }
 

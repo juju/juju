@@ -54,8 +54,9 @@ When run without any arguments, operations corresponding to actions for all
 application units are returned.
 To see operations corresponding to juju run tasks, specify an action name
 "juju-exec" and/or one or more machines.
+`
 
-Examples:
+const listOperationsExamples = `
     juju operations
     juju operations --format yaml
     juju operations --actions juju-exec
@@ -66,10 +67,6 @@ Examples:
     juju operations --status pending,completed
     juju operations --apps mysql --units mediawiki/0 --status running --actions backup
 
-See also:
-    run
-    show-operation
-    show-task
 `
 
 // SetFlags implements Command.
@@ -95,10 +92,16 @@ func (c *listOperationsCommand) SetFlags(f *gnuflag.FlagSet) {
 
 func (c *listOperationsCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "operations",
-		Purpose: "Lists pending, running, or completed operations for specified application, units, machines, or all.",
-		Doc:     listOperationsDoc,
-		Aliases: []string{"list-operations"},
+		Name:     "operations",
+		Purpose:  "Lists pending, running, or completed operations for specified application, units, machines, or all.",
+		Doc:      listOperationsDoc,
+		Aliases:  []string{"list-operations"},
+		Examples: listOperationsExamples,
+		SeeAlso: []string{
+			"run",
+			"show-operation",
+			"show-task",
+		},
 	})
 }
 

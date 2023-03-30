@@ -43,17 +43,12 @@ Use --watch to wait indefinitely.
 The default behavior without --wait or --watch is to immediately check and return;
 if the results are "pending" then only the available information will be
 displayed.  This is also the behavior when any negative time is given.
+`
 
-Examples:
-
+const showOperationExamples = `
     juju show-operation 1
     juju show-operation 1 --wait=2m
     juju show-operation 1 --watch
-
-See also:
-    run
-    operations
-    show-task
 `
 
 const defaultOperationWait = -1 * time.Second
@@ -75,10 +70,16 @@ func (c *showOperationCommand) SetFlags(f *gnuflag.FlagSet) {
 // Info implements Command.
 func (c *showOperationCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "show-operation",
-		Args:    "<operation-id>",
-		Purpose: "Show results of an operation.",
-		Doc:     showOperationDoc,
+		Name:     "show-operation",
+		Args:     "<operation-id>",
+		Purpose:  "Show results of an operation.",
+		Doc:      showOperationDoc,
+		Examples: showOperationExamples,
+		SeeAlso: []string{
+			"run",
+			"operations",
+			"show-task",
+		},
 	})
 }
 

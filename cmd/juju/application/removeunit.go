@@ -85,9 +85,9 @@ Unit removal is a multi-step process. Under normal circumstances, Juju will not
 proceed to the next step until the current step has finished.
 However, when using --force, users can also specify --no-wait to progress through steps
 without delay waiting for each step to complete.
+`
 
-Examples:
-
+const removeUnitExamples = `
     juju remove-unit wordpress/2 wordpress/3 wordpress/4
 
     juju remove-unit wordpress/2 --destroy-storage
@@ -95,10 +95,6 @@ Examples:
     juju remove-unit wordpress/2 --force
 
     juju remove-unit wordpress/2 --force --no-wait
-
-See also:
-    remove-application
-    scale-application
 `
 
 var removeUnitMsgNoDryRun = `
@@ -109,10 +105,15 @@ var removeUnitMsgPrefix = "This command will perform the following actions:"
 
 func (c *removeUnitCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "remove-unit",
-		Args:    "<unit> [...] | <application>",
-		Purpose: "Remove application units from the model.",
-		Doc:     removeUnitDoc,
+		Name:     "remove-unit",
+		Args:     "<unit> [...] | <application>",
+		Purpose:  "Remove application units from the model.",
+		Doc:      removeUnitDoc,
+		Examples: removeUnitExamples,
+		SeeAlso: []string{
+			"remove-application",
+			"scale-application",
+		},
 	})
 }
 

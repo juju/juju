@@ -123,48 +123,56 @@ The '--format' option allows you to specify how the status report is formatted.
   --format=yaml
                     Provide information in a JSON or YAML formats for 
                     programmatic use.
+`
 
-Examples:
+const usageExamples = `
+Report the status of units hosted on machine 0:
 
-    # Report the status of units hosted on machine 0
     juju status 0
 
-    # Report the status of the the mysql application
+Report the status of the the mysql application:
+
     juju status mysql
 
-    # Report the status for applications that start with nova-
+Report the status for applications that start with nova-:
+
     juju status nova-*
 
-    # Include information about storage and relations in output
+Include information about storage and relations in output:
+
     juju status --storage --relations
 
-    # Provide output as valid JSON
+Provide output as valid JSON:
+
     juju status --format=json
 
-    # Watch the status every five seconds
+Watch the status every five seconds:
+
     juju status --watch 5s
 
-    # Show only applications/units in active status
+Show only applications/units in active status:
+
     juju status active
 
-    # Show only applications/units in error status
+Show only applications/units in error status:
+
     juju status error
-
-See also:
-
-    machines
-    show-model
-    show-debug-log
-    show-status-log
-    storage
 `
 
 func (c *statusCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "status",
-		Args:    "[<selector> [...]]",
-		Purpose: usageSummary,
-		Doc:     usageDetails,
+		Name:     "status",
+		Args:     "[<selector> [...]]",
+		Purpose:  usageSummary,
+		Doc:      usageDetails,
+		Examples: usageExamples,
+		SeeAlso: []string{
+			"machines",
+			"show-model",
+			"show-debug-log",
+			"show-status-log",
+			"storage",
+		},
 	})
 }
 
