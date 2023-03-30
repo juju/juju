@@ -69,11 +69,14 @@ proceed to the next step until the current step has finished.
 However, when using --force, users can also specify --no-wait to progress through steps 
 without delay waiting for each step to complete.
 
-Examples:
+`[1:]
+
+const helpExamplesRmApp = `
     juju remove-application hadoop
     juju remove-application --force hadoop
     juju remove-application --force --no-wait hadoop
-    juju remove-application -m test-model mariadb`[1:]
+    juju remove-application -m test-model mariadb
+`
 
 var removeApplicationMsgNoDryRun = `
 This command will remove application(s) %q
@@ -85,10 +88,11 @@ var errDryRunNotSupportedByController = errors.New("Your controller does not sup
 
 func (c *removeApplicationCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "remove-application",
-		Args:    "<application> [<application>...]",
-		Purpose: helpSummaryRmApp,
-		Doc:     helpDetailsRmApp,
+		Name:     "remove-application",
+		Args:     "<application> [<application>...]",
+		Purpose:  helpSummaryRmApp,
+		Doc:      helpDetailsRmApp,
+		Examples: helpExamplesRmApp,
 	})
 }
 

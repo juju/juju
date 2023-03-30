@@ -61,10 +61,16 @@ func NewModelCredentialCommand() cmd.Command {
 // Info implements Command.Info.
 func (c *modelCredentialCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "set-credential",
-		Args:    "<cloud name> <credential name>",
-		Purpose: "Relates a remote credential to a model.",
-		Doc:     modelCredentialDoc,
+		Name:     "set-credential",
+		Args:     "<cloud name> <credential name>",
+		Purpose:  "Relates a remote credential to a model.",
+		Doc:      modelCredentialDoc,
+		Examples: modelCredentialExamples,
+		SeeAlso: []string{
+			"credentials",
+			"show-credential",
+			"update-credential",
+		},
 	})
 }
 
@@ -193,15 +199,10 @@ this operation will result in that credential being related to two models.
 
 Use the ` + "`show-credential`" + ` command to see how remote credentials are related
 to models.
+`
 
-Examples:
-
+const modelCredentialExamples = `
 For cloud 'aws', relate remote credential 'bob' to model 'trinity':
 
     juju set-credential -m trinity aws bob
-
-See also:
-    credentials
-    show-credential
-    update-credential
 `

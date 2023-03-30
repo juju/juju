@@ -28,12 +28,15 @@ By default a minimal list is returned, showing only the fingerprint of
 each key and its text identifier. By using the '--full' option, the entire
 key may be displayed.
 
-Examples:
+`[1:]
+
+const usageListSSHKeysExamples = `
     juju ssh-keys
 
 To examine the full key, use the '--full' option:
 
-    juju ssh-keys -m jujutest --full`[1:]
+    juju ssh-keys -m jujutest --full
+`
 
 // NewListKeysCommand returns a command used to list the authorized ssh keys.
 func NewListKeysCommand() cmd.Command {
@@ -50,10 +53,11 @@ type listKeysCommand struct {
 // Info implements Command.Info.
 func (c *listKeysCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "ssh-keys",
-		Purpose: usageListSSHKeysSummary,
-		Doc:     usageListSSHKeysDetails,
-		Aliases: []string{"list-ssh-keys"},
+		Name:     "ssh-keys",
+		Purpose:  usageListSSHKeysSummary,
+		Doc:      usageListSSHKeysDetails,
+		Aliases:  []string{"list-ssh-keys"},
+		Examples: usageListSSHKeysExamples,
 	})
 }
 

@@ -24,13 +24,10 @@ type showCommand struct {
 
 var showActionDoc = `
 Show detailed information about an action on the target application.
+`
 
-Examples:
+const showActionExamples = `
     juju show-action postgresql backup
-
-See also:
-    actions
-    run
 `
 
 // NewShowCommand returns a command to print action information.
@@ -59,10 +56,15 @@ func (c *showCommand) Init(args []string) error {
 
 func (c *showCommand) Info() *cmd.Info {
 	info := jujucmd.Info(&cmd.Info{
-		Name:    "show-action",
-		Args:    "<application> <action>",
-		Purpose: "Shows detailed information about an action.",
-		Doc:     showActionDoc,
+		Name:     "show-action",
+		Args:     "<application> <action>",
+		Purpose:  "Shows detailed information about an action.",
+		Doc:      showActionDoc,
+		Examples: showActionExamples,
+		SeeAlso: []string{
+			"actions",
+			"run",
+		},
 	})
 	return info
 }

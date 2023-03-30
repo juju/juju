@@ -32,12 +32,12 @@ var usageShowControllerDetails = `
 Shows extended information about a controller(s) as well as related models
 and user login details.
 
-Examples:
+`[1:]
+
+const usageShowControllerExamples = `
     juju show-controller
     juju show-controller aws google
-    
-See also: 
-    controllers`[1:]
+`
 
 type showControllerCommand struct {
 	modelcmd.CommandBase
@@ -68,10 +68,14 @@ func (c *showControllerCommand) Init(args []string) (err error) {
 // Info implements Command.Info
 func (c *showControllerCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "show-controller",
-		Args:    "[<controller name> ...]",
-		Purpose: usageShowControllerSummary,
-		Doc:     usageShowControllerDetails,
+		Name:     "show-controller",
+		Args:     "[<controller name> ...]",
+		Purpose:  usageShowControllerSummary,
+		Doc:      usageShowControllerDetails,
+		Examples: usageShowControllerExamples,
+		SeeAlso: []string{
+			"controllers",
+		},
 	})
 }
 

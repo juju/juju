@@ -51,20 +51,25 @@ Removing a consumed (SAAS) application will terminate any relations that
 application has, potentially leaving any related local applications
 in a non-functional state.
 
-Examples:
+`[1:]
+
+const helpExamplesRmSaas = `
     juju remove-saas hosted-mysql
     juju remove-saas -m test-model hosted-mariadb
 
-See also:
-    consume
-    offer`[1:]
+`
 
 func (c *removeSaasCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "remove-saas",
-		Args:    "<saas-application-name> [<saas-application-name>...]",
-		Purpose: helpSummaryRmSaas,
-		Doc:     helpDetailsRmSaas,
+		Name:     "remove-saas",
+		Args:     "<saas-application-name> [<saas-application-name>...]",
+		Purpose:  helpSummaryRmSaas,
+		Doc:      helpDetailsRmSaas,
+		Examples: helpExamplesRmSaas,
+		SeeAlso: []string{
+			"consume",
+			"offer",
+		},
 	})
 }
 

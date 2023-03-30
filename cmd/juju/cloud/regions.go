@@ -38,21 +38,13 @@ List regions for a given cloud.
 Use --controller option to list regions from the cloud from a controller.
 
 Use --client option to list regions known locally on this client.
+`
 
-
-Examples:
-
+const listRegionsExamples = `
     juju regions aws
     juju regions aws --controller mycontroller
     juju regions aws --client
     juju regions aws --client --controller mycontroller
-
-See also:
-    add-cloud
-    clouds
-    show-cloud
-    update-cloud
-    update-public-clouds
 `
 
 type CloudRegionsAPI interface {
@@ -84,11 +76,19 @@ func (c *listRegionsCommand) cloudAPI() (CloudRegionsAPI, error) {
 // Info implements Command.Info.
 func (c *listRegionsCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "regions",
-		Args:    "<cloud>",
-		Purpose: "Lists regions for a given cloud.",
-		Doc:     listRegionsDoc,
-		Aliases: []string{"list-regions"},
+		Name:     "regions",
+		Args:     "<cloud>",
+		Purpose:  "Lists regions for a given cloud.",
+		Doc:      listRegionsDoc,
+		Aliases:  []string{"list-regions"},
+		Examples: listRegionsExamples,
+		SeeAlso: []string{
+			"add-cloud",
+			"clouds",
+			"show-cloud",
+			"update-cloud",
+			"update-public-clouds",
+		},
 	})
 }
 

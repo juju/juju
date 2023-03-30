@@ -29,22 +29,21 @@ var usageListUsersDetails = `
 When used without a model name argument, users relevant to a controller are printed.
 When used with a model name, users relevant to the specified model are printed.
 
-Examples:
-    Print the users relevant to the current controller: 
+`[1:]
+
+const usageListUsersExamples = `
+Print the users relevant to the current controller:
+
     juju users
     
-    Print the users relevant to the controller "another":
+Print the users relevant to the controller "another":
+
     juju users -c another
 
-    Print the users relevant to the model "mymodel":
-    juju users mymodel
+Print the users relevant to the model "mymodel":
 
-See also: 
-    add-user
-    register
-    show-user
-    disable-user
-    enable-user`[1:]
+    juju users mymodel
+`
 
 func NewListCommand() cmd.Command {
 	return modelcmd.WrapController(&listCommand{
@@ -81,11 +80,19 @@ func (c *listCommand) getModelUsersAPI() (modelUsersAPI, error) {
 // Info implements Command.Info.
 func (c *listCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "users",
-		Args:    "[model-name]",
-		Purpose: usageListUsersSummary,
-		Doc:     usageListUsersDetails,
-		Aliases: []string{"list-users"},
+		Name:     "users",
+		Args:     "[model-name]",
+		Purpose:  usageListUsersSummary,
+		Doc:      usageListUsersDetails,
+		Aliases:  []string{"list-users"},
+		Examples: usageListUsersExamples,
+		SeeAlso: []string{
+			"add-user",
+			"register",
+			"show-user",
+			"disable-user",
+			"enable-user",
+		},
 	})
 }
 

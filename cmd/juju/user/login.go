@@ -64,19 +64,12 @@ Public controller aliases are provided by a directory service
 that is queried to find the host name for a given alias.
 The URL for the directory service may be configured
 by setting the environment variable JUJU_DIRECTORY.
+`
 
-Examples:
-
+const loginExamples = `
     juju login somepubliccontroller
     juju login jimm.jujucharms.com
     juju login -u bob
-
-See also:
-    disable-user
-    enable-user
-    logout
-    register
-    unregister
 `
 
 // Functions defined as variables so they can be overridden in tests.
@@ -120,10 +113,18 @@ type loginCommand struct {
 // Info implements Command.Info.
 func (c *loginCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "login",
-		Args:    "[controller host name or alias]",
-		Purpose: "Logs a user in to a controller.",
-		Doc:     loginDoc,
+		Name:     "login",
+		Args:     "[controller host name or alias]",
+		Purpose:  "Logs a user in to a controller.",
+		Doc:      loginDoc,
+		Examples: loginExamples,
+		SeeAlso: []string{
+			"disable-user",
+			"enable-user",
+			"logout",
+			"register",
+			"unregister",
+		},
 	})
 }
 

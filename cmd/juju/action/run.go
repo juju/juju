@@ -78,9 +78,9 @@ is a boolean true in YAML.
 
 If --params is passed, along with key.key...=value explicit arguments, the
 explicit arguments will override the parameter file.
+`
 
-Examples:
-
+const runExamples = `
     juju run mysql/3 backup --background
     juju run mysql/3 backup --wait=2m
     juju run mysql/3 backup --format yaml
@@ -93,11 +93,6 @@ Examples:
     juju run mysql/3 backup --params p.yml file.kind=xz file.quality=high
     juju run sleeper/0 pause time=1000
     juju run sleeper/0 pause --string-args time=1000
-
-See also:
-    operations
-    show-operation
-    show-task
 `
 
 // SetFlags offers an option for YAML output.
@@ -110,10 +105,16 @@ func (c *runCommand) SetFlags(f *gnuflag.FlagSet) {
 
 func (c *runCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "run",
-		Args:    "<unit> [<unit> ...] <action-name> [<key>=<value> [<key>[.<key> ...]=<value>]]",
-		Purpose: "Run an action on a specified unit.",
-		Doc:     runDoc,
+		Name:     "run",
+		Args:     "<unit> [<unit> ...] <action-name> [<key>=<value> [<key>[.<key> ...]=<value>]]",
+		Purpose:  "Run an action on a specified unit.",
+		Doc:      runDoc,
+		Examples: runExamples,
+		SeeAlso: []string{
+			"operations",
+			"show-operation",
+			"show-task",
+		},
 	})
 }
 

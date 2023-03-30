@@ -61,16 +61,13 @@ Machine removal is a multi-step process. Under normal circumstances, Juju will n
 proceed to the next step until the current step has finished. 
 However, when using --force, users can also specify --no-wait to progress through steps 
 without delay waiting for each step to complete.
+`
 
-Examples:
-
+const destroyMachineExamples = `
     juju remove-machine 5
     juju remove-machine 6 --force
     juju remove-machine 6 --force --no-wait
     juju remove-machine 7 --keep-instance
-
-See also:
-    add-machine
 `
 
 var removeMachineMsgNoDryRun = `
@@ -84,10 +81,14 @@ var errDryRunNotSupported = errors.New("Your controller does not support `--dry-
 // Info implements Command.Info.
 func (c *removeCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "remove-machine",
-		Args:    "<machine number> ...",
-		Purpose: "Removes one or more machines from a model.",
-		Doc:     destroyMachineDoc,
+		Name:     "remove-machine",
+		Args:     "<machine number> ...",
+		Purpose:  "Removes one or more machines from a model.",
+		Doc:      destroyMachineDoc,
+		Examples: destroyMachineExamples,
+		SeeAlso: []string{
+			"add-machine",
+		},
 	})
 }
 

@@ -37,9 +37,9 @@ const listCommandDoc = `
 Displays all defined spaces. By default both spaces and their subnets are displayed.
 Supplying the --short option will list just the space names.
 The --output argument allows the command's output to be redirected to a file. 
+`
 
-Examples:
-
+const listCommandExamples = `
 List spaces and their subnets:
 
 	juju spaces
@@ -47,20 +47,21 @@ List spaces and their subnets:
 List spaces:
 
 	juju spaces --short
-
-See also:
-	add-space
-	reload-spaces
 `
 
 // Info is defined on the cmd.Command interface.
 func (c *ListCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "spaces",
-		Args:    "[--short] [--format yaml|json] [--output <path>]",
-		Purpose: "List known spaces, including associated subnets.",
-		Doc:     strings.TrimSpace(listCommandDoc),
-		Aliases: []string{"list-spaces"},
+		Name:     "spaces",
+		Args:     "[--short] [--format yaml|json] [--output <path>]",
+		Purpose:  "List known spaces, including associated subnets.",
+		Doc:      strings.TrimSpace(listCommandDoc),
+		Aliases:  []string{"list-spaces"},
+		Examples: listCommandExamples,
+		SeeAlso: []string{
+			"add-space",
+			"reload-spaces",
+		},
 	})
 }
 

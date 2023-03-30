@@ -32,12 +32,11 @@ The currently supported services are:
 - juju-application-offer
 
 DEPRECATION WARNING: %v
+`
 
-Examples:
+const setRuleHelpExamples = `
     juju set-firewall-rule ssh --allowlist 192.168.1.0/16
-
-See also: 
-    firewall-rules`
+`
 
 // NewSetFirewallRuleCommand returns a command to set firewall rules.
 func NewSetFirewallRuleCommand() cmd.Command {
@@ -66,10 +65,14 @@ type setFirewallRuleCommand struct {
 // Info implements cmd.Command.
 func (c *setFirewallRuleCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "set-firewall-rule",
-		Args:    "<service-name>, --allowlist <cidr>[,<cidr>...]",
-		Purpose: setRuleHelpSummary,
-		Doc:     fmt.Sprintf(setRuleHelpDetails, deprecationWarning),
+		Name:     "set-firewall-rule",
+		Args:     "<service-name>, --allowlist <cidr>[,<cidr>...]",
+		Purpose:  setRuleHelpSummary,
+		Doc:      fmt.Sprintf(setRuleHelpDetails, deprecationWarning),
+		Examples: setRuleHelpExamples,
+		SeeAlso: []string{
+			"firewall-rules",
+		},
 	})
 }
 

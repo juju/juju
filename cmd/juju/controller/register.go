@@ -101,28 +101,31 @@ When adding a controller at a public address, authentication via some
 external third party (for example Ubuntu SSO) will be required, usually
 by using a web browser.
 
-Examples:
+`
 
+const usageRegisterExamples = `
     juju register MFATA3JvZDAnExMxMDQuMTU0LjQyLjQ0OjE3MDcwExAxMC4xMjguMC4yOjE3MDcwBCBEFCaXerhNImkKKabuX5ULWf2Bp4AzPNJEbXVWgraLrAA=
 
     juju register --replace MFATA3JvZDAnExMxMDQuMTU0LjQyLjQ0OjE3MDcwExAxMC4xMjguMC4yOjE3MDcwBCBEFCaXerhNImkKKabuX5ULWf2Bp4AzPNJEbXVWgraLrAA=
 
     juju register public-controller.example.com
-
-See also: 
-    add-user
-    change-user-password
-    unregister`
+`
 
 // Info implements Command.Info
 // `register` may seem generic, but is seen as simple and without potential
 // naming collisions in any current or planned features.
 func (c *registerCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "register",
-		Args:    "<registration string>|<controller host name>",
-		Purpose: usageRegisterSummary,
-		Doc:     usageRegisterDetails,
+		Name:     "register",
+		Args:     "<registration string>|<controller host name>",
+		Purpose:  usageRegisterSummary,
+		Doc:      usageRegisterDetails,
+		Examples: usageRegisterExamples,
+		SeeAlso: []string{
+			"add-user",
+			"change-user-password",
+			"unregister",
+		},
 	})
 }
 

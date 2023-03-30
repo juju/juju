@@ -46,19 +46,15 @@ To rotate the backend access credential/token (if specified), use
 the "token-rotate" config and supply a duration. To reset any existing
 token rotation period, supply a value of 0.
 
-Examples:
+`
+
+const updateSecretBackendsExamples = `
     juju update-secret-backend myvault --config /path/to/cfg.yaml
     juju update-secret-backend myvault name=myvault2
     juju update-secret-backend myvault token-rotate=10m --config /path/to/cfg.yaml
     juju update-secret-backend myvault endpoint=https://vault.io:8200 token=s.1wshwhw
     juju update-secret-backend myvault token-rotate=0
     juju update-secret-backend myvault --reset namespace,ca-cert
-
-See also:
-    add-secret-backends
-    list-secret-backends
-    remove-secret-backend
-    show-secret-backend
 `
 
 // UpdateSecretBackendsAPI is the secrets client API.
@@ -87,10 +83,17 @@ func (c *updateSecretBackendCommand) secretBackendsAPI() (UpdateSecretBackendsAP
 // Info implements cmd.Info.
 func (c *updateSecretBackendCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "update-secret-backend",
-		Purpose: "Update an existing secret backend on the controller.",
-		Doc:     updateSecretBackendsDoc,
-		Args:    "<backend-name>",
+		Name:     "update-secret-backend",
+		Purpose:  "Update an existing secret backend on the controller.",
+		Doc:      updateSecretBackendsDoc,
+		Args:     "<backend-name>",
+		Examples: updateSecretBackendsExamples,
+		SeeAlso: []string{
+			"add-secret-backends",
+			"list-secret-backends",
+			"remove-secret-backend",
+			"show-secret-backend",
+		},
 	})
 }
 

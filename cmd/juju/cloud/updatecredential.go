@@ -54,19 +54,16 @@ Before credential is updated, the new content is validated. For some providers,
 cloud credentials are region specific. To validate the credential for a non-default region, 
 use --region.
 
-Examples:
+`[1:]
+
+const usageUpdateCredentialExamples = `
     juju update-credential aws mysecrets
     juju update-credential -f mine.yaml
     juju update-credential -f mine.yaml --client
     juju update-credential aws -f mine.yaml
     juju update-credential azure --region brazilsouth -f mine.yaml
     juju update-credential -f mine.yaml --controller mycontroller --force
-
-See also: 
-    add-credential
-    credentials
-    remove-credential
-    set-credential`[1:]
+`
 
 type updateCredentialCommand struct {
 	modelcmd.OptionalControllerCommand
@@ -123,11 +120,18 @@ func (c *updateCredentialCommand) Init(args []string) error {
 // Info implements Command.Info
 func (c *updateCredentialCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "update-credential",
-		Args:    "[<cloud-name> [<credential-name>]]",
-		Purpose: usageUpdateCredentialSummary,
-		Aliases: []string{"update-credentials"},
-		Doc:     usageUpdateCredentialDetails,
+		Name:     "update-credential",
+		Args:     "[<cloud-name> [<credential-name>]]",
+		Purpose:  usageUpdateCredentialSummary,
+		Aliases:  []string{"update-credentials"},
+		Doc:      usageUpdateCredentialDetails,
+		Examples: usageUpdateCredentialExamples,
+		SeeAlso: []string{
+			"add-credential",
+			"credentials",
+			"remove-credential",
+			"set-credential",
+		},
 	})
 }
 

@@ -76,43 +76,50 @@ accepts arguments in the following forms:
     --region=<cloud>/<region>            (specified cloud and region)
     --cloud=<cloud> --region=<region>    (specified cloud and region)
 
-Examples:
+`
 
-Display all model config default values
+	modelDefaultsExamples = `
+Display all model config default values:
+
     juju model-defaults
 
-Display the value of http-proxy model config default
+Display the value of http-proxy model config default:
+
     juju model-defaults http-proxy
 
-Display the value of http-proxy model config default for the aws cloud
+Display the value of http-proxy model config default for the aws cloud:
+
     juju model-defaults --cloud=aws http-proxy
 
 Display the value of http-proxy model config default for the aws cloud
-and us-east-1 region
+and us-east-1 region:
+
     juju model-defaults --region=aws/us-east-1 http-proxy
 
-Display the value of http-proxy model config default for the us-east-1 region
+Display the value of http-proxy model config default for the us-east-1 region:
+
     juju model-defaults --region=us-east-1 http-proxy
 
-Set the value of ftp-proxy model config default to 10.0.0.1:8000
+Set the value of ftp-proxy model config default to 10.0.0.1:8000:
+
     juju model-defaults ftp-proxy=10.0.0.1:8000
 
 Set the value of ftp-proxy model config default to 10.0.0.1:8000 in the
-us-east-1 region
+us-east-1 region:
+
     juju model-defaults --region=us-east-1 ftp-proxy=10.0.0.1:8000
 
-Set model default values for the aws cloud as defined in path/to/file.yaml
+Set model default values for the aws cloud as defined in path/to/file.yaml:
+
     juju model-defaults --cloud=aws --file path/to/file.yaml
 
-Reset the value of default-base and test-mode to default
+Reset the value of default-base and test-mode to default:
+
     juju model-defaults --reset default-base,test-mode
 
-Reset the value of http-proxy for the us-east-1 region to default
-    juju model-defaults --region us-east-1 --reset http-proxy
+Reset the value of http-proxy for the us-east-1 region to default:
 
-See also:
-    models
-    model-config
+    juju model-defaults --region us-east-1 --reset http-proxy
 `
 )
 
@@ -254,11 +261,16 @@ type defaultsCommandAPI interface {
 // Info implements part of the cmd.Command interface.
 func (c *defaultsCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Args:    "[[<cloud>/]<region> ]<model-key>[<=value>] ...]",
-		Doc:     modelDefaultsHelpDoc,
-		Name:    "model-defaults",
-		Purpose: modelDefaultsSummary,
-		Aliases: []string{"model-default"},
+		Args:     "[[<cloud>/]<region> ]<model-key>[<=value>] ...]",
+		Doc:      modelDefaultsHelpDoc,
+		Name:     "model-defaults",
+		Purpose:  modelDefaultsSummary,
+		Aliases:  []string{"model-default"},
+		Examples: modelDefaultsExamples,
+		SeeAlso: []string{
+			"models",
+			"model-config",
+		},
 	})
 }
 

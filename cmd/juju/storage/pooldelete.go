@@ -20,16 +20,12 @@ type PoolRemoveAPI interface {
 
 const poolRemoveCommandDoc = `
 Remove a single existing storage pool.
+`
 
-Example:
-    # Remove the storage-pool named fast-storage
+const poolRemoveCommandExamples = `
+Remove the storage-pool named fast-storage:
 
       juju remove-storage-pool fast-storage
-
-See also:
-    create-storage-pool
-    update-storage-pool
-    storage-pools
 `
 
 // NewPoolRemoveCommand returns a command that removes the named storage pool.
@@ -60,10 +56,16 @@ func (c *poolRemoveCommand) Init(args []string) (err error) {
 // Info implements Command.Info.
 func (c *poolRemoveCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "remove-storage-pool",
-		Purpose: "Remove an existing storage pool.",
-		Doc:     poolRemoveCommandDoc,
-		Args:    "<name>",
+		Name:     "remove-storage-pool",
+		Purpose:  "Remove an existing storage pool.",
+		Doc:      poolRemoveCommandDoc,
+		Args:     "<name>",
+		Examples: poolRemoveCommandExamples,
+		SeeAlso: []string{
+			"create-storage-pool",
+			"update-storage-pool",
+			"storage-pools",
+		},
 	})
 }
 

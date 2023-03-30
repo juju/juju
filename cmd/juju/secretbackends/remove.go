@@ -29,16 +29,11 @@ Removes a secret backend, used for storing secret content.
 If the backend is being used to store secrets currently in use,
 the --force option can be supplied to force the removal, but be
 warned, this will affect charms which use those secrets.
+`
 
-Examples:
+const removeSecretBackendExamples = `
     juju remove-secret-backend myvault
     juju remove-secret-backend myvault --force
-
-See also:
-    add-secret-backend
-    list-secret-backends
-    show-secret-backend
-    update-secret-backend
 `
 
 // RemoveSecretBackendsAPI is the secrets client API.
@@ -67,10 +62,17 @@ func (c *removeSecretBackendCommand) secretBackendsAPI() (RemoveSecretBackendsAP
 // Info implements cmd.Info.
 func (c *removeSecretBackendCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "remove-secret-backend",
-		Purpose: "Removes a secret backend from the controller.",
-		Doc:     removeSecretBackendsDoc,
-		Args:    "<backend-name>",
+		Name:     "remove-secret-backend",
+		Purpose:  "Removes a secret backend from the controller.",
+		Doc:      removeSecretBackendsDoc,
+		Args:     "<backend-name>",
+		Examples: removeSecretBackendExamples,
+		SeeAlso: []string{
+			"add-secret-backend",
+			"list-secret-backends",
+			"show-secret-backend",
+			"update-secret-backend",
+		},
 	})
 }
 

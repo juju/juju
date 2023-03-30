@@ -33,9 +33,9 @@ with the '--reveal' option in json or yaml formats.
 
 Use --revision to inspect a particular revision, else latest is used.
 Use --revisions to see the metadata for each revision.
+`
 
-Examples:
-
+const showSecretsExamples = `
     juju show-secret 9m4e2mr0ui3e8a215n4g
     juju show-secret secret:9m4e2mr0ui3e8a215n4g --revision 2
     juju show-secret 9m4e2mr0ui3e8a215n4g --revision 2 --reveal
@@ -63,10 +63,11 @@ func (c *showSecretsCommand) secretsAPI() (ListSecretsAPI, error) {
 // Info implements cmd.Info.
 func (c *showSecretsCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "show-secret",
-		Args:    "<ID>",
-		Purpose: "Shows details for a specific secret.",
-		Doc:     showSecretsDoc,
+		Name:     "show-secret",
+		Args:     "<ID>",
+		Purpose:  "Shows details for a specific secret.",
+		Doc:      showSecretsDoc,
+		Examples: showSecretsExamples,
 	})
 }
 

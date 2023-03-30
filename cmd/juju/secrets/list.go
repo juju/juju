@@ -32,8 +32,9 @@ type listSecretsCommand struct {
 
 var listSecretsDoc = `
 Displays the secrets available for charms to use if granted access.
+`
 
-Examples:
+const listSecretsExamples = `
     juju secrets
     juju secrets --format yaml
 `

@@ -68,7 +68,9 @@ container in the pod. For charms which run the workload in a separate pod
 to that of the charm, the default ssh target is the charm operator pod.
 The workload pod may be specified using the --remote argument.
 
-Examples:
+`
+
+const usageSSHExamples = `
 Connect to machine 0:
 
     juju ssh 0
@@ -93,36 +95,37 @@ Connect to a mysql unit with an identity not known to juju (ssh option -i):
 
     juju ssh mysql/0 -i ~/.ssh/my_private_key echo hello
 
-For k8s charms running the workload in a separate pod:
-  Connect to a k8s unit targeting the operator pod by default:
+**For k8s charms running the workload in a separate pod:**
+
+Connect to a k8s unit targeting the operator pod by default:
 
 	juju ssh mysql/0
 	juju ssh mysql/0 bash
 	
-  Connect to a k8s unit targeting the workload pod by specifying --remote:
+Connect to a k8s unit targeting the workload pod by specifying --remote:
 
 	juju ssh --remote mysql/0
 
-For k8s charms using the sidecar pattern:
-  Connect to a k8s unit targeting the charm container (the default):
+**For k8s charms using the sidecar pattern:**
+
+Connect to a k8s unit targeting the charm container (the default):
 
 	juju ssh --container charm snappass/0
 
-  Connect to a k8s unit targeting the redis container:
+Connect to a k8s unit targeting the redis container:
 
 	juju ssh --container redis snappass/0
 
-For k8s controller:
-  Connect to the api server pod:
+**For k8s controller:**
+
+Connect to the api server pod:
 
     juju ssh --container api-server 0
 
-  Connect to the mongo db pod:
+Connect to the mongo db pod:
 
     juju ssh --container mongodb 0
-
-See also: 
-    scp`
+`
 
 const (
 	// SSHRetryDelay is the time to wait for an SSH connection to be established
@@ -178,10 +181,14 @@ func (c *sshCommand) SetFlags(f *gnuflag.FlagSet) {
 
 func (c *sshCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "ssh",
-		Args:    "<[user@]target> [openssh options] [command]",
-		Purpose: usageSSHSummary,
-		Doc:     usageSSHDetails,
+		Name:     "ssh",
+		Args:     "<[user@]target> [openssh options] [command]",
+		Purpose:  usageSSHSummary,
+		Doc:      usageSSHDetails,
+		Examples: usageSSHExamples,
+		SeeAlso: []string{
+			"scp",
+		},
 	})
 }
 

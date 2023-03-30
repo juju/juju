@@ -18,11 +18,11 @@ By default, the tabular format is used.
 The following sections are included: ID, STATE, DNS, INS-ID, SERIES, AZ
 Note: AZ above is the cloud region's availability zone.
 
-Examples:
-     juju machines
+`
 
-See also: 
-    status`
+const usageListMachinesExamples = `
+     juju machines
+`
 
 // NewListMachineCommand returns a command that lists the machines in a model.
 func NewListMachinesCommand() cmd.Command {
@@ -44,10 +44,14 @@ type listMachinesCommand struct {
 // Info implements Command.Info.
 func (c *listMachinesCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "machines",
-		Purpose: usageListMachinesSummary,
-		Doc:     usageListMachinesDetails,
-		Aliases: []string{"list-machines"},
+		Name:     "machines",
+		Purpose:  usageListMachinesSummary,
+		Doc:      usageListMachinesDetails,
+		Aliases:  []string{"list-machines"},
+		Examples: usageListMachinesExamples,
+		SeeAlso: []string{
+			"status",
+		},
 	})
 }
 
