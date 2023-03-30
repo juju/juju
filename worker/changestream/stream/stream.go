@@ -200,12 +200,8 @@ func (e changeEvent) ChangedUUID() string {
 func (s *Stream) readChanges() ([]changeEvent, error) {
 	// As this is a self instantiated query, we don't have a root context to tie
 	// to, so we create a new one that's cancellable.
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := s.scopedContext()
 	defer cancel()
-
-	// We want to tie the context to the tomb, so that if the tomb is killed,
-	// the context will be cancelled.
-	ctx = s.tomb.Context(ctx)
 
 	var changes []changeEvent
 	err := s.db.Txn(ctx, func(ctx context.Context, tx *sql.Tx) error {
@@ -233,4 +229,12 @@ func (s *Stream) readChanges() ([]changeEvent, error) {
 		return nil
 	})
 	return changes, errors.Trace(err)
+}
+
+// scopedContext returns a context that is in the scope of the worker lifetime.
+// It returns a cancellable context that is cancelled when the action has
+// completed.
+func (w *Stream) scopedContext() (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(context.Background())
+	return w.tomb.Context(ctx), cancel
 }
