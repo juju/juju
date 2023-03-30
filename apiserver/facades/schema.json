@@ -39447,7 +39447,7 @@
                             "$ref": "#/definitions/SecretConsumerInfoResults"
                         }
                     },
-                    "description": "GetConsumerSecretsRevisionInfo returns the latest secret revisions for the specified secrets."
+                    "description": "GetConsumerSecretsRevisionInfo returns the latest secret revisions for the specified secrets.\nThis facade method is used for remote watcher to get the latest secret revisions and labels for a secret changed hook."
                 },
                 "GetSecretBackendConfig": {
                     "type": "object",
@@ -45161,7 +45161,7 @@
                             "$ref": "#/definitions/SecretConsumerInfoResults"
                         }
                     },
-                    "description": "GetConsumerSecretsRevisionInfo returns the latest secret revisions for the specified secrets."
+                    "description": "GetConsumerSecretsRevisionInfo returns the latest secret revisions for the specified secrets.\nThis facade method is used for remote watcher to get the latest secret revisions and labels for a secret changed hook."
                 },
                 "GetMeterStatus": {
                     "type": "object",
