@@ -24,21 +24,19 @@ var usageConsumeDetails = `
 Adds a remote offer to the model. Relations can be created later using "juju relate".
 
 The path to the remote offer is formatted as follows:
+
     [<controller name>:][<model owner>/]<model name>.<application name>
         
 If the controller name is omitted, Juju will use the currently active
 controller. Similarly, if the model owner is omitted, Juju will use the user
 that is currently logged in to the controller providing the offer.
+`[1:]
 
-Examples:
-    $ juju consume othermodel.mysql
-    $ juju consume owner/othermodel.mysql
-    $ juju consume anothercontroller:owner/othermodel.mysql
-
-See also:
-    integrate
-    offer
-    remove-saas`[1:]
+const usageConsumeExamples = `
+    juju consume othermodel.mysql
+    juju consume owner/othermodel.mysql
+    juju consume anothercontroller:owner/othermodel.mysql
+`
 
 // NewConsumeCommand returns a command to add remote offers to
 // the model.
@@ -59,10 +57,16 @@ type consumeCommand struct {
 // Info implements cmd.Command.
 func (c *consumeCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "consume",
-		Args:    "<remote offer path> [<local application name>]",
-		Purpose: usageConsumeSummary,
-		Doc:     usageConsumeDetails,
+		Name:     "consume",
+		Args:     "<remote offer path> [<local application name>]",
+		Purpose:  usageConsumeSummary,
+		Doc:      usageConsumeDetails,
+		Examples: usageConsumeExamples,
+		SeeAlso: []string{
+			"integrate",
+			"offer",
+			"remove-saas",
+		},
 	})
 }
 
