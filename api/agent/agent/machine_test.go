@@ -18,8 +18,6 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -113,38 +111,6 @@ func (s *machineSuite) TestMachineEntity(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("machine %s not found", s.machine.Id()))
 	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
 	c.Assert(m, gc.IsNil)
-}
-
-func (s *machineSuite) TestEntitySetPassword(c *gc.C) {
-	apiSt, err := apiagent.NewState(s.st)
-	c.Assert(err, jc.ErrorIsNil)
-	entity, err := apiSt.Entity(s.machine.Tag())
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = entity.SetPassword("foo")
-	c.Assert(err, gc.ErrorMatches, "password is only 3 bytes long, and is not a valid Agent password")
-	err = entity.SetPassword("foo-12345678901234567890")
-	c.Assert(err, jc.ErrorIsNil)
-	err = entity.ClearReboot()
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.machine.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.machine.PasswordValid("bar"), jc.IsFalse)
-	c.Assert(s.machine.PasswordValid("foo-12345678901234567890"), jc.IsTrue)
-
-	// Check that we cannot log in to mongo with the correct password.
-	// This is because there's no mongo password set for s.machine,
-	// which has JobHostUnits
-	info := s.MongoInfo()
-	// TODO(dfc) this entity.Tag should return a Tag
-	tag, err := names.ParseTag(entity.Tag())
-	c.Assert(err, jc.ErrorIsNil)
-	info.Tag = tag
-	info.Password = "foo-12345678901234567890"
-	session, err := mongo.DialWithInfo(*info, mongotest.DialOpts())
-	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
-	c.Assert(session, gc.IsNil)
 }
 
 func (s *machineSuite) TestClearReboot(c *gc.C) {

@@ -121,22 +121,6 @@ func (m *Entity) ContainerType() instance.ContainerType {
 	return m.doc.ContainerType
 }
 
-// SetPassword sets the password associated with the agent's entity.
-func (m *Entity) SetPassword(password string) error {
-	var results params.ErrorResults
-	args := params.EntityPasswords{
-		Changes: []params.EntityPassword{{
-			Tag:      m.tag.String(),
-			Password: password,
-		}},
-	}
-	err := m.st.facade.FacadeCall("SetPasswords", args, &results)
-	if err != nil {
-		return err
-	}
-	return results.OneError()
-}
-
 // ClearReboot clears the reboot flag of the machine.
 func (m *Entity) ClearReboot() error {
 	var result params.ErrorResults
