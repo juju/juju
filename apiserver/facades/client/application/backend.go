@@ -39,6 +39,7 @@ type Backend interface {
 	ApplyOperation(state.ModelOperation) error
 	AddApplication(state.AddApplicationArgs) (Application, error)
 	AddPendingResource(string, resource.Resource) (string, error)
+	RemovePendingResources(applicationID string, pendingIDs map[string]string) error
 	AddCharmMetadata(info state.CharmInfo) (Charm, error)
 	RemoteApplication(string) (RemoteApplication, error)
 	AddRemoteApplication(state.AddRemoteApplicationParams) (RemoteApplication, error)
@@ -320,6 +321,12 @@ func (s stateShim) AddApplication(args state.AddApplicationArgs) (Application, e
 // AddPendingResource
 func (s stateShim) AddPendingResource(appName string, chRes resource.Resource) (string, error) {
 	return s.State.Resources().AddPendingResource(appName, "", chRes)
+}
+
+// RemovePendingResources removes any pending resources for the named application
+// Mainly used as a cleanup if an error is raised during the deployment
+func (s stateShim) RemovePendingResources(applicationID string, pendingIDs map[string]string) error {
+	return s.State.Resources().RemovePendingAppResources(applicationID, pendingIDs)
 }
 
 func (s stateShim) AddCharmMetadata(info state.CharmInfo) (Charm, error) {
