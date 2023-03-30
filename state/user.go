@@ -82,7 +82,7 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 	if err == nil {
 		if foundUser.doc.Deleted {
 			// the user was deleted, we update it
-			return st.recreateExistingUser(foundUser, name, displayName, password, creator, secretKey)
+			return st.recreateDeletedUser(foundUser, name, displayName, password, creator, secretKey)
 		} else {
 			return nil, errors.AlreadyExistsf("user %s", name)
 		}
@@ -141,10 +141,10 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 	return user, nil
 }
 
-// recreateExistingUser manipulates the values of an existing user in the db.
+// recreateDeletedUser manipulates the values of an existing user in the db.
 // This is particularly useful when reusing existing users that were previously
 // deleted.
-func (st *State) recreateExistingUser(u *User, name, displayName, password, creator string, secretKey []byte) (*User, error) {
+func (st *State) recreateDeletedUser(u *User, name, displayName, password, creator string, secretKey []byte) (*User, error) {
 	dateCreated := st.nowToTheSecond()
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
