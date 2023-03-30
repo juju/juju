@@ -39,20 +39,21 @@ Exports the current model configuration as a reusable bundle.
 If --filename is not used, the configuration is printed to stdout.
  --filename specifies an output file.
 
-Examples:
+`
 
+const exportBundleHelpExamples = `
     juju export-bundle
     juju export-bundle --filename mymodel.yaml
     juju export-bundle --include-charm-defaults
-
 `
 
 // Info implements Command.
 func (c *exportBundleCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "export-bundle",
-		Purpose: "Exports the current model configuration as a reusable bundle.",
-		Doc:     exportBundleHelpDoc,
+		Name:     "export-bundle",
+		Purpose:  "Exports the current model configuration as a reusable bundle.",
+		Doc:      exportBundleHelpDoc,
+		Examples: exportBundleHelpExamples,
 	})
 }
 
