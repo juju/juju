@@ -136,6 +136,17 @@ func removeModelUserOps(modelUUID string, user names.UserTag) []txn.Op {
 		removePermissionOp(modelKey(modelUUID), userGlobalKey(userAccessID(user))),
 		{
 			C:      modelUsersC,
+			Id:     userAccessID(user),
+			Assert: txn.DocExists,
+			Remove: true,
+		}}
+}
+
+func removeModelUserOpsGlobal(modelUUID string, user names.UserTag) []txn.Op {
+	return []txn.Op{
+		removePermissionOp(modelKey(modelUUID), userGlobalKey(userAccessID(user))),
+		{
+			C:      modelUsersC,
 			Id:     ensureModelUUID(modelUUID, userAccessID(user)),
 			Assert: txn.DocExists,
 			Remove: true,

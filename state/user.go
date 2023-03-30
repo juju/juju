@@ -194,9 +194,9 @@ func (st *State) recreateExistingUser(u *User, name, displayName, password, crea
 		if err := modelQuery.All(&modelDocs); err != nil {
 			return nil, errors.Trace(err)
 		}
-		for _, summary := range modelDocs {
+		for _, model := range modelDocs {
 			// remove the permission for the model
-			ops = append(ops, removeModelUserOps(summary.UUID, u.UserTag())...)
+			ops = append(ops, removeModelUserOpsGlobal(model.UUID, u.UserTag())...)
 		}
 
 		// remove previous controller permissions
@@ -271,9 +271,9 @@ func (st *State) RemoveUser(tag names.UserTag) error {
 			return nil, errors.Trace(err)
 		}
 		var ops []txn.Op
-		for _, summary := range modelDocs {
+		for _, model := range modelDocs {
 			// remove the permission for the model
-			ops = append(ops, removeModelUserOps(summary.UUID, tag)...)
+			ops = append(ops, removeModelUserOpsGlobal(model.UUID, tag)...)
 		}
 
 		// remove the user from the controller
