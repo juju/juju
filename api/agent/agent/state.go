@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/common/cloudspec"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/rpc/params"
@@ -113,12 +112,6 @@ func (m *Entity) Life() life.Value {
 // the empty list.
 func (m *Entity) Jobs() []model.MachineJob {
 	return m.doc.Jobs
-}
-
-// ContainerType returns the type of container hosting this entity.
-// If the entity is not a machine, it returns an empty string.
-func (m *Entity) ContainerType() instance.ContainerType {
-	return m.doc.ContainerType
 }
 
 // IsAllowedControllerTag returns true if the tag kind can be for a controller.
