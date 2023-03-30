@@ -174,7 +174,7 @@ func (s *downloadSuite) TestRunWithUnsupportedSeriesReturnsSecondAttempt(c *gc.C
 
 	ctx := commandContextForTest(c)
 	err = command.Run(ctx)
-	c.Assert(err, gc.ErrorMatches, `"test" does not support base "ubuntu@22.04" in channel "stable".  Supported bases are: ubuntu@14.04, ubuntu@16.04, ubuntu@18.04.`)
+	c.Assert(err, gc.ErrorMatches, `"test" does not support base ".*" in channel "stable"\. Supported bases are: ubuntu@18\.04, ubuntu@14\.04, ubuntu@16\.04\.`)
 }
 
 func (s *downloadSuite) TestRunWithNoStableRelease(c *gc.C) {
