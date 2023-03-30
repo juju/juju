@@ -421,53 +421,6 @@ func (s *BundleDeployRepositorySuite) expectK8sCharm(curl *charm.URL, rev int) *
 	return fullCurl
 }
 
-func (s *BundleDeployRepositorySuite) expectK8sCharmKub(curl *charm.URL, rev int) *charm.URL {
-	// Called from resolveCharmsAndEndpoints & resolveCharmChannelAndRevision && addCharm
-	s.bundleResolver.EXPECT().ResolveCharm(
-		curl,
-		gomock.AssignableToTypeOf(commoncharm.Origin{}),
-		false,
-	).DoAndReturn(
-		// Ensure the same curl that is provided, is returned.
-		func(curl *charm.URL, origin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []string, error) {
-			curl = curl.WithRevision(rev).WithSeries("20.04").WithArchitecture("amd64")
-			origin.Base = coreseries.MakeDefaultBase("ubuntu", "20.04")
-			origin.Revision = &rev
-			origin.Type = "charm"
-			return curl, origin, []string{"kubernetes"}, nil
-		}).Times(3)
-
-	fullCurl := curl.WithSeries("20.04").WithRevision(rev).WithArchitecture("amd64")
-	s.deployerAPI.EXPECT().AddCharm(
-		fullCurl,
-		gomock.AssignableToTypeOf(commoncharm.Origin{}),
-		false,
-	).DoAndReturn(
-		func(_ *charm.URL, origin commoncharm.Origin, _ bool) (commoncharm.Origin, error) {
-			return origin, nil
-		})
-
-	charmInfo := &apicharms.CharmInfo{
-		Revision: fullCurl.Revision,
-		URL:      fullCurl.String(),
-		Meta: &charm.Meta{
-			Series: []string{"kubernetes"},
-		},
-		Manifest: &charm.Manifest{
-			Bases: []charm.Base{
-				{
-					Name:          "ubuntu",
-					Channel:       charm.Channel{Track: "20.04", Risk: "stable", Branch: ""},
-					Architectures: []string{"amd64"},
-				},
-			},
-		},
-	}
-	s.expectCharmInfo(fullCurl.String(), charmInfo)
-	s.expectDeploy()
-	return fullCurl
-}
-
 const kubernetesCharmhubGitlabBundleWithRevision = `
 bundle: kubernetes
 applications:
@@ -2186,34 +2139,6 @@ func (s *BundleDeployRepositorySuite) setupCharmUnits(charmUnits []charmUnit) {
 			Meta: &charm.Meta{
 				Series: chUnit.charmMetaSeries,
 			},
-		}
-		s.expectCharmInfo(chUnit.curl.String(), charmInfo)
-		s.expectDeploy()
-		if chUnit.machineUbuntuVersion != "kubernetes" {
-			s.expectAddMachine(chUnit.machine, chUnit.machineUbuntuVersion)
-			s.expectAddOneUnit(chUnit.curl.Name, chUnit.machine, "0")
-		}
-	}
-}
-
-func (s *BundleDeployRepositorySuite) setupMetadataV2CharmUnits(charmUnits []charmUnit) {
-	for _, chUnit := range charmUnits {
-		s.expectResolveCharm(nil)
-		s.expectAddCharm(chUnit.force)
-		charmInfo := &apicharms.CharmInfo{
-			Revision: chUnit.curl.Revision,
-			URL:      chUnit.curl.String(),
-			Meta: &charm.Meta{
-				Containers: map[string]charm.Container{
-					"test": {
-						Resource: "test-oci",
-					},
-				},
-			},
-			Manifest: &charm.Manifest{Bases: []charm.Base{{
-				Name:    "ubuntu",
-				Channel: charm.Channel{Track: "20.04"},
-			}}},
 		}
 		s.expectCharmInfo(chUnit.curl.String(), charmInfo)
 		s.expectDeploy()

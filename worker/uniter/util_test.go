@@ -145,7 +145,6 @@ type testContext struct {
 	secretBackends         jujusecrets.BackendsClient
 	err                    string
 
-	wg             sync.WaitGroup
 	mu             sync.Mutex
 	hooksCompleted []string
 	runner         *mockRunner
@@ -1585,12 +1584,6 @@ func (*mockCharmDirGuard) Unlock() error { return nil }
 
 // Lockdown implements fortress.Guard.
 func (*mockCharmDirGuard) Lockdown(_ fortress.Abort) error { return nil }
-
-type mockRotateSecretsWatcher struct{}
-
-func (w *mockRotateSecretsWatcher) Kill() {}
-
-func (*mockRotateSecretsWatcher) Wait() error { return nil }
 
 type provisionStorage struct{}
 

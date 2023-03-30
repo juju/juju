@@ -53,7 +53,6 @@ const allEndpoints = ""
 // into each of the other per-mode suites.
 type firewallerBaseSuite struct {
 	jujutesting.JujuConnSuite
-	op                 <-chan dummy.Operation
 	charm              *state.Charm
 	controllerMachine  *state.Machine
 	controllerPassword string

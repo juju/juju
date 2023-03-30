@@ -12,7 +12,6 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v3/ssh"
 	"github.com/juju/worker/v3"
-	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/agent/keyupdater"
@@ -26,9 +25,8 @@ var SSHUser = "ubuntu"
 var logger = loggo.GetLogger("juju.worker.authenticationworker")
 
 type keyupdaterWorker struct {
-	st   *keyupdater.State
-	tomb tomb.Tomb
-	tag  names.MachineTag
+	st  *keyupdater.State
+	tag names.MachineTag
 	// jujuKeys are the most recently retrieved keys from state.
 	jujuKeys set.Strings
 	// nonJujuKeys are those added externally to auth keys file

@@ -4,8 +4,6 @@
 package kvm_test
 
 import (
-	"net/http"
-
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -66,10 +64,6 @@ func (f fakeParams) One() (*imagedownloads.Metadata, error) {
 }
 
 type fakeFetcher struct {
-	md        *imagedownloads.Metadata
-	fileCache *Image
-	req       *http.Request
-	client    *http.Client
 	// Used to return an error
 	Err error
 }

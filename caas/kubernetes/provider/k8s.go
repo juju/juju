@@ -665,7 +665,8 @@ func (k *kubernetesClient) GetService(appName string, mode caas.DeploymentMode, 
 	)
 	// We may have the stateful set or deployment but service not done yet.
 	if len(servicesList.Items) > 0 {
-		for _, s := range servicesList.Items {
+		for _, v := range servicesList.Items {
+			s := v
 			// Ignore any headless service for this app.
 			if !strings.HasSuffix(s.Name, "-endpoints") {
 				svc = &s

@@ -6,14 +6,13 @@ package caasapplication_test
 import (
 	"time"
 
-	"gopkg.in/yaml.v2"
-
 	"github.com/juju/charm/v10"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/agent/caasapplication"

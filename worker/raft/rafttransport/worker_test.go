@@ -35,9 +35,8 @@ var controllerTag = names.NewMachineTag("123")
 
 type workerFixture struct {
 	testing.IsolationSuite
-	config   rafttransport.Config
-	authInfo httpcontext.AuthInfo
-	clock    *testclock.Clock
+	config rafttransport.Config
+	clock  *testclock.Clock
 }
 
 func (s *workerFixture) SetUpTest(c *gc.C) {

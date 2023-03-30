@@ -308,7 +308,6 @@ type relationGetInitTest struct {
 	ctxunit     string
 	ctxapp      string
 	args        []string
-	content     string
 	err         string
 	relid       int
 	key         string

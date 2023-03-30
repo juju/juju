@@ -35,8 +35,6 @@ var (
 
 type providerSuite struct {
 	lxd.BaseSuite
-
-	provider environs.EnvironProvider
 }
 
 func (s *providerSuite) SetUpTest(c *gc.C) {

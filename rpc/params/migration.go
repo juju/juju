@@ -39,6 +39,16 @@ type MigrationTargetInfo struct {
 	Macaroons       string   `json:"macaroons,omitempty"`
 }
 
+// MigrationSourceInfo holds the details required to connect to
+// the source controller for model migration.
+type MigrationSourceInfo struct {
+	LocalRelatedModels []string `json:"local-related-models"`
+	ControllerTag      string   `json:"controller-tag"`
+	ControllerAlias    string   `json:"controller-alias,omitempty"`
+	Addrs              []string `json:"addrs"`
+	CACert             string   `json:"ca-cert"`
+}
+
 // InitiateMigrationResults is used to return the result of one or
 // more attempts to start model migrations.
 type InitiateMigrationResults struct {
@@ -121,6 +131,25 @@ type ModelArgs struct {
 	ModelTag string `json:"model-tag"`
 }
 
+// ActivateModelArgs holds args used to
+// activate a newly migrated model.
+type ActivateModelArgs struct {
+	// ModelTag is the model being migrated.
+	ModelTag string `json:"model-tag"`
+
+	// ControllerTag is the tag of the source controller.
+	ControllerTag string `json:"controller-tag"`
+	// ControllerAlias is the name of the source controller.
+	ControllerAlias string `json:"controller-alias,omitempty"`
+	// SourceAPIAddrs are the api addresses of the source controller.
+	SourceAPIAddrs []string `json:"source-api-addrs"`
+	// SourceCACert is the CA certificate used to connect to the source controller.
+	SourceCACert string `json:"source-ca-cert"`
+	// CrossModelUUIDs are the UUIDs of models containing offers to which
+	// consumers in the migrated model are related.
+	CrossModelUUIDs []string `json:"cross-model-uuids"`
+}
+
 // MasterMigrationStatus is used to report the current status of a
 // model migration for the migrationmaster. It includes authentication
 // details for the remote controller.
@@ -155,7 +184,7 @@ type MigrationStatus struct {
 	TargetCACert   string   `json:"target-ca-cert"`
 }
 
-// PhasesResults holds the phase of one or more model migrations.
+// PhaseResults holds the phase of one or more model migrations.
 type PhaseResults struct {
 	Results []PhaseResult `json:"results"`
 }

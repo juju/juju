@@ -64,8 +64,6 @@ func NewDownloadCommand() cmd.Command {
 type downloadCommand struct {
 	*charmHubCommand
 
-	out cmd.Output
-
 	channel       string
 	charmOrBundle string
 	archivePath   string
@@ -184,9 +182,7 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 	defer cancel()
 
 	// Locate a release that we would expect to be default. In this case
-	// we want to fall back to latest/stable. We don't want to use the
-	// info.DefaultRelease here as that isn't actually the default release,
-	// but instead the last release and that's not what we want.
+	// we want to fall back to latest/stable.
 	channel := c.channel
 	if channel == "" {
 		channel = corecharm.DefaultChannelString
@@ -203,37 +199,10 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 	if base.Empty() {
 		base = version.DefaultSupportedLTSBase()
 	}
-	platform := fmt.Sprintf("%s/%s/%s", pArch, base.OS, base.Channel.Track)
-	normBase, err := corecharm.ParsePlatformNormalize(platform)
+
+	results, normBase, err := c.refresh(ctx, cmdContext, client, normChannel, pArch, base)
 	if err != nil {
 		return errors.Trace(err)
-	}
-
-	refreshConfig, err := charmhub.InstallOneFromChannel(c.charmOrBundle, normChannel.String(), charmhub.RefreshBase{
-		Architecture: normBase.Architecture,
-		Name:         normBase.OS,
-		Channel:      normBase.Channel,
-	})
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	results, err := client.Refresh(ctx, refreshConfig)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if len(results) == 0 {
-		return errors.NotFoundf(c.charmOrBundle)
-	}
-	// Ensure we didn't get any errors whilst querying the charmhub API
-	for _, res := range results {
-		if res.Error != nil {
-			if res.Error.Code == transport.ErrorCodeRevisionNotFound {
-				return c.suggested(base, normChannel.String(), res.Error.Extra.Releases, cmdContext)
-			}
-			return errors.Errorf("unable to locate %s: %s", c.charmOrBundle, res.Error.Message)
-		}
 	}
 
 	// In theory we can get multiple responses from the refresh API, but in
@@ -297,6 +266,46 @@ Install the %q %s with:
     juju deploy %s`[1:], entity.Name, entityType, path)
 
 	return nil
+}
+
+func (c *downloadCommand) refresh(
+	ctx context.Context, cmdContext *cmd.Context, client CharmHubClient, normChannel charm.Channel, arch string, base series.Base,
+) ([]transport.RefreshResponse, *corecharm.Platform, error) {
+	platform := fmt.Sprintf("%s/%s/%s", arch, base.OS, base.Channel.Track)
+	normBase, err := corecharm.ParsePlatformNormalize(platform)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	refreshConfig, err := charmhub.InstallOneFromChannel(c.charmOrBundle, normChannel.String(), charmhub.RefreshBase{
+		Architecture: normBase.Architecture,
+		Name:         normBase.OS,
+		Channel:      normBase.Channel,
+	})
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	results, err := client.Refresh(ctx, refreshConfig)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	if len(results) == 0 {
+		return nil, nil, errors.NotFoundf(c.charmOrBundle)
+	}
+
+	// Ensure we didn't get any errors whilst querying the charmhub API
+	for _, res := range results {
+		if res.Error != nil {
+			if res.Error.Code == transport.ErrorCodeRevisionNotFound {
+				return nil, nil, c.suggested(base, normChannel.String(), res.Error.Extra.Releases, cmdContext)
+			}
+			return nil, nil, errors.Errorf("unable to locate %s: %s", c.charmOrBundle, res.Error.Message)
+		}
+	}
+
+	return results, &normBase, nil
 }
 
 func (c *downloadCommand) suggested(requestedBase coreseries.Base, channel string, releases []transport.Release, cmdContext *cmd.Context) error {

@@ -50,17 +50,6 @@ func (s *certSuite) handler(w http.ResponseWriter, req *http.Request) {
 	w.Write([]byte("yay"))
 }
 
-func (s *certSuite) request(url string) (*http.Response, error) {
-	// Create the client each time to ensure that we get the
-	// certificate again.
-	client := &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: s.config.TLSConfig,
-		},
-	}
-	return client.Get(url)
-}
-
 func (s *certSuite) TestAutocertFailure(c *gc.C) {
 	// We don't have a fake autocert server, but we can at least
 	// smoke test that the autocert path is followed when we try
@@ -89,7 +78,7 @@ func (s *certSuite) TestAutocertFailure(c *gc.C) {
 		_, err := tls.Dial("tcp", parsed.Host, &tls.Config{
 			ServerName: "somewhere.example",
 		})
-		expectedErr := `x509: certificate is valid for .*, not somewhere.example`
+		expectedErr := `.*x509: certificate is valid for .*, not somewhere.example`
 		// We can't get an autocert certificate, so we'll fall back to the local certificate
 		// which isn't valid for connecting to somewhere.example.
 		c.Assert(err, gc.ErrorMatches, expectedErr)
@@ -125,7 +114,7 @@ func (s *certSuite) TestAutocertNameMismatch(c *gc.C) {
 		_, err := tls.Dial("tcp", parsed.Host, &tls.Config{
 			ServerName: "somewhere.else",
 		})
-		expectedErr := `x509: certificate is valid for .*, not somewhere.else`
+		expectedErr := `.*x509: certificate is valid for .*, not somewhere.else`
 		// We can't get an autocert certificate, so we'll fall back to the local certificate
 		// which isn't valid for connecting to somewhere.example.
 		c.Assert(err, gc.ErrorMatches, expectedErr)
@@ -149,7 +138,7 @@ func (s *certSuite) TestAutocertNoAutocertDNSName(c *gc.C) {
 		_, err := tls.Dial("tcp", parsed.Host, &tls.Config{
 			ServerName: "somewhere.example",
 		})
-		expectedErr := `x509: certificate is valid for .*, not somewhere.example`
+		expectedErr := `.*x509: certificate is valid for .*, not somewhere.example`
 		// We can't get an autocert certificate, so we'll fall back to the local certificate
 		// which isn't valid for connecting to somewhere.example.
 		c.Assert(err, gc.ErrorMatches, expectedErr)

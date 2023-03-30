@@ -24,8 +24,6 @@ import (
 // This suite provides basic tests for the "show-user" command
 type UserListCommandSuite struct {
 	BaseSuite
-
-	clock fakeClock
 }
 
 var _ = gc.Suite(&UserListCommandSuite{})

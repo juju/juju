@@ -94,10 +94,9 @@ type executeOne struct {
 	Base     RefreshBase
 	// instanceKey is a private unique key that we construct for CharmHub API
 	// asynchronous calls.
-	action            action
-	instanceKey       string
-	resourceRevisions []transport.RefreshResourceRevision
-	fields            []string
+	action      action
+	instanceKey string
+	fields      []string
 }
 
 // InstanceKey returns the underlying instance key.

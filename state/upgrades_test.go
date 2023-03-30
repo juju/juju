@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
-	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"github.com/kr/pretty"
@@ -91,6 +90,7 @@ func (x bsonMById) Less(i, j int) bool {
 	return x[i]["_id"].(string) < x[j]["_id"].(string)
 }
 
+<<<<<<< HEAD
 func (s *upgradesSuite) checkAddPruneSettings(c *gc.C, ageProp, sizeProp, defaultAge, defaultSize string, updateFunc func(pool *StatePool) error) {
 	settingsColl, settingsCloser := s.state.db().GetRawCollection(settingsC)
 	defer settingsCloser()
@@ -192,6 +192,9 @@ func (s *upgradesSuite) makeApplication(c *gc.C, uuid, name string, life Life) {
 }
 
 func (s *upgradesSuite) TestRemoveOrphanedSecretPermissions(c *gc.C) {
+=======
+func (s *upgradesSuite) TestCorrectCharmOriginsMultiAppSingleCharm(c *gc.C) {
+>>>>>>> upstream/3.0
 	model1 := s.makeModel(c, "model-1", coretesting.Attrs{})
 	model2 := s.makeModel(c, "model-2", coretesting.Attrs{})
 	defer func() {
@@ -415,9 +418,3 @@ func (s *upgradesSuite) TestMigrateApplicationOpenedPortsToUnitScope(c *gc.C) {
 		upgradedData(openedPorts, expected),
 	)
 }
-
-type docById []bson.M
-
-func (d docById) Len() int           { return len(d) }
-func (d docById) Swap(i, j int)      { d[i], d[j] = d[j], d[i] }
-func (d docById) Less(i, j int) bool { return d[i]["_id"].(string) < d[j]["_id"].(string) }

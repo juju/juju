@@ -15,7 +15,6 @@ import (
 
 type annotationsMockSuite struct {
 	coretesting.BaseSuite
-	annotationsClient *annotations.Client
 }
 
 var _ = gc.Suite(&annotationsMockSuite{})

@@ -193,24 +193,6 @@ func (s *systemdServiceManager) CreateAgentConf(name string, dataDir string) (_ 
 	return AgentConf(info, renderer), nil
 }
 
-func (s *systemdServiceManager) startAgent(name string, kind AgentKind, dataDir string) (err error) {
-	renderer, err := shell.NewRenderer("")
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	srvPath := path.Join(paths.NixLogDir, "juju")
-	info := NewAgentInfo(kind, name, dataDir, srvPath)
-	conf := AgentConf(info, renderer)
-
-	svc, err := s.newService(serviceName(name), conf)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	return errors.Trace(svc.Start())
-}
-
 func serviceName(agent string) string {
 	return "jujud-" + agent
 }

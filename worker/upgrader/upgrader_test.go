@@ -92,7 +92,6 @@ type mockConfig struct {
 	agent.Config
 	tag     names.Tag
 	datadir string
-	version version.Number
 }
 
 func (mock *mockConfig) Tag() names.Tag {

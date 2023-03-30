@@ -9,7 +9,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v10"
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -668,10 +667,6 @@ func (s *charmsMockSuite) expectResolveWithPreferredChannelNoSeries() {
 
 			return curl, resolvedOrigin, []string{}, nil
 		})
-}
-
-func (s *charmsMockSuite) expectMongoSession() {
-	s.state.EXPECT().MongoSession().Return(&mgo.Session{})
 }
 
 func (s *charmsMockSuite) expectApplication(name string) {

@@ -233,7 +233,6 @@ type mockClient struct {
 
 	lock          sync.Mutex
 	user          string
-	terms         []wireformat.GetTermsResponse
 	unsignedTerms []wireformat.GetTermsResponse
 }
 

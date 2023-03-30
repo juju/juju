@@ -1977,7 +1977,8 @@ func (e *exporter) readAllMeterStatus() (map[string]*meterStatusDoc, error) {
 	}
 	e.logger.Debugf("found %d meter status docs", len(docs))
 	result := make(map[string]*meterStatusDoc)
-	for _, doc := range docs {
+	for _, v := range docs {
+		doc := v
 		result[e.st.localID(doc.DocID)] = &doc
 	}
 	return result, nil
@@ -2011,7 +2012,8 @@ func (e *exporter) readAllCloudServices() (map[string]*cloudServiceDoc, error) {
 	}
 	e.logger.Debugf("found %d cloud service docs", len(docs))
 	result := make(map[string]*cloudServiceDoc)
-	for _, doc := range docs {
+	for _, v := range docs {
+		doc := v
 		result[e.st.localID(doc.DocID)] = &doc
 	}
 	return result, nil
@@ -2035,7 +2037,8 @@ func (e *exporter) readAllCloudContainers() (map[string]*cloudContainerDoc, erro
 	}
 	e.logger.Debugf("found %d cloud container docs", len(docs))
 	result := make(map[string]*cloudContainerDoc)
-	for _, doc := range docs {
+	for _, v := range docs {
+		doc := v
 		result[e.st.localID(doc.Id)] = &doc
 	}
 	return result, nil
