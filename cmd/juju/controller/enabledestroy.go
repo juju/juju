@@ -33,11 +33,6 @@ from being destroyed.
 
 A controller administrator is able to enable all the commands across all the models
 in a Juju controller so that the controller can be destoyed if desired.
-
-See also:
-    disable-command
-    disabled-commands
-    enable-command
 `
 
 // Info implements Command.Info
@@ -46,6 +41,11 @@ func (c *enableDestroyController) Info() *cmd.Info {
 		Name:    "enable-destroy-controller",
 		Purpose: "Enable destroy-controller by removing disabled commands in the controller.",
 		Doc:     enableDestroyDoc,
+		SeeAlso: []string{
+			"disable-command",
+			"disabled-commands",
+			"enable-command",
+		},
 	})
 }
 

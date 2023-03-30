@@ -41,14 +41,11 @@ the OS, separated by @. For example, --base ubuntu@22.04.
 
 Adding a hyphen as the second argument allows the download to be piped
 to stdout.
+`
 
-Examples:
+	downloadExamples = `
     juju download postgresql
     juju download postgresql --no-progress - > postgresql.charm
-
-See also:
-    info
-    find
 `
 )
 
@@ -77,10 +74,15 @@ type downloadCommand struct {
 // part of the cmd.Command interface.
 func (c *downloadCommand) Info() *cmd.Info {
 	download := &cmd.Info{
-		Name:    "download",
-		Args:    "[options] <charm>",
-		Purpose: downloadSummary,
-		Doc:     downloadDoc,
+		Name:     "download",
+		Args:     "[options] <charm>",
+		Purpose:  downloadSummary,
+		Doc:      downloadDoc,
+		Examples: downloadExamples,
+		SeeAlso: []string{
+			"info",
+			"find",
+		},
 	}
 	return jujucmd.Info(download)
 }

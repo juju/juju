@@ -37,11 +37,7 @@ func NewListCommand() cmd.Command {
 
 const listCommandDoc = `
 List disabled commands for the model.
-` + commandSets + `
-See also:
-    disable-command
-    enable-command
-`
+` + commandSets
 
 // listCommand list blocks.
 type listCommand struct {
@@ -64,6 +60,10 @@ func (c *listCommand) Info() *cmd.Info {
 		Purpose: "List disabled commands.",
 		Doc:     listCommandDoc,
 		Aliases: []string{"list-disabled-commands"},
+		SeeAlso: []string{
+			"disable-command",
+			"enable-command",
+		},
 	})
 }
 
