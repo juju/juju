@@ -67,6 +67,9 @@ func (c *dashboardCommand) newControllerAPI() (ControllerAPI, bool, error) {
 }
 
 const dashboardDoc = `
+`
+
+const dashboardExamples = `
 Print the Juju Dashboard URL and show admin credential to use to log into it:
 
 	juju dashboard
@@ -97,9 +100,10 @@ To deploy the Juju dashboard, follow these steps:
 // Info implements the cmd.Command interface.
 func (c *dashboardCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "dashboard",
-		Purpose: "Print the Juju Dashboard URL, or open the Juju Dashboard in the default browser.",
-		Doc:     dashboardDoc,
+		Name:     "dashboard",
+		Purpose:  "Print the Juju Dashboard URL, or open the Juju Dashboard in the default browser.",
+		Doc:      dashboardDoc,
+		Examples: dashboardExamples,
 	})
 }
 
