@@ -717,7 +717,10 @@ func (s *deployRepositorySuite) TestDeployFromRepositoryAPI(c *gc.C) {
 	s.state.EXPECT().AddCharmMetadata(info).Return(s.charm, nil)
 
 	addAppArgs := state.AddApplicationArgs{
-		Name:  "metadata-name",
+		Name: "metadata-name",
+		// the app.Charm is casted into a state.Charm in the code
+		// we mock it separately here (s.charm above), the test works
+		// thanks to the addApplicationArgsMatcher used below
 		Charm: &state.Charm{},
 		CharmOrigin: &state.CharmOrigin{
 			Source:   "charm-hub",
