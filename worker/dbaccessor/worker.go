@@ -197,7 +197,12 @@ func newWorker(cfg WorkerConfig) (*dbWorker, error) {
 }
 
 func (w *dbWorker) loop() (err error) {
-	defer w.shutdownDqlite(context.TODO())
+	// The context here should not be tied to the catacomb, as the context will
+	// be cancelled when the worker is stopped, and we want to wait for the
+	// dqlite app to shutdown gracefully.
+	// There is a timeout in shutdownDqlite to ensure that we don't wait
+	// forever.
+	defer w.shutdownDqlite(context.Background())
 
 	extant, err := w.cfg.NodeManager.IsExistingNode()
 	if err != nil {
@@ -305,7 +310,10 @@ func (w *dbWorker) startExistingDqliteNode() error {
 
 	mgr := w.cfg.NodeManager
 
-	asBootstrapped, err := mgr.IsBootstrappedNode(context.TODO())
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
+	asBootstrapped, err := mgr.IsBootstrappedNode(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -345,7 +353,8 @@ func (w *dbWorker) initialiseDqlite(options ...app.Option) error {
 		return errors.Trace(err)
 	}
 
-	ctx := context.TODO()
+	ctx, cancel := w.scopedContext()
+	defer cancel()
 
 	if err := w.dbApp.Ready(ctx); err != nil {
 		return errors.Annotatef(err, "ensuring Dqlite is ready to process changes")
@@ -410,7 +419,8 @@ func (w *dbWorker) processAPIServerChange(apiDetails apiserver.Details) error {
 		return errors.Trace(err)
 	}
 
-	ctx := context.TODO()
+	ctx, cancel := w.scopedContext()
+	defer cancel()
 
 	// If this is an existing node, check if we are bound to the loopback IP
 	// and entering HA, which requires a new local-cloud bind address.
@@ -556,6 +566,8 @@ func (w *dbWorker) shutdownDqlite(ctx context.Context) {
 		return
 	}
 
+	// Ensure that we don't block forever and bound the shutdown time for
+	// handing over a dqlite node.
 	ctx, cancel := context.WithTimeout(ctx, time.Second*30)
 	defer cancel()
 
@@ -568,4 +580,12 @@ func (w *dbWorker) shutdownDqlite(ctx context.Context) {
 	}
 
 	w.dbApp = nil
+}
+
+// scopedContext returns a context that is in the scope of the worker lifetime.
+// It returns a cancellable context that is cancelled when the action has
+// completed.
+func (w *dbWorker) scopedContext() (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(context.Background())
+	return w.catacomb.Context(ctx), cancel
 }
