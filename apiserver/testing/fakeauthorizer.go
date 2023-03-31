@@ -13,11 +13,13 @@ import (
 
 // FakeAuthorizer implements the facade.Authorizer interface.
 type FakeAuthorizer struct {
-	Tag         names.Tag
-	Controller  bool
-	ModelUUID   string
-	AdminTag    names.UserTag
-	HasWriteTag names.UserTag
+	Tag           names.Tag
+	Controller    bool
+	ModelUUID     string
+	AdminTag      names.UserTag
+	HasConsumeTag names.UserTag
+	HasWriteTag   names.UserTag
+	AuthToken     string
 }
 
 func (fa FakeAuthorizer) AuthOwner(tag names.Tag) bool {
@@ -142,5 +144,13 @@ func (fa FakeAuthorizer) EntityHasPermission(entity names.Tag, operation permiss
 	if fa.AdminTag != emptyTag && entity == fa.AdminTag {
 		return true, nil
 	}
+	if operation == permission.ConsumeAccess && fa.HasConsumeTag != emptyTag && entity == fa.HasConsumeTag {
+		return true, nil
+	}
 	return false, nil
+}
+
+// AuthTokenString returns the jwt passed to login.
+func (fa FakeAuthorizer) AuthTokenString() string {
+	return fa.AuthToken
 }

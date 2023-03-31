@@ -160,6 +160,7 @@ func (c *consumeCommand) Run(ctx *cmd.Context) error {
 		Offer:            *consumeDetails.Offer,
 		ApplicationAlias: c.applicationAlias,
 		Macaroon:         consumeDetails.Macaroon,
+		AuthToken:        consumeDetails.AuthToken,
 	}
 	if consumeDetails.ControllerInfo != nil {
 		controllerTag, err := names.ParseControllerTag(consumeDetails.ControllerInfo.ControllerTag)

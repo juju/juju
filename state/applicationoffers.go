@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/hashicorp/go-uuid"
 	"github.com/juju/charm/v10"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -85,9 +86,13 @@ func ApplicationOfferEndpoint(offer crossmodel.ApplicationOffer, relationName st
 }
 
 // TODO(wallyworld) - remove when we use UUID everywhere
-func applicationOfferUUID(st *State, offerName string) (string, error) {
+func applicationOfferUUID(st *State, offerNameOrUUID string) (string, error) {
+	_, err := uuid.ParseUUID(offerNameOrUUID)
+	if err == nil {
+		return offerNameOrUUID, nil
+	}
 	appOffers := &applicationOffers{st: st}
-	offer, err := appOffers.ApplicationOffer(offerName)
+	offer, err := appOffers.ApplicationOffer(offerNameOrUUID)
 	if err != nil {
 		return "", errors.Trace(err)
 	}

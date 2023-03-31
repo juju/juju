@@ -119,6 +119,20 @@ func (mr *MockAuthorizerMockRecorder) AuthOwner(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AuthOwner", reflect.TypeOf((*MockAuthorizer)(nil).AuthOwner), arg0)
 }
 
+// AuthTokenString mocks base method.
+func (m *MockAuthorizer) AuthTokenString() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AuthTokenString")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// AuthTokenString indicates an expected call of AuthTokenString.
+func (mr *MockAuthorizerMockRecorder) AuthTokenString() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AuthTokenString", reflect.TypeOf((*MockAuthorizer)(nil).AuthTokenString))
+}
+
 // AuthUnitAgent mocks base method.
 func (m *MockAuthorizer) AuthUnitAgent() bool {
 	m.ctrl.T.Helper()
