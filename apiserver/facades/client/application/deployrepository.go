@@ -5,6 +5,7 @@ package application
 
 import (
 	"fmt"
+	"strconv"
 	"sync"
 
 	"github.com/juju/charm/v10"
@@ -140,7 +141,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(arg params.DeployFromRe
 		Resources:         pendingIDs,
 	})
 
-	if err != nil {
+	if err != nil && len(pendingIDs) != 0 {
 		// Remove the pending resources that are added before the AddApplication is called
 		removeResourcesErr := api.state.RemovePendingResources(dt.applicationName, pendingIDs)
 		if removeResourcesErr != nil {
@@ -158,36 +159,43 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(arg params.DeployFromRe
 // resource once DeployFromRepository returns. All resources will be
 // processed. Errors are not terminal. It also returns the name to pendingIDs
 // map that's needed by the AddApplication.
-func (api *DeployFromRepositoryAPI) addPendingResources(appName string, uploads map[string]string, res map[string]resource.Meta) (map[string]string, []*params.PendingResourceUpload, []error) {
+func (api *DeployFromRepositoryAPI) addPendingResources(appName string, deployRes map[string]string, resMeta map[string]resource.Meta) (map[string]string, []*params.PendingResourceUpload, []error) {
 	var pendingUploadIDs []*params.PendingResourceUpload
 	var errs []error
 	pendingIDs := make(map[string]string)
 
-	for name, meta := range res {
+	for name, meta := range resMeta {
 		r := resource.Resource{
 			Meta: meta,
 		}
-		if _, ok := uploads[name]; ok {
-			r.Origin = resource.OriginUpload
-		} else {
-			r.Origin = resource.OriginStore
+		deployValue, ok := deployRes[name]
+		if !ok {
+			// TODO, this is temporary until resolving resources is completed.
+			// irl, this should never fail.
+			continue
 		}
-
+		if rev, err := strconv.Atoi(deployValue); err == nil {
+			r.Revision = rev
+			r.Origin = resource.OriginStore
+		} else {
+			r.Origin = resource.OriginUpload
+		}
 		pID, err := api.state.AddPendingResource(appName, r)
 		if err != nil {
 			logger.Warningf("Unable to add pending resource %v for application %v", name, appName)
 			errs = append(errs, err)
-		} else {
-			pendingIDs[name] = pID
-			if _, ok := uploads[name]; ok {
-				pendingUploadIDs = append(pendingUploadIDs, &params.PendingResourceUpload{
-					Name:      meta.Name,
-					Type:      meta.Type.String(),
-					Filename:  uploads[name],
-					PendingID: pID,
-				})
-			}
+			continue
 		}
+		pendingIDs[name] = pID
+		if r.Origin == resource.OriginStore {
+			continue
+		}
+		pendingUploadIDs = append(pendingUploadIDs, &params.PendingResourceUpload{
+			Name:      meta.Name,
+			Type:      meta.Type.String(),
+			Filename:  deployValue,
+			PendingID: pID,
+		})
 	}
 
 	return pendingIDs, pendingUploadIDs, errs
