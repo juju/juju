@@ -165,7 +165,6 @@ type Firewaller struct {
 	applicationids       map[names.ApplicationTag]*applicationData
 	exposedChange        chan *exposedChange
 	spaceInfos           network.SpaceInfos
-	modelFirewallRules   firewall.IngressRules
 	globalMode           bool
 	globalIngressRuleRef map[string]int // map of rule names to count of occurrences
 
