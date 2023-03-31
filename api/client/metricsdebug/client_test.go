@@ -20,8 +20,7 @@ import (
 	"github.com/juju/juju/testing/factory"
 )
 
-type metricsdebugSuiteMock struct {
-}
+type metricsdebugSuiteMock struct{}
 
 var _ = gc.Suite(&metricsdebugSuiteMock{})
 

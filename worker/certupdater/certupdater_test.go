@@ -132,14 +132,3 @@ func (s *CertUpdaterSuite) TestAddressChange(c *gc.C) {
 	c.Assert(leaf.Certificate().IPAddresses, coretesting.IPsEqual,
 		[]net.IP{net.ParseIP("0.1.2.3")})
 }
-
-type mockStateServingGetterNoCAKey struct{}
-
-func (g *mockStateServingGetterNoCAKey) StateServingInfo() (jujucontroller.StateServingInfo, bool) {
-	return jujucontroller.StateServingInfo{
-		Cert:       coretesting.ServerCert,
-		PrivateKey: coretesting.ServerKey,
-		StatePort:  123,
-		APIPort:    456,
-	}, true
-}

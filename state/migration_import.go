@@ -302,7 +302,6 @@ type ImportStateMigration struct {
 	src                 description.Model
 	dst                 Database
 	knownSecretBackends set.Strings
-	importer            *importer
 	migrations          []func() error
 }
 
@@ -1392,41 +1391,6 @@ func (i *importer) makeApplicationDoc(a description.Application) (*applicationDo
 		Placement:            a.Placement(),
 		HasResources:         a.HasResources(),
 	}, nil
-}
-
-func (i *importer) loadInstanceHardwareFromUnits(units []description.Unit) ([]instance.HardwareCharacteristics, error) {
-	machinesCollection, closer := i.st.db().GetCollection(machinesC)
-	defer closer()
-
-	machineIds := set.NewStrings()
-	for _, unit := range units {
-		tag := unit.Machine()
-		machineIds.Add(tag.Id())
-	}
-
-	docs := []machineDoc{}
-	err := machinesCollection.Find(bson.M{
-		"_id": bson.M{
-			"$in": machineIds.SortedValues(),
-		},
-	}).All(&docs)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot get unit machines")
-	}
-
-	var hwChars []instance.HardwareCharacteristics
-	for _, doc := range docs {
-		machine := newMachine(i.st, &doc)
-		hw, err := machine.HardwareCharacteristics()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if hw == nil {
-			continue
-		}
-		hwChars = append(hwChars, *hw)
-	}
-	return hwChars, nil
 }
 
 func (i *importer) makeCharmOrigin(a description.Application) (*CharmOrigin, error) {

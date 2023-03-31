@@ -21,7 +21,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/testing"
 )
@@ -31,8 +30,6 @@ type TxnWatcherSuite struct {
 	testing.BaseSuite
 
 	runner jujutxn.Runner
-	w      *watcher.TxnWatcher
-	ch     chan watcher.Change
 	clock  clock.Clock
 }
 
@@ -429,27 +426,6 @@ func (s *TxnWatcherSuite) TestFilterCollection(c *gc.C) {
 	})
 }
 
-type fakeIterator struct {
-	iter mongo.Iterator
-	err  error
-}
-
-func (i *fakeIterator) Next(result interface{}) bool {
-	return i.iter.Next(result)
-}
-
-func (i *fakeIterator) Timeout() bool {
-	return i.iter.Timeout()
-}
-
-func (i *fakeIterator) Close() error {
-	err := i.iter.Close()
-	if i.err != nil {
-		err = i.err
-	}
-	return err
-}
-
 type fakeHub struct {
 	c      *gc.C
 	expect int
@@ -488,26 +464,6 @@ func (hub *fakeHub) Publish(topic string, data interface{}) func() {
 	return nil
 }
 
-// setupSync should be called prior to clock advancement if you need to
-// synchronise on a subsequent change.
-// This can be used to prevent a scenario where steps like:
-// - change
-// - clock advance
-// - change
-// race with the worker loop causing both change events to be processed
-// in a single pass.
-// Failing to call waitSync at some point after setupSync will block the
-// hub from processing publish events.
-func (hub *fakeHub) setupSync() {
-	hub.syncMu.Lock()
-	defer hub.syncMu.Unlock()
-
-	if hub.sync != nil {
-		hub.c.Errorf("sync is already set up; did you fail to call waitSync?")
-	}
-	hub.sync = make(chan struct{})
-}
-
 // This is executed on a different Goroutine to setupSync and waitSync;
 // hence the read lock protection.
 func (hub *fakeHub) doSync() {
@@ -517,28 +473,6 @@ func (hub *fakeHub) doSync() {
 	if hub.sync != nil {
 		hub.sync <- struct{}{}
 	}
-}
-
-// waitSync unblocks after a publish event.
-// if setupSync was not called prior, an error results.
-func (hub *fakeHub) waitSync() {
-	hub.syncMu.RLock()
-	if hub.sync == nil {
-		hub.syncMu.RUnlock()
-		hub.c.Errorf("waitSync called without preceding setupSync")
-		return
-	}
-
-	select {
-	case <-hub.sync:
-	case <-time.After(testing.LongWait):
-		hub.c.Error("hub did not receive a publish event")
-	}
-
-	hub.syncMu.RUnlock()
-	hub.syncMu.Lock()
-	hub.sync = nil
-	hub.syncMu.Unlock()
 }
 
 func (hub *fakeHub) waitForExpected() {

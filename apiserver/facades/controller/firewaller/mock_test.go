@@ -68,13 +68,10 @@ func (w *mockStringsWatcher) Changes() <-chan []string {
 type mockRelation struct {
 	testing.Stub
 	firewall.Relation
-	id        int
-	key       string
-	endpoints []state.Endpoint
-	ruw       *mockRelationUnitsWatcher
-	ruwApp    string
-	inScope   set.Strings
-	status    status.StatusInfo
+	id      int
+	ruw     *mockRelationUnitsWatcher
+	inScope set.Strings
+	status  status.StatusInfo
 }
 
 func newMockRelation(id int) *mockRelation {

@@ -37,7 +37,6 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/tools"
 )
@@ -80,9 +79,8 @@ type maasEnviron struct {
 	// ecfgMutex protects the *Unlocked fields below.
 	ecfgMutex sync.Mutex
 
-	ecfgUnlocked       *maasModelConfig
-	maasClientUnlocked *gomaasapi.MAASObject
-	storageUnlocked    storage.Storage
+	ecfgUnlocked    *maasModelConfig
+	storageUnlocked storage.Storage
 
 	// maasController provides access to the MAAS 2.0 API.
 	maasController gomaasapi.Controller
@@ -490,15 +488,6 @@ func getCapabilities(client *gomaasapi.MAASObject, serverURL string) (set.String
 	return caps, nil
 }
 
-// getMAASClient returns a MAAS client object to use for a request, in a
-// lock-protected fashion.
-func (env *maasEnviron) getMAASClient() *gomaasapi.MAASObject {
-	env.ecfgMutex.Lock()
-	defer env.ecfgMutex.Unlock()
-
-	return env.maasClientUnlocked
-}
-
 var dashSuffix = regexp.MustCompile("^(.*)-\\d+$")
 
 func spaceNamesToSpaceInfo(
@@ -887,78 +876,6 @@ func (env *maasEnviron) waitForNodeDeployment(ctx context.ProviderCallContext, i
 	return errors.Trace(err)
 }
 
-func (env *maasEnviron) deploymentStatusOne(ctx context.ProviderCallContext, id instance.Id) (string, string) {
-	results, err := env.deploymentStatus(ctx, id)
-	if err != nil {
-		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
-		return "", ""
-	}
-	systemId := extractSystemId(id)
-	substatus := env.getDeploymentSubstatus(ctx, systemId)
-	return results[systemId], substatus
-}
-
-func (env *maasEnviron) getDeploymentSubstatus(ctx context.ProviderCallContext, systemId string) string {
-	nodesAPI := env.getMAASClient().GetSubObject("nodes")
-	result, err := nodesAPI.CallGet("list", nil)
-	if err != nil {
-		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
-		return ""
-	}
-	slices, err := result.GetArray()
-	if err != nil {
-		return ""
-	}
-	for _, slice := range slices {
-		resultMap, err := slice.GetMap()
-		if err != nil {
-			continue
-		}
-		sysId, err := resultMap["system_id"].GetString()
-		if err != nil {
-			continue
-		}
-		if sysId == systemId {
-			message, err := resultMap["substatus_message"].GetString()
-			if err != nil {
-				logger.Warningf("could not get string for substatus_message: %v", resultMap["substatus_message"])
-				return ""
-			}
-			return message
-		}
-	}
-
-	return ""
-}
-
-// deploymentStatus returns the deployment state of MAAS instances with
-// the specified Juju instance ids.
-// Note: the result is a map of MAAS systemId to state.
-func (env *maasEnviron) deploymentStatus(ctx context.ProviderCallContext, ids ...instance.Id) (map[string]string, error) {
-	nodesAPI := env.getMAASClient().GetSubObject("nodes")
-	result, err := DeploymentStatusCall(nodesAPI, ids...)
-	if err != nil {
-		if err, ok := errors.Cause(err).(gomaasapi.ServerError); ok && err.StatusCode == http.StatusBadRequest {
-			return nil, errors.NewNotImplemented(err, "deployment status")
-		}
-		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
-		return nil, errors.Trace(err)
-	}
-	resultMap, err := result.GetMap()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	statusValues := make(map[string]string)
-	for systemId, jsonValue := range resultMap {
-		sts, err := jsonValue.GetString()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		statusValues[systemId] = sts
-	}
-	return statusValues, nil
-}
-
 func deploymentStatusCall(nodes gomaasapi.MAASObject, ids ...instance.Id) (gomaasapi.JSONObject, error) {
 	filter := getSystemIdValues("nodes", ids)
 	return nodes.CallGet("deployment_status", filter)
@@ -1183,161 +1100,6 @@ func (env *maasEnviron) instances(ctx context.ProviderCallContext, args gomaasap
 	return inst, nil
 }
 
-// subnetsFromNode fetches all the subnets for a specific node.
-func (env *maasEnviron) subnetsFromNode(ctx context.ProviderCallContext, nodeId string) ([]gomaasapi.JSONObject, error) {
-	client := env.getMAASClient().GetSubObject("nodes").GetSubObject(nodeId)
-	json, err := client.CallGet("", nil)
-	if err != nil {
-		if maasErr, ok := errors.Cause(err).(gomaasapi.ServerError); ok && maasErr.StatusCode == http.StatusNotFound {
-			return nil, errors.NotFoundf("instance %q", nodeId)
-		}
-		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
-		return nil, errors.Trace(err)
-	}
-	nodeMap, err := json.GetMap()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	interfacesArray, err := nodeMap["interface_set"].GetArray()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	var subnets []gomaasapi.JSONObject
-	for _, iface := range interfacesArray {
-		ifaceMap, err := iface.GetMap()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		linksArray, err := ifaceMap["links"].GetArray()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		for _, link := range linksArray {
-			linkMap, err := link.GetMap()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			subnet, ok := linkMap["subnet"]
-			if !ok {
-				return nil, errors.New("subnet not found")
-			}
-			subnets = append(subnets, subnet)
-		}
-	}
-	return subnets, nil
-}
-
-// subnetFromJson populates a network.SubnetInfo from a gomaasapi.JSONObject
-// representing a single subnet. This can come from either the subnets api
-// endpoint or the node endpoint.
-func (env *maasEnviron) subnetFromJson(
-	subnet gomaasapi.JSONObject, spaceId corenetwork.Id,
-) (corenetwork.SubnetInfo, error) {
-	var subnetInfo corenetwork.SubnetInfo
-	fields, err := subnet.GetMap()
-	if err != nil {
-		return subnetInfo, errors.Trace(err)
-	}
-	subnetIdFloat, err := fields["id"].GetFloat64()
-	if err != nil {
-		return subnetInfo, errors.Annotatef(err, "cannot get subnet Id")
-	}
-	subnetId := strconv.Itoa(int(subnetIdFloat))
-	cidr, err := fields["cidr"].GetString()
-	if err != nil {
-		return subnetInfo, errors.Annotatef(err, "cannot get cidr")
-	}
-	vid := 0
-	vidField, ok := fields["vid"]
-	if ok && !vidField.IsNil() {
-		// vid is optional, so assume it's 0 when missing or nil.
-		vidFloat, err := vidField.GetFloat64()
-		if err != nil {
-			return subnetInfo, errors.Errorf("cannot get vlan tag: %v", err)
-		}
-		vid = int(vidFloat)
-	}
-
-	subnetInfo = corenetwork.SubnetInfo{
-		ProviderId:      corenetwork.Id(subnetId),
-		VLANTag:         vid,
-		CIDR:            cidr,
-		ProviderSpaceId: spaceId,
-	}
-	return subnetInfo, nil
-}
-
-// filteredSubnets fetches subnets, filtering optionally by nodeId and/or a
-// slice of subnetIds. If subnetIds is empty then all subnets for that node are
-// fetched. If nodeId is empty, all subnets are returned (filtering by subnetIds
-// first, if set).
-func (env *maasEnviron) filteredSubnets(
-	ctx context.ProviderCallContext, nodeId string, subnetIds []corenetwork.Id,
-) ([]corenetwork.SubnetInfo, error) {
-	var jsonNets []gomaasapi.JSONObject
-	var err error
-	if nodeId != "" {
-		jsonNets, err = env.subnetsFromNode(ctx, nodeId)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	} else {
-		jsonNets, err = env.fetchAllSubnets(ctx)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	subnetIdSet := make(map[string]bool)
-	for _, netId := range subnetIds {
-		subnetIdSet[string(netId)] = false
-	}
-
-	subnetsMap, err := env.subnetToSpaceIds(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var subnets []corenetwork.SubnetInfo
-	for _, jsonNet := range jsonNets {
-		fields, err := jsonNet.GetMap()
-		if err != nil {
-			return nil, err
-		}
-		subnetIdFloat, err := fields["id"].GetFloat64()
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot get subnet Id")
-		}
-		subnetId := strconv.Itoa(int(subnetIdFloat))
-		// If we're filtering by subnet id check if this subnet is one
-		// we're looking for.
-		if len(subnetIds) != 0 {
-			_, ok := subnetIdSet[subnetId]
-			if !ok {
-				// This id is not what we're looking for.
-				continue
-			}
-			subnetIdSet[subnetId] = true
-		}
-		cidr, err := fields["cidr"].GetString()
-		if err != nil {
-			return nil, errors.Annotatef(err, "cannot get subnet %q cidr", subnetId)
-		}
-		spaceId, ok := subnetsMap[cidr]
-		if !ok {
-			logger.Warningf("unrecognised subnet: %q, setting empty space id", cidr)
-			spaceId = network.UnknownId
-		}
-
-		subnetInfo, err := env.subnetFromJson(jsonNet, spaceId)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		subnets = append(subnets, subnetInfo)
-		logger.Tracef("found subnet with info %#v", subnetInfo)
-	}
-	return subnets, checkNotFound(subnetIdSet)
-}
-
 func (env *maasEnviron) getInstance(ctx context.ProviderCallContext, instId instance.Id) (instances.Instance, error) {
 	instances, err := env.acquiredInstances(ctx, []instance.Id{instId})
 	if err != nil {
@@ -1354,20 +1116,6 @@ func (env *maasEnviron) getInstance(ctx context.ProviderCallContext, instId inst
 	}
 	inst := instances[0]
 	return inst, nil
-}
-
-// fetchAllSubnets calls the MAAS subnets API to get all subnets and returns the
-// JSON response or an error. If capNetworkDeploymentUbuntu is not available, an
-// error satisfying errors.IsNotSupported will be returned.
-func (env *maasEnviron) fetchAllSubnets(ctx context.ProviderCallContext) ([]gomaasapi.JSONObject, error) {
-	client := env.getMAASClient().GetSubObject("subnets")
-
-	json, err := client.CallGet("", nil)
-	if err != nil {
-		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
-		return nil, errors.Trace(err)
-	}
-	return json.GetArray()
 }
 
 // subnetToSpaceIds fetches the spaces from MAAS and builds a map of subnets to

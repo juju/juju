@@ -24,7 +24,6 @@ import (
 
 type NewExecutorSuite struct {
 	testing.IsolationSuite
-	basePath string
 
 	mockStateRW *mocks.MockUnitStateReadWriter
 }

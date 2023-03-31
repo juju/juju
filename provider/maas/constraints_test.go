@@ -17,6 +17,8 @@ type environSuite struct {
 	maasSuite
 }
 
+var _ = gc.Suite(&environSuite{})
+
 func (*environSuite) TestConvertConstraints(c *gc.C) {
 	for i, test := range []struct {
 		cons     constraints.Value

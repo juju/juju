@@ -13,8 +13,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-type bundleMockSuite struct {
-}
+type bundleMockSuite struct{}
 
 var _ = gc.Suite(&bundleMockSuite{})
 

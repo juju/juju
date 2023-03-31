@@ -24,7 +24,6 @@ import (
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/rpc/params"
@@ -1784,17 +1783,7 @@ type credParams struct {
 	attrs      map[string]string
 }
 
-type mockModel struct {
-	uuid               string
-	cloud              string
-	cloudRegion        string
-	cloudValue         jujucloud.Cloud
-	cloudCredentialTag names.CloudCredentialTag
-	cfg                *config.Config
-}
-
 type mockModelBackend struct {
 	credentialcommon.PersistentBackend
-	uuid  string
-	model *mockModel
+	uuid string
 }

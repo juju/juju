@@ -14,8 +14,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-type annotationsMockSuite struct {
-}
+type annotationsMockSuite struct{}
 
 var _ = gc.Suite(&annotationsMockSuite{})
 

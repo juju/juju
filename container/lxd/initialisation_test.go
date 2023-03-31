@@ -249,18 +249,6 @@ func (s *InitialiserSuite) TestConfigureProxiesLXDNotRunning(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-type testFindSubnetAddr struct {
-	val string
-}
-
-func (a testFindSubnetAddr) Network() string {
-	return "ip+net"
-}
-
-func (a testFindSubnetAddr) String() string {
-	return a.val
-}
-
 type ConfigureInitialiserSuite struct {
 	initialiserTestSuite
 	testing.PatchExecHelper

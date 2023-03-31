@@ -32,7 +32,8 @@ linters:
     - ineffassign
     - misspell
     - unconvert
-
+    - exportloopref
+    - unused
 run:
   timeout: 30m
   modules-download-mode: readonly

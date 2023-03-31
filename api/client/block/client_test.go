@@ -15,8 +15,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-type blockMockSuite struct {
-}
+type blockMockSuite struct{}
 
 var _ = gc.Suite(&blockMockSuite{})
 

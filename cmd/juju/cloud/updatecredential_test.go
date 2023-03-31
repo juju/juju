@@ -28,10 +28,9 @@ import (
 type updateCredentialSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 
-	store                *jujuclient.MemStore
-	testCommand          jujucmd.Command
-	api                  *fakeUpdateCredentialAPI
-	updateLocalCacheFunc func(cloudName string, details jujucloud.CloudCredential) error
+	store       *jujuclient.MemStore
+	testCommand jujucmd.Command
+	api         *fakeUpdateCredentialAPI
 }
 
 var _ = gc.Suite(&updateCredentialSuite{})

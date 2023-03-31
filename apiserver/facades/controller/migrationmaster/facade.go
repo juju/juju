@@ -147,6 +147,42 @@ func (api *API) ModelInfo() (params.MigrationModelInfo, error) {
 	}, nil
 }
 
+// SourceControllerInfo returns the details required to connect to
+// the source controller for model migration.
+func (api *API) SourceControllerInfo() (params.MigrationSourceInfo, error) {
+	empty := params.MigrationSourceInfo{}
+
+	localRelatedModels, err := api.backend.AllLocalRelatedModels()
+	if err != nil {
+		return empty, errors.Annotate(err, "retrieving local related models")
+	}
+
+	cfg, err := api.backend.ControllerConfig()
+	if err != nil {
+		return empty, errors.Annotate(err, "retrieving controller config")
+	}
+	cacert, _ := cfg.CACert()
+
+	hostports, err := api.backend.APIHostPortsForClients()
+	if err != nil {
+		return empty, errors.Trace(err)
+	}
+	var addr []string
+	for _, section := range hostports {
+		for _, hostport := range section {
+			addr = append(addr, hostport.String())
+		}
+	}
+
+	return params.MigrationSourceInfo{
+		LocalRelatedModels: localRelatedModels,
+		ControllerTag:      names.NewControllerTag(cfg.ControllerUUID()).String(),
+		ControllerAlias:    cfg.ControllerName(),
+		Addrs:              addr,
+		CACert:             cacert,
+	}, nil
+}
+
 // SetPhase sets the phase of the active model migration. The provided
 // phase must be a valid phase value, for example QUIESCE" or
 // "ABORT". See the core/migration package for the complete list.

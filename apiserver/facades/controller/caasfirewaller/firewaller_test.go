@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	statemocks "github.com/juju/juju/state/mocks"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -71,8 +70,7 @@ var _ = gc.Suite(&firewallerLegacySuite{
 type firewallerSidecarSuite struct {
 	firewallerBaseSuite
 
-	facade        facadeSidecar
-	appPortRanges *statemocks.MockApplicationPortRanges
+	facade facadeSidecar
 }
 
 var _ = gc.Suite(&firewallerSidecarSuite{

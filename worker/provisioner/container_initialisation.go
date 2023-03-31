@@ -36,11 +36,8 @@ type ContainerSetup struct {
 	machineLock   machinelock.Lock
 	managerConfig container.ManagerConfig
 
-	// The number of provisioners started. Once all necessary provisioners have
-	// been started, the container watcher can be stopped.
-	numberProvisioners int32
-	credentialAPI      workercommon.CredentialAPI
-	getNetConfig       func(network.ConfigSource) ([]params.NetworkConfig, error)
+	credentialAPI workercommon.CredentialAPI
+	getNetConfig  func(network.ConfigSource) ([]params.NetworkConfig, error)
 }
 
 // ContainerSetupParams are used to initialise a container setup worker.

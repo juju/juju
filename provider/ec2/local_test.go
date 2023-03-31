@@ -89,7 +89,6 @@ type localServer struct {
 
 	defaultVPC *types.Vpc
 	zones      []types.AvailabilityZone
-	subnets    []types.Subnet
 }
 
 func (srv *localServer) startServer(c *gc.C) {

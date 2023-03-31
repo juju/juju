@@ -8,6 +8,7 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state"
 )
@@ -25,23 +26,6 @@ type Backend interface {
 	AgentVersion() (version.Number, error)
 	RemoveExportingModelDocs() error
 	ControllerConfig() (controller.Config, error)
-}
-
-// OfferConnection describes methods offer connection methods
-// required for migration pre-checks.
-type OfferConnection interface {
-	// OfferUUID uniquely identifies the relation offer.
-	OfferUUID() string
-
-	// UserName returns the name of the user who created this connection.
-	UserName() string
-
-	// RelationId is the id of the relation to which this connection pertains.
-	RelationId() int
-
-	// SourceModelUUID is the uuid of the consuming model.
-	SourceModelUUID() string
-
-	// RelationKey is the key of the relation to which this connection pertains.
-	RelationKey() string
+	APIHostPortsForClients() ([]network.SpaceHostPorts, error)
+	AllLocalRelatedModels() ([]string, error)
 }

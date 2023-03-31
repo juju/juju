@@ -1889,30 +1889,6 @@ func (s *provisionerMockSuite) expectNetworkingEnviron() {
 	eExp.SupportsContainerAddresses(gomock.Any()).Return(true, nil).AnyTimes()
 }
 
-// expectLinkLayerDevices mocks a link-layer device and its parent,
-// suitable for use as a bridge network for containers.
-func (s *provisionerMockSuite) expectLinkLayerDevices() {
-	devName := "eth0"
-	mtu := uint(1500)
-	mac := network.GenerateVirtualMACAddress()
-
-	dExp := s.device.EXPECT()
-	dExp.Name().Return(devName).AnyTimes()
-	dExp.Type().Return(network.BridgeDevice).AnyTimes()
-	dExp.MTU().Return(mtu).AnyTimes()
-	dExp.ParentDevice().Return(s.parentDevice, nil)
-	dExp.MACAddress().Return(mac)
-	dExp.IsAutoStart().Return(true)
-	dExp.IsUp().Return(true)
-
-	pExp := s.parentDevice.EXPECT()
-	// The address itself is unimportant, so we can use an empty one.
-	// What is important is that there is one there to flex the path we are
-	// testing.
-	pExp.Addresses().Return([]*state.Address{{}}, nil)
-	pExp.Name().Return(devName).MinTimes(1)
-}
-
 func (s *provisionerMockSuite) TestContainerAlreadyProvisionedError(c *gc.C) {
 	defer s.setup(c).Finish()
 

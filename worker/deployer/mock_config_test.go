@@ -65,12 +65,3 @@ func (mock *mockConfig) Value(_ string) string {
 func agentConfig(tag names.Tag, datadir, logdir string) agent.Config {
 	return &mockConfig{tag: tag, datadir: datadir, logdir: logdir}
 }
-
-type fakeMonitorStatePurger struct {
-	purgeCallCount int
-}
-
-func (p *fakeMonitorStatePurger) PurgeState(names.Tag) error {
-	p.purgeCallCount++
-	return nil
-}

@@ -16,7 +16,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/kr/pretty"
@@ -391,53 +390,6 @@ func (s *BundleDeployRepositorySuite) expectK8sCharm(curl *charm.URL, rev int) *
 		}).Times(3)
 
 	fullCurl := curl.WithSeries("focal").WithRevision(rev).WithArchitecture("amd64")
-	s.deployerAPI.EXPECT().AddCharm(
-		fullCurl,
-		gomock.AssignableToTypeOf(commoncharm.Origin{}),
-		false,
-	).DoAndReturn(
-		func(_ *charm.URL, origin commoncharm.Origin, _ bool) (commoncharm.Origin, error) {
-			return origin, nil
-		})
-
-	charmInfo := &apicharms.CharmInfo{
-		Revision: fullCurl.Revision,
-		URL:      fullCurl.String(),
-		Meta: &charm.Meta{
-			Series: []string{"kubernetes"},
-		},
-		Manifest: &charm.Manifest{
-			Bases: []charm.Base{
-				{
-					Name:          "ubuntu",
-					Channel:       charm.Channel{Track: "20.04", Risk: "stable", Branch: ""},
-					Architectures: []string{"amd64"},
-				},
-			},
-		},
-	}
-	s.expectCharmInfo(fullCurl.String(), charmInfo)
-	s.expectDeploy()
-	return fullCurl
-}
-
-func (s *BundleDeployRepositorySuite) expectK8sCharmKub(curl *charm.URL, rev int) *charm.URL {
-	// Called from resolveCharmsAndEndpoints & resolveCharmChannelAndRevision && addCharm
-	s.bundleResolver.EXPECT().ResolveCharm(
-		curl,
-		gomock.AssignableToTypeOf(commoncharm.Origin{}),
-		false,
-	).DoAndReturn(
-		// Ensure the same curl that is provided, is returned.
-		func(curl *charm.URL, origin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []string, error) {
-			curl = curl.WithRevision(rev).WithSeries("20.04").WithArchitecture("amd64")
-			origin.Base = coreseries.MakeDefaultBase("ubuntu", "20.04")
-			origin.Revision = &rev
-			origin.Type = "charm"
-			return curl, origin, []string{"kubernetes"}, nil
-		}).Times(3)
-
-	fullCurl := curl.WithSeries("20.04").WithRevision(rev).WithArchitecture("amd64")
 	s.deployerAPI.EXPECT().AddCharm(
 		fullCurl,
 		gomock.AssignableToTypeOf(commoncharm.Origin{}),
@@ -2196,34 +2148,6 @@ func (s *BundleDeployRepositorySuite) setupCharmUnits(charmUnits []charmUnit) {
 	}
 }
 
-func (s *BundleDeployRepositorySuite) setupMetadataV2CharmUnits(charmUnits []charmUnit) {
-	for _, chUnit := range charmUnits {
-		s.expectResolveCharm(nil)
-		s.expectAddCharm(chUnit.force)
-		charmInfo := &apicharms.CharmInfo{
-			Revision: chUnit.curl.Revision,
-			URL:      chUnit.curl.String(),
-			Meta: &charm.Meta{
-				Containers: map[string]charm.Container{
-					"test": {
-						Resource: "test-oci",
-					},
-				},
-			},
-			Manifest: &charm.Manifest{Bases: []charm.Base{{
-				Name:    "ubuntu",
-				Channel: charm.Channel{Track: "20.04"},
-			}}},
-		}
-		s.expectCharmInfo(chUnit.curl.String(), charmInfo)
-		s.expectDeploy()
-		if chUnit.machineUbuntuVersion != "kubernetes" {
-			s.expectAddMachine(chUnit.machine, chUnit.machineUbuntuVersion)
-			s.expectAddOneUnit(chUnit.curl.Name, chUnit.machine, "0")
-		}
-	}
-}
-
 func (s *BundleDeployRepositorySuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.deployerAPI = mocks.NewMockDeployerAPI(ctrl)
@@ -2886,39 +2810,4 @@ func (s *BundleHandlerMakeModelSuite) expectDeployerAPIStatusWordpressBundle() {
 		Branches:            nil,
 	}
 	s.deployerAPI.EXPECT().Status(gomock.Any()).Return(status, nil)
-}
-
-func (s *BundleHandlerMakeModelSuite) expectApplicationInfo(c *gc.C) {
-	s.deployerAPI.EXPECT().ApplicationsInfo(applicationInfoMatcher{c: c}).DoAndReturn(
-		func(args []names.ApplicationTag) ([]params.ApplicationInfoResult, error) {
-			// args content ensured by applicationInfoMatcher
-			info := make([]params.ApplicationInfoResult, 2)
-			for i, arg := range args {
-				if arg == names.NewApplicationTag("mysql") {
-					info[i] = params.ApplicationInfoResult{Result: &params.ApplicationResult{Channel: "stable"}}
-				}
-				if arg == names.NewApplicationTag("wordpress") {
-					info[i] = params.ApplicationInfoResult{Result: &params.ApplicationResult{Channel: "candidate"}}
-				}
-			}
-			return info, nil
-		})
-}
-
-type applicationInfoMatcher struct {
-	c *gc.C
-}
-
-func (m applicationInfoMatcher) Matches(x interface{}) bool {
-	obtained, ok := x.([]names.ApplicationTag)
-	m.c.Assert(ok, jc.IsTrue)
-	m.c.Assert(obtained, jc.SameContents, []names.ApplicationTag{
-		names.NewApplicationTag("mysql"),
-		names.NewApplicationTag("wordpress"),
-	})
-	return true
-}
-
-func (m applicationInfoMatcher) String() string {
-	return "Match ApplicationInfo args"
 }

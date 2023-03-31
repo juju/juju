@@ -32,7 +32,6 @@ import (
 	machineclient "github.com/juju/juju/api/client/machinemanager"
 	"github.com/juju/juju/api/client/modelconfig"
 	apitesting "github.com/juju/juju/api/testing"
-	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/client/controller"
 	servertesting "github.com/juju/juju/apiserver/testing"
@@ -83,17 +82,6 @@ func (s *baseLoginSuite) SetUpTest(c *gc.C) {
 
 	err = s.State.UpdateControllerConfig(map[string]interface{}{corecontroller.JujuManagementSpace: "mgmt01"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *baseLoginSuite) newServer(c *gc.C) (*api.Info, *apiserver.Server) {
-	return s.newServerWithConfig(c, testserver.DefaultServerConfig(c, nil))
-}
-
-func (s *baseLoginSuite) newServerWithConfig(c *gc.C, cfg apiserver.ServerConfig) (*api.Info, *apiserver.Server) {
-	cfg.Controller = s.JujuConnSuite.Controller
-	server := testserver.NewServerWithConfig(c, s.StatePool, cfg)
-	s.AddCleanup(func(c *gc.C) { assertStop(c, server) })
-	return server.Info, server.APIServer
 }
 
 // loginSuite is built on statetesting.StateSuite not JujuConnSuite.
