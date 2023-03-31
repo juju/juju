@@ -65,10 +65,11 @@ func (c *listSecretsCommand) secretsAPI() (ListSecretsAPI, error) {
 // Info implements cmd.Info.
 func (c *listSecretsCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "secrets",
-		Purpose: "Lists secrets available in the model.",
-		Doc:     listSecretsDoc,
-		Aliases: []string{"list-secrets"},
+		Name:     "secrets",
+		Purpose:  "Lists secrets available in the model.",
+		Doc:      listSecretsDoc,
+		Examples: listSecretsExamples,
+		Aliases:  []string{"list-secrets"},
 	})
 }
 
