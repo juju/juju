@@ -678,9 +678,6 @@ type PendingResourceUpload struct {
 	// Sometimes referred to as the path.
 	Filename string
 
-	// PendingID is the pending ID to associate with this upload.
-	PendingID string `json:"pending-id"`
-
 	// Type of the resource, a string matching one of the resource.Type
 	Type string
 }

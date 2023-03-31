@@ -96,6 +96,8 @@ type UploadExistingPendingResourcesFunc func(appName string,
 // UploadExistingPendingResources uploads local resources. Used
 // after DeployFromRepository, where the resources have been added
 // to the controller.
+// Called after AddApplication so no pending resource IDs are
+// necessary, see juju attach for more examples.
 func UploadExistingPendingResources(
 	appName string,
 	pendingResources []application.PendingResourceUpload,
@@ -122,7 +124,7 @@ func UploadExistingPendingResources(
 		}
 
 		uploadErr := resourceApiClient.Upload(appName,
-			pendingResUpload.Name, pendingResUpload.Filename, pendingResUpload.PendingID, r)
+			pendingResUpload.Name, pendingResUpload.Filename, "", r)
 
 		if uploadErr != nil {
 			return errors.Trace(uploadErr)

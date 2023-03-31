@@ -191,10 +191,9 @@ func (api *DeployFromRepositoryAPI) addPendingResources(appName string, deployRe
 			continue
 		}
 		pendingUploadIDs = append(pendingUploadIDs, &params.PendingResourceUpload{
-			Name:      meta.Name,
-			Type:      meta.Type.String(),
-			Filename:  deployValue,
-			PendingID: pID,
+			Name:     meta.Name,
+			Type:     meta.Type.String(),
+			Filename: deployValue,
 		})
 	}
 

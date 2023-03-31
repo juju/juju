@@ -3792,16 +3792,12 @@
                         },
                         "Type": {
                             "type": "string"
-                        },
-                        "pending-id": {
-                            "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
                         "Name",
                         "Filename",
-                        "pending-id",
                         "Type"
                     ]
                 },

@@ -877,10 +877,9 @@ func (s *deployRepositorySuite) TestAddPendingResourcesForDeployFromRepositoryAP
 	})
 
 	pendUp := &params.PendingResourceUpload{
-		Name:      "foo-resource",
-		Type:      "file",
-		Filename:  "bar",
-		PendingID: "3",
+		Name:     "foo-resource",
+		Type:     "file",
+		Filename: "bar",
 	}
 	c.Assert(resources, gc.DeepEquals, []*params.PendingResourceUpload{pendUp})
 }
