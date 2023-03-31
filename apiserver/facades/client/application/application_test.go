@@ -393,26 +393,6 @@ func (s *applicationSuite) TestApplicationDeployToMachineNotFound(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `application "application-name" not found`)
 }
 
-func (s *applicationSuite) deployApplicationForUpdateTests(c *gc.C) {
-	curl, _ := s.addCharmToState(c, "ch:jammy/dummy-1", "dummy")
-	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
-		Applications: []params.ApplicationDeploy{{
-			CharmURL:        curl.String(),
-			CharmOrigin:     createCharmOriginFromURL(curl),
-			ApplicationName: "application",
-			NumUnits:        1,
-		}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.IsNil)
-}
-
-func (s *applicationSuite) setupApplicationUpdate(c *gc.C) string {
-	s.deployApplicationForUpdateTests(c)
-	curl, _ := s.addCharmToState(c, "ch:jammy/wordpress-3", "wordpress")
-	return curl.String()
-}
-
 func (s *applicationSuite) TestApplicationUpdateDoesNotSetMinUnitsWithLXDProfile(c *gc.C) {
 	series := "quantal"
 	repo := testcharms.RepoForSeries(series)

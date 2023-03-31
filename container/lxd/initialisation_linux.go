@@ -180,29 +180,6 @@ var df = func(path string) (uint64, error) {
 	return uint64(statfs.Bsize) * statfs.Bfree, nil
 }
 
-func (ci *containerInitialiser) internalConfigureLXDBridge() error {
-	server, err := ci.newLocalServer()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	// We do not support LXD versions without the network API,
-	// which was added in 2.3.
-	if !server.networkAPISupport {
-		return errors.NotSupportedf("versions of LXD without network API")
-	}
-
-	profile, eTag, err := server.GetProfile(lxdDefaultProfileName)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	// If there are no suitable bridged NICs in the profile,
-	// ensure the bridge is set up and create one.
-	if server.verifyNICsWithAPI(getProfileNICs(profile)) == nil {
-		return nil
-	}
-	return server.ensureDefaultNetworking(profile, eTag)
-}
-
 // ensureDependencies install the required dependencies for running LXD.
 func ensureDependencies(lxdSnapChannel, series string) error {
 	// If the snap is already installed, check whether the operator asked

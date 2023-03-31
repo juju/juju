@@ -27,7 +27,6 @@ func NewExportBundleCommand() cmd.Command {
 
 type exportBundleCommand struct {
 	modelcmd.ModelCommandBase
-	out                  cmd.Output
 	newAPIFunc           func() (ExportBundleAPI, error)
 	Filename             string
 	includeCharmDefaults bool

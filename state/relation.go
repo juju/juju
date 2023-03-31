@@ -18,7 +18,6 @@ import (
 	jujutxn "github.com/juju/txn/v3"
 
 	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 )
 
@@ -198,17 +197,6 @@ func (r *Relation) SetSuspended(suspended bool, suspendedReason string) error {
 		r.doc.Suspended = suspended
 	}
 	return err
-}
-
-func (r *Relation) checkConsumePermission(offerUUID, userId string) (bool, error) {
-	perm, err := r.st.GetOfferAccess(offerUUID, names.NewUserTag(userId))
-	if err != nil && !errors.IsNotFound(err) {
-		return false, errors.Trace(err)
-	}
-	if perm != permission.ConsumeAccess && perm != permission.AdminAccess {
-		return false, nil
-	}
-	return true, nil
 }
 
 // DestroyOperation returns a model operation that will allow relation to leave scope.

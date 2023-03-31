@@ -70,7 +70,7 @@ func (d *BundlesDir) download(info BundleInfo, target string, abort <-chan struc
 	}
 	expectedSha256, err := info.ArchiveSha256()
 	if err != nil {
-		return errors.Annotate(err, "could nnot retrieve charm archive sha256")
+		return errors.Annotatef(err, "failed to get archive sha256 for charm %q", info.String())
 	}
 	req := downloader.Request{
 		ArchiveSha256: expectedSha256,

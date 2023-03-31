@@ -484,10 +484,6 @@ func (s *deployerSuite) expectResolveBundleURL(err error, times int) {
 		}).Times(times)
 }
 
-func (s *deployerSuite) expectFilesystem() {
-	s.modelCommand.EXPECT().Filesystem().Return(s.filesystem)
-}
-
 func (s *deployerSuite) expectStat(name string, err error) {
 	s.filesystem.EXPECT().Stat(name).Return(nil, err)
 }

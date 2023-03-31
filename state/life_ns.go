@@ -38,32 +38,6 @@ func (nsLife_) destroyOp(entities mongo.Collection, docID string, update bson.D)
 	return op, nil
 }
 
-// dieOp returns errNotDying if the identified entity is Alive, or
-// errAlreadyDead if the entity is Dead or gone; or a txn.Op that will
-// fail if the condition no longer holds, and otherwise set Life to
-// Dead, and make any other updates supplied in update.
-func (nsLife_) dieOp(entities mongo.Collection, docID string, update bson.D) (txn.Op, error) {
-	life, err := nsLife.read(entities, docID)
-	if errors.IsNotFound(err) {
-		return txn.Op{}, errAlreadyDead
-	} else if err != nil {
-		return txn.Op{}, errors.Trace(err)
-	}
-	switch life {
-	case Alive:
-		return txn.Op{}, errNotDying
-	case Dead:
-		return txn.Op{}, errAlreadyDead
-	}
-	setDead := bson.D{{"$set", bson.D{{"life", Dead}}}}
-	return txn.Op{
-		C:      entities.Name(),
-		Id:     docID,
-		Assert: nsLife.dying(),
-		Update: append(setDead, update...),
-	}, nil
-}
-
 // aliveOp returns errNotAlive if the identified entity is not Alive; or
 // a txn.Op that will fail if the condition no longer holds.
 func (nsLife_) aliveOp(entities mongo.Collection, docID string) (txn.Op, error) {
@@ -72,20 +46,6 @@ func (nsLife_) aliveOp(entities mongo.Collection, docID string) (txn.Op, error) 
 	case nil:
 	case errCheckFailed:
 		return txn.Op{}, notAliveErr
-	default:
-		return txn.Op{}, errors.Trace(err)
-	}
-	return op, nil
-}
-
-// dyingOp returns errNotDying if the identified entity is not Dying; or
-// a txn.Op that will fail if the condition no longer holds.
-func (nsLife_) dyingOp(entities mongo.Collection, docID string) (txn.Op, error) {
-	op, err := nsLife.checkOp(entities, docID, nsLife.dying())
-	switch errors.Cause(err) {
-	case nil:
-	case errCheckFailed:
-		return txn.Op{}, errNotDying
 	default:
 		return txn.Op{}, errors.Trace(err)
 	}
@@ -143,12 +103,6 @@ func (nsLife_) read(entities mongo.Collection, docID string) (Life, error) {
 // field is set to Alive.
 func (nsLife_) alive() bson.D {
 	return bson.D{{"life", Alive}}
-}
-
-// dying returns a selector that matches only documents whose life
-// field is set to Dying.
-func (nsLife_) dying() bson.D {
-	return bson.D{{"life", Dying}}
 }
 
 // notDead returns a selector that matches only documents whose life

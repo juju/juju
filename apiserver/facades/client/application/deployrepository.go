@@ -20,7 +20,6 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	coreseries "github.com/juju/juju/core/series"
@@ -156,12 +155,10 @@ func addPendingResources() ([]*params.PendingResourceUpload, []error) {
 type deployTemplate struct {
 	applicationConfig *config.Config
 	applicationName   string
-	attachStorage     []string
 	charm             charm.Charm
 	charmSettings     charm.Settings
 	charmURL          *charm.URL
 	constraints       constraints.Value
-	devices           map[string]devices.Constraints
 	endpoints         map[string]string
 	dryRun            bool
 	force             bool

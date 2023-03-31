@@ -25,7 +25,6 @@ import (
 type fixture struct {
 	watcherErr    error
 	observerErrs  []error
-	cloud         environscloudspec.CloudSpec
 	initialConfig map[string]interface{}
 	initialSpec   environscloudspec.CloudSpec
 }

@@ -19,7 +19,6 @@ func (c *Client) Cluster(context.Context) ([]dqlite.NodeInfo, error) {
 }
 
 type YamlNodeStore struct {
-	servers []dqlite.NodeInfo
 }
 
 func NewYamlNodeStore(_ string) (*YamlNodeStore, error) {

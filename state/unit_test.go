@@ -942,7 +942,6 @@ type destroyMachineTestCase struct {
 	target    *state.Unit
 	host      *state.Machine
 	desc      string
-	flipHook  []jujutxn.TestHook
 	destroyed bool
 }
 
@@ -2930,7 +2929,6 @@ func unitMachine(c *gc.C, st *state.State, u *state.Unit) *state.Machine {
 
 type CAASUnitSuite struct {
 	ConnSuite
-	charm       *state.Charm
 	application *state.Application
 	operatorApp *state.Application
 }

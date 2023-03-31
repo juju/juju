@@ -101,8 +101,6 @@ func (m *mockState) ModelUUID() string {
 // mockModel implements Model interface and allows inspection of called
 // methods.
 type mockModel struct {
-	undertaker.Model
-	tod     time.Time
 	owner   names.UserTag
 	life    state.Life
 	name    string

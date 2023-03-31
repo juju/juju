@@ -20,7 +20,6 @@ var _ = gc.Suite(&ResourceGetCmdSuite{})
 
 type ResourceGetCmdSuite struct {
 	testing.IsolationSuite
-	hctx mocks.MockContext
 }
 
 func (s *ResourceGetCmdSuite) TestInitNilArgs(c *gc.C) {

@@ -29,7 +29,6 @@ import (
 type ManifoldSuite struct {
 	testing.IsolationSuite
 	factory   spool.MetricFactory
-	client    metricsadder.MetricsAdderClient
 	apiCaller *stubAPICaller
 	manifold  dependency.Manifold
 	resources dt.StubResources

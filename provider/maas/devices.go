@@ -4,141 +4,15 @@
 package maas
 
 import (
-	"encoding/json"
 	"fmt"
-	"net/url"
-	"path"
 	"strconv"
 	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi/v2"
 
-	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
 )
-
-// TODO(dimitern): The types below should be part of gomaasapi.
-// LKK Card: https://canonical.leankit.com/Boards/View/101652562/119310616
-
-type maasZone struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	ResourceURI string `json:"resource_uri"`
-}
-
-type maasMACAddress struct {
-	MACAddress string `json:"mac_address"`
-}
-
-type maasDevice struct {
-	SystemID      string           `json:"system_id"`
-	Parent        string           `json:"parent"`
-	Hostname      string           `json:"hostname"`
-	IPAddresses   []string         `json:"ip_addresses"`
-	Owner         string           `json:"owner"`
-	Zone          maasZone         `json:"zone"`
-	MACAddressSet []maasMACAddress `json:"macaddress_set"`
-	TagNames      []string         `json:"tag_names"`
-	ResourceURI   string           `json:"resource_uri"`
-}
-
-func parseDevice(jsonBytes []byte) (*maasDevice, error) {
-	var device maasDevice
-	if err := json.Unmarshal(jsonBytes, &device); err != nil {
-		return nil, errors.Annotate(err, "parsing device")
-	}
-	return &device, nil
-}
-
-func getJSONBytes(object json.Marshaler) ([]byte, error) {
-	rawBytes, err := object.MarshalJSON()
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot get JSON bytes")
-	}
-	return rawBytes, nil
-}
-
-func (env *maasEnviron) createDevice(hostInstanceID instance.Id, hostname string, primaryMACAddress string) (*maasDevice, error) {
-	devicesAPI := env.getMAASClient().GetSubObject("devices")
-	params := make(url.Values)
-	params.Add("hostname", hostname)
-	params.Add("parent", extractSystemId(hostInstanceID))
-	params.Add("mac_addresses", primaryMACAddress)
-
-	result, err := devicesAPI.CallPost("new", params)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	deviceJSON, err := getJSONBytes(result)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	device, err := parseDevice(deviceJSON)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	logger.Debugf("created device: %+v", device)
-	return device, nil
-}
-
-func parseInterface(jsonBytes []byte) (*maasInterface, error) {
-	var iface maasInterface
-	if err := json.Unmarshal(jsonBytes, &iface); err != nil {
-		return nil, errors.Annotate(err, "parsing interface")
-	}
-	return &iface, nil
-}
-
-func (env *maasEnviron) createDeviceInterface(deviceID instance.Id, name, macAddress, vlanID string) (*maasInterface, error) {
-	deviceSystemID := extractSystemId(deviceID)
-	uri := path.Join("nodes", deviceSystemID, "interfaces")
-	interfacesAPI := env.getMAASClient().GetSubObject(uri)
-
-	params := make(url.Values)
-	params.Add("name", name)
-	params.Add("mac_address", macAddress)
-	params.Add("vlan", vlanID)
-
-	result, err := interfacesAPI.CallPost("create_physical", params)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	interfaceJSON, err := getJSONBytes(result)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	iface, err := parseInterface(interfaceJSON)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return iface, nil
-}
-
-func (env *maasEnviron) updateDeviceInterface(deviceID instance.Id, interfaceID, name, macAddress, vlanID string) (*maasInterface, error) {
-	deviceSystemID := extractSystemId(deviceID)
-	uri := path.Join("nodes", deviceSystemID, "interfaces", interfaceID)
-	interfacesAPI := env.getMAASClient().GetSubObject(uri)
-
-	params := make(url.Values)
-	params.Add("name", name)
-	params.Add("mac_address", macAddress)
-	params.Add("vlan", vlanID)
-
-	result, err := interfacesAPI.Update(params)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	interfaceJSON, err := getJSONBytes(result)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	iface, err := parseInterface(interfaceJSON)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return iface, nil
-}
 
 func (env *maasEnviron) deviceInterfaceInfo(
 	device gomaasapi.Device,

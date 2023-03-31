@@ -542,6 +542,8 @@ type getUrlSuite struct {
 	apiHostPortsGetter *mocks.MockAPIHostPortsForAgentsGetter
 }
 
+var _ = gc.Suite(&getUrlSuite{})
+
 func (s *getUrlSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

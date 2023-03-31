@@ -69,10 +69,6 @@ func (s *backendSuite) TestSaveContent(c *gc.C) {
 	})
 }
 
-func ptr[T any](v T) *T {
-	return &v
-}
-
 func (s *backendSuite) TestGetContent(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

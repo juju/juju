@@ -29,7 +29,6 @@ import (
 
 type detectCredentialsCommand struct {
 	modelcmd.OptionalControllerCommand
-	out cmd.Output
 
 	cloudType string
 

@@ -28,7 +28,6 @@ type ManifoldSuite struct {
 	goodContext        dependency.Context
 	agentConfigChanged *voyeur.Value
 	manifold           dependency.Manifold
-	worker             worker.Worker
 }
 
 var _ = gc.Suite(&ManifoldSuite{})

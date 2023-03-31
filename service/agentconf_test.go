@@ -160,14 +160,6 @@ func (s *agentConfSuite) TestCreateAgentConfFailAgentKind(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `agent "application-fail" is neither a machine nor a unit`)
 }
 
-func (s *agentConfSuite) agentUnitNames() []string {
-	unitAgents := make([]string, len(s.unitNames))
-	for i, name := range s.unitNames {
-		unitAgents[i] = "jujud-" + name
-	}
-	return unitAgents
-}
-
 func (s *agentConfSuite) TestWriteSystemdAgent(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

@@ -135,7 +135,6 @@ type diffBundleCommand struct {
 	newAPIRootFn               func() (base.APICallCloser, error)
 	modelConfigClientFunc      func(base.APICallCloser) ModelConfigClient
 	modelConstraintsClientFunc func() (ModelConstraintsClient, error)
-	newCharmHubClient          func(string) (store.DownloadBundleClient, error)
 }
 
 // IsSuperCommand is part of cmd.Command.

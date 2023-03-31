@@ -307,54 +307,6 @@ func parseLinkLayerDeviceParentNameAsGlobalKey(parentName string) (hostMachineID
 	return hostMachineID, parentDeviceName, nil
 }
 
-func (m *Machine) verifyHostMachineParentDeviceExistsAndIsABridgeDevice(hostMachineID, parentDeviceName string) error {
-	hostMachine, err := m.st.Machine(hostMachineID)
-	if errors.IsNotFound(err) || err == nil && hostMachine.Life() != Alive {
-		return errors.Errorf("host machine %q of parent device %q not found or not alive", hostMachineID, parentDeviceName)
-	} else if err != nil {
-		return errors.Trace(err)
-	}
-
-	parentDevice, err := hostMachine.LinkLayerDevice(parentDeviceName)
-	if errors.IsNotFound(err) {
-		return errors.NotFoundf("parent device %q on host machine %q", parentDeviceName, hostMachineID)
-	} else if err != nil {
-		return errors.Trace(err)
-	}
-
-	if !parentDevice.isBridge() {
-		errorMessage := fmt.Sprintf(
-			"parent device %q on host machine %q must be of type %q, not type %q",
-			parentDeviceName, hostMachineID, corenetwork.BridgeDevice, parentDevice.Type(),
-		)
-		return errors.NewNotValid(nil, errorMessage)
-	}
-	return nil
-}
-
-func (m *Machine) validateParentDeviceNameWhenNotAGlobalKey(args *LinkLayerDeviceArgs) error {
-	if !corenetwork.IsValidLinkLayerDeviceName(args.ParentName) {
-		logger.Warningf(
-			"parent link-layer device %q on machine %q has invalid name (using anyway)",
-			args.ParentName, m.Id(),
-		)
-	}
-	if args.Name == args.ParentName {
-		return errors.NewNotValid(nil, "Name and ParentName must be different")
-	}
-	if err := m.verifyParentDeviceExists(args.ParentName); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
-func (m *Machine) verifyParentDeviceExists(parentName string) error {
-	if _, err := m.LinkLayerDevice(parentName); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
 func (m *Machine) newLinkLayerDeviceDocFromArgs(args *LinkLayerDeviceArgs) *linkLayerDeviceDoc {
 	linkLayerDeviceDocID := linkLayerDeviceDocIDFromName(m.st, m.doc.Id, args.Name)
 

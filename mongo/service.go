@@ -113,34 +113,6 @@ type ConfigArgs struct {
 
 type configArgsConverter map[string]string
 
-// The generated command line arguments need to be in a deterministic order.
-func (conf configArgsConverter) asCommandLineArguments() string {
-	keys := make([]string, 0, len(conf))
-	for key := range conf {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	command := make([]string, 0, len(conf)*2)
-	for _, key := range keys {
-		value := conf[key]
-		if len(key) >= 2 {
-			key = "--" + key
-		} else if len(key) == 1 {
-			key = "-" + key
-		} else {
-			continue // impossible?
-		}
-		command = append(command, key)
-
-		if value == flagMarker {
-			continue
-		}
-		command = append(command, value)
-	}
-
-	return strings.Join(command, " ")
-}
-
 func (conf configArgsConverter) asMongoDbConfigurationFileFormat() string {
 	pathArgs := set.NewStrings("dbpath", "logpath", "tlsCertificateKeyFile", "keyFile")
 	command := make([]string, 0, len(conf))

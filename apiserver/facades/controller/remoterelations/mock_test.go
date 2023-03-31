@@ -4,7 +4,6 @@
 package remoterelations_test
 
 import (
-	"github.com/juju/charm/v10"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
@@ -143,7 +142,6 @@ type mockRemoteApplication struct {
 	status        status.Status
 	terminated    bool
 	message       string
-	eps           []charm.Relation
 	consumerproxy bool
 }
 

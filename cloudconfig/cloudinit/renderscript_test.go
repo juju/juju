@@ -8,22 +8,11 @@ import (
 
 	"github.com/juju/packaging/v2"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/cloudinit"
-	"github.com/juju/juju/cloudconfig/instancecfg"
-	jujucontroller "github.com/juju/juju/controller"
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/imagemetadata"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/tools"
 )
 
 type configureSuite struct {
@@ -38,79 +27,6 @@ type testProvider struct {
 
 func init() {
 	environs.RegisterProvider("sshinit_test", &testProvider{})
-}
-
-func testConfig(c *gc.C, series string, vers version.Binary) *config.Config {
-	testConfig, err := config.New(config.UseDefaults, coretesting.FakeConfig())
-	c.Assert(err, jc.ErrorIsNil)
-	testConfig, err = testConfig.Apply(map[string]interface{}{
-		"type":           "sshinit_test",
-		"default-series": series,
-		"agent-version":  vers.Number.String(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	return testConfig
-}
-
-func (s *configureSuite) getCloudConfig(c *gc.C, controller bool, vers version.Binary, base series.Base) cloudinit.CloudConfig {
-	var icfg *instancecfg.InstanceConfig
-	var err error
-	modelConfig := testConfig(c, "jammy", vers)
-	if controller {
-		icfg, err = instancecfg.NewBootstrapInstanceConfig(
-			coretesting.FakeControllerConfig(),
-			constraints.Value{}, constraints.Value{},
-			base, "",
-			map[string]string{"foo": "bar"},
-		)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(icfg.AgentEnvironment, jc.DeepEquals, map[string]string{"foo": "bar"})
-		icfg.APIInfo = &api.Info{
-			Password: "password",
-			CACert:   coretesting.CACert,
-			ModelTag: coretesting.ModelTag,
-		}
-		icfg.Bootstrap.ControllerModelConfig = modelConfig
-		icfg.Bootstrap.BootstrapMachineInstanceId = "instance-id"
-		icfg.Bootstrap.InitialModelConfig = map[string]interface{}{
-			"name": "my-model",
-		}
-		icfg.Bootstrap.StateServingInfo = jujucontroller.StateServingInfo{
-			Cert:         coretesting.ServerCert,
-			PrivateKey:   coretesting.ServerKey,
-			CAPrivateKey: coretesting.CAKey,
-			StatePort:    123,
-			APIPort:      456,
-		}
-		icfg.Jobs = []model.MachineJob{model.JobManageModel, model.JobHostUnits}
-		icfg.Bootstrap.StateServingInfo = jujucontroller.StateServingInfo{
-			Cert:         coretesting.ServerCert,
-			PrivateKey:   coretesting.ServerKey,
-			CAPrivateKey: coretesting.CAKey,
-			StatePort:    123,
-			APIPort:      456,
-		}
-	} else {
-		icfg, err = instancecfg.NewInstanceConfig(coretesting.ControllerTag, "0", "ya", imagemetadata.ReleasedStream, base, nil)
-		c.Assert(err, jc.ErrorIsNil)
-		icfg.Jobs = []model.MachineJob{model.JobHostUnits}
-	}
-	err = icfg.SetTools(tools.List{
-		&tools.Tools{
-			Version: vers,
-			URL:     "http://testing.invalid/tools.tar.gz",
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	err = instancecfg.FinishInstanceConfig(icfg, modelConfig)
-	c.Assert(err, jc.ErrorIsNil)
-	cloudcfg, err := cloudinit.New(icfg.Base.OS)
-	c.Assert(err, jc.ErrorIsNil)
-	udata, err := cloudconfig.NewUserdataConfig(icfg, cloudcfg)
-	c.Assert(err, jc.ErrorIsNil)
-	err = udata.Configure()
-	c.Assert(err, jc.ErrorIsNil)
-	return cloudcfg
 }
 
 var aptgetRegexp = "(.|\n)*" + regexp.QuoteMeta("apt-get --option=Dpkg::Options::=--force-confold --option=Dpkg::Options::=--force-unsafe-io --assume-yes --quiet ")

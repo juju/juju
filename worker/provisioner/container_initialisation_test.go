@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
-	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -89,29 +88,6 @@ func (s *containerSetupSuite) TestInitialiseContainerProvisonerLXD(c *gc.C) {
 	s.testInitialiseContainers(c, instance.LXD)
 }
 
-func (s *containerSetupSuite) testInitialiseContainerProvisioner(c *gc.C, containerType instance.ContainerType) {
-	defer s.patch(c).Finish()
-
-	s.expectContainerManagerConfig(containerType)
-	s.initialiser.EXPECT().Initialise().Return(nil)
-	s.machine.EXPECT().AvailabilityZone().Return("az1", nil)
-
-	s.PatchValue(
-		&factory.NewContainerManager,
-		func(forType instance.ContainerType, conf container.ManagerConfig) (container.Manager, error) {
-			return s.manager, nil
-		})
-
-	cs := s.setUpContainerSetup(c, containerType)
-	abort := make(chan struct{})
-	close(abort)
-	p, err := cs.initialiseContainerProvisioner()
-	c.Assert(err, jc.ErrorIsNil)
-	_, ok := p.(*containerProvisioner)
-	c.Assert(ok, jc.IsTrue)
-	workertest.CleanKill(c, p)
-}
-
 func (s *containerSetupSuite) TestContainerManagerConfigError(c *gc.C) {
 	defer s.patch(c).Finish()
 
@@ -158,36 +134,6 @@ func (s *containerSetupSuite) setUpContainerSetup(c *gc.C, containerType instanc
 	}
 
 	return NewContainerSetup(args)
-}
-
-func (s *containerSetupSuite) setUpInitialiseContainerProvisioner(c *gc.C, containerType instance.ContainerType) *ContainerSetup {
-	pState := apiprovisioner.NewStateFromFacade(s.facadeCaller)
-
-	cfg, err := agent.NewAgentConfig(
-		agent.AgentConfigParams{
-			Paths:             agent.DefaultPaths,
-			Tag:               s.machine.MachineTag(),
-			UpgradedToVersion: jujuversion.Current,
-			Password:          "password",
-			Nonce:             "nonce",
-			APIAddresses:      []string{"0.0.0.0:12345"},
-			CACert:            coretesting.CACert,
-			Controller:        names.NewControllerTag(s.controllerUUID.String()),
-			Model:             names.NewModelTag(s.modelUUID.String()),
-		})
-	c.Assert(err, jc.ErrorIsNil)
-
-	return &ContainerSetup{
-		logger:        &noOpLogger{},
-		containerType: containerType,
-		machineZone:   s.machine,
-		mTag:          s.machine.MachineTag(),
-		provisioner:   pState,
-		config:        cfg,
-		machineLock:   s.machineLock,
-		credentialAPI: &credentialAPIForTest{},
-		managerConfig: make(map[string]string, 0),
-	}
 }
 
 func (s *containerSetupSuite) patch(c *gc.C) *gomock.Controller {

@@ -16,10 +16,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-type ClientSuite struct {
-	facade *mocks.MockFacadeCaller
-	client *payloads.Client
-}
+type ClientSuite struct{}
 
 var _ = gc.Suite(&ClientSuite{})
 

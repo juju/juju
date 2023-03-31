@@ -47,7 +47,6 @@ type agentConfigUpdater struct {
 	tomb              tomb.Tomb
 	mongoProfile      mongo.MemoryProfile
 	jujuDBSnapChannel string
-	batchRaftFSM      bool
 }
 
 // NewWorker creates a new agent config updater worker.

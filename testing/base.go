@@ -42,9 +42,6 @@ type JujuOSEnvSuite struct {
 	oldHomeEnv          string
 	oldEnvironment      map[string]string
 	initialFeatureFlags string
-	regKeyExisted       bool
-	regEntryExisted     bool
-	oldRegEntryValue    string
 }
 
 func (s *JujuOSEnvSuite) SetUpTest(c *gc.C) {

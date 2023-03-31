@@ -22,8 +22,6 @@ import (
 
 	"github.com/juju/juju/api"
 	apitesting "github.com/juju/juju/api/testing"
-	"github.com/juju/juju/apiserver/common"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
@@ -41,8 +39,6 @@ type remoteRelationsSuite struct {
 	jujutesting.IsolationSuite
 
 	remoteControllerInfo  *api.Info
-	resources             *common.Resources
-	authorizer            *apiservertesting.FakeAuthorizer
 	relationsFacade       *mockRelationsFacade
 	remoteRelationsFacade *mockRemoteRelationsFacade
 	config                remoterelations.Config

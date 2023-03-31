@@ -25,7 +25,6 @@ var _ = gc.Suite(&ReplSuite{})
 
 type ReplSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
-	store *jujuclient.MemStore
 }
 
 func (*ReplSuite) TestErrorNoControllersAtAll(c *gc.C) {

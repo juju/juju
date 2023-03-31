@@ -8,7 +8,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/base"
@@ -302,84 +301,6 @@ func (c *Client) WatchRelationChanges(relationToken, applicationToken string, ma
 
 	w := apiwatcher.NewRemoteRelationWatcher(c.facade.RawAPICaller(), result)
 	return w, nil
-}
-
-// relationUnitSettings returns the relation unit settings for the given relation units in the remote model.
-func (c *Client) relationUnitSettings(unitNames []string, relationToken string, macs macaroon.Slice) ([]params.SettingsResult, error) {
-	var (
-		args         params.RemoteRelationUnits
-		retryIndices []int
-	)
-
-	if newMacs, ok := c.getCachedMacaroon("relation unit settings", relationToken); ok {
-		macs = newMacs
-	}
-
-	relationUnits := make([]params.RemoteRelationUnit, len(unitNames))
-	for i, unit := range unitNames {
-		relationUnits[i] = params.RemoteRelationUnit{
-			RelationToken: relationToken,
-			Unit:          names.NewUnitTag(unit).String(),
-			Macaroons:     macs,
-			BakeryVersion: bakery.LatestVersion,
-		}
-	}
-	args = params.RemoteRelationUnits{RelationUnits: relationUnits}
-
-	var results params.SettingsResults
-	apiCall := func() error {
-		// Reset the results struct before each api call.
-		results = params.SettingsResults{}
-		err := c.facade.FacadeCall("RelationUnitSettings", args, &results)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if len(results.Results) != len(args.RelationUnits) {
-			return errors.Errorf("expected %d result(s), got %d", len(args.RelationUnits), len(results.Results))
-		}
-		return nil
-	}
-
-	// Make the api call the first time.
-	if err := apiCall(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	// On error, possibly discharge the macaroon and retry.
-	result := results.Results
-	args = params.RemoteRelationUnits{}
-	// Separate the successful calls from those needing a retry.
-	for i, res := range results.Results {
-		if res.Error == nil {
-			continue
-		}
-		mac, err := c.handleError(res.Error)
-		if err != nil {
-			resCopy := res
-			resCopy.Error.Message = err.Error()
-			result[i] = resCopy
-			continue
-		}
-		retryArg := relationUnits[i]
-		retryArg.Macaroons = mac
-		retryArg.BakeryVersion = bakery.LatestVersion
-		args.RelationUnits = append(args.RelationUnits, retryArg)
-		retryIndices = append(retryIndices, i)
-		c.cache.Upsert(retryArg.RelationToken, mac)
-	}
-	// Nothing to retry so return the original result.
-	if len(args.RelationUnits) == 0 {
-		return result, nil
-	}
-
-	if err := apiCall(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	// After a retry, insert the results into the original result slice.
-	for j, res := range results.Results {
-		resCopy := res
-		result[retryIndices[j]] = resCopy
-	}
-	return result, nil
 }
 
 // WatchEgressAddressesForRelation returns a watcher that notifies when addresses,

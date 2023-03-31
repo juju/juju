@@ -74,7 +74,7 @@ func (mock *MockContainer) Name() string {
 // mocked EnsureCachedImage method below.
 // However, it will cause the race checker to fail if such calls are not made
 // in a Goroutine safe manner.
-var imageCacheCalls int
+var imageCacheCalls int //nolint:unused
 
 // EnsureCachedImage is the first supply of start-params to the container.
 // We set it here for subsequent test assertions.

@@ -9,9 +9,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/toolsversionchecker"
 )
@@ -20,20 +17,6 @@ var _ = gc.Suite(&ToolsCheckerSuite{})
 
 type ToolsCheckerSuite struct {
 	coretesting.BaseSuite
-}
-
-type dummyEnviron struct {
-	environs.Environ
-}
-
-func (dummyEnviron) Config() *config.Config {
-	sConfig := dummy.SampleConfig()
-	sConfig["agent-version"] = "2.5.0"
-	c, err := config.New(config.NoDefaults, sConfig)
-	if err != nil {
-		panic("cannot make a proper config")
-	}
-	return c
 }
 
 type facade struct {

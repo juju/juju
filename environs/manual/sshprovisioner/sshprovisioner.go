@@ -128,6 +128,9 @@ func detectSeriesAndHardwareCharacteristics(host string) (hc instance.HardwareCh
 	memkB := strings.Fields(lines[2])[1] // "MemTotal: NNN kB"
 	hc.Mem = new(uint64)
 	*hc.Mem, err = strconv.ParseUint(memkB, 10, 0)
+	if err != nil {
+		return hc, "", errors.Annotatef(err, "parsing %q", lines[2])
+	}
 	*hc.Mem /= 1024
 
 	// For each "physical id", count the number of cores.

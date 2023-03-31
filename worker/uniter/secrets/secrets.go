@@ -28,7 +28,6 @@ type SecretsClient interface {
 type Secrets struct {
 	client  SecretsClient
 	unitTag names.UnitTag
-	stateRW UnitStateReadWriter
 	logger  Logger
 
 	secretsState *State

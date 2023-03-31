@@ -4,6 +4,7 @@
 package migrationmaster
 
 import (
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
@@ -15,14 +16,10 @@ import (
 // It is untested, but is simple enough to be verified by inspection.
 type backend struct {
 	*state.State
-	state.ExternalControllers
 }
 
 func newBacked(st *state.State) Backend {
-	return &backend{
-		State:               st,
-		ExternalControllers: state.NewExternalControllers(st),
-	}
+	return &backend{State: st}
 }
 
 // ModelName implements Backend.
@@ -61,16 +58,26 @@ func (s *backend) AgentVersion() (version.Number, error) {
 	return vers, nil
 }
 
-// AllOfferConnections (Backend) returns all CMR offer consumptions
-// for the model.
-func (s *backend) AllOfferConnections() ([]OfferConnection, error) {
-	conns, err := s.State.AllOfferConnections()
+// AllLocalRelatedModels returns all models on this controller to which
+// another hosted model has a consuming cross model relation.
+func (s *backend) AllLocalRelatedModels() ([]string, error) {
+	uuids, err := s.AllModelUUIDs()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	out := make([]OfferConnection, len(conns))
-	for i, conn := range conns {
-		out[i] = conn
+	localUUIDs := set.NewStrings(uuids...)
+	apps, err := s.AllRemoteApplications()
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	return out, nil
+	var crossModelUUIDs []string
+	for _, app := range apps {
+		if app.IsConsumerProxy() {
+			continue
+		}
+		if localUUIDs.Contains(app.SourceModel().Id()) {
+			crossModelUUIDs = append(crossModelUUIDs, app.SourceModel().Id())
+		}
+	}
+	return crossModelUUIDs, nil
 }

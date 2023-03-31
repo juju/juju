@@ -38,7 +38,6 @@ type ResourcesHandlerSuite struct {
 	backend      *fakeBackend
 	username     string
 	req          *http.Request
-	header       http.Header
 	recorder     *httptest.ResponseRecorder
 	handler      *apiserver.ResourcesHandler
 }

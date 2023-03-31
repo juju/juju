@@ -33,8 +33,6 @@ func bufferString(w io.Writer) string {
 type ContextSuite struct {
 	jujuctesting.ContextSuite
 	testing.BaseSuite
-
-	rels map[int]*jujuctesting.ContextRelation
 }
 
 func (s *ContextSuite) SetUpTest(c *gc.C) {

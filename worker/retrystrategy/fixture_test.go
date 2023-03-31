@@ -66,7 +66,6 @@ type stubFacade struct {
 	stub            *testing.Stub
 	watcher         *stubWatcher
 	count           int
-	shouldBounce    bool
 	initialStrategy params.RetryStrategy
 	stubTag         names.Tag
 }
