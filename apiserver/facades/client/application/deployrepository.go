@@ -142,10 +142,12 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(arg params.DeployFromRe
 	})
 
 	if err != nil && len(pendingIDs) != 0 {
-		// Remove the pending resources that are added before the AddApplication is called
-		removeResourcesErr := api.state.RemovePendingResources(dt.applicationName, pendingIDs)
-		if removeResourcesErr != nil {
-			logger.Errorf("unable to remove pending resources for %q", dt.applicationName)
+		if pendingIDs != nil {
+			// Remove the pending resources that are added before the AddApplication is called
+			removeResourcesErr := api.state.RemovePendingResources(dt.applicationName, pendingIDs)
+			if removeResourcesErr != nil {
+				logger.Errorf("unable to remove pending resources for %q", dt.applicationName)
+			}
 		}
 		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
 	}
