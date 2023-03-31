@@ -99,6 +99,11 @@ type Database interface {
 	// transaction building function.
 	Run(transactions jujutxn.TransactionSource) error
 
+	// Run is a convenience method running a transaction using a
+	// transaction building function using a "raw" transaction runner
+	// that won't perform model filtering.
+	RunRaw(transactions jujutxn.TransactionSource) error
+
 	// Schema returns the schema used to load the database. The returned schema
 	// is not a copy and must not be modified.
 	Schema() CollectionSchema
@@ -429,6 +434,16 @@ func (db *database) RunRawTransaction(ops []txn.Op) error {
 func (db *database) Run(transactions jujutxn.TransactionSource) error {
 	runner, closer := db.TransactionRunner()
 	defer closer()
+	return runner.Run(transactions)
+}
+
+// RunRaw is part of the Database interface.
+func (db *database) RunRaw(transactions jujutxn.TransactionSource) error {
+	runner, closer := db.TransactionRunner()
+	defer closer()
+	if multiRunner, ok := runner.(*multiModelRunner); ok {
+		runner = multiRunner.rawRunner
+	}
 	return runner.Run(transactions)
 }
 

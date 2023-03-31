@@ -487,7 +487,7 @@ func (s *UserSuite) TestCaseSensitiveUsersErrors(c *gc.C) {
 
 	_, err := s.State.AddUser(
 		"boB", "ignored", "ignored", "ignored")
-	c.Assert(err, gc.ErrorMatches, "the user already exists")
+	c.Assert(err, gc.ErrorMatches, "user boB already exists")
 }
 
 func (s *UserSuite) TestCaseInsensitiveLookup(c *gc.C) {

@@ -142,6 +142,17 @@ func removeModelUserOps(modelUUID string, user names.UserTag) []txn.Op {
 		}}
 }
 
+func removeModelUserOpsGlobal(modelUUID string, user names.UserTag) []txn.Op {
+	return []txn.Op{
+		removePermissionOp(modelKey(modelUUID), userGlobalKey(userAccessID(user))),
+		{
+			C:      modelUsersC,
+			Id:     ensureModelUUID(modelUUID, userAccessID(user)),
+			Assert: txn.DocExists,
+			Remove: true,
+		}}
+}
+
 // removeModelUser removes a user from the database.
 func (st *State) removeModelUser(user names.UserTag) error {
 	ops := removeModelUserOps(st.ModelUUID(), user)
