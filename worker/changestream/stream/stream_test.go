@@ -15,6 +15,13 @@ import (
 	"github.com/juju/juju/testing"
 )
 
+const (
+	// We need to ensure that we never witness a change event. We've picked
+	// an arbitrary timeout of 1 second, which should be more than enough
+	// time for the worker to process the change.
+	witnessChangeDuration = time.Second
+)
+
 type streamSuite struct {
 	baseSuite
 }
@@ -48,12 +55,19 @@ func (s *streamSuite) TestNoData(c *gc.C) {
 	defer workertest.DirtyKill(c, stream)
 
 	changes := stream.Changes()
-	c.Assert(changes, gc.HasLen, 0)
 
 	select {
 	case <-done:
 	case <-time.After(testing.ShortWait):
 		c.Fatal("timed out waiting for timer to fire")
+	}
+
+	// Synchronization block to ensure that we don't witness any changes.
+	select {
+	case <-time.After(witnessChangeDuration):
+		c.Assert(changes, gc.HasLen, 0)
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting for changes")
 	}
 
 	workertest.CleanKill(c, stream)
@@ -421,67 +435,27 @@ func (s *streamSuite) TestMultipleChangesWithNoNamespacesDoNotCoalesce(c *gc.C) 
 }
 
 func (s *streamSuite) TestOneChangeIsBlockedByFile(c *gc.C) {
-	c.Skip("intermittent failure")
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
 	notify := s.expectFileNotifyWatcher()
+	tick := s.setupTimer()
+	done := s.expectTick(tick, 1)
 
 	s.insertNamespace(c, 1, "foo")
-
-	timeTick := s.setupTimer()
 
 	stream := New(s.TrackedDB(), s.FileNotifier, s.clock, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
+	select {
+	case <-done:
+	case <-time.After(testing.ShortWait):
+		c.Fatal("timed out waiting for timer to fire")
+	}
+
 	changes := stream.Changes()
 
-	assertChange := func(expected func(<-chan changestream.ChangeEvent, string) (string, bool)) string {
-		done := s.expectTick(timeTick, 1)
-
-		change := change{
-			id:   1,
-			uuid: utils.MustNewUUID().String(),
-		}
-		s.insertChange(c, change)
-
-		uuid, witnessTick := expected(changes, change.uuid)
-		if !witnessTick {
-			return uuid
-		}
-
-		select {
-		case <-done:
-		case <-time.After(testing.LongWait):
-			c.Fatal("timed out waiting for timer to fire")
-		}
-
-		return uuid
-	}
-	expectOneChange := func(changes <-chan changestream.ChangeEvent, uuid string) (string, bool) {
-		var results []changestream.ChangeEvent
-		select {
-		case change := <-changes:
-			results = append(results, change)
-		case <-time.After(testing.LongWait):
-			c.Fatal("timed out waiting for change")
-		}
-
-		c.Assert(results, gc.HasLen, 1)
-		c.Assert(results[0].Namespace(), gc.Equals, "foo")
-		c.Assert(results[0].ChangedUUID(), gc.Equals, uuid)
-
-		return uuid, true
-	}
-	expectNoChange := func(changes <-chan changestream.ChangeEvent, uuid string) (string, bool) {
-		select {
-		case <-changes:
-			c.Fatal("timed out waiting for change")
-		case <-time.After(time.Second):
-		}
-		return uuid, false
-	}
-	expectNotify := func(block bool) {
+	expectNotifyBlock := func(block bool) {
 		notified := make(chan bool)
 		go func() {
 			defer close(notified)
@@ -490,21 +464,259 @@ func (s *streamSuite) TestOneChangeIsBlockedByFile(c *gc.C) {
 		select {
 		case <-notified:
 		case <-time.After(testing.LongWait):
-			c.Fatal("timed out waiting for change")
+			c.Fatal("timed out waiting for blocking change")
 		}
 	}
 
-	assertChange(expectOneChange)
+	expectNotifyBlock(true)
 
-	expectNotify(true)
+	first := change{
+		id:   1,
+		uuid: utils.MustNewUUID().String(),
+	}
+	s.insertChange(c, first)
 
-	uuid := assertChange(expectNoChange)
+	select {
+	case change := <-changes:
+		c.Fatalf("unexpected change %v", change)
+	case <-time.After(witnessChangeDuration):
+	}
 
-	expectNotify(false)
+	expectNotifyBlock(false)
 
-	expectOneChange(changes, uuid)
+	done = s.expectTick(tick, 1)
+	select {
+	case <-done:
+	case <-time.After(testing.ShortWait):
+		c.Fatal("timed out waiting for timer to fire")
+	}
+
+	var results []changestream.ChangeEvent
+	select {
+	case change := <-changes:
+		results = append(results, change)
+	case <-time.After(testing.ShortWait):
+		c.Fatal("timed out waiting for change")
+	}
+
+	c.Assert(results, gc.HasLen, 1)
+	c.Assert(results[0].Namespace(), gc.Equals, "foo")
+	c.Assert(results[0].ChangedUUID(), gc.Equals, first.uuid)
 
 	workertest.CleanKill(c, stream)
+}
+
+func (s *streamSuite) TestReadChangesWithNoChanges(c *gc.C) {
+	stream := &Stream{
+		db: s.TrackedDB(),
+	}
+
+	s.insertNamespace(c, 1, "foo")
+
+	results, err := stream.readChanges()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(results, gc.HasLen, 0)
+}
+
+func (s *streamSuite) TestReadChangesWithOneChange(c *gc.C) {
+	stream := &Stream{
+		db: s.TrackedDB(),
+	}
+
+	s.insertNamespace(c, 1, "foo")
+
+	first := change{
+		id:   1,
+		uuid: utils.MustNewUUID().String(),
+	}
+	s.insertChange(c, first)
+
+	results, err := stream.readChanges()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(results, gc.HasLen, 1)
+	c.Assert(results[0].Namespace(), gc.Equals, "foo")
+	c.Assert(results[0].ChangedUUID(), gc.Equals, first.uuid)
+}
+
+func (s *streamSuite) TestReadChangesWithMultipleSameChange(c *gc.C) {
+	stream := &Stream{
+		db: s.TrackedDB(),
+	}
+
+	s.insertNamespace(c, 1, "foo")
+
+	uuid := utils.MustNewUUID().String()
+	for i := 0; i < 10; i++ {
+		ch := change{
+			id:   1,
+			uuid: uuid,
+		}
+		s.insertChange(c, ch)
+	}
+
+	results, err := stream.readChanges()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(results, gc.HasLen, 1)
+	c.Assert(results[0].Namespace(), gc.Equals, "foo")
+	c.Assert(results[0].ChangedUUID(), gc.Equals, uuid)
+}
+
+func (s *streamSuite) TestReadChangesWithMultipleChanges(c *gc.C) {
+	stream := &Stream{
+		db: s.TrackedDB(),
+	}
+
+	s.insertNamespace(c, 1, "foo")
+
+	changes := make([]change, 10)
+	for i := 0; i < 10; i++ {
+		ch := change{
+			id:   1,
+			uuid: utils.MustNewUUID().String(),
+		}
+		s.insertChange(c, ch)
+		changes[i] = ch
+	}
+
+	results, err := stream.readChanges()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(results, gc.HasLen, 10)
+	for i := range results {
+		c.Assert(results[i].Namespace(), gc.Equals, "foo")
+		c.Assert(results[i].ChangedUUID(), gc.Equals, changes[len(results)-1-i].uuid)
+	}
+}
+
+func (s *streamSuite) TestReadChangesWithMultipleChangesGroupsCorrectly(c *gc.C) {
+	stream := &Stream{
+		db: s.TrackedDB(),
+	}
+
+	s.insertNamespace(c, 1, "foo")
+
+	changes := make([]change, 10)
+	for i := 0; i < 10; i++ {
+		var (
+			ch   change
+			uuid = utils.MustNewUUID().String()
+		)
+		// Grouping is done via uuid, so we should only ever see the last change
+		// when grouping them.
+		for j := 0; j < 10; j++ {
+			ch = change{
+				id:   1,
+				uuid: uuid,
+			}
+			s.insertChange(c, ch)
+		}
+		changes[i] = ch
+	}
+
+	results, err := stream.readChanges()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(results, gc.HasLen, 10)
+	for i := range results {
+		c.Assert(results[i].Namespace(), gc.Equals, "foo")
+		c.Assert(results[i].ChangedUUID(), gc.Equals, changes[len(results)-1-i].uuid)
+	}
+}
+
+func (s *streamSuite) TestReadChangesWithMultipleChangesInterweavedGroupsCorrectly(c *gc.C) {
+	stream := &Stream{
+		db: s.TrackedDB(),
+	}
+
+	s.insertNamespace(c, 1, "foo")
+	s.insertNamespace(c, 2, "bar")
+
+	// Setup for this test is a bit more complicated to ensure that interweaving
+	// correctly groups the changes.
+
+	changes := make([]change, 5)
+
+	var (
+		uuid0 = utils.MustNewUUID().String()
+		uuid1 = utils.MustNewUUID().String()
+		uuid2 = utils.MustNewUUID().String()
+	)
+
+	{
+		ch := change{id: 1, uuid: uuid0}
+		s.insertChangeForType(c, changestream.Create, ch)
+		changes[0] = ch
+	}
+	{
+		ch := change{id: 2, uuid: uuid0}
+		s.insertChangeForType(c, changestream.Update, ch)
+		changes[1] = ch
+	}
+	{
+		ch := change{id: 1, uuid: uuid1}
+		s.insertChangeForType(c, changestream.Update, ch)
+		changes[2] = ch
+	}
+	{
+		ch := change{id: 1, uuid: uuid1}
+		s.insertChangeForType(c, changestream.Update, ch)
+		// no witness changed.
+	}
+	{
+		ch := change{id: 2, uuid: uuid0}
+		s.insertChangeForType(c, changestream.Update, ch)
+		// no witness changed.
+	}
+	{
+		ch := change{id: 1, uuid: uuid2}
+		s.insertChangeForType(c, changestream.Update, ch)
+		changes[3] = ch
+	}
+	{
+		ch := change{id: 1, uuid: uuid2}
+		s.insertChangeForType(c, changestream.Update, ch)
+		// no witness changed.
+	}
+	{
+		ch := change{id: 2, uuid: uuid0}
+		s.insertChangeForType(c, changestream.Update, ch)
+		// no witness changed.
+	}
+	{
+		ch := change{id: 1, uuid: uuid1}
+		s.insertChangeForType(c, changestream.Create, ch)
+		changes[4] = ch
+	}
+
+	results, err := stream.readChanges()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(results, gc.HasLen, 5)
+
+	type changeResults struct {
+		changeType changestream.ChangeType
+		namespace  string
+		uuid       string
+	}
+
+	expected := []changeResults{
+		{changeType: changestream.Create, namespace: "foo", uuid: uuid1},
+		{changeType: changestream.Update, namespace: "bar", uuid: uuid0},
+		{changeType: changestream.Update, namespace: "foo", uuid: uuid2},
+		{changeType: changestream.Update, namespace: "foo", uuid: uuid1},
+		{changeType: changestream.Create, namespace: "foo", uuid: uuid0},
+	}
+
+	c.Logf("result %v", results)
+	for i := range results {
+		c.Logf("expected %v", expected[i])
+		c.Assert(results[i].Type(), gc.Equals, expected[i].changeType)
+		c.Assert(results[i].Namespace(), gc.Equals, expected[i].namespace)
+		c.Assert(results[i].ChangedUUID(), gc.Equals, expected[i].uuid)
+	}
 }
 
 func (s *streamSuite) insertNamespace(c *gc.C, id int, name string) {
@@ -521,9 +733,13 @@ type change struct {
 }
 
 func (s *streamSuite) insertChange(c *gc.C, changes ...change) {
+	s.insertChangeForType(c, 2, changes...)
+}
+
+func (s *streamSuite) insertChangeForType(c *gc.C, changeType changestream.ChangeType, changes ...change) {
 	q := `
 INSERT INTO change_log (edit_type_id, namespace_id, changed_uuid)
-VALUES (2, ?, ?)
+VALUES (?, ?, ?)
 `[1:]
 
 	tx, err := s.DB().Begin()
@@ -533,8 +749,8 @@ VALUES (2, ?, ?)
 	c.Assert(err, jc.ErrorIsNil)
 
 	for _, v := range changes {
-		c.Logf("Executing insert change: %v %v", v.id, v.uuid)
-		_, err = stmt.Exec(v.id, v.uuid)
+		c.Logf("Executing insert change: edit-type: %d, %v %v", changeType, v.id, v.uuid)
+		_, err = stmt.Exec(changeType, v.id, v.uuid)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 

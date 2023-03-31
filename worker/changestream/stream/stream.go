@@ -118,7 +118,7 @@ func (s *Stream) loop() error {
 			s.logger.Infof("Change stream has been blocked")
 
 			// Create an inner loop, that will block the outer loop until we
-			// receive a change event from the file notifier.
+			// receive a change fileCreated event from the file notifier.
 		INNER:
 			for {
 				select {
@@ -128,6 +128,9 @@ func (s *Stream) loop() error {
 					if !ok || !inner {
 						break INNER
 					}
+					// If we get a fileCreated event, and we're already waiting
+					// for a fileRemoved event, then we're in the middle of a
+					// block, so just continue.
 					s.logger.Debugf("ignoring file change event")
 				}
 			}
@@ -137,12 +140,9 @@ func (s *Stream) loop() error {
 		case <-timer.Chan():
 			changes, err := s.readChanges()
 			if err != nil {
-				if errors.Is(err, errRetryable) {
-					// We're retrying, so reset the timer to half the poll time,
-					// to try and get the changes sooner.
-					timer.Reset(PollInterval / 2)
-					continue
-				}
+				// If we get an error attempting to read the changes, the Txn
+				// will have retried multiple times. There just isn't anything
+				// we can do, so we just return an error.
 				return errors.Annotate(err, "reading change")
 			}
 
@@ -197,11 +197,18 @@ func (e changeEvent) ChangedUUID() string {
 	return e.changedUUID
 }
 
-var errRetryable = errors.New("retryable error")
-
 func (s *Stream) readChanges() ([]changeEvent, error) {
+	// As this is a self instantiated query, we don't have a root context to tie
+	// to, so we create a new one that's cancellable.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// We want to tie the context to the tomb, so that if the tomb is killed,
+	// the context will be cancelled.
+	ctx = s.tomb.Context(ctx)
+
 	var changes []changeEvent
-	err := s.db.Txn(context.TODO(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.db.Txn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, query, s.lastID)
 		if err != nil {
 			return errors.Annotate(err, "querying for changes")
