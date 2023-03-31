@@ -794,6 +794,7 @@ func (c *Client) Consume(arg crossmodel.ConsumeApplicationArgs) (string, error) 
 			ApplicationOfferDetails: arg.Offer,
 			ApplicationAlias:        arg.ApplicationAlias,
 			Macaroon:                arg.Macaroon,
+			AuthToken:               arg.AuthToken,
 		}},
 	}
 	if arg.ControllerInfo != nil {

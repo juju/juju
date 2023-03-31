@@ -184,6 +184,9 @@ type ConsumeApplicationArg struct {
 	// Macaroon is used for authentication.
 	Macaroon *macaroon.Macaroon `json:"macaroon,omitempty"`
 
+	// AuthToken is the JWT used for auth.
+	AuthToken string `json:"auth-token,omitempty"`
+
 	// ControllerInfo contains connection details to the controller
 	// hosting the offer.
 	ControllerInfo *ExternalControllerInfo `json:"external-controller,omitempty"`
@@ -545,6 +548,9 @@ type RegisterRemoteRelationArg struct {
 
 	// BakeryVersion is the version of the bakery used to mint macaroons.
 	BakeryVersion bakery.Version `json:"bakery-version,omitempty"`
+
+	// AuthToken is the JWT used for auth.
+	AuthToken string `json:"auth-token,omitempty"`
 }
 
 // RegisterRemoteRelationArgs holds args used to add remote relations.
@@ -626,6 +632,7 @@ type RemoteApplicationInfoResults struct {
 type ConsumeOfferDetails struct {
 	Offer          *ApplicationOfferDetails `json:"offer,omitempty"`
 	Macaroon       *macaroon.Macaroon       `json:"macaroon,omitempty"`
+	AuthToken      string                   `json:"auth-token,omitempty"`
 	ControllerInfo *ExternalControllerInfo  `json:"external-controller,omitempty"`
 }
 

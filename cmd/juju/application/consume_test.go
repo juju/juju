@@ -112,6 +112,7 @@ func (s *ConsumeSuite) assertSuccessModelDotApplication(c *gc.C, alias string) {
 			Offer:            params.ApplicationOfferDetails{OfferName: "an offer", OfferURL: "ctrl:bob/booster.uke"},
 			ApplicationAlias: alias,
 			Macaroon:         mac,
+			AuthToken:        "auth-token",
 			ControllerInfo: &crossmodel.ControllerInfo{
 				ControllerTag: coretesting.ControllerTag,
 				Alias:         "controller-alias",
@@ -157,8 +158,9 @@ func (a *mockConsumeAPI) GetConsumeDetails(url string) (params.ConsumeOfferDetai
 		return params.ConsumeOfferDetails{}, err
 	}
 	return params.ConsumeOfferDetails{
-		Offer:    &params.ApplicationOfferDetails{OfferName: "an offer", OfferURL: "bob/booster.uke"},
-		Macaroon: mac,
+		Offer:     &params.ApplicationOfferDetails{OfferName: "an offer", OfferURL: "bob/booster.uke"},
+		Macaroon:  mac,
+		AuthToken: "auth-token",
 		ControllerInfo: &params.ExternalControllerInfo{
 			ControllerTag: coretesting.ControllerTag.String(),
 			Alias:         "controller-alias",

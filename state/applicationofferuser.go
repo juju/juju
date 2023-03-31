@@ -52,7 +52,7 @@ func (st *State) CreateOfferAccess(offer names.ApplicationOfferTag, user names.U
 		}
 	}
 
-	offerUUID, err := applicationOfferUUID(st, offer.Name)
+	offerUUID, err := applicationOfferUUID(st, offer.Id())
 	if err != nil {
 		return errors.Annotate(err, "creating offer access")
 	}
@@ -70,7 +70,7 @@ func (st *State) UpdateOfferAccess(offer names.ApplicationOfferTag, user names.U
 	if err := permission.ValidateOfferAccess(access); err != nil {
 		return errors.Trace(err)
 	}
-	offerUUID, err := applicationOfferUUID(st, offer.Name)
+	offerUUID, err := applicationOfferUUID(st, offer.Id())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -167,7 +167,7 @@ func (st *State) suspendRevokedRelationsOps(offerUUID, userId string) ([]txn.Op,
 
 // RemoveOfferAccess removes the access permission for a user on an offer.
 func (st *State) RemoveOfferAccess(offer names.ApplicationOfferTag, user names.UserTag) error {
-	offerUUID, err := applicationOfferUUID(st, offer.Name)
+	offerUUID, err := applicationOfferUUID(st, offer.Id())
 	if err != nil {
 		return errors.Trace(err)
 	}

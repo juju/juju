@@ -228,7 +228,7 @@ func (a *admin) authenticate(ctx context.Context, req params.LoginRequest) (*aut
 		userLogin:           true,
 	}
 
-	logger.Debugf("request loginToken: %q", req.Token)
+	logger.Debugf("request authToken: %q", req.Token)
 	if req.Token == "" && req.AuthTag != "" {
 		tag, err := names.ParseTag(req.AuthTag)
 		if err == nil {
@@ -289,10 +289,11 @@ func (a *admin) authenticate(ctx context.Context, req params.LoginRequest) (*aut
 		if req.Token != "" {
 			tok, entity, err := a.srv.jwtTokenService.Parse(ctx, req.Token)
 			if err != nil {
-				return nil, a.handleAuthError(errors.Annotate(err, "parsing request loginToken"))
+				return nil, a.handleAuthError(errors.Annotate(err, "parsing request authToken"))
 			}
 			a.root.entity = entity
-			a.root.loginToken = tok
+			a.root.authTokenString = req.Token
+			a.root.authToken = tok
 		} else {
 			authParams := authentication.AuthParams{
 				AuthTag:       result.tag,
@@ -408,7 +409,7 @@ func (a *admin) fillLoginDetails(result *authResult, lastConnection *time.Time) 
 	// Send back user info if user
 	if result.userLogin {
 		userTag := a.root.entity.Tag().(names.UserTag)
-		if token := a.root.loginToken; token != nil {
+		if token := a.root.authToken; token != nil {
 			// We're passing in known valid tag kinds here, so we'll not get an error.
 			controllerAccess, err := permissionFromToken(token, a.root.state.ControllerTag())
 			if err != nil {

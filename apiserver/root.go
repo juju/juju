@@ -51,13 +51,16 @@ type objectKey struct {
 // after it has logged in. It contains an rpc.Root which it
 // uses to dispatch API calls appropriately.
 type apiHandler struct {
-	state      *state.State
-	model      *state.Model
-	rpcConn    *rpc.Conn
-	resources  *common.Resources
-	shared     *sharedServerContext
-	entity     state.Entity
-	loginToken jwt.Token
+	state     *state.State
+	model     *state.Model
+	rpcConn   *rpc.Conn
+	resources *common.Resources
+	shared    *sharedServerContext
+	entity    state.Entity
+
+	// A JWT may be used for auth.
+	authTokenString string
+	authToken       jwt.Token
 
 	// An empty modelUUID means that the user has logged in through the
 	// root of the API server rather than the /model/:model-uuid/api
@@ -710,10 +713,10 @@ func (r *apiHandler) ConnectedModel() string {
 }
 
 func (r *apiHandler) userPermission(subject names.UserTag, target names.Tag) (permission.Access, error) {
-	if r.loginToken == nil {
+	if r.authToken == nil {
 		return r.state.UserPermission(subject, target)
 	}
-	return permissionFromToken(r.loginToken, target)
+	return permissionFromToken(r.authToken, target)
 }
 
 type entityHasPermissionFunc func(entity names.Tag, operation permission.Access, target names.Tag) (bool, error)
@@ -728,7 +731,7 @@ func (r *apiHandler) HasPermission(operation permission.Access, target names.Tag
 // EntityHasPermission returns true if the passed in entity can perform <operation> on <target>.
 func (r *apiHandler) EntityHasPermission(entity names.Tag, operation permission.Access, target names.Tag) (bool, error) {
 	has, err := common.HasPermission(r.userPermission, entity, operation, target)
-	if r.loginToken == nil || err != nil || has {
+	if r.authToken == nil || err != nil || has {
 		return has, err
 	}
 	return false, &apiservererrors.AccessRequiredError{
@@ -736,6 +739,11 @@ func (r *apiHandler) EntityHasPermission(entity names.Tag, operation permission.
 			target: operation,
 		},
 	}
+}
+
+// AuthTokenString returns the jwt passed to login.
+func (r *apiHandler) AuthTokenString() string {
+	return r.authTokenString
 }
 
 // DescribeFacades returns the list of available Facades and their Versions

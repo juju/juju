@@ -133,6 +133,7 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 		Endpoints:   []charm.Relation{{Name: "database", Interface: "mysql", Role: "provider"}},
 		Spaces:      []*environs.ProviderSpaceInfo{},
 		Macaroon:    testMac,
+		AuthToken:   "auth-token",
 	}
 
 	s.consumeApplicationArgs = params.ConsumeApplicationArgs{
@@ -145,7 +146,8 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 				Endpoints:              []params.RemoteEndpoint{{Name: "database", Interface: "mysql", Role: "provider"}},
 				OfferURL:               "othermodel.hosted-mysql",
 			},
-			Macaroon: testMac,
+			Macaroon:  testMac,
+			AuthToken: "auth-token",
 		}},
 	}
 }

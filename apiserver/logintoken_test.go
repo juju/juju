@@ -134,7 +134,7 @@ func (s *loginTokenSuite) TestLoginInvalidUser(c *gc.C) {
 
 	var response params.LoginResult
 	err = st.APICall("Admin", 3, "", "Login", request, &response)
-	c.Assert(err, gc.ErrorMatches, `parsing request loginToken: invalid user tag in loginToken: "machine-0" is not a valid user tag`)
+	c.Assert(err, gc.ErrorMatches, `parsing request authToken: invalid user tag in authToken: "machine-0" is not a valid user tag`)
 }
 
 func (s *loginTokenSuite) TestLoginInvalidPermission(c *gc.C) {

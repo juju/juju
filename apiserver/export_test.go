@@ -75,7 +75,7 @@ func TestingAPIRoot(facades *facade.Registry) rpc.Root {
 func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State) (*apiHandler, *common.Resources) {
 	authenticator, err := stateauthenticator.NewAuthenticator(pool, clock.WallClock)
 	c.Assert(err, jc.ErrorIsNil)
-	offerAuthCtxt, err := newOfferAuthcontext(pool)
+	offerAuthCtxt, err := newOfferAuthContext(pool, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	srv := &Server{
 		authenticator: authenticator,
@@ -105,7 +105,7 @@ func TestingAPIHandlerWithToken(c *gc.C, pool *state.StatePool, st *state.State,
 	user, err := names.ParseUserTag(jwt.Subject())
 	c.Assert(err, jc.ErrorIsNil)
 	h.entity = tokenEntity{user: user}
-	h.loginToken = jwt
+	h.authToken = jwt
 	return h, hr
 }
 

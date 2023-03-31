@@ -459,12 +459,48 @@ func (api *OffersAPI) getConsumeDetails(user names.UserTag, urls params.OfferURL
 		offerDetails := &offer.ApplicationOfferDetails
 		results[i].Offer = offerDetails
 		results[i].ControllerInfo = controllerInfo
-		offerMacaroon, err := api.authContext.CreateConsumeOfferMacaroon(api.ctx, offerDetails, user.Id(), urls.BakeryVersion)
+
+		modelTag, err := names.ParseModelTag(offerDetails.SourceModelTag)
 		if err != nil {
 			results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		results[i].Macaroon = offerMacaroon.M()
+		backend, releaser, err := api.StatePool.Get(modelTag.Id())
+		if err != nil {
+			results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		defer releaser()
+
+		err = api.checkAdmin(user, backend)
+		if err != nil && errors.Cause(err) != apiservererrors.ErrPerm {
+			results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		isAdmin := err == nil
+		if !isAdmin {
+			appOffer := names.NewApplicationOfferTag(offer.OfferUUID)
+			ok, err := api.Authorizer.EntityHasPermission(user, permission.ConsumeAccess, appOffer)
+			if err != nil {
+				results[i].Error = apiservererrors.ServerError(err)
+				continue
+			}
+			if !ok {
+				results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+				continue
+			}
+		}
+
+		if authToken := api.Authorizer.AuthTokenString(); authToken == "" {
+			offerMacaroon, err := api.authContext.CreateConsumeOfferMacaroon(api.ctx, offerDetails, user.Id(), urls.BakeryVersion)
+			if err != nil {
+				results[i].Error = apiservererrors.ServerError(err)
+				continue
+			}
+			results[i].Macaroon = offerMacaroon.M()
+		} else {
+			results[i].AuthToken = authToken
+		}
 	}
 	consumeResults.Results = results
 	return consumeResults, nil
