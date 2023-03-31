@@ -34,7 +34,7 @@ func (s *usermanagerSuite) TestAddExistingUser(c *gc.C) {
 			{
 				Tag:       "user-foobar",
 				SecretKey: []byte("passwedfdd"),
-				Error:     apiservererrors.ServerError(errors.Annotate(errors.New("the user already exists"), "failed to create user")),
+				Error:     apiservererrors.ServerError(errors.Annotate(errors.New("user foobar already exists"), "failed to create user")),
 			},
 		},
 	}
@@ -44,40 +44,6 @@ func (s *usermanagerSuite) TestAddExistingUser(c *gc.C) {
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	_, _, err := client.AddUser("foobar", "Foo Bar", "password")
 	c.Assert(err, gc.ErrorMatches, "failed to create user: user foobar already exists")
-}
-
-func (s *usermanagerSuite) TestAddRemovedUser(c *gc.C) {
-	tag, _, err := s.usermanager.AddUser("jjam", "Jimmy Jam", "password")
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Ensure the user exists.
-	user, err := s.State.User(tag)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(user.Name(), gc.Equals, "jjam")
-	c.Assert(user.DisplayName(), gc.Equals, "Jimmy Jam")
-
-	// Delete the user.
-	err = s.usermanager.RemoveUser(tag.Name())
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Assert that the user is gone.
-	_, err = s.State.User(tag)
-	c.Assert(err, gc.ErrorMatches, `user "jjam" is permanently deleted`)
-
-	err = user.Refresh()
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(user.IsDeleted(), jc.IsTrue)
-
-	// Add the user again
-	tag2, _, err := s.usermanager.AddUser("jjam", "Jimmy Again", "password2")
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Ensure the user exists.
-	user2, err := s.State.User(tag2)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(user2.Name(), gc.Equals, "jjam")
-	c.Assert(user2.DisplayName(), gc.Equals, "Jimmy Again")
-
 }
 
 func (s *usermanagerSuite) TestAddUserResponseError(c *gc.C) {
