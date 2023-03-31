@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/client/application"
 	"github.com/juju/juju/api/client/resources"
 	resourcecmd "github.com/juju/juju/cmd/juju/resource"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -85,4 +86,47 @@ func (cl *deployClient) AddPendingResources(applicationID string, chID resources
 		CharmID:       chID,
 		Resources:     res,
 	})
+}
+
+type UploadExistingPendingResourcesFunc func(appName string,
+	pendingResources []application.PendingResourceUpload,
+	conn base.APICallCloser,
+	filesystem modelcmd.Filesystem) error
+
+// UploadExistingPendingResources uploads local resources. Used
+// after DeployFromRepository, where the resources have been added
+// to the controller.
+func UploadExistingPendingResources(
+	appName string,
+	pendingResources []application.PendingResourceUpload,
+	conn base.APICallCloser,
+	filesystem modelcmd.Filesystem) error {
+
+	if pendingResources == nil {
+		return nil
+	}
+	resourceApiClient, err := resources.NewClient(conn)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, pendingResUpload := range pendingResources {
+		t, typeParseErr := charmresource.ParseType(pendingResUpload.Type)
+		if typeParseErr != nil {
+			return errors.Annotatef(typeParseErr, "invalid type %v for pending resource %v",
+				pendingResUpload.Type, pendingResUpload.Name)
+		}
+
+		r, openResErr := resourcecmd.OpenResource(pendingResUpload.Filename, t, filesystem.Open)
+		if openResErr != nil {
+			return errors.Annotatef(openResErr, "unable to open resource %v", pendingResUpload.Name)
+		}
+
+		uploadErr := resourceApiClient.Upload(appName,
+			pendingResUpload.Name, pendingResUpload.Filename, pendingResUpload.PendingID, r)
+
+		if uploadErr != nil {
+			return errors.Trace(uploadErr)
+		}
+	}
+	return nil
 }

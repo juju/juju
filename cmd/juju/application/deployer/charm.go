@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/juju/charm/v10"
-	charmres "github.com/juju/charm/v10/resource"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
@@ -23,7 +22,6 @@ import (
 	app "github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/common"
-	"github.com/juju/juju/cmd/juju/resource"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
@@ -349,8 +347,9 @@ func (l *localCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _
 
 type repositoryCharm struct {
 	deployCharm
-	userRequestedURL *charm.URL
-	clock            jujuclock.Clock
+	userRequestedURL               *charm.URL
+	clock                          jujuclock.Clock
+	uploadExistingPendingResources UploadExistingPendingResourcesFunc
 }
 
 // String returns a string description of the deployer.
@@ -423,7 +422,7 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 			Trust:            c.trust,
 		})
 
-		uploadErr := c.uploadExistingPendingResources(c.applicationName, localPendingResources, deployAPI)
+		uploadErr := c.uploadExistingPendingResources(c.applicationName, localPendingResources, deployAPI, c.model.Filesystem())
 		if uploadErr != nil {
 			ctx.Errorf("Unable to upload resources for %v, consider using --attach-resource. \n %v", c.applicationName, uploadErr)
 		}
@@ -590,40 +589,6 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 		Origin: csOrigin,
 	}
 	return c.deploy(ctx, deployAPI)
-}
-
-func (c *repositoryCharm) uploadExistingPendingResources(
-	appName string,
-	pendingResources []application.PendingResourceUpload,
-	api DeployerAPI) error {
-
-	if pendingResources == nil {
-		return nil
-	}
-	resourceApiClient, err := resources.NewClient(api)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	for _, pendingResUpload := range pendingResources {
-		t, typeParseErr := charmres.ParseType(pendingResUpload.Type)
-		if typeParseErr != nil {
-			return errors.Annotatef(typeParseErr, "invalid type %v for pending resource %v",
-				pendingResUpload.Type, pendingResUpload.Name)
-		}
-
-		r, openResErr := resource.OpenResource(pendingResUpload.Filename, t, c.model.Filesystem().Open)
-		if openResErr != nil {
-			return errors.Annotatef(openResErr, "unable to open resource %v", pendingResUpload.Name)
-		}
-
-		uploadErr := resourceApiClient.Upload(appName,
-			pendingResUpload.Name, pendingResUpload.Filename, pendingResUpload.PendingID, r)
-
-		if uploadErr != nil {
-			return errors.Trace(uploadErr)
-		}
-	}
-	return nil
 }
 
 func isEmptyOrigin(origin commoncharm.Origin, source commoncharm.OriginSource) bool {

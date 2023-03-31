@@ -603,9 +603,10 @@ func (dk *localCharmDeployerKind) Read(d factory) (Deployer, error) {
 
 func (dk *repositoryCharmDeployerKind) Read(d factory) (Deployer, error) {
 	return &repositoryCharm{
-		deployCharm:      dk.deployCharm,
-		userRequestedURL: dk.charmURL,
-		clock:            d.clock,
+		deployCharm:                    dk.deployCharm,
+		userRequestedURL:               dk.charmURL,
+		clock:                          d.clock,
+		uploadExistingPendingResources: UploadExistingPendingResources,
 	}, nil
 
 }
