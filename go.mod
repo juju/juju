@@ -44,13 +44,14 @@ require (
 	github.com/gorilla/schema v0.0.0-20160426231512-08023a0215e7
 	github.com/gorilla/websocket v1.5.0
 	github.com/gosuri/uitable v0.0.1
+	github.com/hashicorp/go-uuid v1.0.2
 	github.com/hashicorp/vault/api v1.7.2
 	github.com/im7mortal/kmutex v1.0.1
 	github.com/juju/ansiterm v1.0.0
 	github.com/juju/blobstore/v3 v3.0.2
 	github.com/juju/charm/v10 v10.0.0
 	github.com/juju/clock v1.0.3
-	github.com/juju/cmd/v3 v3.0.6
+	github.com/juju/cmd/v3 v3.0.7
 	github.com/juju/collections v1.0.2
 	github.com/juju/description/v4 v4.0.8
 	github.com/juju/errors v1.0.0
@@ -200,7 +201,6 @@ require (
 	github.com/hashicorp/go-secure-stdlib/parseutil v0.1.6 // indirect
 	github.com/hashicorp/go-secure-stdlib/strutil v0.1.2 // indirect
 	github.com/hashicorp/go-sockaddr v1.0.2 // indirect
-	github.com/hashicorp/go-uuid v1.0.2 // indirect
 	github.com/hashicorp/go-version v1.3.0 // indirect
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
