@@ -85,7 +85,7 @@ func (c *killCommand) Info() *cmd.Info {
 		Doc:     killDoc,
 		SeeAlso: []string{
 			"destroy-controller",
-			"unregister",		
+			"unregister",
 		},
 	})
 }
