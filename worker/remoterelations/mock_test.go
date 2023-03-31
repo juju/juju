@@ -452,10 +452,6 @@ func newMockSecretsRevisionWatcher() *mockSecretsRevisionWatcher {
 	return w
 }
 
-func (w *mockSecretsRevisionWatcher) kill(err error) {
-	w.Tomb.Kill(err)
-}
-
 func (w *mockSecretsRevisionWatcher) Changes() watcher.SecretRevisionChannel {
 	w.MethodCall(w, "Changes")
 	return w.changes

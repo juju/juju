@@ -47,11 +47,6 @@ func (s *objectsSuite) assertErrorResponse(c *gc.C, resp *http.Response, expCode
 	c.Check(charmResponse.Error, gc.Matches, expError)
 }
 
-func (s *objectsSuite) assertGetFileResponse(c *gc.C, resp *http.Response, expBody, expContentType string) {
-	body := apitesting.AssertResponse(c, resp, http.StatusOK, expContentType)
-	c.Check(string(body), gc.Equals, expBody)
-}
-
 func (s *objectsSuite) TestObjectsCharmsServedSecurely(c *gc.C) {
 	url := s.objectsCharmsURL("")
 	url.Scheme = "http"
