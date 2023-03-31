@@ -15,6 +15,7 @@ import (
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
@@ -26,6 +27,7 @@ const firewallerFacade = "Firewaller"
 type Client struct {
 	facade base.FacadeCaller
 	*common.ModelWatcher
+	*common.ControllerConfigAPI
 	*cloudspec.CloudSpecAPI
 }
 
@@ -37,9 +39,10 @@ func NewClient(caller base.APICaller) (*Client, error) {
 	}
 	facadeCaller := base.NewFacadeCaller(caller, firewallerFacade)
 	return &Client{
-		facade:       facadeCaller,
-		ModelWatcher: common.NewModelWatcher(facadeCaller),
-		CloudSpecAPI: cloudspec.NewCloudSpecAPI(facadeCaller, modelTag),
+		facade:              facadeCaller,
+		ModelWatcher:        common.NewModelWatcher(facadeCaller),
+		ControllerConfigAPI: common.NewControllerConfig(facadeCaller),
+		CloudSpecAPI:        cloudspec.NewCloudSpecAPI(facadeCaller, modelTag),
 	}, nil
 }
 
@@ -118,6 +121,38 @@ func (c *Client) WatchOpenedPorts() (watcher.StringsWatcher, error) {
 		return nil, result.Error
 	}
 	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), result)
+	return w, nil
+}
+
+// ModelFirewallRules returns the firewall rules that this model is
+// configured to open
+func (c *Client) ModelFirewallRules() (firewall.IngressRules, error) {
+	var results params.IngressRulesResult
+	if err := c.facade.FacadeCall("ModelFirewallRules", nil, &results); err != nil {
+		return nil, err
+	}
+	if results.Error != nil {
+		return nil, results.Error
+	}
+	rules := make(firewall.IngressRules, len(results.Rules))
+	for i, paramRule := range results.Rules {
+		rules[i] = firewall.NewIngressRule(paramRule.PortRange.NetworkPortRange(), paramRule.SourceCIDRs...)
+	}
+	return rules, nil
+}
+
+// WatchModelFirewallRules returns a NotifyWatcher that notifies of
+// potential changes to a model's configured firewall rules
+func (c *Client) WatchModelFirewallRules() (watcher.NotifyWatcher, error) {
+	var result params.NotifyWatchResult
+	err := c.facade.FacadeCall("WatchModelFirewallRules", nil, &result)
+	if err != nil {
+		return nil, err
+	}
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	w := apiwatcher.NewNotifyWatcher(c.facade.RawAPICaller(), result)
 	return w, nil
 }
 

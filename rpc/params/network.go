@@ -902,6 +902,16 @@ type OpenUnitPortRanges struct {
 	SubnetCIDRs []string `json:"subnet-cidrs"`
 }
 
+type IngressRulesResult struct {
+	Rules []IngressRule `json:"rules"`
+	Error *Error        `json:"error,omitempty"`
+}
+
+type IngressRule struct {
+	PortRange   PortRange `json:"port-range"`
+	SourceCIDRs []string  `json:"source-cidrs"`
+}
+
 // APIHostPortsResult holds the result of an APIHostPorts
 // call. Each element in the top level slice holds
 // the addresses for one API server.

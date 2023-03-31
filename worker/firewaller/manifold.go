@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/api/controller/remoterelations"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/models"
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/common"
 )
@@ -118,6 +119,8 @@ func (cfg ManifoldConfig) start(context dependency.Context) (worker.Worker, erro
 	// nil value, as it won't be used.
 	fwEnv, fwEnvOK := environ.(environs.Firewaller)
 
+	modelFw, _ := environ.(models.ModelFirewaller)
+
 	mode := environ.Config().FirewallMode()
 	if mode == config.FwNone {
 		cfg.Logger.Infof("stopping firewaller (not required)")
@@ -154,6 +157,7 @@ func (cfg ManifoldConfig) start(context dependency.Context) (worker.Worker, erro
 		RemoteRelationsApi:      cfg.NewRemoteRelationsFacade(apiConn),
 		FirewallerAPI:           firewallerAPI,
 		EnvironFirewaller:       fwEnv,
+		EnvironModelFirewaller:  modelFw,
 		EnvironInstances:        environ,
 		EnvironIPV6CIDRSupport:  envIPV6CIDRSupport,
 		Mode:                    mode,

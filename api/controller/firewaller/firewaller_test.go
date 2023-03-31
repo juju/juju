@@ -93,6 +93,50 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 }
 
+func (s *firewallerSuite) TestModelFirewallRules(c *gc.C) {
+	var callCount int
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "Firewaller")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "ModelFirewallRules")
+		c.Assert(arg, gc.IsNil)
+		c.Assert(result, gc.FitsTypeOf, &params.IngressRulesResult{})
+		*(result.(*params.IngressRulesResult)) = params.IngressRulesResult{
+			Error: &params.Error{Message: "FAIL"},
+		}
+		callCount++
+		return nil
+	})
+	client, err := firewaller.NewClient(apiCaller)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = client.ModelFirewallRules()
+	c.Check(err, gc.ErrorMatches, "FAIL")
+	c.Check(callCount, gc.Equals, 1)
+}
+
+func (s *firewallerSuite) TestWatchModelFirewallRules(c *gc.C) {
+	var callCount int
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "Firewaller")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "WatchModelFirewallRules")
+		c.Assert(arg, gc.IsNil)
+		c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResult{})
+		*(result.(*params.NotifyWatchResult)) = params.NotifyWatchResult{
+			Error: &params.Error{Message: "FAIL"},
+		}
+		callCount++
+		return nil
+	})
+	client, err := firewaller.NewClient(apiCaller)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = client.WatchModelFirewallRules()
+	c.Check(err, gc.ErrorMatches, "FAIL")
+	c.Check(callCount, gc.Equals, 1)
+}
+
 func (s *firewallerSuite) TestWatchEgressAddressesForRelation(c *gc.C) {
 	var callCount int
 	relationTag := names.NewRelationTag("mediawiki:db mysql:db")

@@ -22616,6 +22616,15 @@
                     },
                     "description": "ModelConfig returns the current model's configuration."
                 },
+                "ModelFirewallRules": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/IngressRulesResult"
+                        }
+                    },
+                    "description": "ModelFirewallRules returns the firewall rules that this model is\nconfigured to open"
+                },
                 "OpenedMachinePortRanges": {
                     "type": "object",
                     "properties": {
@@ -22708,6 +22717,15 @@
                         }
                     },
                     "description": "WatchIngressAddressesForRelations creates a watcher that returns the ingress networks\nthat have been recorded against the specified relations."
+                },
+                "WatchModelFirewallRules": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/NotifyWatchResult"
+                        }
+                    },
+                    "description": "WatchModelFirewallRules returns a NotifyWatcher that notifies of\npotential changes to a model's configured firewall rules"
                 },
                 "WatchModelMachineStartTimes": {
                     "type": "object",
@@ -23116,6 +23134,43 @@
                     "required": [
                         "underlay",
                         "overlay"
+                    ]
+                },
+                "IngressRule": {
+                    "type": "object",
+                    "properties": {
+                        "port-range": {
+                            "$ref": "#/definitions/PortRange"
+                        },
+                        "source-cidrs": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "port-range",
+                        "source-cidrs"
+                    ]
+                },
+                "IngressRulesResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "rules": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/IngressRule"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "rules"
                     ]
                 },
                 "LifeResult": {

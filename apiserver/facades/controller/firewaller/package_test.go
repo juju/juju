@@ -10,6 +10,7 @@ import (
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/firewaller_mocks.go github.com/juju/juju/apiserver/facades/controller/firewaller State,ControllerConfigAPI
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/watcher_mocks.go github.com/juju/juju/state NotifyWatcher
 
 func TestAll(t *stdtesting.T) {
 	testing.MgoTestPackage(t)
