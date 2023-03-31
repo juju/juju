@@ -77,21 +77,6 @@ func (s *ModelSuite) TestModelDestroyWithoutVolumes(c *gc.C) {
 	c.Assert(model.Life(), gc.Equals, state.Dying)
 }
 
-func (s *ModelSuite) TestNewModelNonExistentLocalUser(c *gc.C) {
-	cfg, _ := s.createTestModelConfig(c)
-	owner := names.NewUserTag("non-existent@local")
-
-	_, _, err := s.Controller.NewModel(state.ModelArgs{
-		Type:                    state.ModelTypeIAAS,
-		CloudName:               "dummy",
-		CloudRegion:             "dummy-region",
-		Config:                  cfg,
-		Owner:                   owner,
-		StorageProviderRegistry: storage.StaticProviderRegistry{},
-	})
-	c.Assert(err, gc.ErrorMatches, `cannot create model: user "non-existent" not found`)
-}
-
 func (s *ModelSuite) TestSetPassword(c *gc.C) {
 	testSetPassword(c, func() (state.Authenticator, error) {
 		return s.State.Model()

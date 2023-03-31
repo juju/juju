@@ -14,11 +14,11 @@ const showMachineCommandDoc = `
 Show a specified machine on a model.  Default format is in yaml,
 other formats can be specified with the "--format" option.
 Available formats are yaml, tabular, and json
+`
 
-Examples:
+const showMachineExamples = `
     juju show-machine 0
     juju show-machine 1 2 3
-
 `
 
 // NewShowMachineCommand returns a command that shows details on the specified machine[s].
@@ -41,10 +41,11 @@ type showMachineCommand struct {
 // Info implements Command.Info.
 func (c *showMachineCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "show-machine",
-		Args:    "<machineID> ...",
-		Purpose: "Show a machine's status.",
-		Doc:     showMachineCommandDoc,
+		Name:     "show-machine",
+		Args:     "<machineID> ...",
+		Purpose:  "Show a machine's status.",
+		Doc:      showMachineCommandDoc,
+		Examples: showMachineExamples,
 	})
 }
 

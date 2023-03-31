@@ -147,6 +147,26 @@ func (api *CrossModelRelationsAPI) RegisterRemoteRelations(
 	return results, nil
 }
 
+func (api *CrossModelRelationsAPI) checkMacaroonAuth(offerUUID string, relation params.RegisterRemoteRelationArg) (string, error) {
+	// Check that the supplied macaroon allows access.
+	auth := api.authCtxt.Authenticator(api.st.ModelUUID(), offerUUID)
+	attr, err := auth.CheckOfferMacaroons(api.ctx, offerUUID, relation.Macaroons, relation.BakeryVersion)
+	if err != nil {
+		return "", err
+	}
+	// The macaroon needs to be attenuated to a user.
+	username, ok := attr["username"]
+	if username == "" || !ok {
+		return "", apiservererrors.ErrPerm
+	}
+	return username, nil
+}
+
+func (api *CrossModelRelationsAPI) checkTokenAuth(offerUUID, authToken string) (string, error) {
+	auth := api.authCtxt.Authenticator(api.st.ModelUUID(), offerUUID)
+	return auth.CheckOfferToken(api.ctx, authToken)
+}
+
 func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.RegisterRemoteRelationArg) (*params.RemoteRelationDetails, error) {
 	logger.Debugf("register remote relation %+v", relation)
 	// TODO(wallyworld) - do this as a transaction so the result is atomic
@@ -158,16 +178,15 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 		return nil, errors.Trace(err)
 	}
 
-	// Check that the supplied macaroon allows access.
-	auth := api.authCtxt.Authenticator(api.st.ModelUUID(), appOffer.OfferUUID)
-	attr, err := auth.CheckOfferMacaroons(api.ctx, appOffer.OfferUUID, relation.Macaroons, relation.BakeryVersion)
-	if err != nil {
-		return nil, err
-	}
-	// The macaroon needs to be attenuated to a user.
-	username, ok := attr["username"]
-	if username == "" || !ok {
-		return nil, apiservererrors.ErrPerm
+	var username string
+	if relation.AuthToken != "" {
+		if username, err = api.checkTokenAuth(appOffer.OfferUUID, relation.AuthToken); err != nil {
+			return nil, errors.Trace(err)
+		}
+	} else {
+		if username, err = api.checkMacaroonAuth(appOffer.OfferUUID, relation); err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 	localApplicationName := appOffer.ApplicationName
 	localApp, err := api.st.Application(localApplicationName)

@@ -406,7 +406,7 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 	srv.shared.cancel = srv.tomb.Dying()
 
 	// The auth context for authenticating access to application offers.
-	srv.offerAuthCtxt, err = newOfferAuthcontext(cfg.StatePool)
+	srv.offerAuthCtxt, err = newOfferAuthContext(cfg.StatePool, srv.jwtTokenService)
 	if err != nil {
 		unsubscribeControllerConfig()
 		return nil, errors.Trace(err)
@@ -1115,7 +1115,6 @@ func (srv *Server) serveConn(
 	if err != nil {
 		conn.ServeRoot(&errRoot{errors.Trace(err)}, recorderFactory, serverError)
 	} else {
-		srv.offerAuthCtxt = srv.offerAuthCtxt.WithPermissionChecker(h.EntityHasPermission)
 		srv.shared.entityHasPermission = h.EntityHasPermission
 		// Set up the admin apis used to accept logins and direct
 		// requests to the relevant business facade.

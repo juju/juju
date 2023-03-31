@@ -44,19 +44,20 @@ const scaleApplicationDoc = `
 Scale a k8s application by specifying how many units there should be.
 The new number of units can be greater or less than the current number, thus
 allowing both scale up and scale down.
+`
 
-Examples:
-
+const scaleApplicationExamples = `
     juju scale-application mariadb 2
 `
 
 // Info implements cmd.Command.
 func (c *scaleApplicationCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "scale-application",
-		Args:    "<application> <scale>",
-		Purpose: "Set the desired number of application units.",
-		Doc:     scaleApplicationDoc,
+		Name:     "scale-application",
+		Args:     "<application> <scale>",
+		Purpose:  "Set the desired number of application units.",
+		Doc:      scaleApplicationDoc,
+		Examples: scaleApplicationExamples,
 	})
 }
 

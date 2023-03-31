@@ -21,17 +21,11 @@ import (
 
 var whoAmIDetails = `
 Display the current controller, model and logged in user name. 
-
-Examples:
-    juju whoami
-
-See also:
-    controllers
-    login
-    logout
-    models
-    users
 `[1:]
+
+const whoAmIExamples = `
+    juju whoami
+`
 
 // NewWhoAmICommand returns a command to print login details.
 func NewWhoAmICommand() cmd.Command {
@@ -44,9 +38,17 @@ func NewWhoAmICommand() cmd.Command {
 // Info implements Command.Info
 func (c *whoAmICommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "whoami",
-		Purpose: "Print current login details.",
-		Doc:     whoAmIDetails,
+		Name:     "whoami",
+		Purpose:  "Print current login details.",
+		Doc:      whoAmIDetails,
+		Examples: whoAmIExamples,
+		SeeAlso: []string{
+			"controllers",
+			"login",
+			"logout",
+			"models",
+			"users",
+		},
 	})
 }
 

@@ -38,20 +38,16 @@ The command will fail if existing constraints, bindings or controller settings a
 
 If the --force option is specified, the space will be deleted even if there are existing bindings, constraints or settings.
 
-Examples:
+`
 
+const removeCommandExamples = `
 Remove a space by name:
+
 	juju remove-space db-space
 
 Remove a space by name with force, without need for confirmation:
-	juju remove-space db-space --force -y
 
-See also:
-	add-space
-	spaces
-	reload-spaces
-	rename-space
-	show-space
+	juju remove-space db-space --force -y
 `
 
 var removeSpaceMsgNoBounds = `
@@ -68,10 +64,18 @@ WARNING! This command will remove the space with the following existing boundari
 // Info is defined on the cmd.Command interface.
 func (c *RemoveCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "remove-space",
-		Args:    "<name>",
-		Purpose: "Remove a network space.",
-		Doc:     strings.TrimSpace(removeCommandDoc),
+		Name:     "remove-space",
+		Args:     "<name>",
+		Purpose:  "Remove a network space.",
+		Doc:      strings.TrimSpace(removeCommandDoc),
+		Examples: removeCommandExamples,
+		SeeAlso: []string{
+			"add-space",
+			"spaces",
+			"reload-spaces",
+			"rename-space",
+			"show-space",
+		},
 	})
 }
 

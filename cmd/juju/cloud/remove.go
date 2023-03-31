@@ -27,15 +27,13 @@ if it is not in use.
 
 If --client is specified, Juju removes the cloud from this client.
 
-Examples:
+`
+
+const usageRemoveCloudExamples = `
     juju remove-cloud mycloud
     juju remove-cloud mycloud --client
     juju remove-cloud mycloud --controller mycontroller
-
-See also:
-    add-cloud
-    update-cloud
-    clouds`
+`
 
 type removeCloudCommand struct {
 	modelcmd.OptionalControllerCommand
@@ -74,10 +72,16 @@ func (c *removeCloudCommand) cloudAPI() (RemoveCloudAPI, error) {
 
 func (c *removeCloudCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "remove-cloud",
-		Args:    "<cloud name>",
-		Purpose: usageRemoveCloudSummary,
-		Doc:     usageRemoveCloudDetails,
+		Name:     "remove-cloud",
+		Args:     "<cloud name>",
+		Purpose:  usageRemoveCloudSummary,
+		Doc:      usageRemoveCloudDetails,
+		Examples: usageRemoveCloudExamples,
+		SeeAlso: []string{
+			"add-cloud",
+			"update-cloud",
+			"clouds",
+		},
 	})
 }
 

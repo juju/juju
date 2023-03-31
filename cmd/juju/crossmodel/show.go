@@ -19,8 +19,9 @@ This command is intended to enable users to learn more about the
 application offered from a particular URL. In addition to the URL of
 the offer, extra information is provided from the readme file of the
 charm being offered.
+`
 
-Examples:
+const showCommandExamples = `
 To show the extended information for the application 'prod' offered
 from the model 'default' on the same Juju controller:
 
@@ -38,8 +39,6 @@ the model 'default' on an accessible controller named 'controller':
 
     juju show-offer controller:default.prod
 
-See also:
-  find-offers
 `
 
 type showCommand struct {
@@ -72,10 +71,14 @@ func (c *showCommand) Init(args []string) (err error) {
 // Info implements Command.Info.
 func (c *showCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "show-offer",
-		Args:    "[<controller>:]<offer url>",
-		Purpose: "Shows extended information about the offered application.",
-		Doc:     showCommandDoc,
+		Name:     "show-offer",
+		Args:     "[<controller>:]<offer url>",
+		Purpose:  "Shows extended information about the offered application.",
+		Doc:      showCommandDoc,
+		Examples: showCommandExamples,
+		SeeAlso: []string{
+			"find-offers",
+		},
 	})
 }
 

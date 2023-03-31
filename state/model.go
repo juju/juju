@@ -379,12 +379,6 @@ func (ctlr *Controller) NewModel(args ModelArgs) (_ *Model, _ *State, err error)
 	}
 	prereqOps = append(prereqOps, assertCloudCredentialOp)
 
-	if owner.IsLocal() {
-		if _, err := st.User(owner); err != nil {
-			return nil, nil, errors.Annotate(err, "cannot create model")
-		}
-	}
-
 	uuid := args.Config.UUID()
 	session := st.session.Copy()
 	newSt, err := newState(

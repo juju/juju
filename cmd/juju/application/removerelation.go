@@ -41,7 +41,9 @@ However, at times, there is a need to remove a relation ignoring
 all operational errors. In these rare cases, use --force option but note 
 that --force will remove a relation without giving it the opportunity to be removed cleanly.
 
-Examples:
+`
+
+const helpExamples = `
     juju remove-relation mysql wordpress
     juju remove-relation 4
     juju remove-relation 4 --force
@@ -52,10 +54,7 @@ at least once - the following examples will all have the same effect:
     juju remove-relation mediawiki:db mariadb:db
     juju remove-relation mediawiki mariadb:db
     juju remove-relation mediawiki:db mariadb
- 
-See also: 
-    integrate
-    remove-application`
+`
 
 // NewRemoveRelationCommand returns a command to remove a relation between 2 applications.
 func NewRemoveRelationCommand() cmd.Command {
@@ -84,10 +83,15 @@ type removeRelationCommand struct {
 
 func (c *removeRelationCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "remove-relation",
-		Args:    "<application1>[:<relation name1>] <application2>[:<relation name2>] | <relation-id>",
-		Purpose: helpSummary,
-		Doc:     helpDetails,
+		Name:     "remove-relation",
+		Args:     "<application1>[:<relation name1>] <application2>[:<relation name2>] | <relation-id>",
+		Purpose:  helpSummary,
+		Doc:      helpDetails,
+		Examples: helpExamples,
+		SeeAlso: []string{
+			"integrate",
+			"remove-application",
+		},
 	})
 }
 

@@ -1,0 +1,12 @@
+applications:
+    ubuntu:
+        charm: ubuntu
+        scale: 1
+
+---
+
+applications:
+    ubuntu:
+        series: jammy
+        scale: 2
+        constraints: image-id=ubuntu-bf2  

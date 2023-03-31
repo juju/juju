@@ -57,7 +57,7 @@ func (s *applicationOffersSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.bakery = &mockBakeryService{caveats: make(map[string][]checkers.Caveat)}
 	thirdPartyKey := bakery.MustGenerateKey()
-	s.authContext, err = crossmodel.NewAuthContext(s.mockState, thirdPartyKey, s.bakery)
+	s.authContext, err = crossmodel.NewAuthContext(s.mockState, thirdPartyKey, s.bakery, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	api, err := applicationoffers.CreateOffersAPI(
 		getApplicationOffers, getEnviron, getFakeControllerInfo,
@@ -1150,7 +1150,7 @@ func (s *consumeSuite) SetUpTest(c *gc.C) {
 	}
 	var err error
 	thirdPartyKey := bakery.MustGenerateKey()
-	s.authContext, err = crossmodel.NewAuthContext(s.mockState, thirdPartyKey, s.bakery)
+	s.authContext, err = crossmodel.NewAuthContext(s.mockState, thirdPartyKey, s.bakery, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	api, err := applicationoffers.CreateOffersAPI(
 		getApplicationOffers, getEnviron, getFakeControllerInfo,
@@ -1193,18 +1193,24 @@ func (s *consumeSuite) TestConsumeDetailsNoPermission(c *gc.C) {
 }
 
 func (s *consumeSuite) TestConsumeDetailsWithPermission(c *gc.C) {
-	s.assertConsumeDetailsWithPermission(c, false)
+	s.assertConsumeDetailsWithPermission(c, false, "")
 }
 
 func (s *consumeSuite) TestConsumeDetailsSpecifiedUser(c *gc.C) {
-	s.assertConsumeDetailsWithPermission(c, true)
+	s.assertConsumeDetailsWithPermission(c, true, "")
 }
 
-func (s *consumeSuite) assertConsumeDetailsWithPermission(c *gc.C, specifiedUser bool) {
+func (s *consumeSuite) TestConsumeDetailsWithAuthToken(c *gc.C) {
+	s.authorizer.AuthToken = "auth-token"
+	s.assertConsumeDetailsWithPermission(c, true, "auth-token")
+}
+
+func (s *consumeSuite) assertConsumeDetailsWithPermission(c *gc.C, specifiedUser bool, authToken string) {
 	s.setupOffer()
 	st := s.mockStatePool.st[testing.ModelTag.Id()]
 	st.(*mockState).users["someone"] = &mockUser{"someone"}
 	apiUser := names.NewUserTag("someone")
+	s.authorizer.HasConsumeTag = apiUser
 	offer := names.NewApplicationOfferTag("hosted-mysql")
 	err := st.CreateOfferAccess(offer, apiUser, permission.ConsumeAccess)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1250,6 +1256,11 @@ func (s *consumeSuite) assertConsumeDetailsWithPermission(c *gc.C, specifiedUser
 		Addrs:         []string{"192.168.1.1:17070"},
 		CACert:        testing.CACert,
 	})
+	c.Assert(results.Results[0].AuthToken, gc.Equals, authToken)
+	if authToken != "" {
+		c.Assert(results.Results[0].Macaroon, gc.IsNil)
+		return
+	}
 	c.Assert(results.Results[0].Macaroon.Id(), jc.DeepEquals, []byte("id"))
 
 	cav := s.bakery.caveats[string(results.Results[0].Macaroon.Id())]
@@ -1297,6 +1308,7 @@ func (s *consumeSuite) TestConsumeDetailsDefaultEndpoint(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.authorizer.Tag = apiUser
+	s.authorizer.HasConsumeTag = apiUser
 	results, err := s.api.GetConsumeDetails(params.ConsumeOfferDetailsArg{
 		OfferURLs: params.OfferURLs{
 			OfferURLs: []string{"fred@external/prod.hosted-mysql"},

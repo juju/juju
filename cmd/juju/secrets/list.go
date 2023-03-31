@@ -32,8 +32,9 @@ type listSecretsCommand struct {
 
 var listSecretsDoc = `
 Displays the secrets available for charms to use if granted access.
+`
 
-Examples:
+const listSecretsExamples = `
     juju secrets
     juju secrets --format yaml
 `
@@ -64,10 +65,11 @@ func (c *listSecretsCommand) secretsAPI() (ListSecretsAPI, error) {
 // Info implements cmd.Info.
 func (c *listSecretsCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "secrets",
-		Purpose: "Lists secrets available in the model.",
-		Doc:     listSecretsDoc,
-		Aliases: []string{"list-secrets"},
+		Name:     "secrets",
+		Purpose:  "Lists secrets available in the model.",
+		Doc:      listSecretsDoc,
+		Examples: listSecretsExamples,
+		Aliases:  []string{"list-secrets"},
 	})
 }
 

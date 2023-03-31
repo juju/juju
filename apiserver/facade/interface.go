@@ -204,6 +204,9 @@ type Authorizer interface {
 	// target by the given entity.
 	EntityHasPermission(entity names.Tag, operation permission.Access, target names.Tag) (bool, error)
 
+	// AuthTokenString returns the jwt passed to login.
+	AuthTokenString() string
+
 	// ConnectedModel returns the UUID of the model to which the API
 	// connection was made.
 	ConnectedModel() string

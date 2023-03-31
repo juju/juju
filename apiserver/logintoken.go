@@ -46,11 +46,11 @@ func (j *jwtService) RegisterJWKSCache(ctx context.Context, client *http.Client)
 // Parse parses the bytes into a jwt.
 func (j *jwtService) Parse(ctx context.Context, tok string) (jwt.Token, state.Entity, error) {
 	if j == nil || j.refreshURL == "" {
-		return nil, nil, errors.New("no jwt loginToken parser configured")
+		return nil, nil, errors.New("no jwt authToken parser configured")
 	}
 	tokBytes, err := base64.StdEncoding.DecodeString(tok)
 	if err != nil {
-		return nil, nil, errors.Annotate(err, "invalid jwt loginToken in request")
+		return nil, nil, errors.Annotate(err, "invalid jwt authToken in request")
 	}
 
 	jwkSet, err := j.cache.Get(ctx, j.refreshURL)
@@ -73,7 +73,7 @@ func (j *jwtService) Parse(ctx context.Context, tok string) (jwt.Token, state.En
 func userFromToken(token jwt.Token) (state.Entity, error) {
 	userTag, err := names.ParseUserTag(token.Subject())
 	if err != nil {
-		return nil, errors.Annotate(err, "invalid user tag in loginToken")
+		return nil, errors.Annotate(err, "invalid user tag in authToken")
 	}
 	return tokenEntity{userTag}, nil
 }
@@ -94,7 +94,7 @@ func permissionFromToken(token jwt.Token, subject names.Tag) (permission.Access,
 	}
 	accessClaims, ok := token.PrivateClaims()["access"].(map[string]interface{})
 	if !ok || len(accessClaims) == 0 {
-		logger.Warningf("loginToken contains invalid access claims: %v", token.PrivateClaims()["access"])
+		logger.Warningf("authToken contains invalid access claims: %v", token.PrivateClaims()["access"])
 		return permission.NoAccess, nil
 	}
 	access, ok := accessClaims[subject.String()]

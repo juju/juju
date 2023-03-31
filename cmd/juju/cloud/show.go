@@ -44,19 +44,14 @@ description) specific to the cloud are displayed if available.
 Use --controller option to show a cloud from a controller.
 
 Use --client option to show a cloud known on this client.
+`
 
-Examples:
-
+const showCloudExamples = `
     juju show-cloud google
     juju show-cloud azure-china --output ~/azure_cloud_details.txt
     juju show-cloud myopenstack --controller mycontroller
     juju show-cloud myopenstack --client
     juju show-cloud myopenstack --client --controller mycontroller
-
-See also:
-    clouds
-    add-cloud
-    update-cloud
 `
 
 type showCloudAPI interface {
@@ -109,10 +104,16 @@ func (c *showCloudCommand) Init(args []string) error {
 
 func (c *showCloudCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "show-cloud",
-		Args:    "<cloud name>",
-		Purpose: "Shows detailed information for a cloud.",
-		Doc:     showCloudDoc,
+		Name:     "show-cloud",
+		Args:     "<cloud name>",
+		Purpose:  "Shows detailed information for a cloud.",
+		Doc:      showCloudDoc,
+		Examples: showCloudExamples,
+		SeeAlso: []string{
+			"clouds",
+			"add-cloud",
+			"update-cloud",
+		},
 	})
 }
 

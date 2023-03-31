@@ -22,8 +22,9 @@ The command takes deployed unit names as an argument.
 
 Optionally, relation data for only a specified endpoint
 or related unit may be shown, or just the application data. 
+`
 
-Examples:
+const showUnitExamples = `
     juju show-unit mysql/0
     juju show-unit mysql/0 wordpress/1
     juju show-unit mysql/0 --app
@@ -55,10 +56,11 @@ type showUnitCommand struct {
 // Info implements Command.Info.
 func (c *showUnitCommand) Info() *cmd.Info {
 	showCmd := &cmd.Info{
-		Name:    "show-unit",
-		Args:    "<unit name>",
-		Purpose: "Displays information about a unit.",
-		Doc:     showUnitDoc,
+		Name:     "show-unit",
+		Args:     "<unit name>",
+		Purpose:  "Displays information about a unit.",
+		Doc:      showUnitDoc,
+		Examples: showUnitExamples,
 	}
 	return jujucmd.Info(showCmd)
 }

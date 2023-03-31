@@ -82,10 +82,6 @@ This command only starts a model migration - it does not wait for its
 completion. The progress of a migration can be tracked using the
 "status" command and by consulting the logs.
 
-See also:
-    login
-    controllers
-    status
 `
 
 // Info implements cmd.Command.
@@ -95,6 +91,11 @@ func (c *migrateCommand) Info() *cmd.Info {
 		Args:    "<model-name> <target-controller-name>",
 		Purpose: "Migrate a workload model to another controller.",
 		Doc:     migrateDoc,
+		SeeAlso: []string{
+			"login",
+			"controllers",
+			"status",
+		},
 	})
 }
 

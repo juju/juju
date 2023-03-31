@@ -1481,11 +1481,12 @@ func (h *bundleHandler) consumeOffer(change *bundlechanges.ConsumeOfferChange) e
 	offerURL.Source = url.Source
 	consumeDetails.Offer.OfferURL = offerURL.String()
 
-	// construct the cosume application arguments
+	// construct the consume application arguments
 	arg := crossmodel.ConsumeApplicationArgs{
 		Offer:            *consumeDetails.Offer,
 		ApplicationAlias: p.ApplicationName,
 		Macaroon:         consumeDetails.Macaroon,
+		AuthToken:        consumeDetails.AuthToken,
 	}
 	if consumeDetails.ControllerInfo != nil {
 		controllerTag, err := names.ParseControllerTag(consumeDetails.ControllerInfo.ControllerTag)

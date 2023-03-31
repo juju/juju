@@ -47,6 +47,7 @@ type remoteApplicationDoc struct {
 	IsConsumerProxy      bool                `bson:"is-consumer-proxy"`
 	Version              int                 `bson:"version"`
 	Macaroon             string              `bson:"macaroon,omitempty"`
+	AuthToken            string              `bson:"auth-token,omitempty"`
 }
 
 // remoteEndpointDoc represents the internal state of a remote application endpoint in MongoDB.
@@ -822,6 +823,11 @@ func (a *RemoteApplication) Macaroon() (*macaroon.Macaroon, error) {
 	return &mac, nil
 }
 
+// AuthToken returns the encoded JWT.
+func (s *RemoteApplication) AuthToken() string {
+	return s.doc.AuthToken
+}
+
 // String returns the application name.
 func (a *RemoteApplication) String() string {
 	return a.doc.Name
@@ -894,6 +900,9 @@ type AddRemoteApplicationParams struct {
 
 	// Macaroon is used for authentication on the offering side.
 	Macaroon *macaroon.Macaroon
+
+	// AuthToken is the JWT used for auth.
+	AuthToken string
 }
 
 // Validate returns an error if there's a problem with the
@@ -969,6 +978,7 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 		IsConsumerProxy:      args.IsConsumerProxy,
 		Version:              version,
 		Macaroon:             macJSON,
+		AuthToken:            args.AuthToken,
 	}
 	eps := make([]remoteEndpointDoc, len(args.Endpoints))
 	for i, ep := range args.Endpoints {

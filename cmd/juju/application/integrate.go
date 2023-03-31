@@ -343,6 +343,7 @@ func (c *addRelationCommand) maybeConsumeOffer(targetClient applicationAddRelati
 		Offer:            *consumeDetails.Offer,
 		ApplicationAlias: c.remoteEndpoint.ApplicationName,
 		Macaroon:         consumeDetails.Macaroon,
+		AuthToken:        consumeDetails.AuthToken,
 	}
 	if consumeDetails.ControllerInfo != nil {
 		controllerTag, err := names.ParseControllerTag(consumeDetails.ControllerInfo.ControllerTag)

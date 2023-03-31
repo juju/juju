@@ -24,18 +24,14 @@ Show information about a user.`[1:]
 var helpDetails = `
 By default, the YAML format is used and the user name is the current
 user.
+`[1:]
 
-
-Examples:
+const helpExamples = `
     juju show-user
     juju show-user jsmith
     juju show-user --format json
     juju show-user --format yaml
-    
-See also: 
-    add-user
-    register
-    users`[1:]
+`
 
 // UserInfoAPI defines the API methods that the info command uses.
 type UserInfoAPI interface {
@@ -83,10 +79,16 @@ type UserInfo struct {
 // Info implements Command.Info.
 func (c *infoCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "show-user",
-		Args:    "[<user name>]",
-		Purpose: helpSummary,
-		Doc:     helpDetails,
+		Name:     "show-user",
+		Args:     "[<user name>]",
+		Purpose:  helpSummary,
+		Doc:      helpDetails,
+		Examples: helpExamples,
+		SeeAlso: []string{
+			"add-user",
+			"register",
+			"users",
+		},
 	})
 }
 

@@ -12,6 +12,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
+	"github.com/lestrrat-go/jwx/v2/jwt"
 	"gopkg.in/macaroon.v2"
 	"gopkg.in/yaml.v2"
 
@@ -60,13 +61,14 @@ func (CrossModelAuthorizer) AuthorizeOps(ctx context.Context, authorizedOp baker
 	return allowed, nil, nil
 }
 
-type entityHasPermissionFunc func(entity names.Tag, operation permission.Access, target names.Tag) (bool, error)
+type tokenPermissionFunc func(token jwt.Token, subject names.Tag) (permission.Access, error)
 
 // AuthContext is used to validate macaroons used to access
 // application offers.
 type AuthContext struct {
-	systemState   Backend
-	hasPermission entityHasPermissionFunc
+	systemState     Backend
+	tokenPermission tokenPermissionFunc
+	tokenParser     authentication.TokenParser
 
 	clock              clock.Clock
 	offerThirdPartyKey *bakery.KeyPair
@@ -81,15 +83,16 @@ func NewAuthContext(
 	systemState Backend,
 	offerThirdPartyKey *bakery.KeyPair,
 	offerBakery authentication.ExpirableStorageBakery,
+	tokenParser authentication.TokenParser,
+	tokenPermission tokenPermissionFunc,
 ) (*AuthContext, error) {
 	ctxt := &AuthContext{
 		systemState:        systemState,
 		clock:              clock.WallClock,
 		offerBakery:        offerBakery,
 		offerThirdPartyKey: offerThirdPartyKey,
-		hasPermission: func(entity names.Tag, operation permission.Access, target names.Tag) (bool, error) {
-			return common.HasPermission(systemState.UserPermission, entity, operation, target)
-		},
+		tokenParser:        tokenParser,
+		tokenPermission:    tokenPermission,
 	}
 	return ctxt, nil
 }
@@ -107,14 +110,6 @@ func (a *AuthContext) WithClock(clock clock.Clock) *AuthContext {
 func (a *AuthContext) WithDischargeURL(offerAccessEndpoint string) *AuthContext {
 	ctxtCopy := *a
 	ctxtCopy.offerAccessEndpoint = offerAccessEndpoint
-	return &ctxtCopy
-}
-
-// WithPermissionChecker creates a new authentication context
-// using the specified permission checker func.
-func (a *AuthContext) WithPermissionChecker(hasPermission entityHasPermissionFunc) *AuthContext {
-	ctxtCopy := *a
-	ctxtCopy.hasPermission = hasPermission
 	return &ctxtCopy
 }
 
@@ -159,7 +154,7 @@ func (a *AuthContext) CheckOfferAccessCaveat(caveat string) (*offerPermissionChe
 // returns a list of caveats to add to the discharge macaroon.
 func (a *AuthContext) CheckLocalAccessRequest(details *offerPermissionCheck) ([]checkers.Caveat, error) {
 	authlogger.Debugf("authenticate local offer access: %+v", details)
-	if err := a.checkOfferAccess(details.User, details.OfferUUID); err != nil {
+	if err := a.checkOfferAccess(a.systemState.UserPermission, details.User, details.OfferUUID); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -175,38 +170,40 @@ func (a *AuthContext) CheckLocalAccessRequest(details *offerPermissionCheck) ([]
 	return firstPartyCaveats, nil
 }
 
-func (a *AuthContext) checkOfferAccess(username, offerUUID string) error {
+type userAccessFunc func(names.UserTag, names.Tag) (permission.Access, error)
+
+func (a *AuthContext) checkOfferAccess(userAccess userAccessFunc, username, offerUUID string) error {
 	userTag := names.NewUserTag(username)
-	isAdmin, err := a.hasAdminAccess(userTag, permission.SuperuserAccess, a.systemState.ControllerTag())
-	if err != nil {
+	isAdmin, err := a.hasAccess(userAccess, userTag, permission.SuperuserAccess, a.systemState.ControllerTag())
+	if err != nil && !errors.Is(err, &apiservererrors.AccessRequiredError{}) {
 		return apiservererrors.ErrPerm
 	}
 	if isAdmin {
 		return nil
 	}
-	isAdmin, err = a.hasAdminAccess(userTag, permission.AdminAccess, a.systemState.ModelTag())
-	if err != nil {
+	isAdmin, err = a.hasAccess(userAccess, userTag, permission.AdminAccess, a.systemState.ModelTag())
+	if err != nil && !errors.Is(err, &apiservererrors.AccessRequiredError{}) {
 		return apiservererrors.ErrPerm
 	}
 	if isAdmin {
 		return nil
 	}
-	access, err := a.systemState.GetOfferAccess(offerUUID, userTag)
-	if err != nil && !errors.IsNotFound(err) {
-		return apiservererrors.ErrPerm
+	ok, err := a.hasAccess(userAccess, userTag, permission.ConsumeAccess, names.NewApplicationOfferTag(offerUUID))
+	if errors.Is(err, &apiservererrors.AccessRequiredError{}) {
+		return err
 	}
-	if !access.EqualOrGreaterOfferAccessThan(permission.ConsumeAccess) {
+	if !ok || err != nil {
 		return apiservererrors.ErrPerm
 	}
 	return nil
 }
 
-func (api *AuthContext) hasAdminAccess(userTag names.UserTag, access permission.Access, target names.Tag) (bool, error) {
-	isAdmin, err := api.hasPermission(userTag, access, target)
+func (a *AuthContext) hasAccess(userAccess func(names.UserTag, names.Tag) (permission.Access, error), userTag names.UserTag, access permission.Access, target names.Tag) (bool, error) {
+	has, err := common.HasPermission(userAccess, userTag, access, target)
 	if errors.IsNotFound(err) {
 		return false, nil
 	}
-	return isAdmin, err
+	return has, err
 }
 
 func (a *AuthContext) offerPermissionYaml(sourceModelUUID, username, offerURL, relationKey string, permission permission.Access) (string, error) {
@@ -438,4 +435,20 @@ func (a *authenticator) CheckRelationMacaroons(ctx context.Context, relationTag 
 	}
 	_, err := a.checkMacaroons(ctx, mac, version, requiredValues, crossModelRelateOp(relationTag.Id()))
 	return err
+}
+
+// CheckOfferToken verifies that session auth token allows access to the offer.
+func (a *authenticator) CheckOfferToken(ctx context.Context, authToken string) (string, error) {
+	tok, entity, err := a.ctxt.tokenParser.Parse(ctx, authToken)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	userAccess := func(user names.UserTag, target names.Tag) (permission.Access, error) {
+		if entity.Tag() != user {
+			return permission.NoAccess, nil
+		}
+		return a.ctxt.tokenPermission(tok, target)
+	}
+	username := entity.Tag().Id()
+	return username, a.ctxt.checkOfferAccess(userAccess, username, a.offerUUID)
 }

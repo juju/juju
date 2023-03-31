@@ -66,6 +66,9 @@ type ConsumeApplicationArgs struct {
 	// Macaroon is used for authentication.
 	Macaroon *macaroon.Macaroon
 
+	// AuthToken is the JWT used for auth.
+	AuthToken string
+
 	// ControllerInfo contains connection details to the controller
 	// hosting the offer.
 	ControllerInfo *ControllerInfo

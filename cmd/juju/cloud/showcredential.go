@@ -78,11 +78,19 @@ func (c *showCredentialCommand) Init(args []string) error {
 
 func (c *showCredentialCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "show-credential",
-		Args:    "[<cloud name> <credential name>]",
-		Purpose: "Shows credential information stored either on this client or on a controller.",
-		Doc:     showCredentialDoc,
-		Aliases: []string{"show-credentials"},
+		Name:     "show-credential",
+		Args:     "[<cloud name> <credential name>]",
+		Purpose:  "Shows credential information stored either on this client or on a controller.",
+		Doc:      showCredentialDoc,
+		Aliases:  []string{"show-credentials"},
+		Examples: showCredentialExamples,
+		SeeAlso: []string{
+			"credentials",
+			"add-credential",
+			"update-credential",
+			"remove-credential",
+			"autoload-credentials",
+		},
 	})
 }
 
@@ -261,20 +269,13 @@ To see secrets, content attributes marked as hidden, use --show-secrets option.
 To see credentials from this client, use "--client" option.
 
 To see credentials from a controller, use "--controller" option.
+`
 
-Examples:
-
+const showCredentialExamples = `
     juju show-credential google my-admin-credential
     juju show-credentials 
     juju show-credentials --controller mycontroller --client 
     juju show-credentials --controller mycontroller 
     juju show-credentials --client
     juju show-credentials --show-secrets
-
-See also: 
-    credentials
-    add-credential
-    update-credential
-    remove-credential
-    autoload-credentials
 `

@@ -23,14 +23,15 @@ const showApplicationDoc = `
 The command takes deployed application names or aliases as an argument.
 
 The command does an exact search. It does not support wildcards.
+`
 
-Examples:
+const showApplicationExamples = `
     juju show-application mysql
     juju show-application mysql wordpress
 
     juju show-application myapplication
-      where "myapplication" is the application name alias, see "juju help deploy" for more information
 
+where "myapplication" is the application name alias; see "juju help deploy" for more information.
 `
 
 // NewShowApplicationCommand returns a command that displays applications info.
@@ -54,10 +55,11 @@ type showApplicationCommand struct {
 // Info implements Command.Info.
 func (c *showApplicationCommand) Info() *cmd.Info {
 	showCmd := &cmd.Info{
-		Name:    "show-application",
-		Args:    "<application name or alias>",
-		Purpose: "Displays information about an application.",
-		Doc:     showApplicationDoc,
+		Name:     "show-application",
+		Args:     "<application name or alias>",
+		Purpose:  "Displays information about an application.",
+		Doc:      showApplicationDoc,
+		Examples: showApplicationExamples,
 	}
 	return jujucmd.Info(showCmd)
 }

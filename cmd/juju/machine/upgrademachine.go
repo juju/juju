@@ -143,8 +143,9 @@ running an unsupported base may cause unexpected behavior. Alternately, if the
 requested base is supported in later revisions of the charm, upgrade-charm can
 run beforehand.
 
-Examples:
+`
 
+const upgradeMachineExamples = `
 Prepare machine 3 for upgrade to base "ubuntu@18.04"":
 
 	juju upgrade-machine 3 prepare ubuntu@18.04
@@ -158,20 +159,21 @@ Complete upgrade of machine 5, indicating that all automatic and any
 necessary manual upgrade steps have completed successfully:
 
 	juju upgrade-machine 5 complete
-
-See also:
-    machines
-    status
-    refresh
-    set-application-base
 `
 
 func (c *upgradeMachineCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "upgrade-machine",
-		Args:    "<machine> <command> [args]",
-		Purpose: "Upgrade the Ubuntu base of a machine.",
-		Doc:     upgradeMachineDoc,
+		Name:     "upgrade-machine",
+		Args:     "<machine> <command> [args]",
+		Purpose:  "Upgrade the Ubuntu base of a machine.",
+		Doc:      upgradeMachineDoc,
+		Examples: upgradeMachineExamples,
+		SeeAlso: []string{
+			"machines",
+			"status",
+			"refresh",
+			"set-application-base",
+		},
 	})
 }
 
