@@ -515,9 +515,9 @@ func (a *RemoteApplication) removeOps(asserts bson.D) ([]txn.Op, error) {
 	tokenOps := r.removeRemoteEntityOps(a.Tag())
 	ops = append(ops, tokenOps...)
 
-	secretConsumerPermissionsOps, err := s.st.removeConsumerSecretPermissionOps(s.Tag())
+	secretConsumerPermissionsOps, err := a.st.removeConsumerSecretPermissionOps(a.Tag())
 	if err != nil {
-		return nil, errors.Annotatef(err, "deleting secret consumer records for %q", s.Name())
+		return nil, errors.Annotatef(err, "deleting secret consumer records for %q", a.Name())
 	}
 	ops = append(ops, secretConsumerPermissionsOps...)
 
