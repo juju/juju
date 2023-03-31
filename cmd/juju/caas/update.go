@@ -55,17 +55,15 @@ Use --controller option to update a k8s cloud on a controller.
 
 Use --client to update a k8s cloud definition on this client.
 
-Examples:
+`
+
+const usageUpdateCAASExamples = `
     juju update-k8s microk8s
     juju update-k8s myk8s -f path/to/k8s.yaml
     juju update-k8s myk8s -f path/to/k8s.yaml --controller mycontroller
     juju update-k8s myk8s --controller mycontroller
     juju update-k8s myk8s --client --controller mycontroller
     juju update-k8s myk8s --client -f path/to/k8s.yaml
-
-See also:
-    add-k8s
-    remove-k8s
 `
 
 // UpdateCAASCommand is the command that allows you to update a caas cloud.
@@ -119,10 +117,15 @@ func newUpdateCAASCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
 // Info returns help information about the command.
 func (c *UpdateCAASCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "update-k8s",
-		Args:    "<k8s name>",
-		Purpose: usageUpdateCAASSummary,
-		Doc:     usageUpdateCAASDetails,
+		Name:     "update-k8s",
+		Args:     "<k8s name>",
+		Purpose:  usageUpdateCAASSummary,
+		Doc:      usageUpdateCAASDetails,
+		Examples: usageUpdateCAASExamples,
+		SeeAlso: []string{
+			"add-k8s",
+			"remove-k8s",
+		},
 	})
 }
 

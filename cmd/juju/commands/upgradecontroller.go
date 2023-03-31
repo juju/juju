@@ -36,12 +36,12 @@ The command will abort if an upgrade is in progress. It will also abort if
 a previous upgrade was not fully completed (e.g.: if one of the
 controllers in a high availability model failed to upgrade).
 
-Examples:
+`
+
+const usageUpgradeControllerExamples = `
     juju upgrade-controller --dry-run
     juju upgrade-controller --agent-version 2.0.1
-    
-See also: 
-    upgrade-model`
+`
 
 func newUpgradeControllerCommand(options ...modelcmd.WrapControllerOption) cmd.Command {
 	command := &upgradeControllerCommand{}
@@ -56,9 +56,13 @@ type upgradeControllerCommand struct {
 
 func (c *upgradeControllerCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "upgrade-controller",
-		Purpose: usageUpgradeControllerSummary,
-		Doc:     usageUpgradeControllerDetails,
+		Name:     "upgrade-controller",
+		Purpose:  usageUpgradeControllerSummary,
+		Doc:      usageUpgradeControllerDetails,
+		Examples: usageUpgradeControllerExamples,
+		SeeAlso: []string{
+			"upgrade-model",
+		},
 	})
 }
 

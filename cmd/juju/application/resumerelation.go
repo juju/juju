@@ -23,16 +23,12 @@ var resumeHelpDetails = `
 A relation between an application in another model and an offer in this model will be resumed. 
 The relation-joined and relation-changed hooks will be run for the relation, and the relation
 status will be set to joined. The relation is specified using its id.
+`
 
-Examples:
+const resumeHelpExamples = `
     juju resume-relation 123
     juju resume-relation 123 456
-
-See also: 
-    integrate
-    offers
-    remove-relation
-    suspend-relation`
+`
 
 // NewResumeRelationCommand returns a command to resume a relation.
 func NewResumeRelationCommand() cmd.Command {
@@ -56,10 +52,17 @@ type resumeRelationCommand struct {
 
 func (c *resumeRelationCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "resume-relation",
-		Args:    "<relation-id>[,<relation-id>]",
-		Purpose: resumeHelpSummary,
-		Doc:     resumeHelpDetails,
+		Name:     "resume-relation",
+		Args:     "<relation-id>[,<relation-id>]",
+		Purpose:  resumeHelpSummary,
+		Doc:      resumeHelpDetails,
+		Examples: resumeHelpExamples,
+		SeeAlso: []string{
+			"integrate",
+			"offers",
+			"remove-relation",
+			"suspend-relation",
+		},
 	})
 }
 

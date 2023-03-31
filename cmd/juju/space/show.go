@@ -35,18 +35,12 @@ const ShowSpaceCommandDoc = `
 Displays extended information about a given space. 
 Output includes the space subnets, applications with bindings to the space,
 and a count of machines connected to the space.
+`
 
-Examples:
-
+const ShowSpaceCommandExamples = `
 Show a space by name:
-	juju show-space alpha
 
-See also:
-	add-space
-	spaces
-	reload-spaces
-	rename-space
-	remove-space
+	juju show-space alpha
 `
 
 // SetFlags implements part of the cmd.Command interface.
@@ -58,10 +52,18 @@ func (c *ShowSpaceCommand) SetFlags(f *gnuflag.FlagSet) {
 // Info is defined on the cmd.Command interface.
 func (c *ShowSpaceCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "show-space",
-		Args:    "<name>",
-		Purpose: "Shows information about the network space.",
-		Doc:     strings.TrimSpace(ShowSpaceCommandDoc),
+		Name:     "show-space",
+		Args:     "<name>",
+		Purpose:  "Shows information about the network space.",
+		Doc:      strings.TrimSpace(ShowSpaceCommandDoc),
+		Examples: ShowSpaceCommandExamples,
+		SeeAlso: []string{
+			"add-space",
+			"spaces",
+			"reload-spaces",
+			"rename-space",
+			"remove-space",
+		},
 	})
 }
 

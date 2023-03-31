@@ -24,15 +24,13 @@ list of keys) from the model cache and all current units deployed in that
 model. The keys to be removed may be specified by the key's fingerprint,
 or by the text label associated with them.
 
-Examples:
+`[1:]
+
+const usageRemoveSSHKeyExamples = `
     juju remove-ssh-key ubuntu@ubuntu
     juju remove-ssh-key 45:7f:33:2c:10:4e:6c:14:e3:a1:a4:c8:b2:e1:34:b4
     juju remove-ssh-key bob@ubuntu carol@ubuntu
-
-See also: 
-    ssh-keys
-    add-ssh-key
-    import-ssh-key`[1:]
+`
 
 // NewRemoveKeysCommand is used to delete ssk keys for a user.
 func NewRemoveKeysCommand() cmd.Command {
@@ -49,10 +47,16 @@ type removeKeysCommand struct {
 // Info implements Command.Info.
 func (c *removeKeysCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "remove-ssh-key",
-		Args:    "<ssh key id> ...",
-		Purpose: usageRemoveSSHKeySummary,
-		Doc:     usageRemoveSSHKeyDetails,
+		Name:     "remove-ssh-key",
+		Args:     "<ssh key id> ...",
+		Purpose:  usageRemoveSSHKeySummary,
+		Doc:      usageRemoveSSHKeyDetails,
+		Examples: usageRemoveSSHKeyExamples,
+		SeeAlso: []string{
+			"ssh-keys",
+			"add-ssh-key",
+			"import-ssh-key",
+		},
 	})
 }
 

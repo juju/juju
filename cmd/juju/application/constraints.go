@@ -29,8 +29,7 @@ Application constraints are combined with model constraints, set with ` +
 	"`juju \nset-model-constraints`" + `, for commands (such as 'deploy') that provision
 machines for applications. Where model and application constraints overlap, the
 application constraints take precedence.
-Constraints for a specific model can be viewed with ` + "`juju model-\nconstraints`" + `.
-`
+Constraints for a specific model can be viewed with ` + "`juju model-\nconstraints`" + `.`
 
 const usageGetConstraintsExamples = `
     juju constraints mysql
@@ -55,7 +54,6 @@ This command requires that the application to have at least one unit. To apply
 constraints to
 the first unit set them at the model level or pass them as an argument
 when deploying.
-
 `
 
 const usageSetConstraintsExamples = `

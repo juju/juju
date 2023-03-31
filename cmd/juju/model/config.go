@@ -72,31 +72,31 @@ e.g. default-base=ubuntu@22.04.
 The following keys are available:
 `
 	modelConfigHelpDocPartTwo = `
-Examples:
-
+`
+	modelConfigExamples = `
 Print the value of default-base:
+
     juju model-config default-base
 
 Print the model config of model mycontroller:mymodel:
+
     juju model-config -m mycontroller:mymodel
 
 Set the value of ftp-proxy to 10.0.0.1:8000:
+
     juju model-config ftp-proxy=10.0.0.1:8000
 
 Set the model config to key=value pairs defined in a file:
+
     juju model-config --file path/to/file.yaml
 
 Set model config values of a specific model:
+
     juju model-config -m othercontroller:mymodel default-base=ubuntu@22.04 test-mode=false
 
 Reset the values of the provided keys to model defaults:
-    juju model-config --reset default-base,test-mode
 
-See also:
-    models
-    model-defaults
-    show-cloud
-    controller-config
+    juju model-config --reset default-base,test-mode
 `
 )
 
@@ -210,9 +210,16 @@ type configCommandAPI interface {
 // Info implements part of the cmd.Command interface.
 func (c *configCommand) Info() *cmd.Info {
 	info := &cmd.Info{
-		Args:    "[<model-key>[=<value>] ...]",
-		Name:    "model-config",
-		Purpose: modelConfigSummary,
+		Args:     "[<model-key>[=<value>] ...]",
+		Name:     "model-config",
+		Purpose:  modelConfigSummary,
+		Examples: modelConfigExamples,
+		SeeAlso: []string{
+			"models",
+			"model-defaults",
+			"show-cloud",
+			"controller-config",
+		},
 	}
 	if details, err := ConfigDetails(); err == nil {
 		if formattedDetails, err := common.FormatConfigSchema(details); err == nil {

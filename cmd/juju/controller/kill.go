@@ -40,10 +40,6 @@ models as they are brought down in a controlled manner. If for some reason the
 models do not stop cleanly, there is a default five minute timeout. If no change
 in the model state occurs for the duration of this timeout, the command will
 stop watching and destroy the models directly through the cloud provider.
-
-See also:
-    destroy-controller
-    unregister
 `
 
 // NewKillCommand returns a command to kill a controller. Killing is a
@@ -87,6 +83,10 @@ func (c *killCommand) Info() *cmd.Info {
 		Args:    "<controller name>",
 		Purpose: "Forcibly terminate all machines and other associated resources for a Juju controller.",
 		Doc:     killDoc,
+		SeeAlso: []string{
+			"destroy-controller",
+			"unregister",
+		},
 	})
 }
 

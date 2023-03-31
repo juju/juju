@@ -24,7 +24,9 @@ key of the user who created the model (assuming it is stored in the
 default location ~/.ssh/). Additional keys may be added with this command,
 quoting the entire public key as an argument.
 
-Examples:
+`[1:]
+
+const examples = `
     juju add-ssh-key "ssh-rsa qYfS5LieM79HIOr535ret6xy
     AAAAB3NzaC1yc2EAAAADAQA6fgBAAABAQCygc6Rc9XgHdhQqTJ
     Wsoj+I3xGrOtk21xYtKijnhkGqItAHmrE5+VH6PY1rVIUXhpTg
@@ -38,12 +40,9 @@ Examples:
 For ease of use it is possible to use shell substitution to pass the key 
 to the command:
 
-juju add-ssh-key "$(cat ~/mykey.pub)"
+    juju add-ssh-key "$(cat ~/mykey.pub)"
 
-See also: 
-    ssh-keys
-    remove-ssh-key
-    import-ssh-key`[1:]
+`
 
 // NewAddKeysCommand is used to add a new ssh key to a model.
 func NewAddKeysCommand() cmd.Command {
@@ -60,10 +59,16 @@ type addKeysCommand struct {
 // Info implements Command.Info.
 func (c *addKeysCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "add-ssh-key",
-		Args:    "<ssh key> ...",
-		Purpose: usageAddSSHKeySummary,
-		Doc:     usageAddSSHKeyDetails,
+		Name:     "add-ssh-key",
+		Args:     "<ssh key> ...",
+		Purpose:  usageAddSSHKeySummary,
+		Doc:      usageAddSSHKeyDetails,
+		Examples: examples,
+		SeeAlso: []string{
+			"ssh-keys",
+			"remove-ssh-key",
+			"import-ssh-key",
+		},
 	})
 }
 

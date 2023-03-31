@@ -27,13 +27,10 @@ will not be affected by this command; it only affects the local client.
 
 By default, the controller is the current controller.
 
-Examples:
+`
+
+const logoutExamples = `
     juju logout
-
-See also:
-    change-user-password
-    login
-
 `
 
 // NewLogoutCommand returns a new cmd.Command to handle "juju logout".
@@ -50,9 +47,14 @@ type logoutCommand struct {
 // Info implements Command.Info.
 func (c *logoutCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "logout",
-		Purpose: "Logs a Juju user out of a controller.",
-		Doc:     logoutDoc,
+		Name:     "logout",
+		Purpose:  "Logs a Juju user out of a controller.",
+		Doc:      logoutDoc,
+		Examples: logoutExamples,
+		SeeAlso: []string{
+			"change-user-password",
+			"login",
+		},
 	})
 }
 

@@ -25,13 +25,11 @@ const (
 On k8s models, the trust operation currently grants the charm full access to the cluster.
 Until the permissions model is refined to grant more granular role based access, the use of
 '--scope=cluster' is required to confirm this choice.
+`
 
-Examples:
+	trustExamples = `
     juju trust media-wiki
     juju trust metallb --scope=cluster
-
-See also:
-    config
 `
 	clusterScopeError = `'juju trust' currently grants full access to the cluster itself.
 Set the scope to 'cluster' using '--scope=cluster' to confirm this choice.
@@ -54,10 +52,14 @@ func NewTrustCommand() cmd.Command {
 // Info is part of the cmd.Command interface.
 func (c *trustCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "trust",
-		Args:    "<application name>",
-		Purpose: trustSummary,
-		Doc:     trustDetails,
+		Name:     "trust",
+		Args:     "<application name>",
+		Purpose:  trustSummary,
+		Doc:      trustDetails,
+		Examples: trustExamples,
+		SeeAlso: []string{
+			"config",
+		},
 	})
 }
 

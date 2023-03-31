@@ -68,19 +68,15 @@ see ' + "'juju set-credential'" + ' for more information.
 
 Use --client option to remove credentials from the current client.
 
-Examples:
+`
+
+const usageRemoveCredentialExamples = `
     juju remove-credential google credential_name
     juju remove-credential google credential_name --client
     juju remove-credential google credential_name -c mycontroller
     juju remove-credential google credential_name -c mycontroller --force
 
-See also: 
-    add-credential
-    autoload-credentials
-    credentials
-    default-credential
-    set-credential
-    update-credential`
+`
 
 // NewRemoveCredentialCommand returns a command to remove a named credential for a cloud.
 func NewRemoveCredentialCommand() cmd.Command {
@@ -97,10 +93,19 @@ func NewRemoveCredentialCommand() cmd.Command {
 
 func (c *removeCredentialCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "remove-credential",
-		Args:    "<cloud name> <credential name>",
-		Purpose: usageRemoveCredentialSummary,
-		Doc:     usageRemoveCredentialDetails,
+		Name:     "remove-credential",
+		Args:     "<cloud name> <credential name>",
+		Purpose:  usageRemoveCredentialSummary,
+		Doc:      usageRemoveCredentialDetails,
+		Examples: usageRemoveCredentialExamples,
+		SeeAlso: []string{
+			"add-credential",
+			"autoload-credentials",
+			"credentials",
+			"default-credential",
+			"set-credential",
+			"update-credential",
+		},
 	})
 }
 

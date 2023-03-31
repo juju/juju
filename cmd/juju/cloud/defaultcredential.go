@@ -34,17 +34,13 @@ To unset previously set default credential for a cloud, use --reset option.
 
 To view currently set default credential for a cloud, use the command
 without a credential name argument.
+`
 
-Examples:
+const usageSetDefaultCredentialExamples = `
     juju default-credential google credential_name
     juju default-credential google
     juju default-credential google --reset
-
-See also: 
-    credentials
-    add-credential
-    remove-credential
-    autoload-credentials`
+`
 
 type setDefaultCredentialCommand struct {
 	cmd.CommandBase
@@ -64,11 +60,18 @@ func NewSetDefaultCredentialCommand() cmd.Command {
 
 func (c *setDefaultCredentialCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "default-credential",
-		Aliases: []string{"set-default-credentials"},
-		Args:    "<cloud name> [<credential name>]",
-		Purpose: usageSetDefaultCredentialSummary,
-		Doc:     usageSetDefaultCredentialDetails,
+		Name:     "default-credential",
+		Aliases:  []string{"set-default-credentials"},
+		Args:     "<cloud name> [<credential name>]",
+		Purpose:  usageSetDefaultCredentialSummary,
+		Doc:      usageSetDefaultCredentialDetails,
+		Examples: usageSetDefaultCredentialExamples,
+		SeeAlso: []string{
+			"credentials",
+			"add-credential",
+			"remove-credential",
+			"autoload-credentials",
+		},
 	})
 }
 

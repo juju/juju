@@ -66,10 +66,16 @@ type modelsCommand struct {
 // Info implements Command.Info
 func (c *modelsCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "models",
-		Purpose: "Lists models a user can access on a controller.",
-		Doc:     listModelsDoc,
-		Aliases: []string{"list-models"},
+		Name:     "models",
+		Purpose:  "Lists models a user can access on a controller.",
+		Doc:      listModelsDoc,
+		Aliases:  []string{"list-models"},
+		Examples: listModelsExamples,
+		SeeAlso: []string{
+			"add-model",
+			"share-model",
+			"unshare-model",
+		},
 	})
 }
 
@@ -467,14 +473,9 @@ The models listed here are either models you have created yourself, or
 models which have been shared with you. Default values for user and
 controller are, respectively, the current user and the current controller.
 The active model is denoted by an asterisk.
+`
 
-Examples:
-
+const listModelsExamples = `
     juju models
     juju models --user bob
-
-See also:
-    add-model
-    share-model
-    unshare-model
 `

@@ -55,25 +55,26 @@ It is recommended to only do this after upgrade-machine has been run for
 machine containing all existing units of the application.
 
 To ensure correct binaries, run 'juju refresh' before running 'juju add-unit'.
+`
 
-Examples:
-
-Set the base for the ubuntu application to ubuntu@20.04
+const setApplicationBaseExamples = `
+Set the base for the ubuntu application to ubuntu@20.04:
 
 	juju set-application-base ubuntu ubuntu@20.04
-
-See also:
-    status
-    refresh
-    upgrade-machine
 `
 
 func (c *setApplicationBase) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "set-application-base",
-		Args:    "<application> <base>",
-		Purpose: "Set an application's base.",
-		Doc:     setApplicationBaseDoc,
+		Name:     "set-application-base",
+		Args:     "<application> <base>",
+		Purpose:  "Set an application's base.",
+		Doc:      setApplicationBaseDoc,
+		Examples: setApplicationBaseExamples,
+		SeeAlso: []string{
+			"status",
+			"refresh",
+			"upgrade-machine",
+		},
 	})
 }
 

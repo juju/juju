@@ -55,21 +55,22 @@ It is generally done when the controller is without Internet access.
 Instead of the above site, a local directory can be specified as source.
 The online store will, of course, need to be contacted at some point to get
 the software.
+`
 
-Examples:
+const synctoolsExamples = `
     juju sync-agent-binary --debug --agent-version 2.0
     juju sync-agent-binary --debug --agent-version 2.0 --local-dir=/home/ubuntu/sync-agent-binary
-
-See also:
-    upgrade-controller
-
 `
 
 func (c *syncAgentBinaryCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "sync-agent-binary",
-		Purpose: "Copy agent binaries from the official agent store into a local controller.",
-		Doc:     synctoolsDoc,
+		Name:     "sync-agent-binary",
+		Purpose:  "Copy agent binaries from the official agent store into a local controller.",
+		Doc:      synctoolsDoc,
+		Examples: synctoolsExamples,
+		SeeAlso: []string{
+			"upgrade-controller",
+		},
 	})
 }
 
