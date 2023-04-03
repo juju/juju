@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/charm/v10"
+	"github.com/juju/charm/v10/resource"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/schema"
@@ -37,6 +38,8 @@ type Backend interface {
 	ApplicationOfferForUUID(offerUUID string) (*crossmodel.ApplicationOffer, error)
 	ApplyOperation(state.ModelOperation) error
 	AddApplication(state.AddApplicationArgs) (Application, error)
+	AddPendingResource(string, resource.Resource) (string, error)
+	RemovePendingResources(applicationID string, pendingIDs map[string]string) error
 	AddCharmMetadata(info state.CharmInfo) (Charm, error)
 	RemoteApplication(string) (RemoteApplication, error)
 	AddRemoteApplication(state.AddRemoteApplicationParams) (RemoteApplication, error)
@@ -312,6 +315,18 @@ func (s stateShim) AddApplication(args state.AddApplicationArgs) (Application, e
 		return nil, err
 	}
 	return stateApplicationShim{a, s.State}, nil
+}
+
+// Note that the usedID is only used in some of the implementations of the
+// AddPendingResource
+func (s stateShim) AddPendingResource(appName string, chRes resource.Resource) (string, error) {
+	return s.State.Resources().AddPendingResource(appName, "", chRes)
+}
+
+// RemovePendingResources removes any pending resources for the named application
+// Mainly used as a cleanup if an error is raised during the deployment
+func (s stateShim) RemovePendingResources(applicationID string, pendingIDs map[string]string) error {
+	return s.State.Resources().RemovePendingAppResources(applicationID, pendingIDs)
 }
 
 func (s stateShim) AddCharmMetadata(info state.CharmInfo) (Charm, error) {

@@ -6,6 +6,7 @@ package application
 import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v10"
+	"github.com/juju/charm/v10/resource"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -680,6 +681,7 @@ func intptr(i int) *int {
 
 type deployRepositorySuite struct {
 	application *MockApplication
+	charm       *MockCharm
 	state       *MockDeployFromRepositoryState
 	validator   *MockDeployFromRepositoryValidator
 }
@@ -710,9 +712,16 @@ func (s *deployRepositorySuite) TestDeployFromRepositoryAPI(c *gc.C) {
 		Charm: template.charm,
 		ID:    charm.MustParseURL("ch:amd64/jammy/testme-5"),
 	}
-	s.state.EXPECT().AddCharmMetadata(info).Return(&state.Charm{}, nil)
+
+	s.charm.EXPECT().Meta().Return(&charm.Meta{Resources: nil})
+
+	s.state.EXPECT().AddCharmMetadata(info).Return(s.charm, nil)
+
 	addAppArgs := state.AddApplicationArgs{
-		Name:  "metadata-name",
+		Name: "metadata-name",
+		// the app.Charm is casted into a state.Charm in the code
+		// we mock it separately here (s.charm above), the test works
+		// thanks to the addApplicationArgsMatcher used below
 		Charm: &state.Charm{},
 		CharmOrigin: &state.CharmOrigin{
 			Source:   "charm-hub",
@@ -729,10 +738,13 @@ func (s *deployRepositorySuite) TestDeployFromRepositoryAPI(c *gc.C) {
 		EndpointBindings: map[string]string{"to": "from"},
 		NumUnits:         1,
 		Placement:        []*instance.Placement{{Directive: "0", Scope: instance.MachineScope}},
+		Resources:        map[string]string{},
 	}
-	s.state.EXPECT().AddApplication(addAppArgs).Return(s.application, nil)
+	s.state.EXPECT().AddApplication(addApplicationArgsMatcher{c: c, expectedArgs: addAppArgs}).Return(s.application, nil)
 
-	obtainedInfo, resources, errs := s.getDeployFromRepositoryAPI().DeployFromRepository(arg)
+	deployFromRepositoryAPI := s.getDeployFromRepositoryAPI()
+
+	obtainedInfo, resources, errs := deployFromRepositoryAPI.DeployFromRepository(arg)
 	c.Assert(errs, gc.HasLen, 0)
 	c.Assert(resources, gc.HasLen, 0)
 	c.Assert(obtainedInfo, gc.DeepEquals, params.DeployFromRepositoryInfo{
@@ -745,6 +757,215 @@ func (s *deployRepositorySuite) TestDeployFromRepositoryAPI(c *gc.C) {
 	})
 }
 
+// The reason for this matcher is that the AddApplicationArgs.Charm is
+// obtained by casting application.Charm into a state.Charm, but we
+// can't do that cast with a MockCharm
+type addApplicationArgsMatcher struct {
+	c            *gc.C
+	expectedArgs state.AddApplicationArgs
+}
+
+func (m addApplicationArgsMatcher) String() string {
+	return "match AddApplicationArgs"
+}
+
+func (m addApplicationArgsMatcher) Matches(x interface{}) bool {
+
+	oA, ok := x.(state.AddApplicationArgs)
+	if !ok {
+		return false
+	}
+
+	eA := m.expectedArgs
+	// Check everything but the Charm
+	m.c.Assert(oA.Name, gc.DeepEquals, eA.Name)
+	m.c.Assert(oA.ApplicationConfig, gc.DeepEquals, eA.ApplicationConfig)
+	m.c.Assert(oA.NumUnits, gc.DeepEquals, eA.NumUnits)
+	m.c.Assert(oA.Constraints, gc.DeepEquals, eA.Constraints)
+	m.c.Assert(oA.Storage, gc.DeepEquals, eA.Storage)
+	m.c.Assert(oA.Devices, gc.DeepEquals, eA.Devices)
+	m.c.Assert(eA.AttachStorage, gc.DeepEquals, eA.AttachStorage)
+	m.c.Assert(oA.EndpointBindings, gc.DeepEquals, eA.EndpointBindings)
+	m.c.Assert(oA.CharmConfig, gc.DeepEquals, eA.CharmConfig)
+	m.c.Assert(oA.Placement, gc.DeepEquals, eA.Placement)
+	m.c.Assert(oA.Resources, gc.DeepEquals, eA.Resources)
+	return true
+}
+
+func (s *deployRepositorySuite) TestAddPendingResourcesForDeployFromRepositoryAPI(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	arg := params.DeployFromRepositoryArg{
+		CharmName: "testme",
+	}
+	template := deployTemplate{
+		applicationName: "metadata-name",
+		charm:           corecharm.NewCharmInfoAdapter(corecharm.EssentialMetadata{}),
+		charmURL:        charm.MustParseURL("ch:amd64/jammy/testme-5"),
+		endpoints:       map[string]string{"to": "from"},
+		numUnits:        1,
+		origin: corecharm.Origin{
+			Source:   "charm-hub",
+			Revision: intptr(5),
+			Channel:  &charm.Channel{Risk: "stable"},
+			Platform: corecharm.MustParsePlatform("amd64/ubuntu/22.04"),
+		},
+		placement: []*instance.Placement{{Directive: "0", Scope: instance.MachineScope}},
+		resources: map[string]string{"foo-file": "bar"},
+	}
+	s.validator.EXPECT().ValidateArg(arg).Return(template, nil)
+	info := state.CharmInfo{
+		Charm: template.charm,
+		ID:    charm.MustParseURL("ch:amd64/jammy/testme-5"),
+	}
+
+	s.state.EXPECT().AddCharmMetadata(info).Return(s.charm, nil)
+
+	meta := resource.Meta{
+		Name:        "foo-resource",
+		Type:        resource.TypeFile,
+		Path:        "foo.txt",
+		Description: "bar",
+	}
+	r := resource.Resource{
+		Meta:   meta,
+		Origin: resource.OriginUpload,
+	}
+	s.charm.EXPECT().Meta().Return(&charm.Meta{
+		Resources: map[string]resource.Meta{
+			"foo-file": meta,
+		}})
+
+	s.state.EXPECT().AddPendingResource("metadata-name", r).Return("3", nil)
+
+	addAppArgs := state.AddApplicationArgs{
+		Name: "metadata-name",
+		// the app.Charm is casted into a state.Charm in the code
+		// we mock it separately here (s.charm above), the test works
+		// thanks to the addApplicationArgsMatcher used below
+		Charm: &state.Charm{},
+		CharmOrigin: &state.CharmOrigin{
+			Source:   "charm-hub",
+			Revision: intptr(5),
+			Channel: &state.Channel{
+				Risk: "stable",
+			},
+			Platform: &state.Platform{
+				Architecture: "amd64",
+				OS:           "ubuntu",
+				Channel:      "22.04",
+			},
+		},
+		EndpointBindings: map[string]string{"to": "from"},
+		NumUnits:         1,
+		Placement:        []*instance.Placement{{Directive: "0", Scope: instance.MachineScope}},
+		Resources:        map[string]string{"foo-file": "3"},
+	}
+	s.state.EXPECT().AddApplication(addApplicationArgsMatcher{c: c, expectedArgs: addAppArgs}).Return(s.application, nil)
+
+	deployFromRepositoryAPI := s.getDeployFromRepositoryAPI()
+
+	obtainedInfo, resources, errs := deployFromRepositoryAPI.DeployFromRepository(arg)
+	c.Assert(errs, gc.HasLen, 0)
+	c.Assert(resources, gc.HasLen, 1)
+	c.Assert(obtainedInfo, gc.DeepEquals, params.DeployFromRepositoryInfo{
+		Architecture:     "amd64",
+		Base:             params.Base{Name: "ubuntu", Channel: "22.04"},
+		Channel:          "stable",
+		EffectiveChannel: nil,
+		Name:             "metadata-name",
+		Revision:         5,
+	})
+
+	pendUp := &params.PendingResourceUpload{
+		Name:     "foo-resource",
+		Type:     "file",
+		Filename: "bar",
+	}
+	c.Assert(resources, gc.DeepEquals, []*params.PendingResourceUpload{pendUp})
+}
+
+func (s *deployRepositorySuite) TestRemovePendingResourcesWhenDeployErrors(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	arg := params.DeployFromRepositoryArg{
+		CharmName: "testme",
+	}
+	template := deployTemplate{
+		applicationName: "metadata-name",
+		charm:           corecharm.NewCharmInfoAdapter(corecharm.EssentialMetadata{}),
+		charmURL:        charm.MustParseURL("ch:amd64/jammy/testme-5"),
+		endpoints:       map[string]string{"to": "from"},
+		numUnits:        1,
+		origin: corecharm.Origin{
+			Source:   "charm-hub",
+			Revision: intptr(5),
+			Channel:  &charm.Channel{Risk: "stable"},
+			Platform: corecharm.MustParsePlatform("amd64/ubuntu/22.04"),
+		},
+		placement: []*instance.Placement{{Directive: "0", Scope: instance.MachineScope}},
+		resources: map[string]string{"foo-file": "bar"},
+	}
+	s.validator.EXPECT().ValidateArg(arg).Return(template, nil)
+	info := state.CharmInfo{
+		Charm: template.charm,
+		ID:    charm.MustParseURL("ch:amd64/jammy/testme-5"),
+	}
+
+	s.state.EXPECT().AddCharmMetadata(info).Return(s.charm, nil)
+
+	meta := resource.Meta{
+		Name:        "foo-resource",
+		Type:        resource.TypeFile,
+		Path:        "foo.txt",
+		Description: "bar",
+	}
+	r := resource.Resource{
+		Meta:   meta,
+		Origin: resource.OriginUpload,
+	}
+	s.charm.EXPECT().Meta().Return(&charm.Meta{
+		Resources: map[string]resource.Meta{
+			"foo-file": meta,
+		}})
+
+	s.state.EXPECT().AddPendingResource("metadata-name", r).Return("3", nil)
+
+	addAppArgs := state.AddApplicationArgs{
+		Name: "metadata-name",
+		// the app.Charm is casted into a state.Charm in the code
+		// we mock it separately here (s.charm above), the test works
+		// thanks to the addApplicationArgsMatcher used below
+		Charm: &state.Charm{},
+		CharmOrigin: &state.CharmOrigin{
+			Source:   "charm-hub",
+			Revision: intptr(5),
+			Channel: &state.Channel{
+				Risk: "stable",
+			},
+			Platform: &state.Platform{
+				Architecture: "amd64",
+				OS:           "ubuntu",
+				Channel:      "22.04",
+			},
+		},
+		EndpointBindings: map[string]string{"to": "from"},
+		NumUnits:         1,
+		Placement:        []*instance.Placement{{Directive: "0", Scope: instance.MachineScope}},
+		Resources:        map[string]string{"foo-file": "3"},
+	}
+
+	s.state.EXPECT().RemovePendingResources("metadata-name", map[string]string{"foo-file": "3"})
+
+	s.state.EXPECT().AddApplication(addApplicationArgsMatcher{c: c, expectedArgs: addAppArgs}).Return(s.application,
+		errors.New("fail"))
+
+	deployFromRepositoryAPI := s.getDeployFromRepositoryAPI()
+
+	obtainedInfo, resources, errs := deployFromRepositoryAPI.DeployFromRepository(arg)
+	c.Assert(errs, gc.HasLen, 1)
+	c.Assert(resources, gc.HasLen, 0)
+	c.Assert(obtainedInfo, gc.DeepEquals, params.DeployFromRepositoryInfo{})
+}
+
 func (s *deployRepositorySuite) getDeployFromRepositoryAPI() *DeployFromRepositoryAPI {
 	return &DeployFromRepositoryAPI{
 		state:      s.state,
@@ -755,6 +976,7 @@ func (s *deployRepositorySuite) getDeployFromRepositoryAPI() *DeployFromReposito
 
 func (s *deployRepositorySuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
+	s.charm = NewMockCharm(ctrl)
 	s.state = NewMockDeployFromRepositoryState(ctrl)
 	s.validator = NewMockDeployFromRepositoryValidator(ctrl)
 	return ctrl

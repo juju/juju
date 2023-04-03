@@ -73,7 +73,7 @@ func (s *UploadSuite) TestUpload(c *gc.C) {
 
 	s.mockHTTPClient.EXPECT().Do(ctx, reqMatcher{c, req}, gomock.Any())
 
-	err = s.client.Upload("a-application", "spam", "foo.zip", strings.NewReader(data))
+	err = s.client.Upload("a-application", "spam", "foo.zip", "", strings.NewReader(data))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -111,7 +111,7 @@ func (m reqMatcher) String() string {
 func (s *UploadSuite) TestUploadBadApplication(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	err := s.client.Upload("???", "spam", "file.zip", nil)
+	err := s.client.Upload("???", "spam", "file.zip", "", nil)
 	c.Check(err, gc.ErrorMatches, `.*invalid application.*`)
 }
 
@@ -132,7 +132,7 @@ func (s *UploadSuite) TestUploadFailed(c *gc.C) {
 	ctx := context.TODO()
 	s.mockAPICaller.EXPECT().Context().Return(ctx)
 	s.mockHTTPClient.EXPECT().Do(ctx, reqMatcher{c, req}, gomock.Any()).Return(errors.New("boom"))
-	err = s.client.Upload("a-application", "spam", "foo.zip", strings.NewReader(data))
+	err = s.client.Upload("a-application", "spam", "foo.zip", "", strings.NewReader(data))
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
@@ -197,13 +197,14 @@ func (s *UploadSuite) TestUploadPendingResource(c *gc.C) {
 	data := "<data>"
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(data))
 	c.Assert(err, jc.ErrorIsNil)
-	req, err := http.NewRequest("PUT", "/applications/a-application/resources/spam", strings.NewReader(data))
+
+	url := fmt.Sprintf("/applications/a-application/resources/spam?pendingid=%v", expected)
+	req, err := http.NewRequest("PUT", url, strings.NewReader(data))
 	c.Assert(err, jc.ErrorIsNil)
 	req.Header.Set("Content-Type", "application/octet-stream")
 	req.Header.Set("Content-SHA384", fp.String())
 	req.Header.Set("Content-Length", fmt.Sprint(len(data)))
 	req.ContentLength = int64(len(data))
-	req.URL.RawQuery = "pendingid=" + expected
 	req.Header.Set("Content-Disposition", "form-data; filename=file.zip")
 
 	ctx := context.TODO()
@@ -263,13 +264,13 @@ func (s *UploadSuite) TestUploadPendingResourceFailed(c *gc.C) {
 	data := "<data>"
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(data))
 	c.Assert(err, jc.ErrorIsNil)
-	req, err := http.NewRequest("PUT", "/applications/a-application/resources/spam", strings.NewReader(data))
+	url := fmt.Sprintf("/applications/a-application/resources/spam?pendingid=%v", expected)
+	req, err := http.NewRequest("PUT", url, strings.NewReader(data))
 	c.Assert(err, jc.ErrorIsNil)
 	req.Header.Set("Content-Type", "application/octet-stream")
 	req.Header.Set("Content-SHA384", fp.String())
 	req.Header.Set("Content-Length", fmt.Sprint(len(data)))
 	req.ContentLength = int64(len(data))
-	req.URL.RawQuery = "pendingid=" + expected
 	req.Header.Set("Content-Disposition", "form-data; filename=file.zip")
 
 	ctx := context.TODO()

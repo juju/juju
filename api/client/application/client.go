@@ -1060,8 +1060,6 @@ type PendingResourceUpload struct {
 	// Filename is the name of the file as it exists on disk.
 	// Sometimes referred to as the path.
 	Filename string
-	// PendingID is the pending ID to associate with this upload.
-	PendingID string
 	// Type of the resource, a string matching one of the resource.Type
 	Type string
 }
@@ -1172,10 +1170,9 @@ func pendingResourceUploadsFromParams(uploads []*params.PendingResourceUpload) [
 	prus := make([]PendingResourceUpload, len(uploads))
 	for i, upload := range uploads {
 		prus[i] = PendingResourceUpload{
-			Name:      upload.Name,
-			Filename:  upload.Filename,
-			PendingID: upload.PendingID,
-			Type:      upload.Type,
+			Name:     upload.Name,
+			Filename: upload.Filename,
+			Type:     upload.Type,
 		}
 	}
 	return prus

@@ -347,8 +347,9 @@ func (l *localCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _
 
 type repositoryCharm struct {
 	deployCharm
-	userRequestedURL *charm.URL
-	clock            jujuclock.Clock
+	userRequestedURL               *charm.URL
+	clock                          jujuclock.Clock
+	uploadExistingPendingResources UploadExistingPendingResourcesFunc
 }
 
 // String returns a string description of the deployer.
@@ -401,7 +402,7 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 			return errors.Trace(err)
 		}
 
-		info, _, errs := deployAPI.DeployFromRepository(application.DeployFromRepositoryArg{
+		info, localPendingResources, errs := deployAPI.DeployFromRepository(application.DeployFromRepositoryArg{
 			CharmName:        c.userRequestedURL.Name,
 			ApplicationName:  c.applicationName,
 			AttachStorage:    c.attachStorage,
@@ -420,6 +421,12 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 			Storage:          c.storage,
 			Trust:            c.trust,
 		})
+
+		uploadErr := c.uploadExistingPendingResources(c.applicationName, localPendingResources, deployAPI, c.model.Filesystem())
+		if uploadErr != nil {
+			ctx.Errorf("Unable to upload resources for %v, consider using --attach-resource. \n %v", c.applicationName, uploadErr)
+		}
+
 		ctx.Infof("%s", pretty.Sprint(info))
 		for _, err := range errs {
 			ctx.Errorf(err.Error())

@@ -5,9 +5,11 @@ package application
 
 import (
 	"fmt"
+	"strconv"
 	"sync"
 
 	"github.com/juju/charm/v10"
+	"github.com/juju/charm/v10/resource"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -47,6 +49,8 @@ type DeployFromRepository interface {
 // objects.
 type DeployFromRepositoryState interface {
 	AddApplication(state.AddApplicationArgs) (Application, error)
+	AddPendingResource(string, resource.Resource) (string, error)
+	RemovePendingResources(applicationID string, pendingIDs map[string]string) error
 	AddCharmMetadata(info state.CharmInfo) (Charm, error)
 	ControllerConfig() (controller.Config, error)
 	Machine(string) (Machine, error)
@@ -117,6 +121,10 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(arg params.DeployFromRe
 	if err != nil {
 		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
 	}
+
+	// Last step, add pending resources.
+	pendingIDs, pendingResourceUploads, errs := api.addPendingResources(dt.applicationName, dt.resources, ch.Meta().Resources)
+
 	_, err = api.state.AddApplication(state.AddApplicationArgs{
 		Name:              dt.applicationName,
 		Charm:             api.stateCharm(ch),
@@ -130,14 +138,19 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(arg params.DeployFromRe
 		NumUnits:          dt.numUnits,
 		Placement:         dt.placement,
 		Constraints:       dt.constraints,
-		Resources:         dt.resources,
+		Resources:         pendingIDs,
 	})
-	if err != nil {
+
+	if err != nil && len(pendingIDs) != 0 {
+		if pendingIDs != nil {
+			// Remove the pending resources that are added before the AddApplication is called
+			removeResourcesErr := api.state.RemovePendingResources(dt.applicationName, pendingIDs)
+			if removeResourcesErr != nil {
+				logger.Errorf("unable to remove pending resources for %q", dt.applicationName)
+			}
+		}
 		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
 	}
-
-	// Last step, add pending resources.
-	pendingResourceUploads, errs := addPendingResources()
 
 	return info, pendingResourceUploads, errs
 }
@@ -146,10 +159,47 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(arg params.DeployFromRe
 // added when deploying the charm. PendingResourceUpload is only returned
 // for local resources which will require the client to upload the
 // resource once DeployFromRepository returns. All resources will be
-// processed. Errors are not terminal.
-// TODO: determine necessary args.
-func addPendingResources() ([]*params.PendingResourceUpload, []error) {
-	return nil, nil
+// processed. Errors are not terminal. It also returns the name to pendingIDs
+// map that's needed by the AddApplication.
+func (api *DeployFromRepositoryAPI) addPendingResources(appName string, deployRes map[string]string, resMeta map[string]resource.Meta) (map[string]string, []*params.PendingResourceUpload, []error) {
+	var pendingUploadIDs []*params.PendingResourceUpload
+	var errs []error
+	pendingIDs := make(map[string]string)
+
+	for name, meta := range resMeta {
+		r := resource.Resource{
+			Meta: meta,
+		}
+		deployValue, ok := deployRes[name]
+		if !ok {
+			// TODO, this is temporary until resolving resources is completed.
+			// irl, this should never fail.
+			continue
+		}
+		if rev, err := strconv.Atoi(deployValue); err == nil {
+			r.Revision = rev
+			r.Origin = resource.OriginStore
+		} else {
+			r.Origin = resource.OriginUpload
+		}
+		pID, err := api.state.AddPendingResource(appName, r)
+		if err != nil {
+			logger.Warningf("Unable to add pending resource %v for application %v", name, appName)
+			errs = append(errs, err)
+			continue
+		}
+		pendingIDs[name] = pID
+		if r.Origin == resource.OriginStore {
+			continue
+		}
+		pendingUploadIDs = append(pendingUploadIDs, &params.PendingResourceUpload{
+			Name:     meta.Name,
+			Type:     meta.Type.String(),
+			Filename: deployValue,
+		})
+	}
+
+	return pendingIDs, pendingUploadIDs, errs
 }
 
 type deployTemplate struct {
@@ -301,6 +351,7 @@ func (v *deployFromRepositoryValidator) validate(arg params.DeployFromRepository
 		origin:            resolvedOrigin,
 		placement:         arg.Placement,
 		storage:           stateStorageConstraints(arg.Storage),
+		resources:         arg.Resources,
 	}
 	if arg.NumUnits != nil {
 		dt.numUnits = *arg.NumUnits

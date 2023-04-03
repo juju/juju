@@ -9,6 +9,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	v10 "github.com/juju/charm/v10"
+	resource "github.com/juju/charm/v10/resource"
 	services "github.com/juju/juju/apiserver/facades/client/charms/services"
 	cloud "github.com/juju/juju/cloud"
 	controller "github.com/juju/juju/controller"
@@ -127,6 +128,21 @@ func (mr *MockDeployFromRepositoryStateMockRecorder) AddCharmMetadata(arg0 inter
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddCharmMetadata", reflect.TypeOf((*MockDeployFromRepositoryState)(nil).AddCharmMetadata), arg0)
 }
 
+// AddPendingResource mocks base method.
+func (m *MockDeployFromRepositoryState) AddPendingResource(arg0 string, arg1 resource.Resource) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddPendingResource", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AddPendingResource indicates an expected call of AddPendingResource.
+func (mr *MockDeployFromRepositoryStateMockRecorder) AddPendingResource(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddPendingResource", reflect.TypeOf((*MockDeployFromRepositoryState)(nil).AddPendingResource), arg0, arg1)
+}
+
 // AllSpaceInfos mocks base method.
 func (m *MockDeployFromRepositoryState) AllSpaceInfos() (network.SpaceInfos, error) {
 	m.ctrl.T.Helper()
@@ -229,6 +245,20 @@ func (m *MockDeployFromRepositoryState) PrepareCharmUpload(arg0 *v10.URL) (servi
 func (mr *MockDeployFromRepositoryStateMockRecorder) PrepareCharmUpload(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareCharmUpload", reflect.TypeOf((*MockDeployFromRepositoryState)(nil).PrepareCharmUpload), arg0)
+}
+
+// RemovePendingResources mocks base method.
+func (m *MockDeployFromRepositoryState) RemovePendingResources(arg0 string, arg1 map[string]string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemovePendingResources", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemovePendingResources indicates an expected call of RemovePendingResources.
+func (mr *MockDeployFromRepositoryStateMockRecorder) RemovePendingResources(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemovePendingResources", reflect.TypeOf((*MockDeployFromRepositoryState)(nil).RemovePendingResources), arg0, arg1)
 }
 
 // Space mocks base method.
