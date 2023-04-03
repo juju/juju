@@ -102,7 +102,7 @@ If the cluster does not have a storage provisioning capability, use the
 
 `
 
-const examples = `
+const usageAddCAASExamples = `
 When your kubeconfig file is in the default location:
 
     juju add-k8s myk8scloud
@@ -226,7 +226,7 @@ func (c *AddCAASCommand) Info() *cmd.Info {
 		Args:     "<k8s name>",
 		Purpose:  usageAddCAASSummary,
 		Doc:      usageAddCAASDetails,
-		Examples: examples,
+		Examples: usageAddCAASExamples,
 		SeeAlso: []string{
 			"remove-k8s",
 		},

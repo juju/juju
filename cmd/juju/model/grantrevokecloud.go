@@ -24,16 +24,13 @@ Valid access levels are:
 var usageGrantCloudSummary = `
 Grants access level to a Juju user for a cloud.`[1:]
 
-var usageGrantCloudDetails = validCloudAccessLevels + `
+var usageGrantCloudDetails = validCloudAccessLevels
 
-Examples:
+const usageGrantCloudExamples = `
 Grant user 'joe' 'add-model' access to cloud 'fluffy':
 
     juju grant-cloud joe add-model fluffy
-
-See also: 
-    revoke-cloud
-    add-user`
+`
 
 var usageRevokeCloudSummary = `
 Revokes access from a Juju user for a cloud.`[1:]
@@ -43,9 +40,9 @@ Revoking admin access, from a user who has that permission, will leave
 that user with add-model access. Revoking add-model access, however, also revokes
 admin access.
 
-`[1:] + validCloudAccessLevels + `
+`[1:] + validCloudAccessLevels
 
-Examples:
+const usageRevokeCloudExamples = `
 Revoke 'add-model' (and 'admin') access from user 'joe' for cloud 'fluffy':
 
     juju revoke-cloud joe add-model fluffy
@@ -54,8 +51,7 @@ Revoke 'admin' access from user 'sam' for clouds 'fluffy' and 'rainy':
 
     juju revoke-cloud sam admin fluffy rainy
 
-See also: 
-    grant-cloud`
+`
 
 type accessCloudCommand struct {
 	modelcmd.ControllerCommandBase
@@ -110,10 +106,15 @@ type grantCloudCommand struct {
 // Info implements Command.Info.
 func (c *grantCloudCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "grant-cloud",
-		Args:    "<user name> <permission> <cloud name> ...",
-		Purpose: usageGrantCloudSummary,
-		Doc:     usageGrantCloudDetails,
+		Name:     "grant-cloud",
+		Args:     "<user name> <permission> <cloud name> ...",
+		Purpose:  usageGrantCloudSummary,
+		Doc:      usageGrantCloudDetails,
+		Examples: usageGrantCloudExamples,
+		SeeAlso: []string{
+			"revoke-cloud",
+			"add-user",
+		},
 	})
 }
 
@@ -159,10 +160,14 @@ type revokeCloudCommand struct {
 // Info implements cmd.Command.
 func (c *revokeCloudCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "revoke-cloud",
-		Args:    "<user name> <permission> <cloud name> ...",
-		Purpose: usageRevokeCloudSummary,
-		Doc:     usageRevokeCloudDetails,
+		Name:     "revoke-cloud",
+		Args:     "<user name> <permission> <cloud name> ...",
+		Purpose:  usageRevokeCloudSummary,
+		Doc:      usageRevokeCloudDetails,
+		Examples: usageRevokeCloudExamples,
+		SeeAlso: []string{
+			"grant-cloud",
+		},
 	})
 }
 

@@ -33,7 +33,7 @@ credentials in order to create a model.
 
 `
 
-const examples = `
+const usageExamples = `
     juju add-user bob
     juju add-user --controller mycontroller bob
 `
@@ -63,7 +63,7 @@ func (c *addCommand) Info() *cmd.Info {
 		Args:     "<user name> [<display name>]",
 		Purpose:  usageSummary,
 		Doc:      usageDetails,
-		Examples: examples,
+		Examples: usageExamples,
 		SeeAlso: []string{
 			"register",
 			"grant",

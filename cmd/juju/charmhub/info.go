@@ -28,12 +28,9 @@ To see channels supported for only a specific base, use the --base flag.
 --base can be specified using the OS name and the version of the OS, 
 separated by @. For example, --base ubuntu@22.04.
 
-Examples:
+`
+	infoExamples = `
     juju info postgresql
-
-See also:
-    find
-    download
 `
 )
 
@@ -63,10 +60,15 @@ type infoCommand struct {
 // part of the cmd.Command interface.
 func (c *infoCommand) Info() *cmd.Info {
 	info := &cmd.Info{
-		Name:    "info",
-		Args:    "[options] <charm>",
-		Purpose: infoSummary,
-		Doc:     infoDoc,
+		Name:     "info",
+		Args:     "[options] <charm>",
+		Purpose:  infoSummary,
+		Doc:      infoDoc,
+		Examples: infoExamples,
+		SeeAlso: []string{
+			"find",
+			"download",
+		},
 	}
 	return jujucmd.Info(info)
 }

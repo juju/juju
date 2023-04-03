@@ -82,28 +82,27 @@ as above. The command-line args will override any values specified in the file.
 The following keys are available:
 `
 	configCommandHelpDocPart2 = `
-
-Examples:
-
+`
+	configCommandHelpExamples = `
 Print all config values for the current controller:
+
     juju controller-config
 
 Print the value of "api-port" for the current controller:
+
     juju controller-config api-port
 
 Print all config values for the controller "mycontroller":
+
     juju controller-config -c mycontroller
 
 Set the "auditing-enabled" and "audit-log-max-backups" keys:
+
     juju controller-config auditing-enabled=true audit-log-max-backups=5
 
 Set the current controller's config from a yaml file:
-    juju controller-config --file path/to/file.yaml
 
-See also:
-    controllers
-    model-config
-    show-cloud
+    juju controller-config --file path/to/file.yaml
 `
 )
 
@@ -111,8 +110,14 @@ See also:
 // cmd.Command.
 func (c *configCommand) Info() *cmd.Info {
 	info := &cmd.Info{
-		Name:    "controller-config",
-		Args:    "[<attribute key>[=<value>] ...]",
+		Name:     "controller-config",
+		Args:     "[<attribute key>[=<value>] ...]",
+		Examples: configCommandHelpExamples,
+		SeeAlso: []string{
+			"controllers",
+			"model-config",
+			"show-cloud",
+		},
 		Purpose: "Displays or sets configuration settings for a controller.",
 	}
 	if details, err := ConfigDetailsUpdatable(); err == nil {

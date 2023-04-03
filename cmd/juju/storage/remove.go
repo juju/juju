@@ -70,10 +70,11 @@ type removeStorageCommand struct {
 // Info implements Command.Info.
 func (c *removeStorageCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "remove-storage",
-		Purpose: "Removes storage from the model.",
-		Doc:     removeStorageCommandDoc,
-		Args:    removeStorageCommandArgs,
+		Name:     "remove-storage",
+		Purpose:  "Removes storage from the model.",
+		Doc:      removeStorageCommandDoc,
+		Args:     removeStorageCommandArgs,
+		Examples: removeStorageCommandExamples,
 	})
 }
 

@@ -544,9 +544,9 @@ the '--force' option to bypass this check. Doing so is not recommended as it
 can lead to unexpected behaviour.
 
 Further reading: https://juju.is/docs/olm/manage-applications
+`
 
-Examples:
-
+const deployExamples = `
 Deploy to a new machine:
 
     juju deploy apache2
@@ -601,24 +601,25 @@ attribute of 'gpu=nvidia-tesla-p100':
 
     juju deploy mycharm --device \
        twingpu=2,nvidia.com/gpu,gpu=nvidia-tesla-p100
-
-See also:
-    integrate
-    add-unit
-    config
-    expose
-    constraints
-    refresh
-    set-constraints
-    spaces
 `
 
 func (c *DeployCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "deploy",
-		Args:    "<charm or bundle> [<application name>]",
-		Purpose: "Deploys a new application or bundle.",
-		Doc:     deployDoc,
+		Name:     "deploy",
+		Args:     "<charm or bundle> [<application name>]",
+		Purpose:  "Deploys a new application or bundle.",
+		Doc:      deployDoc,
+		Examples: deployExamples,
+		SeeAlso: []string{
+			"integrate",
+			"add-unit",
+			"config",
+			"expose",
+			"constraints",
+			"refresh",
+			"set-constraints",
+			"spaces",
+		},
 	})
 }
 

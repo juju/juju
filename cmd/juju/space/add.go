@@ -34,13 +34,25 @@ const addCommandDoc = `
 Adds a new space with the given name and associates the given
 (optional) list of existing subnet CIDRs with it.`
 
+const addCommandExamples = `
+
+Add space "beta" with subnet 172.31.0.0/20:
+    
+    juju add-space beta 172.31.0.0/20
+`
+
 // Info is defined on the cmd.Command interface.
 func (c *AddCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "add-space",
-		Args:    "<name> [<CIDR1> <CIDR2> ...]",
-		Purpose: "Add a new network space.",
-		Doc:     strings.TrimSpace(addCommandDoc),
+		Name:     "add-space",
+		Args:     "<name> [<CIDR1> <CIDR2> ...]",
+		Purpose:  "Add a new network space.",
+		Doc:      strings.TrimSpace(addCommandDoc),
+		Examples: addCommandExamples,
+		SeeAlso: []string{
+			"spaces",
+			"remove-space",
+		},
 	})
 }
 

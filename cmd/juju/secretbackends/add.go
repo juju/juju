@@ -51,7 +51,7 @@ the "token-rotate" config and supply a duration.
 
 `
 
-const examples = `
+const addSecretBackendsExamples = `
     juju add-secret-backend myvault vault --config /path/to/cfg.yaml
     juju add-secret-backend myvault vault token-rotate=10m --config /path/to/cfg.yaml
     juju add-secret-backend myvault vault endpoint=https://vault.io:8200 token=s.1wshwhw
@@ -87,7 +87,7 @@ func (c *addSecretBackendCommand) Info() *cmd.Info {
 		Purpose:  "Add a new secret backend to the controller.",
 		Doc:      addSecretBackendsDoc,
 		Args:     "<backend-name> <backend-type>",
-		Examples: examples,
+		Examples: addSecretBackendsExamples,
 		SeeAlso: []string{
 			"list-secret-backends",
 			"remove-secret-backend",

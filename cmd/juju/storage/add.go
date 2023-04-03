@@ -68,7 +68,7 @@ and P.  Defaults to "1024M", or the which can specify a minimum size required
 by the charm.
 `
 
-	examples = `
+	addCommandExamples = `
 Add a 100MiB tmpfs storage instance for "pgdata" storage to unit postgresql/0:
 
     juju add-storage postgresql/0 pgdata=tmpfs,100M
@@ -125,7 +125,7 @@ func (c *addCommand) Info() *cmd.Info {
 		Purpose:  "Adds storage to a unit after it has been deployed.",
 		Doc:      addCommandDoc,
 		Args:     addCommandAgs,
-		Examples: examples,
+		Examples: addCommandExamples,
 		SeeAlso: []string{
 			"import-filesystem",
 			"storage",

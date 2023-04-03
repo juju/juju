@@ -38,7 +38,7 @@ List the actions available to run on the target application, with a short
 description.  To show the full schema for the actions, use --schema.
 `
 
-const examples = `
+const listExamples = `
     juju actions postgresql
     juju actions postgresql --format yaml
     juju actions postgresql --schema
@@ -74,7 +74,7 @@ func (c *listCommand) Info() *cmd.Info {
 		Purpose:  "List actions defined for an application.",
 		Doc:      listDoc,
 		Aliases:  []string{"list-actions"},
-		Examples: examples,
+		Examples: listExamples,
 		SeeAlso: []string{
 			"run",
 			"show-action",

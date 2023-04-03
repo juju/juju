@@ -59,7 +59,7 @@ application units are deployed to are required to be configured with an address
 in that space. However, you can use the --force option to bypass this check.
 `
 
-const examplesBind = `
+const bindCmdExamples = `
 To update the default binding for the application and automatically update all
 existing endpoint bindings that were referencing the old default, you can use 
 the following syntax:
@@ -83,7 +83,7 @@ func (c *bindCommand) Info() *cmd.Info {
 		Args:     "<application> [<default-space>] [<endpoint-name>=<space> ...]",
 		Purpose:  "Change bindings for a deployed application.",
 		Doc:      bindCmdDoc,
-		Examples: examplesBind,
+		Examples: bindCmdExamples,
 	})
 }
 
