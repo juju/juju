@@ -124,8 +124,13 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(arg params.DeployFromRe
 		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
 	}
 
+	resources, pendingResourceUploads, resolveResErr := api.resolveResources(dt.resources, ch.Meta().Resources)
+	if resolveResErr != nil {
+		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
+	}
+
 	// Last step, add pending resources.
-	pendingIDs, pendingResourceUploads, errs := api.addPendingResources(dt.applicationName, dt.resources, ch.Meta().Resources)
+	pendingIDs, errs := api.addPendingResources(dt.applicationName, resources)
 
 	_, err = api.state.AddApplication(state.AddApplicationArgs{
 		Name:              dt.applicationName,
@@ -157,20 +162,17 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(arg params.DeployFromRe
 	return info, pendingResourceUploads, errs
 }
 
-// addPendingResource adds a pending resource doc for all resources to be
-// added when deploying the charm. PendingResourceUpload is only returned
+// PendingResourceUpload is only returned
 // for local resources which will require the client to upload the
-// resource once DeployFromRepository returns. All resources will be
-// processed. Errors are not terminal. It also returns the name to pendingIDs
-// map that's needed by the AddApplication.
-func (api *DeployFromRepositoryAPI) addPendingResources(appName string, deployRes map[string]string, resMeta map[string]resource.Meta) (map[string]string, []*params.PendingResourceUpload, []error) {
+// resource once DeployFromRepository returns.
+func (api *DeployFromRepositoryAPI) resolveResources(deployRes map[string]string, resMeta map[string]resource.Meta) ([]*resource.Resource, []*params.PendingResourceUpload, error) {
 	var pendingUploadIDs []*params.PendingResourceUpload
-	var errs []error
-	pendingIDs := make(map[string]string)
+	var resources []*resource.Resource
 
 	for name, meta := range resMeta {
-		r := resource.Resource{
-			Meta: meta,
+		r := &resource.Resource{
+			Meta:     meta,
+			Revision: -1,
 		}
 		deployValue, ok := deployRes[name]
 		if !ok {
@@ -189,16 +191,32 @@ func (api *DeployFromRepositoryAPI) addPendingResources(appName string, deployRe
 				Filename: deployValue,
 			})
 		}
-		pID, err := api.state.AddPendingResource(appName, r)
+		r.Name = name
+		resources = append(resources, r)
+	}
+
+	return resources, pendingUploadIDs, nil
+}
+
+// addPendingResource adds a pending resource doc for all resources to be
+// added when deploying the charm. All resources will be
+// processed. Errors are not terminal. It also returns the name to pendingIDs
+// map that's needed by the AddApplication.
+func (api *DeployFromRepositoryAPI) addPendingResources(appName string, resources []*resource.Resource) (map[string]string, []error) {
+	var errs []error
+	pendingIDs := make(map[string]string)
+
+	for _, r := range resources {
+		pID, err := api.state.AddPendingResource(appName, *r)
 		if err != nil {
-			logger.Warningf("Unable to add pending resource %v for application %v", name, appName)
+			logger.Warningf("Unable to add pending resource %v for application %v", r.Name, appName)
 			errs = append(errs, err)
 			continue
 		}
-		pendingIDs[name] = pID
+		pendingIDs[r.Name] = pID
 	}
 
-	return pendingIDs, pendingUploadIDs, errs
+	return pendingIDs, errs
 }
 
 type deployTemplate struct {
