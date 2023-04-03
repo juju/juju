@@ -183,6 +183,11 @@ func (api *DeployFromRepositoryAPI) addPendingResources(appName string, deployRe
 			r.Origin = resource.OriginStore
 		} else {
 			r.Origin = resource.OriginUpload
+			pendingUploadIDs = append(pendingUploadIDs, &params.PendingResourceUpload{
+				Name:     meta.Name,
+				Type:     meta.Type.String(),
+				Filename: deployValue,
+			})
 		}
 		pID, err := api.state.AddPendingResource(appName, r)
 		if err != nil {
@@ -191,14 +196,6 @@ func (api *DeployFromRepositoryAPI) addPendingResources(appName string, deployRe
 			continue
 		}
 		pendingIDs[name] = pID
-		if r.Origin == resource.OriginStore {
-			continue
-		}
-		pendingUploadIDs = append(pendingUploadIDs, &params.PendingResourceUpload{
-			Name:     meta.Name,
-			Type:     meta.Type.String(),
-			Filename: deployValue,
-		})
 	}
 
 	return pendingIDs, pendingUploadIDs, errs
